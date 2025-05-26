@@ -225,6 +225,55 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     return result;
   }
 
+  getCategorySpecificRules(itemData) {
+    const category = itemData.category?.toLowerCase() || '';
+    const title = itemData.title?.toLowerCase() || '';
+    const description = itemData.description?.toLowerCase() || '';
+    
+    // Detect watches/timepieces
+    const isWatch = category.includes('armbandsur') || 
+                   category.includes('klocka') || 
+                   title.includes('armbandsur') || 
+                   title.includes('klocka') ||
+                   description.includes('armbandsur') ||
+                   description.includes('klocka');
+    
+    if (isWatch) {
+      return `
+KATEGORI-SPECIFIK REGEL - ARMBANDSUR:
+Detta är ett armbandsur/klocka. Följ Auctionets krav:
+
+OBLIGATORISK INFORMATION (om tillgänglig i källdata):
+• Storlek i mm (diameter)
+• Urverk: "automatic" eller "quartz" 
+• Tillverkare och modell (eller kaliber)
+• Material (stål, guld, etc.)
+
+FUNKTIONSKLAUSUL - LÄGG ALLTID TILL I BESKRIVNING:
+"Fungerar vid katalogisering - ingen garanti lämnas på funktion."
+
+KRITISKT FÖR ARMBANDSUR TITEL:
+• BEHÅLL ALLTID "ARMBANDSUR" FÖRST i titeln
+• Format: "ARMBANDSUR, [material], [tillverkare], [modell], [urverk], [storlek], [period]"
+• EXEMPEL: "ARMBANDSUR, stål, ROLEX, Submariner, automatic, 40mm, 1990-tal"
+
+EXEMPEL PÅ KORREKT FORMAT:
+TITEL: "ARMBANDSUR, stål, ROLEX, Submariner, automatic, 40mm, 1990-tal"
+BESKRIVNING: "Automatiskt armbandsur i rostfritt stål. Svart urtavla med lysande index. Fungerar vid katalogisering - ingen garanti lämnas på funktion."
+
+KRITISKA REGLER FÖR ARMBANDSUR:
+• BEHÅLL "ARMBANDSUR" som första ord i titel - TA ALDRIG BORT
+• Lägg INTE till mått (mm) som inte finns i källdata
+• Lägg INTE till urverk (automatic/quartz) som inte är angivet
+• RÄTTA stavfel i märken/modeller (t.ex. "Oscean" → "Ocean")
+• Förbättra ENDAST befintlig information - uppfinn INGET nytt
+
+ANTI-HALLUCINATION: Om storlek, urverk eller andra tekniska detaljer INTE finns i originalet - lägg INTE till dem.`;
+    }
+    
+    return '';
+  }
+
   getSystemPrompt() {
     return `Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.
 
@@ -233,6 +282,16 @@ GRUNDREGLER:
 • Skriv objektivt utan säljande språk
 • Använd etablerad auktionsterminologi
 • UPPFINN ALDRIG information som inte finns
+
+KATEGORI-SPECIFIKA REGLER:
+
+ARMBANDSUR - KRITISKA KRAV:
+• Storlek i mm (diameter)
+• Urverk: "automatic" eller "quartz"
+• Tillverkare och modell (eller kaliber)
+• För dyrare föremål: ange serienummer
+• Funktionsklausul: "Fungerar vid katalogisering - ingen garanti lämnas på funktion"
+• EXEMPEL: "ROLEX, Submariner, automatic, 40mm, stål, 1990-tal. Fungerar vid katalogisering - ingen garanti lämnas på funktion."
 
 FÖRBJUDET:
 • Säljande uttryck: "vacker", "fantastisk", "unik", "sällsynt"
@@ -252,6 +311,11 @@ KONDITION - KRITISKA REGLER:
 • Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
 • Lägg ALDRIG till specifika platser som "i metallramen", "på ovansidan", "vid foten"
 • Förbättra ENDAST språket - lägg INTE till nya faktauppgifter
+
+STAVNINGSKORRIGERING:
+• Rätta uppenbara stavfel i märken, modeller och tekniska termer
+• EXEMPEL: "Oscean" → "Ocean", "Omege" → "Omega", "Cartier" → "Cartier"
+• Behåll osäkerhetsmarkörer även efter stavningskorrigering
 
 STRIKT ANTI-HALLUCINATION:
 • Förbättra ENDAST språk och struktur av BEFINTLIG information
@@ -288,6 +352,8 @@ ANTI-HALLUCINATION INSTRUKTIONER:
 • Uppfinn ALDRIG tidsperioder, material, mått eller skador
 • Förbättra ENDAST språk, struktur och terminologi
 • Om information saknas - utelämna eller använd osäkerhetsmarkörer
+
+${this.getCategorySpecificRules(itemData)}
 `;
 
     // Return field-specific prompts based on fieldType
