@@ -119,6 +119,17 @@ export class QualityAnalyzer {
     const warningsElement = document.querySelector('.quality-warnings');
     
     if (scoreElement) {
+      // Add smooth transition effect for score changes
+      const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
+      const newScore = score;
+      
+      if (currentScore !== newScore) {
+        scoreElement.style.transform = 'scale(1.1)';
+        setTimeout(() => {
+          scoreElement.style.transform = 'scale(1)';
+        }, 200);
+      }
+      
       scoreElement.textContent = `${score}/100`;
       scoreElement.className = `quality-score ${score >= 80 ? 'good' : score >= 60 ? 'medium' : 'poor'}`;
     }
@@ -132,6 +143,76 @@ export class QualityAnalyzer {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
       }
     }
+  }
+
+  setupLiveQualityUpdates() {
+    console.log('🚀 Setting up live quality monitoring...');
+    
+    // Debounce function to prevent too frequent updates
+    let updateTimeout;
+    const debouncedUpdate = (event) => {
+      clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(() => {
+        console.log('⚡ Live quality update triggered by:', event?.target?.id || event?.target?.tagName || 'unknown field');
+        this.analyzeQuality();
+      }, 800); // Wait 800ms after user stops typing
+    };
+
+    // Use the exact same selectors as extractItemData()
+    const fieldsToMonitor = [
+      '#item_title_sv',
+      '#item_description_sv', 
+      '#item_condition_sv',
+      '#item_hidden_keywords',
+      'input[type="checkbox"][value="Inga anmärkningar"]',
+      'input[type="checkbox"]#item_no_remarks',
+      'input[type="checkbox"][name*="no_remarks"]'
+    ];
+
+    let monitoredCount = 0;
+    fieldsToMonitor.forEach(selector => {
+      const element = document.querySelector(selector);
+      if (element) {
+        console.log(`✅ Setting up live monitoring for: ${selector}`);
+        monitoredCount++;
+        
+        // Add event listeners for different input types
+        if (element.type === 'checkbox') {
+          element.addEventListener('change', debouncedUpdate);
+          console.log(`✅ Added 'change' listener to checkbox: ${selector}`);
+        } else {
+          element.addEventListener('input', debouncedUpdate);
+          element.addEventListener('paste', debouncedUpdate);
+          element.addEventListener('keyup', debouncedUpdate);
+          console.log(`✅ Added 'input', 'paste', 'keyup' listeners to: ${selector}`);
+        }
+        
+        // Test immediate trigger
+        element.addEventListener('focus', () => {
+          console.log(`🎯 Field focused: ${selector}`);
+        });
+      } else {
+        console.warn(`❌ Field not found for live monitoring: ${selector}`);
+      }
+    });
+
+    // Also monitor for changes in rich text editors (if any)
+    const richTextEditors = document.querySelectorAll('[contenteditable="true"]');
+    richTextEditors.forEach(editor => {
+      console.log('✅ Setting up live monitoring for rich text editor');
+      editor.addEventListener('input', debouncedUpdate);
+      editor.addEventListener('paste', debouncedUpdate);
+      monitoredCount++;
+    });
+
+    console.log(`🎯 Live quality monitoring set up for ${monitoredCount} fields`);
+    
+    // Test if fields exist right now
+    console.log('🔍 Field existence check:');
+    console.log('Title field:', document.querySelector('#item_title_sv'));
+    console.log('Description field:', document.querySelector('#item_description_sv'));
+    console.log('Condition field:', document.querySelector('#item_condition_sv'));
+    console.log('Keywords field:', document.querySelector('#item_hidden_keywords'));
   }
 
   assessDataQuality(data, fieldType) {

@@ -62,6 +62,7 @@ export class UIManager {
         <h4 class="quality-title">Katalogiseringskvalitet</h4>
         <div class="quality-score-container">
           <span class="quality-score">Analyserar...</span>
+          <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
         </div>
         <button class="ai-assist-button ai-master-button" type="button">⚡ Förbättra alla</button>
       </div>
@@ -70,8 +71,29 @@ export class UIManager {
     
     const sidebar = document.querySelector('.grid-col4');
     if (sidebar) {
+      console.log('✅ Adding quality indicator to sidebar');
       sidebar.insertBefore(indicator, sidebar.firstChild);
+      
+      // Add event listener for manual refresh button
+      const refreshButton = indicator.querySelector('.refresh-quality-btn');
+      if (refreshButton) {
+        console.log('✅ Manual refresh button found, adding listener');
+        refreshButton.addEventListener('click', () => {
+          console.log('🔄 Manual quality refresh triggered');
+          this.qualityAnalyzer.analyzeQuality();
+        });
+      }
+      
+      // Set up live quality monitoring
+      console.log('🚀 Setting up live quality monitoring...');
+      this.qualityAnalyzer.setupLiveQualityUpdates();
+      console.log('✅ Live quality monitoring setup complete');
+      
+      // Initial quality analysis
+      console.log('📊 Running initial quality analysis...');
       this.qualityAnalyzer.analyzeQuality();
+    } else {
+      console.log('❌ Sidebar not found - cannot add quality indicator');
     }
   }
 
@@ -115,6 +137,10 @@ export class UIManager {
         margin-bottom: 12px;
         width: 100%;
         text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
       }
       
       .quality-score {
@@ -145,6 +171,27 @@ export class UIManager {
         background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); 
         color: #721c24; 
         border: 2px solid #e74c3c;
+      }
+      
+      .refresh-quality-btn {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .refresh-quality-btn:hover {
+        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+        transform: rotate(180deg) scale(1.1);
       }
       
       .ai-master-button {
