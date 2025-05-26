@@ -11,25 +11,28 @@ export class QualityAnalyzer {
   // Helper method to check for measurements in Swedish format
   hasMeasurements(text) {
     const measurementPatterns = [
-      // 2D measurements (carpets, paintings, etc.) - MOST COMMON
-      /\d+\s*×\s*\d+\s*(mm|cm|m)\b/i,                       // 140 × 200 cm (2D)
-      /\d+\s*x\s*\d+\s*(mm|cm|m)\b/i,                       // 140 x 200 cm (2D)
+      // 2D measurements with common prefixes (ca, cirka, ungefär, etc.)
+      /(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*×\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,     // ca 57,5 × 43,5 cm
+      /(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*x\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,     // ca 57,5 x 43,5 cm
       
-      // 3D measurements (furniture, sculptures, etc.)
-      /\d+\s*×\s*\d+\s*×\s*\d+\s*(mm|cm|m)\b/i,            // 122 × 45 × 135 cm (3D)
-      /\d+\s*x\s*\d+\s*x\s*\d+\s*(mm|cm|m)\b/i,            // 122 x 45 x 135 cm (3D)
+      // 3D measurements with prefixes
+      /(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*×\s*\d+([.,]\d+)?\s*×\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // ca 122 × 45 × 135 cm
+      /(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*x\s*\d+([.,]\d+)?\s*x\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // ca 122 x 45 x 135 cm
       
-      // Swedish terms with all units
-      /(längd|l\.?)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,        // längd 122 cm / längd 12.5 cm
-      /(bredd|bred|djup|d\.?)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // djup 45 mm
-      /(höjd|h\.?)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,         // höjd 135 m
+      // Frame measurements (common in art)
+      /(ram)?mått:?\s*(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*[×x]\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // Rammått ca 57,5 x 43,5 cm
+      
+      // Swedish terms with all units and prefixes
+      /(längd|l\.?)\s*(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,        // längd ca 122 cm
+      /(bredd|bred|djup|d\.?)\s*(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // djup ca 45 mm
+      /(höjd|h\.?)\s*(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,         // höjd ca 135 m
       
       // General measurement patterns
       /mått:.*\d+([.,]\d+)?.*(mm|cm|m)\b/i,                 // Mått: ... 122 cm
       /\d+([.,]\d+)?\s*(mm|cm|m)\b.*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // Any two measurements separated
       
-      // Diameter patterns (common for round objects)
-      /(diameter|diam\.?|ø)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i // diameter 25 cm
+      // Diameter patterns with prefixes
+      /(diameter|diam\.?|ø)\s*(ca\.?|cirka|ungefär|c:a)?\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i // diameter ca 25 cm
     ];
     
     return measurementPatterns.some(pattern => text.match(pattern));
