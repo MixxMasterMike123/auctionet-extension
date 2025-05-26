@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["https://auctionet.com/admin/*/items/*/edit"],
-      "js": ["content-script.js"],
+      "js": ["content.js"],
       "css": ["styles.css"]
     }
   ],
