@@ -291,9 +291,6 @@ export class UIManager {
       
       // Add undo button
       this.addUndoButton(field, fieldType);
-      
-      // Track AI enhancement in internal comments
-      this.addAIEnhancementNote(fieldType);
     }
   }
 
@@ -339,26 +336,5 @@ export class UIManager {
     field.parentElement.appendChild(undoButton);
   }
 
-  addAIEnhancementNote(fieldType) {
-    const internalCommentsField = document.querySelector('#item_internal_comment');
-    if (internalCommentsField) {
-      const currentComments = internalCommentsField.value;
-      const timestamp = new Date().toLocaleDateString('sv-SE');
-      const fieldNames = {
-        'title': 'titel',
-        'description': 'beskrivning', 
-        'condition': 'kondition',
-        'keywords': 'sökord'
-      };
-      
-      const enhancementNote = `AI-förbättring ${fieldNames[fieldType]} (${timestamp})`;
-      
-      if (!currentComments.includes(enhancementNote)) {
-        const newComments = currentComments ? 
-          `${currentComments}\n${enhancementNote}` : 
-          enhancementNote;
-        internalCommentsField.value = newComments;
-      }
-    }
-  }
+
 } 
