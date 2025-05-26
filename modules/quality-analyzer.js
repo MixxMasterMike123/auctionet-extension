@@ -8,6 +8,21 @@ export class QualityAnalyzer {
     this.dataExtractor = extractor;
   }
 
+  // Helper method to check for measurements in Swedish format
+  hasMeasurements(text) {
+    const measurementPatterns = [
+      /\d+\s*×\s*\d+\s*×?\s*\d*\s*cm/i,                    // 122 × 45 × 135 cm
+      /\d+\s*x\s*\d+\s*x?\s*\d*\s*cm/i,                     // 122 x 45 x 135 cm  
+      /(längd|l\.?)\s*\d+\s*cm/i,                           // längd 122 cm
+      /(bredd|bred|djup|d\.?)\s*\d+\s*cm/i,                 // djup 45 cm
+      /(höjd|h\.?)\s*\d+\s*cm/i,                            // höjd 135 cm
+      /mått:.*\d+.*cm/i,                                    // Mått: ... cm
+      /\d+\s*cm.*\d+\s*cm/i                                 // Any two measurements with cm
+    ];
+    
+    return measurementPatterns.some(pattern => text.match(pattern));
+  }
+
   analyzeQuality() {
     if (!this.dataExtractor) {
       console.error('Data extractor not set');
@@ -40,7 +55,7 @@ export class QualityAnalyzer {
       warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, märkningar', severity: 'high' });
       score -= 25;
     }
-    if (!data.description.match(/\d+[\s,]*(x|cm)/i)) {
+    if (!this.hasMeasurements(data.description)) {
       warnings.push({ field: 'Beskrivning', issue: 'Saknar fullständiga mått', severity: 'high' });
       score -= 20;
     }
@@ -259,7 +274,7 @@ export class QualityAnalyzer {
           issues.push('material', 'technique', 'period', 'measurements');
           needsMoreInfo = true;
         }
-        if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i) && descLength < 40) {
+        if (!this.hasMeasurements(data.description) && descLength < 40) {
           issues.push('measurements');
           needsMoreInfo = true;
         }
@@ -303,7 +318,7 @@ export class QualityAnalyzer {
           issues.push('material', 'technique', 'period');
           needsMoreInfo = true;
         }
-        if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i) && descLength < 50) {
+        if (!this.hasMeasurements(data.description) && descLength < 50) {
           issues.push('measurements');
           needsMoreInfo = true;
         }
@@ -347,7 +362,7 @@ export class QualityAnalyzer {
     }
     
     if (keywordsLength === 0) score -= 30;
-    if (!data.description.match(/\d+[\s,]*(x|cm)/i)) score -= 20;
+    if (!this.hasMeasurements(data.description)) score -= 20;
     
     return Math.max(0, score);
   }
