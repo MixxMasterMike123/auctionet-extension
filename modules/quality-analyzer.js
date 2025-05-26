@@ -47,8 +47,8 @@ export class QualityAnalyzer {
                              document.querySelector('input[type="checkbox"][name*="no_remarks"]');
     const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
 
-    // Title quality checks
-    if (data.title.length < 20) {
+    // Title quality checks (softened: 20 → 18)
+    if (data.title.length < 18) {
       warnings.push({ field: 'Titel', issue: 'För kort - lägg till material och period', severity: 'high' });
       score -= 20;
     }
@@ -57,9 +57,9 @@ export class QualityAnalyzer {
       score -= 15;
     }
 
-    // Description quality checks
+    // Description quality checks (softened: 50 → 46)
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
-    if (descLength < 50) {
+    if (descLength < 46) {
       warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, märkningar', severity: 'high' });
       score -= 25;
     }
@@ -71,7 +71,7 @@ export class QualityAnalyzer {
     // Condition quality checks (skip if "Inga anmärkningar" is checked)
     if (!noRemarksChecked) {
       const condLength = data.condition.replace(/<[^>]*>/g, '').length;
-      if (condLength < 20) {
+      if (condLength < 18) {
         warnings.push({ field: 'Kondition', issue: 'För vag - specificera typ av slitage och skador', severity: 'high' });
         score -= 20;
       }
@@ -80,11 +80,11 @@ export class QualityAnalyzer {
         score -= 25;
       }
       
-      // Check for other vague condition terms
+      // Check for other vague condition terms (softened: 30 → 28)
       const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
       const conditionText = data.condition.toLowerCase();
       const hasVaguePhrase = vaguePhrases.some(phrase => 
-        conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 30
+        conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 28
       );
       
       if (hasVaguePhrase) {
@@ -106,10 +106,10 @@ export class QualityAnalyzer {
     if (keywordsLength === 0) {
       warnings.push({ field: 'Sökord', issue: 'Inga dolda sökord - kritiskt för sökbarhet', severity: 'high' });
       score -= 30;
-    } else if (keywordCount < 3) {
+    } else if (keywordCount < 2) {
       warnings.push({ field: 'Sökord', issue: 'För få sökord - lägg till fler relevanta termer', severity: 'high' });
       score -= 20;
-    } else if (keywordCount < 6) {
+    } else if (keywordCount < 5) {
       warnings.push({ field: 'Sökord', issue: 'Bra start - några fler sökord kan förbättra sökbarheten', severity: 'medium' });
       score -= 10;
     } else if (keywordCount > 15) {
@@ -254,8 +254,8 @@ export class QualityAnalyzer {
     const issues = [];
     let needsMoreInfo = false;
     
-    // Critical quality thresholds
-    if (qualityScore < 30) {
+    // Critical quality thresholds (softened: 30 → 28)
+    if (qualityScore < 28) {
       needsMoreInfo = true;
       issues.push('critical_quality');
     }
@@ -353,17 +353,17 @@ export class QualityAnalyzer {
     const condLength = data.condition.replace(/<[^>]*>/g, '').length;
     const keywordsLength = data.keywords.length;
     
-    if (data.title.length < 20) score -= 20;
-    if (descLength < 50) score -= 25;
+    if (data.title.length < 18) score -= 20;
+    if (descLength < 46) score -= 25;
     
     if (!noRemarksChecked) {
-      if (condLength < 20) score -= 20;
+      if (condLength < 18) score -= 20;
       if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) score -= 25;
       
       const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
       const conditionText = data.condition.toLowerCase();
       const hasVaguePhrase = vaguePhrases.some(phrase => 
-        conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 30
+        conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 28
       );
       
       if (hasVaguePhrase) score -= 15;
