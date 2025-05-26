@@ -1,6 +1,9 @@
 // content.js - Main content script
+console.log('🚀 Auctionet AI Assistant: Content script loaded!');
+
 class AuctionetCatalogingAssistant {
   constructor() {
+    console.log('🏗️ AuctionetCatalogingAssistant: Constructor called');
     this.apiKey = null;
     this.init();
     
@@ -23,35 +26,44 @@ class AuctionetCatalogingAssistant {
   }
 
   async init() {
-    console.log('Auctionet AI Assistant: Initializing...');
+    console.log('🔧 Auctionet AI Assistant: Initializing...');
+    console.log('📍 Current URL:', window.location.href);
+    console.log('📄 Document ready state:', document.readyState);
     
     // Wait for page to be fully loaded
     if (document.readyState === 'loading') {
-      console.log('Waiting for DOM to load...');
+      console.log('⏳ Waiting for DOM to load...');
       await new Promise(resolve => {
         document.addEventListener('DOMContentLoaded', resolve);
       });
     }
 
     // Additional wait to ensure dynamic content is loaded
-    console.log('Waiting for dynamic content...');
+    console.log('⏳ Waiting for dynamic content...');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Check if we're on the right page
-    if (!this.isCorrectPage()) {
-      console.log('Auctionet AI Assistant: Not on an item edit page');
+    console.log('🔍 Checking if on correct page...');
+    const isCorrect = this.isCorrectPage();
+    console.log('✅ Is correct page:', isCorrect);
+    
+    if (!isCorrect) {
+      console.log('❌ Auctionet AI Assistant: Not on an item edit page');
       return;
     }
 
-    console.log('Auctionet AI Assistant: On correct page, proceeding with initialization');
+    console.log('✅ Auctionet AI Assistant: On correct page, proceeding with initialization');
     
     await this.loadApiKey();
-    console.log('API key loaded:', this.apiKey ? 'Yes' : 'No');
+    console.log('🔑 API key loaded:', this.apiKey ? 'Yes' : 'No');
     
+    console.log('🎨 Injecting UI...');
     this.injectUI();
+    
+    console.log('🔗 Attaching event listeners...');
     this.attachEventListeners();
     
-    console.log('Auctionet AI Assistant: Initialization complete');
+    console.log('🎉 Auctionet AI Assistant: Initialization complete');
   }
 
   isCorrectPage() {
@@ -74,7 +86,7 @@ class AuctionetCatalogingAssistant {
   }
 
   injectUI() {
-    console.log('Injecting UI elements...');
+    console.log('🎨 Injecting UI elements...');
     
     // Add AI assistance button next to each field
     const titleField = document.querySelector('#item_title_sv');
@@ -82,12 +94,18 @@ class AuctionetCatalogingAssistant {
     const conditionField = document.querySelector('#item_condition_sv');
     const keywordsField = document.querySelector('#item_hidden_keywords');
 
-    console.log('Found fields:', {
+    console.log('🔍 Found fields:', {
       title: !!titleField,
       description: !!descriptionField,
       condition: !!conditionField,
       keywords: !!keywordsField
     });
+    
+    console.log('📋 Field details:');
+    console.log('Title field element:', titleField);
+    console.log('Description field element:', descriptionField);
+    console.log('Condition field element:', conditionField);
+    console.log('Keywords field element:', keywordsField);
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
@@ -367,16 +385,23 @@ class AuctionetCatalogingAssistant {
     }
     
     const sidebar = document.querySelector('.grid-col4');
+    console.log('🔍 Sidebar element found:', !!sidebar);
+    console.log('📋 Sidebar element:', sidebar);
+    
     if (sidebar) {
+      console.log('✅ Adding quality indicator to sidebar');
       sidebar.insertBefore(indicator, sidebar.firstChild);
       
       // Add event listener for manual refresh button
       const refreshButton = indicator.querySelector('.refresh-quality-btn');
       if (refreshButton) {
+        console.log('✅ Manual refresh button found, adding listener');
         refreshButton.addEventListener('click', () => {
-          console.log('Manual quality refresh triggered');
+          console.log('🔄 Manual quality refresh triggered');
           this.analyzeQuality();
         });
+      } else {
+        console.log('❌ Manual refresh button not found');
       }
       
       // Set up live quality monitoring
@@ -385,7 +410,10 @@ class AuctionetCatalogingAssistant {
       console.log('✅ Live quality monitoring setup complete');
       
       // Initial quality analysis
+      console.log('📊 Running initial quality analysis...');
       this.analyzeQuality();
+    } else {
+      console.log('❌ Sidebar not found - cannot add quality indicator');
     }
   }
 
@@ -2518,10 +2546,15 @@ Returnera ENDAST sökorden separerade med kommatecken, utan extra formatering el
 }
 
 // Initialize when DOM is ready
+console.log('🎬 Extension script executing, document ready state:', document.readyState);
+
 if (document.readyState === 'loading') {
+  console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
   document.addEventListener('DOMContentLoaded', () => {
+    console.log('✅ DOMContentLoaded fired, creating AuctionetCatalogingAssistant');
     new AuctionetCatalogingAssistant();
   });
 } else {
+  console.log('✅ Document already loaded, creating AuctionetCatalogingAssistant immediately');
   new AuctionetCatalogingAssistant();
 }
