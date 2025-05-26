@@ -246,14 +246,19 @@ Om konstnär-fält ifyllt: [Föremål], [Material], [Period]
 OSÄKERHETSMARKÖRER - BEHÅLL ALLTID:
 "troligen", "tillskriven", "efter", "stil av", "möjligen"
 
-KONDITION:
-Använd korta, faktabaserade termer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
-UPPFINN ALDRIG nya skador.
+KONDITION - KRITISKA REGLER:
+• Använd korta, faktabaserade termer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
+• UPPFINN ALDRIG nya skador, placeringar eller detaljer
+• Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
+• Lägg ALDRIG till specifika platser som "i metallramen", "på ovansidan", "vid foten"
+• Förbättra ENDAST språket - lägg INTE till nya faktauppgifter
 
-ANTI-HALLUCINATION:
-• Förbättra ENDAST språk och struktur
-• Lägg INTE till material, mått, skador som inte är nämnda
-• Katalogtext ska vara FÄRDIG utan önskemål om mer data`;
+STRIKT ANTI-HALLUCINATION:
+• Förbättra ENDAST språk och struktur av BEFINTLIG information
+• Lägg INTE till material, mått, skador, placeringar som inte är nämnda
+• Kopiera EXAKT samma skadeinformation som redan finns
+• Katalogtext ska vara FÄRDIG utan önskemål om mer data
+• ALDRIG lägga till detaljer för att "förbättra" - bara förbättra språket`;
   }
 
   getUserPrompt(itemData, fieldType) {
@@ -292,11 +297,20 @@ ANTI-HALLUCINATION INSTRUKTIONER:
         return baseInfo + `
 UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
 
+KRITISKT - FÄLTAVGRÄNSNING:
+• BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
+• KONDITION: Endast fysiskt skick och skador - ALDRIG beskrivande information
+• Håll fälten strikt separerade - konditionsdetaljer som "slitage", "repor", "märken" hör ENDAST i konditionsfältet
+• Om konditionsinformation finns i nuvarande beskrivning - flytta den till konditionsfältet
+
 Returnera EXAKT i detta format (en rad per fält):
 TITEL: [förbättrad titel]
-BESKRIVNING: [förbättrad beskrivning]
+BESKRIVNING: [förbättrad beskrivning utan konditionsinformation]
 KONDITION: [förbättrad konditionsrapport]
-SÖKORD: [relevanta sökord]
+SÖKORD: [relevanta sökord separerade med mellanslag, använd "-" för flerordsfraser]
+
+VIKTIGT FÖR SÖKORD: Använd Auctionets format med mellanslag mellan sökord och "-" för flerordsfraser.
+EXEMPEL: "konstglas mundblåst svensk-design 1960-tal samlarobjekt"
 
 Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
 
@@ -310,19 +324,65 @@ Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter
         return baseInfo + `
 UPPGIFT: Förbättra endast beskrivningen. Inkludera mått om de finns, använd korrekt terminologi.
 
+KRITISKT - FÄLTAVGRÄNSNING FÖR BESKRIVNING:
+• Inkludera ALDRIG konditionsinformation i beskrivningen
+• Konditionsdetaljer som "slitage", "repor", "märken", "skador", "nagg", "sprickor", "fläckar" hör ENDAST hemma i konditionsfältet
+• Beskrivningen ska fokusera på: material, teknik, mått, stil, ursprung, märkningar, funktion
+• EXEMPEL PÅ FÖRBJUDET I BESKRIVNING: "Slitage förekommer", "repor och märken", "normalt åldersslitage", "mindre skador"
+• Om konditionsinformation finns i nuvarande beskrivning - TA BORT den och behåll endast beskrivande information
+
+ANTI-HALLUCINATION FÖR BESKRIVNING:
+• Lägg INTE till mått som inte är angivna
+• Lägg INTE till material som inte är nämnt
+• Lägg INTE till tekniker som inte är beskrivna
+• Lägg INTE till märkningar eller signaturer som inte finns
+• Förbättra ENDAST språk, struktur och befintlig information
+• Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
+
 Returnera ENDAST den förbättrade beskrivningen utan extra formatering eller etiketter.`;
 
       case 'condition':
         return baseInfo + `
 UPPGIFT: Förbättra konditionsrapporten. Skriv KORT och FAKTABASERAT. Max 2-3 korta meningar.
 
+KRITISKT - FÄLTAVGRÄNSNING FÖR KONDITION:
+• Fokusera ENDAST på fysiskt skick och skador
+• Inkludera ALDRIG beskrivande information om material, teknik, stil eller funktion
+• Konditionsrapporten ska vara separat från beskrivningen
+• Använd specifika konditionstermer: "repor", "nagg", "sprickor", "fläckar", "välbevarat", "mindre skador"
+• UNDVIK vaga termer som endast "bruksslitage" - var specifik
+
+KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
+• Beskriv ENDAST skador/slitage som redan är nämnda i nuvarande kondition
+• Lägg ALDRIG till specifika placeringar som "i metallramen", "på ovansidan", "vid foten" om inte redan angivet
+• Lägg ALDRIG till specifika mått som "repor 3cm" om inte angivet
+• Lägg ALDRIG till nya defekter, material eller delar som inte nämns
+• Lägg ALDRIG till detaljer om VAR skadorna finns om det inte redan står i originalet
+• EXEMPEL PÅ FÖRBJUDET: Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
+• Förbättra ENDAST språk och använd standardtermer för EXAKT samma information som redan finns
+• Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
+
+STRIKT REGEL: Kopiera ENDAST den skadeinformation som redan finns - lägg ALDRIG till nya detaljer.
+
 Returnera ENDAST den förbättrade konditionsrapporten utan extra formatering eller etiketter.`;
 
       case 'keywords':
         return baseInfo + `
-UPPGIFT: Generera HÖGKVALITATIVA dolda sökord. MAX 10-12 sökord totalt.
+UPPGIFT: Generera HÖGKVALITATIVA dolda sökord enligt Auctionets format. MAX 10-12 sökord totalt.
 
-Returnera ENDAST sökorden separerade med kommatecken, utan extra formatering eller etiketter.`;
+KRITISKT - AUCTIONET SÖKORD FORMAT:
+• Separera sökord med MELLANSLAG (inte kommatecken)
+• Använd "-" för flerordsfraser: "konstglas" blir "konstglas", "svensk design" blir "svensk-design"
+• EXEMPEL PÅ KORREKT FORMAT: "konstglas mundblåst svensk-design 1960-tal samlarobjekt skandinavisk-form"
+• EXEMPEL PÅ FEL FORMAT: "konstglas, mundblåst, svensk design, 1960-tal" (kommatecken och mellanslag i fraser)
+
+SÖKORD KVALITET:
+• Prioritera termer som INTE redan finns i titel/beskrivning
+• Inkludera: alternativa namn, tekniska termer, stilperioder, användningsområden
+• Undvik upprepningar och synonymer som är för lika
+• Fokusera på vad köpare faktiskt söker efter
+
+Returnera ENDAST sökorden separerade med mellanslag enligt Auctionets format, utan extra formatering eller etiketter.`;
 
       default:
         return baseInfo;

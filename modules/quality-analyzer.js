@@ -74,7 +74,11 @@ export class QualityAnalyzer {
 
     // Keywords quality checks
     const keywordsLength = data.keywords.length;
-    const keywordCount = data.keywords ? data.keywords.split(',').filter(k => k.trim().length > 0).length : 0;
+    const keywordCount = data.keywords ? 
+      (data.keywords.includes(',') ? 
+        data.keywords.split(',').filter(k => k.trim().length > 0).length :
+        data.keywords.split(/\s+/).filter(k => k.trim().length > 0).length
+      ) : 0;
     
     if (keywordsLength === 0) {
       warnings.push({ field: 'Sökord', issue: 'Inga dolda sökord - kritiskt för sökbarhet', severity: 'high' });

@@ -344,7 +344,9 @@ class AuctionetCatalogingAssistant {
   }
 
   analyzeQuality() {
+    console.log('analyzeQuality() called');
     const data = this.extractItemData();
+    console.log('Extracted data for quality analysis:', data);
     const warnings = [];
     let score = 100;
     
@@ -405,18 +407,34 @@ class AuctionetCatalogingAssistant {
 
     // Keywords quality checks (HIGH IMPORTANCE for discoverability)
     const keywordsLength = data.keywords.length;
-    const keywordCount = data.keywords ? data.keywords.split(',').filter(k => k.trim().length > 0).length : 0;
+    // Support both comma-separated and Auctionet space-separated formats
+    const keywordCount = data.keywords ? 
+      (data.keywords.includes(',') ? 
+        data.keywords.split(',').filter(k => k.trim().length > 0).length :
+        data.keywords.split(/\s+/).filter(k => k.trim().length > 0).length
+      ) : 0;
     
-    if (keywordsLength === 0) {
+    // Debug logging
+    console.log('Keywords debug:', {
+      keywords: data.keywords,
+      keywordsLength: keywordsLength,
+      keywordCount: keywordCount,
+      splitByComma: data.keywords ? data.keywords.split(',').filter(k => k.trim().length > 0) : []
+    });
+    
+    if (keywordsLength === 0 || !data.keywords || data.keywords.trim() === '') {
       warnings.push({ field: 'Sökord', issue: 'Inga dolda sökord - kritiskt för sökbarhet', severity: 'high' });
       score -= 30; // Heavy penalty for missing keywords
-    } else if (keywordCount < 3) {
+    } else if (keywordCount < 2) {
       warnings.push({ field: 'Sökord', issue: 'För få sökord - lägg till fler relevanta termer', severity: 'high' });
       score -= 20;
-    } else if (keywordCount < 6) {
+    } else if (keywordCount < 4) {
       warnings.push({ field: 'Sökord', issue: 'Bra start - några fler sökord kan förbättra sökbarheten', severity: 'medium' });
       score -= 10;
-    } else if (keywordCount > 15) {
+    } else if (keywordCount >= 4 && keywordCount <= 12) {
+      // Sweet spot - no warnings, this is good
+      console.log('Keywords in sweet spot:', keywordCount, 'keywords');
+    } else if (keywordCount > 12) {
       warnings.push({ field: 'Sökord', issue: 'För många sökord kan skada sökbarheten - fokusera på kvalitet över kvantitet', severity: 'medium' });
       score -= 15;
     }
@@ -427,9 +445,11 @@ class AuctionetCatalogingAssistant {
       const titleDesc = (data.title + ' ' + data.description + ' ' + data.condition).toLowerCase();
       
       // Check for keyword diversity (suggestion only, no penalty)
-      const keywordArray = data.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0);
+      const keywordArray = data.keywords.includes(',') ? 
+        data.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0) :
+        data.keywords.split(/\s+/).map(k => k.trim()).filter(k => k.length > 0);
       const uniqueKeywords = keywordArray.filter(keyword => 
-        !titleDesc.includes(keyword.toLowerCase()) || keyword.length <= 3
+        !titleDesc.includes(keyword.toLowerCase().replace(/-/g, ' ')) || keyword.length <= 3
       );
       
       const uniquePercentage = uniqueKeywords.length / keywordArray.length;
@@ -526,8 +546,12 @@ class AuctionetCatalogingAssistant {
         this.applyImprovement(fieldType, value);
         this.showSuccessIndicator(fieldType);
         
-        // Re-analyze quality after improvement
-        setTimeout(() => this.analyzeQuality(), 500);
+        // Re-analyze quality after improvement (with delay to ensure DOM is updated)
+        console.log('Re-analyzing quality after single field improvement...');
+        setTimeout(() => {
+          console.log('Delayed quality analysis for single field...');
+          this.analyzeQuality();
+        }, 500);
       } else {
         throw new Error(`No ${fieldType} value in response`);
       }
@@ -579,8 +603,12 @@ class AuctionetCatalogingAssistant {
       
       this.showSuccessIndicator('all');
       
-      // Re-analyze quality after improvements
-      setTimeout(() => this.analyzeQuality(), 500);
+      // Re-analyze quality after improvements (delay to ensure DOM is updated)
+      console.log('Re-analyzing quality after improvements...');
+      setTimeout(() => {
+        console.log('DOM should be updated now, calling analyzeQuality...');
+        this.analyzeQuality();
+      }, 500);
     } catch (error) {
       this.showErrorIndicator('all', error.message);
     }
@@ -709,6 +737,20 @@ class AuctionetCatalogingAssistant {
     const condLength = data.condition.replace(/<[^>]*>/g, '').length;
     const keywordsLength = data.keywords.length;
     
+    // Support both comma-separated and Auctionet space-separated formats
+    const keywordCount = data.keywords ? 
+      (data.keywords.includes(',') ? 
+        data.keywords.split(',').filter(k => k.trim().length > 0).length :
+        data.keywords.split(/\s+/).filter(k => k.trim().length > 0).length
+      ) : 0;
+    
+    // Debug logging for calculateCurrentQualityScore
+    console.log('calculateCurrentQualityScore keywords debug:', {
+      keywords: data.keywords,
+      keywordsLength: keywordsLength,
+      keywordCount: keywordCount
+    });
+    
     if (data.title.length < 20) score -= 20;
     if (descLength < 50) score -= 25;
     
@@ -727,7 +769,13 @@ class AuctionetCatalogingAssistant {
       if (hasVaguePhrase) score -= 15;
     }
     
-    if (keywordsLength === 0) score -= 30;
+    // Updated keyword scoring with more reasonable thresholds
+    if (keywordsLength === 0 || !data.keywords || data.keywords.trim() === '') score -= 30;
+    else if (keywordCount < 2) score -= 20;
+    else if (keywordCount < 4) score -= 10;
+    // 4-12 keywords = no penalty (sweet spot)
+    else if (keywordCount > 12) score -= 15;
+    
     if (!data.description.match(/\d+[\s,]*(x|cm)/i)) score -= 20;
     
     return Math.max(0, score);
@@ -1153,8 +1201,12 @@ class AuctionetCatalogingAssistant {
         this.applyImprovement(fieldType, value);
         this.showSuccessIndicator(fieldType);
         
-        // Re-analyze quality after improvement
-        setTimeout(() => this.analyzeQuality(), 500);
+        // Re-analyze quality after improvement (with delay to ensure DOM is updated)
+        console.log('Re-analyzing quality after force field improvement...');
+        setTimeout(() => {
+          console.log('Delayed quality analysis for force field...');
+          this.analyzeQuality();
+        }, 500);
       } else {
         throw new Error(`No ${fieldType} value in response`);
       }
@@ -1179,11 +1231,14 @@ class AuctionetCatalogingAssistant {
     }
     
     this.showSuccessIndicator('all');
-    setTimeout(() => this.analyzeQuality(), 500);
+    setTimeout(() => {
+      console.log('Delayed quality analysis after applyAllImprovements...');
+      this.analyzeQuality();
+    }, 500);
   }
 
   extractItemData() {
-    return {
+    const data = {
       category: document.querySelector('#item_category_id option:checked')?.textContent || '',
       title: document.querySelector('#item_title_sv')?.value || '',
       description: document.querySelector('#item_description_sv')?.value || '',
@@ -1193,6 +1248,16 @@ class AuctionetCatalogingAssistant {
       estimate: document.querySelector('#item_current_auction_attributes_estimate')?.value || '',
       reserve: document.querySelector('#item_current_auction_attributes_reserve')?.value || ''
     };
+    
+    // Debug logging for keywords extraction
+    console.log('extractItemData keywords debug:', {
+      keywordsRaw: data.keywords,
+      keywordsLength: data.keywords.length,
+      keywordsElement: document.querySelector('#item_hidden_keywords'),
+      elementValue: document.querySelector('#item_hidden_keywords')?.value
+    });
+    
+    return data;
   }
 
   async callClaudeAPI(itemData, fieldType, retryCount = 0) {
@@ -1346,14 +1411,19 @@ Om konstnär-fält ifyllt: [Föremål], [Material], [Period]
 OSÄKERHETSMARKÖRER - BEHÅLL ALLTID:
 "troligen", "tillskriven", "efter", "stil av", "möjligen"
 
-KONDITION:
-Använd korta, faktabaserade termer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
-UPPFINN ALDRIG nya skador.
+KONDITION - KRITISKA REGLER:
+• Använd korta, faktabaserade termer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
+• UPPFINN ALDRIG nya skador, placeringar eller detaljer
+• Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
+• Lägg ALDRIG till specifika platser som "i metallramen", "på ovansidan", "vid foten"
+• Förbättra ENDAST språket - lägg INTE till nya faktauppgifter
 
-ANTI-HALLUCINATION:
-• Förbättra ENDAST språk och struktur
-• Lägg INTE till material, mått, skador som inte är nämnda
-• Katalogtext ska vara FÄRDIG utan önskemål om mer data`;
+STRIKT ANTI-HALLUCINATION:
+• Förbättra ENDAST språk och struktur av BEFINTLIG information
+• Lägg INTE till material, mått, skador, placeringar som inte är nämnda
+• Kopiera EXAKT samma skadeinformation som redan finns
+• Katalogtext ska vara FÄRDIG utan önskemål om mer data
+• ALDRIG lägga till detaljer för att "förbättra" - bara förbättra språket`;
   }
 
   getUserPrompt(itemData, fieldType) {
@@ -1389,6 +1459,12 @@ ANTI-HALLUCINATION INSTRUKTIONER:
       return baseInfo + `
 UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
 
+KRITISKT - FÄLTAVGRÄNSNING:
+• BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
+• KONDITION: Endast fysiskt skick och skador - ALDRIG beskrivande information
+• Håll fälten strikt separerade - konditionsdetaljer som "slitage", "repor", "märken" hör ENDAST i konditionsfältet
+• Om konditionsinformation finns i nuvarande beskrivning - flytta den till konditionsfältet
+
 KRITISKT - ANTI-HALLUCINATION REGLER:
 • Lägg ALDRIG till information som inte finns i källdata
 • Uppfinn INTE tidsperioder, material, mått eller skador
@@ -1400,10 +1476,13 @@ KRITISKT - ANTI-HALLUCINATION REGLER:
 
 Returnera EXAKT i detta format (en rad per fält):
 TITEL: [förbättrad titel]
-BESKRIVNING: [förbättrad beskrivning]
+BESKRIVNING: [förbättrad beskrivning utan konditionsinformation]
 KONDITION: [förbättrad konditionsrapport]
-SÖKORD: [relevanta sökord]
+SÖKORD: [relevanta sökord separerade med mellanslag, använd "-" för flerordsfraser]
 VALIDERING: [kvalitetspoäng och eventuella varningar]
+
+VIKTIGT FÖR SÖKORD: Använd kommatecken för att separera sökord.
+EXEMPEL: "konstglas, mundblåst, svensk design, 1960-tal, samlarobjekt"
 
 Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
     } else if (fieldType === 'all-enhanced' && itemData.additionalInfo) {
@@ -1474,6 +1553,13 @@ Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter
       return baseInfo + `
 UPPGIFT: Förbättra endast beskrivningen. Inkludera mått om de finns, använd korrekt terminologi.
 
+KRITISKT - FÄLTAVGRÄNSNING FÖR BESKRIVNING:
+• Inkludera ALDRIG konditionsinformation i beskrivningen
+• Konditionsdetaljer som "slitage", "repor", "märken", "skador", "nagg", "sprickor", "fläckar" hör ENDAST hemma i konditionsfältet
+• Beskrivningen ska fokusera på: material, teknik, mått, stil, ursprung, märkningar, funktion
+• EXEMPEL PÅ FÖRBJUDET I BESKRIVNING: "Slitage förekommer", "repor och märken", "normalt åldersslitage", "mindre skador"
+• Om konditionsinformation finns i nuvarande beskrivning - TA BORT den och behåll endast beskrivande information
+
 ANTI-HALLUCINATION FÖR BESKRIVNING:
 • Lägg INTE till mått som inte är angivna
 • Lägg INTE till material som inte är nämnt
@@ -1488,25 +1574,42 @@ Returnera ENDAST den förbättrade beskrivningen utan extra formatering eller et
       return baseInfo + `
 UPPGIFT: Förbättra konditionsrapporten. Skriv KORT och FAKTABASERAT. Använd endast standardtermer. Max 2-3 korta meningar.
 
-ANTI-HALLUCINATION FÖR KONDITION:
-• Beskriv ENDAST skador/slitage som redan är nämnda
-• Lägg INTE till specifika skador som "repor 3cm" om inte angivet
-• Lägg INTE till nya defekter eller problem
-• Förbättra ENDAST språk och använd standardtermer för befintlig information
+KRITISKT - FÄLTAVGRÄNSNING FÖR KONDITION:
+• Fokusera ENDAST på fysiskt skick och skador
+• Inkludera ALDRIG beskrivande information om material, teknik, stil eller funktion
+• Konditionsrapporten ska vara separat från beskrivningen
+• Använd specifika konditionstermer: "repor", "nagg", "sprickor", "fläckar", "välbevarat", "mindre skador"
+• UNDVIK vaga termer som endast "bruksslitage" - var specifik
+
+KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
+• Beskriv ENDAST skador/slitage som redan är nämnda i nuvarande kondition
+• Lägg ALDRIG till specifika placeringar som "i metallramen", "på ovansidan", "vid foten" om inte redan angivet
+• Lägg ALDRIG till specifika mått som "repor 3cm" om inte angivet
+• Lägg ALDRIG till nya defekter, material eller delar som inte nämns
+• Lägg ALDRIG till detaljer om VAR skadorna finns om det inte redan står i originalet
+• EXEMPEL PÅ FÖRBJUDET: Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
+• Förbättra ENDAST språk och använd standardtermer för EXAKT samma information som redan finns
+• Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
 • Lägg ALDRIG till kommentarer om vad som "behövs" eller "saknas"
 • Skriv INTE fraser som "ytterligare uppgifter behövs" eller "mer information krävs"
 
-EXEMPEL:
-- "Välbevarat. Mindre repor."
-- "Normalt åldersslitage. Nagg vid kanter."
-- "Synligt slitage. Sprickor i glasyr."
+STRIKT REGEL: Kopiera ENDAST den skadeinformation som redan finns - lägg ALDRIG till nya detaljer.
 
-UNDVIK: Långa beskrivningar, förklaringar av tillverkningstekniker, värderande kommentarer, påhittade skador.
+EXEMPEL PÅ KORREKT FÖRBÄTTRING:
+Original: "bruksslitage" → Förbättrat: "Normalt bruksslitage"
+Original: "repor" → Förbättrat: "Mindre repor" (INTE "repor i metallramen")
+Original: "slitage förekommer" → Förbättrat: "Synligt slitage"
+
+UNDVIK: Långa beskrivningar, förklaringar av tillverkningstekniker, värderande kommentarer, påhittade skador, specifika placeringar.
 
 Returnera ENDAST den förbättrade konditionsrapporten utan extra formatering eller etiketter.`;
     } else if (fieldType === 'keywords') {
       return baseInfo + `
-UPPGIFT: Generera HÖGKVALITATIVA dolda sökord som hjälper köpare hitta föremålet. Fokusera på RELEVANS över kvantitet.
+UPPGIFT: Generera HÖGKVALITATIVA dolda sökord som hjälper köpare hitta föremålet.
+
+KRITISKT - SÖKORD FORMAT:
+• Separera sökord med KOMMATECKEN
+• EXEMPEL PÅ KORREKT FORMAT: "glaskonst, mundblåst, svensk design, 1960-tal, samlarobjekt, skandinavisk form"
 
 REGLER FÖR SÖKORD:
 • MAX 10-12 sökord totalt
@@ -1658,20 +1761,31 @@ Returnera ENDAST sökorden separerade med kommatecken, utan extra formatering el
       return keywords;
     }
     
-    // Split keywords and clean them
-    const keywordArray = keywords.split(',')
-      .map(kw => kw.trim())
-      .filter(kw => kw.length > 0)
-      .filter(kw => kw.length >= 3); // Remove very short keywords
+    // Support both formats: detect if comma-separated or space-separated
+    let keywordArray;
+    if (keywords.includes(',')) {
+      // Comma-separated format - convert to Auctionet format
+      keywordArray = keywords.split(',')
+        .map(kw => kw.trim())
+        .filter(kw => kw.length > 0)
+        .filter(kw => kw.length >= 3)
+        .map(kw => kw.replace(/\s+/g, '-')); // Convert spaces to hyphens
+    } else {
+      // Already in Auctionet space-separated format
+      keywordArray = keywords.split(/\s+/)
+        .map(kw => kw.trim())
+        .filter(kw => kw.length > 0)
+        .filter(kw => kw.length >= 3);
+    }
     
     // If too many keywords, keep only the first 12 (most relevant ones)
     if (keywordArray.length > 12) {
       console.warn(`Too many keywords (${keywordArray.length}), limiting to 12`);
       const limitedKeywords = keywordArray.slice(0, 12);
-      return limitedKeywords.join(', ');
+      return limitedKeywords.join(' '); // Auctionet space-separated format
     }
     
-    return keywordArray.join(', ');
+    return keywordArray.join(' '); // Auctionet space-separated format
   }
 
   addAIEnhancementNote(fieldType) {
@@ -2086,6 +2200,19 @@ Returnera ENDAST sökorden separerade med kommatecken, utan extra formatering el
       return { errors, warnings };
     }
     
+    // CRITICAL: Check for condition information contamination in description
+    const conditionTerms = [
+      'slitage', 'repor', 'märken', 'skador', 'nagg', 'sprickor', 'fläckar',
+      'bruksslitage', 'åldersslitage', 'normalt slitage', 'mindre skador',
+      'synligt slitage', 'välbevarat', 'skick', 'kondition'
+    ];
+    
+    conditionTerms.forEach(term => {
+      if (description.toLowerCase().includes(term)) {
+        errors.push(`FÄLTFEL: Konditionsinformation "${term}" hör hemma i konditionsfältet, inte i beskrivningen`);
+      }
+    });
+    
     // Check for measurements
     const hasMeasurements = /\d+[,.]?\d*\s*(cm|centimeter)/i.test(description);
     if (!hasMeasurements) {
@@ -2134,6 +2261,16 @@ Returnera ENDAST sökorden separerade med kommatecken, utan extra formatering el
       return { errors, warnings };
     }
     
+    // CRITICAL: Check for hallucinated details by comparing with original
+    const originalCondition = document.querySelector('#item_condition_sv')?.value || '';
+    const hallucinationCheck = this.detectConditionHallucinations(originalCondition, condition);
+    
+    if (hallucinationCheck.hasHallucinations) {
+      hallucinationCheck.hallucinations.forEach(hallucination => {
+        errors.push(`HALLUCINATION: "${hallucination}" - denna detalj finns inte i originalet`);
+      });
+    }
+    
     // Approved condition terms
     const approvedTerms = [
       'välbevarat', 'normalt åldersslitage', 'mindre repor', 'synligt slitage',
@@ -2163,6 +2300,84 @@ Returnera ENDAST sökorden separerade med kommatecken, utan extra formatering el
     });
     
     return { errors, warnings };
+  }
+
+  detectConditionHallucinations(original, improved) {
+    const hallucinations = [];
+    
+    if (!original || !improved) {
+      return { hasHallucinations: false, hallucinations: [] };
+    }
+    
+    const originalLower = original.toLowerCase();
+    const improvedLower = improved.toLowerCase();
+    
+    // Common hallucinated location/material details
+    const locationPatterns = [
+      /i metallramen?/gi,
+      /på ovansidan/gi,
+      /vid foten/gi,
+      /vid kanten/gi,
+      /på undersidan/gi,
+      /i hörnen/gi,
+      /längs kanten/gi,
+      /på ytan/gi,
+      /i botten/gi,
+      /vid handtaget/gi,
+      /på locket/gi,
+      /i glaset/gi,
+      /i keramiken/gi,
+      /i träet/gi,
+      /i metallen/gi
+    ];
+    
+    // Check for added location details
+    locationPatterns.forEach(pattern => {
+      const matches = improved.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          if (!originalLower.includes(match.toLowerCase())) {
+            hallucinations.push(match);
+          }
+        });
+      }
+    });
+    
+    // Check for specific measurements that weren't in original
+    const measurementPattern = /\d+\s*(cm|mm|centimeter|millimeter)/gi;
+    const improvedMeasurements = improved.match(measurementPattern) || [];
+    
+    improvedMeasurements.forEach(measurement => {
+      if (!originalLower.includes(measurement.toLowerCase())) {
+        hallucinations.push(measurement);
+      }
+    });
+    
+    // Check for specific damage types not in original
+    const damageTypes = [
+      'repor', 'märken', 'nagg', 'sprickor', 'fläckar', 'skador',
+      'bucklor', 'intryck', 'missfärgningar', 'rostfläckar'
+    ];
+    
+    damageTypes.forEach(damageType => {
+      if (improvedLower.includes(damageType) && !originalLower.includes(damageType)) {
+        // Only flag if it's a specific addition, not a general improvement
+        const specificPattern = new RegExp(`${damageType}\\s+(i|på|vid|längs)\\s+\\w+`, 'gi');
+        const specificMatches = improved.match(specificPattern);
+        if (specificMatches) {
+          specificMatches.forEach(match => {
+            if (!originalLower.includes(match.toLowerCase())) {
+              hallucinations.push(match);
+            }
+          });
+        }
+      }
+    });
+    
+    return {
+      hasHallucinations: hallucinations.length > 0,
+      hallucinations: [...new Set(hallucinations)] // Remove duplicates
+    };
   }
 
   calculateQualityScore(errorCount, warningCount) {
