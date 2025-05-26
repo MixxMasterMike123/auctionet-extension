@@ -8,10 +8,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modelSelect = document.getElementById('model-select');
   const saveModelButton = document.getElementById('save-model');
   const modelDescription = document.getElementById('model-description');
+  const enableArtistInfoCheckbox = document.getElementById('enable-artist-info');
 
-  // Load existing API key and model
+  // Load existing API key, model, and settings
   await loadApiKey();
   await loadModelSelection();
+  await loadArtistInfoSetting();
   
   // Check extension status
   await checkExtensionStatus();
@@ -21,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   testButton.addEventListener('click', testConnection);
   saveModelButton.addEventListener('click', saveModelSelection);
   modelSelect.addEventListener('change', updateModelDescription);
+  enableArtistInfoCheckbox.addEventListener('change', saveArtistInfoSetting);
   apiKeyInput.addEventListener('input', () => {
     clearStatus();
   });
@@ -287,5 +290,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     
     modelDescription.textContent = descriptions[selectedModel] || 'Unknown model';
+  }
+
+  async function loadArtistInfoSetting() {
+    try {
+      const result = await chrome.storage.sync.get(['enableArtistInfo']);
+      // Default to true (enabled) if not set
+      const isEnabled = result.enableArtistInfo !== undefined ? result.enableArtistInfo : true;
+      enableArtistInfoCheckbox.checked = isEnabled;
+    } catch (error) {
+      console.error('Error loading artist info setting:', error);
+      // Default to enabled on error
+      enableArtistInfoCheckbox.checked = true;
+    }
+  }
+
+  async function saveArtistInfoSetting() {
+    const isEnabled = enableArtistInfoCheckbox.checked;
+    
+    try {
+      await chrome.storage.sync.set({ enableArtistInfo: isEnabled });
+      console.log('Artist info setting saved:', isEnabled);
+      
+      // Notify all tabs to refresh their settings
+      try {
+        const tabs = await chrome.tabs.query({ url: 'https://auctionet.com/*' });
+        for (const tab of tabs) {
+          chrome.tabs.sendMessage(tab.id, { type: 'refresh-settings' }).catch(() => {
+            // Ignore errors for tabs that don't have the content script
+          });
+        }
+      } catch (error) {
+        console.log('Could not notify tabs:', error);
+      }
+      
+    } catch (error) {
+      console.error('Error saving artist info setting:', error);
+    }
   }
 }); 

@@ -85,6 +85,10 @@
             console.log('Refreshing model selection from popup request');
             this.apiManager.loadApiKey(); // This also loads model selection
             sendResponse({ success: true });
+          } else if (request.type === 'refresh-settings') {
+            console.log('Refreshing settings from popup request');
+            this.apiManager.loadApiKey(); // This also loads all settings including enableArtistInfo
+            sendResponse({ success: true });
           }
         });
       }
@@ -146,6 +150,7 @@
         this.showLoadingIndicator(fieldType);
         
         try {
+          console.log('🎯 Individual field - Artist info enabled:', this.apiManager.enableArtistInfo);
           const improved = await this.apiManager.callClaudeAPI(itemData, fieldType);
           console.log('Improved result for', fieldType, ':', improved);
           
@@ -183,35 +188,11 @@
         // Assess data quality for hallucination prevention
         const qualityAssessment = this.qualityAnalyzer.assessDataQuality(itemData, 'all');
         
+        // Always show dialog with settings - either for missing info or confirmation
         if (qualityAssessment.needsMoreInfo) {
           this.showFieldSpecificInfoDialog('all', qualityAssessment.missingInfo, itemData);
-          return;
-        }
-        
-        this.showLoadingIndicator('all');
-        
-        try {
-          const improvements = await this.apiManager.callClaudeAPI(itemData, 'all');
-          
-          if (improvements.title) {
-            this.uiManager.applyImprovement('title', improvements.title);
-          }
-          if (improvements.description) {
-            this.uiManager.applyImprovement('description', improvements.description);
-          }
-          if (improvements.condition) {
-            this.uiManager.applyImprovement('condition', improvements.condition);
-          }
-          if (improvements.keywords) {
-            this.uiManager.applyImprovement('keywords', improvements.keywords);
-          }
-          
-          this.showSuccessIndicator('all');
-          
-          // Re-analyze quality after improvements
-          setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
-        } catch (error) {
-          this.showErrorIndicator('all', error.message);
+        } else {
+          this.showAISettingsDialog('all', itemData);
         }
       }
 
@@ -256,6 +237,17 @@
               </ul>
             </div>
             
+            <div class="ai-settings-section" style="margin: 15px 0; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #007cba;">
+              <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #333;">⚙️ AI-inställningar</h4>
+              <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px;">
+                <input type="checkbox" id="dialog-enable-artist-info" style="margin-right: 8px;" ${this.apiManager.enableArtistInfo ? 'checked' : ''}>
+                <span>Lägg till konstnärsinformation i beskrivningen</span>
+              </label>
+              <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                När konstnär/formgivare är känd, lägg till kort historisk kontext och information om specifika serier/modeller.
+              </div>
+            </div>
+            
             ${this.getFieldSpecificTips(fieldType, data)}
             
             <div class="dialog-buttons">
@@ -277,10 +269,140 @@
           this.forceImproveField(fieldType);
         });
         
+        // Handle artist info checkbox change
+        const artistInfoCheckbox = document.getElementById('dialog-enable-artist-info');
+        if (artistInfoCheckbox) {
+          artistInfoCheckbox.addEventListener('change', async () => {
+            const isEnabled = artistInfoCheckbox.checked;
+            try {
+              await chrome.storage.sync.set({ enableArtistInfo: isEnabled });
+              this.apiManager.enableArtistInfo = isEnabled;
+              console.log('Artist info setting updated from dialog:', isEnabled);
+            } catch (error) {
+              console.error('Error saving artist info setting:', error);
+            }
+          });
+        }
+        
         // Close on background click
         dialog.querySelector('.dialog-overlay').addEventListener('click', () => {
           dialog.remove();
         });
+      }
+
+      showAISettingsDialog(fieldType, data) {
+        const fieldNames = {
+          'title': 'titeln',
+          'description': 'beskrivningen', 
+          'condition': 'skicket',
+          'keywords': 'nyckelorden',
+          'all': 'alla fält'
+        };
+        
+        const fieldName = fieldNames[fieldType] || fieldType;
+        
+        const dialog = document.createElement('div');
+        dialog.className = 'ai-info-request-dialog';
+        dialog.innerHTML = `
+          <div class="dialog-overlay"></div>
+          <div class="dialog-content">
+            <h3>⚡ Förbättra ${fieldName}</h3>
+            <p>AI:n är redo att förbättra ${fieldName} enligt svenska auktionsstandarder.</p>
+            
+            <div class="ai-settings-section" style="margin: 15px 0; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #007cba;">
+              <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #333;">⚙️ AI-inställningar</h4>
+              <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px;">
+                <input type="checkbox" id="dialog-enable-artist-info" style="margin-right: 8px;" ${this.apiManager.enableArtistInfo ? 'checked' : ''}>
+                <span>Lägg till konstnärsinformation i beskrivningen</span>
+              </label>
+              <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                När konstnär/formgivare är känd, lägg till kort historisk kontext och information om specifika serier/modeller.
+              </div>
+            </div>
+            
+            <div class="dialog-buttons">
+              <button class="btn btn-link" id="cancel-settings-dialog">Avbryt</button>
+              <button class="btn btn-primary" id="proceed-with-ai" style="background: #007cba;">Förbättra ${fieldName}</button>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        // Handle button clicks
+        document.getElementById('cancel-settings-dialog').addEventListener('click', () => {
+          dialog.remove();
+        });
+        
+        document.getElementById('proceed-with-ai').addEventListener('click', () => {
+          dialog.remove();
+          this.proceedWithAIImprovement(fieldType);
+        });
+        
+        // Handle artist info checkbox change
+        const artistInfoCheckbox = document.getElementById('dialog-enable-artist-info');
+        if (artistInfoCheckbox) {
+          artistInfoCheckbox.addEventListener('change', async () => {
+            const isEnabled = artistInfoCheckbox.checked;
+            try {
+              await chrome.storage.sync.set({ enableArtistInfo: isEnabled });
+              this.apiManager.enableArtistInfo = isEnabled;
+              console.log('Artist info setting updated from dialog:', isEnabled);
+            } catch (error) {
+              console.error('Error saving artist info setting:', error);
+            }
+          });
+        }
+        
+        // Close on background click
+        dialog.querySelector('.dialog-overlay').addEventListener('click', () => {
+          dialog.remove();
+        });
+      }
+
+      async proceedWithAIImprovement(fieldType) {
+        this.showLoadingIndicator(fieldType);
+        
+        // Don't reload settings here - they were just set by the dialog
+        console.log('⚡ Proceed with AI - Artist info enabled:', this.apiManager.enableArtistInfo);
+        console.log('⚡ Proceed with AI - API key present:', !!this.apiManager.apiKey);
+        
+        try {
+          const itemData = this.dataExtractor.extractItemData();
+          console.log('⚡ Item data for API call:', { artist: itemData.artist, enableArtistInfo: this.apiManager.enableArtistInfo });
+          const improvements = await this.apiManager.callClaudeAPI(itemData, fieldType);
+          
+          if (fieldType === 'all') {
+            if (improvements.title) {
+              this.uiManager.applyImprovement('title', improvements.title);
+            }
+            if (improvements.description) {
+              this.uiManager.applyImprovement('description', improvements.description);
+            }
+            if (improvements.condition) {
+              this.uiManager.applyImprovement('condition', improvements.condition);
+            }
+            if (improvements.keywords) {
+              this.uiManager.applyImprovement('keywords', improvements.keywords);
+            }
+          } else {
+            // For single field improvements
+            const value = improvements[fieldType];
+            if (value) {
+              this.uiManager.applyImprovement(fieldType, value);
+            } else {
+              throw new Error(`No ${fieldType} value in response`);
+            }
+          }
+          
+          this.showSuccessIndicator(fieldType);
+          
+          // Re-analyze quality after improvements
+          setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
+        } catch (error) {
+          console.error('Error improving field:', error);
+          this.showErrorIndicator(fieldType, error.message);
+        }
       }
 
       getFieldSpecificTips(fieldType, data) {
@@ -302,14 +424,20 @@
           case 'condition':
             return `
               <div class="field-tips">
-                <h4>💡 Tips för bättre skickbeskrivning:</h4>
-                <p><strong>Undvik vaga termer som "bruksslitage".</strong> Beskriv istället:</p>
+                <h4>🚨 KRITISKT för kundnöjdhet - Detaljerad skickbeskrivning:</h4>
+                <p><strong>Kunder måste veta EXAKT vad de får för att undvika besvikelser och reklamationer!</strong></p>
+                <div style="background: #fff3cd; padding: 8px; border-radius: 4px; margin: 8px 0; border-left: 3px solid #ffc107;">
+                  <strong>⚠️ Varje vag beskrivning = missnöjd kund = support-ärende</strong>
+                </div>
+                <p><strong>OBLIGATORISKT att ange:</strong></p>
                 <ul style="margin: 8px 0; padding-left: 20px;">
-                  <li><strong>Typ av skada:</strong> repor, nagg, sprickor, fläckar, missfärgningar</li>
-                  <li><strong>Placering:</strong> "vid foten", "på ovansidan", "längs kanten"</li>
-                  <li><strong>Omfattning:</strong> "mindre", "flera", "genomgående", "ytliga"</li>
-                  <li><strong>Exempel:</strong> "Mindre repor på ovansidan. Nagg vid fot. Spricka 2cm i glasyr."</li>
+                  <li><strong>Typ av skada:</strong> repor, nagg, sprickor, fläckar, missfärgningar, rostfläckar</li>
+                  <li><strong>Exakt placering:</strong> "vid foten", "på ovansidan", "längs vänster kant", "i mitten"</li>
+                  <li><strong>Storlek/omfattning:</strong> "mindre", "flera", "genomgående", "ytliga", "djupa"</li>
+                  <li><strong>Synlighet:</strong> "tydligt synliga", "svåra att upptäcka", "endast i starkt ljus"</li>
                 </ul>
+                <p><strong>✅ BRA exempel:</strong> "Mindre repor på ovansidan, tydligt synliga. Nagg vid fot, ca 2mm. Spricka i glasyr längs vänster kant, 3cm lång."</p>
+                <p><strong>❌ DÅLIGT exempel:</strong> "Bruksslitage", "Normalt slitage", "Mindre skador"</p>
               </div>
             `;
           case 'keywords':
@@ -333,13 +461,18 @@
 
       async forceImproveField(fieldType) {
         // Bypass quality checks and improve anyway
+        
+        // Ensure API manager settings are loaded
+        await this.apiManager.loadApiKey();
+        console.log('🔧 Force improve - Artist info enabled:', this.apiManager.enableArtistInfo);
+        
         const itemData = this.dataExtractor.extractItemData();
         
         if (fieldType === 'all') {
           this.showLoadingIndicator('all');
           
           try {
-            const improvements = await this.apiManager.callClaudeAPI(itemData, 'all-sparse');
+            const improvements = await this.apiManager.callClaudeAPI(itemData, 'all');
             this.applyAllImprovements(improvements);
           } catch (error) {
             this.showErrorIndicator('all', error.message);

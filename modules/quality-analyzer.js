@@ -11,9 +11,13 @@ export class QualityAnalyzer {
   // Helper method to check for measurements in Swedish format
   hasMeasurements(text) {
     const measurementPatterns = [
-      // International formats with all units
-      /\d+\s*×\s*\d+\s*×?\s*\d*\s*(mm|cm|m)\b/i,           // 122 × 45 × 135 cm/mm/m
-      /\d+\s*x\s*\d+\s*x?\s*\d*\s*(mm|cm|m)\b/i,            // 122 x 45 x 135 cm/mm/m
+      // 2D measurements (carpets, paintings, etc.) - MOST COMMON
+      /\d+\s*×\s*\d+\s*(mm|cm|m)\b/i,                       // 140 × 200 cm (2D)
+      /\d+\s*x\s*\d+\s*(mm|cm|m)\b/i,                       // 140 x 200 cm (2D)
+      
+      // 3D measurements (furniture, sculptures, etc.)
+      /\d+\s*×\s*\d+\s*×\s*\d+\s*(mm|cm|m)\b/i,            // 122 × 45 × 135 cm (3D)
+      /\d+\s*x\s*\d+\s*x\s*\d+\s*(mm|cm|m)\b/i,            // 122 x 45 x 135 cm (3D)
       
       // Swedish terms with all units
       /(längd|l\.?)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,        // längd 122 cm / längd 12.5 cm
@@ -22,7 +26,7 @@ export class QualityAnalyzer {
       
       // General measurement patterns
       /mått:.*\d+([.,]\d+)?.*(mm|cm|m)\b/i,                 // Mått: ... 122 cm
-      /\d+([.,]\d+)?\s*(mm|cm|m)\b.*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // Any two measurements
+      /\d+([.,]\d+)?\s*(mm|cm|m)\b.*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // Any two measurements separated
       
       // Diameter patterns (common for round objects)
       /(diameter|diam\.?|ø)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i // diameter 25 cm
@@ -41,56 +45,79 @@ export class QualityAnalyzer {
     const warnings = [];
     let score = 100;
     
-    // Check if "Inga anmärkningar" (No remarks) is checked
-    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
-    const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+    // Check if "Inga anmärkningar" (No remarks) is checked (handle missing checkboxes gracefully)
+    let noRemarksChecked = false;
+    try {
+      const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                               document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                               document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+      noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+    } catch (error) {
+      console.log('ℹ️ No remarks checkbox not found (optional)');
+    }
 
-    // Title quality checks (softened: 20 → 18)
-    if (data.title.length < 18) {
-      warnings.push({ field: 'Titel', issue: 'För kort - lägg till material och period', severity: 'high' });
-      score -= 20;
+    // Title quality checks (aggressively softened: 20 → 14)
+    if (data.title.length < 14) {
+      warnings.push({ field: 'Titel', issue: 'Överväg att lägga till material och period', severity: 'medium' });
+      score -= 15;
     }
     if (!data.title.includes(',')) {
       warnings.push({ field: 'Titel', issue: 'Saknar korrekt struktur (KONSTNÄR, Objekt, Material)', severity: 'medium' });
       score -= 15;
     }
 
-    // Description quality checks (softened: 50 → 46)
+    // Description quality checks (aggressively softened: 50 → 35)
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
-    if (descLength < 46) {
-      warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, märkningar', severity: 'high' });
-      score -= 25;
-    }
-    if (!this.hasMeasurements(data.description)) {
-      warnings.push({ field: 'Beskrivning', issue: 'Saknar fullständiga mått', severity: 'high' });
+    if (descLength < 35) {
+      warnings.push({ field: 'Beskrivning', issue: 'Överväg att lägga till detaljer om material, teknik, märkningar', severity: 'medium' });
       score -= 20;
     }
+    if (!this.hasMeasurements(data.description)) {
+      warnings.push({ field: 'Beskrivning', issue: 'Mått skulle förbättra beskrivningen', severity: 'low' });
+      score -= 10;
+    }
 
-    // Condition quality checks (skip if "Inga anmärkningar" is checked)
+    // CONDITION QUALITY CHECKS - MODERATELY STRICTER FOR CUSTOMER SATISFACTION
     if (!noRemarksChecked) {
       const condLength = data.condition.replace(/<[^>]*>/g, '').length;
-      if (condLength < 18) {
-        warnings.push({ field: 'Kondition', issue: 'För vag - specificera typ av slitage och skador', severity: 'high' });
-        score -= 20;
-      }
-      if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
-        warnings.push({ field: 'Kondition', issue: 'Endast "bruksslitage" är otillräckligt - specificera typ av slitage (repor, nagg, fläckar, etc.)', severity: 'high' });
-        score -= 25;
-      }
-      
-      // Check for other vague condition terms (softened: 30 → 28)
-      const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
       const conditionText = data.condition.toLowerCase();
-      const hasVaguePhrase = vaguePhrases.some(phrase => 
-        conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 28
-      );
       
-      if (hasVaguePhrase) {
-        warnings.push({ field: 'Kondition', issue: 'Vag konditionsbeskrivning - beskriv specifika skador och var de finns', severity: 'medium' });
-        score -= 15;
+      // Check for "Ej examinerad ur ram" - this is actually GOOD for paintings (mint condition)
+      const isUnexaminedFramed = /ej\s+examinerad\s+ur\s+ram/i.test(conditionText);
+      
+      if (isUnexaminedFramed) {
+        // This is positive - painting appears mint as far as visible
+        warnings.push({ field: 'Kondition', issue: '✓ "Ej examinerad ur ram" - indikerar mycket gott skick så långt synligt', severity: 'low' });
+      } else {
+        // Moderately higher minimum length requirement (14 → 25 characters, not 40)
+        if (condLength < 25) {
+          warnings.push({ field: 'Kondition', issue: 'Konditionsbeskrivning bör vara mer detaljerad för kundernas trygghet', severity: 'high' });
+          score -= 20;
+        }
+        
+        // Still zero tolerance for "bruksslitage" only, but less harsh penalty
+        if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
+          warnings.push({ field: 'Kondition', issue: 'Endast "bruksslitage" är otillräckligt - specificera typ av slitage (repor, nagg, fläckar, etc.)', severity: 'high' });
+          score -= 35;
+        }
+        
+        // Moderately stricter check for vague condition terms
+        const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
+        const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
+        
+        if (hasVaguePhrase && condLength < 40) {
+          warnings.push({ field: 'Kondition', issue: 'Vaga termer som "normalt slitage" - överväg att specificera typ av skador och placering', severity: 'medium' });
+          score -= 20;
+        }
+        
+        // Gentle suggestion for location information (not required)
+        const hasLocationInfo = /\b(vid|på|längs|i|under|över|runt|omkring)\s+(fot|kant|ovansida|undersida|sida|hörn|mitt|centrum|botten|topp|fram|bak|insida|utsida)/i.test(conditionText);
+        if (condLength > 25 && !hasLocationInfo && !conditionText.includes('genomgående') && !conditionText.includes('överallt') && hasVaguePhrase) {
+          warnings.push({ field: 'Kondition', issue: 'Tips: Ange var skadorna finns för tydligare beskrivning', severity: 'low' });
+          score -= 10;
+        }
       }
+      
     } else {
       warnings.push({ field: 'Kondition', issue: '✓ "Inga anmärkningar" markerat - ingen konditionsrapport behövs', severity: 'low' });
     }
@@ -194,28 +221,32 @@ export class QualityAnalyzer {
 
     let monitoredCount = 0;
     fieldsToMonitor.forEach(selector => {
-      const element = document.querySelector(selector);
-      if (element) {
-        console.log(`✅ Setting up live monitoring for: ${selector}`);
-        monitoredCount++;
-        
-        // Add event listeners for different input types
-        if (element.type === 'checkbox') {
-          element.addEventListener('change', debouncedUpdate);
-          console.log(`✅ Added 'change' listener to checkbox: ${selector}`);
+      try {
+        const element = document.querySelector(selector);
+        if (element) {
+          console.log(`✅ Setting up live monitoring for: ${selector}`);
+          monitoredCount++;
+          
+          // Add event listeners for different input types
+          if (element.type === 'checkbox') {
+            element.addEventListener('change', debouncedUpdate);
+            console.log(`✅ Added 'change' listener to checkbox: ${selector}`);
+          } else {
+            element.addEventListener('input', debouncedUpdate);
+            element.addEventListener('paste', debouncedUpdate);
+            element.addEventListener('keyup', debouncedUpdate);
+            console.log(`✅ Added 'input', 'paste', 'keyup' listeners to: ${selector}`);
+          }
+          
+          // Test immediate trigger
+          element.addEventListener('focus', () => {
+            console.log(`🎯 Field focused: ${selector}`);
+          });
         } else {
-          element.addEventListener('input', debouncedUpdate);
-          element.addEventListener('paste', debouncedUpdate);
-          element.addEventListener('keyup', debouncedUpdate);
-          console.log(`✅ Added 'input', 'paste', 'keyup' listeners to: ${selector}`);
+          console.log(`ℹ️ Field not found (optional): ${selector}`);
         }
-        
-        // Test immediate trigger
-        element.addEventListener('focus', () => {
-          console.log(`🎯 Field focused: ${selector}`);
-        });
-      } else {
-        console.warn(`❌ Field not found for live monitoring: ${selector}`);
+      } catch (error) {
+        console.log(`ℹ️ Could not query selector (optional): ${selector} - ${error.message}`);
       }
     });
 
@@ -243,19 +274,24 @@ export class QualityAnalyzer {
     const condLength = data.condition.replace(/<[^>]*>/g, '').length;
     const titleLength = data.title.length;
     
-    // Check if "Inga anmärkningar" is checked
-    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
-    const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+    // Check if "Inga anmärkningar" is checked (handle missing checkboxes gracefully)
+    let noRemarksChecked = false;
+    try {
+      const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                               document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                               document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+      noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+    } catch (error) {
+      console.log('ℹ️ No remarks checkbox not found (optional)');
+    }
     
     const qualityScore = this.calculateCurrentQualityScore(data);
     
     const issues = [];
     let needsMoreInfo = false;
     
-    // Critical quality thresholds (softened: 30 → 28)
-    if (qualityScore < 28) {
+    // Critical quality thresholds (aggressively softened: 30 → 20)
+    if (qualityScore < 20) {
       needsMoreInfo = true;
       issues.push('critical_quality');
     }
@@ -290,23 +326,37 @@ export class QualityAnalyzer {
         
       case 'condition':
         if (!noRemarksChecked) {
-          if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
-            issues.push('specific_damage', 'wear_details', 'bruksslitage_vague');
-            needsMoreInfo = true;
-          }
-          if (condLength < 15) {
-            issues.push('condition_details');
-            needsMoreInfo = true;
-          }
-          
-          const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage'];
           const conditionText = data.condition.toLowerCase();
-          const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
           
-          if (hasVaguePhrase && condLength < 40) {
-            issues.push('vague_condition_terms');
-            needsMoreInfo = true;
+          // Check for "Ej examinerad ur ram" - this is actually GOOD (mint condition for paintings)
+          const isUnexaminedFramed = /ej\s+examinerad\s+ur\s+ram/i.test(conditionText);
+          
+          if (!isUnexaminedFramed) {
+            // Only apply stricter rules if NOT "ej examinerad ur ram"
+            
+            // Zero tolerance for "bruksslitage" only
+            if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
+              issues.push('specific_damage', 'wear_details', 'bruksslitage_vague');
+              needsMoreInfo = true;
+            }
+            
+            // Moderately stricter minimum length (15 → 25 characters, not 40)
+            if (condLength < 25) {
+              issues.push('condition_details');
+              needsMoreInfo = true;
+            }
+            
+            // Moderate vague phrase detection
+            const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
+            const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
+            
+            // Moderate threshold for vague phrases (40 characters, not 60)
+            if (hasVaguePhrase && condLength < 40) {
+              issues.push('vague_condition_terms');
+              needsMoreInfo = true;
+            }
           }
+          // If "ej examinerad ur ram" - no additional requirements, it's good as is
         }
         break;
         
@@ -343,34 +393,47 @@ export class QualityAnalyzer {
   calculateCurrentQualityScore(data) {
     let score = 100;
     
-    // Check if "Inga anmärkningar" is checked
-    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
-    const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+    // Check if "Inga anmärkningar" is checked (handle missing checkboxes gracefully)
+    let noRemarksChecked = false;
+    try {
+      const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                               document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                               document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+      noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+    } catch (error) {
+      console.log('ℹ️ No remarks checkbox not found (optional)');
+    }
     
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
     const condLength = data.condition.replace(/<[^>]*>/g, '').length;
     const keywordsLength = data.keywords.length;
     
-    if (data.title.length < 18) score -= 20;
-    if (descLength < 46) score -= 25;
+    if (data.title.length < 14) score -= 15;
+    if (descLength < 35) score -= 20;
     
     if (!noRemarksChecked) {
-      if (condLength < 18) score -= 20;
-      if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) score -= 25;
-      
-      const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
       const conditionText = data.condition.toLowerCase();
-      const hasVaguePhrase = vaguePhrases.some(phrase => 
-        conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 28
-      );
       
-      if (hasVaguePhrase) score -= 15;
+      // Check for "Ej examinerad ur ram" - this is actually GOOD (mint condition for paintings)
+      const isUnexaminedFramed = /ej\s+examinerad\s+ur\s+ram/i.test(conditionText);
+      
+      if (!isUnexaminedFramed) {
+        // Only apply penalties if NOT "ej examinerad ur ram"
+        
+        // Moderately stricter condition scoring for customer satisfaction
+        if (condLength < 25) score -= 20;  // Moderate penalty (15 → 20, not 35)
+        if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) score -= 35;  // Strong penalty (25 → 35, not 50)
+        
+        const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
+        const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
+        
+        if (hasVaguePhrase && condLength < 40) score -= 20;  // Moderate penalty (15 → 20, not 40)
+      }
+      // If "ej examinerad ur ram" - no penalties, it's considered good condition
     }
     
     if (keywordsLength === 0) score -= 30;
-    if (!this.hasMeasurements(data.description)) score -= 20;
+    if (!this.hasMeasurements(data.description)) score -= 10;
     
     return Math.max(0, score);
   }

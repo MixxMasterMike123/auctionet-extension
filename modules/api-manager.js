@@ -8,7 +8,7 @@ export class APIManager {
 
   async loadApiKey() {
     try {
-      const result = await chrome.storage.sync.get(['anthropicApiKey', 'selectedModel']);
+      const result = await chrome.storage.sync.get(['anthropicApiKey', 'selectedModel', 'enableArtistInfo']);
       this.apiKey = result.anthropicApiKey;
       
       // Update model selection if stored
@@ -17,10 +17,15 @@ export class APIManager {
         console.log('Model loaded from storage:', CONFIG.MODELS[result.selectedModel].name);
       }
       
+      // Load artist info setting (default to true if not set)
+      this.enableArtistInfo = result.enableArtistInfo !== undefined ? result.enableArtistInfo : true;
+      console.log('Artist info setting loaded:', this.enableArtistInfo);
+      
       console.log('API key loaded from storage:', this.apiKey ? 'Found' : 'Not found');
     } catch (error) {
       console.error('Error loading API key:', error);
       this.apiKey = null;
+      this.enableArtistInfo = true; // Default to enabled on error
     }
   }
 
@@ -181,39 +186,102 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
       return result;
     }
     
-    // Parse multi-field responses
+    // Parse multi-field responses with proper multi-line support
     const result = {};
     const lines = response.split('\n');
     
     console.log('Parsing multi-field response, lines:', lines);
     
-    lines.forEach(line => {
+    let currentField = null;
+    let currentContent = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const trimmedLine = line.trim();
       
+      // Check if this line starts a new field
       if (trimmedLine.match(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i)) {
-        result.title = trimmedLine.replace(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i, '').trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'title';
+        currentContent = [trimmedLine.replace(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i, '').trim()];
       } else if (trimmedLine.match(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i)) {
-        result.description = trimmedLine.replace(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, '').trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'description';
+        currentContent = [trimmedLine.replace(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, '').trim()];
       } else if (trimmedLine.match(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i)) {
-        result.condition = trimmedLine.replace(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i, '').trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'condition';
+        currentContent = [trimmedLine.replace(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i, '').trim()];
       } else if (trimmedLine.match(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i)) {
-        result.keywords = trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'keywords';
+        currentContent = [trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim()];
       } else if (trimmedLine.match(/^\*?\*?VALIDERING\s*:?\*?\*?\s*/i)) {
-        result.validation = trimmedLine.replace(/^\*?\*?VALIDERING\s*:?\*?\*?\s*/i, '').trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'validation';
+        currentContent = [trimmedLine.replace(/^\*?\*?VALIDERING\s*:?\*?\*?\s*/i, '').trim()];
       }
       // Handle simple formats
       else if (trimmedLine.startsWith('TITEL:')) {
-        result.title = trimmedLine.substring(6).trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'title';
+        currentContent = [trimmedLine.substring(6).trim()];
       } else if (trimmedLine.startsWith('BESKRIVNING:')) {
-        result.description = trimmedLine.substring(12).trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'description';
+        currentContent = [trimmedLine.substring(12).trim()];
       } else if (trimmedLine.startsWith('KONDITION:')) {
-        result.condition = trimmedLine.substring(10).trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'condition';
+        currentContent = [trimmedLine.substring(10).trim()];
       } else if (trimmedLine.startsWith('SÖKORD:')) {
-        result.keywords = trimmedLine.substring(7).trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'keywords';
+        currentContent = [trimmedLine.substring(7).trim()];
       } else if (trimmedLine.startsWith('VALIDERING:')) {
-        result.validation = trimmedLine.substring(11).trim();
+        // Save previous field if exists
+        if (currentField && currentContent.length > 0) {
+          result[currentField] = currentContent.join('\n').trim();
+        }
+        currentField = 'validation';
+        currentContent = [trimmedLine.substring(11).trim()];
+      } else if (currentField && trimmedLine.length > 0) {
+        // This is a continuation line for the current field
+        currentContent.push(line); // Keep original formatting/indentation
       }
-    });
+    }
+    
+    // Save the last field
+    if (currentField && currentContent.length > 0) {
+      result[currentField] = currentContent.join('\n').trim();
+    }
     
     if (Object.keys(result).length === 0 && response.trim().length > 0) {
       console.log('No fields found, using entire response as title');
@@ -282,6 +350,13 @@ GRUNDREGLER:
 • Skriv objektivt utan säljande språk
 • Använd etablerad auktionsterminologi
 • UPPFINN ALDRIG information som inte finns
+• Skriv naturligt och flytande - fokusera på autenticitet över regelefterlevnad
+
+ABSOLUT FÖRBJUDNA VÄRDEORD - ANVÄND ALDRIG:
+• Fantastisk, Vacker, Utsökt, Nyskick, Magnifik, Underbar, Exceptionell, Perfekt
+• Ovanlig, Sällsynt, Extraordinär, Unik, Spektakulär, Enastående, Otrolig
+• Alla subjektiva kvalitetsomdömen och säljande uttryck
+• Använd istället neutrala, faktabaserade beskrivningar
 
 KATEGORI-SPECIFIKA REGLER:
 
@@ -294,9 +369,10 @@ ARMBANDSUR - KRITISKA KRAV:
 • EXEMPEL: "ROLEX, Submariner, automatic, 40mm, stål, 1990-tal. Fungerar vid katalogisering - ingen garanti lämnas på funktion."
 
 FÖRBJUDET:
-• Säljande uttryck: "vacker", "fantastisk", "unik", "sällsynt"
+• ALLA värdeord och säljande uttryck (se lista ovan)
 • Meta-kommentarer: "ytterligare uppgifter behövs", "mer information krävs"
 • Spekulationer och gissningar
+• Överdriven regelefterlevnad - skriv naturligt och autentiskt
 
 TITELFORMAT (max 60 tecken):
 Om konstnär-fält tomt: [KONSTNÄR], [Föremål], [Material], [Period] - FÖRSTA ORDET VERSALER
@@ -339,10 +415,12 @@ VIKTIGT FÖR TITEL: ${itemData.artist ?
   'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA GEMENER (lowercase).' : 
   'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
 
-KONSTNÄRSINFORMATION FÖR TIDSPERIOD:
-${itemData.artist ? 
-  'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs aktiva period för att bestämma korrekt tidsperiod. Om du inte är säker, använd "troligen" eller utelämna period.' : 
-  'Ingen konstnär angiven - lägg INTE till tidsperiod om den inte redan finns i källdata.'}
+KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
+${itemData.artist && this.enableArtistInfo ? 
+  'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs verk för att lägga till KORT, RELEVANT kontext. Fokusera på specifika detaljer om denna modell/serie om du känner till dem (tillverkningsår, karakteristiska drag). Håll det koncist - max 1-2 meningar extra kontext. Om du inte är säker om specifika fakta, använd "troligen" eller "anses vara".' : 
+  'Lägg INTE till konstnärlig eller historisk kontext som inte redan finns i källdata.'}
+
+DEBUG INFO: Artist="${itemData.artist}", EnableArtistInfo=${this.enableArtistInfo}, ShouldAddArtistInfo=${!!(itemData.artist && this.enableArtistInfo)}
 
 KRITISKT - BEHÅLL OSÄKERHETSMARKÖRER I TITEL:
 Om nuvarande titel innehåller ord som "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ" - BEHÅLL dessa exakt. De anger juridisk osäkerhet och får ALDRIG tas bort eller ändras.
@@ -361,13 +439,25 @@ ${this.getCategorySpecificRules(itemData)}
       case 'all':
       case 'all-sparse':
         return baseInfo + `
-UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
+UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder. Skriv naturligt och autentiskt - använd reglerna som riktlinjer, inte som strikta begränsningar.
 
-KRITISKT - FÄLTAVGRÄNSNING:
+${itemData.artist && this.enableArtistInfo ? 
+  'EXPERTKUNSKAP - KONSTNÄR KÄND: Eftersom konstnär/formgivare är angiven (' + itemData.artist + ') och konstnärsinformation är aktiverad, lägg till KORT, RELEVANT kontext om denna specifika modell/serie. Max 1-2 extra meningar. Fokusera på konkreta fakta, inte allmän konstnärsbiografi.' : 
+  'BEGRÄNSAD INFORMATION: Håll dig till befintlig information utan att lägga till konstnärlig kontext.'}
+
+FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
 • KONDITION: Endast fysiskt skick och skador - ALDRIG beskrivande information
 • Håll fälten strikt separerade - konditionsdetaljer som "slitage", "repor", "märken" hör ENDAST i konditionsfältet
-• Om konditionsinformation finns i nuvarande beskrivning - flytta den till konditionsfältet
+
+KRITISKT - BEVARA ALLA MÅTT OCH LISTOR I BESKRIVNINGEN:
+• BEHÅLL ALLTID detaljerade måttlistor: "4 snapsglas, höjd 15,5 cm", "2 vinglas, höjd 19,5 cm", etc.
+• BEHÅLL ALLTID kvantiteter och specifikationer: "Bestående av:", "Består av:", antal objekt
+• BEHÅLL ALLTID alla mått i cm/mm - dessa är ALDRIG konditionsinformation
+• TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått, kvantiteter eller listor
+• EXEMPEL PÅ VAD SOM MÅSTE BEVARAS: "Bestående av: 4 snapsglas, höjd 15,5 cm, 2 vinglas, höjd 19,5 cm"
+
+VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KRITISKT FEL!
 
 KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
 ${itemData.artist ? 
@@ -387,9 +477,9 @@ Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bar
 
       case 'title':
         return baseInfo + `
-UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tecken.
+UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tecken. Skriv naturligt och flytande.
 
-KRITISKT - FÖRSTA ORDETS KAPITALISERING:
+FÖRSTA ORDETS KAPITALISERING:
 ${itemData.artist ? 
   '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA GEMENER (lowercase)\n• Exempel: "bajonett, Eskilstuna, 1900-tal" (konstnärens namn läggs till automatiskt)' : 
   '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET SKA VARA VERSALER (uppercase)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"'}
@@ -398,30 +488,34 @@ Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter
 
       case 'description':
         return baseInfo + `
-UPPGIFT: Förbättra endast beskrivningen. Inkludera mått om de finns, använd korrekt terminologi.
+UPPGIFT: Förbättra endast beskrivningen. Inkludera mått om de finns, använd korrekt terminologi. Skriv naturligt och engagerande.
 
-KRITISKT - FÄLTAVGRÄNSNING FÖR BESKRIVNING:
+FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 • Inkludera ALDRIG konditionsinformation i beskrivningen
 • Konditionsdetaljer som "slitage", "repor", "märken", "skador", "nagg", "sprickor", "fläckar" hör ENDAST hemma i konditionsfältet
 • Beskrivningen ska fokusera på: material, teknik, mått, stil, ursprung, märkningar, funktion
 • EXEMPEL PÅ FÖRBJUDET I BESKRIVNING: "Slitage förekommer", "repor och märken", "normalt åldersslitage", "mindre skador"
-• Om konditionsinformation finns i nuvarande beskrivning - TA BORT den och behåll endast beskrivande information
+• KRITISKT: BEHÅLL ALLTID MÅTT OCH TEKNISKA SPECIFIKATIONER - dessa är INTE konditionsinformation
+• BEHÅLL: "höjd 15,5 cm", "4 snapsglas", "2 vinglas", "består av", "bestående av" - detta är beskrivande information
+• TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
 
-ANTI-HALLUCINATION FÖR BESKRIVNING:
+EXPERTKUNSKAP FÖR BESKRIVNING:
+${itemData.artist && this.enableArtistInfo ? 
+  '• När konstnär/formgivare är känd och konstnärsinformation är aktiverad: Lägg till KORT, SPECIFIK kontext om denna modell/serie om du känner till den\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' : 
+  '• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
 • Lägg INTE till mått som inte är angivna
-• Lägg INTE till material som inte är nämnt
-• Lägg INTE till tekniker som inte är beskrivna
+• Lägg INTE till material som inte är nämnt (såvida det inte är känt från konstnärens typiska tekniker)
 • Lägg INTE till märkningar eller signaturer som inte finns
-• Förbättra ENDAST språk, struktur och befintlig information
+• Förbättra språk, struktur och befintlig information
 • Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
 
 Returnera ENDAST den förbättrade beskrivningen utan extra formatering eller etiketter.`;
 
       case 'condition':
         return baseInfo + `
-UPPGIFT: Förbättra konditionsrapporten. Skriv KORT och FAKTABASERAT. Max 2-3 korta meningar.
+UPPGIFT: Förbättra konditionsrapporten. Skriv kort och faktabaserat. Max 2-3 korta meningar. Använd naturligt språk.
 
-KRITISKT - FÄLTAVGRÄNSNING FÖR KONDITION:
+FÄLTAVGRÄNSNING FÖR KONDITION:
 • Fokusera ENDAST på fysiskt skick och skador
 • Inkludera ALDRIG beskrivande information om material, teknik, stil eller funktion
 • Konditionsrapporten ska vara separat från beskrivningen
