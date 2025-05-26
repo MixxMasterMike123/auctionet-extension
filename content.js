@@ -388,9 +388,9 @@ class AuctionetCatalogingAssistant {
   }
 
   analyzeQuality() {
-    console.log('analyzeQuality() called');
+    console.log('🔍 analyzeQuality() called');
     const data = this.extractItemData();
-    console.log('Extracted data for quality analysis:', data);
+    console.log('📊 Extracted data for quality analysis:', data);
     const warnings = [];
     let score = 100;
     
@@ -542,51 +542,32 @@ class AuctionetCatalogingAssistant {
   setupLiveQualityUpdates() {
     // Debounce function to prevent too frequent updates
     let updateTimeout;
-    const debouncedUpdate = () => {
+    const debouncedUpdate = (event) => {
       clearTimeout(updateTimeout);
       updateTimeout = setTimeout(() => {
-        console.log('Live quality update triggered');
+        console.log('⚡ Live quality update triggered by:', event?.target?.id || event?.target?.tagName || 'unknown field');
         this.analyzeQuality();
       }, 800); // Wait 800ms after user stops typing
     };
 
-    // Find all form fields that affect quality
+    // Use the exact same selectors as extractItemData()
     const fieldsToMonitor = [
-      // Title field
-      'input[name*="title"]',
-      'input[id*="title"]',
-      'input[name*="titel"]',
-      'input[id*="titel"]',
-      
-      // Description field  
-      'textarea[name*="description"]',
-      'textarea[id*="description"]',
-      'textarea[name*="beskrivning"]',
-      'textarea[id*="beskrivning"]',
-      
-      // Condition field
-      'textarea[name*="condition"]',
-      'textarea[id*="condition"]',
-      'textarea[name*="kondition"]',
-      'textarea[id*="kondition"]',
-      
-      // Keywords field
-      'input[name*="keyword"]',
-      'input[id*="keyword"]',
-      'input[name*="sökord"]',
-      'input[id*="sökord"]',
-      'textarea[name*="keyword"]',
-      'textarea[id*="keyword"]',
-      
-      // "Inga anmärkningar" checkbox
+      '#item_title_sv',
+      '#item_description_sv', 
+      '#item_condition_sv',
+      '#item_hidden_keywords',
       'input[type="checkbox"][value="Inga anmärkningar"]',
       'input[type="checkbox"]#item_no_remarks',
       'input[type="checkbox"][name*="no_remarks"]'
     ];
 
+    let monitoredCount = 0;
     fieldsToMonitor.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(element => {
+      const element = document.querySelector(selector);
+      if (element) {
+        console.log(`Setting up live monitoring for: ${selector}`);
+        monitoredCount++;
+        
         // Add event listeners for different input types
         if (element.type === 'checkbox') {
           element.addEventListener('change', debouncedUpdate);
@@ -595,17 +576,21 @@ class AuctionetCatalogingAssistant {
           element.addEventListener('paste', debouncedUpdate);
           element.addEventListener('keyup', debouncedUpdate);
         }
-      });
+      } else {
+        console.warn(`Field not found for live monitoring: ${selector}`);
+      }
     });
 
     // Also monitor for changes in rich text editors (if any)
     const richTextEditors = document.querySelectorAll('[contenteditable="true"]');
     richTextEditors.forEach(editor => {
+      console.log('Setting up live monitoring for rich text editor');
       editor.addEventListener('input', debouncedUpdate);
       editor.addEventListener('paste', debouncedUpdate);
+      monitoredCount++;
     });
 
-    console.log(`Live quality monitoring set up for ${fieldsToMonitor.length} field types`);
+    console.log(`Live quality monitoring set up for ${monitoredCount} fields`);
   }
 
   attachEventListeners() {
