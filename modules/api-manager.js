@@ -1,0 +1,331 @@
+// modules/api-manager.js - API Management Module
+import { CONFIG, getCurrentModel } from './config.js';
+
+export class APIManager {
+  constructor() {
+    this.apiKey = null;
+  }
+
+  async loadApiKey() {
+    try {
+      const result = await chrome.storage.sync.get(['anthropicApiKey', 'selectedModel']);
+      this.apiKey = result.anthropicApiKey;
+      
+      // Update model selection if stored
+      if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
+        CONFIG.CURRENT_MODEL = result.selectedModel;
+        console.log('Model loaded from storage:', CONFIG.MODELS[result.selectedModel].name);
+      }
+      
+      console.log('API key loaded from storage:', this.apiKey ? 'Found' : 'Not found');
+    } catch (error) {
+      console.error('Error loading API key:', error);
+      this.apiKey = null;
+    }
+  }
+
+  async callClaudeAPI(itemData, fieldType, retryCount = 0) {
+    if (!this.apiKey) {
+      throw new Error('API key not configured. Please set your Anthropic API key in the extension popup.');
+    }
+
+    const systemPrompt = this.getSystemPrompt();
+    const userPrompt = this.getUserPrompt(itemData, fieldType);
+
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiKey,
+          body: {
+            model: getCurrentModel().id,
+            max_tokens: CONFIG.API.maxTokens,
+            temperature: CONFIG.API.temperature,
+            system: systemPrompt,
+            messages: [{
+              role: 'user',
+              content: userPrompt
+            }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.success) {
+            resolve(response);
+          } else {
+            reject(new Error(response.error || 'API request failed'));
+          }
+        });
+      });
+      
+      return await this.processAPIResponse(response, systemPrompt, userPrompt, fieldType);
+      
+    } catch (error) {
+      if ((error.message.includes('Overloaded') || error.message.includes('rate limit') || error.message.includes('429')) && retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000;
+        console.log(`API overloaded, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.callClaudeAPI(itemData, fieldType, retryCount + 1);
+      }
+      
+      if (error.message.includes('Overloaded')) {
+        throw new Error('Claude API är överbelastad just nu. Vänta en stund och försök igen.');
+      }
+      
+      throw error;
+    }
+  }
+
+  async processAPIResponse(response, systemPrompt, userPrompt, fieldType) {
+    const data = response.data;
+    console.log('Received API response:', data);
+    
+    if (!data || !data.content || !Array.isArray(data.content) || data.content.length === 0) {
+      throw new Error('Invalid response format from API');
+    }
+    
+    if (!data.content[0] || !data.content[0].text) {
+      throw new Error('No text content in API response');
+    }
+    
+    let result = this.parseClaudeResponse(data.content[0].text, fieldType);
+    
+    if (result.needsCorrection && ['all', 'all-enhanced', 'all-sparse'].includes(fieldType)) {
+      const correctionPrompt = `
+De föregående förslagen klarade inte kvalitetskontrollen:
+Poäng: ${result.validationScore}/100
+
+FEL SOM MÅSTE RÄTTAS:
+${result.validationErrors.join('\n')}
+
+FÖRBÄTTRINGSFÖRSLAG:
+${result.validationWarnings.join('\n')}
+
+Vänligen korrigera dessa problem och returnera förbättrade versioner som följer alla svenska auktionsstandarder.
+`;
+      
+      const correctionResponse = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiKey,
+          body: {
+            model: getCurrentModel().id,
+            max_tokens: CONFIG.API.maxTokens,
+            temperature: CONFIG.API.temperature,
+            system: systemPrompt,
+            messages: [
+              { role: 'user', content: userPrompt },
+              { role: 'assistant', content: data.content[0].text },
+              { role: 'user', content: correctionPrompt }
+            ]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.success) {
+            resolve(response);
+          } else {
+            reject(new Error(response.error || 'API request failed'));
+          }
+        });
+      });
+      
+      if (correctionResponse.success) {
+        const correctionData = correctionResponse.data;
+        console.log('Received correction response:', correctionData);
+        
+        if (correctionData && correctionData.content && correctionData.content[0] && correctionData.content[0].text) {
+          result = this.parseClaudeResponse(correctionData.content[0].text, fieldType);
+        } else {
+          console.warn('Invalid correction response format, using original result');
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  parseClaudeResponse(response, fieldType) {
+    console.log('Parsing Claude response for fieldType:', fieldType, 'Response:', response);
+    
+    if (!response || typeof response !== 'string') {
+      console.error('Invalid response format:', response);
+      throw new Error('Invalid response format from Claude');
+    }
+    
+    // For single field requests
+    if (['title', 'description', 'condition', 'keywords'].includes(fieldType)) {
+      const result = {};
+      const lines = response.split('\n');
+      
+      lines.forEach(line => {
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine.match(/^\*?\*?TITEL\s*:?\*?\*?\s*/i)) {
+          result.title = trimmedLine.replace(/^\*?\*?TITEL\s*:?\*?\*?\s*/i, '').trim();
+        } else if (trimmedLine.match(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i)) {
+          result.description = trimmedLine.replace(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, '').trim();
+        } else if (trimmedLine.match(/^\*?\*?KONDITION\s*:?\*?\*?\s*/i)) {
+          result.condition = trimmedLine.replace(/^\*?\*?KONDITION\s*:?\*?\*?\s*/i, '').trim();
+        } else if (trimmedLine.match(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i)) {
+          result.keywords = trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim();
+        }
+      });
+      
+      if (Object.keys(result).length === 0) {
+        result[fieldType] = response.trim();
+      }
+      
+      console.log('Single field parsed result:', result);
+      return result;
+    }
+    
+    // Parse multi-field responses
+    const result = {};
+    const lines = response.split('\n');
+    
+    console.log('Parsing multi-field response, lines:', lines);
+    
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      
+      if (trimmedLine.match(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i)) {
+        result.title = trimmedLine.replace(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i, '').trim();
+      } else if (trimmedLine.match(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i)) {
+        result.description = trimmedLine.replace(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, '').trim();
+      } else if (trimmedLine.match(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i)) {
+        result.condition = trimmedLine.replace(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i, '').trim();
+      } else if (trimmedLine.match(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i)) {
+        result.keywords = trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim();
+      } else if (trimmedLine.match(/^\*?\*?VALIDERING\s*:?\*?\*?\s*/i)) {
+        result.validation = trimmedLine.replace(/^\*?\*?VALIDERING\s*:?\*?\*?\s*/i, '').trim();
+      }
+      // Handle simple formats
+      else if (trimmedLine.startsWith('TITEL:')) {
+        result.title = trimmedLine.substring(6).trim();
+      } else if (trimmedLine.startsWith('BESKRIVNING:')) {
+        result.description = trimmedLine.substring(12).trim();
+      } else if (trimmedLine.startsWith('KONDITION:')) {
+        result.condition = trimmedLine.substring(10).trim();
+      } else if (trimmedLine.startsWith('SÖKORD:')) {
+        result.keywords = trimmedLine.substring(7).trim();
+      } else if (trimmedLine.startsWith('VALIDERING:')) {
+        result.validation = trimmedLine.substring(11).trim();
+      }
+    });
+    
+    if (Object.keys(result).length === 0 && response.trim().length > 0) {
+      console.log('No fields found, using entire response as title');
+      result.title = response.trim();
+    }
+    
+    console.log('Multi-field parsed result:', result);
+    console.log('Fields found:', Object.keys(result));
+    return result;
+  }
+
+  getSystemPrompt() {
+    return `Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.
+
+GRUNDREGLER:
+• Använd endast verifierbara fakta
+• Skriv objektivt utan säljande språk
+• Använd etablerad auktionsterminologi
+• UPPFINN ALDRIG information som inte finns
+
+FÖRBJUDET:
+• Säljande uttryck: "vacker", "fantastisk", "unik", "sällsynt"
+• Meta-kommentarer: "ytterligare uppgifter behövs", "mer information krävs"
+• Spekulationer och gissningar
+
+TITELFORMAT (max 60 tecken):
+Om konstnär-fält tomt: [KONSTNÄR], [Föremål], [Material], [Period]
+Om konstnär-fält ifyllt: [Föremål], [Material], [Period]
+
+OSÄKERHETSMARKÖRER - BEHÅLL ALLTID:
+"troligen", "tillskriven", "efter", "stil av", "möjligen"
+
+KONDITION:
+Använd korta, faktabaserade termer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
+UPPFINN ALDRIG nya skador.
+
+ANTI-HALLUCINATION:
+• Förbättra ENDAST språk och struktur
+• Lägg INTE till material, mått, skador som inte är nämnda
+• Katalogtext ska vara FÄRDIG utan önskemål om mer data`;
+  }
+
+  getUserPrompt(itemData, fieldType) {
+    const baseInfo = `
+FÖREMÅLSINFORMATION:
+Kategori: ${itemData.category}
+Nuvarande titel: ${itemData.title}
+Nuvarande beskrivning: ${itemData.description}
+Kondition: ${itemData.condition}
+Konstnär/Formgivare: ${itemData.artist}
+Värdering: ${itemData.estimate} SEK
+
+VIKTIGT FÖR TITEL: ${itemData.artist ? 
+  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet.' : 
+  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt.'}
+
+KONSTNÄRSINFORMATION FÖR TIDSPERIOD:
+${itemData.artist ? 
+  'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs aktiva period för att bestämma korrekt tidsperiod. Om du inte är säker, använd "troligen" eller utelämna period.' : 
+  'Ingen konstnär angiven - lägg INTE till tidsperiod om den inte redan finns i källdata.'}
+
+KRITISKT - BEHÅLL OSÄKERHETSMARKÖRER I TITEL:
+Om nuvarande titel innehåller ord som "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ" - BEHÅLL dessa exakt. De anger juridisk osäkerhet och får ALDRIG tas bort eller ändras.
+
+ANTI-HALLUCINATION INSTRUKTIONER:
+• Lägg ALDRIG till information som inte finns i källdata
+• Uppfinn ALDRIG tidsperioder, material, mått eller skador
+• Förbättra ENDAST språk, struktur och terminologi
+• Om information saknas - utelämna eller använd osäkerhetsmarkörer
+`;
+
+    // Return field-specific prompts based on fieldType
+    switch(fieldType) {
+      case 'all':
+      case 'all-sparse':
+        return baseInfo + `
+UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
+
+Returnera EXAKT i detta format (en rad per fält):
+TITEL: [förbättrad titel]
+BESKRIVNING: [förbättrad beskrivning]
+KONDITION: [förbättrad konditionsrapport]
+SÖKORD: [relevanta sökord]
+
+Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
+
+      case 'title':
+        return baseInfo + `
+UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tecken.
+
+Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
+
+      case 'description':
+        return baseInfo + `
+UPPGIFT: Förbättra endast beskrivningen. Inkludera mått om de finns, använd korrekt terminologi.
+
+Returnera ENDAST den förbättrade beskrivningen utan extra formatering eller etiketter.`;
+
+      case 'condition':
+        return baseInfo + `
+UPPGIFT: Förbättra konditionsrapporten. Skriv KORT och FAKTABASERAT. Max 2-3 korta meningar.
+
+Returnera ENDAST den förbättrade konditionsrapporten utan extra formatering eller etiketter.`;
+
+      case 'keywords':
+        return baseInfo + `
+UPPGIFT: Generera HÖGKVALITATIVA dolda sökord. MAX 10-12 sökord totalt.
+
+Returnera ENDAST sökorden separerade med kommatecken, utan extra formatering eller etiketter.`;
+
+      default:
+        return baseInfo;
+    }
+  }
+} 

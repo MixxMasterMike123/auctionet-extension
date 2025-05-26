@@ -1,0 +1,47 @@
+# Chrome Extension specific
+*.crx
+*.pem
+key.pem
+
+# Development files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Dependency directories
+node_modules/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+
+# API keys (if accidentally committed)
+config/api-keys.js
+secrets.js
+
+# Build artifacts
+dist/
+build/ 
