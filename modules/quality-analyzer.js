@@ -11,13 +11,21 @@ export class QualityAnalyzer {
   // Helper method to check for measurements in Swedish format
   hasMeasurements(text) {
     const measurementPatterns = [
-      /\d+\s*×\s*\d+\s*×?\s*\d*\s*cm/i,                    // 122 × 45 × 135 cm
-      /\d+\s*x\s*\d+\s*x?\s*\d*\s*cm/i,                     // 122 x 45 x 135 cm  
-      /(längd|l\.?)\s*\d+\s*cm/i,                           // längd 122 cm
-      /(bredd|bred|djup|d\.?)\s*\d+\s*cm/i,                 // djup 45 cm
-      /(höjd|h\.?)\s*\d+\s*cm/i,                            // höjd 135 cm
-      /mått:.*\d+.*cm/i,                                    // Mått: ... cm
-      /\d+\s*cm.*\d+\s*cm/i                                 // Any two measurements with cm
+      // International formats with all units
+      /\d+\s*×\s*\d+\s*×?\s*\d*\s*(mm|cm|m)\b/i,           // 122 × 45 × 135 cm/mm/m
+      /\d+\s*x\s*\d+\s*x?\s*\d*\s*(mm|cm|m)\b/i,            // 122 x 45 x 135 cm/mm/m
+      
+      // Swedish terms with all units
+      /(längd|l\.?)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,        // längd 122 cm / längd 12.5 cm
+      /(bredd|bred|djup|d\.?)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // djup 45 mm
+      /(höjd|h\.?)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i,         // höjd 135 m
+      
+      // General measurement patterns
+      /mått:.*\d+([.,]\d+)?.*(mm|cm|m)\b/i,                 // Mått: ... 122 cm
+      /\d+([.,]\d+)?\s*(mm|cm|m)\b.*\d+([.,]\d+)?\s*(mm|cm|m)\b/i, // Any two measurements
+      
+      // Diameter patterns (common for round objects)
+      /(diameter|diam\.?|ø)\s*\d+([.,]\d+)?\s*(mm|cm|m)\b/i // diameter 25 cm
     ];
     
     return measurementPatterns.some(pattern => text.match(pattern));
