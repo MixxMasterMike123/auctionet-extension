@@ -134,6 +134,7 @@ class AuctionetCatalogingAssistant {
         <h4 class="quality-title">Katalogiseringskvalitet</h4>
         <div class="quality-score-container">
           <span class="quality-score">Analyserar...</span>
+          <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
         </div>
         <button class="ai-assist-button ai-master-button" type="button">⚡ Förbättra alla</button>
       </div>
@@ -174,6 +175,10 @@ class AuctionetCatalogingAssistant {
           margin-bottom: 12px;
           width: 100%;
           text-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
         }
         
         .quality-score {
@@ -186,6 +191,31 @@ class AuctionetCatalogingAssistant {
           text-align: center;
           box-shadow: 0 1px 3px rgba(0,0,0,0.1);
           transition: all 0.3s ease;
+        }
+        
+        .refresh-quality-btn {
+          background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+          color: white;
+          border: none;
+          border-radius: 50%;
+          width: 28px;
+          height: 28px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .refresh-quality-btn:hover {
+          background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+          transform: rotate(180deg) scale(1.1);
+        }
+        
+        .refresh-quality-btn:active {
+          transform: rotate(180deg) scale(0.95);
         }
         
         .quality-score.good { 
@@ -339,6 +369,20 @@ class AuctionetCatalogingAssistant {
     const sidebar = document.querySelector('.grid-col4');
     if (sidebar) {
       sidebar.insertBefore(indicator, sidebar.firstChild);
+      
+      // Add event listener for manual refresh button
+      const refreshButton = indicator.querySelector('.refresh-quality-btn');
+      if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+          console.log('Manual quality refresh triggered');
+          this.analyzeQuality();
+        });
+      }
+      
+      // Set up live quality monitoring
+      this.setupLiveQualityUpdates();
+      
+      // Initial quality analysis
       this.analyzeQuality();
     }
   }
@@ -468,16 +512,100 @@ class AuctionetCatalogingAssistant {
     const scoreElement = document.querySelector('.quality-score');
     const warningsElement = document.querySelector('.quality-warnings');
     
-    scoreElement.textContent = `${score}/100`;
-    scoreElement.className = `quality-score ${score >= 80 ? 'good' : score >= 60 ? 'medium' : 'poor'}`;
-    
-    if (warnings.length > 0) {
-      warningsElement.innerHTML = '<ul>' + 
-        warnings.map(w => `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`).join('') +
-        '</ul>';
-    } else {
-      warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
+    if (scoreElement) {
+      // Add smooth transition effect for score changes
+      const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
+      const newScore = score;
+      
+      if (currentScore !== newScore) {
+        scoreElement.style.transform = 'scale(1.1)';
+        setTimeout(() => {
+          scoreElement.style.transform = 'scale(1)';
+        }, 200);
+      }
+      
+      scoreElement.textContent = `${score}/100`;
+      scoreElement.className = `quality-score ${score >= 80 ? 'good' : score >= 60 ? 'medium' : 'poor'}`;
     }
+    
+    if (warningsElement) {
+      if (warnings.length > 0) {
+        warningsElement.innerHTML = '<ul>' + 
+          warnings.map(w => `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`).join('') +
+          '</ul>';
+      } else {
+        warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
+      }
+    }
+  }
+
+  setupLiveQualityUpdates() {
+    // Debounce function to prevent too frequent updates
+    let updateTimeout;
+    const debouncedUpdate = () => {
+      clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(() => {
+        console.log('Live quality update triggered');
+        this.analyzeQuality();
+      }, 800); // Wait 800ms after user stops typing
+    };
+
+    // Find all form fields that affect quality
+    const fieldsToMonitor = [
+      // Title field
+      'input[name*="title"]',
+      'input[id*="title"]',
+      'input[name*="titel"]',
+      'input[id*="titel"]',
+      
+      // Description field  
+      'textarea[name*="description"]',
+      'textarea[id*="description"]',
+      'textarea[name*="beskrivning"]',
+      'textarea[id*="beskrivning"]',
+      
+      // Condition field
+      'textarea[name*="condition"]',
+      'textarea[id*="condition"]',
+      'textarea[name*="kondition"]',
+      'textarea[id*="kondition"]',
+      
+      // Keywords field
+      'input[name*="keyword"]',
+      'input[id*="keyword"]',
+      'input[name*="sökord"]',
+      'input[id*="sökord"]',
+      'textarea[name*="keyword"]',
+      'textarea[id*="keyword"]',
+      
+      // "Inga anmärkningar" checkbox
+      'input[type="checkbox"][value="Inga anmärkningar"]',
+      'input[type="checkbox"]#item_no_remarks',
+      'input[type="checkbox"][name*="no_remarks"]'
+    ];
+
+    fieldsToMonitor.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(element => {
+        // Add event listeners for different input types
+        if (element.type === 'checkbox') {
+          element.addEventListener('change', debouncedUpdate);
+        } else {
+          element.addEventListener('input', debouncedUpdate);
+          element.addEventListener('paste', debouncedUpdate);
+          element.addEventListener('keyup', debouncedUpdate);
+        }
+      });
+    });
+
+    // Also monitor for changes in rich text editors (if any)
+    const richTextEditors = document.querySelectorAll('[contenteditable="true"]');
+    richTextEditors.forEach(editor => {
+      editor.addEventListener('input', debouncedUpdate);
+      editor.addEventListener('paste', debouncedUpdate);
+    });
+
+    console.log(`Live quality monitoring set up for ${fieldsToMonitor.length} field types`);
   }
 
   attachEventListeners() {
