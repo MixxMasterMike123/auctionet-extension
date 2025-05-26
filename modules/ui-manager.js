@@ -112,37 +112,12 @@ export class UIManager {
   getStylesCSS() {
     return `
       .quality-indicator {
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 249, 250, 0.8) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 20px;
-        padding: 24px;
-        margin-bottom: 24px;
-        backdrop-filter: blur(20px);
-        box-shadow: 
-          0 8px 32px rgba(0, 0, 0, 0.08),
-          0 4px 16px rgba(0, 0, 0, 0.04),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .quality-indicator::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: linear-gradient(90deg, transparent 0%, rgba(0, 123, 255, 0.3) 50%, transparent 100%);
-      }
-      
-      .quality-indicator:hover {
-        transform: translateY(-2px);
-        box-shadow: 
-          0 12px 40px rgba(0, 0, 0, 0.12),
-          0 6px 20px rgba(0, 0, 0, 0.06),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
       
       .quality-header {
@@ -224,43 +199,22 @@ export class UIManager {
       
       .ai-master-button {
         width: 100%;
-        padding: 12px 20px;
+        padding: 8px 16px;
         font-size: 14px;
         font-weight: 600;
-        background: linear-gradient(145deg, #28a745 0%, #20c997 100%);
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         color: white;
         border: none;
-        border-radius: 12px;
+        border-radius: 6px;
         cursor: pointer;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 
-          0 4px 16px rgba(40, 167, 69, 0.25),
-          0 2px 8px rgba(40, 167, 69, 0.15);
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .ai-master-button::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
-        transition: left 0.6s ease;
-      }
-      
-      .ai-master-button:hover::before {
-        left: 100%;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
       }
       
       .ai-master-button:hover {
-        background: linear-gradient(145deg, #218838 0%, #1e7e34 100%);
-        transform: translateY(-2px) scale(1.02);
-        box-shadow: 
-          0 8px 24px rgba(40, 167, 69, 0.35),
-          0 4px 12px rgba(40, 167, 69, 0.25);
+        background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
       }
       
       .ai-button-wrapper {
@@ -272,43 +226,22 @@ export class UIManager {
       }
       
       .ai-assist-button {
-        background: linear-gradient(145deg, #007bff 0%, #0056b3 100%);
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
         color: white;
         border: none;
-        padding: 8px 16px;
-        border-radius: 10px;
+        padding: 6px 12px;
+        border-radius: 4px;
         font-size: 12px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 
-          0 3px 8px rgba(0, 123, 255, 0.25),
-          0 1px 4px rgba(0, 123, 255, 0.15);
-        position: relative;
-        overflow: hidden;
-      }
-      
-      .ai-assist-button::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%);
-        transition: left 0.5s ease;
-      }
-      
-      .ai-assist-button:hover::before {
-        left: 100%;
+        box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
       }
       
       .ai-assist-button:hover {
-        background: linear-gradient(145deg, #0056b3 0%, #004085 100%);
-        transform: translateY(-1px) scale(1.05);
-        box-shadow: 
-          0 6px 16px rgba(0, 123, 255, 0.35),
-          0 3px 8px rgba(0, 123, 255, 0.25);
+        background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 6px rgba(0, 123, 255, 0.4);
       }
       
       .ai-undo-button {
@@ -345,138 +278,11 @@ export class UIManager {
         overflow-y: hidden;
       }
       
-      /* 2025 Modern Field Styling */
-      input[type="text"], 
-      input[type="email"], 
-      input[type="number"], 
-      textarea, 
-      select {
-        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%) !important;
-        border: 2px solid transparent !important;
-        border-radius: 12px !important;
-        padding: 12px 16px !important;
-        font-size: 14px !important;
-        font-weight: 400 !important;
-        color: #2c3e50 !important;
-        box-shadow: 
-          0 2px 8px rgba(0, 0, 0, 0.04),
-          0 1px 3px rgba(0, 0, 0, 0.08),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        backdrop-filter: blur(10px) !important;
-        position: relative !important;
-      }
-      
-      /* Focus states with modern glow */
-      input[type="text"]:focus, 
-      input[type="email"]:focus, 
-      input[type="number"]:focus, 
-      textarea:focus, 
-      select:focus {
-        outline: none !important;
-        border: 2px solid #007bff !important;
-        background: linear-gradient(145deg, #ffffff 0%, #f0f8ff 100%) !important;
-        box-shadow: 
-          0 0 0 4px rgba(0, 123, 255, 0.1),
-          0 4px 16px rgba(0, 123, 255, 0.15),
-          0 2px 8px rgba(0, 0, 0, 0.08),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
-        transform: translateY(-1px) !important;
-      }
-      
-      /* Hover states */
-      input[type="text"]:hover:not(:focus), 
-      input[type="email"]:hover:not(:focus), 
-      input[type="number"]:hover:not(:focus), 
-      textarea:hover:not(:focus), 
-      select:hover:not(:focus) {
-        border: 2px solid #e9ecef !important;
-        box-shadow: 
-          0 4px 12px rgba(0, 0, 0, 0.06),
-          0 2px 6px rgba(0, 0, 0, 0.1),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
-        transform: translateY(-0.5px) !important;
-      }
-      
-      /* Labels with modern typography */
-      label {
-        font-weight: 600 !important;
-        color: #374151 !important;
-        font-size: 13px !important;
-        letter-spacing: 0.025em !important;
-        margin-bottom: 8px !important;
-        display: block !important;
-      }
-      
-      /* Modern button styling for form buttons */
-      .btn, button:not(.ai-assist-button):not(.ai-master-button):not(.refresh-quality-btn):not(.ai-undo-button) {
-        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%) !important;
-        border: 2px solid #e9ecef !important;
-        border-radius: 10px !important;
-        padding: 10px 20px !important;
-        font-weight: 500 !important;
-        color: #495057 !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 
-          0 2px 6px rgba(0, 0, 0, 0.04),
-          0 1px 3px rgba(0, 0, 0, 0.08) !important;
-      }
-      
-      .btn:hover, button:not(.ai-assist-button):not(.ai-master-button):not(.refresh-quality-btn):not(.ai-undo-button):hover {
-        border: 2px solid #007bff !important;
-        background: linear-gradient(145deg, #f0f8ff 0%, #ffffff 100%) !important;
-        transform: translateY(-1px) !important;
-        box-shadow: 
-          0 4px 12px rgba(0, 123, 255, 0.15),
-          0 2px 6px rgba(0, 0, 0, 0.1) !important;
-      }
-      
-      /* Primary buttons */
-      .btn-primary {
-        background: linear-gradient(145deg, #007bff 0%, #0056b3 100%) !important;
-        border: 2px solid transparent !important;
-        color: white !important;
-      }
-      
-      .btn-primary:hover {
-        background: linear-gradient(145deg, #0056b3 0%, #004085 100%) !important;
-        border: 2px solid transparent !important;
-        color: white !important;
-      }
-      
-      /* Success buttons */
-      .btn-success {
-        background: linear-gradient(145deg, #28a745 0%, #20c997 100%) !important;
-        border: 2px solid transparent !important;
-        color: white !important;
-      }
-      
-      .btn-success:hover {
-        background: linear-gradient(145deg, #218838 0%, #1e7e34 100%) !important;
-        border: 2px solid transparent !important;
-        color: white !important;
-      }
-      
-      /* Modern card styling for form sections */
-      .form-group, .field-group, .control-group {
-        background: rgba(255, 255, 255, 0.7) !important;
-        border-radius: 16px !important;
-        padding: 20px !important;
-        margin-bottom: 20px !important;
-        backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        box-shadow: 
-          0 4px 16px rgba(0, 0, 0, 0.04),
-          0 2px 8px rgba(0, 0, 0, 0.06) !important;
-      }
+
       
       /* Smooth resize animation enhancement */
       .auto-resize.resizing {
-        transition: height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-        box-shadow: 
-          0 0 0 3px rgba(0, 123, 255, 0.1),
-          0 4px 16px rgba(0, 123, 255, 0.1),
-          0 2px 8px rgba(0, 0, 0, 0.08) !important;
+        transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
       }
     `;
   }
