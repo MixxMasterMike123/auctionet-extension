@@ -240,8 +240,8 @@ FÖRBJUDET:
 • Spekulationer och gissningar
 
 TITELFORMAT (max 60 tecken):
-Om konstnär-fält tomt: [KONSTNÄR], [Föremål], [Material], [Period]
-Om konstnär-fält ifyllt: [Föremål], [Material], [Period]
+Om konstnär-fält tomt: [KONSTNÄR], [Föremål], [Material], [Period] - FÖRSTA ORDET VERSALER
+Om konstnär-fält ifyllt: [föremål], [Material], [Period] - FÖRSTA ORDET GEMENER (konstnärens namn läggs till automatiskt)
 
 OSÄKERHETSMARKÖRER - BEHÅLL ALLTID:
 "troligen", "tillskriven", "efter", "stil av", "möjligen"
@@ -272,8 +272,8 @@ Konstnär/Formgivare: ${itemData.artist}
 Värdering: ${itemData.estimate} SEK
 
 VIKTIGT FÖR TITEL: ${itemData.artist ? 
-  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet.' : 
-  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt.'}
+  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA GEMENER (lowercase).' : 
+  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
 
 KONSTNÄRSINFORMATION FÖR TIDSPERIOD:
 ${itemData.artist ? 
@@ -303,6 +303,11 @@ KRITISKT - FÄLTAVGRÄNSNING:
 • Håll fälten strikt separerade - konditionsdetaljer som "slitage", "repor", "märken" hör ENDAST i konditionsfältet
 • Om konditionsinformation finns i nuvarande beskrivning - flytta den till konditionsfältet
 
+KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
+${itemData.artist ? 
+  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET I TITEL SKA VARA GEMENER (lowercase)' : 
+  '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
+
 Returnera EXAKT i detta format (en rad per fält):
 TITEL: [förbättrad titel]
 BESKRIVNING: [förbättrad beskrivning utan konditionsinformation]
@@ -317,6 +322,11 @@ Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bar
       case 'title':
         return baseInfo + `
 UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tecken.
+
+KRITISKT - FÖRSTA ORDETS KAPITALISERING:
+${itemData.artist ? 
+  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA GEMENER (lowercase)\n• Exempel: "bajonett, Eskilstuna, 1900-tal" (konstnärens namn läggs till automatiskt)' : 
+  '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET SKA VARA VERSALER (uppercase)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"'}
 
 Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
 
