@@ -38,6 +38,9 @@ export class UIManager {
     // Add master "Improve All" button
     this.addQualityIndicator();
     this.injectStyles();
+    
+    // Setup auto-resize for all textareas
+    this.setupAutoResizeForAllTextareas();
   }
 
   addAIButton(field, type, buttonText) {
@@ -260,6 +263,20 @@ export class UIManager {
         border: 2px solid #28a745 !important;
         transition: all 0.3s ease;
       }
+      
+      /* Auto-resize textarea styling */
+      textarea.auto-resize {
+        resize: vertical;
+        min-height: 60px;
+        max-height: 400px;
+        transition: height 0.2s ease;
+        overflow-y: auto;
+      }
+      
+      /* Ensure textarea doesn't show scrollbars when auto-resizing */
+      textarea.auto-resize:not(:focus) {
+        overflow-y: hidden;
+      }
     `;
   }
 
@@ -285,6 +302,14 @@ export class UIManager {
       // Apply new value with animation
       field.classList.add('ai-updated');
       field.value = finalValue;
+      
+      // Auto-resize textarea if needed (especially for description)
+      if (field.tagName.toLowerCase() === 'textarea') {
+        // Use setTimeout to ensure the value is fully applied before resizing
+        setTimeout(() => {
+          this.autoResizeTextarea(field);
+        }, 50);
+      }
       
       // Trigger change event
       field.dispatchEvent(new Event('change', { bubbles: true }));
@@ -334,6 +359,76 @@ export class UIManager {
     });
     
     field.parentElement.appendChild(undoButton);
+  }
+
+  autoResizeTextarea(textarea) {
+    if (!textarea || textarea.tagName.toLowerCase() !== 'textarea') {
+      return;
+    }
+    
+    console.log('🔧 Auto-resizing textarea:', textarea.id);
+    
+    // Reset height to auto to get the correct scrollHeight
+    const originalHeight = textarea.style.height;
+    textarea.style.height = 'auto';
+    
+    // Calculate the required height
+    const scrollHeight = textarea.scrollHeight;
+    const minHeight = 60; // Minimum height in pixels
+    const maxHeight = 400; // Maximum height in pixels
+    
+    // Set the new height
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, scrollHeight));
+    textarea.style.height = newHeight + 'px';
+    
+    console.log(`📏 Textarea resized from ${originalHeight} to ${newHeight}px (scroll: ${scrollHeight}px)`);
+    
+    // Add smooth transition if not already present
+    if (!textarea.style.transition) {
+      textarea.style.transition = 'height 0.2s ease';
+    }
+  }
+
+  setupAutoResizeForAllTextareas() {
+    console.log('🔧 Setting up auto-resize for all textareas...');
+    
+    const textareas = document.querySelectorAll('textarea');
+    let setupCount = 0;
+    
+    textareas.forEach(textarea => {
+      // Add CSS class for styling
+      textarea.classList.add('auto-resize');
+      
+      // Set up auto-resize on input
+      const autoResizeHandler = () => {
+        this.autoResizeTextarea(textarea);
+      };
+      
+      // Add event listeners
+      textarea.addEventListener('input', autoResizeHandler);
+      textarea.addEventListener('paste', autoResizeHandler);
+      textarea.addEventListener('keyup', autoResizeHandler);
+      
+      // Also resize on focus to handle cases where content was added programmatically
+      textarea.addEventListener('focus', autoResizeHandler);
+      
+      // Initial resize to fit existing content
+      this.autoResizeTextarea(textarea);
+      
+      setupCount++;
+      console.log(`✅ Auto-resize setup for textarea: ${textarea.id || textarea.name || 'unnamed'}`);
+    });
+    
+    console.log(`🎯 Auto-resize setup complete for ${setupCount} textareas`);
+  }
+
+  // Method to manually trigger resize for all textareas (useful after programmatic changes)
+  resizeAllTextareas() {
+    const textareas = document.querySelectorAll('textarea.auto-resize');
+    textareas.forEach(textarea => {
+      this.autoResizeTextarea(textarea);
+    });
+    console.log(`🔄 Manual resize triggered for ${textareas.length} textareas`);
   }
 
 
