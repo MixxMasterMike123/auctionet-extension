@@ -380,7 +380,9 @@ class AuctionetCatalogingAssistant {
       }
       
       // Set up live quality monitoring
+      console.log('🚀 Setting up live quality monitoring...');
       this.setupLiveQualityUpdates();
+      console.log('✅ Live quality monitoring setup complete');
       
       // Initial quality analysis
       this.analyzeQuality();
@@ -571,11 +573,18 @@ class AuctionetCatalogingAssistant {
         // Add event listeners for different input types
         if (element.type === 'checkbox') {
           element.addEventListener('change', debouncedUpdate);
+          console.log(`✅ Added 'change' listener to checkbox: ${selector}`);
         } else {
           element.addEventListener('input', debouncedUpdate);
           element.addEventListener('paste', debouncedUpdate);
           element.addEventListener('keyup', debouncedUpdate);
+          console.log(`✅ Added 'input', 'paste', 'keyup' listeners to: ${selector}`);
         }
+        
+        // Test immediate trigger
+        element.addEventListener('focus', () => {
+          console.log(`🎯 Field focused: ${selector}`);
+        });
       } else {
         console.warn(`Field not found for live monitoring: ${selector}`);
       }
@@ -590,7 +599,14 @@ class AuctionetCatalogingAssistant {
       monitoredCount++;
     });
 
-    console.log(`Live quality monitoring set up for ${monitoredCount} fields`);
+    console.log(`🎯 Live quality monitoring set up for ${monitoredCount} fields`);
+    
+    // Test if fields exist right now
+    console.log('🔍 Field existence check:');
+    console.log('Title field:', document.querySelector('#item_title_sv'));
+    console.log('Description field:', document.querySelector('#item_description_sv'));
+    console.log('Condition field:', document.querySelector('#item_condition_sv'));
+    console.log('Keywords field:', document.querySelector('#item_hidden_keywords'));
   }
 
   attachEventListeners() {
