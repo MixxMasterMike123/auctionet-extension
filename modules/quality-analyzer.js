@@ -60,6 +60,27 @@ export class QualityAnalyzer {
       return null; // Title too short to contain artist
     }
 
+    // PRIORITY CHECK: Artist name incorrectly placed at beginning of title in ALL CAPS
+    // Pattern: "FIRSTNAME LASTNAME. Rest of title..." or "FIRSTNAME MIDDLE LASTNAME. Rest of title..."
+    const allCapsArtistPattern = /^([A-ZÅÄÖÜ\s]{4,40})\.\s+(.+)/;
+    const allCapsMatch = title.match(allCapsArtistPattern);
+    
+    if (allCapsMatch) {
+      const [, potentialArtist, restOfTitle] = allCapsMatch;
+      const cleanArtist = potentialArtist.trim();
+      
+      // Check if it looks like a person's name
+      if (this.looksLikePersonName(cleanArtist)) {
+        return {
+          detectedArtist: cleanArtist,
+          suggestedTitle: restOfTitle.trim(),
+          confidence: 0.9, // High confidence for this clear pattern
+          errorType: 'artist_in_title_caps',
+          message: `Konstnärens namn "${cleanArtist}" bör flyttas från titeln till konstnärsfältet`
+        };
+      }
+    }
+
     // Common Swedish auction title patterns where artist might be misplaced
     const patterns = [
       // Malformed quotes with company: OBJEKT, details, "Title, Firstname Lastname Company (missing closing quote) - MOVED UP for priority
@@ -282,12 +303,22 @@ export class QualityAnalyzer {
     // Check for potential misplaced artist in title
     const misplacedArtist = this.detectMisplacedArtist(data.title, data.artist);
     if (misplacedArtist) {
+      let warningMessage;
+      let severity = 'medium';
+      
+      if (misplacedArtist.errorType === 'artist_in_title_caps') {
+        warningMessage = `FELAKTIG PLACERING: "${misplacedArtist.detectedArtist}" ska flyttas till konstnärsfältet. Föreslaget titel: "${misplacedArtist.suggestedTitle}"`;
+        severity = 'high'; // This is a clear error, not just a suggestion
+      } else {
+        warningMessage = `Möjlig konstnär upptäckt: "${misplacedArtist.detectedArtist}" - kontrollera om den ska flyttas till konstnärsfält`;
+      }
+      
       warnings.push({ 
         field: 'Titel', 
-        issue: `Möjlig konstnär upptäckt: "${misplacedArtist.detectedArtist}" - kontrollera om den ska flyttas till konstnärsfält`, 
-        severity: 'medium' 
+        issue: warningMessage, 
+        severity: severity 
       });
-      score -= 10;
+      score -= (severity === 'high' ? 20 : 10);
     }
 
     // Check title capitalization based on artist field
