@@ -100,8 +100,13 @@
         const checkboxSelectors = [
           'input[type="checkbox"][value="Inga anmärkningar"]',
           'input[type="checkbox"]#item_no_remarks',
-          'input[type="checkbox"][name*="no_remarks"]'
+          'input[type="checkbox"][name*="no_remarks"]',
+          'input[type="checkbox"][name*="anmärkningar"]',
+          'input[type="checkbox"][id*="anmärkningar"]',
+          'input[type="checkbox"][class*="anmärkningar"]'
         ];
+        
+        console.log('🔍 Setting up "Inga anmärkningar" checkbox listeners...');
         
         checkboxSelectors.forEach(selector => {
           const checkbox = document.querySelector(selector);
@@ -114,13 +119,33 @@
           }
         });
         
+        // Fallback: search for any checkbox with "Inga anmärkningar" text nearby
+        const allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
+        console.log(`🔍 Fallback: Setting up listeners for ${allCheckboxes.length} checkboxes...`);
+        
+        allCheckboxes.forEach(checkbox => {
+          const parent = checkbox.parentElement;
+          const textContent = parent ? parent.textContent : '';
+          if (textContent.includes('Inga anmärkningar') || textContent.includes('anmärkningar')) {
+            console.log('✅ Found checkbox by text content, setting up listener');
+            checkbox.addEventListener('change', () => {
+              console.log('📋 "Inga anmärkningar" checkbox (by text) changed:', checkbox.checked);
+              this.updateConditionButtonState();
+            });
+          }
+        });
+        
         // Initial button state update
         this.updateConditionButtonState();
       }
 
       updateConditionButtonState() {
+        console.log('🔄 Updating condition button state...');
         const isNoRemarksChecked = this.isNoRemarksChecked();
+        console.log('📋 isNoRemarksChecked result:', isNoRemarksChecked);
+        
         const conditionButton = document.querySelector('[data-field-type="condition"]');
+        console.log('🔍 Condition button found:', !!conditionButton);
         
         if (conditionButton) {
           if (isNoRemarksChecked) {
@@ -128,31 +153,25 @@
             conditionButton.style.opacity = '0.5';
             conditionButton.style.cursor = 'not-allowed';
             conditionButton.title = 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat';
-            console.log('🚫 Condition button disabled - "Inga anmärkningar" is checked');
+            console.log('🚫 Condition button DISABLED - "Inga anmärkningar" is checked');
           } else {
             conditionButton.disabled = false;
             conditionButton.style.opacity = '1';
             conditionButton.style.cursor = 'pointer';
             conditionButton.title = 'AI-förbättra kondition';
-            console.log('✅ Condition button enabled - "Inga anmärkningar" is not checked');
+            console.log('✅ Condition button ENABLED - "Inga anmärkningar" is not checked');
+          }
+        } else {
+          console.warn('❌ Condition button not found! Selector: [data-field-type="condition"]');
+          // Try alternative selectors
+          const altButton = document.querySelector('.ai-assist-button:contains("kondition")') || 
+                           document.querySelector('button:contains("AI-förbättra kondition")');
+          if (altButton) {
+            console.log('✅ Found condition button with alternative selector');
+          } else {
+            console.warn('❌ No condition button found with any selector');
           }
         }
-      }
-
-      isNoRemarksChecked() {
-        const checkboxSelectors = [
-          'input[type="checkbox"][value="Inga anmärkningar"]',
-          'input[type="checkbox"]#item_no_remarks',
-          'input[type="checkbox"][name*="no_remarks"]'
-        ];
-        
-        for (const selector of checkboxSelectors) {
-          const checkbox = document.querySelector(selector);
-          if (checkbox && checkbox.checked) {
-            return true;
-          }
-        }
-        return false;
       }
 
       attachEventListeners() {
