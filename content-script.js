@@ -98,9 +98,12 @@
 
       setupNoRemarksCheckboxListener() {
         const checkboxSelectors = [
-          'input[type="checkbox"][value="Inga anmärkningar"]',
-          'input[type="checkbox"]#item_no_remarks',
-          'input[type="checkbox"][name*="no_remarks"]',
+          '#item_no_remarks',  // Most specific - the actual ID
+          'input[name="item[no_remarks]"]',  // By name attribute
+          '.js-item-form-no-remarks',  // By class
+          'input[type="checkbox"][value="Inga anmärkningar"]',  // Old fallback
+          'input[type="checkbox"]#item_no_remarks',  // Old fallback
+          'input[type="checkbox"][name*="no_remarks"]',  // Partial name match
           'input[type="checkbox"][name*="anmärkningar"]',
           'input[type="checkbox"][id*="anmärkningar"]',
           'input[type="checkbox"][class*="anmärkningar"]'
@@ -111,7 +114,14 @@
         checkboxSelectors.forEach(selector => {
           const checkbox = document.querySelector(selector);
           if (checkbox) {
-            console.log('✅ Found "Inga anmärkningar" checkbox, setting up listener');
+            console.log(`✅ Found "Inga anmärkningar" checkbox with selector: ${selector}`);
+            console.log('📋 Checkbox details:', {
+              checked: checkbox.checked,
+              value: checkbox.value,
+              name: checkbox.name,
+              id: checkbox.id,
+              className: checkbox.className
+            });
             checkbox.addEventListener('change', () => {
               console.log('📋 "Inga anmärkningar" checkbox changed:', checkbox.checked);
               this.updateConditionButtonState();
@@ -780,6 +790,65 @@
             indicator.remove();
           }
         }, 5000);
+      }
+
+      isNoRemarksChecked() {
+        const checkboxSelectors = [
+          '#item_no_remarks',  // Most specific - the actual ID
+          'input[name="item[no_remarks]"]',  // By name attribute
+          '.js-item-form-no-remarks',  // By class
+          'input[type="checkbox"][value="Inga anmärkningar"]',  // Old fallback
+          'input[type="checkbox"]#item_no_remarks',  // Old fallback
+          'input[type="checkbox"][name*="no_remarks"]',  // Partial name match
+          'input[type="checkbox"][name*="anmärkningar"]',
+          'input[type="checkbox"][id*="anmärkningar"]',
+          'input[type="checkbox"][class*="anmärkningar"]'
+        ];
+        
+        console.log('🔍 Checking for "Inga anmärkningar" checkbox...');
+        
+        for (const selector of checkboxSelectors) {
+          const checkbox = document.querySelector(selector);
+          if (checkbox) {
+            console.log(`✅ Found checkbox with selector: ${selector}`);
+            console.log('📋 Checkbox details:', {
+              checked: checkbox.checked,
+              value: checkbox.value,
+              name: checkbox.name,
+              id: checkbox.id,
+              className: checkbox.className
+            });
+            if (checkbox.checked) {
+              console.log('🚫 "Inga anmärkningar" is CHECKED - should disable condition button');
+              return true;
+            }
+          }
+        }
+        
+        // Fallback: search for any checkbox with "Inga anmärkningar" text nearby
+        const allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
+        console.log(`🔍 Fallback: Checking ${allCheckboxes.length} checkboxes for "Inga anmärkningar" text...`);
+        
+        for (const checkbox of allCheckboxes) {
+          const parent = checkbox.parentElement;
+          const textContent = parent ? parent.textContent : '';
+          if (textContent.includes('Inga anmärkningar') || textContent.includes('anmärkningar')) {
+            console.log('✅ Found checkbox by text content:', {
+              checked: checkbox.checked,
+              textContent: textContent.trim(),
+              value: checkbox.value,
+              name: checkbox.name,
+              id: checkbox.id
+            });
+            if (checkbox.checked) {
+              console.log('🚫 "Inga anmärkningar" checkbox found by text and is CHECKED');
+              return true;
+            }
+          }
+        }
+        
+        console.log('✅ "Inga anmärkningar" is NOT checked - condition button should be enabled');
+        return false;
       }
     }
 
