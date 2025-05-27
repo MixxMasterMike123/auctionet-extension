@@ -62,6 +62,12 @@ export class QualityAnalyzer {
 
     // Common Swedish auction title patterns where artist might be misplaced
     const patterns = [
+      // Malformed quotes with company: OBJEKT, details, "Title, Firstname Lastname Company (missing closing quote) - MOVED UP for priority
+      /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)\s+(?:Ikea|IKEA|Svenskt\s+Tenn|Lammhults|Källemo|Norrlands\s+Möbler|Bruno\s+Mathsson|Carl\s+Malmsten|Kosta\s+Boda|Orrefors|Gustavsberg|Artek|Iittala|Arabia)/i,
+      
+      // General malformed pattern: OBJEKT, details, "Title, Firstname Lastname (no closing quote) - MOVED UP for priority
+      /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)(?:\s+[A-ZÅÄÖÜ][a-zåäöü]+)?/i,
+      
       // OBJEKT, Firstname Lastname, "Title", details
       /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*"([^"]+)"/i,
       
@@ -99,13 +105,7 @@ export class QualityAnalyzer {
       /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*([^,]+)/i,
       
       // OBJEKT, Lastname Firstname, details
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // Malformed quotes with company: OBJEKT, details, "Title, Firstname Lastname Company (missing closing quote)
-      /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)\s+(?:Ikea|IKEA|Svenskt\s+Tenn|Lammhults|Källemo|Norrlands\s+Möbler|Bruno\s+Mathsson|Carl\s+Malmsten|Kosta\s+Boda|Orrefors|Gustavsberg|Artek|Iittala|Arabia)/i,
-      
-      // General malformed pattern: OBJEKT, details, "Title, Firstname Lastname (no closing quote)
-      /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)(?:\s+[A-ZÅÄÖÜ][a-zåäöü]+)?/i
+      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i
     ];
 
     for (const pattern of patterns) {
@@ -208,7 +208,10 @@ export class QualityAnalyzer {
     // Check individual words against common non-name terms
     const nonNameWords = [
       'Stockholm', 'Göteborg', 'Malmö', 'Gustavsberg', 'Rörstrand', 'Orrefors', 
-      'Kosta', 'Arabia', 'Royal', 'Napoleon', 'Gustav', 'Carl', 'Louis', 'Empire'
+      'Kosta', 'Arabia', 'Royal', 'Napoleon', 'Gustav', 'Carl', 'Louis', 'Empire',
+      // Company/Manufacturer names that might appear after artist names
+      'Ikea', 'IKEA', 'Tenn', 'Lammhults', 'Källemo', 'Mathsson', 'Malmsten', 
+      'Boda', 'Artek', 'Iittala', 'Grondahl'
     ];
 
     if (words.some(word => 
