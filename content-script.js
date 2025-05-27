@@ -91,6 +91,68 @@
             sendResponse({ success: true });
           }
         });
+        
+        // Listen for "Inga anmärkningar" checkbox changes to update button states
+        this.setupNoRemarksCheckboxListener();
+      }
+
+      setupNoRemarksCheckboxListener() {
+        const checkboxSelectors = [
+          'input[type="checkbox"][value="Inga anmärkningar"]',
+          'input[type="checkbox"]#item_no_remarks',
+          'input[type="checkbox"][name*="no_remarks"]'
+        ];
+        
+        checkboxSelectors.forEach(selector => {
+          const checkbox = document.querySelector(selector);
+          if (checkbox) {
+            console.log('✅ Found "Inga anmärkningar" checkbox, setting up listener');
+            checkbox.addEventListener('change', () => {
+              console.log('📋 "Inga anmärkningar" checkbox changed:', checkbox.checked);
+              this.updateConditionButtonState();
+            });
+          }
+        });
+        
+        // Initial button state update
+        this.updateConditionButtonState();
+      }
+
+      updateConditionButtonState() {
+        const isNoRemarksChecked = this.isNoRemarksChecked();
+        const conditionButton = document.querySelector('[data-field-type="condition"]');
+        
+        if (conditionButton) {
+          if (isNoRemarksChecked) {
+            conditionButton.disabled = true;
+            conditionButton.style.opacity = '0.5';
+            conditionButton.style.cursor = 'not-allowed';
+            conditionButton.title = 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat';
+            console.log('🚫 Condition button disabled - "Inga anmärkningar" is checked');
+          } else {
+            conditionButton.disabled = false;
+            conditionButton.style.opacity = '1';
+            conditionButton.style.cursor = 'pointer';
+            conditionButton.title = 'AI-förbättra kondition';
+            console.log('✅ Condition button enabled - "Inga anmärkningar" is not checked');
+          }
+        }
+      }
+
+      isNoRemarksChecked() {
+        const checkboxSelectors = [
+          'input[type="checkbox"][value="Inga anmärkningar"]',
+          'input[type="checkbox"]#item_no_remarks',
+          'input[type="checkbox"][name*="no_remarks"]'
+        ];
+        
+        for (const selector of checkboxSelectors) {
+          const checkbox = document.querySelector(selector);
+          if (checkbox && checkbox.checked) {
+            return true;
+          }
+        }
+        return false;
       }
 
       attachEventListeners() {
@@ -123,9 +185,18 @@
         } else {
           console.warn('Master button not found');
         }
+        
+        // Update condition button state after buttons are attached
+        setTimeout(() => this.updateConditionButtonState(), 100);
       }
 
       async improveField(fieldType) {
+        // Check if trying to improve condition when "Inga anmärkningar" is checked
+        if (fieldType === 'condition' && this.isNoRemarksChecked()) {
+          this.showErrorIndicator(fieldType, 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat. Avmarkera checkboxen först.');
+          return;
+        }
+        
         // Ensure API key is loaded
         if (!this.apiManager.apiKey) {
           await this.apiManager.loadApiKey();
@@ -370,7 +441,15 @@
         try {
           const itemData = this.dataExtractor.extractItemData();
           console.log('⚡ Item data for API call:', { artist: itemData.artist, enableArtistInfo: this.apiManager.enableArtistInfo });
-          const improvements = await this.apiManager.callClaudeAPI(itemData, fieldType);
+          
+          // For "all" improvements, exclude condition if "Inga anmärkningar" is checked
+          let actualFieldType = fieldType;
+          if (fieldType === 'all' && this.isNoRemarksChecked()) {
+            console.log('📋 "Inga anmärkningar" is checked - excluding condition from improvements');
+            // We'll still call with 'all' but handle condition exclusion in the response processing
+          }
+          
+          const improvements = await this.apiManager.callClaudeAPI(itemData, actualFieldType);
           
           if (fieldType === 'all') {
             if (improvements.title) {
@@ -379,7 +458,8 @@
             if (improvements.description) {
               this.uiManager.applyImprovement('description', improvements.description);
             }
-            if (improvements.condition) {
+            // Only apply condition improvement if "Inga anmärkningar" is not checked
+            if (improvements.condition && !this.isNoRemarksChecked()) {
               this.uiManager.applyImprovement('condition', improvements.condition);
             }
             if (improvements.keywords) {
