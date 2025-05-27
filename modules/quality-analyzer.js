@@ -307,7 +307,7 @@ export class QualityAnalyzer {
       let severity = 'medium';
       
       if (misplacedArtist.errorType === 'artist_in_title_caps') {
-        warningMessage = `FELAKTIG PLACERING: "${misplacedArtist.detectedArtist}" ska flyttas till konstnärsfältet. Föreslaget titel: "${misplacedArtist.suggestedTitle}"`;
+        warningMessage = `FELAKTIG PLACERING: "${misplacedArtist.detectedArtist}" ska flyttas till konstnärsfältet. Föreslagen titel: "${misplacedArtist.suggestedTitle}"`;
         severity = 'high'; // This is a clear error, not just a suggestion
       } else {
         warningMessage = `Möjlig konstnär upptäckt: "${misplacedArtist.detectedArtist}" - kontrollera om den ska flyttas till konstnärsfält`;
