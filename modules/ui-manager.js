@@ -313,7 +313,8 @@ export class UIManager {
       
       .quality-warnings li {
         margin-bottom: 10px;
-        font-size: 14px;
+        font-size: 12px;
+        font-weight: 400;
         line-height: 1.4;
         padding: 8px 12px;
         border-radius: 6px;
@@ -324,14 +325,14 @@ export class UIManager {
         color: #721c24;
         background-color: #f8d7da;
         border-left-color: #dc3545;
-        font-weight: 600;
+        font-weight: 400;
       }
       
       .warning-medium {
         color: #084298;
         background-color: #cff4fc;
         border-left-color: #0d6efd;
-        font-weight: 500;
+        font-weight: 400;
       }
       
       .warning-low {
