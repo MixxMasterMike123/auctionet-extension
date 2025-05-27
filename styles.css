@@ -228,11 +228,18 @@
 }
 
 .warning-high {
-  color: #c0392b;
+  color: #dc3545;
+  font-weight: 600;
 }
 
 .warning-medium {
-  color: #d68910;
+  color: #0d6efd;
+  font-weight: 500;
+}
+
+.warning-low {
+  color: #6c757d;
+  font-style: italic;
 }
 
 .no-warnings {

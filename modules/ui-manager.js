@@ -298,6 +298,60 @@ export class UIManager {
       .auto-resize.resizing {
         transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
       }
+      
+      .quality-warnings {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #dee2e6;
+      }
+      
+      .quality-warnings ul {
+        margin: 0;
+        padding-left: 20px;
+        list-style-type: none;
+      }
+      
+      .quality-warnings li {
+        margin-bottom: 10px;
+        font-size: 14px;
+        line-height: 1.4;
+        padding: 8px 12px;
+        border-radius: 6px;
+        border-left: 4px solid;
+      }
+      
+      .warning-high {
+        color: #721c24;
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+        font-weight: 600;
+      }
+      
+      .warning-medium {
+        color: #084298;
+        background-color: #cff4fc;
+        border-left-color: #0d6efd;
+        font-weight: 500;
+      }
+      
+      .warning-low {
+        color: #495057;
+        background-color: #f8f9fa;
+        border-left-color: #6c757d;
+        font-style: italic;
+      }
+      
+      .no-warnings {
+        color: #0f5132;
+        background-color: #d1e7dd;
+        border-left: 4px solid #198754;
+        font-weight: 600;
+        text-align: center;
+        margin: 0;
+        font-size: 14px;
+        padding: 12px;
+        border-radius: 6px;
+      }
     `;
   }
 
