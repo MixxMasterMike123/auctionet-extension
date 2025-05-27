@@ -42,6 +42,132 @@ export class QualityAnalyzer {
     return measurementPatterns.some(pattern => text.match(pattern));
   }
 
+  // Helper method to detect potential misplaced artist in title
+  detectMisplacedArtist(title, artistField) {
+    // Only suggest if artist field is empty or very short
+    if (artistField && artistField.trim().length > 2) {
+      return null; // Artist field already has content
+    }
+
+    if (!title || title.length < 10) {
+      return null; // Title too short to contain artist
+    }
+
+    // Common Swedish auction title patterns where artist might be misplaced
+    const patterns = [
+      // OBJEKT, Firstname Lastname, "Title", details
+      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*"([^"]+)"/i,
+      
+      // OBJEKT, Firstname Lastname, details (no quotes)
+      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*([^,]+)/i,
+      
+      // OBJEKT, Lastname Firstname, details
+      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = title.match(pattern);
+      if (match) {
+        const [, objectType, potentialArtist, rest] = match;
+        
+        // Check if it looks like a person's name (not place/concept)
+        if (this.looksLikePersonName(potentialArtist)) {
+          return {
+            detectedArtist: potentialArtist.trim(),
+            suggestedTitle: `${objectType}, ${rest}`.trim(),
+            confidence: this.calculateArtistConfidence(potentialArtist, objectType)
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // Helper method to determine if a string looks like a person's name
+  looksLikePersonName(name) {
+    if (!name || typeof name !== 'string') {
+      return false;
+    }
+
+    const trimmedName = name.trim();
+    
+    // Must be two words (firstname lastname)
+    const words = trimmedName.split(/\s+/);
+    if (words.length !== 2) {
+      return false;
+    }
+
+    // Both words should start with capital letter and be reasonable length
+    const [first, last] = words;
+    if (first.length < 2 || last.length < 2) {
+      return false;
+    }
+
+    if (!/^[A-ZÅÄÖÜ]/.test(first) || !/^[A-ZÅÄÖÜ]/.test(last)) {
+      return false;
+    }
+
+    // Exclude common non-person terms that might appear in titles
+    const excludeTerms = [
+      // Places
+      'Stockholm', 'Göteborg', 'Malmö', 'Uppsala', 'Västerås', 'Örebro', 'Linköping',
+      'Helsingborg', 'Jönköping', 'Norrköping', 'Lund', 'Umeå', 'Gävle', 'Borås',
+      
+      // Historical figures (subjects, not artists)
+      'Napoleon Bonaparte', 'Gustav Vasa', 'Carl Gustaf', 'Victoria Bernadotte',
+      
+      // Companies/Manufacturers
+      'Gustavsberg Porslin', 'Rörstrand Porcelain', 'Orrefors Glasbruk', 'Kosta Boda',
+      'Arabia Finland', 'Royal Copenhagen', 'Bing Grondahl',
+      
+      // Common object descriptions that might look like names
+      'Art Deco', 'Art Nouveau', 'Louis Philippe', 'Carl Johan', 'Gustav III',
+      
+      // Design periods/styles
+      'Jugend Stil', 'Empire Stil', 'Rokoko Stil', 'Barock Stil'
+    ];
+
+    // Check if the full name matches any exclude terms
+    if (excludeTerms.some(term => term.toLowerCase() === trimmedName.toLowerCase())) {
+      return false;
+    }
+
+    // Check individual words against common non-name terms
+    const nonNameWords = [
+      'Stockholm', 'Göteborg', 'Malmö', 'Gustavsberg', 'Rörstrand', 'Orrefors', 
+      'Kosta', 'Arabia', 'Royal', 'Napoleon', 'Gustav', 'Carl', 'Louis', 'Empire'
+    ];
+
+    if (nonNameWords.some(term => 
+      first.toLowerCase() === term.toLowerCase() || 
+      last.toLowerCase() === term.toLowerCase()
+    )) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // Helper method to calculate confidence in artist detection
+  calculateArtistConfidence(artistName, objectType) {
+    let confidence = 0.7; // Base confidence
+
+    // Higher confidence for certain object types commonly associated with artists
+    const artistObjectTypes = ['TAVLA', 'MÅLNING', 'AKVARELL', 'LITOGRAFI', 'ETSNING', 'SKULPTUR', 'TECKNING'];
+    if (artistObjectTypes.some(type => objectType.toUpperCase().includes(type))) {
+      confidence += 0.2;
+    }
+
+    // Lower confidence for object types that might have designer names legitimately in title
+    const designerObjectTypes = ['STOL', 'BORD', 'LAMPA', 'VAS', 'SKÅL', 'FAT'];
+    if (designerObjectTypes.some(type => objectType.toUpperCase().includes(type))) {
+      confidence -= 0.3;
+    }
+
+    return Math.max(0.1, Math.min(0.9, confidence));
+  }
+
   analyzeQuality() {
     if (!this.dataExtractor) {
       console.error('Data extractor not set');
@@ -71,6 +197,51 @@ export class QualityAnalyzer {
     if (!data.title.includes(',')) {
       warnings.push({ field: 'Titel', issue: 'Saknar korrekt struktur (KONSTNÄR, Objekt, Material)', severity: 'medium' });
       score -= 15;
+    }
+
+    // Check for potential misplaced artist in title
+    const misplacedArtist = this.detectMisplacedArtist(data.title, data.artist);
+    if (misplacedArtist) {
+      warnings.push({ 
+        field: 'Titel', 
+        issue: `Möjlig konstnär upptäckt: "${misplacedArtist.detectedArtist}" - kontrollera om den ska flyttas till konstnärsfält`, 
+        severity: 'medium' 
+      });
+      score -= 10;
+    }
+
+    // Check title capitalization based on artist field
+    if (data.title && data.title.length > 0) {
+      // Find first letter character (skip quotes, numbers, etc.)
+      let firstLetterIndex = -1;
+      let firstLetter = '';
+      
+      for (let i = 0; i < data.title.length; i++) {
+        const char = data.title.charAt(i);
+        if (/[A-ZÅÄÖÜa-zåäöü]/.test(char)) {
+          firstLetterIndex = i;
+          firstLetter = char;
+          break;
+        }
+      }
+      
+      if (firstLetterIndex >= 0) {
+        const hasArtist = data.artist && data.artist.trim().length > 0;
+        
+        if (hasArtist && firstLetter === firstLetter.toLowerCase()) {
+          // Artist field filled but first letter is lowercase - should be normal capital
+          warnings.push({
+            field: 'Titel',
+            issue: 'Titel ska börja med versal när konstnärsfält är ifyllt',
+            severity: 'medium'
+          });
+          score -= 15;
+        } else if (!hasArtist) {
+          // No artist - check if first word is all uppercase (existing rule)
+          // This is already handled by the existing title structure check
+          // We don't need to duplicate that logic here
+        }
+      }
     }
 
     // Description quality checks (aggressively softened: 50 → 35)

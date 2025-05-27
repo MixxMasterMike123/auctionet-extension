@@ -412,7 +412,7 @@ Konstnär/Formgivare: ${itemData.artist}
 Värdering: ${itemData.estimate} SEK
 
 VIKTIGT FÖR TITEL: ${itemData.artist ? 
-  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA GEMENER (lowercase).' : 
+  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA VERSAL (normal capital letter).' : 
   'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
 
 KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
@@ -461,7 +461,7 @@ VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KR
 
 KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
 ${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET I TITEL SKA VARA GEMENER (lowercase)' : 
+  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET I TITEL SKA VARA VERSAL (normal capital letter)' : 
   '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
 
 Returnera EXAKT i detta format (en rad per fält):
@@ -481,7 +481,7 @@ UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tec
 
 FÖRSTA ORDETS KAPITALISERING:
 ${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA GEMENER (lowercase)\n• Exempel: "bajonett, Eskilstuna, 1900-tal" (konstnärens namn läggs till automatiskt)' : 
+  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA VERSAL (normal capital letter)\n• Exempel: "Bajonett, Eskilstuna, 1900-tal" (konstnärens namn läggs till automatiskt)' : 
   '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET SKA VARA VERSALER (uppercase)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"'}
 
 Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
