@@ -307,7 +307,7 @@ export class UIManager {
       
       .quality-warnings ul {
         margin: 0;
-        padding-left: 20px;
+        padding-left: 0;
         list-style-type: none;
       }
       
