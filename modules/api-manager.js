@@ -381,6 +381,11 @@ Om konstnär-fält ifyllt: [föremål], [Material], [Period] - FÖRSTA ORDET GEM
 OSÄKERHETSMARKÖRER - BEHÅLL ALLTID:
 "troligen", "tillskriven", "efter", "stil av", "möjligen"
 
+CITATTECKEN FÖR MASKINÖVERSÄTTNING - KRITISKT:
+• BEHÅLL ALLTID citattecken runt produktnamn och svenska designnamn i titlar
+• Auctionet respekterar citattecken - text inom "" översätts ALDRIG av maskinöversättning
+• EXEMPEL: "Oxford" förblir "Oxford", INTE Oxford (utan citattecken som kan översättas)
+
 KONDITION - KRITISKA REGLER:
 • Använd korta, faktabaserade termer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
 • UPPFINN ALDRIG nya skador, placeringar eller detaljer
@@ -398,7 +403,28 @@ STRIKT ANTI-HALLUCINATION:
 • Lägg INTE till material, mått, skador, placeringar som inte är nämnda
 • Kopiera EXAKT samma skadeinformation som redan finns
 • Katalogtext ska vara FÄRDIG utan önskemål om mer data
-• ALDRIG lägga till detaljer för att "förbättra" - bara förbättra språket`;
+• ALDRIG lägga till detaljer för att "förbättra" - bara förbättra språket
+
+FÖRBJUDET - INGA FÖRKLARINGAR ELLER KOMMENTARER:
+• Lägg ALDRIG till förklarande text som "Notera:", "Observera:", "Jag har behållit..."
+• Lägg ALDRIG till kommentarer om vad du har gjort eller inte gjort
+• Lägg ALDRIG till meta-text om processen eller metoderna
+• Lägg ALDRIG till bedömningar som "Bra start", "kan förbättras", etc.
+• Returnera ENDAST det begärda innehållet utan extra kommentarer
+• EXEMPEL FÖRBJUDET: "Notera: Jag har behållit det ursprungliga datumformatet..."
+• EXEMPEL FÖRBJUDET: "Sökord: Bra start - några fler sökord kan förbättra..."
+
+KRITISKT - DATUM OCH PERIODSPECULATION FÖRBJUDEN:
+• EXPANDERA ALDRIG partiella årtal: "55" får INTE bli "1955", "1855" eller något annat
+• GISSA ALDRIG århundrade från tvåsiffriga årtal - "55" kan vara 1755, 1855, 1955, etc.
+• BEHÅLL EXAKT samma datumformat som originalet: "daterad 55" ska förbli "daterad 55"
+• LÄGG INTE till "troligen" eller andra osäkerhetsmarkörer till datum som inte redan har dem
+• Om originalet säger "55" - skriv "55", INTE "1955" eller "troligen 1955"
+• ENDAST om originalet redan anger fullständigt årtal (t.ex. "1955") får du behålla det
+• EXEMPEL FÖRBJUDET: "daterad 55" → "1955" eller "troligen 1955"
+• EXEMPEL KORREKT: "daterad 55" → "daterad 55" (oförändrat)
+
+`;
   }
 
   getUserPrompt(itemData, fieldType) {
@@ -430,6 +456,16 @@ ANTI-HALLUCINATION INSTRUKTIONER:
 • Uppfinn ALDRIG tidsperioder, material, mått eller skador
 • Förbättra ENDAST språk, struktur och terminologi
 • Om information saknas - utelämna eller använd osäkerhetsmarkörer
+
+KRITISKT - DATUM OCH PERIODSPECULATION FÖRBJUDEN:
+• EXPANDERA ALDRIG partiella årtal: "55" får INTE bli "1955", "1855" eller något annat
+• GISSA ALDRIG århundrade från tvåsiffriga årtal - "55" kan vara 1755, 1855, 1955, etc.
+• BEHÅLL EXAKT samma datumformat som originalet: "daterad 55" ska förbli "daterad 55"
+• LÄGG INTE till "troligen" eller andra osäkerhetsmarkörer till datum som inte redan har dem
+• Om originalet säger "55" - skriv "55", INTE "1955" eller "troligen 1955"
+• ENDAST om originalet redan anger fullständigt årtal (t.ex. "1955") får du behålla det
+• EXEMPEL FÖRBJUDET: "daterad 55" → "1955" eller "troligen 1955"
+• EXEMPEL KORREKT: "daterad 55" → "daterad 55" (oförändrat)
 
 ${this.getCategorySpecificRules(itemData)}
 `;
@@ -464,6 +500,14 @@ ${itemData.artist ?
   '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET I TITEL SKA VARA VERSAL (normal capital letter)' : 
   '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
 
+KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
+• BEHÅLL ALLTID citattecken runt produktnamn, modellnamn och svenska designnamn
+• Auctionet använder maskinöversättning som RESPEKTERAR citattecken - text inom "" översätts ALDRIG
+• Detta är KRITISKT för IKEA-möbler och svenska designnamn som ska förbli på svenska
+• EXEMPEL: "Oxford" ska förbli "Oxford" (med citattecken), INTE Oxford (utan citattecken)
+• EXEMPEL: "Pepparkorn" ska förbli "Pepparkorn" (med citattecken) för att undvika översättning
+• Om originaltiteln har citattecken runt produktnamn - BEHÅLL dem ALLTID
+
 Returnera EXAKT i detta format (en rad per fält):
 TITEL: [förbättrad titel]
 BESKRIVNING: [förbättrad beskrivning utan konditionsinformation]
@@ -478,6 +522,14 @@ Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bar
       case 'title':
         return baseInfo + `
 UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tecken. Skriv naturligt och flytande.
+
+KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
+• BEHÅLL ALLTID citattecken runt produktnamn, modellnamn och svenska designnamn
+• Auctionet använder maskinöversättning som RESPEKTERAR citattecken - text inom "" översätts ALDRIG
+• Detta är KRITISKT för IKEA-möbler och svenska designnamn som ska förbli på svenska
+• EXEMPEL: "Oxford" ska förbli "Oxford" (med citattecken), INTE Oxford (utan citattecken)
+• EXEMPEL: "Pepparkorn" ska förbli "Pepparkorn" (med citattecken) för att undvika översättning
+• Om originaltiteln har citattecken runt produktnamn - BEHÅLL dem ALLTID
 
 FÖRSTA ORDETS KAPITALISERING:
 ${itemData.artist ? 
@@ -552,10 +604,126 @@ SÖKORD KVALITET:
 • Undvik upprepningar och synonymer som är för lika
 • Fokusera på vad köpare faktiskt söker efter
 
+STRIKT FORMAT - KRITISKT:
+• Returnera ENDAST sökorden separerade med mellanslag
+• INGEN text före eller efter sökorden
+• INGA förklaringar, kommentarer eller noteringar
+• INGA etiketter som "SÖKORD:" eller "Keywords:"
+• INGA meningar eller beskrivningar
+• EXEMPEL PÅ KORREKT SVAR: "konstglas mundblåst svensk-design 1960-tal"
+• EXEMPEL PÅ FEL SVAR: "SÖKORD: konstglas mundblåst" eller "Här är sökorden: konstglas"
+
 Returnera ENDAST sökorden separerade med mellanslag enligt Auctionets format, utan extra formatering eller etiketter.`;
 
       default:
         return baseInfo;
     }
+  }
+
+  validateTitle(title) {
+    const errors = [];
+    const warnings = [];
+    
+    // Validate input
+    if (!title || typeof title !== 'string') {
+      errors.push('Titel saknas eller är ogiltig');
+      return { errors, warnings };
+    }
+    
+    // Length check
+    if (title.length > 60) {
+      errors.push(`Titel för lång: ${title.length}/60 tecken`);
+    }
+    
+    // Structure check
+    if (!title.match(/^[A-ZÅÄÖÜ]/)) {
+      warnings.push('Titel bör börja med stor bokstav');
+    }
+    
+    // CRITICAL: Check for date speculation/hallucination
+    const originalTitle = document.querySelector('#item_title_sv')?.value || '';
+    const dateSpeculationCheck = this.detectDateSpeculation(originalTitle, title);
+    if (dateSpeculationCheck.hasSpeculation) {
+      dateSpeculationCheck.speculations.forEach(speculation => {
+        errors.push(`DATUM HALLUCINATION: "${speculation.expanded}" - originalet säger bara "${speculation.original}". Expandera ALDRIG partiella årtal!`);
+      });
+    }
+    
+    // Check for uncertainty markers preservation
+    const uncertaintyMarkers = ['troligen', 'tillskriven', 'efter', 'stil av', 'möjligen', 'typ', 'skola av', 'krets kring'];
+    
+    uncertaintyMarkers.forEach(marker => {
+      if (originalTitle.toLowerCase().includes(marker) && !title.toLowerCase().includes(marker)) {
+        errors.push(`Osäkerhetsmarkör "${marker}" får inte tas bort från titel`);
+      }
+    });
+    
+    // Forbidden marketing terms
+    const marketingTerms = [
+      'fantastisk', 'vacker', 'underbar', 'magnifik', 'exceptional', 'stunning',
+      'rare', 'unique', 'sällsynt', 'unik', 'perfekt', 'pristine'
+    ];
+    
+    marketingTerms.forEach(term => {
+      if (title.toLowerCase().includes(term)) {
+        errors.push(`Förbjuden marknadsföringsterm i titel: "${term}"`);
+      }
+    });
+    
+    // Check for proper format
+    if (title.includes(',')) {
+      const parts = title.split(',').map(p => p.trim());
+      if (parts.length < 2) {
+        warnings.push('Titel bör följa format: KONSTNÄR, Föremål, Material, Period');
+      }
+    }
+    
+    return { errors, warnings };
+  }
+
+  // NEW: Detect date speculation and hallucination
+  detectDateSpeculation(original, enhanced) {
+    const speculations = [];
+    
+    // Pattern to find partial dates in original (like "55", "daterad 55", "signerad 55")
+    const partialDatePattern = /(daterad|signerad|märkt|stämplad)?\s*(\d{2})\b/gi;
+    
+    let match;
+    while ((match = partialDatePattern.exec(original)) !== null) {
+      const [fullMatch, prefix, twoDigitYear] = match;
+      const prefixPart = prefix ? prefix.trim() : '';
+      
+      // Check if the enhanced version has expanded this to a full year
+      const expandedPatterns = [
+        new RegExp(`${prefixPart}\\s*1[6-9]${twoDigitYear}\\b`, 'i'), // 1655, 1755, 1855, 1955
+        new RegExp(`${prefixPart}\\s*20${twoDigitYear}\\b`, 'i'),      // 2055 (unlikely but possible)
+      ];
+      
+      // Also check for cases where prefix is removed and just the year appears
+      if (prefixPart) {
+        expandedPatterns.push(new RegExp(`\\b1[6-9]${twoDigitYear}\\b`, 'i'));
+        expandedPatterns.push(new RegExp(`\\b20${twoDigitYear}\\b`, 'i'));
+      }
+      
+      expandedPatterns.forEach(pattern => {
+        const expandedMatch = enhanced.match(pattern);
+        if (expandedMatch) {
+          // Make sure this expansion doesn't already exist in the original
+          const expandedYear = expandedMatch[0].trim();
+          if (!original.includes(expandedYear)) {
+            speculations.push({
+              original: fullMatch.trim(),
+              expanded: expandedMatch[0].trim(),
+              position: match.index
+            });
+          }
+        }
+      });
+    }
+    
+    return {
+      hasSpeculation: speculations.length > 0,
+      speculations
+    };
   }
 } 
