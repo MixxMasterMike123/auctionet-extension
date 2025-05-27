@@ -65,17 +65,38 @@ export class QualityAnalyzer {
       // OBJEKT, Firstname Lastname, "Title", details
       /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*"([^"]+)"/i,
       
+      // OBJEKT, Firstname Middle Lastname, "Title", details (NEW - 3 words)
+      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*"([^"]+)"/i,
+      
       // OBJEKT material, Firstname Lastname (dates), location. period (common format: POKAL silver, Lars Löfgren (1797-1853), Hudiksvall. 17/1800-tal.)
       /^([A-ZÅÄÖÜ]+)\s+[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
+      
+      // OBJEKT material, Firstname Middle Lastname (dates), location. period (NEW - 3 words)
+      /^([A-ZÅÄÖÜ]+)\s+[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
       
       // OBJEKT, Firstname Lastname (dates), details
       /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
       
-      // OBJEKT, material, Firstname Lastname, location, period (NEW - handles Eva Englund case)
+      // OBJEKT, Firstname Middle Lastname (dates), details (NEW - 3 words)
+      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
+      
+      // OBJEKT, material, Firstname Lastname, location, period (handles Eva Englund case)
       /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
+      
+      // OBJEKT, material, Firstname Middle Lastname, location, period (NEW - handles Nils Petter Lindeberg case)
+      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
+      
+      // OBJEKT, description, material, Firstname Lastname, location (NEW - handles "ett par" cases)
+      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü\s]+,\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
+      
+      // OBJEKT, description, material, Firstname Middle Lastname, location (NEW - handles "ett par" + 3-word names)
+      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü\s]+,\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
       
       // OBJEKT, Firstname Lastname, details (no quotes, no dates)
       /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*([^,]+)/i,
+      
+      // OBJEKT, Firstname Middle Lastname, details (NEW - 3 words, no quotes, no dates)
+      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*([^,]+)/i,
       
       // OBJEKT, Lastname Firstname, details
       /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
@@ -133,21 +154,30 @@ export class QualityAnalyzer {
 
     const trimmedName = name.trim();
     
-    // Must be two words (firstname lastname)
+    // Must be two or three words (firstname lastname OR firstname middle lastname)
     const words = trimmedName.split(/\s+/);
-    if (words.length !== 2) {
+    if (words.length < 2 || words.length > 3) {
       return false;
     }
 
-    // Both words should start with capital letter and be reasonable length
-    const [first, last] = words;
-    if (first.length < 2 || last.length < 2) {
+    // All words should be reasonable length
+    if (words.some(word => word.length < 2)) {
       return false;
     }
 
-    // First name must start with capital, last name can start with capital or lowercase (Swedish naming)
-    if (!/^[A-ZÅÄÖÜ]/.test(first) || !/^[A-ZÅÄÖÜa-zåäöü]/.test(last)) {
-      return false;
+    // All words should start with capital letter (first name and last name must start with capital, middle name can start with capital or lowercase for Swedish naming)
+    const [first, middle, last] = words;
+    
+    if (words.length === 2) {
+      // Two words: first name must start with capital, last name can start with capital or lowercase (Swedish naming)
+      if (!/^[A-ZÅÄÖÜ]/.test(first) || !/^[A-ZÅÄÖÜa-zåäöü]/.test(last)) {
+        return false;
+      }
+    } else if (words.length === 3) {
+      // Three words: first and last must start with capital, middle can be capital or lowercase
+      if (!/^[A-ZÅÄÖÜ]/.test(first) || !/^[A-ZÅÄÖÜa-zåäöü]/.test(middle) || !/^[A-ZÅÄÖÜa-zåäöü]/.test(last)) {
+        return false;
+      }
     }
 
     // Exclude common non-person terms that might appear in titles
@@ -181,9 +211,8 @@ export class QualityAnalyzer {
       'Kosta', 'Arabia', 'Royal', 'Napoleon', 'Gustav', 'Carl', 'Louis', 'Empire'
     ];
 
-    if (nonNameWords.some(term => 
-      first.toLowerCase() === term.toLowerCase() || 
-      last.toLowerCase() === term.toLowerCase()
+    if (words.some(word => 
+      nonNameWords.some(term => word.toLowerCase() === term.toLowerCase())
     )) {
       return false;
     }
