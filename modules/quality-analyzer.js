@@ -71,17 +71,45 @@ export class QualityAnalyzer {
       // OBJEKT, Firstname Lastname (dates), details
       /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
       
+      // OBJEKT, material, Firstname Lastname, location, period (NEW - handles Eva Englund case)
+      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
+      
       // OBJEKT, Firstname Lastname, details (no quotes, no dates)
       /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*([^,]+)/i,
       
       // OBJEKT, Lastname Firstname, details
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i
+      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
+      
+      // Malformed quotes with company: OBJEKT, details, "Title, Firstname Lastname Company (missing closing quote)
+      /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)\s+(?:Ikea|IKEA|Svenskt\s+Tenn|Lammhults|Källemo|Norrlands\s+Möbler|Bruno\s+Mathsson|Carl\s+Malmsten|Kosta\s+Boda|Orrefors|Gustavsberg|Artek|Iittala|Arabia)/i,
+      
+      // General malformed pattern: OBJEKT, details, "Title, Firstname Lastname (no closing quote)
+      /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)(?:\s+[A-ZÅÄÖÜ][a-zåäöü]+)?/i
     ];
 
     for (const pattern of patterns) {
       const match = title.match(pattern);
       if (match) {
-        const [, objectType, potentialArtist, rest] = match;
+        let objectType, potentialArtist, rest;
+        
+        // Handle different pattern structures
+        if (match.length === 4 && match[3]) {
+          // Standard patterns: [full, objectType, artist, rest]
+          [, objectType, potentialArtist, rest] = match;
+        } else if (match.length === 4 && match[2] && match[3]) {
+          // Malformed quote patterns: [full, objectType, firstName, lastName]
+          [, objectType, , ] = match;
+          potentialArtist = `${match[2]} ${match[3]}`;
+          rest = title.replace(new RegExp(`^${objectType},\\s*[^,]+,\\s*"[^,]+,\\s*${potentialArtist.replace(/\s+/g, '\\s+')}.*`), '').trim();
+          if (!rest) rest = 'detaljer'; // fallback
+        } else if (match.length === 3) {
+          // Alternative malformed pattern: [full, objectType, artist]
+          [, objectType, potentialArtist] = match;
+          rest = title.replace(new RegExp(`^${objectType},\\s*[^"]*,\\s*"[^,]*,\\s*${potentialArtist.replace(/\s+/g, '\\s+')}.*`), '').trim();
+          if (!rest) rest = 'detaljer'; // fallback
+        } else {
+          continue; // Skip if pattern structure is unexpected
+        }
         
         // Check if it looks like a person's name (not place/concept)
         if (this.looksLikePersonName(potentialArtist)) {
@@ -117,7 +145,8 @@ export class QualityAnalyzer {
       return false;
     }
 
-    if (!/^[A-ZÅÄÖÜ]/.test(first) || !/^[A-ZÅÄÖÜ]/.test(last)) {
+    // First name must start with capital, last name can start with capital or lowercase (Swedish naming)
+    if (!/^[A-ZÅÄÖÜ]/.test(first) || !/^[A-ZÅÄÖÜa-zåäöü]/.test(last)) {
       return false;
     }
 
