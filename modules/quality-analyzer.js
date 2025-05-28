@@ -1870,12 +1870,6 @@ export class QualityAnalyzer {
       
       const mainMessage = `${formattedLow}-${formattedHigh} SEK (${confidenceIcon} ${confidenceText}) - vägledning för liknande objekt`;
       
-      warnings.push({
-        field: 'Värdering',
-        issue: mainMessage,
-        severity: 'market-primary'
-      });
-      
       dashboardContent += `
         <div class="market-item market-price">
           <div class="market-label">Marknadsvärde</div>
