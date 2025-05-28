@@ -12,8 +12,8 @@ export class APIManager {
 
   async loadSettings() {
     try {
-      const result = await chrome.storage.sync.get(['apiKey', 'enableArtistInfo']);
-      this.apiKey = result.apiKey;
+      const result = await chrome.storage.sync.get(['anthropicApiKey', 'enableArtistInfo']);
+      this.apiKey = result.anthropicApiKey;
       this.enableArtistInfo = result.enableArtistInfo !== false;
       
       console.log('Artist info setting loaded:', this.enableArtistInfo);
@@ -960,57 +960,73 @@ SVARA MED JSON:
     console.log('💰 analyzeComparableSales called with:', { artistName, objectType, period, technique });
     
     // Use Auctionet API for real market data instead of Claude estimates
-    console.log('🔍 Using Auctionet API for real market data analysis...');
+    console.log('🔍 Using Auctionet API for comprehensive market data analysis...');
     
     try {
-      // Call the Auctionet API for real sales data
-      const auctionetResult = await this.auctionetAPI.analyzeComparableSales(
-        artistName, 
-        objectType, 
-        period, 
-        technique, 
-        description
-      );
+      // Start both historical and live analysis in parallel for efficiency
+      const [historicalResult, liveResult] = await Promise.all([
+        // Historical sales data
+        this.auctionetAPI.analyzeComparableSales(
+          artistName, 
+          objectType, 
+          period, 
+          technique, 
+          description
+        ),
+        // Live auction data
+        this.auctionetAPI.analyzeLiveAuctions(
+          artistName,
+          objectType,
+          period,
+          technique,
+          description
+        )
+      ]);
       
-      if (auctionetResult) {
-        console.log('✅ Auctionet API analysis successful');
-        console.log(`📊 Found ${auctionetResult.analyzedSales} sales from ${auctionetResult.totalMatches} matches`);
+      // Combine historical and live data intelligently
+      if (historicalResult || liveResult) {
+        console.log('✅ Market analysis successful');
         
-        // Format the result to match the expected interface
-        return {
-          hasComparableData: true,
-          dataSource: 'auctionet_real_data', // Mark as real data
-          priceRange: auctionetResult.priceRange,
-          confidence: auctionetResult.confidence,
-          confidenceFactors: {
-            artistRecognition: auctionetResult.confidence,
-            dataAvailability: Math.min(1.0, auctionetResult.analyzedSales / 10), // More sales = better data
-            marketActivity: Math.min(1.0, auctionetResult.totalMatches / 50), // More matches = more active market
-            comparabilityQuality: auctionetResult.confidence
-          },
-          marketContext: {
-            artistStatus: auctionetResult.marketContext,
-            marketTrend: auctionetResult.trendAnalysis?.description || 'Trendanalys ej tillgänglig',
-            recentActivity: `${auctionetResult.analyzedSales} försäljningar analyserade från ${auctionetResult.totalMatches} träffar`
-          },
-          comparableSales: auctionetResult.recentSales?.map(sale => ({
-            description: `${sale.title} - ${sale.house}`,
-            priceRange: `${sale.price.toLocaleString()} SEK`,
-            relevance: 0.8 // High relevance since it's real data
-          })) || [],
-          limitations: auctionetResult.limitations || null,
-          reasoning: `Analys baserad på ${auctionetResult.analyzedSales} verkliga försäljningar från Auctionets databas med ${auctionetResult.totalMatches} totala träffar.`,
-          // Additional Auctionet-specific data
-          auctionetData: {
-            totalMatches: auctionetResult.totalMatches,
-            analyzedSales: auctionetResult.analyzedSales,
-            trendAnalysis: auctionetResult.trendAnalysis,
-            recentSales: auctionetResult.recentSales,
-            statistics: auctionetResult.statistics
-          }
+        const combinedResult = {
+          hasComparableData: !!(historicalResult || liveResult),
+          dataSource: 'auctionet_comprehensive',
+          
+          // Historical data (if available)
+          historical: historicalResult ? {
+            priceRange: historicalResult.priceRange,
+            confidence: historicalResult.confidence,
+            analyzedSales: historicalResult.analyzedSales,
+            totalMatches: historicalResult.totalMatches,
+            marketContext: historicalResult.marketContext,
+            trendAnalysis: historicalResult.trendAnalysis,
+            recentSales: historicalResult.recentSales,
+            limitations: historicalResult.limitations
+          } : null,
+          
+          // Live data (if available)
+          live: liveResult ? {
+            currentEstimates: liveResult.currentEstimates,
+            currentBids: liveResult.currentBids,
+            marketActivity: liveResult.marketActivity,
+            marketSentiment: liveResult.marketSentiment,
+            analyzedLiveItems: liveResult.analyzedLiveItems,
+            totalMatches: liveResult.totalMatches,
+            liveItems: liveResult.liveItems
+          } : null,
+          
+          // Combined insights
+          insights: this.generateCombinedInsights(historicalResult, liveResult),
+          
+          // Maintain backward compatibility
+          priceRange: historicalResult?.priceRange || this.estimatePriceRangeFromLive(liveResult),
+          confidence: this.calculateCombinedConfidence(historicalResult, liveResult),
+          marketContext: this.generateCombinedMarketContext(historicalResult, liveResult)
         };
+        
+        console.log(`📊 Combined analysis: Historical=${!!historicalResult}, Live=${!!liveResult}`);
+        return combinedResult;
       } else {
-        console.log('❌ No comparable sales found in Auctionet database');
+        console.log('❌ No market data found (neither historical nor live)');
         
         // Fallback to Claude analysis if no Auctionet data found
         console.log('🤖 Falling back to Claude AI analysis...');
@@ -1018,11 +1034,102 @@ SVARA MED JSON:
       }
       
     } catch (error) {
-      console.error('💥 Auctionet API error, falling back to Claude:', error);
+      console.error('💥 Market analysis error, falling back to Claude:', error);
       
       // Fallback to Claude analysis on error
       return await this.analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description);
     }
+  }
+
+  // NEW: Generate combined insights from historical and live data
+  generateCombinedInsights(historicalResult, liveResult) {
+    const insights = [];
+    
+    if (historicalResult && liveResult) {
+      // Compare historical vs live pricing
+      const histAvg = (historicalResult.priceRange.low + historicalResult.priceRange.high) / 2;
+      const liveAvg = liveResult.currentEstimates ? 
+        (liveResult.currentEstimates.low + liveResult.currentEstimates.high) / 2 : null;
+      
+      if (liveAvg) {
+        const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
+        if (Math.abs(priceDiff) > 15) {
+          insights.push({
+            type: 'price_comparison',
+            message: `Aktuella utrop ${priceDiff > 0 ? 'högre' : 'lägre'} än historiska försäljningar (${Math.abs(Math.round(priceDiff))}% skillnad)`,
+            significance: Math.abs(priceDiff) > 30 ? 'high' : 'medium'
+          });
+        }
+      }
+      
+      // Market activity insights
+      if (liveResult.marketActivity) {
+        const reserveMetPercentage = liveResult.marketActivity.reservesMetPercentage;
+        if (reserveMetPercentage > 70) {
+          insights.push({
+            type: 'market_strength',
+            message: `Stark marknad: ${reserveMetPercentage}% av utrop nås i pågående auktioner`,
+            significance: 'high'
+          });
+        } else if (reserveMetPercentage < 30) {
+          insights.push({
+            type: 'market_weakness',
+            message: `Svag marknad: Endast ${reserveMetPercentage}% av utrop nås`,
+            significance: 'medium'
+          });
+        }
+      }
+    }
+    
+    return insights;
+  }
+
+  // NEW: Calculate combined confidence from both data sources
+  calculateCombinedConfidence(historicalResult, liveResult) {
+    if (historicalResult && liveResult) {
+      // Both sources available - higher confidence
+      return Math.min(1.0, (historicalResult.confidence + 0.2));
+    } else if (historicalResult) {
+      return historicalResult.confidence;
+    } else if (liveResult) {
+      // Live data only - moderate confidence
+      return Math.min(0.8, 0.5 + (liveResult.analyzedLiveItems / 20));
+    }
+    return 0.3;
+  }
+
+  // NEW: Estimate price range from live auction data
+  estimatePriceRangeFromLive(liveResult) {
+    if (!liveResult || !liveResult.currentEstimates) {
+      return null;
+    }
+    
+    return {
+      low: liveResult.currentEstimates.low,
+      high: liveResult.currentEstimates.high,
+      currency: 'SEK'
+    };
+  }
+
+  // NEW: Generate combined market context
+  generateCombinedMarketContext(historicalResult, liveResult) {
+    const contexts = [];
+    
+    if (historicalResult?.marketContext) {
+      contexts.push(historicalResult.marketContext);
+    }
+    
+    if (liveResult?.marketSentiment) {
+      const sentimentMap = {
+        'strong': 'Stark efterfrågan i pågående auktioner',
+        'moderate': 'Måttlig aktivitet i pågående auktioner', 
+        'weak': 'Låg aktivitet i pågående auktioner',
+        'neutral': 'Normal aktivitet i pågående auktioner'
+      };
+      contexts.push(sentimentMap[liveResult.marketSentiment] || 'Pågående auktionsaktivitet');
+    }
+    
+    return contexts.join(' • ');
   }
 
   // Fallback method using Claude AI (original implementation)

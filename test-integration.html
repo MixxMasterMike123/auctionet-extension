@@ -71,6 +71,14 @@
             color: #3498db;
             font-weight: bold;
         }
+        .server-info {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #0c5460;
+        }
     </style>
 </head>
 <body>
@@ -79,6 +87,10 @@
         <p style="text-align: center; color: #7f8c8d;">
             Testing the integration between Auctionet API and the extension modules
         </p>
+
+        <div class="server-info">
+            <strong>📡 Server Info:</strong> Make sure to access this page via HTTP server (e.g., <code>http://localhost:8000/test-integration.html</code>) to avoid CORS issues with ES6 modules.
+        </div>
 
         <div class="test-section">
             <h3>🧪 Test Auctionet API Module</h3>
@@ -98,12 +110,23 @@
             <button onclick="testMultipleArtists()" id="multipleBtn">Test Multiple Artists</button>
         </div>
 
+        <div class="test-section">
+            <h3>🔴 Test Live Auction Analysis</h3>
+            <p>Analyze current live auctions for real-time market intelligence.</p>
+            <button onclick="testLiveAuctions()" id="liveBtn">Test Live Auctions</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Test Extension Integration</h3>
+            <p>Simulate how the comprehensive market analysis will appear in the extension UI.</p>
+            <button onclick="testExtensionIntegration()" id="extensionBtn">Test Extension UI</button>
+        </div>
+
         <div id="results"></div>
     </div>
 
-    <script type="module">
-        import { AuctionetAPI } from './modules/auctionet-api.js';
-        
+    <script>
+        // Global variables and functions
         let auctionetAPI;
         
         function log(message, type = 'info') {
@@ -114,15 +137,7 @@
             results.scrollTop = results.scrollHeight;
         }
 
-        // Initialize
-        try {
-            auctionetAPI = new AuctionetAPI();
-            log('✅ Auctionet API module loaded successfully', 'success');
-        } catch (error) {
-            log(`❌ Failed to load Auctionet API module: ${error.message}`, 'error');
-        }
-
-        // Test functions
+        // Test functions - now globally accessible
         window.testAuctionetModule = async function() {
             const btn = document.getElementById('auctionetBtn');
             btn.disabled = true;
@@ -131,6 +146,11 @@
             log('🚀 Testing Auctionet API module directly...');
             
             try {
+                if (!auctionetAPI) {
+                    log('❌ Auctionet API not initialized', 'error');
+                    return;
+                }
+                
                 const result = await auctionetAPI.analyzeComparableSales(
                     'Lars Löfgren',
                     'POKAL', 
@@ -164,10 +184,10 @@
             } catch (error) {
                 log(`❌ Auctionet API test failed: ${error.message}`, 'error');
                 console.error('Full error:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test Auctionet API';
             }
-            
-            btn.disabled = false;
-            btn.textContent = 'Test Auctionet API';
         };
 
         window.testAPIManagerIntegration = async function() {
@@ -185,10 +205,10 @@
                 
             } catch (error) {
                 log(`❌ API Manager test failed: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test API Manager';
             }
-            
-            btn.disabled = false;
-            btn.textContent = 'Test API Manager';
         };
 
         window.testMultipleArtists = async function() {
@@ -197,6 +217,13 @@
             btn.textContent = 'Testing...';
             
             log('🎯 Testing multiple artists...');
+            
+            if (!auctionetAPI) {
+                log('❌ Auctionet API not initialized', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Test Multiple Artists';
+                return;
+            }
             
             const testCases = [
                 { artist: 'Carl Malmsten', object: 'STOL', period: '1950', technique: 'trä' },
@@ -238,9 +265,216 @@
             btn.textContent = 'Test Multiple Artists';
         };
 
+        window.testLiveAuctions = async function() {
+            const btn = document.getElementById('liveBtn');
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            
+            log('🔴 Testing LIVE auction analysis...');
+            
+            if (!auctionetAPI) {
+                log('❌ Auctionet API not initialized', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Test Live Auctions';
+                return;
+            }
+            
+            const liveTestCases = [
+                { artist: 'Orrefors', object: 'VAS', period: '1970', technique: 'glas' },
+                { artist: 'Carl Malmsten', object: 'STOL', period: '1950', technique: 'trä' },
+                { artist: 'Bruno Mathsson', object: 'FÅTÖLJ', period: '1960', technique: 'läder' }
+            ];
+            
+            for (const testCase of liveTestCases) {
+                log(`\n🔴 Testing LIVE: ${testCase.artist} - ${testCase.object}`);
+                
+                try {
+                    const liveResult = await auctionetAPI.analyzeLiveAuctions(
+                        testCase.artist,
+                        testCase.object,
+                        testCase.period,
+                        testCase.technique,
+                        `${testCase.object} av ${testCase.artist}`
+                    );
+                    
+                    if (liveResult) {
+                        log(`✅ Found LIVE data: ${liveResult.analyzedLiveItems} active auctions`, 'success');
+                        
+                        if (liveResult.currentEstimates) {
+                            const est = liveResult.currentEstimates;
+                            log(`💰 Current estimates: ${est.low.toLocaleString()}-${est.high.toLocaleString()} SEK`);
+                        }
+                        
+                        if (liveResult.currentBids) {
+                            const bids = liveResult.currentBids;
+                            log(`🔥 Current bids: ${bids.low.toLocaleString()}-${bids.high.toLocaleString()} SEK`);
+                        }
+                        
+                        if (liveResult.marketActivity) {
+                            const activity = liveResult.marketActivity;
+                            log(`📊 Market activity: ${activity.totalBids} total bids, ${activity.reservesMetPercentage}% reserves met`);
+                        }
+                        
+                        log(`🎯 Market sentiment: ${liveResult.marketSentiment}`);
+                        
+                        if (liveResult.liveItems && liveResult.liveItems.length > 0) {
+                            log(`🔴 Top active items:`);
+                            liveResult.liveItems.slice(0, 3).forEach(item => {
+                                log(`  ${item.bidCount} bids: ${item.currentBid.toLocaleString()} SEK - ${item.title} (${item.timeRemaining})`);
+                            });
+                        }
+                    } else {
+                        log(`❌ No live auction data found for ${testCase.artist}`, 'error');
+                    }
+                    
+                } catch (error) {
+                    log(`❌ Error testing live auctions for ${testCase.artist}: ${error.message}`, 'error');
+                }
+                
+                // Small delay between requests
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            log('\n🏁 Live auction testing complete!');
+            
+            btn.disabled = false;
+            btn.textContent = 'Test Live Auctions';
+        };
+
+        window.testExtensionIntegration = async function() {
+            const btn = document.getElementById('extensionBtn');
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            
+            log('🎯 Testing Extension UI Integration...');
+            log('📋 Simulating comprehensive market analysis as it would appear in extension');
+            
+            if (!auctionetAPI) {
+                log('❌ Auctionet API not initialized', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Test Extension UI';
+                return;
+            }
+            
+            try {
+                // Simulate a real item being cataloged
+                const mockItemData = {
+                    title: 'EDWARD HALD. Vas, fiskgraal, Orrefors, signerad, 1966.',
+                    description: 'Vas i glas med fiskgraal-teknik. Signerad Edward Hald och daterad 1966. Höjd ca 15 cm.',
+                    artist: 'Edward Hald',
+                    category: 'Konstglas'
+                };
+                
+                log('\n📝 Mock Item Being Cataloged:');
+                log(`Titel: ${mockItemData.title}`);
+                log(`Konstnär: ${mockItemData.artist}`);
+                log(`Beskrivning: ${mockItemData.description}`);
+                
+                // Run comprehensive analysis (both historical and live)
+                log('\n🔍 Running comprehensive market analysis...');
+                
+                const [historicalResult, liveResult] = await Promise.all([
+                    auctionetAPI.analyzeComparableSales('Edward Hald', 'VAS', '1966', 'glas', mockItemData.description),
+                    auctionetAPI.analyzeLiveAuctions('Edward Hald', 'VAS', '1966', 'glas', mockItemData.description)
+                ]);
+                
+                // Simulate the extension's structured presentation
+                log('\n📊 === EXTENSION MARKET ANALYSIS RESULTS ===', 'success');
+                
+                // 1. Main Price Range
+                if (historicalResult) {
+                    const hist = historicalResult;
+                    const confidence = Math.round(hist.confidence * 100);
+                    const confidenceIcon = confidence >= 80 ? '🟢' : confidence >= 60 ? '🟡' : '🟠';
+                    log(`💰 MARKNADSANALYS: ${hist.priceRange.low.toLocaleString()}-${hist.priceRange.high.toLocaleString()} SEK (${confidenceIcon} ${confidence}% tillförlitlighet)`, 'success');
+                }
+                
+                // 2. Combined Insights
+                if (historicalResult && liveResult) {
+                    const histAvg = (historicalResult.priceRange.low + historicalResult.priceRange.high) / 2;
+                    const liveAvg = liveResult.currentEstimates ? 
+                        (liveResult.currentEstimates.low + liveResult.currentEstimates.high) / 2 : null;
+                    
+                    if (liveAvg) {
+                        const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
+                        if (Math.abs(priceDiff) > 15) {
+                            log(`📈 MARKNADSINTELLIGENS: Aktuella utrop ${priceDiff > 0 ? 'högre' : 'lägre'} än historiska försäljningar (${Math.abs(Math.round(priceDiff))}% skillnad)`, 'info');
+                        }
+                    }
+                }
+                
+                // 3. Historical Data
+                if (historicalResult) {
+                    log(`📚 Historiska försäljningar: ${historicalResult.analyzedSales} försäljningar från ${historicalResult.totalMatches} träffar`);
+                    
+                    if (historicalResult.trendAnalysis && historicalResult.trendAnalysis.trend !== 'insufficient_data') {
+                        const trendIcon = historicalResult.trendAnalysis.trend.includes('rising') ? '📈' : 
+                                        historicalResult.trendAnalysis.trend.includes('falling') ? '📉' : '📊';
+                        log(`${trendIcon} Pristrend: ${historicalResult.trendAnalysis.description}`);
+                    }
+                }
+                
+                // 4. Live Auction Data
+                if (liveResult) {
+                    log(`🔴 Aktuell marknadsaktivitet: ${liveResult.analyzedLiveItems} aktiva från ${liveResult.totalMatches} träffar`);
+                    
+                    if (liveResult.marketActivity) {
+                        const activity = liveResult.marketActivity;
+                        log(`📊 Marknadsaktivitet: ${activity.totalBids} bud, ${activity.reservesMetPercentage}% utrop nådda`);
+                        
+                        if (activity.reservesMetPercentage > 70) {
+                            log(`🔥 MARKNADSINTELLIGENS: Stark marknad: ${activity.reservesMetPercentage}% av utrop nås i pågående auktioner`, 'success');
+                        } else if (activity.reservesMetPercentage < 30) {
+                            log(`❄️ MARKNADSINTELLIGENS: Svag marknad: Endast ${activity.reservesMetPercentage}% av utrop nås`, 'info');
+                        }
+                    }
+                    
+                    if (liveResult.currentBids) {
+                        const bids = liveResult.currentBids;
+                        log(`🔥 Pågående budgivning: ${bids.low.toLocaleString()}-${bids.high.toLocaleString()} SEK`);
+                    }
+                    
+                    if (liveResult.liveItems && liveResult.liveItems.length > 0) {
+                        const topItem = liveResult.liveItems[0];
+                        if (topItem.bidCount > 0) {
+                            log(`🏆 Hetaste objektet: ${topItem.bidCount} bud på ${topItem.currentBid.toLocaleString()} SEK (${topItem.timeRemaining} kvar)`);
+                        }
+                    }
+                }
+                
+                // 5. Data Quality Notes
+                if (historicalResult && historicalResult.confidence < 0.6) {
+                    log(`ℹ️ Datakommentar: Begränsad data tillgänglig - använd som vägledning`);
+                }
+                
+                log('\n✅ Extension UI simulation complete!', 'success');
+                log('📋 This shows how market data will be presented to catalogers in digestible chunks');
+                
+            } catch (error) {
+                log(`❌ Error in extension integration test: ${error.message}`, 'error');
+            }
+            
+            btn.disabled = false;
+            btn.textContent = 'Test Extension UI';
+        };
+    </script>
+
+    <script type="module">
+        // Module initialization
+        import { AuctionetAPI } from './modules/auctionet-api.js';
+        
+        // Initialize
+        try {
+            auctionetAPI = new AuctionetAPI();
+            log('✅ Auctionet API module loaded successfully', 'success');
+            log('📚 Ready to test real market data integration...');
+        } catch (error) {
+            log(`❌ Failed to load Auctionet API module: ${error.message}`, 'error');
+            console.error('Module loading error:', error);
+        }
+
         // Initialize log
         log('🔍 Auctionet Integration Test ready!');
-        log('📚 Ready to test real market data integration...');
     </script>
 </body>
 </html> 

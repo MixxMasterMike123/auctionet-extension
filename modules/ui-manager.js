@@ -534,4 +534,131 @@ export class UIManager {
       console.error('Error in initial quality analysis:', error);
     }
   }
+
+  // Enhanced styling for different warning types
+  getWarningStyle(severity) {
+    const baseStyle = `
+      margin: 8px 0;
+      padding: 12px;
+      border-radius: 6px;
+      border-left: 4px solid;
+      font-size: 13px;
+      line-height: 1.4;
+    `;
+    
+    switch (severity) {
+      case 'critical':
+        return baseStyle + `
+          background-color: #fee;
+          border-left-color: #e74c3c;
+          color: #c0392b;
+        `;
+      case 'high':
+        return baseStyle + `
+          background-color: #fff3cd;
+          border-left-color: #f39c12;
+          color: #d68910;
+        `;
+      case 'medium':
+        return baseStyle + `
+          background-color: #d1ecf1;
+          border-left-color: #3498db;
+          color: #2980b9;
+        `;
+      case 'low':
+        return baseStyle + `
+          background-color: #f8f9fa;
+          border-left-color: #6c757d;
+          color: #495057;
+        `;
+      case 'header':
+        return `
+          margin: 16px 0 8px 0;
+          padding: 8px 12px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border-radius: 6px;
+          font-weight: 600;
+          font-size: 14px;
+          text-align: center;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        `;
+      case 'market-primary':
+        return baseStyle + `
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-left-color: #667eea;
+          color: white;
+          font-weight: 600;
+          font-size: 14px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        `;
+      case 'market-insight':
+        return baseStyle + `
+          background-color: #e8f5e8;
+          border-left-color: #27ae60;
+          color: #1e8449;
+          font-weight: 500;
+        `;
+      case 'market-data':
+        return baseStyle + `
+          background-color: #f0f8ff;
+          border-left-color: #3498db;
+          color: #2c3e50;
+          font-size: 12px;
+          padding: 8px 12px;
+        `;
+      case 'market-activity':
+        return baseStyle + `
+          background-color: #fff5f5;
+          border-left-color: #e74c3c;
+          color: #c0392b;
+          font-weight: 500;
+        `;
+      case 'market-note':
+        return baseStyle + `
+          background-color: #f8f9fa;
+          border-left-color: #95a5a6;
+          color: #7f8c8d;
+          font-size: 12px;
+          font-style: italic;
+          padding: 8px 12px;
+        `;
+      default:
+        return baseStyle + `
+          background-color: #f8f9fa;
+          border-left-color: #6c757d;
+          color: #495057;
+        `;
+    }
+  }
+
+  // Enhanced warning display with better formatting
+  displayWarning(warning) {
+    const warningDiv = document.createElement('div');
+    warningDiv.style.cssText = this.getWarningStyle(warning.severity);
+    
+    // Handle header-only warnings (like the API data header)
+    if (warning.severity === 'header') {
+      warningDiv.innerHTML = `<strong>${warning.field}</strong>`;
+      return warningDiv;
+    }
+    
+    // Handle regular warnings with field and issue
+    if (warning.field && warning.issue) {
+      warningDiv.innerHTML = `
+        <div style="display: flex; align-items: flex-start; gap: 8px;">
+          <strong style="min-width: 120px; font-size: 12px; opacity: 0.8;">${warning.field}:</strong>
+          <span style="flex: 1;">${warning.issue}</span>
+        </div>
+      `;
+    } else if (warning.issue) {
+      // Issue only (for market data)
+      warningDiv.innerHTML = warning.issue;
+    } else if (warning.field) {
+      // Field only (for headers)
+      warningDiv.innerHTML = `<strong>${warning.field}</strong>`;
+    }
+    
+    return warningDiv;
+  }
 } 

@@ -58,7 +58,7 @@
       async init() {
         console.log('Auctionet AI Assistant: Initializing assistant...');
         
-        await this.apiManager.loadApiKey();
+        await this.apiManager.loadSettings();
         console.log('API key loaded:', this.apiManager.apiKey ? 'Yes' : 'No');
         
         this.uiManager.injectUI();
@@ -83,15 +83,15 @@
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           if (request.type === 'refresh-api-key') {
             console.log('Refreshing API key from popup request');
-            this.apiManager.loadApiKey();
+            this.apiManager.loadSettings();
             sendResponse({ success: true });
           } else if (request.type === 'refresh-model') {
             console.log('Refreshing model selection from popup request');
-            this.apiManager.loadApiKey(); // This also loads model selection
+            this.apiManager.loadSettings(); // This also loads model selection
             sendResponse({ success: true });
           } else if (request.type === 'refresh-settings') {
             console.log('Refreshing settings from popup request');
-            this.apiManager.loadApiKey(); // This also loads all settings including enableArtistInfo
+            this.apiManager.loadSettings(); // This also loads all settings including enableArtistInfo
             sendResponse({ success: true });
           }
         });
@@ -254,7 +254,7 @@
         
         // Ensure API key is loaded
         if (!this.apiManager.apiKey) {
-          await this.apiManager.loadApiKey();
+          await this.apiManager.loadSettings();
         }
         
         // Check if API key is still missing
@@ -300,7 +300,7 @@
       async improveAllFields() {
         // Ensure API key is loaded
         if (!this.apiManager.apiKey) {
-          await this.apiManager.loadApiKey();
+          await this.apiManager.loadSettings();
         }
         
         // Check if API key is still missing
@@ -598,7 +598,7 @@
         // Bypass quality checks and improve anyway
         
         // Ensure API manager settings are loaded
-        await this.apiManager.loadApiKey();
+        await this.apiManager.loadSettings();
         console.log('🔧 Force improve - Artist info enabled:', this.apiManager.enableArtistInfo);
         
         const itemData = this.dataExtractor.extractItemData();

@@ -615,16 +615,11 @@ export class QualityAnalyzer {
       // Track pending analyses
       this.pendingAnalyses.add('artist');
       
-      // Check if we'll need sales analysis and add it to pending immediately
-      const artistToAnalyze = data.artist && data.artist.trim().length > 2 ? data.artist : null;
-      const willRunSalesAnalysis = !!artistToAnalyze;
+      // SMART APPROACH: Always try to find the best artist for market analysis
+      // First, check if we have an immediate artist (from field or rule-based detection)
+      const immediateArtist = this.determineBestArtistForMarketAnalysis(data);
       
-      if (willRunSalesAnalysis) {
-        console.log('💰 Will run sales analysis for existing artist:', artistToAnalyze);
-        this.pendingAnalyses.add('sales');
-      }
-      
-      // Start artist detection
+      // Start artist detection (for quality warnings)
       const artistAnalysisPromise = this.detectMisplacedArtist(data.title, data.artist);
       
       // Handle artist detection results as soon as they're ready
@@ -632,31 +627,42 @@ export class QualityAnalyzer {
         this.pendingAnalyses.delete('artist');
         this.handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore);
         
-        // Check if we need to start sales analysis for AI-detected artist
-        if (!willRunSalesAnalysis && aiArtist?.detectedArtist) {
-          console.log('💰 AI detected artist, starting sales analysis:', aiArtist.detectedArtist);
+        // SMART MARKET ANALYSIS: Use the best available artist
+        const bestArtist = this.determineBestArtistForMarketAnalysis(data, aiArtist);
+        
+        if (bestArtist) {
+          console.log('💰 Starting sales analysis with best artist:', bestArtist);
           this.pendingAnalyses.add('sales');
           this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
-          this.startSalesAnalysis(aiArtist.detectedArtist, data, currentWarnings, currentScore);
-        } else if (!willRunSalesAnalysis) {
-          // No existing artist and no AI-detected artist
+          this.startSalesAnalysis(bestArtist.artist, data, currentWarnings, currentScore);
+        } else {
           console.log('ℹ️ No artist found for sales analysis');
           this.checkAndHideLoadingIndicator();
         }
       }).catch(error => {
         console.error('Error in AI artist detection:', error);
         this.pendingAnalyses.delete('artist');
-        this.checkAndHideLoadingIndicator();
+        
+        // Even if AI detection fails, try market analysis with immediate artist
+        if (immediateArtist) {
+          console.log('💰 AI failed, but starting sales analysis with immediate artist:', immediateArtist);
+          this.pendingAnalyses.add('sales');
+          this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
+          this.startSalesAnalysis(immediateArtist.artist, data, currentWarnings, currentScore);
+        } else {
+          this.checkAndHideLoadingIndicator();
+        }
       });
 
-      // Start sales analysis if we have an existing artist
-      if (willRunSalesAnalysis) {
-        console.log('💰 Starting immediate sales analysis for existing artist:', artistToAnalyze);
-        // Update loading message for sales analysis
+      // IMMEDIATE MARKET ANALYSIS: If we have an immediate artist, start analysis right away
+      if (immediateArtist) {
+        console.log('💰 Starting immediate sales analysis with:', immediateArtist);
+        this.pendingAnalyses.add('sales');
+        // Small delay to let the artist detection message show first
         setTimeout(() => {
           this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
         }, 500);
-        this.startSalesAnalysis(artistToAnalyze, data, currentWarnings, currentScore);
+        this.startSalesAnalysis(immediateArtist.artist, data, currentWarnings, currentScore);
       }
 
     } catch (error) {
@@ -715,12 +721,23 @@ export class QualityAnalyzer {
 
   async startSalesAnalysis(artistName, data, currentWarnings, currentScore) {
     try {
-      console.log('💰 Running comparable sales analysis for artist:', artistName);
+      console.log('💰 Running comprehensive market analysis for:', artistName);
       
-      // Extract additional context for sales analysis
+      // Extract additional context for sales analysis from current item
       const objectType = this.extractObjectType(data.title);
       const period = this.extractPeriod(data.title) || this.extractPeriod(data.description);
       const technique = this.extractTechnique(data.title, data.description);
+      
+      // SMART ENHANCEMENT: Extract additional search terms from title for better matching
+      const enhancedSearchTerms = this.extractEnhancedSearchTerms(data.title, data.description);
+      
+      console.log('🔍 Market analysis parameters:', {
+        artist: artistName,
+        objectType: objectType,
+        period: period,
+        technique: technique,
+        enhancedTerms: enhancedSearchTerms
+      });
       
       const salesData = await this.apiManager.analyzeComparableSales(
         artistName,
@@ -730,19 +747,19 @@ export class QualityAnalyzer {
         data.description
       );
       
-      console.log('💰 Comparable sales result:', salesData);
+      console.log('💰 Market analysis result:', salesData);
       
       if (salesData) {
-        // Handle sales results immediately when ready
+        // Handle comprehensive market results immediately when ready
         this.handleSalesAnalysisResult(salesData, currentWarnings, currentScore);
       } else {
-        console.log('ℹ️ No comparable sales data available for this artist');
+        console.log('ℹ️ No market data available for this item');
         // Optionally show a message that no sales data was found
         this.showNoSalesDataMessage(currentWarnings, currentScore);
       }
       
     } catch (error) {
-      console.error('💥 Error in sales analysis:', error);
+      console.error('💥 Error in market analysis:', error);
       // Show error message to user if needed
       this.showSalesAnalysisError(error, currentWarnings, currentScore);
     } finally {
@@ -753,117 +770,320 @@ export class QualityAnalyzer {
 
   handleSalesAnalysisResult(salesData, currentWarnings, currentScore) {
     if (salesData && salesData.hasComparableData) {
-      console.log('💰 Processing sales analysis results');
+      console.log('💰 Processing comprehensive market analysis results');
       
-      // Get current warnings (might have been updated by artist detection)
-      const currentWarningsElement = document.querySelector('.quality-warnings ul');
-      let updatedWarnings = [...currentWarnings];
+      // NEW: Analyze valuation and suggest changes if needed
+      const valuationSuggestions = this.analyzeValuationSuggestions(salesData);
+      console.log('💰 Generated valuation suggestions:', valuationSuggestions);
       
-      // If artist detection already updated the warnings, get the current state
-      if (currentWarningsElement) {
-        updatedWarnings = this.extractCurrentWarnings();
-      }
+      // Use the new dashboard approach and pass valuation suggestions
+      this.addMarketDataDashboard(salesData, valuationSuggestions);
       
-      const confidence = salesData.confidence;
-      const priceRange = salesData.priceRange;
-      const dataSource = salesData.dataSource || 'unknown';
-      
-      // Format price range nicely
-      const formattedLow = new Intl.NumberFormat('sv-SE').format(priceRange.low);
-      const formattedHigh = new Intl.NumberFormat('sv-SE').format(priceRange.high);
-      
-      // Create confidence indicator
-      let confidenceText = '';
-      if (confidence >= 0.8) {
-        confidenceText = '🟢 Hög tillförlitlighet';
-      } else if (confidence >= 0.6) {
-        confidenceText = '🟡 Medel tillförlitlighet';
+      if (valuationSuggestions.length > 0) {
+        console.log('💰 Adding valuation suggestions to warnings');
+        // Add valuation suggestions to current warnings
+        const updatedWarnings = [...currentWarnings, ...valuationSuggestions];
+        this.updateQualityIndicator(currentScore, updatedWarnings);
       } else {
-        confidenceText = '🟠 Låg tillförlitlighet';
+        console.log('💰 No valuation suggestions generated');
+        // Update UI with current warnings (without market data)
+        this.updateQualityIndicator(currentScore, currentWarnings);
       }
       
-      // Create data source indicator
-      let sourceIndicator = '';
-      if (dataSource === 'auctionet_real_data') {
-        sourceIndicator = '🎯 VERKLIGA FÖRSÄLJNINGAR';
-        // Add additional Auctionet-specific information
-        if (salesData.auctionetData) {
-          const auctionetInfo = salesData.auctionetData;
-          sourceIndicator += ` (${auctionetInfo.analyzedSales} försäljningar från ${auctionetInfo.totalMatches} träffar)`;
-        }
-      } else if (dataSource === 'claude_ai_estimate') {
-        sourceIndicator = '🤖 AI-UPPSKATTNING';
-      } else {
-        sourceIndicator = '📊 MARKNADSANALYS';
-      }
-      
-      const salesMessage = `💰 ${sourceIndicator}: ${formattedLow}-${formattedHigh} SEK (${confidenceText} ${Math.round(confidence * 100)}%)`;
-      
-      updatedWarnings.push({
-        field: 'Marknadsvärde',
-        issue: salesMessage,
-        severity: 'low' // Informational, not a problem
-      });
-      
-      // Add market context if available
-      if (salesData.marketContext && salesData.marketContext.marketTrend) {
-        const contextMessage = `📈 Marknadstrend: ${salesData.marketContext.marketTrend}`;
-        updatedWarnings.push({
-          field: 'Marknadsvärde',
-          issue: contextMessage,
-          severity: 'low'
-        });
-      }
-      
-      // Add trend analysis for Auctionet data
-      if (dataSource === 'auctionet_real_data' && salesData.auctionetData?.trendAnalysis) {
-        const trend = salesData.auctionetData.trendAnalysis;
-        if (trend.trend !== 'insufficient_data') {
-          let trendIcon = '📊';
-          if (trend.trend === 'rising_strong' || trend.trend === 'rising') {
-            trendIcon = '📈';
-          } else if (trend.trend === 'falling_strong' || trend.trend === 'falling') {
-            trendIcon = '📉';
-          }
-          
-          updatedWarnings.push({
-            field: 'Marknadsvärde',
-            issue: `${trendIcon} Pristrend: ${trend.description}`,
-            severity: 'low'
-          });
-        }
-      }
-      
-      // Add recent sales information for Auctionet data
-      if (dataSource === 'auctionet_real_data' && salesData.auctionetData?.recentSales?.length > 0) {
-        const recentSale = salesData.auctionetData.recentSales[0]; // Most recent sale
-        const recentMessage = `🕒 Senaste försäljning: ${recentSale.price.toLocaleString()} SEK (${recentSale.date})`;
-        updatedWarnings.push({
-          field: 'Marknadsvärde',
-          issue: recentMessage,
-          severity: 'low'
-        });
-      }
-      
-      // Add limitations/reasoning if confidence is low or for AI estimates
-      if (confidence < 0.6 && salesData.limitations) {
-        updatedWarnings.push({
-          field: 'Marknadsvärde',
-          issue: `ℹ️ Begränsningar: ${salesData.limitations}`,
-          severity: 'low'
-        });
-      } else if (dataSource === 'claude_ai_estimate') {
-        updatedWarnings.push({
-          field: 'Marknadsvärde',
-          issue: `ℹ️ Notera: Detta är en AI-uppskattning baserad på allmän marknadskunskap, inte verkliga försäljningsdata`,
-          severity: 'low'
-        });
-      }
-      
-      // Update UI with sales results
-      this.updateQualityIndicator(currentScore, updatedWarnings);
-      console.log('✅ Sales analysis results displayed');
+      console.log('✅ Market data dashboard and valuation analysis displayed');
     }
+  }
+
+  // NEW: Analyze cataloger's valuation against market data and suggest changes
+  analyzeValuationSuggestions(salesData) {
+    const suggestions = [];
+    
+    if (!salesData.priceRange) {
+      console.log('💰 No price range in sales data');
+      return suggestions;
+    }
+    
+    // Get current valuation data
+    const data = this.dataExtractor.extractItemData();
+    const currentEstimate = parseInt(data.estimate) || 0;
+    const currentUpperEstimate = parseInt(data.upperEstimate) || 0;
+    const currentAcceptedReserve = parseInt(data.acceptedReserve) || 0;
+    
+    // Market data
+    const marketLow = salesData.priceRange.low;
+    const marketHigh = salesData.priceRange.high;
+    const marketMid = (marketLow + marketHigh) / 2;
+    const confidence = salesData.confidence;
+    
+    console.log('💰 Valuation analysis:', {
+      currentEstimate,
+      currentUpperEstimate,
+      currentAcceptedReserve,
+      marketRange: `${marketLow}-${marketHigh}`,
+      confidence
+    });
+    
+    // Only suggest changes if we have high confidence in market data
+    if (confidence < 0.6) {
+      console.log('⚠️ Market confidence too low for valuation suggestions:', confidence);
+      return suggestions;
+    }
+    
+    // Analyze estimate (main valuation)
+    if (currentEstimate > 0) {
+      console.log('💰 Analyzing main estimate:', currentEstimate);
+      const estimateResult = this.compareValuationToMarket(currentEstimate, marketLow, marketHigh, marketMid);
+      console.log('💰 Estimate vs market result:', estimateResult);
+      
+      if (estimateResult.needsAdjustment) {
+        suggestions.push({
+          field: 'Värdering',
+          issue: estimateResult.message,
+          suggestedRange: estimateResult.suggestedRange,
+          severity: estimateResult.severity
+        });
+        console.log('💰 Added estimate suggestion');
+      }
+    } else {
+      console.log('💰 No current estimate to analyze');
+    }
+    
+    // Analyze upper estimate if present
+    if (currentUpperEstimate > 0 && currentEstimate > 0) {
+      console.log('💰 Analyzing upper estimate:', currentUpperEstimate);
+      const upperEstimateAnalysis = this.analyzeUpperEstimate(currentEstimate, currentUpperEstimate, marketLow, marketHigh);
+      
+      if (upperEstimateAnalysis.needsAdjustment) {
+        suggestions.push({
+          field: 'Övre värdering',
+          issue: upperEstimateAnalysis.message,
+          suggestedRange: upperEstimateAnalysis.suggestedRange,
+          severity: upperEstimateAnalysis.severity
+        });
+        console.log('💰 Added upper estimate suggestion');
+      }
+    }
+    
+    // Analyze accepted reserve if present
+    if (currentAcceptedReserve > 0 && currentEstimate > 0) {
+      console.log('💰 Analyzing accepted reserve:', currentAcceptedReserve);
+      const reserveAnalysis = this.analyzeAcceptedReserve(currentEstimate, currentAcceptedReserve, marketLow, marketHigh);
+      
+      if (reserveAnalysis.needsAdjustment) {
+        suggestions.push({
+          field: 'Godkänd bevakning',
+          issue: reserveAnalysis.message,
+          suggestedRange: reserveAnalysis.suggestedRange,
+          severity: reserveAnalysis.severity
+        });
+        console.log('💰 Added reserve suggestion');
+      }
+    }
+    
+    console.log('💰 Final suggestions count:', suggestions.length);
+    return suggestions;
+  }
+
+  // Helper method to compare a valuation against market data
+  compareValuationToMarket(valuation, marketLow, marketHigh, marketMid) {
+    const tolerance = 0.3; // 30% tolerance for reasonable valuations
+    const lowThreshold = marketLow * (1 - tolerance);
+    const highThreshold = marketHigh * (1 + tolerance);
+    
+    // Check if valuation is extremely unrealistic (more than 3x or less than 0.3x market range)
+    const valuationVsMarketHigh = valuation / marketHigh;
+    const valuationVsMarketLow = valuation / marketLow;
+    const isExtremelyHigh = valuationVsMarketHigh > 3.0;
+    const isExtremelyLow = valuationVsMarketLow < 0.3;
+    
+    console.log('💰 Comparison thresholds:', {
+      valuation,
+      marketLow,
+      marketHigh,
+      lowThreshold,
+      highThreshold,
+      tolerance,
+      valuationVsMarketHigh,
+      valuationVsMarketLow,
+      isExtremelyHigh,
+      isExtremelyLow
+    });
+    
+    if (isExtremelyHigh) {
+      // Valuation is extremely above market - this is a serious error
+      const suggestedLow = Math.round(marketLow);
+      const suggestedHigh = Math.round(marketHigh);
+      
+      console.log('💰 Valuation extremely high - major correction needed');
+      return {
+        needsAdjustment: true,
+        message: `Värdering (${this.formatSEK(valuation)}) kraftigt över marknadsvärde`,
+        suggestedRange: `Förslag: ${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK baserat på marknad`,
+        severity: 'high' // Upgraded severity for extreme cases
+      };
+    } else if (isExtremelyLow) {
+      // Valuation is extremely below market - also serious
+      const suggestedLow = Math.round(marketLow);
+      const suggestedHigh = Math.round(marketHigh);
+      
+      console.log('💰 Valuation extremely low - major correction needed');
+      return {
+        needsAdjustment: true,
+        message: `Värdering (${this.formatSEK(valuation)}) kraftigt under marknadsvärde`,
+        suggestedRange: `Förslag: ${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK baserat på marknad`,
+        severity: 'high' // Upgraded severity for extreme cases
+      };
+    } else if (valuation < lowThreshold) {
+      // Valuation is significantly below market (but not extreme)
+      const suggestedLow = Math.round(marketLow * 0.8);
+      const suggestedHigh = Math.round(marketMid);
+      
+      console.log('💰 Valuation too low - suggesting increase');
+      return {
+        needsAdjustment: true,
+        message: `Värdering (${this.formatSEK(valuation)}) ligger under marknadsvärde`,
+        suggestedRange: `${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK`,
+        severity: 'medium'
+      };
+    } else if (valuation > highThreshold) {
+      // Valuation is significantly above market (but not extreme)
+      const suggestedLow = Math.round(marketMid);
+      const suggestedHigh = Math.round(marketHigh * 1.2);
+      
+      console.log('💰 Valuation too high - suggesting decrease');
+      return {
+        needsAdjustment: true,
+        message: `Värdering (${this.formatSEK(valuation)}) ligger över marknadsvärde`,
+        suggestedRange: `${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK`,
+        severity: 'medium'
+      };
+    }
+    
+    console.log('💰 Valuation within acceptable range - providing positive feedback');
+    // NEW: Provide positive feedback when valuation is spot-on
+    return { 
+      needsAdjustment: true, // Set to true so it shows up as a "suggestion"
+      message: `Värdering (${this.formatSEK(valuation)}) ligger väl i linje med marknadsvärde`,
+      suggestedRange: `Bra bedömning! Marknad: ${this.formatSEK(marketLow)}-${this.formatSEK(marketHigh)} SEK`,
+      severity: 'positive' // New severity for positive feedback
+    };
+  }
+
+  // Helper method to analyze upper estimate
+  analyzeUpperEstimate(estimate, upperEstimate, marketLow, marketHigh) {
+    // Upper estimate should typically be 20-50% higher than base estimate
+    const expectedUpperMin = estimate * 1.2;
+    const expectedUpperMax = estimate * 1.5;
+    
+    // Also check against market data
+    const marketUpper = marketHigh * 1.2;
+    
+    if (upperEstimate < expectedUpperMin) {
+      return {
+        needsAdjustment: true,
+        message: `Övre värdering (${this.formatSEK(upperEstimate)}) för låg jämfört med grundvärdering`,
+        suggestedRange: `${this.formatSEK(Math.round(expectedUpperMin))}-${this.formatSEK(Math.round(expectedUpperMax))} SEK`,
+        severity: 'low'
+      };
+    } else if (upperEstimate > marketUpper) {
+      return {
+        needsAdjustment: true,
+        message: `Övre värdering (${this.formatSEK(upperEstimate)}) kan vara för hög jämfört med marknadsvärde`,
+        suggestedRange: `Max ${this.formatSEK(Math.round(marketUpper))} SEK`,
+        severity: 'low'
+      };
+    }
+    
+    return { needsAdjustment: false };
+  }
+
+  // Helper method to analyze accepted reserve
+  analyzeAcceptedReserve(estimate, acceptedReserve, marketLow, marketHigh) {
+    // SMART APPROACH: Use market data as primary reference when estimate is clearly wrong
+    const marketMid = (marketLow + marketHigh) / 2;
+    const marketReserveIdeal = marketLow * 0.7; // 70% of market low is ideal reserve
+    const marketReserveMax = marketLow * 0.9;   // 90% of market low is maximum reasonable reserve
+    
+    // Check if cataloger's estimate is wildly off from market (more than 3x market high)
+    const estimateVsMarket = estimate / marketHigh;
+    const isEstimateUnrealistic = estimateVsMarket > 3.0 || estimateVsMarket < 0.3;
+    
+    console.log('💰 Reserve analysis:', {
+      estimate,
+      acceptedReserve,
+      marketLow,
+      marketHigh,
+      marketReserveIdeal: Math.round(marketReserveIdeal),
+      marketReserveMax: Math.round(marketReserveMax),
+      estimateVsMarket,
+      isEstimateUnrealistic
+    });
+    
+    if (isEstimateUnrealistic) {
+      // MARKET-BASED ANALYSIS: Ignore unrealistic estimate, use market data
+      console.log('💰 Using market-based reserve analysis (estimate unrealistic)');
+      
+      if (acceptedReserve > marketReserveMax) {
+        return {
+          needsAdjustment: true,
+          message: `Godkänd bevakning (${this.formatSEK(acceptedReserve)}) för hög jämfört med marknadsvärde`,
+          suggestedRange: `Max ${this.formatSEK(Math.round(marketReserveMax))} SEK baserat på marknad`,
+          severity: 'medium'
+        };
+      } else if (acceptedReserve < marketReserveIdeal * 0.5) {
+        return {
+          needsAdjustment: true,
+          message: `Godkänd bevakning (${this.formatSEK(acceptedReserve)}) mycket låg jämfört med marknadsvärde`,
+          suggestedRange: `${this.formatSEK(Math.round(marketReserveIdeal * 0.7))}-${this.formatSEK(Math.round(marketReserveIdeal))} SEK`,
+          severity: 'medium'
+        };
+      } else if (acceptedReserve >= marketReserveIdeal * 0.7 && acceptedReserve <= marketReserveMax) {
+        // POSITIVE FEEDBACK: Reserve is well-aligned with market
+        return {
+          needsAdjustment: true,
+          message: `Godkänd bevakning (${this.formatSEK(acceptedReserve)}) väl anpassad till marknadsvärde`,
+          suggestedRange: `Bra bedömning! Marknadsbas: ${this.formatSEK(Math.round(marketReserveIdeal))}-${this.formatSEK(Math.round(marketReserveMax))} SEK`,
+          severity: 'positive'
+        };
+      }
+    } else {
+      // TRADITIONAL ANALYSIS: Estimate seems reasonable, use estimate-based rules
+      console.log('💰 Using estimate-based reserve analysis (estimate reasonable)');
+      
+      const expectedReserveMin = estimate * 0.6;
+      const expectedReserveMax = estimate * 0.8;
+      
+      if (acceptedReserve < expectedReserveMin) {
+        return {
+          needsAdjustment: true,
+          message: `Godkänd bevakning (${this.formatSEK(acceptedReserve)}) låg jämfört med värdering`,
+          suggestedRange: `${this.formatSEK(Math.round(expectedReserveMin))}-${this.formatSEK(Math.round(expectedReserveMax))} SEK`,
+          severity: 'low'
+        };
+      } else if (acceptedReserve > expectedReserveMax) {
+        return {
+          needsAdjustment: true,
+          message: `Godkänd bevakning (${this.formatSEK(acceptedReserve)}) hög jämfört med värdering`,
+          suggestedRange: `Max ${this.formatSEK(Math.round(expectedReserveMax))} SEK`,
+          severity: 'low'
+        };
+      } else if (acceptedReserve > marketReserveMax && acceptedReserve > expectedReserveMax * 1.1) {
+        // Even with reasonable estimate, check against market ceiling
+        return {
+          needsAdjustment: true,
+          message: `Godkänd bevakning (${this.formatSEK(acceptedReserve)}) kan vara för hög jämfört med marknadsvärde`,
+          suggestedRange: `Överväg lägre bevakning baserat på marknad`,
+          severity: 'low'
+        };
+      }
+    }
+    
+    return { needsAdjustment: false };
+  }
+
+  // Helper method to format SEK amounts
+  formatSEK(amount) {
+    return new Intl.NumberFormat('sv-SE').format(amount);
   }
 
   showNoSalesDataMessage(currentWarnings, currentScore) {
@@ -990,69 +1210,6 @@ export class QualityAnalyzer {
     const scoreElement = document.querySelector('.quality-score');
     const warningsElement = document.querySelector('.quality-warnings');
     
-    // Add improved warning styles if not already added
-    if (!document.getElementById('improved-warning-styles')) {
-      const style = document.createElement('style');
-      style.id = 'improved-warning-styles';
-      style.textContent = `
-        .quality-warnings {
-          margin-top: 15px;
-          padding-top: 15px;
-          border-top: 1px solid #dee2e6;
-        }
-        
-        .quality-warnings ul {
-          margin: 0;
-          padding-left: 0;
-          list-style-type: none;
-        }
-        
-        .quality-warnings li {
-          margin-bottom: 10px;
-          font-size: 12px;
-          font-weight: 400;
-          line-height: 1.4;
-          padding: 8px 12px;
-          border-radius: 6px;
-          border-left: 4px solid;
-        }
-        
-        .warning-high {
-          color: #721c24;
-          background-color: #f8d7da;
-          border-left-color: #dc3545;
-          font-weight: 400;
-        }
-        
-        .warning-medium {
-          color: #084298;
-          background-color: #cff4fc;
-          border-left-color: #0d6efd;
-          font-weight: 400;
-        }
-        
-        .warning-low {
-          color: #495057;
-          background-color: #f8f9fa;
-          border-left-color: #6c757d;
-          font-style: italic;
-        }
-        
-        .no-warnings {
-          color: #0f5132;
-          background-color: #d1e7dd;
-          border-left: 4px solid #198754;
-          font-weight: 600;
-          text-align: center;
-          margin: 0;
-          font-size: 14px;
-          padding: 12px;
-          border-radius: 6px;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-    
     if (scoreElement) {
       // Add smooth transition effect for score changes
       const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
@@ -1074,17 +1231,208 @@ export class QualityAnalyzer {
       const existingLoadingIndicator = warningsElement.querySelector('.ai-loading-indicator');
       
       if (warnings.length > 0) {
-        warningsElement.innerHTML = '<ul>' + 
-          warnings.map(w => `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`).join('') +
-          '</ul>';
+        // Clear existing content
+        warningsElement.innerHTML = '';
+        
+        // Use the enhanced warning display system
+        warnings.forEach(warning => {
+          const warningElement = this.displayWarning(warning);
+          warningsElement.appendChild(warningElement);
+        });
       } else {
-        warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
+        warningsElement.innerHTML = '<div style="color: #0f5132; background-color: #d1e7dd; border-left: 4px solid #198754; font-weight: 600; text-align: center; margin: 0; font-size: 14px; padding: 12px; border-radius: 6px;">✓ Utmärkt katalogisering!</div>';
       }
       
       // Re-append the loading indicator if it existed
       if (existingLoadingIndicator) {
         warningsElement.appendChild(existingLoadingIndicator);
       }
+    }
+  }
+
+  // Enhanced warning display with better formatting (moved from UIManager)
+  displayWarning(warning) {
+    const warningDiv = document.createElement('div');
+    
+    // Check if this is a valuation-related warning
+    const isValuationWarning = warning.field && (
+      warning.field.includes('värdering') || 
+      warning.field.includes('Värdering') ||
+      warning.field.includes('bevakning') ||
+      warning.field.includes('Bevakning')
+    );
+    
+    // Apply base styling
+    warningDiv.style.cssText = this.getWarningStyle(warning.severity);
+    
+    // Add valuation-specific styling if applicable
+    if (isValuationWarning) {
+      warningDiv.classList.add('warning-valuation');
+      warningDiv.classList.add(`warning-${warning.severity}`);
+    }
+    
+    // Handle header-only warnings (like the API data header)
+    if (warning.severity === 'header') {
+      warningDiv.innerHTML = `<strong>${warning.field}</strong>`;
+      return warningDiv;
+    }
+    
+    // Use the new formatWarningMessage method for better formatting
+    if (warning.field && warning.issue) {
+      // For valuation suggestions with suggestedRange, use special formatting
+      if (warning.suggestedRange) {
+        warningDiv.innerHTML = `
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <div style="flex: 1;">
+              <strong style="font-size: 11px; opacity: 0.8;">${warning.field}:</strong>
+              <div style="margin-top: 2px;">${warning.issue}</div>
+              <div style="margin-top: 4px; font-size: 10px; opacity: 0.8;">
+                ${warning.suggestedRange}
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (warning.severity.startsWith('market-')) {
+        // Make market data fields more subtle
+        const contentDiv = document.createElement('div');
+        contentDiv.innerHTML = `
+          <div style="display: flex; align-items: flex-start; gap: 6px;">
+            <span style="min-width: 50px; font-size: 9px; opacity: 0.6; font-weight: 500;">${warning.field}:</span>
+            <span style="flex: 1; font-size: 10px;">${warning.issue}</span>
+          </div>
+        `;
+        warningDiv.appendChild(contentDiv);
+      } else {
+        // Regular quality warnings
+        const contentDiv = document.createElement('div');
+        contentDiv.innerHTML = `
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <strong style="min-width: 80px; font-size: 11px; opacity: 0.8;">${warning.field}:</strong>
+            <span style="flex: 1;">${warning.issue}</span>
+          </div>
+        `;
+        warningDiv.appendChild(contentDiv);
+      }
+    } else if (warning.issue) {
+      // Issue only (for market data)
+      const contentDiv = document.createElement('div');
+      contentDiv.innerHTML = warning.issue;
+      warningDiv.appendChild(contentDiv);
+    } else if (warning.field) {
+      // Field only (for headers)
+      const contentDiv = document.createElement('div');
+      contentDiv.innerHTML = `<strong>${warning.field}</strong>`;
+      warningDiv.appendChild(contentDiv);
+    }
+    
+    return warningDiv;
+  }
+
+  // Enhanced styling for different warning types
+  getWarningStyle(severity) {
+    const baseStyle = `
+      margin: 6px 0;
+      padding: 8px 10px;
+      border-radius: 4px;
+      border-left: 3px solid;
+      font-size: 11px;
+      line-height: 1.3;
+    `;
+    
+    switch (severity) {
+      case 'critical':
+        return baseStyle + `
+          background-color: #fee;
+          border-left-color: #e74c3c;
+          color: #c0392b;
+        `;
+      case 'high':
+        return baseStyle + `
+          background-color: #fff3cd;
+          border-left-color: #f39c12;
+          color: #d68910;
+        `;
+      case 'medium':
+        return baseStyle + `
+          background-color: #d1ecf1;
+          border-left-color: #3498db;
+          color: #2980b9;
+        `;
+      case 'low':
+        return baseStyle + `
+          background-color: #f8f9fa;
+          border-left-color: #6c757d;
+          color: #495057;
+        `;
+      case 'positive':
+        return baseStyle + `
+          background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+          border-left-color: #28a745;
+          color: #155724;
+          font-weight: 500;
+          box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        `;
+      case 'header':
+        return `
+          margin: 12px 0 6px 0;
+          padding: 6px 10px;
+          background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+          color: white;
+          border-radius: 4px;
+          font-weight: 500;
+          font-size: 11px;
+          text-align: center;
+          opacity: 0.9;
+        `;
+      case 'market-primary':
+        return baseStyle + `
+          background-color: #e8f4fd;
+          border-left-color: #3498db;
+          color: #2c3e50;
+          font-weight: 500;
+          font-size: 11px;
+        `;
+      case 'market-insight':
+        return baseStyle + `
+          background-color: #f0f8f0;
+          border-left-color: #27ae60;
+          color: #1e8449;
+          font-size: 10px;
+          padding: 6px 8px;
+        `;
+      case 'market-data':
+        return baseStyle + `
+          background-color: #f8f9fa;
+          border-left-color: #95a5a6;
+          color: #6c757d;
+          font-size: 10px;
+          padding: 5px 8px;
+          opacity: 0.8;
+        `;
+      case 'market-activity':
+        return baseStyle + `
+          background-color: #fff8f8;
+          border-left-color: #e74c3c;
+          color: #c0392b;
+          font-size: 10px;
+          padding: 6px 8px;
+        `;
+      case 'market-note':
+        return baseStyle + `
+          background-color: #f8f9fa;
+          border-left-color: #95a5a6;
+          color: #7f8c8d;
+          font-size: 9px;
+          font-style: italic;
+          padding: 4px 8px;
+          opacity: 0.7;
+        `;
+      default:
+        return baseStyle + `
+          background-color: #f8f9fa;
+          border-left-color: #6c757d;
+          color: #495057;
+        `;
     }
   }
 
@@ -1384,5 +1732,644 @@ export class QualityAnalyzer {
     });
     
     return warnings;
+  }
+
+  // NEW: Extract enhanced search terms from title and description for better market matching
+  extractEnhancedSearchTerms(title, description) {
+    const terms = {
+      materials: [],
+      techniques: [],
+      descriptors: [],
+      brands: [],
+      periods: []
+    };
+    
+    const text = `${title} ${description}`.toLowerCase();
+    
+    // Extract materials
+    const materials = [
+      'silver', 'guld', 'brons', 'koppar', 'mässing', 'tenn', 'järn', 'stål',
+      'glas', 'kristall', 'porslin', 'keramik', 'lergods', 'stengods',
+      'trä', 'ek', 'björk', 'furu', 'mahogny', 'valnöt', 'teak', 'bok',
+      'läder', 'tyg', 'sammet', 'siden', 'ull', 'bomull', 'lin',
+      'marmor', 'granit', 'kalksten', 'sandsten'
+    ];
+    
+    materials.forEach(material => {
+      if (text.includes(material)) {
+        terms.materials.push(material);
+      }
+    });
+    
+    // Extract techniques
+    const techniques = [
+      'olja på duk', 'olja på pannå', 'akvarell', 'gouache', 'tempera', 'pastell',
+      'litografi', 'etsning', 'träsnitt', 'linoleumsnitt', 'serigrafi',
+      'skulptur', 'relief', 'byst', 'figur', 'abstrakt',
+      'handmålad', 'handgjord', 'maskingjord', 'pressad', 'gjuten', 'svarv',
+      'intarsia', 'fanér', 'massiv', 'laminerad'
+    ];
+    
+    techniques.forEach(technique => {
+      if (text.includes(technique)) {
+        terms.techniques.push(technique);
+      }
+    });
+    
+    // Extract style descriptors
+    const descriptors = [
+      'art deco', 'jugend', 'funktionalism', 'bauhaus', 'modernism',
+      'klassicism', 'empire', 'gustaviansk', 'rokoko', 'barock',
+      'skandinavisk', 'svensk', 'dansk', 'norsk', 'finsk',
+      'minimalistisk', 'elegant', 'rustik', 'lantlig', 'urban'
+    ];
+    
+    descriptors.forEach(descriptor => {
+      if (text.includes(descriptor)) {
+        terms.descriptors.push(descriptor);
+      }
+    });
+    
+    // Extract known brands/manufacturers
+    const brands = [
+      'orrefors', 'kosta', 'boda', 'gustavsberg', 'rörstrand', 'arabia',
+      'ikea', 'svenskt tenn', 'lammhults', 'källemo', 'norrlands möbler',
+      'bruno mathsson', 'carl malmsten', 'alvar aalto', 'arne jacobsen',
+      'hans wegner', 'finn juhl', 'poul henningsen', 'verner panton'
+    ];
+    
+    brands.forEach(brand => {
+      if (text.includes(brand)) {
+        terms.brands.push(brand);
+      }
+    });
+    
+    // Extract periods
+    const periodPatterns = [
+      /(\d{4})/g,                    // 1950
+      /(\d{2,4}-tal)/g,              // 1900-tal
+      /(\d{2}\/\d{4}-tal)/g,         // 17/1800-tal
+      /(1[6-9]\d{2})/g,              // 1600-1999
+      /(20[0-2]\d)/g                 // 2000-2029
+    ];
+    
+    periodPatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        terms.periods.push(...matches);
+      }
+    });
+    
+    return terms;
+  }
+
+  // NEW: Add market data as a horizontal dashboard bar above the container
+  addMarketDataDashboard(salesData, valuationSuggestions = []) {
+    // Remove any existing market data dashboard
+    const existingDashboard = document.querySelector('.market-data-dashboard');
+    if (existingDashboard) {
+      existingDashboard.remove();
+    }
+
+    // Create the dashboard container
+    const dashboard = document.createElement('div');
+    dashboard.className = 'market-data-dashboard';
+    
+    let dashboardContent = '';
+    
+    // Main price range (always show if available)
+    if (salesData.priceRange) {
+      const confidence = salesData.confidence;
+      const priceRange = salesData.priceRange;
+      
+      const formattedLow = new Intl.NumberFormat('sv-SE').format(priceRange.low);
+      const formattedHigh = new Intl.NumberFormat('sv-SE').format(priceRange.high);
+      
+      let confidenceIcon = '';
+      let confidenceColor = '';
+      if (confidence >= 0.8) {
+        confidenceIcon = 'Hög tillförlitlighet';
+        confidenceColor = '#27ae60';
+      } else if (confidence >= 0.6) {
+        confidenceIcon = 'Medel tillförlitlighet';
+        confidenceColor = '#f39c12';
+      } else {
+        confidenceIcon = 'Låg tillförlitlighet';
+        confidenceColor = '#e67e22';
+      }
+      
+      dashboardContent += `
+        <div class="market-item market-price">
+          <div class="market-label">Marknadsvärde</div>
+          <div class="market-value">${formattedLow}-${formattedHigh} SEK</div>
+          <div class="market-confidence" style="color: ${confidenceColor};">${confidenceIcon} ${Math.round(confidence * 100)}%</div>
+        </div>
+      `;
+    }
+    
+    // Data summary
+    let dataParts = [];
+    if (salesData.historical) {
+      dataParts.push(`${salesData.historical.analyzedSales} historiska`);
+    }
+    if (salesData.live) {
+      dataParts.push(`${salesData.live.analyzedLiveItems} pågående`);
+    }
+    
+    if (dataParts.length > 0) {
+      dashboardContent += `
+        <div class="market-item market-data">
+          <div class="market-label" title="Antal försäljningar och pågående auktioner som analysen baseras på">Dataunderlag</div>
+          <div class="market-value">${dataParts.join(' • ')}</div>
+          <div class="market-help">försäljningar analyserade</div>
+        </div>
+      `;
+    }
+    
+    // Market activity (only if significant)
+    if (salesData.live && salesData.live.marketActivity) {
+      const activity = salesData.live.marketActivity;
+      
+      if (activity.reservesMetPercentage > 70 || activity.reservesMetPercentage < 30) {
+        let activityIcon = '';
+        let activityColor = '';
+        let activityText = '';
+        let helpText = '';
+        
+        if (activity.reservesMetPercentage > 70) {
+          activityColor = '#e74c3c';
+          activityText = `Stark marknad (${activity.reservesMetPercentage}%)`;
+          helpText = 'Många objekt når sina utrop';
+        } else {
+          activityColor = '#3498db';
+          activityText = `Svag marknad (${activity.reservesMetPercentage}%)`;
+          helpText = 'Få objekt når sina utrop';
+        }
+        
+        dashboardContent += `
+          <div class="market-item market-activity">
+            <div class="market-label" title="Hur många procent av liknande objekt som når sina utrop i pågående auktioner">Marknadsaktivitet</div>
+            <div class="market-value" style="color: ${activityColor};">${activityText}</div>
+            <div class="market-help">${helpText}</div>
+          </div>
+        `;
+      }
+    }
+    
+    // Key insight (only if high significance)
+    if (salesData.insights && salesData.insights.length > 0) {
+      const significantInsights = salesData.insights.filter(insight => 
+        insight.significance === 'high'
+      );
+      
+      if (significantInsights.length > 0) {
+        const insight = significantInsights[0];
+        let shortMessage = insight.message;
+        if (shortMessage.length > 80) {
+          shortMessage = shortMessage.substring(0, 77) + '...';
+        }
+        
+        dashboardContent += `
+          <div class="market-item market-insight">
+            <div class="market-label">Marknadstrend</div>
+            <div class="market-value">${shortMessage}</div>
+          </div>
+        `;
+      }
+    }
+    
+    // NEW: Add positive valuation feedback if we have a "perfect" evaluation
+    if (valuationSuggestions && valuationSuggestions.length > 0) {
+      const positiveValuations = valuationSuggestions.filter(suggestion => 
+        suggestion.severity === 'positive'
+      );
+      
+      if (positiveValuations.length > 0) {
+        const perfectValuation = positiveValuations[0];
+        
+        dashboardContent += `
+          <div class="market-item market-valuation-perfect">
+            <div class="market-label">Värdering</div>
+            <div class="market-value">Utmärkt bedömning!</div>
+            <div class="market-confidence" style="color: #27ae60;">Väl i linje med marknadsvärde</div>
+          </div>
+        `;
+        
+        console.log('🏆 Added perfect valuation feedback to dashboard');
+      }
+    }
+    
+    // Only create dashboard if we have content
+    if (dashboardContent) {
+      dashboard.innerHTML = `
+        <div class="market-dashboard-header">
+          <span class="market-dashboard-title">Marknadsanalys</span>
+          <span class="market-dashboard-source">Auctionet databas</span>
+        </div>
+        <div class="market-dashboard-content">
+          ${dashboardContent}
+        </div>
+      `;
+      
+      // Add CSS styles for the dashboard
+      this.addMarketDashboardStyles();
+      
+      // Insert the dashboard above the main container
+      const mainContainer = document.querySelector('.grid-container') || 
+                           document.querySelector('.container') || 
+                           document.querySelector('main') ||
+                           document.querySelector('.content');
+      
+      if (mainContainer) {
+        mainContainer.parentNode.insertBefore(dashboard, mainContainer);
+        console.log('✅ Market data dashboard added above main container');
+      } else {
+        // Fallback: add after the breadcrumb/header area
+        const breadcrumb = document.querySelector('.breadcrumb') || 
+                          document.querySelector('nav') ||
+                          document.querySelector('header');
+        
+        if (breadcrumb) {
+          breadcrumb.parentNode.insertBefore(dashboard, breadcrumb.nextSibling);
+          console.log('✅ Market data dashboard added after breadcrumb');
+        } else {
+          // Last resort: add to body
+          document.body.insertBefore(dashboard, document.body.firstChild);
+          console.log('✅ Market data dashboard added to body');
+        }
+      }
+    }
+  }
+
+  // Add CSS styles for the market dashboard
+  addMarketDashboardStyles() {
+    if (!document.getElementById('market-dashboard-styles')) {
+      const style = document.createElement('style');
+      style.id = 'market-dashboard-styles';
+      style.textContent = `
+        .market-data-dashboard {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          margin: 15px 20px;
+          padding: 15px 20px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .market-dashboard-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #dee2e6;
+        }
+        
+        .market-dashboard-title {
+          font-weight: 600;
+          font-size: 14px;
+          color: #2c3e50;
+        }
+        
+        .market-dashboard-source {
+          font-size: 11px;
+          color: #6c757d;
+          opacity: 0.8;
+        }
+        
+        .market-dashboard-content {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 20px;
+          align-items: flex-start;
+        }
+        
+        .market-item {
+          display: flex;
+          flex-direction: column;
+          min-width: 120px;
+          border-right: 0.5px solid #e0e0e0;
+          padding-right: 20px;
+        }
+        
+        .market-item:last-child {
+          border-right: none;
+          padding-right: 0;
+        }
+        
+        .market-label {
+          font-size: 10px;
+          color: #6c757d;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+          font-weight: 500;
+        }
+        
+        .market-value {
+          font-size: 13px;
+          font-weight: 600;
+          color: #2c3e50;
+          line-height: 1.2;
+        }
+        
+        .market-confidence {
+          font-size: 11px;
+          margin-top: 2px;
+          font-weight: 500;
+        }
+        
+        .market-help {
+          font-size: 10px;
+          color: #6c757d;
+          margin-top: 1px;
+          font-style: italic;
+        }
+        
+        .market-label[title] {
+          cursor: help;
+          border-bottom: 1px dotted #6c757d;
+        }
+        
+        .market-activity .market-value {
+          font-size: 12px;
+        }
+        
+        .market-insight .market-value {
+          font-size: 12px;
+          max-width: 300px;
+        }
+        
+        .market-valuation-perfect {
+          color: #27ae60;
+        }
+        
+        .market-valuation-perfect .market-label {
+          color: #27ae60;
+          font-weight: 500;
+        }
+        
+        .market-valuation-perfect .market-value {
+          color: #27ae60;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        
+        .market-valuation-perfect .market-confidence {
+          color: #27ae60;
+        }
+        
+        @keyframes perfectGlow {
+          0% { 
+            box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2);
+          }
+          50% { 
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+            transform: translateY(-1px);
+          }
+          100% { 
+            box-shadow: 0 2px 6px rgba(40, 167, 69, 0.2);
+            transform: translateY(0);
+          }
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+          .market-data-dashboard {
+            margin: 10px;
+            padding: 12px 15px;
+          }
+          
+          .market-dashboard-content {
+            flex-direction: column;
+            gap: 12px;
+            align-items: flex-start;
+          }
+          
+          .market-item {
+            min-width: auto;
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid #dee2e6;
+            padding-right: 0;
+            padding-bottom: 8px;
+          }
+          
+          .market-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  // NEW: Smart method to determine the best artist for market analysis
+  determineBestArtistForMarketAnalysis(data, detectedArtist = null) {
+    // Priority order:
+    // 1. Artist field if filled and substantial
+    // 2. Detected artist from title (AI or rule-based)
+    // 3. Rule-based detection as fallback
+    
+    console.log('🎯 Determining best artist for market analysis:', {
+      artistField: data.artist,
+      detectedArtist: detectedArtist,
+      title: data.title
+    });
+    
+    // Check artist field first
+    if (data.artist && data.artist.trim().length > 2) {
+      console.log('✅ Using artist from artist field:', data.artist.trim());
+      return {
+        artist: data.artist.trim(),
+        source: 'artist_field',
+        confidence: 0.9
+      };
+    }
+    
+    // Check if we have a detected artist (from AI or rules)
+    if (detectedArtist && detectedArtist.detectedArtist) {
+      console.log('✅ Using detected artist from title:', detectedArtist.detectedArtist);
+      return {
+        artist: detectedArtist.detectedArtist,
+        source: detectedArtist.source || 'detected',
+        confidence: detectedArtist.confidence || 0.7
+      };
+    }
+    
+    // Fallback: Try rule-based detection on the title
+    const ruleBasedArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
+    if (ruleBasedArtist && ruleBasedArtist.detectedArtist) {
+      console.log('✅ Using rule-based detected artist:', ruleBasedArtist.detectedArtist);
+      return {
+        artist: ruleBasedArtist.detectedArtist,
+        source: 'rule_based',
+        confidence: ruleBasedArtist.confidence || 0.6
+      };
+    }
+    
+    console.log('❌ No artist found for market analysis');
+    return null;
+  }
+
+  // NEW: Add market data warnings in a structured, digestible way
+  addMarketDataWarnings(salesData, warnings) {
+    const dataSource = salesData.dataSource || 'unknown';
+    
+    // Add a subtle header to separate API data from quality warnings
+    warnings.push({
+      field: 'Marknadsdata',
+      issue: '', // Empty issue for header-only display
+      severity: 'header' // Special severity for styling
+    });
+    
+    // 1. MAIN PRICE RANGE (Primary insight) - More concise
+    if (salesData.priceRange) {
+      const confidence = salesData.confidence;
+      const priceRange = salesData.priceRange;
+      
+      // Format price range nicely
+      const formattedLow = new Intl.NumberFormat('sv-SE').format(priceRange.low);
+      const formattedHigh = new Intl.NumberFormat('sv-SE').format(priceRange.high);
+      
+      // Create confidence indicator
+      let confidenceText = '';
+      if (confidence >= 0.8) {
+        confidenceText = 'Hög tillförlitlighet';
+      } else if (confidence >= 0.6) {
+        confidenceText = 'Medel tillförlitlighet';
+      } else {
+        confidenceText = 'Låg tillförlitlighet';
+      }
+      
+      const mainMessage = `${formattedLow}-${formattedHigh} SEK (${confidenceText} ${Math.round(confidence * 100)}%)`;
+      
+      warnings.push({
+        field: 'Värdering',
+        issue: mainMessage,
+        severity: 'market-primary'
+      });
+    }
+    
+    // 2. MOST SIGNIFICANT INSIGHT ONLY (Very concise)
+    if (salesData.insights && salesData.insights.length > 0) {
+      const significantInsights = salesData.insights.filter(insight => 
+        insight.significance === 'high'
+      );
+      
+      if (significantInsights.length > 0) {
+        const insight = significantInsights[0];
+        // Shorten the message significantly
+        let shortMessage = insight.message;
+        if (shortMessage.length > 60) {
+          shortMessage = shortMessage.substring(0, 57) + '...';
+        }
+        
+        warnings.push({
+          field: 'Trend',
+          issue: shortMessage,
+          severity: 'market-insight'
+        });
+      }
+    }
+    
+    // 3. VERY CONDENSED DATA SUMMARY (Single compact line)
+    let dataParts = [];
+    
+    if (salesData.historical) {
+      dataParts.push(`${salesData.historical.analyzedSales} historiska`);
+    }
+    
+    if (salesData.live) {
+      dataParts.push(`${salesData.live.analyzedLiveItems} pågående`);
+    }
+    
+    if (dataParts.length > 0) {
+      warnings.push({
+        field: 'Dataunderlag',
+        issue: `${dataParts.join(' • ')} försäljningar analyserade`,
+        severity: 'market-data'
+      });
+    }
+    
+    // 4. ONLY SHOW CRITICAL MARKET ACTIVITY (Very selective)
+    if (salesData.live && salesData.live.marketActivity) {
+      const activity = salesData.live.marketActivity;
+      
+      // Only show if very significant activity
+      if (activity.reservesMetPercentage > 80) {
+        warnings.push({
+          field: 'Marknadsaktivitet',
+          issue: `Stark marknad (${activity.reservesMetPercentage}% når utrop)`,
+          severity: 'market-activity'
+        });
+      } else if (activity.reservesMetPercentage < 20) {
+        warnings.push({
+          field: 'Marknadsaktivitet',
+          issue: `Svag marknad (${activity.reservesMetPercentage}% når utrop)`,
+          severity: 'market-activity'
+        });
+      }
+    }
+    
+    // 5. LIMITATIONS (Only if very low confidence)
+    if (salesData.confidence < 0.5) {
+      warnings.push({
+        field: 'Notera',
+        issue: 'Begränsad data',
+        severity: 'market-note'
+      });
+    }
+  }
+
+  // Format warning message with appropriate icons and styling
+  formatWarningMessage(warning) {
+    let icon = '';
+    switch (warning.severity) {
+      case 'critical':
+        icon = '';
+        break;
+      case 'high':
+        icon = '';
+        break;
+      case 'medium':
+        icon = '';
+        break;
+      case 'low':
+        icon = '';
+        break;
+      case 'positive':
+        icon = '';
+        break;
+      case 'header':
+        icon = '';
+        break;
+      case 'market-primary':
+        icon = '';
+        break;
+      case 'market-insight':
+        icon = '';
+        break;
+      case 'market-data':
+        icon = '';
+        break;
+      case 'market-activity':
+        icon = '';
+        break;
+      case 'market-note':
+        icon = '';
+        break;
+      default:
+        icon = '';
+    }
+    
+    // For valuation suggestions, format with suggested range
+    if (warning.suggestedRange) {
+      return `<strong>${warning.field}:</strong> ${warning.issue}<br><small>Förslag: ${warning.suggestedRange}</small>`;
+    }
+    
+    return `<strong>${warning.field}:</strong> ${warning.issue}`;
   }
 } 

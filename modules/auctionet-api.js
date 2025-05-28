@@ -72,6 +72,232 @@ export class AuctionetAPI {
     }
   }
 
+  // NEW: Analyze live auction data for market intelligence
+  async analyzeLiveAuctions(artistName, objectType, period, technique, description) {
+    console.log('🔴 Starting LIVE auction analysis...');
+    console.log(`📊 Searching live auctions for: Artist="${artistName}", Object="${objectType}"`);
+
+    try {
+      // Build search strategies for live auctions
+      const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
+      
+      let bestResult = null;
+      let totalMatches = 0;
+      
+      // Try each search strategy for live auctions
+      for (const strategy of searchStrategies) {
+        console.log(`🎯 Trying LIVE search strategy: ${strategy.description}`);
+        
+        const result = await this.searchLiveAuctions(strategy.query, strategy.description);
+        
+        if (result && result.liveItems.length > 0) {
+          console.log(`✅ Found ${result.liveItems.length} live items with strategy: ${strategy.description}`);
+          
+          if (!bestResult || result.liveItems.length > bestResult.liveItems.length) {
+            bestResult = result;
+            totalMatches = result.totalEntries;
+          }
+          
+          // For live auctions, even 1-2 items can be valuable
+          if (result.liveItems.length >= 3) {
+            break;
+          }
+        }
+      }
+      
+      if (!bestResult || bestResult.liveItems.length === 0) {
+        console.log('❌ No live auctions found for this search');
+        return null;
+      }
+      
+      // Analyze live auction data
+      const liveAnalysis = this.analyzeLiveMarketData(bestResult.liveItems, artistName, objectType);
+      
+      console.log('✅ Live auction analysis complete');
+      console.log(`📊 Analyzed ${bestResult.liveItems.length} live auctions from ${totalMatches} total matches`);
+      
+      return {
+        hasLiveData: true,
+        dataSource: 'auctionet_live',
+        totalMatches: totalMatches,
+        analyzedLiveItems: bestResult.liveItems.length,
+        currentEstimates: liveAnalysis.estimateRange,
+        currentBids: liveAnalysis.bidRange,
+        marketActivity: liveAnalysis.marketActivity,
+        liveItems: liveAnalysis.liveItems,
+        marketSentiment: liveAnalysis.marketSentiment
+      };
+      
+    } catch (error) {
+      console.error('💥 Live auction API error:', error);
+      return null;
+    }
+  }
+
+  // NEW: Search live auctions (without is=ended parameter)
+  async searchLiveAuctions(query, description, maxResults = 50) {
+    // Check cache first (shorter cache for live data)
+    const cacheKey = `live_${query}_${maxResults}`;
+    const cached = this.getCachedResult(cacheKey, 5 * 60 * 1000); // 5 minute cache for live data
+    if (cached) {
+      console.log(`📦 Using cached live result for: ${description}`);
+      return cached;
+    }
+    
+    try {
+      // No is=ended parameter for live auctions
+      const url = `${this.baseUrl}?q=${encodeURIComponent(query)}&per_page=${maxResults}`;
+      console.log(`📡 Fetching LIVE: ${url}`);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.items || data.items.length === 0) {
+        console.log(`❌ No live results found for: ${description}`);
+        return null;
+      }
+      
+      console.log(`📊 Found ${data.items.length} live items out of ${data.pagination.total_entries} total matches`);
+      
+      // Filter for active auctions with bidding activity
+      const liveItems = data.items.filter(item => 
+        !item.hammered && // Not yet sold
+        item.state === 'published' && // Active
+        item.ends_at > (Date.now() / 1000) // Not ended
+      ).map(item => ({
+        title: item.title,
+        estimate: item.estimate,
+        upperEstimate: item.upper_estimate,
+        currentBid: item.bids && item.bids.length > 0 ? item.bids[0].amount : item.starting_bid_amount,
+        nextBid: item.next_bid_amount,
+        bidCount: item.bids ? item.bids.length : 0,
+        reserveMet: item.reserve_met,
+        reserveAmount: item.reserve_amount,
+        currency: item.currency,
+        house: item.house,
+        location: item.location,
+        endsAt: new Date(item.ends_at * 1000),
+        description: item.description,
+        condition: item.condition,
+        url: item.url,
+        timeRemaining: this.calculateTimeRemaining(item.ends_at)
+      }));
+      
+      console.log(`🔴 Active live items with bidding: ${liveItems.length}`);
+      
+      const result = {
+        totalEntries: data.pagination.total_entries,
+        returnedItems: data.items.length,
+        liveItems: liveItems
+      };
+      
+      // Cache the result (shorter cache for live data)
+      this.setCachedResult(cacheKey, result, 5 * 60 * 1000); // 5 minutes
+      
+      return result;
+      
+    } catch (error) {
+      console.error(`💥 Live search failed for "${description}":`, error);
+      return null;
+    }
+  }
+
+  // NEW: Analyze live market data
+  analyzeLiveMarketData(liveItems, artistName, objectType) {
+    console.log(`📊 Analyzing live market data from ${liveItems.length} active auctions...`);
+    
+    if (liveItems.length === 0) {
+      return null;
+    }
+    
+    // Extract estimates and current bids
+    const estimates = liveItems.filter(item => item.estimate > 0).map(item => item.estimate);
+    const currentBids = liveItems.filter(item => item.currentBid > 0).map(item => item.currentBid);
+    
+    // Calculate estimate ranges
+    const estimateRange = estimates.length > 0 ? {
+      low: Math.min(...estimates),
+      high: Math.max(...estimates),
+      average: estimates.reduce((a, b) => a + b, 0) / estimates.length
+    } : null;
+    
+    // Calculate current bid ranges
+    const bidRange = currentBids.length > 0 ? {
+      low: Math.min(...currentBids),
+      high: Math.max(...currentBids),
+      average: currentBids.reduce((a, b) => a + b, 0) / currentBids.length
+    } : null;
+    
+    // Analyze market activity
+    const totalBids = liveItems.reduce((sum, item) => sum + item.bidCount, 0);
+    const reservesMetCount = liveItems.filter(item => item.reserveMet).length;
+    const reservesMetPercentage = liveItems.length > 0 ? (reservesMetCount / liveItems.length) * 100 : 0;
+    
+    // Market sentiment analysis
+    let marketSentiment = 'neutral';
+    if (reservesMetPercentage > 70) {
+      marketSentiment = 'strong';
+    } else if (reservesMetPercentage > 40) {
+      marketSentiment = 'moderate';
+    } else if (reservesMetPercentage < 20) {
+      marketSentiment = 'weak';
+    }
+    
+    // Get top live items for display
+    const topLiveItems = liveItems
+      .sort((a, b) => b.bidCount - a.bidCount) // Sort by bid activity
+      .slice(0, 5)
+      .map(item => ({
+        title: item.title.substring(0, 60) + (item.title.length > 60 ? '...' : ''),
+        estimate: item.estimate,
+        currentBid: item.currentBid,
+        bidCount: item.bidCount,
+        reserveMet: item.reserveMet,
+        timeRemaining: item.timeRemaining,
+        house: item.house
+      }));
+    
+    return {
+      estimateRange,
+      bidRange,
+      marketActivity: {
+        totalItems: liveItems.length,
+        totalBids: totalBids,
+        averageBidsPerItem: liveItems.length > 0 ? totalBids / liveItems.length : 0,
+        reservesMetPercentage: Math.round(reservesMetPercentage)
+      },
+      marketSentiment,
+      liveItems: topLiveItems
+    };
+  }
+
+  // NEW: Calculate time remaining for live auctions
+  calculateTimeRemaining(endsAtTimestamp) {
+    const now = Date.now() / 1000;
+    const remaining = endsAtTimestamp - now;
+    
+    if (remaining <= 0) {
+      return 'Ended';
+    }
+    
+    const days = Math.floor(remaining / (24 * 60 * 60));
+    const hours = Math.floor((remaining % (24 * 60 * 60)) / (60 * 60));
+    const minutes = Math.floor((remaining % (60 * 60)) / 60);
+    
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  }
+
   // Build different search strategies from broad to specific
   buildSearchStrategies(artistName, objectType, period, technique) {
     const strategies = [];
@@ -447,18 +673,20 @@ export class AuctionetAPI {
   }
 
   // Cache management
-  getCachedResult(key) {
+  getCachedResult(key, customExpiry = null) {
     const cached = this.cache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.cacheExpiry) {
+    const expiry = customExpiry || this.cacheExpiry;
+    if (cached && Date.now() - cached.timestamp < expiry) {
       return cached.data;
     }
     return null;
   }
 
-  setCachedResult(key, data) {
+  setCachedResult(key, data, customExpiry = null) {
     this.cache.set(key, {
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      expiry: customExpiry || this.cacheExpiry
     });
   }
 
@@ -466,7 +694,8 @@ export class AuctionetAPI {
   clearExpiredCache() {
     const now = Date.now();
     for (const [key, value] of this.cache.entries()) {
-      if (now - value.timestamp >= this.cacheExpiry) {
+      const expiry = value.expiry || this.cacheExpiry;
+      if (now - value.timestamp >= expiry) {
         this.cache.delete(key);
       }
     }

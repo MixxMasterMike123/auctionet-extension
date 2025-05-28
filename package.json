@@ -1,0 +1,20 @@
+{
+  "name": "auctionet-extension",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Chrome extension for Auctionet.com with AI-powered cataloging improvements",
+  "main": "content-script.js",
+  "scripts": {
+    "test": "node test-auctionet-simple.js",
+    "serve": "python3 -m http.server 8000"
+  },
+  "keywords": [
+    "chrome-extension",
+    "auction",
+    "ai",
+    "cataloging",
+    "auctionet"
+  ],
+  "author": "Mikael Öhlén",
+  "license": "MIT"
+} 

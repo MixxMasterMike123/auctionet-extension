@@ -402,3 +402,43 @@
   color: #856404;
   font-size: 13px;
 }
+
+/* Valuation Suggestion Styles */
+.warning-valuation {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+  border-left-color: #ff9800 !important;
+  color: #e65100;
+  position: relative;
+}
+
+.warning-valuation::before {
+  content: "💰";
+  position: absolute;
+  left: -15px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+}
+
+.warning-valuation strong {
+  color: #bf360c;
+}
+
+/* Enhanced warning styles for different severities */
+.warning-high.warning-valuation {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  border-left-color: #f44336 !important;
+  color: #c62828;
+}
+
+.warning-medium.warning-valuation {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border-left-color: #ff9800 !important;
+  color: #e65100;
+}
+
+.warning-low.warning-valuation {
+  background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+  border-left-color: #9c27b0 !important;
+  color: #6a1b9a;
+}
