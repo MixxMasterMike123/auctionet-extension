@@ -1,31 +1,30 @@
 // modules/api-manager.js - API Management Module
 import { CONFIG, getCurrentModel } from './config.js';
+import { AuctionetAPI } from './auctionet-api.js';
 
 export class APIManager {
   constructor() {
     this.apiKey = null;
+    this.enableArtistInfo = true;
+    this.auctionetAPI = new AuctionetAPI();
+    this.loadSettings();
   }
 
-  async loadApiKey() {
+  async loadSettings() {
     try {
-      const result = await chrome.storage.sync.get(['anthropicApiKey', 'selectedModel', 'enableArtistInfo']);
-      this.apiKey = result.anthropicApiKey;
+      const result = await chrome.storage.sync.get(['apiKey', 'enableArtistInfo']);
+      this.apiKey = result.apiKey;
+      this.enableArtistInfo = result.enableArtistInfo !== false;
       
-      // Update model selection if stored
-      if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
-        CONFIG.CURRENT_MODEL = result.selectedModel;
-        console.log('Model loaded from storage:', CONFIG.MODELS[result.selectedModel].name);
-      }
-      
-      // Load artist info setting (default to true if not set)
-      this.enableArtistInfo = result.enableArtistInfo !== undefined ? result.enableArtistInfo : true;
       console.log('Artist info setting loaded:', this.enableArtistInfo);
       
-      console.log('API key loaded from storage:', this.apiKey ? 'Found' : 'Not found');
+      if (this.apiKey) {
+        console.log('API key loaded from storage: Found');
+      } else {
+        console.log('API key loaded from storage: Not found');
+      }
     } catch (error) {
-      console.error('Error loading API key:', error);
-      this.apiKey = null;
-      this.enableArtistInfo = true; // Default to enabled on error
+      console.error('Error loading settings:', error);
     }
   }
 
@@ -960,8 +959,78 @@ SVARA MED JSON:
   async analyzeComparableSales(artistName, objectType, period, technique, description) {
     console.log('💰 analyzeComparableSales called with:', { artistName, objectType, period, technique });
     
+    // Use Auctionet API for real market data instead of Claude estimates
+    console.log('🔍 Using Auctionet API for real market data analysis...');
+    
+    try {
+      // Call the Auctionet API for real sales data
+      const auctionetResult = await this.auctionetAPI.analyzeComparableSales(
+        artistName, 
+        objectType, 
+        period, 
+        technique, 
+        description
+      );
+      
+      if (auctionetResult) {
+        console.log('✅ Auctionet API analysis successful');
+        console.log(`📊 Found ${auctionetResult.analyzedSales} sales from ${auctionetResult.totalMatches} matches`);
+        
+        // Format the result to match the expected interface
+        return {
+          hasComparableData: true,
+          dataSource: 'auctionet_real_data', // Mark as real data
+          priceRange: auctionetResult.priceRange,
+          confidence: auctionetResult.confidence,
+          confidenceFactors: {
+            artistRecognition: auctionetResult.confidence,
+            dataAvailability: Math.min(1.0, auctionetResult.analyzedSales / 10), // More sales = better data
+            marketActivity: Math.min(1.0, auctionetResult.totalMatches / 50), // More matches = more active market
+            comparabilityQuality: auctionetResult.confidence
+          },
+          marketContext: {
+            artistStatus: auctionetResult.marketContext,
+            marketTrend: auctionetResult.trendAnalysis?.description || 'Trendanalys ej tillgänglig',
+            recentActivity: `${auctionetResult.analyzedSales} försäljningar analyserade från ${auctionetResult.totalMatches} träffar`
+          },
+          comparableSales: auctionetResult.recentSales?.map(sale => ({
+            description: `${sale.title} - ${sale.house}`,
+            priceRange: `${sale.price.toLocaleString()} SEK`,
+            relevance: 0.8 // High relevance since it's real data
+          })) || [],
+          limitations: auctionetResult.limitations || null,
+          reasoning: `Analys baserad på ${auctionetResult.analyzedSales} verkliga försäljningar från Auctionets databas med ${auctionetResult.totalMatches} totala träffar.`,
+          // Additional Auctionet-specific data
+          auctionetData: {
+            totalMatches: auctionetResult.totalMatches,
+            analyzedSales: auctionetResult.analyzedSales,
+            trendAnalysis: auctionetResult.trendAnalysis,
+            recentSales: auctionetResult.recentSales,
+            statistics: auctionetResult.statistics
+          }
+        };
+      } else {
+        console.log('❌ No comparable sales found in Auctionet database');
+        
+        // Fallback to Claude analysis if no Auctionet data found
+        console.log('🤖 Falling back to Claude AI analysis...');
+        return await this.analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description);
+      }
+      
+    } catch (error) {
+      console.error('💥 Auctionet API error, falling back to Claude:', error);
+      
+      // Fallback to Claude analysis on error
+      return await this.analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description);
+    }
+  }
+
+  // Fallback method using Claude AI (original implementation)
+  async analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description) {
+    console.log('🤖 Using Claude AI for sales analysis fallback...');
+    
     if (!this.apiKey) {
-      console.log('❌ No API key available, skipping comparable sales analysis');
+      console.log('❌ No API key available, skipping Claude sales analysis');
       return null;
     }
 
@@ -971,7 +1040,7 @@ SVARA MED JSON:
       return null;
     }
 
-    console.log('🚀 Starting comparable sales analysis...');
+    console.log('🚀 Starting Claude comparable sales analysis...');
     
     try {
       const prompt = `Analysera jämförbara försäljningar för denna svenska auktionspost:
@@ -1030,11 +1099,11 @@ Svara ENDAST med giltig JSON:
   "reasoning": string
 }`;
 
-      console.log('📤 Sending comparable sales request via Chrome runtime...');
+      console.log('📤 Sending Claude comparable sales request via Chrome runtime...');
 
       // Use Chrome runtime messaging instead of direct fetch
       const response = await new Promise((resolve, reject) => {
-        console.log('📨 Calling chrome.runtime.sendMessage for sales analysis...');
+        console.log('📨 Calling chrome.runtime.sendMessage for Claude sales analysis...');
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
@@ -1064,11 +1133,11 @@ Svara ENDAST med giltig JSON:
         });
       });
 
-      console.log('📊 Processing comparable sales response...');
+      console.log('📊 Processing Claude comparable sales response...');
 
       if (response.success && response.data?.content?.[0]?.text) {
         const content = response.data.content[0].text;
-        console.log('🤖 Raw comparable sales response:', content);
+        console.log('🤖 Raw Claude comparable sales response:', content);
 
         // Parse JSON response with fallback
         let salesData;
@@ -1081,18 +1150,20 @@ Svara ENDAST med giltig JSON:
         }
 
         if (salesData && salesData.hasComparableData) {
-          console.log('✅ Comparable sales analysis successful:', salesData);
+          console.log('✅ Claude comparable sales analysis successful:', salesData);
+          // Mark as AI estimate
+          salesData.dataSource = 'claude_ai_estimate';
           return salesData;
         } else {
-          console.log('❌ No comparable sales data found in response');
+          console.log('❌ No comparable sales data found in Claude response');
           return null;
         }
       } else {
-        console.error('❌ Invalid comparable sales response structure:', response);
+        console.error('❌ Invalid Claude comparable sales response structure:', response);
         return null;
       }
     } catch (error) {
-      console.error('💥 Error in comparable sales analysis:', error);
+      console.error('💥 Error in Claude comparable sales analysis:', error);
       console.error('💥 Error stack:', error.stack);
       return null;
     }

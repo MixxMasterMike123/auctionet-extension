@@ -766,6 +766,7 @@ export class QualityAnalyzer {
       
       const confidence = salesData.confidence;
       const priceRange = salesData.priceRange;
+      const dataSource = salesData.dataSource || 'unknown';
       
       // Format price range nicely
       const formattedLow = new Intl.NumberFormat('sv-SE').format(priceRange.low);
@@ -781,7 +782,22 @@ export class QualityAnalyzer {
         confidenceText = '🟠 Låg tillförlitlighet';
       }
       
-      const salesMessage = `💰 Jämförbara försäljningar: ${formattedLow}-${formattedHigh} SEK (${confidenceText} ${Math.round(confidence * 100)}%)`;
+      // Create data source indicator
+      let sourceIndicator = '';
+      if (dataSource === 'auctionet_real_data') {
+        sourceIndicator = '🎯 VERKLIGA FÖRSÄLJNINGAR';
+        // Add additional Auctionet-specific information
+        if (salesData.auctionetData) {
+          const auctionetInfo = salesData.auctionetData;
+          sourceIndicator += ` (${auctionetInfo.analyzedSales} försäljningar från ${auctionetInfo.totalMatches} träffar)`;
+        }
+      } else if (dataSource === 'claude_ai_estimate') {
+        sourceIndicator = '🤖 AI-UPPSKATTNING';
+      } else {
+        sourceIndicator = '📊 MARKNADSANALYS';
+      }
+      
+      const salesMessage = `💰 ${sourceIndicator}: ${formattedLow}-${formattedHigh} SEK (${confidenceText} ${Math.round(confidence * 100)}%)`;
       
       updatedWarnings.push({
         field: 'Marknadsvärde',
@@ -799,11 +815,47 @@ export class QualityAnalyzer {
         });
       }
       
-      // Add limitations/reasoning if confidence is low
+      // Add trend analysis for Auctionet data
+      if (dataSource === 'auctionet_real_data' && salesData.auctionetData?.trendAnalysis) {
+        const trend = salesData.auctionetData.trendAnalysis;
+        if (trend.trend !== 'insufficient_data') {
+          let trendIcon = '📊';
+          if (trend.trend === 'rising_strong' || trend.trend === 'rising') {
+            trendIcon = '📈';
+          } else if (trend.trend === 'falling_strong' || trend.trend === 'falling') {
+            trendIcon = '📉';
+          }
+          
+          updatedWarnings.push({
+            field: 'Marknadsvärde',
+            issue: `${trendIcon} Pristrend: ${trend.description}`,
+            severity: 'low'
+          });
+        }
+      }
+      
+      // Add recent sales information for Auctionet data
+      if (dataSource === 'auctionet_real_data' && salesData.auctionetData?.recentSales?.length > 0) {
+        const recentSale = salesData.auctionetData.recentSales[0]; // Most recent sale
+        const recentMessage = `🕒 Senaste försäljning: ${recentSale.price.toLocaleString()} SEK (${recentSale.date})`;
+        updatedWarnings.push({
+          field: 'Marknadsvärde',
+          issue: recentMessage,
+          severity: 'low'
+        });
+      }
+      
+      // Add limitations/reasoning if confidence is low or for AI estimates
       if (confidence < 0.6 && salesData.limitations) {
         updatedWarnings.push({
           field: 'Marknadsvärde',
           issue: `ℹ️ Begränsningar: ${salesData.limitations}`,
+          severity: 'low'
+        });
+      } else if (dataSource === 'claude_ai_estimate') {
+        updatedWarnings.push({
+          field: 'Marknadsvärde',
+          issue: `ℹ️ Notera: Detta är en AI-uppskattning baserad på allmän marknadskunskap, inte verkliga försäljningsdata`,
           severity: 'low'
         });
       }

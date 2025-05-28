@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auctionet API Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        #results {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Auctionet API Explorer</h1>
+        <p style="text-align: center; color: #7f8c8d; font-size: 18px;">
+            Testing access to <strong>3.65M+ auction items</strong> in Auctionet's database
+        </p>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalItems">3,650,000+</div>
+                <div class="stat-label">Items in Archive</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="testedQueries">0</div>
+                <div class="stat-label">API Queries Tested</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="foundItems">0</div>
+                <div class="stat-label">Items Found</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="soldItems">0</div>
+                <div class="stat-label">Sold Items Analyzed</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Basic API Tests</h3>
+            <p>Test different API endpoints to understand data structure and availability.</p>
+            <button onclick="runBasicTests()" id="basicTestBtn">Run Basic API Tests</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Market Analysis Test</h3>
+            <p>Test market analysis with our Lars Löfgren silver example.</p>
+            <button onclick="testLarsLofgren()" id="larsTestBtn">Test Lars Löfgren Analysis</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Custom Search</h3>
+            <p>Search for specific items in the Auctionet database.</p>
+            <input type="text" id="searchInput" class="search-input" placeholder="Enter search terms (e.g., 'silver pokal', 'Carl Malmsten', 'Orrefors glas')" value="silver pokal">
+            <button onclick="customSearch()" id="searchBtn">Search Database</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let totalQueriesTested = 0;
+        let totalItemsFound = 0;
+        let totalSoldItems = 0;
+
+        function updateStats() {
+            document.getElementById('testedQueries').textContent = totalQueriesTested;
+            document.getElementById('foundItems').textContent = totalItemsFound.toLocaleString();
+            document.getElementById('soldItems').textContent = totalSoldItems.toLocaleString();
+        }
+
+        function log(message) {
+            const results = document.getElementById('results');
+            results.textContent += message + '\n';
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').textContent = '';
+            totalQueriesTested = 0;
+            totalItemsFound = 0;
+            totalSoldItems = 0;
+            updateStats();
+        }
+
+        async function testAPI(url, description) {
+            log(`\n📡 ${description}`);
+            log(`🔗 ${url}`);
+            
+            try {
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                totalQueriesTested++;
+                
+                log(`✅ Response received successfully`);
+                log(`📊 Total entries: ${data.pagination?.total_entries?.toLocaleString() || 'unknown'}`);
+                log(`📄 Current page: ${data.pagination?.current_page || 'unknown'}`);
+                log(`📚 Total pages: ${data.pagination?.total_pages?.toLocaleString() || 'unknown'}`);
+                log(`🎯 Items returned: ${data.items?.length || 0}`);
+                
+                if (data.pagination?.total_entries) {
+                    totalItemsFound += data.pagination.total_entries;
+                }
+                
+                // Analyze first item if available
+                if (data.items && data.items.length > 0) {
+                    const item = data.items[0];
+                    log(`\n🔍 Sample item:`);
+                    log(`📝 Title: ${item.title}`);
+                    log(`💰 Estimate: ${item.estimate?.toLocaleString() || 'N/A'} ${item.currency || ''}`);
+                    log(`🔨 Hammered: ${item.hammered ? 'YES' : 'NO'}`);
+                    log(`🏠 House: ${item.house || 'N/A'}`);
+                    
+                    if (item.ends_at) {
+                        log(`📅 Ended: ${new Date(item.ends_at * 1000).toLocaleDateString()}`);
+                    }
+                    
+                    // Check for final bid amount
+                    if (item.bids && item.bids.length > 0) {
+                        const finalBid = item.bids[0];
+                        log(`💵 Final bid: ${finalBid.amount?.toLocaleString()} ${item.currency}`);
+                        log(`⏰ Bid time: ${new Date(finalBid.timestamp * 1000).toLocaleString()}`);
+                        
+                        if (item.hammered) {
+                            totalSoldItems++;
+                        }
+                    }
+                    
+                    // Check for reserve information
+                    if (item.reserve_met !== null) {
+                        log(`🎯 Reserve met: ${item.reserve_met ? 'YES' : 'NO'}`);
+                        if (item.reserve_amount) {
+                            log(`🔒 Reserve: ${item.reserve_amount.toLocaleString()} ${item.currency}`);
+                        }
+                    }
+                }
+                
+                updateStats();
+                return data;
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+                if (error.message.includes('CORS')) {
+                    log(`🚨 CORS Error detected - we'll need to use background script for API calls`);
+                }
+                totalQueriesTested++;
+                updateStats();
+                return null;
+            }
+        }
+
+        async function runBasicTests() {
+            const btn = document.getElementById('basicTestBtn');
+            btn.disabled = true;
+            btn.textContent = 'Running Tests...';
+            
+            log('🚀 Starting Auctionet API exploration...');
+            log('📚 Testing access to 3.65M+ item archive...');
+            
+            const testQueries = [
+                {
+                    url: 'https://auctionet.com/api/v2/items.json?is=ended&per_page=5',
+                    desc: 'Basic ended auctions'
+                },
+                {
+                    url: 'https://auctionet.com/api/v2/items.json?is=ended&q=silver&per_page=5',
+                    desc: 'Search for silver items'
+                },
+                {
+                    url: 'https://auctionet.com/api/v2/items.json?is=ended&q=Lars+Löfgren&per_page=5',
+                    desc: 'Search for Lars Löfgren'
+                },
+                {
+                    url: 'https://auctionet.com/api/v2/items.json?is=ended&q=pokal&per_page=5',
+                    desc: 'Search for pokal (cup/trophy)'
+                },
+                {
+                    url: 'https://auctionet.com/api/v2/items.json?is=ended&q=1800-tal&per_page=5',
+                    desc: 'Search for 19th century items'
+                }
+            ];
+
+            for (const test of testQueries) {
+                await testAPI(test.url, test.desc);
+                // Small delay between requests
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            log('\n🏁 Basic tests completed!');
+            btn.disabled = false;
+            btn.textContent = 'Run Basic API Tests';
+        }
+
+        async function testLarsLofgren() {
+            const btn = document.getElementById('larsTestBtn');
+            btn.disabled = true;
+            btn.textContent = 'Analyzing...';
+            
+            log('\n🧪 Testing Lars Löfgren market analysis...');
+            
+            const searchTerms = ['Lars', 'Löfgren', 'silver'];
+            const query = searchTerms.join('+');
+            const url = `https://auctionet.com/api/v2/items.json?is=ended&q=${encodeURIComponent(query)}&per_page=20`;
+            
+            const data = await testAPI(url, 'Lars Löfgren silver market analysis');
+            
+            if (data && data.items) {
+                // Analyze sold items
+                const soldItems = data.items.filter(item => item.hammered && item.bids && item.bids.length > 0);
+                log(`\n📊 Market Analysis:`);
+                log(`🔨 Sold items in sample: ${soldItems.length}/${data.items.length}`);
+                
+                if (soldItems.length > 0) {
+                    const prices = soldItems.map(item => item.bids[0].amount);
+                    const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+                    const minPrice = Math.min(...prices);
+                    const maxPrice = Math.max(...prices);
+                    
+                    log(`💰 Price range: ${minPrice.toLocaleString()} - ${maxPrice.toLocaleString()} SEK`);
+                    log(`📈 Average price: ${Math.round(avgPrice).toLocaleString()} SEK`);
+                    
+                    log(`\n🕒 Recent sales:`);
+                    soldItems
+                        .sort((a, b) => b.bids[0].timestamp - a.bids[0].timestamp)
+                        .slice(0, 3)
+                        .forEach(item => {
+                            const sale = item.bids[0];
+                            const date = new Date(sale.timestamp * 1000).toLocaleDateString();
+                            log(`  ${date}: ${sale.amount.toLocaleString()} SEK - ${item.title.substring(0, 50)}...`);
+                        });
+                }
+            }
+            
+            btn.disabled = false;
+            btn.textContent = 'Test Lars Löfgren Analysis';
+        }
+
+        async function customSearch() {
+            const btn = document.getElementById('searchBtn');
+            const input = document.getElementById('searchInput');
+            const searchTerm = input.value.trim();
+            
+            if (!searchTerm) {
+                alert('Please enter search terms');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = 'Searching...';
+            
+            const url = `https://auctionet.com/api/v2/items.json?is=ended&q=${encodeURIComponent(searchTerm)}&per_page=10`;
+            await testAPI(url, `Custom search: "${searchTerm}"`);
+            
+            btn.disabled = false;
+            btn.textContent = 'Search Database';
+        }
+
+        // Initialize
+        updateStats();
+        log('🔍 Auctionet API Explorer ready!');
+        log('📚 Ready to explore 3.65M+ auction items...');
+        log('🚀 Click "Run Basic API Tests" to start exploration');
+    </script>
+</body>
+</html> 
