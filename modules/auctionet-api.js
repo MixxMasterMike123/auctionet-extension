@@ -202,7 +202,7 @@ export class AuctionetAPI {
       // Apply company exclusion filter
       const liveItems = allActiveItems.filter(item => {
         if (this.excludeCompanyId && item.house && item.house.id && item.house.id.toString() === this.excludeCompanyId) {
-          console.log(`🚫 Excluding item from company ${this.excludeCompanyId}: ${item.title.substring(0, 50)}...`);
+          console.log(`🚫 Excluding LIVE item from company ${this.excludeCompanyId}: ${item.title.substring(0, 50)}...`);
           return false;
         }
         return true;
@@ -228,7 +228,7 @@ export class AuctionetAPI {
       console.log(`🔴 Active live items with bidding: ${liveItems.length}`);
       
       if (this.excludeCompanyId && allActiveItems.length > liveItems.length) {
-        console.log(`🚫 Company exclusion: Filtered out ${allActiveItems.length - liveItems.length} items from company ${this.excludeCompanyId}`);
+        console.log(`🚫 Company exclusion (LIVE only): Filtered out ${allActiveItems.length - liveItems.length} live items from company ${this.excludeCompanyId}`);
       }
       
       const result = {
@@ -430,27 +430,15 @@ export class AuctionetAPI {
       console.log(`📊 Found ${data.items.length} items out of ${data.pagination.total_entries} total matches`);
       
       // Filter for actually sold items with bid data
-      const allSoldItems = data.items.filter(item => 
+      const soldItems = data.items.filter(item => 
         item.hammered && 
         item.bids && 
         item.bids.length > 0 &&
         item.bids[0].amount > 0
+        // NOTE: No company exclusion for historical sales - we want our own historical data
       );
       
-      // Apply company exclusion filter
-      const soldItems = allSoldItems.filter(item => {
-        if (this.excludeCompanyId && item.house && item.house.id && item.house.id.toString() === this.excludeCompanyId) {
-          console.log(`🚫 Excluding historical sale from company ${this.excludeCompanyId}: ${item.title.substring(0, 50)}...`);
-          return false;
-        }
-        return true;
-      });
-      
       console.log(`🔨 Sold items with price data: ${soldItems.length}`);
-      
-      if (this.excludeCompanyId && allSoldItems.length > soldItems.length) {
-        console.log(`🚫 Company exclusion: Filtered out ${allSoldItems.length - soldItems.length} historical sales from company ${this.excludeCompanyId}`);
-      }
       
       const result = {
         totalEntries: data.pagination.total_entries,
