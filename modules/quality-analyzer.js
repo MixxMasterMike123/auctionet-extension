@@ -89,6 +89,12 @@ export class QualityAnalyzer {
       // General malformed pattern: OBJEKT, details, "Title, Firstname Lastname (no closing quote) - MOVED UP for priority
       /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)(?:\s+[A-ZÅÄÖÜ][a-zåäöü]+)?/i,
       
+      // NEW: OBJEKT, technique, Firstname Middle Lastname Company.measurements (handles "MATTA, rölakan, Anna Johanna Ångström Axeco.192 x 138 cm.")
+      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s+[A-ZÅÄÖÜ][a-zåäöü]+\.\d+/i,
+      
+      // NEW: OBJEKT, technique, Firstname Lastname Company.measurements (2-word version)
+      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s+[A-ZÅÄÖÜ][a-zåäöü]+\.\d+/i,
+      
       // COMPOUND OBJEKT och OBJEKT, quantity description with embedded artist (NEW - handles "BÖCKER och LITOGRAFI, 3 st böcker Lennart Sand")
       /^([A-ZÅÄÖÜ]+\s+och\s+[A-ZÅÄÖÜ]+),\s*\d+\s+st\s+[a-zåäöü]+\s+([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
       
@@ -140,8 +146,23 @@ export class QualityAnalyzer {
       if (match) {
         let objectType, potentialArtist, rest;
         
+        // Special handling for Axeco patterns (company attached to artist name)
+        if (pattern.source.includes('Axeco') || pattern.source.includes('\\.\\d+')) {
+          [, objectType, potentialArtist] = match;
+          // Extract the rest by removing the matched part and extracting measurements
+          const measurementMatch = title.match(/(\d+\s*[×x]\s*\d+\s*cm)/i);
+          const technique = title.match(/,\s*([a-zåäöü]+),/i);
+          
+          if (measurementMatch && technique) {
+            rest = `${technique[1]}, ${measurementMatch[1]}`;
+          } else if (measurementMatch) {
+            rest = measurementMatch[1];
+          } else {
+            rest = 'detaljer';
+          }
+        }
         // Handle different pattern structures
-        if (match.length === 4 && match[3]) {
+        else if (match.length === 4 && match[3]) {
           // Standard patterns: [full, objectType, artist, rest]
           [, objectType, potentialArtist, rest] = match;
         } else if (match.length === 4 && match[2] && match[3]) {
@@ -238,7 +259,7 @@ export class QualityAnalyzer {
       'Kosta', 'Arabia', 'Royal', 'Napoleon', 'Gustav', 'Carl', 'Louis', 'Empire',
       // Company/Manufacturer names that might appear after artist names
       'Ikea', 'IKEA', 'Tenn', 'Lammhults', 'Källemo', 'Mathsson', 'Malmsten', 
-      'Boda', 'Artek', 'Iittala', 'Grondahl'
+      'Boda', 'Artek', 'Iittala', 'Grondahl', 'Axeco'
     ];
 
     if (words.some(word => 
