@@ -49,6 +49,7 @@
         
         // Set up dependencies
         this.qualityAnalyzer.setDataExtractor(this.dataExtractor);
+        this.qualityAnalyzer.setApiManager(this.apiManager);
         
         this.init();
         this.setupEventListeners();

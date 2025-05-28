@@ -81,9 +81,9 @@ export class UIManager {
       const refreshButton = indicator.querySelector('.refresh-quality-btn');
       if (refreshButton) {
         console.log('✅ Manual refresh button found, adding listener');
-        refreshButton.addEventListener('click', () => {
+        refreshButton.addEventListener('click', async () => {
           console.log('🔄 Manual quality refresh triggered');
-          this.qualityAnalyzer.analyzeQuality();
+          await this.qualityAnalyzer.analyzeQuality();
         });
       }
       
@@ -94,7 +94,9 @@ export class UIManager {
       
       // Initial quality analysis
       console.log('📊 Running initial quality analysis...');
-      this.qualityAnalyzer.analyzeQuality();
+      this.qualityAnalyzer.analyzeQuality().catch(error => {
+        console.error('Error in initial quality analysis:', error);
+      });
     } else {
       console.log('❌ Sidebar not found - cannot add quality indicator');
     }

@@ -726,4 +726,221 @@ Returnera ENDAST sökorden separerade med mellanslag enligt Auctionets format, u
       speculations
     };
   }
+
+  // AI-powered artist detection methods
+  async analyzeForArtist(title, objectType, artistField) {
+    if (!this.apiKey) {
+      console.log('No API key available, skipping AI artist analysis');
+      return null;
+    }
+
+    // Only analyze if artist field is empty or very short
+    if (artistField && artistField.trim().length > 2) {
+      return null;
+    }
+
+    if (!title || title.length < 10) {
+      return null;
+    }
+
+    try {
+      const prompt = `Analysera denna svenska auktionstitel för konstnärsnamn:
+
+TITEL: "${title}"
+OBJEKTTYP: ${objectType || 'Okänd'}
+
+UPPGIFT:
+Innehåller denna titel ett konstnärs- eller designernamn som borde vara i ett separat konstnärsfält istället för i titeln?
+
+SVENSKA AUKTIONSKONVENTIONER:
+- Konstnärsnamn placeras ofta felaktigt i titeln som "KONSTNÄR, Objekt, material"
+- Beskrivande fraser som "Kvinna med hundar" är INTE konstnärsnamn
+- Företagsnamn som "IKEA", "Axeco" är INTE konstnärsnamn
+- Ortnamn som "Stockholm", "Göteborg" är INTE konstnärsnamn
+
+SVARA MED JSON:
+{
+  "hasArtist": boolean,
+  "artistName": "namn eller null",
+  "suggestedTitle": "föreslagen titel utan konstnärsnamn eller null",
+  "confidence": 0.0-1.0,
+  "reasoning": "kort förklaring"
+}
+
+Endast om du är mycket säker (confidence > 0.8) på att det finns ett verkligt konstnärsnamn.`;
+
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiKey,
+          body: {
+            model: getCurrentModel().id,
+            max_tokens: 300,
+            temperature: 0.1, // Low temperature for consistent analysis
+            messages: [{
+              role: 'user',
+              content: prompt
+            }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.success) {
+            resolve(response);
+          } else {
+            reject(new Error(response.error || 'API request failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const result = this.parseArtistAnalysisResponse(response.data.content[0].text);
+        console.log('AI artist analysis result:', result);
+        return result;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in AI artist analysis:', error);
+      return null; // Graceful fallback to rule-based system
+    }
+  }
+
+  async verifyArtist(artistName, objectType, period) {
+    if (!this.apiKey || !this.enableArtistInfo) {
+      return null;
+    }
+
+    try {
+      const prompt = `Verifiera denna potentiella konstnär/designer:
+
+NAMN: "${artistName}"
+OBJEKTTYP: ${objectType || 'Okänd'}
+PERIOD: ${period || 'Okänd'}
+
+UPPGIFT:
+Är detta en verklig konstnär, designer eller hantverkare? Ge biografisk kontext om möjligt.
+
+SVARA MED JSON:
+{
+  "isRealArtist": boolean,
+  "confidence": 0.0-1.0,
+  "biography": "kort biografisk information eller null",
+  "specialties": ["lista", "över", "specialiteter"] eller null,
+  "activeYears": "aktiva år eller null",
+  "relevanceToObject": "relevans till objekttyp eller null"
+}`;
+
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiKey,
+          body: {
+            model: getCurrentModel().id,
+            max_tokens: 400,
+            temperature: 0.1,
+            messages: [{
+              role: 'user',
+              content: prompt
+            }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.success) {
+            resolve(response);
+          } else {
+            reject(new Error(response.error || 'API request failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const result = this.parseArtistVerificationResponse(response.data.content[0].text);
+        console.log('AI artist verification result:', result);
+        return result;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error in AI artist verification:', error);
+      return null;
+    }
+  }
+
+  parseArtistAnalysisResponse(responseText) {
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        // Validate the response structure
+        if (typeof parsed.hasArtist === 'boolean' && 
+            typeof parsed.confidence === 'number' &&
+            parsed.confidence >= 0 && parsed.confidence <= 1) {
+          
+          return {
+            hasArtist: parsed.hasArtist,
+            artistName: parsed.artistName || null,
+            suggestedTitle: parsed.suggestedTitle || null,
+            confidence: parsed.confidence,
+            reasoning: parsed.reasoning || '',
+            source: 'ai'
+          };
+        }
+      }
+      
+      // Fallback parsing if JSON is malformed
+      const hasArtist = /hasArtist['":\s]*true/i.test(responseText);
+      const artistMatch = responseText.match(/artistName['":\s]*["']([^"']+)["']/i);
+      const confidenceMatch = responseText.match(/confidence['":\s]*([0-9.]+)/i);
+      
+      if (hasArtist && artistMatch && confidenceMatch) {
+        return {
+          hasArtist: true,
+          artistName: artistMatch[1],
+          suggestedTitle: null,
+          confidence: parseFloat(confidenceMatch[1]),
+          reasoning: 'Fallback parsing',
+          source: 'ai'
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error parsing AI artist analysis response:', error);
+      return null;
+    }
+  }
+
+  parseArtistVerificationResponse(responseText) {
+    try {
+      // Try to extract JSON from the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        
+        // Validate the response structure
+        if (typeof parsed.isRealArtist === 'boolean' && 
+            typeof parsed.confidence === 'number' &&
+            parsed.confidence >= 0 && parsed.confidence <= 1) {
+          
+          return {
+            isRealArtist: parsed.isRealArtist,
+            confidence: parsed.confidence,
+            biography: parsed.biography || null,
+            specialties: parsed.specialties || null,
+            activeYears: parsed.activeYears || null,
+            relevanceToObject: parsed.relevanceToObject || null
+          };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error parsing AI artist verification response:', error);
+      return null;
+    }
+  }
 } 

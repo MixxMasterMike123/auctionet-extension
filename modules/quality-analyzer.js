@@ -2,10 +2,15 @@
 export class QualityAnalyzer {
   constructor() {
     this.dataExtractor = null;
+    this.apiManager = null;
   }
 
   setDataExtractor(extractor) {
     this.dataExtractor = extractor;
+  }
+
+  setApiManager(apiManager) {
+    this.apiManager = apiManager;
   }
 
   // Helper method to check for measurements in Swedish format
@@ -50,7 +55,7 @@ export class QualityAnalyzer {
   }
 
   // Helper method to detect potential misplaced artist in title
-  detectMisplacedArtist(title, artistField) {
+  async detectMisplacedArtist(title, artistField) {
     // Only suggest if artist field is empty or very short
     if (artistField && artistField.trim().length > 2) {
       return null; // Artist field already has content
@@ -60,6 +65,80 @@ export class QualityAnalyzer {
       return null; // Title too short to contain artist
     }
 
+    // Try AI-powered detection first (if API key available)
+    if (this.apiManager) {
+      try {
+        const objectType = this.extractObjectType(title);
+        const aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistField);
+        
+        if (aiResult && aiResult.hasArtist && aiResult.confidence > 0.8) {
+          console.log('AI detected artist:', aiResult);
+          
+          // Optionally verify the artist if artist info is enabled
+          let verification = null;
+          if (this.apiManager.enableArtistInfo && aiResult.artistName) {
+            const period = this.extractPeriod(title);
+            verification = await this.apiManager.verifyArtist(aiResult.artistName, objectType, period);
+          }
+          
+          return {
+            detectedArtist: aiResult.artistName,
+            suggestedTitle: aiResult.suggestedTitle || this.generateSuggestedTitle(title, aiResult.artistName),
+            confidence: aiResult.confidence,
+            reasoning: aiResult.reasoning,
+            verification: verification,
+            source: 'ai'
+          };
+        }
+      } catch (error) {
+        console.error('AI artist detection failed, falling back to rules:', error);
+      }
+    }
+
+    // Fallback to rule-based detection
+    console.log('Using rule-based artist detection');
+    return this.detectMisplacedArtistRuleBased(title, artistField);
+  }
+
+  // Helper method to extract object type from title
+  extractObjectType(title) {
+    const match = title.match(/^([A-ZÅÄÖÜ]+)/);
+    return match ? match[1] : null;
+  }
+
+  // Helper method to extract period information from title
+  extractPeriod(title) {
+    const periodPatterns = [
+      /(\d{4})/,                    // 1950
+      /(\d{2,4}-tal)/,              // 1900-tal
+      /(\d{2}\/\d{4}-tal)/,         // 17/1800-tal
+      /(1[6-9]\d{2})/,              // 1600-1999
+      /(20[0-2]\d)/                 // 2000-2029
+    ];
+    
+    for (const pattern of periodPatterns) {
+      const match = title.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  }
+
+  // Helper method to generate suggested title when AI doesn't provide one
+  generateSuggestedTitle(originalTitle, artistName) {
+    // Remove the artist name from the title
+    const cleanedTitle = originalTitle
+      .replace(new RegExp(`^${artistName.replace(/\s+/g, '\\s+')},?\\s*`, 'i'), '')
+      .replace(new RegExp(`${artistName.replace(/\s+/g, '\\s+')}`, 'i'), '')
+      .trim();
+    
+    return cleanedTitle || 'Titel utan konstnärsnamn';
+  }
+
+  // Rule-based artist detection (fallback method)
+  detectMisplacedArtistRuleBased(title, artistField) {
     // PRIORITY CHECK: Artist name incorrectly placed at beginning of title in ALL CAPS
     // Pattern: "FIRSTNAME LASTNAME. Rest of title..." or "FIRSTNAME MIDDLE LASTNAME. Rest of title..."
     const allCapsArtistPattern = /^([A-ZÅÄÖÜ\s]{4,40})\.\s+(.+)/;
@@ -318,7 +397,7 @@ export class QualityAnalyzer {
     return Math.max(0.1, Math.min(0.9, confidence));
   }
 
-  analyzeQuality() {
+  async analyzeQuality() {
     if (!this.dataExtractor) {
       console.error('Data extractor not set');
       return;
@@ -349,8 +428,8 @@ export class QualityAnalyzer {
       score -= 15;
     }
 
-    // Check for potential misplaced artist in title
-    const misplacedArtist = this.detectMisplacedArtist(data.title, data.artist);
+    // Check for potential misplaced artist in title (now async)
+    const misplacedArtist = await this.detectMisplacedArtist(data.title, data.artist);
     if (misplacedArtist) {
       let warningMessage;
       let severity = 'medium';
@@ -358,6 +437,21 @@ export class QualityAnalyzer {
       if (misplacedArtist.errorType === 'artist_in_title_caps') {
         warningMessage = `FELAKTIG PLACERING: "${misplacedArtist.detectedArtist}" ska flyttas till konstnärsfältet. Föreslagen titel: "${misplacedArtist.suggestedTitle}"`;
         severity = 'high'; // This is a clear error, not just a suggestion
+      } else if (misplacedArtist.source === 'ai') {
+        // AI-detected artist with verification info
+        let message = `AI upptäckte konstnär: "${misplacedArtist.detectedArtist}"`;
+        if (misplacedArtist.verification?.isRealArtist) {
+          message += ` ✓ Verifierad konstnär`;
+          if (misplacedArtist.verification.biography) {
+            message += ` (${misplacedArtist.verification.biography.substring(0, 100)}...)`;
+          }
+          severity = 'high'; // High confidence when verified
+        } else if (misplacedArtist.verification?.isRealArtist === false) {
+          message += ` ⚠️ Kunde inte verifieras som konstnär`;
+          severity = 'medium';
+        }
+        message += ` - kontrollera om den ska flyttas till konstnärsfält`;
+        warningMessage = message;
       } else {
         warningMessage = `Möjlig konstnär upptäckt: "${misplacedArtist.detectedArtist}" - kontrollera om den ska flyttas till konstnärsfält`;
       }
@@ -601,11 +695,15 @@ export class QualityAnalyzer {
     
     // Debounce function to prevent too frequent updates
     let updateTimeout;
-    const debouncedUpdate = (event) => {
+    const debouncedUpdate = async (event) => {
       clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
+      updateTimeout = setTimeout(async () => {
         console.log('⚡ Live quality update triggered by:', event?.target?.id || event?.target?.tagName || 'unknown field');
-        this.analyzeQuality();
+        try {
+          await this.analyzeQuality();
+        } catch (error) {
+          console.error('Error in live quality update:', error);
+        }
       }, 800); // Wait 800ms after user stops typing
     };
 
