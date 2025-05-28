@@ -729,20 +729,26 @@ Returnera ENDAST sökorden separerade med mellanslag enligt Auctionets format, u
 
   // AI-powered artist detection methods
   async analyzeForArtist(title, objectType, artistField) {
+    console.log('🎯 analyzeForArtist called with:', { title, objectType, artistField });
+    
     if (!this.apiKey) {
-      console.log('No API key available, skipping AI artist analysis');
+      console.log('❌ No API key available, skipping AI artist analysis');
       return null;
     }
 
     // Only analyze if artist field is empty or very short
     if (artistField && artistField.trim().length > 2) {
+      console.log('🚫 Artist field not empty, skipping AI analysis:', artistField);
       return null;
     }
 
     if (!title || title.length < 10) {
+      console.log('🚫 Title too short for AI analysis:', title);
       return null;
     }
 
+    console.log('🚀 Starting AI artist analysis...');
+    
     try {
       const prompt = `Analysera denna svenska auktionstitel för konstnärsnamn:
 
@@ -769,6 +775,8 @@ SVARA MED JSON:
 
 Endast om du är mycket säker (confidence > 0.8) på att det finns ett verkligt konstnärsnamn.`;
 
+      console.log('📤 Sending AI request with prompt length:', prompt.length);
+
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
@@ -793,15 +801,19 @@ Endast om du är mycket säker (confidence > 0.8) på att det finns ett verkligt
         });
       });
 
+      console.log('📥 AI response received:', response);
+
       if (response.success && response.data?.content?.[0]?.text) {
+        console.log('📝 AI response text:', response.data.content[0].text);
         const result = this.parseArtistAnalysisResponse(response.data.content[0].text);
-        console.log('AI artist analysis result:', result);
+        console.log('🎯 Parsed AI artist analysis result:', result);
         return result;
       }
 
+      console.log('❌ Invalid AI response structure');
       return null;
     } catch (error) {
-      console.error('Error in AI artist analysis:', error);
+      console.error('💥 Error in AI artist analysis:', error);
       return null; // Graceful fallback to rule-based system
     }
   }
@@ -942,5 +954,192 @@ SVARA MED JSON:
       console.error('Error parsing AI artist verification response:', error);
       return null;
     }
+  }
+
+  // Market analysis methods
+  async analyzeComparableSales(artistName, objectType, period, technique, description) {
+    console.log('💰 analyzeComparableSales called with:', { artistName, objectType, period, technique });
+    
+    if (!this.apiKey) {
+      console.log('❌ No API key available, skipping comparable sales analysis');
+      return null;
+    }
+
+    // Only analyze if we have sufficient information
+    if (!artistName || artistName.trim().length < 3) {
+      console.log('🚫 Insufficient artist information for sales analysis');
+      return null;
+    }
+
+    console.log('🚀 Starting comparable sales analysis...');
+    
+    try {
+      const prompt = `Analysera jämförbara försäljningar för denna svenska auktionspost:
+
+KONSTNÄR: ${artistName}
+OBJEKTTYP: ${objectType || 'Okänd'}
+PERIOD: ${period || 'Okänd'}
+TEKNIK: ${technique || 'Okänd'}
+BESKRIVNING: ${description ? description.substring(0, 200) : 'Ingen beskrivning'}
+
+Som expert på svensk konstmarknad, analysera:
+
+1. JÄMFÖRBARA FÖRSÄLJNINGAR:
+   - Prisintervall för liknande verk av denna konstnär
+   - Senaste marknadsaktivitet (om känd)
+   - Faktorer som påverkar värdering
+
+2. KONFIDENSANALYS:
+   - Hur säker är denna analys? (0.1-1.0)
+   - Vad baseras analysen på?
+   - Begränsningar i data
+
+3. MARKNADSKONTEXT:
+   - Konstnärens marknadsstatus
+   - Trend för denna typ av verk
+   - Regionala faktorer (svensk/nordisk marknad)
+
+Svara ENDAST med giltig JSON:
+{
+  "hasComparableData": boolean,
+  "priceRange": {
+    "low": number (SEK),
+    "high": number (SEK),
+    "currency": "SEK"
+  },
+  "confidence": number (0.1-1.0),
+  "confidenceFactors": {
+    "artistRecognition": number (0.1-1.0),
+    "dataAvailability": number (0.1-1.0),
+    "marketActivity": number (0.1-1.0),
+    "comparabilityQuality": number (0.1-1.0)
+  },
+  "marketContext": {
+    "artistStatus": string,
+    "marketTrend": string,
+    "recentActivity": string
+  },
+  "comparableSales": [
+    {
+      "description": string,
+      "priceRange": string,
+      "relevance": number (0.1-1.0)
+    }
+  ],
+  "limitations": string,
+  "reasoning": string
+}`;
+
+      console.log('📤 Sending comparable sales request via Chrome runtime...');
+
+      // Use Chrome runtime messaging instead of direct fetch
+      const response = await new Promise((resolve, reject) => {
+        console.log('📨 Calling chrome.runtime.sendMessage for sales analysis...');
+        
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiKey,
+          body: {
+            model: getCurrentModel().id,
+            max_tokens: 1000,
+            temperature: 0.1, // Low temperature for consistent analysis
+            messages: [{
+              role: 'user',
+              content: prompt
+            }]
+          }
+        }, (response) => {
+          console.log('📥 Chrome runtime response received:', response);
+          
+          if (chrome.runtime.lastError) {
+            console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response && response.success) {
+            console.log('✅ Chrome runtime success');
+            resolve(response);
+          } else {
+            console.error('❌ Chrome runtime failed:', response);
+            reject(new Error(response?.error || 'API request failed'));
+          }
+        });
+      });
+
+      console.log('📊 Processing comparable sales response...');
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const content = response.data.content[0].text;
+        console.log('🤖 Raw comparable sales response:', content);
+
+        // Parse JSON response with fallback
+        let salesData;
+        try {
+          salesData = JSON.parse(content);
+          console.log('✅ JSON parsing successful:', salesData);
+        } catch (parseError) {
+          console.warn('⚠️ JSON parsing failed, attempting fallback parsing:', parseError);
+          salesData = this.fallbackParseSalesData(content);
+        }
+
+        if (salesData && salesData.hasComparableData) {
+          console.log('✅ Comparable sales analysis successful:', salesData);
+          return salesData;
+        } else {
+          console.log('❌ No comparable sales data found in response');
+          return null;
+        }
+      } else {
+        console.error('❌ Invalid comparable sales response structure:', response);
+        return null;
+      }
+    } catch (error) {
+      console.error('💥 Error in comparable sales analysis:', error);
+      console.error('💥 Error stack:', error.stack);
+      return null;
+    }
+  }
+
+  // Fallback parser for sales data if JSON parsing fails
+  fallbackParseSalesData(content) {
+    console.log('🔧 Attempting fallback parsing for sales data');
+    
+    try {
+      // Look for price ranges in the text
+      const priceMatch = content.match(/(\d+[\s,]*\d*)\s*-\s*(\d+[\s,]*\d*)\s*(?:SEK|kr|kronor)/i);
+      const confidenceMatch = content.match(/confidence["\s:]*(\d+\.?\d*)/i);
+      
+      if (priceMatch) {
+        const low = parseInt(priceMatch[1].replace(/[\s,]/g, ''));
+        const high = parseInt(priceMatch[2].replace(/[\s,]/g, ''));
+        const confidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : 0.3;
+        
+        return {
+          hasComparableData: true,
+          priceRange: {
+            low: low,
+            high: high,
+            currency: "SEK"
+          },
+          confidence: Math.min(confidence, 1.0),
+          confidenceFactors: {
+            artistRecognition: 0.5,
+            dataAvailability: 0.3,
+            marketActivity: 0.4,
+            comparabilityQuality: 0.4
+          },
+          marketContext: {
+            artistStatus: "Analys från textparsning",
+            marketTrend: "Begränsad data",
+            recentActivity: "Okänd"
+          },
+          comparableSales: [],
+          limitations: "Begränsad analys från textparsning",
+          reasoning: "Fallback-analys använd på grund av JSON-parsningsfel"
+        };
+      }
+    } catch (error) {
+      console.error('Fallback parsing failed:', error);
+    }
+    
+    return null;
   }
 } 

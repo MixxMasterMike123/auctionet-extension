@@ -58,27 +58,35 @@ export class QualityAnalyzer {
   async detectMisplacedArtist(title, artistField) {
     // Only suggest if artist field is empty or very short
     if (artistField && artistField.trim().length > 2) {
+      console.log('🚫 Artist detection skipped - artist field already has content:', artistField);
       return null; // Artist field already has content
     }
 
     if (!title || title.length < 10) {
+      console.log('🚫 Artist detection skipped - title too short:', title);
       return null; // Title too short to contain artist
     }
 
     // Try AI-powered detection first (if API key available)
     if (this.apiManager) {
+      console.log('🤖 Attempting AI artist detection for title:', title);
       try {
         const objectType = this.extractObjectType(title);
+        console.log('📝 Extracted object type:', objectType);
+        
         const aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistField);
+        console.log('🤖 AI artist analysis raw result:', aiResult);
         
         if (aiResult && aiResult.hasArtist && aiResult.confidence > 0.8) {
-          console.log('AI detected artist:', aiResult);
+          console.log('✅ AI detected artist with high confidence:', aiResult);
           
           // Optionally verify the artist if artist info is enabled
           let verification = null;
           if (this.apiManager.enableArtistInfo && aiResult.artistName) {
+            console.log('🔍 Verifying artist:', aiResult.artistName);
             const period = this.extractPeriod(title);
             verification = await this.apiManager.verifyArtist(aiResult.artistName, objectType, period);
+            console.log('🔍 Artist verification result:', verification);
           }
           
           return {
@@ -89,14 +97,20 @@ export class QualityAnalyzer {
             verification: verification,
             source: 'ai'
           };
+        } else if (aiResult) {
+          console.log('⚠️ AI detected artist but confidence too low:', aiResult.confidence, 'for artist:', aiResult.artistName);
+        } else {
+          console.log('❌ AI artist analysis returned null');
         }
       } catch (error) {
         console.error('AI artist detection failed, falling back to rules:', error);
       }
+    } else {
+      console.log('❌ No API manager available for AI detection');
     }
 
     // Fallback to rule-based detection
-    console.log('Using rule-based artist detection');
+    console.log('🔧 Using rule-based artist detection');
     return this.detectMisplacedArtistRuleBased(title, artistField);
   }
 
@@ -167,6 +181,12 @@ export class QualityAnalyzer {
       
       // General malformed pattern: OBJEKT, details, "Title, Firstname Lastname (no closing quote) - MOVED UP for priority
       /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)(?:\s+[A-ZÅÄÖÜ][a-zåäöü]+)?/i,
+      
+      // NEW: OBJEKT, material, technique, Firstname Lastname, style (handles "TAVLA, olja på duk, Pablo Picasso, kubistisk stil")
+      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü\s]+,\s*[a-zåäöü\s]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
+      
+      // NEW: OBJEKT, material, technique, Firstname Middle Lastname, style (3-word version)
+      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü\s]+,\s*[a-zåäöü\s]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
       
       // NEW: OBJEKT, technique, Firstname Middle Lastname Company.measurements (handles "MATTA, rölakan, Anna Johanna Ångström Axeco.192 x 138 cm.")
       /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s+[A-ZÅÄÖÜ][a-zåäöü]+\.\d+/i,
@@ -428,42 +448,6 @@ export class QualityAnalyzer {
       score -= 15;
     }
 
-    // Check for potential misplaced artist in title (now async)
-    const misplacedArtist = await this.detectMisplacedArtist(data.title, data.artist);
-    if (misplacedArtist) {
-      let warningMessage;
-      let severity = 'medium';
-      
-      if (misplacedArtist.errorType === 'artist_in_title_caps') {
-        warningMessage = `FELAKTIG PLACERING: "${misplacedArtist.detectedArtist}" ska flyttas till konstnärsfältet. Föreslagen titel: "${misplacedArtist.suggestedTitle}"`;
-        severity = 'high'; // This is a clear error, not just a suggestion
-      } else if (misplacedArtist.source === 'ai') {
-        // AI-detected artist with verification info
-        let message = `AI upptäckte konstnär: "${misplacedArtist.detectedArtist}"`;
-        if (misplacedArtist.verification?.isRealArtist) {
-          message += ` ✓ Verifierad konstnär`;
-          if (misplacedArtist.verification.biography) {
-            message += ` (${misplacedArtist.verification.biography.substring(0, 100)}...)`;
-          }
-          severity = 'high'; // High confidence when verified
-        } else if (misplacedArtist.verification?.isRealArtist === false) {
-          message += ` ⚠️ Kunde inte verifieras som konstnär`;
-          severity = 'medium';
-        }
-        message += ` - kontrollera om den ska flyttas till konstnärsfält`;
-        warningMessage = message;
-      } else {
-        warningMessage = `Möjlig konstnär upptäckt: "${misplacedArtist.detectedArtist}" - kontrollera om den ska flyttas till konstnärsfält`;
-      }
-      
-      warnings.push({ 
-        field: 'Titel', 
-        issue: warningMessage, 
-        severity: severity 
-      });
-      score -= (severity === 'high' ? 20 : 10);
-    }
-
     // Check title capitalization based on artist field
     if (data.title && data.title.length > 0) {
       // Find first letter character (skip quotes, numbers, etc.)
@@ -496,6 +480,27 @@ export class QualityAnalyzer {
           // We don't need to duplicate that logic here
         }
       }
+    }
+
+    // Add immediate rule-based artist detection
+    const ruleBasedArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
+    if (ruleBasedArtist) {
+      let warningMessage;
+      let severity = 'medium';
+      
+      if (ruleBasedArtist.errorType === 'artist_in_title_caps') {
+        warningMessage = `FELAKTIG PLACERING: "${ruleBasedArtist.detectedArtist}" ska flyttas till konstnärsfältet. Föreslagen titel: "${ruleBasedArtist.suggestedTitle}"`;
+        severity = 'high';
+      } else {
+        warningMessage = `Möjlig konstnär upptäckt: "${ruleBasedArtist.detectedArtist}" - kontrollera om den ska flyttas till konstnärsfält`;
+      }
+      
+      warnings.push({ 
+        field: 'Titel', 
+        issue: warningMessage, 
+        severity: severity 
+      });
+      score -= (severity === 'high' ? 20 : 10);
     }
 
     // Description quality checks (aggressively softened: 50 → 35)
@@ -593,7 +598,340 @@ export class QualityAnalyzer {
       }
     }
 
+    // Update UI with immediate results
     this.updateQualityIndicator(score, warnings);
+
+    // Now run AI artist detection asynchronously and update when complete
+    this.runAIArtistDetection(data, warnings, score);
+  }
+
+  async runAIArtistDetection(data, currentWarnings, currentScore) {
+    // Show initial AI loading indicator
+    this.showAILoadingIndicator('🤖 Söker konstnärsnamn...');
+    this.aiAnalysisActive = true;
+    this.pendingAnalyses = new Set();
+
+    try {
+      // Track pending analyses
+      this.pendingAnalyses.add('artist');
+      
+      // Check if we'll need sales analysis and add it to pending immediately
+      const artistToAnalyze = data.artist && data.artist.trim().length > 2 ? data.artist : null;
+      const willRunSalesAnalysis = !!artistToAnalyze;
+      
+      if (willRunSalesAnalysis) {
+        console.log('💰 Will run sales analysis for existing artist:', artistToAnalyze);
+        this.pendingAnalyses.add('sales');
+      }
+      
+      // Start artist detection
+      const artistAnalysisPromise = this.detectMisplacedArtist(data.title, data.artist);
+      
+      // Handle artist detection results as soon as they're ready
+      artistAnalysisPromise.then(aiArtist => {
+        this.pendingAnalyses.delete('artist');
+        this.handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore);
+        
+        // Check if we need to start sales analysis for AI-detected artist
+        if (!willRunSalesAnalysis && aiArtist?.detectedArtist) {
+          console.log('💰 AI detected artist, starting sales analysis:', aiArtist.detectedArtist);
+          this.pendingAnalyses.add('sales');
+          this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
+          this.startSalesAnalysis(aiArtist.detectedArtist, data, currentWarnings, currentScore);
+        } else if (!willRunSalesAnalysis) {
+          // No existing artist and no AI-detected artist
+          console.log('ℹ️ No artist found for sales analysis');
+          this.checkAndHideLoadingIndicator();
+        }
+      }).catch(error => {
+        console.error('Error in AI artist detection:', error);
+        this.pendingAnalyses.delete('artist');
+        this.checkAndHideLoadingIndicator();
+      });
+
+      // Start sales analysis if we have an existing artist
+      if (willRunSalesAnalysis) {
+        console.log('💰 Starting immediate sales analysis for existing artist:', artistToAnalyze);
+        // Update loading message for sales analysis
+        setTimeout(() => {
+          this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
+        }, 500);
+        this.startSalesAnalysis(artistToAnalyze, data, currentWarnings, currentScore);
+      }
+
+    } catch (error) {
+      console.error('Error in AI analysis setup:', error);
+      this.aiAnalysisActive = false;
+      this.hideAILoadingIndicator();
+    }
+  }
+
+  async handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore) {
+    console.log('🎯 Handling artist detection result:', aiArtist);
+    
+    if (aiArtist && aiArtist.source === 'ai') {
+      // Remove any existing rule-based artist warnings
+      const filteredWarnings = currentWarnings.filter(w => 
+        !(w.field === 'Titel' && w.issue.includes('Möjlig konstnär upptäckt'))
+      );
+      
+      let severity = 'medium';
+      let scoreAdjustment = 0;
+      
+      // AI-detected artist with verification info
+      let message = `AI upptäckte konstnär: "${aiArtist.detectedArtist}"`;
+      if (aiArtist.verification?.isRealArtist) {
+        message += ` ✓ Verifierad konstnär`;
+        if (aiArtist.verification.biography) {
+          message += ` (${aiArtist.verification.biography.substring(0, 100)}...)`;
+        }
+        severity = 'medium';
+        scoreAdjustment = 20;
+      } else if (aiArtist.verification?.isRealArtist === false) {
+        message += ` ⚠️ Kunde inte verifieras som konstnär`;
+        severity = 'medium';
+        scoreAdjustment = 10;
+      } else {
+        severity = 'medium';
+        scoreAdjustment = 10;
+      }
+      message += ` - kontrollera om den ska flyttas till konstnärsfält`;
+      
+      filteredWarnings.push({ 
+        field: 'Titel', 
+        issue: message, 
+        severity: severity 
+      });
+      
+      const newScore = currentScore - scoreAdjustment;
+      
+      // Update UI immediately with artist detection results
+      this.updateQualityIndicator(newScore, filteredWarnings);
+      console.log('✅ Artist detection results displayed');
+    } else {
+      console.log('ℹ️ No AI artist detected (artist field may already be filled or no artist found)');
+    }
+  }
+
+  async startSalesAnalysis(artistName, data, currentWarnings, currentScore) {
+    try {
+      console.log('💰 Running comparable sales analysis for artist:', artistName);
+      
+      // Extract additional context for sales analysis
+      const objectType = this.extractObjectType(data.title);
+      const period = this.extractPeriod(data.title) || this.extractPeriod(data.description);
+      const technique = this.extractTechnique(data.title, data.description);
+      
+      const salesData = await this.apiManager.analyzeComparableSales(
+        artistName,
+        objectType,
+        period,
+        technique,
+        data.description
+      );
+      
+      console.log('💰 Comparable sales result:', salesData);
+      
+      if (salesData) {
+        // Handle sales results immediately when ready
+        this.handleSalesAnalysisResult(salesData, currentWarnings, currentScore);
+      } else {
+        console.log('ℹ️ No comparable sales data available for this artist');
+        // Optionally show a message that no sales data was found
+        this.showNoSalesDataMessage(currentWarnings, currentScore);
+      }
+      
+    } catch (error) {
+      console.error('💥 Error in sales analysis:', error);
+      // Show error message to user if needed
+      this.showSalesAnalysisError(error, currentWarnings, currentScore);
+    } finally {
+      this.pendingAnalyses.delete('sales');
+      this.checkAndHideLoadingIndicator();
+    }
+  }
+
+  handleSalesAnalysisResult(salesData, currentWarnings, currentScore) {
+    if (salesData && salesData.hasComparableData) {
+      console.log('💰 Processing sales analysis results');
+      
+      // Get current warnings (might have been updated by artist detection)
+      const currentWarningsElement = document.querySelector('.quality-warnings ul');
+      let updatedWarnings = [...currentWarnings];
+      
+      // If artist detection already updated the warnings, get the current state
+      if (currentWarningsElement) {
+        updatedWarnings = this.extractCurrentWarnings();
+      }
+      
+      const confidence = salesData.confidence;
+      const priceRange = salesData.priceRange;
+      
+      // Format price range nicely
+      const formattedLow = new Intl.NumberFormat('sv-SE').format(priceRange.low);
+      const formattedHigh = new Intl.NumberFormat('sv-SE').format(priceRange.high);
+      
+      // Create confidence indicator
+      let confidenceText = '';
+      if (confidence >= 0.8) {
+        confidenceText = '🟢 Hög tillförlitlighet';
+      } else if (confidence >= 0.6) {
+        confidenceText = '🟡 Medel tillförlitlighet';
+      } else {
+        confidenceText = '🟠 Låg tillförlitlighet';
+      }
+      
+      const salesMessage = `💰 Jämförbara försäljningar: ${formattedLow}-${formattedHigh} SEK (${confidenceText} ${Math.round(confidence * 100)}%)`;
+      
+      updatedWarnings.push({
+        field: 'Marknadsvärde',
+        issue: salesMessage,
+        severity: 'low' // Informational, not a problem
+      });
+      
+      // Add market context if available
+      if (salesData.marketContext && salesData.marketContext.marketTrend) {
+        const contextMessage = `📈 Marknadstrend: ${salesData.marketContext.marketTrend}`;
+        updatedWarnings.push({
+          field: 'Marknadsvärde',
+          issue: contextMessage,
+          severity: 'low'
+        });
+      }
+      
+      // Add limitations/reasoning if confidence is low
+      if (confidence < 0.6 && salesData.limitations) {
+        updatedWarnings.push({
+          field: 'Marknadsvärde',
+          issue: `ℹ️ Begränsningar: ${salesData.limitations}`,
+          severity: 'low'
+        });
+      }
+      
+      // Update UI with sales results
+      this.updateQualityIndicator(currentScore, updatedWarnings);
+      console.log('✅ Sales analysis results displayed');
+    }
+  }
+
+  showNoSalesDataMessage(currentWarnings, currentScore) {
+    // Get current warnings (might have been updated by artist detection)
+    const currentWarningsElement = document.querySelector('.quality-warnings ul');
+    let updatedWarnings = [...currentWarnings];
+    
+    // If artist detection already updated the warnings, get the current state
+    if (currentWarningsElement) {
+      updatedWarnings = this.extractCurrentWarnings();
+    }
+    
+    // Add informational message about no sales data
+    updatedWarnings.push({
+      field: 'Marknadsvärde',
+      issue: 'ℹ️ Ingen jämförbar försäljningsdata tillgänglig för denna konstnär',
+      severity: 'low'
+    });
+    
+    // Update UI
+    this.updateQualityIndicator(currentScore, updatedWarnings);
+    console.log('ℹ️ No sales data message displayed');
+  }
+
+  showSalesAnalysisError(error, currentWarnings, currentScore) {
+    // Only show error message in development/debug mode
+    if (console.debug) {
+      const currentWarningsElement = document.querySelector('.quality-warnings ul');
+      let updatedWarnings = [...currentWarnings];
+      
+      if (currentWarningsElement) {
+        updatedWarnings = this.extractCurrentWarnings();
+      }
+      
+      updatedWarnings.push({
+        field: 'Marknadsvärde',
+        issue: 'ℹ️ Marknadsvärdering tillfälligt otillgänglig',
+        severity: 'low'
+      });
+      
+      this.updateQualityIndicator(currentScore, updatedWarnings);
+    }
+    console.log('⚠️ Sales analysis error handled gracefully');
+  }
+
+  // New method to check if all analyses are complete and hide loading indicator
+  checkAndHideLoadingIndicator() {
+    console.log('🔍 Checking if loading indicator should be hidden...');
+    console.log('🔍 Pending analyses:', Array.from(this.pendingAnalyses));
+    console.log('🔍 AI analysis active:', this.aiAnalysisActive);
+    
+    if (this.pendingAnalyses.size === 0 && this.aiAnalysisActive) {
+      console.log('🏁 All AI analyses complete, hiding loading indicator');
+      this.aiAnalysisActive = false;
+      this.hideAILoadingIndicator();
+    } else if (this.pendingAnalyses.size > 0) {
+      console.log('⏳ Still waiting for analyses:', Array.from(this.pendingAnalyses));
+      // Keep aiAnalysisActive true as long as there are pending analyses
+      this.aiAnalysisActive = true;
+    } else {
+      console.log('⏳ No pending analyses but aiAnalysisActive is false - already cleaned up');
+    }
+  }
+
+  showAILoadingIndicator(message = '🤖 AI analyserar...') {
+    const warningsElement = document.querySelector('.quality-warnings');
+    if (warningsElement) {
+      // Remove existing indicator if present
+      this.hideAILoadingIndicator();
+      
+      // Add very subtle AI loading indicator - just a line and tiny text
+      const loadingIndicator = document.createElement('div');
+      loadingIndicator.className = 'ai-loading-indicator';
+      loadingIndicator.innerHTML = `
+        <div style="position: relative; margin-top: 8px; margin-bottom: 4px;">
+          <div class="ai-progress-line" style="width: 100%; height: 1px; background: #e0e0e0; position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; left: -100%; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, #2196f3, transparent); animation: slide 2s ease-in-out infinite;"></div>
+          </div>
+          <div class="ai-loading-text" style="color: #666; font-size: 8px; margin-top: 2px; opacity: 0.7;">${message}</div>
+        </div>
+      `;
+      
+      // Add progress line animation if not already added
+      if (!document.getElementById('ai-progress-styles')) {
+        const style = document.createElement('style');
+        style.id = 'ai-progress-styles';
+        style.textContent = `
+          @keyframes slide {
+            0% { 
+              left: -100%; 
+              opacity: 0;
+            }
+            50% { 
+              opacity: 1;
+            }
+            100% { 
+              left: 100%; 
+              opacity: 0;
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      warningsElement.appendChild(loadingIndicator);
+    }
+  }
+
+  hideAILoadingIndicator() {
+    const loadingIndicator = document.querySelector('.ai-loading-indicator');
+    if (loadingIndicator) {
+      loadingIndicator.remove();
+    }
+  }
+
+  updateAILoadingMessage(message) {
+    const loadingText = document.querySelector('.ai-loading-text');
+    if (loadingText) {
+      loadingText.textContent = message;
+    }
   }
 
   updateQualityIndicator(score, warnings) {
@@ -680,12 +1018,20 @@ export class QualityAnalyzer {
     }
     
     if (warningsElement) {
+      // Preserve the loading indicator if it exists
+      const existingLoadingIndicator = warningsElement.querySelector('.ai-loading-indicator');
+      
       if (warnings.length > 0) {
         warningsElement.innerHTML = '<ul>' + 
           warnings.map(w => `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`).join('') +
           '</ul>';
       } else {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
+      }
+      
+      // Re-append the loading indicator if it existed
+      if (existingLoadingIndicator) {
+        warningsElement.appendChild(existingLoadingIndicator);
       }
     }
   }
@@ -935,5 +1281,56 @@ export class QualityAnalyzer {
     if (!this.hasMeasurements(data.description)) score -= 10;
     
     return Math.max(0, score);
+  }
+
+  // Helper method to extract technique from title and description
+  extractTechnique(title, description) {
+    const text = `${title} ${description}`.toLowerCase();
+    
+    // Common Swedish art techniques
+    const techniques = [
+      'olja på duk', 'olja på pannå', 'olja på masonit',
+      'akvarell', 'gouache', 'tempera', 'pastell',
+      'litografi', 'etsning', 'träsnitt', 'linoleumsnitt',
+      'teckning', 'blyerts', 'kol', 'tusch',
+      'skulptur', 'brons', 'marmor', 'trä', 'keramik',
+      'glas', 'kristall', 'silver', 'guld'
+    ];
+    
+    for (const technique of techniques) {
+      if (text.includes(technique)) {
+        return technique;
+      }
+    }
+    
+    return null;
+  }
+
+  // Helper method to extract current warnings from the DOM
+  extractCurrentWarnings() {
+    const warnings = [];
+    const warningElements = document.querySelectorAll('.quality-warnings li');
+    
+    warningElements.forEach(element => {
+      const text = element.textContent;
+      const fieldMatch = text.match(/^([^:]+):\s*(.+)$/);
+      
+      if (fieldMatch) {
+        const field = fieldMatch[1];
+        const issue = fieldMatch[2];
+        
+        // Determine severity from CSS class
+        let severity = 'medium';
+        if (element.classList.contains('warning-high')) {
+          severity = 'high';
+        } else if (element.classList.contains('warning-low')) {
+          severity = 'low';
+        }
+        
+        warnings.push({ field, issue, severity });
+      }
+    });
+    
+    return warnings;
   }
 } 

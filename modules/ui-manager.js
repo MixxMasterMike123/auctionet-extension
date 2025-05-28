@@ -92,11 +92,7 @@ export class UIManager {
       this.qualityAnalyzer.setupLiveQualityUpdates();
       console.log('✅ Live quality monitoring setup complete');
       
-      // Initial quality analysis
-      console.log('📊 Running initial quality analysis...');
-      this.qualityAnalyzer.analyzeQuality().catch(error => {
-        console.error('Error in initial quality analysis:', error);
-      });
+      // Note: Initial quality analysis will be called after API key is loaded
     } else {
       console.log('❌ Sidebar not found - cannot add quality indicator');
     }
@@ -529,5 +525,13 @@ export class UIManager {
     console.log(`🔄 Manual resize triggered for ${textareas.length} textareas`);
   }
 
-
+  // Method to run initial quality analysis (called after API key is loaded)
+  async runInitialQualityAnalysis() {
+    console.log('📊 Running initial quality analysis...');
+    try {
+      await this.qualityAnalyzer.analyzeQuality();
+    } catch (error) {
+      console.error('Error in initial quality analysis:', error);
+    }
+  }
 } 

@@ -64,6 +64,9 @@
         this.uiManager.injectUI();
         this.attachEventListeners();
         
+        // Run initial quality analysis after API key is loaded
+        await this.uiManager.runInitialQualityAnalysis();
+        
         console.log('Auctionet AI Assistant: Initialization complete');
       }
 
@@ -146,8 +149,7 @@
           }
         });
         
-        // Initial button state update
-        this.updateConditionButtonState();
+        // Note: Initial button state update will be called after UI is injected
       }
 
       updateConditionButtonState() {
@@ -173,14 +175,34 @@
             console.log('✅ Condition button ENABLED - "Inga anmärkningar" is not checked');
           }
         } else {
-          console.warn('❌ Condition button not found! Selector: [data-field-type="condition"]');
-          // Try alternative selectors
-          const altButton = document.querySelector('.ai-assist-button:contains("kondition")') || 
-                           document.querySelector('button:contains("AI-förbättra kondition")');
-          if (altButton) {
-            console.log('✅ Found condition button with alternative selector');
+          // Try alternative selectors but don't log as error during initialization
+          const altButtons = document.querySelectorAll('.ai-assist-button');
+          let foundConditionButton = null;
+          altButtons.forEach(btn => {
+            if (btn.textContent.includes('kondition') || btn.dataset.fieldType === 'condition') {
+              foundConditionButton = btn;
+            }
+          });
+          
+          if (foundConditionButton) {
+            console.log('✅ Found condition button with alternative method');
+            // Apply the same logic as above
+            if (isNoRemarksChecked) {
+              foundConditionButton.disabled = true;
+              foundConditionButton.style.opacity = '0.5';
+              foundConditionButton.style.cursor = 'not-allowed';
+              foundConditionButton.title = 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat';
+              console.log('🚫 Condition button DISABLED - "Inga anmärkningar" is checked');
+            } else {
+              foundConditionButton.disabled = false;
+              foundConditionButton.style.opacity = '1';
+              foundConditionButton.style.cursor = 'pointer';
+              foundConditionButton.title = 'AI-förbättra kondition';
+              console.log('✅ Condition button ENABLED - "Inga anmärkningar" is not checked');
+            }
           } else {
-            console.warn('❌ No condition button found with any selector');
+            // Only log as warning if we're past initialization
+            console.log('ℹ️ Condition button not found yet - UI may still be loading');
           }
         }
       }
@@ -216,8 +238,11 @@
           console.warn('Master button not found');
         }
         
-        // Update condition button state after buttons are attached
-        setTimeout(() => this.updateConditionButtonState(), 100);
+        // Update condition button state after buttons are attached and UI is ready
+        setTimeout(() => {
+          console.log('🔧 Updating condition button state after UI initialization...');
+          this.updateConditionButtonState();
+        }, 500); // Increased delay to ensure UI is fully ready
       }
 
       async improveField(fieldType) {
