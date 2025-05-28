@@ -116,8 +116,22 @@ export class QualityAnalyzer {
 
   // Helper method to extract object type from title
   extractObjectType(title) {
-    const match = title.match(/^([A-ZÅÄÖÜ]+)/);
-    return match ? match[1] : null;
+    // First try to match all caps object type (traditional format)
+    let match = title.match(/^([A-ZÅÄÖÜ]+)/);
+    if (match && match[1].length > 1) {
+      console.log(`🔍 Found all-caps object type: "${match[1]}"`);
+      return match[1];
+    }
+    
+    // If no all-caps match, try to match capitalized word at start (like "Figurin")
+    match = title.match(/^([A-ZÅÄÖÜ][a-zåäöü]+)/);
+    if (match && match[1].length > 1) {
+      console.log(`🔍 Found capitalized object type: "${match[1]}" -> converting to: "${match[1].toUpperCase()}"`);
+      return match[1].toUpperCase(); // Convert to uppercase for consistency
+    }
+    
+    console.log(`❌ No object type found in title: "${title}"`);
+    return null;
   }
 
   // Helper method to extract period information from title
@@ -634,7 +648,7 @@ export class QualityAnalyzer {
           console.log('💰 Starting sales analysis with best artist:', bestArtist);
           this.pendingAnalyses.add('sales');
           this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
-          this.startSalesAnalysis(bestArtist.artist, data, currentWarnings, currentScore);
+          this.startSalesAnalysis(bestArtist, data, currentWarnings, currentScore);
         } else {
           console.log('ℹ️ No artist found for sales analysis');
           this.checkAndHideLoadingIndicator();
@@ -648,7 +662,7 @@ export class QualityAnalyzer {
           console.log('💰 AI failed, but starting sales analysis with immediate artist:', immediateArtist);
           this.pendingAnalyses.add('sales');
           this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
-          this.startSalesAnalysis(immediateArtist.artist, data, currentWarnings, currentScore);
+          this.startSalesAnalysis(immediateArtist, data, currentWarnings, currentScore);
         } else {
           this.checkAndHideLoadingIndicator();
         }
@@ -658,11 +672,21 @@ export class QualityAnalyzer {
       if (immediateArtist) {
         console.log('💰 Starting immediate sales analysis with:', immediateArtist);
         this.pendingAnalyses.add('sales');
-        // Small delay to let the artist detection message show first
-        setTimeout(() => {
-          this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
-        }, 500);
-        this.startSalesAnalysis(immediateArtist.artist, data, currentWarnings, currentScore);
+        
+        // Set appropriate loading message based on analysis type
+        let loadingMessage = '💰 Analyserar marknadsvärde...';
+        if (immediateArtist.isBrand) {
+          loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+        } else if (immediateArtist.isFreetext) {
+          loadingMessage = `🔍 Söker jämförbara objekt: "${immediateArtist.artist}"...`;
+        } else {
+          loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+        }
+        
+        this.updateAILoadingMessage(loadingMessage);
+        this.startSalesAnalysis(immediateArtist, data, currentWarnings, currentScore);
+      } else {
+        this.checkAndHideLoadingIndicator();
       }
 
     } catch (error) {
@@ -719,53 +743,64 @@ export class QualityAnalyzer {
     }
   }
 
-  async startSalesAnalysis(artistName, data, currentWarnings, currentScore) {
+  async startSalesAnalysis(artistInfo, data, currentWarnings, currentScore) {
     try {
-      console.log('💰 Running comprehensive market analysis for:', artistName);
+      const artistName = typeof artistInfo === 'string' ? artistInfo : artistInfo.artist;
+      const isBrand = artistInfo.isBrand || false;
+      const isFreetext = artistInfo.isFreetext || false;
+      
+      let analysisType = 'artist';
+      if (isBrand) analysisType = 'brand';
+      if (isFreetext) analysisType = 'freetext';
+      
+      console.log(`💰 Running comprehensive market analysis for ${analysisType}:`, artistName);
       
       // Extract additional context for sales analysis from current item
       const objectType = this.extractObjectType(data.title);
       const period = this.extractPeriod(data.title) || this.extractPeriod(data.description);
       const technique = this.extractTechnique(data.title, data.description);
       
-      // SMART ENHANCEMENT: Extract additional search terms from title for better matching
-      const enhancedSearchTerms = this.extractEnhancedSearchTerms(data.title, data.description);
+      // SMART ENHANCEMENT: Extract additional search terms for better matching
+      const enhancedTerms = this.extractEnhancedSearchTerms(data.title, data.description);
       
-      console.log('🔍 Market analysis parameters:', {
-        artist: artistName,
+      // Prepare search context based on analysis type
+      let searchContext = {
+        primarySearch: artistName,
         objectType: objectType,
         period: period,
         technique: technique,
-        enhancedTerms: enhancedSearchTerms
-      });
+        enhancedTerms: enhancedTerms,
+        analysisType: analysisType
+      };
       
-      const salesData = await this.apiManager.analyzeComparableSales(
-        artistName,
-        objectType,
-        period,
-        technique,
-        data.description,
-        parseInt(data.estimate) || null  // Pass current valuation for context-aware insights
-      );
-      
-      console.log('💰 Market analysis result:', salesData);
-      
-      if (salesData) {
-        // Handle comprehensive market results immediately when ready
-        this.handleSalesAnalysisResult(salesData, currentWarnings, currentScore);
-      } else {
-        console.log('ℹ️ No market data available for this item');
-        // Optionally show a message that no sales data was found
-        this.showNoSalesDataMessage(currentWarnings, currentScore);
+      if (isFreetext) {
+        searchContext.searchStrategy = artistInfo.searchStrategy;
+        searchContext.confidence = artistInfo.confidence;
+        searchContext.termCount = artistInfo.termCount;
       }
       
-    } catch (error) {
-      console.error('💥 Error in market analysis:', error);
-      // Show error message to user if needed
-      this.showSalesAnalysisError(error, currentWarnings, currentScore);
-    } finally {
+      console.log('🔍 Search context for market analysis:', searchContext);
+      
+      // Call the API for sales analysis
+      const salesData = await this.apiManager.analyzeSales(searchContext);
+      
+      // Add analysis metadata to sales data
+      salesData.analysisType = analysisType;
+      salesData.searchedEntity = artistName;
+      salesData.searchContext = searchContext;
+      
+      console.log('📊 Sales analysis completed:', salesData);
+      
+      // Remove sales from pending analyses
       this.pendingAnalyses.delete('sales');
-      this.checkAndHideLoadingIndicator();
+      
+      // Handle the results
+      this.handleSalesAnalysisResult(salesData, currentWarnings, currentScore);
+      
+    } catch (error) {
+      console.error('❌ Sales analysis failed:', error);
+      this.pendingAnalyses.delete('sales');
+      this.showSalesAnalysisError(error, currentWarnings, currentScore);
     }
   }
 
@@ -1087,7 +1122,7 @@ export class QualityAnalyzer {
     return new Intl.NumberFormat('sv-SE').format(amount);
   }
 
-  showNoSalesDataMessage(currentWarnings, currentScore) {
+  showNoSalesDataMessage(currentWarnings, currentScore, analysisType = 'artist', entityName = '') {
     // Get current warnings (might have been updated by artist detection)
     const currentWarningsElement = document.querySelector('.quality-warnings ul');
     let updatedWarnings = [...currentWarnings];
@@ -1097,16 +1132,25 @@ export class QualityAnalyzer {
       updatedWarnings = this.extractCurrentWarnings();
     }
     
-    // Add informational message about no sales data
+    // Add informational message about no sales data with appropriate context
+    let message;
+    if (analysisType === 'brand') {
+      message = `ℹ️ Ingen jämförbar försäljningsdata tillgänglig för märket ${entityName}`;
+    } else if (analysisType === 'freetext') {
+      message = `ℹ️ Ingen jämförbar försäljningsdata hittades för söktermerna "${entityName}"`;
+    } else {
+      message = `ℹ️ Ingen jämförbar försäljningsdata tillgänglig för konstnären ${entityName}`;
+    }
+    
     updatedWarnings.push({
-      field: 'Marknadsvärde',
-      issue: 'ℹ️ Ingen jämförbar försäljningsdata tillgänglig för denna konstnär',
-      severity: 'low'
+      type: 'info',
+      message: message,
+      severity: 'info'
     });
     
-    // Update UI
+    // Update the display
     this.updateQualityIndicator(currentScore, updatedWarnings);
-    console.log('ℹ️ No sales data message displayed');
+    this.checkAndHideLoadingIndicator();
   }
 
   showSalesAnalysisError(error, currentWarnings, currentScore) {
@@ -1841,6 +1885,92 @@ export class QualityAnalyzer {
     
     let dashboardContent = '';
     
+    // NEW: Search Query Display - Show what was actually searched for
+    if (salesData.searchContext) {
+      const context = salesData.searchContext;
+      let searchDisplay = '';
+      let searchDetails = [];
+      
+      if (context.analysisType === 'freetext') {
+        searchDisplay = `"${context.primarySearch}"`;
+        searchDetails.push(`Fritextsökning (${Math.round((context.confidence || 0) * 100)}% relevans)`);
+        if (context.searchStrategy) {
+          searchDetails.push(`Strategi: ${context.searchStrategy}`);
+        }
+      } else if (context.analysisType === 'brand') {
+        searchDisplay = `"${context.primarySearch}"`;
+        searchDetails.push('Märkesbaserad sökning');
+        if (context.searchStrategy) {
+          searchDetails.push(`Strategi: ${context.searchStrategy}`);
+        }
+      } else if (context.analysisType === 'artist') {
+        // NEW: Enhanced artist search communication
+        const primaryArtistSearch = context.primarySearch;
+        const actualQuery = salesData.historical?.actualSearchQuery || salesData.live?.actualSearchQuery;
+        const searchStrategy = salesData.historical?.searchStrategy || salesData.live?.searchStrategy;
+        
+        // Check if we fell back from artist search to object search
+        const usedArtistSearch = actualQuery && actualQuery.includes(primaryArtistSearch);
+        
+        if (usedArtistSearch) {
+          // Artist search was successful
+          searchDisplay = `"${actualQuery}"`;
+          searchDetails.push(`Konstnärsbaserad sökning lyckades`);
+          if (searchStrategy) {
+            searchDetails.push(`Strategi: ${searchStrategy}`);
+          }
+        } else {
+          // Artist search failed, fell back to object search
+          searchDisplay = `"${primaryArtistSearch}" → "${actualQuery}"`;
+          searchDetails.push(`⚠️ Konstnärssökning gav otillräcklig data`);
+          searchDetails.push(`🔄 Bytte till objektbaserad sökning för mer tillförlitlig marknadsdata`);
+          if (searchStrategy) {
+            searchDetails.push(`Slutlig strategi: ${searchStrategy}`);
+          }
+          
+          // Add explanation of why this happened
+          const artistResultCount = this.getArtistSearchResultCount(salesData);
+          const objectResultCount = salesData.historical?.analyzedSales || 0;
+          if (artistResultCount !== null && objectResultCount > artistResultCount) {
+            searchDetails.push(`📊 Konstnär: ${artistResultCount} försäljningar → Objekt: ${objectResultCount} försäljningar`);
+          }
+        }
+      }
+      
+      // Show Auctionet API queries if available
+      if (salesData.historical?.actualSearchQuery || salesData.live?.actualSearchQuery) {
+        let auctionetQueries = [];
+        
+        if (salesData.historical?.actualSearchQuery) {
+          auctionetQueries.push(`Historisk: "${salesData.historical.actualSearchQuery}"`);
+        }
+        
+        if (salesData.live?.actualSearchQuery) {
+          auctionetQueries.push(`Pågående: "${salesData.live.actualSearchQuery}"`);
+        }
+        
+        if (auctionetQueries.length > 0) {
+          searchDetails.push(`Auctionet API: ${auctionetQueries.join(', ')}`);
+        }
+      }
+      
+      dashboardContent += `
+        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 12px; margin-bottom: 16px;">
+          <div style="font-weight: 600; color: #495057; margin-bottom: 6px; display: flex; align-items: center;">
+            🔍 Sökstrategi
+          </div>
+          <div style="font-family: 'SF Mono', Monaco, monospace; font-size: 13px; color: #6c757d; margin-bottom: 4px;">
+            ${searchDisplay}
+          </div>
+          ${searchDetails.map(detail => `
+            <div style="font-size: 12px; color: #6c757d; margin-bottom: 2px;">
+              ${detail}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    
     // Main price range (always show if available)
     if (salesData.priceRange) {
       const confidence = salesData.confidence;
@@ -1894,11 +2024,102 @@ export class QualityAnalyzer {
     }
     
     if (dataParts.length > 0) {
+      // NEW: Add auction links for transparency - both historical and live
+      let auctionLinks = '';
+      let linkSections = [];
+      
+      // Historical auction links (ended auctions)
+      if (salesData.historical && salesData.historical.recentSales) {
+        const validSales = salesData.historical.recentSales.filter(sale => sale.url);
+        if (validSales.length > 0) {
+          const linkNumbers = validSales.slice(0, 5).map((sale, index) => 
+            `<a href="${sale.url}" target="_blank" style="color: #007cba; text-decoration: none; margin-right: 4px; font-weight: 500; padding: 1px 3px; border-radius: 2px; background: #f0f8ff;" title="Historisk: ${sale.title} - ${sale.price.toLocaleString()} SEK (${sale.date})">${index + 1}</a>`
+          ).join(' ');
+          linkSections.push(`<span style="color: #666;">Historiska:</span> ${linkNumbers}`);
+        }
+      }
+      
+      // Live auction links (ongoing auctions)
+      if (salesData.live && salesData.live.liveItems) {
+        const validLiveItems = salesData.live.liveItems.filter(item => {
+          // Try to construct URL from the live item data
+          // This might need adjustment based on how live items are structured
+          return item.url || item.auctionId;
+        });
+        
+        if (validLiveItems.length > 0) {
+          const liveLinkNumbers = validLiveItems.slice(0, 5).map((item, index) => {
+            // Use existing URL or construct one from auction ID
+            const url = item.url || `https://auctionet.com/sv/auctions/${item.auctionId}`;
+            const estimate = item.estimate ? `${item.estimate.toLocaleString()} SEK` : 'Ej uppskattat';
+            const timeLeft = item.timeRemaining || 'Okänd tid';
+            
+            return `<a href="${url}" target="_blank" style="color: #e74c3c; text-decoration: none; margin-right: 4px; font-weight: 500; padding: 1px 3px; border-radius: 2px; background: #fff5f5;" title="Pågående: ${item.title} - Utrop: ${estimate} (${timeLeft} kvar)">${index + 1}</a>`;
+          }).join(' ');
+          linkSections.push(`<span style="color: #666;">Pågående:</span> ${liveLinkNumbers}`);
+        }
+      }
+      
+      // Combine all link sections
+      if (linkSections.length > 0) {
+        auctionLinks = `<br><span style="font-size: 10px; margin-top: 2px; display: block;">${linkSections.join(' | ')}</span>`;
+      }
+      
       dashboardContent += `
         <div class="market-item market-data">
           <div class="market-label" title="Antal försäljningar och pågående auktioner som analysen baseras på">Dataunderlag</div>
-          <div class="market-value">${dataParts.join(' • ')}</div>
+          <div class="market-value">${dataParts.join(' • ')}${auctionLinks}</div>
           <div class="market-help">försäljningar analyserade</div>
+        </div>
+      `;
+    }
+    
+    // NEW: Exceptional sales (high-value outliers)
+    if (salesData.historical && salesData.historical.exceptionalSales) {
+      const exceptional = salesData.historical.exceptionalSales;
+      console.log('🌟 Adding exceptional sales to dashboard:', exceptional);
+      
+      // Create detailed exceptional sales info with validation links
+      let exceptionalDetails = exceptional.description;
+      let validationInfo = '';
+      let clickableUrl = null;
+      
+      if (exceptional.sales && exceptional.sales.length > 0) {
+        const sale = exceptional.sales[0]; // Show details for first exceptional sale
+        
+        // Add house information
+        if (sale.house) {
+          validationInfo += ` • ${sale.house}`;
+        }
+        
+        // Add auction ID or URL for validation
+        if (sale.auctionId) {
+          validationInfo += ` • Auktion #${sale.auctionId}`;
+        } else if (sale.url) {
+          // Extract a short identifier from URL if no auction ID
+          const urlParts = sale.url.split('/');
+          const lastPart = urlParts[urlParts.length - 1];
+          if (lastPart && lastPart.length > 0) {
+            validationInfo += ` • ${lastPart}`;
+          }
+        }
+        
+        // Add date for context
+        if (sale.date) {
+          validationInfo += ` (${sale.date})`;
+        }
+        
+        // Store URL for click handler
+        if (sale.url) {
+          clickableUrl = sale.url;
+        }
+      }
+      
+      dashboardContent += `
+        <div class="market-item market-exceptional" ${clickableUrl ? `onclick="window.open('${clickableUrl}', '_blank')" style="cursor: pointer;"` : ''}>
+          <div class="market-label" title="Exceptionellt höga försäljningar som visar marknadens potential">Exceptionella försäljningar</div>
+          <div class="market-value" style="color: #8e44ad;">${exceptionalDetails}${validationInfo}</div>
+          <div class="market-help">${clickableUrl ? 'klicka för att validera auktionen' : 'visar marknadens potential'}</div>
         </div>
       `;
     }
@@ -2091,10 +2312,35 @@ export class QualityAnalyzer {
     
     // Only create dashboard if we have content
     if (dashboardContent) {
+      console.log('🎯 Dashboard content exists, creating dashboard...');
+      console.log('📏 Dashboard content length:', dashboardContent.length);
+      
+      // Determine dashboard title and source based on analysis type
+      const analysisType = salesData.analysisType || 'artist';
+      const searchedEntity = salesData.searchedEntity || '';
+      
+      let dashboardTitle = 'Marknadsanalys';
+      let dashboardSource = 'Auctionet databas';
+      
+      if (analysisType === 'brand') {
+        dashboardTitle = `Marknadsanalys - ${searchedEntity}`;
+        dashboardSource = 'Märkesbaserad analys';
+      } else if (analysisType === 'freetext') {
+        const searchContext = salesData.searchContext || {};
+        const strategy = searchContext.searchStrategy || 'basic';
+        const confidence = Math.round((searchContext.confidence || 0.4) * 100);
+        
+        dashboardTitle = `Marknadsanalys - Fritextsökning`;
+        dashboardSource = `${strategy.replace('_', ' ')} sökning (${confidence}% relevans)`;
+      } else if (searchedEntity) {
+        dashboardTitle = `Marknadsanalys - ${searchedEntity}`;
+        dashboardSource = 'Konstnärsbaserad analys';
+      }
+      
       dashboard.innerHTML = `
         <div class="market-dashboard-header">
-          <span class="market-dashboard-title">Marknadsanalys</span>
-          <span class="market-dashboard-source">Auctionet databas</span>
+          <span class="market-dashboard-title">${dashboardTitle}</span>
+          <span class="market-dashboard-source">${dashboardSource}</span>
         </div>
         <div class="market-dashboard-content">
           ${dashboardContent}
@@ -2106,6 +2352,7 @@ export class QualityAnalyzer {
       
       // Add CSS styles for the dashboard
       this.addMarketDashboardStyles();
+      console.log('✅ Dashboard styles added');
       
       // Insert the dashboard above the main container
       const mainContainer = document.querySelector('.grid-container') || 
@@ -2113,7 +2360,10 @@ export class QualityAnalyzer {
                            document.querySelector('main') ||
                            document.querySelector('.content');
       
+      console.log('🔍 Main container search result:', mainContainer);
+      
       if (mainContainer) {
+        console.log('📍 Inserting dashboard above main container:', mainContainer.className);
         mainContainer.parentNode.insertBefore(dashboard, mainContainer);
         console.log('✅ Market data dashboard added above main container');
       } else {
@@ -2122,15 +2372,36 @@ export class QualityAnalyzer {
                           document.querySelector('nav') ||
                           document.querySelector('header');
         
+        console.log('🔍 Breadcrumb/nav/header search result:', breadcrumb);
+        
         if (breadcrumb) {
+          console.log('📍 Inserting dashboard after breadcrumb/nav/header:', breadcrumb.tagName);
           breadcrumb.parentNode.insertBefore(dashboard, breadcrumb.nextSibling);
           console.log('✅ Market data dashboard added after breadcrumb');
         } else {
           // Last resort: add to body
+          console.log('📍 Last resort: inserting dashboard at top of body');
           document.body.insertBefore(dashboard, document.body.firstChild);
           console.log('✅ Market data dashboard added to body');
         }
       }
+      
+      // Verify dashboard was actually added
+      const addedDashboard = document.querySelector('.market-data-dashboard');
+      if (addedDashboard) {
+        console.log('🎉 Dashboard successfully added to DOM!');
+        console.log('📊 Dashboard element:', addedDashboard);
+      } else {
+        console.error('❌ Dashboard was NOT added to DOM - something went wrong!');
+      }
+    } else {
+      console.log('❌ No dashboard content - dashboard will not be created');
+      console.log('🔍 Sales data check:', {
+        hasPriceRange: !!salesData.priceRange,
+        hasHistorical: !!salesData.historical,
+        hasLive: !!salesData.live,
+        hasInsights: !!(salesData.insights && salesData.insights.length > 0)
+      });
     }
   }
 
@@ -2352,6 +2623,88 @@ export class QualityAnalyzer {
           color: #155724 !important;
           font-weight: 700 !important;
         }
+        
+        .market-exceptional .market-value {
+          color: #8e44ad;
+          font-weight: 600;
+          font-size: 12px;
+          line-height: 1.3;
+        }
+        
+        .market-exceptional .market-label {
+          color: #8e44ad;
+          font-weight: 600;
+        }
+        
+        .market-exceptional .market-help {
+          color: #8e44ad;
+          opacity: 0.8;
+        }
+        
+        .market-exceptional[onclick] {
+          transition: all 0.2s ease;
+        }
+        
+        .market-exceptional[onclick]:hover {
+          background-color: #f8f4ff;
+          border-color: #8e44ad;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(142, 68, 173, 0.15);
+        }
+        
+        .market-exceptional[onclick]:hover .market-value {
+          color: #6c2c91;
+        }
+        
+        .market-data a {
+          color: #007cba;
+          text-decoration: none;
+          margin-right: 4px;
+          font-weight: 500;
+          padding: 1px 3px;
+          border-radius: 2px;
+          transition: all 0.2s ease;
+        }
+        
+        .market-data a:hover {
+          background-color: #007cba;
+          color: white;
+          text-decoration: none;
+        }
+        
+        .market-data a:visited {
+          color: #005a87;
+        }
+        
+        .market-data a:visited:hover {
+          background-color: #005a87;
+          color: white;
+        }
+        
+        /* NEW: Specific styles for historical vs live auction links */
+        .market-data a[style*="background: #f0f8ff"] {
+          /* Historical auction links - blue theme */
+          border: 1px solid #d1ecf1;
+        }
+        
+        .market-data a[style*="background: #f0f8ff"]:hover {
+          background-color: #007cba !important;
+          border-color: #007cba;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 124, 186, 0.3);
+        }
+        
+        .market-data a[style*="background: #fff5f5"] {
+          /* Live auction links - red theme */
+          border: 1px solid #f5c6cb;
+        }
+        
+        .market-data a[style*="background: #fff5f5"]:hover {
+          background-color: #e74c3c !important;
+          border-color: #e74c3c;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+        }
       `;
       document.head.appendChild(style);
     }
@@ -2363,6 +2716,8 @@ export class QualityAnalyzer {
     // 1. Artist field if filled and substantial
     // 2. Detected artist from title (AI or rule-based)
     // 3. Rule-based detection as fallback
+    // 4. Brand detection for luxury goods, designer items, etc.
+    // 5. NEW: Generic freetext search for items without clear artists or brands
     
     console.log('🎯 Determining best artist for market analysis:', {
       artistField: data.artist,
@@ -2401,8 +2756,398 @@ export class QualityAnalyzer {
       };
     }
     
-    console.log('❌ No artist found for market analysis');
+    // NEW: Brand detection for luxury goods and designer items
+    const detectedBrand = this.detectBrandForMarketAnalysis(data.title, data.description);
+    if (detectedBrand) {
+      console.log('✅ Using detected brand for market analysis:', detectedBrand.brand);
+      return {
+        artist: detectedBrand.brand, // Use brand as "artist" for market analysis
+        source: 'brand_detected',
+        confidence: detectedBrand.confidence,
+        isBrand: true // Flag to indicate this is a brand, not an artist
+      };
+    }
+    
+    // NEW: Generic freetext search for items without clear artists or brands
+    const freetextSearch = this.generateFreetextSearch(data.title, data.description);
+    if (freetextSearch) {
+      console.log('✅ Using freetext search for market analysis:', freetextSearch.searchTerms);
+      return {
+        artist: freetextSearch.searchTerms, // Use search terms as "artist" for market analysis
+        source: 'freetext_search',
+        confidence: freetextSearch.confidence,
+        isFreetext: true, // Flag to indicate this is freetext search
+        searchStrategy: freetextSearch.strategy
+      };
+    }
+    
+    console.log('❌ No artist, brand, or searchable terms found for market analysis');
     return null;
+  }
+
+  // NEW: Generate intelligent freetext search terms for market analysis
+  generateFreetextSearch(title, description) {
+    console.log('🔍 Generating freetext search for:', title);
+    
+    // Extract object type (first word in caps)
+    const objectType = this.extractObjectType(title);
+    if (!objectType) {
+      console.log('❌ No object type found for freetext search');
+      return null;
+    }
+    
+    // Extract key descriptive terms from title and description
+    const text = `${title} ${description}`.toLowerCase();
+    const searchTerms = [];
+    let confidence = 0.4; // Base confidence for freetext search
+    let strategy = 'basic';
+    
+    // Always include the object type
+    searchTerms.push(objectType.toLowerCase());
+    
+    // Extract materials
+    const materials = this.extractMaterials(text);
+    if (materials.length > 0) {
+      searchTerms.push(...materials);
+      confidence += 0.1;
+      strategy = 'material_based';
+    }
+    
+    // Extract periods/dates
+    const periods = this.extractPeriods(text);
+    if (periods.length > 0) {
+      searchTerms.push(...periods);
+      confidence += 0.1;
+      strategy = 'period_based';
+    }
+    
+    // Extract styles
+    const styles = this.extractStyles(text);
+    if (styles.length > 0) {
+      searchTerms.push(...styles);
+      confidence += 0.1;
+      strategy = 'style_based';
+    }
+    
+    // Extract techniques
+    const techniques = this.extractTechniques(text);
+    if (techniques.length > 0) {
+      searchTerms.push(...techniques);
+      confidence += 0.1;
+      strategy = 'technique_based';
+    }
+    
+    // Extract manufacturers/makers (not luxury brands)
+    const makers = this.extractMakers(text);
+    if (makers.length > 0) {
+      searchTerms.push(...makers);
+      confidence += 0.2;
+      strategy = 'maker_based';
+    }
+    
+    // Must have at least 2 search terms to be viable
+    if (searchTerms.length < 2) {
+      console.log('❌ Not enough search terms for viable freetext search:', searchTerms);
+      return null;
+    }
+    
+    // Limit to most relevant terms (max 4-5 terms for focused search)
+    const finalTerms = searchTerms.slice(0, 5);
+    const searchString = finalTerms.join(' ');
+    
+    console.log('✅ Generated freetext search:', {
+      terms: finalTerms,
+      searchString: searchString,
+      confidence: confidence,
+      strategy: strategy
+    });
+    
+    return {
+      searchTerms: searchString,
+      confidence: Math.min(confidence, 0.8), // Cap at 0.8 for freetext
+      strategy: strategy,
+      termCount: finalTerms.length
+    };
+  }
+
+  // Helper method to extract materials from text
+  extractMaterials(text) {
+    const materials = [];
+    const materialPatterns = [
+      // Metals
+      'silver', 'guld', 'brons', 'koppar', 'mässing', 'tenn', 'järn', 'stål', 'platina',
+      // Glass and ceramics
+      'glas', 'kristall', 'porslin', 'keramik', 'lergods', 'stengods', 'fajans',
+      // Wood
+      'trä', 'ek', 'björk', 'furu', 'mahogny', 'valnöt', 'teak', 'bok', 'ask', 'lönn',
+      // Textiles
+      'tyg', 'sammet', 'siden', 'ull', 'bomull', 'lin', 'läder',
+      // Stone
+      'marmor', 'granit', 'kalksten', 'sandsten',
+      // Other
+      'plast', 'gummi', 'papper', 'kartong'
+    ];
+    
+    materialPatterns.forEach(material => {
+      if (text.includes(material)) {
+        materials.push(material);
+      }
+    });
+    
+    return materials.slice(0, 2); // Max 2 materials
+  }
+
+  // Helper method to extract periods from text
+  extractPeriods(text) {
+    const periods = [];
+    const periodPatterns = [
+      /(\d{4})/g,                    // 1950
+      /(\d{2,4}-tal)/g,              // 1900-tal
+      /(\d{2}\/\d{4}-tal)/g,         // 17/1800-tal
+      /(1[6-9]\d{2})/g,              // 1600-1999
+      /(20[0-2]\d)/g                 // 2000-2029
+    ];
+    
+    periodPatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        periods.push(...matches.slice(0, 1)); // Max 1 period
+      }
+    });
+    
+    return periods;
+  }
+
+  // Helper method to extract styles from text
+  extractStyles(text) {
+    const styles = [];
+    const stylePatterns = [
+      'art deco', 'jugend', 'funktionalism', 'bauhaus', 'modernism',
+      'klassicism', 'empire', 'gustaviansk', 'rokoko', 'barock',
+      'skandinavisk', 'svensk', 'dansk', 'norsk', 'finsk',
+      'minimalistisk', 'rustik', 'lantlig', 'elegant'
+    ];
+    
+    stylePatterns.forEach(style => {
+      if (text.includes(style)) {
+        styles.push(style);
+      }
+    });
+    
+    return styles.slice(0, 1); // Max 1 style
+  }
+
+  // Helper method to extract techniques from text
+  extractTechniques(text) {
+    const techniques = [];
+    const techniquePatterns = [
+      'handmålad', 'handgjord', 'maskingjord', 'pressad', 'gjuten', 'svarv',
+      'intarsia', 'fanér', 'massiv', 'laminerad', 'slipad', 'graverad',
+      'emaljerad', 'förgylld', 'försilvrad', 'patinerad', 'polerad'
+    ];
+    
+    techniquePatterns.forEach(technique => {
+      if (text.includes(technique)) {
+        techniques.push(technique);
+      }
+    });
+    
+    return techniques.slice(0, 1); // Max 1 technique
+  }
+
+  // Helper method to extract makers/manufacturers (not luxury brands)
+  extractMakers(text) {
+    const makers = [];
+    const makerPatterns = [
+      // Swedish manufacturers
+      'kockums', 'husqvarna', 'electrolux', 'ericsson', 'volvo',
+      'saab', 'scania', 'sandvik', 'atlas copco',
+      // International manufacturers
+      'philips', 'siemens', 'bosch', 'braun', 'sony', 'panasonic',
+      'general electric', 'westinghouse', 'kodak', 'leica',
+      // Toy manufacturers
+      'lego', 'brio', 'meccano', 'dinky toys', 'corgi', 'tekno',
+      // Clock manufacturers
+      'westclox', 'sessions', 'ansonia', 'waterbury', 'ingraham'
+    ];
+    
+    makerPatterns.forEach(maker => {
+      if (text.includes(maker)) {
+        makers.push(maker);
+      }
+    });
+    
+    return makers.slice(0, 1); // Max 1 maker
+  }
+
+  // NEW: Detect brands for market analysis (luxury goods, designer items, etc.)
+  detectBrandForMarketAnalysis(title, description) {
+    const text = `${title} ${description}`.toLowerCase();
+    
+    // Comprehensive luxury and designer brand list
+    const luxuryBrands = {
+      // Luxury watches
+      'rolex': { confidence: 0.95, category: 'watches' },
+      'omega': { confidence: 0.9, category: 'watches' },
+      'cartier': { confidence: 0.95, category: 'watches' },
+      'patek philippe': { confidence: 0.95, category: 'watches' },
+      'audemars piguet': { confidence: 0.95, category: 'watches' },
+      'vacheron constantin': { confidence: 0.95, category: 'watches' },
+      'jaeger-lecoultre': { confidence: 0.9, category: 'watches' },
+      'iwc': { confidence: 0.85, category: 'watches' },
+      'breitling': { confidence: 0.85, category: 'watches' },
+      'tag heuer': { confidence: 0.8, category: 'watches' },
+      'tudor': { confidence: 0.8, category: 'watches' },
+      'longines': { confidence: 0.75, category: 'watches' },
+      'tissot': { confidence: 0.7, category: 'watches' },
+      'seiko': { confidence: 0.7, category: 'watches' },
+      'citizen': { confidence: 0.7, category: 'watches' },
+      
+      // Luxury jewelry
+      'tiffany': { confidence: 0.9, category: 'jewelry' },
+      'bulgari': { confidence: 0.9, category: 'jewelry' },
+      'van cleef': { confidence: 0.95, category: 'jewelry' },
+      'harry winston': { confidence: 0.95, category: 'jewelry' },
+      'graff': { confidence: 0.9, category: 'jewelry' },
+      'chopard': { confidence: 0.85, category: 'jewelry' },
+      'boucheron': { confidence: 0.85, category: 'jewelry' },
+      'piaget': { confidence: 0.85, category: 'jewelry' },
+      
+      // Scandinavian design brands
+      'georg jensen': { confidence: 0.9, category: 'design' },
+      'royal copenhagen': { confidence: 0.85, category: 'porcelain' },
+      'bing & grøndahl': { confidence: 0.8, category: 'porcelain' },
+      'orrefors': { confidence: 0.85, category: 'glass' },
+      'kosta boda': { confidence: 0.8, category: 'glass' },
+      'gustavsberg': { confidence: 0.8, category: 'porcelain' },
+      'rörstrand': { confidence: 0.8, category: 'porcelain' },
+      'arabia': { confidence: 0.8, category: 'porcelain' },
+      'iittala': { confidence: 0.8, category: 'glass' },
+      'marimekko': { confidence: 0.75, category: 'design' },
+      
+      // Furniture designers/brands
+      'svenskt tenn': { confidence: 0.85, category: 'furniture' },
+      'carl malmsten': { confidence: 0.9, category: 'furniture' },
+      'bruno mathsson': { confidence: 0.9, category: 'furniture' },
+      'lammhults': { confidence: 0.8, category: 'furniture' },
+      'källemo': { confidence: 0.8, category: 'furniture' },
+      'norrlands möbler': { confidence: 0.75, category: 'furniture' },
+      'cassina': { confidence: 0.85, category: 'furniture' },
+      'vitra': { confidence: 0.8, category: 'furniture' },
+      'herman miller': { confidence: 0.85, category: 'furniture' },
+      'knoll': { confidence: 0.85, category: 'furniture' },
+      'fritz hansen': { confidence: 0.85, category: 'furniture' },
+      'hay': { confidence: 0.75, category: 'furniture' },
+      
+      // Fashion/luxury goods
+      'hermès': { confidence: 0.95, category: 'luxury' },
+      'louis vuitton': { confidence: 0.95, category: 'luxury' },
+      'chanel': { confidence: 0.95, category: 'luxury' },
+      'gucci': { confidence: 0.9, category: 'luxury' },
+      'prada': { confidence: 0.9, category: 'luxury' },
+      'bottega veneta': { confidence: 0.9, category: 'luxury' },
+      'céline': { confidence: 0.85, category: 'luxury' },
+      'dior': { confidence: 0.9, category: 'luxury' },
+      'yves saint laurent': { confidence: 0.85, category: 'luxury' },
+      
+      // Art glass and ceramics
+      'lalique': { confidence: 0.9, category: 'glass' },
+      'daum': { confidence: 0.85, category: 'glass' },
+      'baccarat': { confidence: 0.9, category: 'glass' },
+      'waterford': { confidence: 0.8, category: 'glass' },
+      'murano': { confidence: 0.8, category: 'glass' },
+      'venini': { confidence: 0.85, category: 'glass' },
+      'lladró': { confidence: 0.8, category: 'porcelain' },
+      'meissen': { confidence: 0.9, category: 'porcelain' },
+      'dresden': { confidence: 0.8, category: 'porcelain' },
+      'sèvres': { confidence: 0.85, category: 'porcelain' },
+      
+      // Musical instruments
+      'steinway': { confidence: 0.95, category: 'instruments' },
+      'stradivarius': { confidence: 0.98, category: 'instruments' },
+      'gibson': { confidence: 0.85, category: 'instruments' },
+      'fender': { confidence: 0.85, category: 'instruments' },
+      'martin': { confidence: 0.8, category: 'instruments' },
+      'yamaha': { confidence: 0.75, category: 'instruments' }
+    };
+    
+    // Check for brand matches in title (higher priority)
+    for (const [brand, info] of Object.entries(luxuryBrands)) {
+      // Check if brand appears at the beginning of title (most reliable)
+      const titleLower = title.toLowerCase();
+      if (titleLower.startsWith(brand + ',') || titleLower.startsWith(brand + ' ')) {
+        console.log(`🏷️ Found brand at title start: ${brand} (confidence: ${info.confidence})`);
+        return {
+          brand: this.formatBrandName(brand),
+          confidence: info.confidence,
+          category: info.category,
+          position: 'title_start'
+        };
+      }
+      
+      // Check if brand appears anywhere in title
+      if (titleLower.includes(brand)) {
+        console.log(`🏷️ Found brand in title: ${brand} (confidence: ${info.confidence * 0.9})`);
+        return {
+          brand: this.formatBrandName(brand),
+          confidence: info.confidence * 0.9, // Slightly lower confidence
+          category: info.category,
+          position: 'title'
+        };
+      }
+    }
+    
+    // Check description as fallback (lower confidence)
+    for (const [brand, info] of Object.entries(luxuryBrands)) {
+      if (text.includes(brand)) {
+        console.log(`🏷️ Found brand in description: ${brand} (confidence: ${info.confidence * 0.7})`);
+        return {
+          brand: this.formatBrandName(brand),
+          confidence: info.confidence * 0.7, // Lower confidence for description matches
+          category: info.category,
+          position: 'description'
+        };
+      }
+    }
+    
+    console.log('🏷️ No recognized brands found for market analysis');
+    return null;
+  }
+
+  // Helper method to format brand names properly
+  formatBrandName(brand) {
+    // Handle special cases
+    const specialCases = {
+      'patek philippe': 'Patek Philippe',
+      'audemars piguet': 'Audemars Piguet',
+      'vacheron constantin': 'Vacheron Constantin',
+      'jaeger-lecoultre': 'Jaeger-LeCoultre',
+      'tag heuer': 'TAG Heuer',
+      'van cleef': 'Van Cleef & Arpels',
+      'harry winston': 'Harry Winston',
+      'georg jensen': 'Georg Jensen',
+      'royal copenhagen': 'Royal Copenhagen',
+      'bing & grøndahl': 'Bing & Grøndahl',
+      'kosta boda': 'Kosta Boda',
+      'svenskt tenn': 'Svenskt Tenn',
+      'carl malmsten': 'Carl Malmsten',
+      'bruno mathsson': 'Bruno Mathsson',
+      'norrlands möbler': 'Norrlands Möbler',
+      'herman miller': 'Herman Miller',
+      'fritz hansen': 'Fritz Hansen',
+      'louis vuitton': 'Louis Vuitton',
+      'bottega veneta': 'Bottega Veneta',
+      'yves saint laurent': 'Yves Saint Laurent'
+    };
+    
+    if (specialCases[brand.toLowerCase()]) {
+      return specialCases[brand.toLowerCase()];
+    }
+    
+    // Default: capitalize first letter of each word
+    return brand.split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   // NEW: Add market data warnings in a structured, digestible way
@@ -2570,5 +3315,25 @@ export class QualityAnalyzer {
     }
     
     return `<strong>${warning.field}:</strong> ${warning.issue}`;
+  }
+
+  // Helper method to get artist search result count for comparison
+  getArtistSearchResultCount(salesData) {
+    // Check if we have artist search results tracked in the historical data
+    if (salesData.historical && salesData.historical.artistSearchResults !== undefined) {
+      return salesData.historical.artistSearchResults;
+    }
+    
+    // Check if we have it in live data
+    if (salesData.live && salesData.live.artistSearchResults !== undefined) {
+      return salesData.live.artistSearchResults;
+    }
+    
+    // Fallback: check search context
+    if (salesData.searchContext && salesData.searchContext.artistSearchResults) {
+      return salesData.searchContext.artistSearchResults;
+    }
+    
+    return null; // We don't have this data tracked
   }
 } 
