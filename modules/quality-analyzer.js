@@ -259,12 +259,40 @@ export class QualityAnalyzer {
       'Kosta', 'Arabia', 'Royal', 'Napoleon', 'Gustav', 'Carl', 'Louis', 'Empire',
       // Company/Manufacturer names that might appear after artist names
       'Ikea', 'IKEA', 'Tenn', 'Lammhults', 'Källemo', 'Mathsson', 'Malmsten', 
-      'Boda', 'Artek', 'Iittala', 'Grondahl', 'Axeco'
+      'Boda', 'Artek', 'Iittala', 'Grondahl', 'Axeco',
+      // Common descriptive terms that appear in figurine/sculpture titles
+      'Kvinna', 'Man', 'Flicka', 'Pojke', 'Barn', 'Dame', 'Herre', 'Fru', 'Herr',
+      'Kvinna', 'Kvinnor', 'Män', 'Flickor', 'Pojkar', 'Damer', 'Herrar',
+      // Common prepositions and descriptive words
+      'med', 'och', 'vid', 'på', 'under', 'över', 'utan', 'för', 'till', 'från',
+      'som', 'av', 'i', 'ur', 'mot', 'genom', 'mellan', 'bland', 'hos', 'åt',
+      // Common object/animal terms in figurine descriptions
+      'hundar', 'katter', 'hästar', 'fåglar', 'blommor', 'träd', 'hus', 'båt',
+      'bil', 'cykel', 'stol', 'bord', 'vas', 'skål', 'fat', 'kopp', 'glas'
     ];
 
     if (words.some(word => 
       nonNameWords.some(term => word.toLowerCase() === term.toLowerCase())
     )) {
+      return false;
+    }
+
+    // Additional check: reject phrases that contain common descriptive patterns
+    const descriptivePatterns = [
+      /kvinna\s+med/i,     // "Kvinna med" (Woman with)
+      /man\s+med/i,        // "Man med" (Man with)
+      /flicka\s+med/i,     // "Flicka med" (Girl with)
+      /pojke\s+med/i,      // "Pojke med" (Boy with)
+      /barn\s+med/i,       // "Barn med" (Child with)
+      /dame\s+med/i,       // "Dame med" (Lady with)
+      /herre\s+med/i,      // "Herre med" (Gentleman with)
+      /\w+\s+och\s+\w+/i,  // "Something och Something" (Something and Something)
+      /\w+\s+vid\s+\w+/i,  // "Something vid Something" (Something at Something)
+      /\w+\s+på\s+\w+/i,   // "Something på Something" (Something on Something)
+      /\w+\s+under\s+\w+/i // "Something under Something" (Something under Something)
+    ];
+
+    if (descriptivePatterns.some(pattern => trimmedName.match(pattern))) {
       return false;
     }
 
