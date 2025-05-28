@@ -2078,10 +2078,9 @@ export class QualityAnalyzer {
         // But if we don't have insights, add a happy valuation analysis
         if (!salesData.insights || salesData.insights.length === 0) {
           dashboardContent += `
-            <div class="market-item market-analysis market-analysis-positive">
+            <div class="market-item market-analysis">
               <div class="market-label">Värderingsanalys</div>
-              <div class="market-value" style="color: #27ae60; font-size: 12px; font-weight: 600;">🎯 Utmärkt bedömning!</div>
-              <div class="market-confidence" style="color: #27ae60; font-size: 10px;">Väl i linje med marknadsvärde</div>
+              <div class="market-value" style="color: #27ae60; font-size: 11px; line-height: 1.3;">🎯 Utmärkt bedömning! Väl i linje med marknadsvärde</div>
             </div>
           `;
         }
