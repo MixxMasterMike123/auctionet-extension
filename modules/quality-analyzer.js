@@ -917,8 +917,8 @@ export class QualityAnalyzer {
       console.log('💰 Valuation extremely high - major correction needed');
       return {
         needsAdjustment: true,
-        message: `Värdering (${this.formatSEK(valuation)}) kraftigt över marknadsvärde`,
-        suggestedRange: `Förslag: ${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK baserat på marknad`,
+        message: `Värdering (${this.formatSEK(valuation)}) betydligt över liknande försäljningar`,
+        suggestedRange: `Marknadsdata tyder på: ${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK`,
         severity: 'high' // Upgraded severity for extreme cases
       };
     } else if (isExtremelyLow) {
@@ -929,8 +929,8 @@ export class QualityAnalyzer {
       console.log('💰 Valuation extremely low - major correction needed');
       return {
         needsAdjustment: true,
-        message: `Värdering (${this.formatSEK(valuation)}) kraftigt under marknadsvärde`,
-        suggestedRange: `Förslag: ${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK baserat på marknad`,
+        message: `Värdering (${this.formatSEK(valuation)}) betydligt under liknande försäljningar`,
+        suggestedRange: `Marknadsdata tyder på: ${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK`,
         severity: 'high' // Upgraded severity for extreme cases
       };
     } else if (valuation < lowThreshold) {
@@ -941,8 +941,8 @@ export class QualityAnalyzer {
       console.log('💰 Valuation too low - suggesting increase');
       return {
         needsAdjustment: true,
-        message: `Värdering (${this.formatSEK(valuation)}) ligger under marknadsvärde`,
-        suggestedRange: `${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK`,
+        message: `Värdering (${this.formatSEK(valuation)}) under genomsnittliga försäljningar`,
+        suggestedRange: `Överväg: ${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK (baserat på marknadsdata)`,
         severity: 'medium'
       };
     } else if (valuation > highThreshold) {
@@ -953,8 +953,8 @@ export class QualityAnalyzer {
       console.log('💰 Valuation too high - suggesting decrease');
       return {
         needsAdjustment: true,
-        message: `Värdering (${this.formatSEK(valuation)}) ligger över marknadsvärde`,
-        suggestedRange: `${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK`,
+        message: `Värdering (${this.formatSEK(valuation)}) över genomsnittliga försäljningar`,
+        suggestedRange: `Överväg: ${this.formatSEK(suggestedLow)}-${this.formatSEK(suggestedHigh)} SEK (baserat på marknadsdata)`,
         severity: 'medium'
       };
     }
@@ -963,8 +963,8 @@ export class QualityAnalyzer {
     // NEW: Provide positive feedback when valuation is spot-on
     return { 
       needsAdjustment: true, // Set to true so it shows up as a "suggestion"
-      message: `Värdering (${this.formatSEK(valuation)}) ligger väl i linje med marknadsvärde`,
-      suggestedRange: `Bra bedömning! Marknad: ${this.formatSEK(marketLow)}-${this.formatSEK(marketHigh)} SEK`,
+      message: `Värdering (${this.formatSEK(valuation)}) stämmer väl med marknadsdata`,
+      suggestedRange: `Bra bedömning! Liknande objekt: ${this.formatSEK(marketLow)}-${this.formatSEK(marketHigh)} SEK`,
       severity: 'positive' // New severity for positive feedback
     };
   }
@@ -1845,24 +1845,43 @@ export class QualityAnalyzer {
       const formattedLow = new Intl.NumberFormat('sv-SE').format(priceRange.low);
       const formattedHigh = new Intl.NumberFormat('sv-SE').format(priceRange.high);
       
+      // IMPROVED: More humble confidence messaging with context
       let confidenceIcon = '';
       let confidenceColor = '';
-      if (confidence >= 0.8) {
-        confidenceIcon = 'Hög tillförlitlighet';
+      let confidenceText = '';
+      
+      // Cap displayed confidence to be more realistic and humble
+      const displayConfidence = Math.min(confidence * 0.85, 0.85); // Cap at 85% max
+      const confidencePercent = Math.round(displayConfidence * 100);
+      
+      if (displayConfidence >= 0.75) {
+        confidenceIcon = 'Stark databas';
         confidenceColor = '#27ae60';
-      } else if (confidence >= 0.6) {
-        confidenceIcon = 'Medel tillförlitlighet';
+        confidenceText = `${confidencePercent}% (baserat på liknande försäljningar)`;
+      } else if (displayConfidence >= 0.55) {
+        confidenceIcon = 'Måttlig databas';
         confidenceColor = '#f39c12';
+        confidenceText = `${confidencePercent}% (begränsad jämförelsedata)`;
       } else {
-        confidenceIcon = 'Låg tillförlitlighet';
+        confidenceIcon = 'Begränsad databas';
         confidenceColor = '#e67e22';
+        confidenceText = `${confidencePercent}% (osäker jämförelse)`;
       }
+      
+      const mainMessage = `${formattedLow}-${formattedHigh} SEK (${confidenceIcon} ${confidenceText}) - vägledning för liknande objekt`;
+      
+      warnings.push({
+        field: 'Värdering',
+        issue: mainMessage,
+        severity: 'market-primary'
+      });
       
       dashboardContent += `
         <div class="market-item market-price">
           <div class="market-label">Marknadsvärde</div>
           <div class="market-value">${formattedLow}-${formattedHigh} SEK</div>
-          <div class="market-confidence" style="color: ${confidenceColor};">${confidenceIcon} ${Math.round(confidence * 100)}%</div>
+          <div class="market-confidence" style="color: ${confidenceColor};">${confidenceIcon} ${confidenceText}</div>
+          <div class="market-help">Vägledning - varje objekt är unikt</div>
         </div>
       `;
     }
@@ -1995,6 +2014,9 @@ export class QualityAnalyzer {
         </div>
         <div class="market-dashboard-content">
           ${dashboardContent}
+        </div>
+        <div class="market-dashboard-disclaimer">
+          <span class="disclaimer-text">💡 Marknadsdata är vägledning - varje objekt är unikt och kan ha särskilda egenskaper som påverkar värdet</span>
         </div>
       `;
       
@@ -2145,6 +2167,19 @@ export class QualityAnalyzer {
         
         .market-valuation-perfect .market-confidence {
           color: #27ae60;
+        }
+        
+        .market-dashboard-disclaimer {
+          margin-top: 12px;
+          padding-top: 8px;
+          border-top: 1px solid #e9ecef;
+        }
+        
+        .disclaimer-text {
+          font-size: 11px;
+          color: #6c757d;
+          font-style: italic;
+          line-height: 1.3;
         }
         
         @keyframes perfectGlow {

@@ -1058,13 +1058,13 @@ SVARA MED JSON:
           let significance = Math.abs(priceDiff) > 30 ? 'high' : 'medium';
           
           if (priceDiff > 30) {
-            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - överväg att höja utropet`;
+            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - överväg att justera utropet uppåt`;
           } else if (priceDiff > 15) {
-            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - nuvarande marknad kan vara starkare`;
+            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - nuvarande marknad verkar starkare`;
           } else if (priceDiff < -30) {
-            message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - överväg att sänka utropet`;
+            message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - överväg att justera utropet nedåt`;
           } else if (priceDiff < -15) {
-            message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - nuvarande marknad kan vara svagare`;
+            message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - nuvarande marknad verkar svagare`;
           }
           
           insights.push({
@@ -1081,13 +1081,13 @@ SVARA MED JSON:
         if (reserveMetPercentage > 70) {
           insights.push({
             type: 'market_strength',
-            message: `Stark marknad: ${reserveMetPercentage}% av utrop nås - bra tid att sälja`,
+            message: `Stark marknad: ${reserveMetPercentage}% av utrop nås - gynnsam försäljningsmiljö`,
             significance: 'high'
           });
         } else if (reserveMetPercentage < 30) {
           insights.push({
             type: 'market_weakness',
-            message: `Svag marknad: Endast ${reserveMetPercentage}% av utrop nås - överväg lägre utrop`,
+            message: `Utmanande marknad: Endast ${reserveMetPercentage}% av utrop nås - överväg försiktig prissättning`,
             significance: 'medium'
           });
         }
