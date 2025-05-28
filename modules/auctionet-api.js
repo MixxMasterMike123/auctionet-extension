@@ -165,10 +165,11 @@ export class AuctionetAPI {
   // NEW: Search live auctions (without is=ended parameter)
   async searchLiveAuctions(query, description, maxResults = 50) {
     // Check cache first (shorter cache for live data)
-    const cacheKey = `live_${query}_${maxResults}`;
+    // Include excludeCompanyId in cache key to ensure exclusion settings are respected
+    const cacheKey = `live_${query}_${maxResults}_exclude_${this.excludeCompanyId || 'none'}`;
     const cached = this.getCachedResult(cacheKey, 5 * 60 * 1000); // 5 minute cache for live data
     if (cached) {
-      console.log(`📦 Using cached live result for: ${description}`);
+      console.log(`📦 Using cached live result for: ${description} (exclude: ${this.excludeCompanyId || 'none'})`);
       return cached;
     }
     
@@ -176,6 +177,7 @@ export class AuctionetAPI {
       // No is=ended parameter for live auctions
       const url = `${this.baseUrl}?q=${encodeURIComponent(query)}&per_page=${maxResults}`;
       console.log(`📡 Fetching LIVE: ${url}`);
+      console.log(`🚫 Company exclusion setting: ${this.excludeCompanyId || 'Not set'}`);
       
       const response = await fetch(url);
       
@@ -199,9 +201,11 @@ export class AuctionetAPI {
         item.ends_at > (Date.now() / 1000) // Not ended
       );
       
+      console.log(`🔴 Active items before company exclusion: ${allActiveItems.length}`);
+      
       // Apply company exclusion filter
       const liveItems = allActiveItems.filter(item => {
-        if (this.excludeCompanyId && item.house && item.house.id && item.house.id.toString() === this.excludeCompanyId) {
+        if (this.excludeCompanyId && item.company_id && item.company_id.toString() === this.excludeCompanyId) {
           console.log(`🚫 Excluding LIVE item from company ${this.excludeCompanyId}: ${item.title.substring(0, 50)}...`);
           return false;
         }
@@ -217,6 +221,7 @@ export class AuctionetAPI {
         reserveAmount: item.reserve_amount,
         currency: item.currency,
         house: item.house,
+        company_id: item.company_id,
         location: item.location,
         endsAt: new Date(item.ends_at * 1000),
         description: item.description,
@@ -225,10 +230,14 @@ export class AuctionetAPI {
         timeRemaining: this.calculateTimeRemaining(item.ends_at)
       }));
       
-      console.log(`🔴 Active live items with bidding: ${liveItems.length}`);
+      console.log(`🔴 Active live items after company exclusion: ${liveItems.length}`);
       
       if (this.excludeCompanyId && allActiveItems.length > liveItems.length) {
         console.log(`🚫 Company exclusion (LIVE only): Filtered out ${allActiveItems.length - liveItems.length} live items from company ${this.excludeCompanyId}`);
+      } else if (this.excludeCompanyId) {
+        console.log(`ℹ️ Company exclusion active for ${this.excludeCompanyId}, but no items were filtered out`);
+      } else {
+        console.log(`ℹ️ No company exclusion set - all active items included`);
       }
       
       const result = {
