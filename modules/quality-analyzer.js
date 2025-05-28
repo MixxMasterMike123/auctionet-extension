@@ -1897,13 +1897,13 @@ export class QualityAnalyzer {
         let helpText = '';
         
         if (activity.reservesMetPercentage > 70) {
-          activityColor = '#e74c3c';
+          activityColor = '#27ae60';
           activityText = `Stark marknad (${activity.reservesMetPercentage}%)`;
-          helpText = 'Många objekt når sina utrop';
+          helpText = 'Bra tid att sälja - många objekt når sina utrop';
         } else {
-          activityColor = '#3498db';
+          activityColor = '#e67e22';
           activityText = `Svag marknad (${activity.reservesMetPercentage}%)`;
-          helpText = 'Få objekt når sina utrop';
+          helpText = 'Överväg lägre utrop - få objekt når sina utrop';
         }
         
         dashboardContent += `
@@ -1924,15 +1924,42 @@ export class QualityAnalyzer {
       
       if (significantInsights.length > 0) {
         const insight = significantInsights[0];
-        let shortMessage = insight.message;
-        if (shortMessage.length > 80) {
-          shortMessage = shortMessage.substring(0, 77) + '...';
+        
+        // Create more specific dashboard message based on insight type
+        let dashboardMessage = insight.message;
+        let messageColor = '#2c3e50';
+        
+        if (insight.type === 'price_comparison') {
+          if (insight.message.includes('överväg att höja')) {
+            messageColor = '#27ae60';
+            dashboardMessage = insight.message.replace(' - överväg att höja utropet', '');
+          } else if (insight.message.includes('överväg att sänka')) {
+            messageColor = '#e67e22';
+            dashboardMessage = insight.message.replace(' - överväg att sänka utropet', '');
+          } else if (insight.message.includes('kan vara starkare')) {
+            messageColor = '#3498db';
+            dashboardMessage = insight.message.replace(' - nuvarande marknad kan vara starkare', '');
+          } else if (insight.message.includes('kan vara svagare')) {
+            messageColor = '#f39c12';
+            dashboardMessage = insight.message.replace(' - nuvarande marknad kan vara svagare', '');
+          }
+        } else if (insight.type === 'market_strength') {
+          messageColor = '#27ae60';
+          dashboardMessage = insight.message.replace(' - bra tid att sälja', '');
+        } else if (insight.type === 'market_weakness') {
+          messageColor = '#e67e22';
+          dashboardMessage = insight.message.replace(' - överväg lägre utrop', '');
+        }
+        
+        // Truncate if still too long
+        if (dashboardMessage.length > 80) {
+          dashboardMessage = dashboardMessage.substring(0, 77) + '...';
         }
         
         dashboardContent += `
           <div class="market-item market-insight">
             <div class="market-label">Marknadstrend</div>
-            <div class="market-value">${shortMessage}</div>
+            <div class="market-value" style="color: ${messageColor};">${dashboardMessage}</div>
           </div>
         `;
       }
@@ -2261,16 +2288,24 @@ export class QualityAnalyzer {
       
       if (significantInsights.length > 0) {
         const insight = significantInsights[0];
-        // Shorten the message significantly
-        let shortMessage = insight.message;
-        if (shortMessage.length > 60) {
-          shortMessage = shortMessage.substring(0, 57) + '...';
+        
+        // Show the full actionable message for high-significance insights
+        let trendMessage = insight.message;
+        let severity = 'market-insight';
+        
+        // Adjust severity based on insight type for better visual hierarchy
+        if (insight.type === 'price_comparison') {
+          if (insight.message.includes('överväg att höja') || insight.message.includes('överväg att sänka')) {
+            severity = 'market-primary'; // More prominent for actionable advice
+          }
+        } else if (insight.type === 'market_strength' || insight.type === 'market_weakness') {
+          severity = 'market-activity';
         }
         
         warnings.push({
-          field: 'Trend',
-          issue: shortMessage,
-          severity: 'market-insight'
+          field: 'Marknadstrend',
+          issue: trendMessage,
+          severity: severity
         });
       }
     }

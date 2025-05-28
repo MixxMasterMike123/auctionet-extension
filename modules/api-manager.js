@@ -1054,10 +1054,23 @@ SVARA MED JSON:
       if (liveAvg) {
         const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
         if (Math.abs(priceDiff) > 15) {
+          let message = '';
+          let significance = Math.abs(priceDiff) > 30 ? 'high' : 'medium';
+          
+          if (priceDiff > 30) {
+            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - överväg att höja utropet`;
+          } else if (priceDiff > 15) {
+            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - nuvarande marknad kan vara starkare`;
+          } else if (priceDiff < -30) {
+            message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - överväg att sänka utropet`;
+          } else if (priceDiff < -15) {
+            message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - nuvarande marknad kan vara svagare`;
+          }
+          
           insights.push({
             type: 'price_comparison',
-            message: `Aktuella utrop ${priceDiff > 0 ? 'högre' : 'lägre'} än historiska försäljningar (${Math.abs(Math.round(priceDiff))}% skillnad)`,
-            significance: Math.abs(priceDiff) > 30 ? 'high' : 'medium'
+            message: message,
+            significance: significance
           });
         }
       }
@@ -1068,13 +1081,13 @@ SVARA MED JSON:
         if (reserveMetPercentage > 70) {
           insights.push({
             type: 'market_strength',
-            message: `Stark marknad: ${reserveMetPercentage}% av utrop nås i pågående auktioner`,
+            message: `Stark marknad: ${reserveMetPercentage}% av utrop nås - bra tid att sälja`,
             significance: 'high'
           });
         } else if (reserveMetPercentage < 30) {
           insights.push({
             type: 'market_weakness',
-            message: `Svag marknad: Endast ${reserveMetPercentage}% av utrop nås`,
+            message: `Svag marknad: Endast ${reserveMetPercentage}% av utrop nås - överväg lägre utrop`,
             significance: 'medium'
           });
         }
