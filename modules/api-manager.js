@@ -956,8 +956,8 @@ SVARA MED JSON:
   }
 
   // Market analysis methods
-  async analyzeComparableSales(artistName, objectType, period, technique, description) {
-    console.log('💰 analyzeComparableSales called with:', { artistName, objectType, period, technique });
+  async analyzeComparableSales(artistName, objectType, period, technique, description, currentValuation = null) {
+    console.log('💰 analyzeComparableSales called with:', { artistName, objectType, period, technique, currentValuation });
     
     // Use Auctionet API for real market data instead of Claude estimates
     console.log('🔍 Using Auctionet API for comprehensive market data analysis...');
@@ -1015,7 +1015,7 @@ SVARA MED JSON:
           } : null,
           
           // Combined insights
-          insights: this.generateCombinedInsights(historicalResult, liveResult),
+          insights: this.generateCombinedInsights(historicalResult, liveResult, currentValuation),
           
           // Maintain backward compatibility
           priceRange: historicalResult?.priceRange || this.estimatePriceRangeFromLive(liveResult),
@@ -1042,7 +1042,7 @@ SVARA MED JSON:
   }
 
   // NEW: Generate combined insights from historical and live data
-  generateCombinedInsights(historicalResult, liveResult) {
+  generateCombinedInsights(historicalResult, liveResult, currentValuation = null) {
     const insights = [];
     
     if (historicalResult && liveResult) {
@@ -1051,18 +1051,90 @@ SVARA MED JSON:
       const liveAvg = liveResult.currentEstimates ? 
         (liveResult.currentEstimates.low + liveResult.currentEstimates.high) / 2 : null;
       
-      if (liveAvg) {
+      if (liveAvg && currentValuation) {
+        // SMART LOGIC: Consider cataloger's current valuation in context
+        const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
+        const catalogerVsHist = ((currentValuation - histAvg) / histAvg) * 100;
+        const catalogerVsLive = ((currentValuation - liveAvg) / liveAvg) * 100;
+        
+        console.log('🧠 Smart insight analysis:', {
+          histAvg: Math.round(histAvg),
+          liveAvg: Math.round(liveAvg),
+          currentValuation,
+          priceDiff: Math.round(priceDiff),
+          catalogerVsHist: Math.round(catalogerVsHist),
+          catalogerVsLive: Math.round(catalogerVsLive)
+        });
+        
+        // Only provide insights if the difference is significant
+        if (Math.abs(priceDiff) > 15) {
+          let message = '';
+          let significance = 'medium';
+          
+          // CONTEXT-AWARE LOGIC: Consider cataloger's position
+          if (catalogerVsHist > 100) {
+            // Cataloger is way above historical (>100% higher)
+            if (priceDiff > 30) {
+              // Live is also high, but cataloger is even worse
+              message = `Pågående auktioner värderar ${Math.round(priceDiff)}% över historiska försäljningar, men din värdering är ${Math.round(catalogerVsHist)}% över - överväg att sänka betydligt`;
+              significance = 'high';
+            } else {
+              // Live is reasonable, cataloger is the problem
+              message = `Pågående auktioner ligger närmare historiska värden än din värdering (${Math.round(catalogerVsHist)}% över) - överväg att sänka`;
+              significance = 'high';
+            }
+          } else if (catalogerVsHist > 50) {
+            // Cataloger is moderately above historical (50-100% higher)
+            if (priceDiff > 50) {
+              // Live is much higher, maybe market is heating up
+              message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre än historiska försäljningar - marknad kan vara starkare`;
+              significance = 'medium';
+            } else {
+              // Live is moderately higher, cataloger should be cautious
+              message = `Både pågående auktioner och din värdering ligger över historiska värden - överväg försiktig prissättning`;
+              significance = 'medium';
+            }
+          } else if (catalogerVsHist < -20) {
+            // Cataloger is below historical
+            if (priceDiff > 30) {
+              // Live is much higher, cataloger might be too conservative
+              message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - överväg att höja utropet`;
+              significance = 'medium';
+            }
+          } else {
+            // Cataloger is reasonably close to historical
+            if (priceDiff > 50) {
+              // Live is much higher
+              message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - stark marknad för liknande objekt`;
+              significance = 'medium';
+            } else if (priceDiff < -30) {
+              // Live is much lower
+              message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - marknad kan vara svagare`;
+              significance = 'medium';
+            }
+          }
+          
+          if (message) {
+            insights.push({
+              type: 'price_comparison',
+              message: message,
+              significance: significance
+            });
+          }
+        }
+      } else if (liveAvg && !currentValuation) {
+        // Fallback to old logic if no current valuation provided
         const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
         if (Math.abs(priceDiff) > 15) {
           let message = '';
           let significance = Math.abs(priceDiff) > 30 ? 'high' : 'medium';
           
           if (priceDiff > 30) {
-            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - överväg att justera utropet uppåt`;
+            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre än historiska försäljningar`;
           } else if (priceDiff > 15) {
             message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - nuvarande marknad verkar starkare`;
           } else if (priceDiff < -30) {
-            message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - överväg att justera utropet nedåt`;
+            message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar`;
           } else if (priceDiff < -15) {
             message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - nuvarande marknad verkar svagare`;
           }

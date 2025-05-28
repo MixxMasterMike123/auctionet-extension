@@ -744,7 +744,8 @@ export class QualityAnalyzer {
         objectType,
         period,
         technique,
-        data.description
+        data.description,
+        parseInt(data.estimate) || null  // Pass current valuation for context-aware insights
       );
       
       console.log('💰 Market analysis result:', salesData);
@@ -1825,6 +1826,9 @@ export class QualityAnalyzer {
 
   // NEW: Add market data as a horizontal dashboard bar above the container
   addMarketDataDashboard(salesData, valuationSuggestions = []) {
+    // DEBUG: Log the full salesData to understand what we're working with
+    console.log('🔍 DEBUG: Full salesData for dashboard:', JSON.stringify(salesData, null, 2));
+    
     // Remove any existing market data dashboard
     const existingDashboard = document.querySelector('.market-data-dashboard');
     if (existingDashboard) {
@@ -1899,17 +1903,18 @@ export class QualityAnalyzer {
       `;
     }
     
-    // Market activity (only if significant)
+    // Market activity (RELAXED: show for more moderate thresholds)
     if (salesData.live && salesData.live.marketActivity) {
       const activity = salesData.live.marketActivity;
+      console.log('🔍 DEBUG: Market activity data:', activity);
       
-      if (activity.reservesMetPercentage > 70 || activity.reservesMetPercentage < 30) {
+      if (activity.reservesMetPercentage > 60 || activity.reservesMetPercentage < 40) {
         let activityIcon = '';
         let activityColor = '';
         let activityText = '';
         let helpText = '';
         
-        if (activity.reservesMetPercentage > 70) {
+        if (activity.reservesMetPercentage > 60) {
           activityColor = '#27ae60';
           activityText = `Stark marknad (${activity.reservesMetPercentage}%)`;
           helpText = 'Bra tid att sälja - många objekt når sina utrop';
@@ -1926,76 +1931,162 @@ export class QualityAnalyzer {
             <div class="market-help">${helpText}</div>
           </div>
         `;
+        console.log('✅ Added market activity box');
+      } else {
+        console.log(`ℹ️ Market activity (${activity.reservesMetPercentage}%) not significant enough to show (threshold: >60% or <40%)`);
       }
+    } else {
+      console.log('ℹ️ No market activity data available');
     }
     
-    // Key insight (only if high significance)
+    // Key insight (RELAXED: show medium and high significance)
     if (salesData.insights && salesData.insights.length > 0) {
-      const significantInsights = salesData.insights.filter(insight => 
-        insight.significance === 'high'
+      console.log('🔍 DEBUG: All insights:', salesData.insights);
+      
+      let significantInsights = salesData.insights.filter(insight => 
+        insight.significance === 'high' || insight.significance === 'medium'
       );
+      
+      // FALLBACK: If no high/medium insights, show any insights we have
+      if (significantInsights.length === 0) {
+        console.log('ℹ️ No high/medium significance insights, showing any available insights');
+        significantInsights = salesData.insights.slice(0, 1); // Show first insight
+      }
       
       if (significantInsights.length > 0) {
         const insight = significantInsights[0];
+        console.log('✅ Using insight:', insight);
         
-        // Create more specific dashboard message based on insight type
+        // Handle market insights (trends, comparisons)
         let dashboardMessage = insight.message;
-        let messageColor = '#2c3e50';
+        let messageColor = '#e67e22'; // Orange for insights
         
-        if (insight.type === 'price_comparison') {
-          if (insight.message.includes('överväg att höja')) {
-            messageColor = '#27ae60';
-            dashboardMessage = insight.message.replace(' - överväg att höja utropet', '');
-          } else if (insight.message.includes('överväg att sänka')) {
-            messageColor = '#e67e22';
-            dashboardMessage = insight.message.replace(' - överväg att sänka utropet', '');
-          } else if (insight.message.includes('kan vara starkare')) {
-            messageColor = '#3498db';
-            dashboardMessage = insight.message.replace(' - nuvarande marknad kan vara starkare', '');
-          } else if (insight.message.includes('kan vara svagare')) {
-            messageColor = '#f39c12';
-            dashboardMessage = insight.message.replace(' - nuvarande marknad kan vara svagare', '');
+        if (insight.significance === 'high') {
+          messageColor = '#e74c3c'; // Red for high significance
+        } else if (insight.significance === 'medium') {
+          messageColor = '#f39c12'; // Orange for medium significance
+        }
+        
+        // Determine if this is a simple trend or complex analysis
+        let isSimpleTrend = false;
+        let trendDirection = '';
+        let analysisMessage = dashboardMessage;
+        
+        // Extract simple trend from complex message
+        if (dashboardMessage.includes('värderar') && dashboardMessage.includes('%')) {
+          const percentMatch = dashboardMessage.match(/värderar (\d+)% (över|under|högre|lägre)/);
+          if (percentMatch) {
+            const percent = parseInt(percentMatch[1]);
+            const direction = percentMatch[2];
+            
+            // SMART TREND ANALYSIS: Consider market activity context
+            let marketActivity = null;
+            let reserveSuccess = null;
+            
+            // Extract market activity data if available
+            if (salesData && salesData.live && salesData.live.marketActivity) {
+              reserveSuccess = salesData.live.marketActivity.reservesMetPercentage;
+              console.log('🎯 Market trend analysis - Reserve success rate:', reserveSuccess, '%, Price difference:', percent, '%');
+            } else {
+              console.log('🎯 Market trend analysis - No market activity data available, using price-only logic');
+            }
+            
+            // Determine trend based on BOTH price movement AND market health
+            if ((direction === 'över' || direction === 'högre')) {
+              if (reserveSuccess !== null) {
+                if (reserveSuccess < 40 && percent > 50) {
+                  // High prices but low success rate = overvaluation/bubble
+                  trendDirection = '⚠️ Övervärderad marknad';
+                  isSimpleTrend = true;
+                } else if (reserveSuccess > 70 && percent > 20) {
+                  // High prices AND high success = genuine rising market
+                  trendDirection = '📈 Stigande marknad';
+                  isSimpleTrend = true;
+                } else if (reserveSuccess < 30) {
+                  // Low success rate = weak market regardless of prices
+                  trendDirection = '📉 Svag marknad';
+                  isSimpleTrend = true;
+                } else {
+                  // Moderate activity with higher prices = cautious optimism
+                  trendDirection = '➡️ Blandad marknad';
+                  isSimpleTrend = true;
+                }
+              } else {
+                // Fallback to simple price-based logic when no activity data
+                if (percent > 30) {
+                  trendDirection = '📈 Stigande marknad';
+                  isSimpleTrend = true;
+                } else {
+                  trendDirection = '➡️ Stabil marknad';
+                  isSimpleTrend = true;
+                }
+              }
+            } else if ((direction === 'under' || direction === 'lägre') && percent > 20) {
+              trendDirection = '📉 Fallande marknad';
+              isSimpleTrend = true;
+            } else {
+              trendDirection = '➡️ Stabil marknad';
+              isSimpleTrend = true;
+            }
           }
-        } else if (insight.type === 'market_strength') {
-          messageColor = '#27ae60';
-          dashboardMessage = insight.message.replace(' - bra tid att sälja', '');
-        } else if (insight.type === 'market_weakness') {
-          messageColor = '#e67e22';
-          dashboardMessage = insight.message.replace(' - överväg lägre utrop', '');
         }
         
-        // Truncate if still too long
-        if (dashboardMessage.length > 80) {
-          dashboardMessage = dashboardMessage.substring(0, 77) + '...';
+        if (isSimpleTrend) {
+          // Add simple trend indicator
+          dashboardContent += `
+            <div class="market-item market-trend">
+              <div class="market-label">Marknadstrend</div>
+              <div class="market-value" style="color: ${messageColor};">${trendDirection}</div>
+            </div>
+          `;
+          console.log('✅ Added market trend box');
+          
+          // Add detailed analysis as separate item
+          dashboardContent += `
+            <div class="market-item market-analysis">
+              <div class="market-label">Värderingsanalys</div>
+              <div class="market-value" style="color: ${messageColor}; font-size: 11px; line-height: 1.3;">${analysisMessage}</div>
+            </div>
+          `;
+          console.log('✅ Added market analysis box');
+        } else {
+          // Fallback to original format for other types of insights
+          dashboardContent += `
+            <div class="market-item market-insight">
+              <div class="market-label">Marknadstrend</div>
+              <div class="market-value" style="color: ${messageColor};">${dashboardMessage}</div>
+            </div>
+          `;
+          console.log('✅ Added market insight box');
         }
-        
-        dashboardContent += `
-          <div class="market-item market-insight">
-            <div class="market-label">Marknadstrend</div>
-            <div class="market-value" style="color: ${messageColor};">${dashboardMessage}</div>
-          </div>
-        `;
+      } else {
+        console.log('ℹ️ No insights available to display');
       }
+    } else {
+      console.log('ℹ️ No insights data available');
     }
     
-    // NEW: Add positive valuation feedback if we have a "perfect" evaluation
+    // Check for positive valuation feedback and integrate into valuation analysis
     if (valuationSuggestions && valuationSuggestions.length > 0) {
       const positiveValuations = valuationSuggestions.filter(suggestion => 
         suggestion.severity === 'positive'
       );
       
       if (positiveValuations.length > 0) {
-        const perfectValuation = positiveValuations[0];
+        // If we already have a valuation analysis section, we don't add another
+        // The positive feedback will be shown in the warnings section instead
+        // But if we don't have insights, add a happy valuation analysis
+        if (!salesData.insights || salesData.insights.length === 0) {
+          dashboardContent += `
+            <div class="market-item market-analysis market-analysis-positive">
+              <div class="market-label">Värderingsanalys</div>
+              <div class="market-value" style="color: #27ae60; font-size: 12px; font-weight: 600;">🎯 Utmärkt bedömning!</div>
+              <div class="market-confidence" style="color: #27ae60; font-size: 10px;">Väl i linje med marknadsvärde</div>
+            </div>
+          `;
+        }
         
-        dashboardContent += `
-          <div class="market-item market-valuation-perfect">
-            <div class="market-label">Värdering</div>
-            <div class="market-value">Utmärkt bedömning!</div>
-            <div class="market-confidence" style="color: #27ae60;">Väl i linje med marknadsvärde</div>
-          </div>
-        `;
-        
-        console.log('🏆 Added perfect valuation feedback to dashboard');
+        console.log('🏆 Integrated positive valuation feedback');
       }
     }
     
@@ -2141,7 +2232,30 @@ export class QualityAnalyzer {
         
         .market-insight .market-value {
           font-size: 12px;
-          max-width: 300px;
+          max-width: 450px;
+          line-height: 1.3;
+        }
+        
+        .market-trend .market-value {
+          font-size: 13px;
+          font-weight: 600;
+          min-width: 140px;
+        }
+        
+        .market-trend .market-value[style*="color: #e74c3c"] {
+          color: #e74c3c !important;
+          font-weight: 700;
+        }
+        
+        .market-analysis .market-value {
+          font-size: 11px;
+          line-height: 1.3;
+          max-width: 400px;
+          color: #495057;
+        }
+        
+        .market-analysis .market-label {
+          color: #6c757d;
         }
         
         .market-valuation-perfect {
@@ -2216,6 +2330,28 @@ export class QualityAnalyzer {
             border-bottom: none;
             padding-bottom: 0;
           }
+        }
+        
+        .market-analysis .market-label {
+          color: #6c757d;
+        }
+        
+        .market-analysis-positive {
+          background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+          border: 1px solid #b8dacc;
+          border-radius: 6px;
+          padding: 8px 12px;
+          margin: -4px 0;
+        }
+        
+        .market-analysis-positive .market-label {
+          color: #155724;
+          font-weight: 600;
+        }
+        
+        .market-analysis-positive .market-value {
+          color: #155724 !important;
+          font-weight: 700 !important;
         }
       `;
       document.head.appendChild(style);
