@@ -9,11 +9,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveModelButton = document.getElementById('save-model');
   const modelDescription = document.getElementById('model-description');
   const enableArtistInfoCheckbox = document.getElementById('enable-artist-info');
+  const excludeCompanyInput = document.getElementById('exclude-company-id');
+  const saveExcludeCompanyButton = document.getElementById('save-exclude-company');
 
   // Load existing API key, model, and settings
   await loadApiKey();
   await loadModelSelection();
   await loadArtistInfoSetting();
+  await loadExcludeCompanySetting();
   
   // Check extension status
   await checkExtensionStatus();
@@ -24,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   saveModelButton.addEventListener('click', saveModelSelection);
   modelSelect.addEventListener('change', updateModelDescription);
   enableArtistInfoCheckbox.addEventListener('change', saveArtistInfoSetting);
+  saveExcludeCompanyButton.addEventListener('click', saveExcludeCompanySetting);
   apiKeyInput.addEventListener('input', () => {
     clearStatus();
   });
@@ -326,6 +330,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       
     } catch (error) {
       console.error('Error saving artist info setting:', error);
+    }
+  }
+
+  async function loadExcludeCompanySetting() {
+    try {
+      const result = await chrome.storage.sync.get(['excludeCompanyId']);
+      if (result.excludeCompanyId) {
+        excludeCompanyInput.value = result.excludeCompanyId;
+      }
+    } catch (error) {
+      console.error('Error loading exclude company setting:', error);
+    }
+  }
+
+  async function saveExcludeCompanySetting() {
+    const excludeCompanyId = excludeCompanyInput.value.trim();
+    
+    try {
+      saveExcludeCompanyButton.disabled = true;
+      saveExcludeCompanyButton.textContent = 'Saving...';
+
+      await chrome.storage.sync.set({ excludeCompanyId: excludeCompanyId });
+      showStatus('Exclude company setting saved successfully!', 'success');
+      
+      // Notify all tabs to refresh their settings
+      try {
+        const tabs = await chrome.tabs.query({ url: 'https://auctionet.com/*' });
+        for (const tab of tabs) {
+          chrome.tabs.sendMessage(tab.id, { type: 'refresh-settings' }).catch(() => {
+            // Ignore errors for tabs that don't have the content script
+          });
+        }
+      } catch (error) {
+        console.log('Could not notify tabs:', error);
+      }
+      
+    } catch (error) {
+      showStatus('Error saving exclude company setting: ' + error.message, 'error');
+    } finally {
+      saveExcludeCompanyButton.disabled = false;
+      saveExcludeCompanyButton.textContent = 'Save Exclude Company';
     }
   }
 }); 

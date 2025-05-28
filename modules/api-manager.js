@@ -23,6 +23,11 @@ export class APIManager {
       } else {
         console.log('API key loaded from storage: Not found');
       }
+      
+      // Also refresh Auctionet API settings
+      if (this.auctionetAPI) {
+        await this.auctionetAPI.refreshExcludeCompanySetting();
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
     }
