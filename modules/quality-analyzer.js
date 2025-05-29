@@ -3170,6 +3170,9 @@ export class QualityAnalyzer {
     // NEW: Special handling for watches/timepieces  
     const isWatch = this.isWatchItem(objectType, title, description);
     
+    // NEW: Special handling for musical instruments
+    const isInstrument = this.isMusicalInstrument(objectType, title, description);
+    
     // Extract key descriptive terms from title and description
     const text = `${title} ${description}`.toLowerCase();
     const searchTerms = [];
@@ -3210,6 +3213,11 @@ export class QualityAnalyzer {
     if (isWatch) {
       console.log('⌚ Detected watch/timepiece item - using watch-specific search strategy');
       return this.generateWatchSearch(objectType, title, description, artistInfo, searchTerms, confidence);
+    }
+    
+    if (isInstrument) {
+      console.log('🎼 Detected musical instrument - using instrument-specific search strategy');
+      return this.generateMusicalInstrumentSearch(objectType, title, description, artistInfo, searchTerms, confidence);
     }
     
     // Extract title-specific descriptive terms (highest priority after artist)
@@ -4954,5 +4962,157 @@ export class QualityAnalyzer {
     }
     
     return [...new Set(found)].slice(0, 2); // Max 2 complications
+  }
+
+  // Musical Instrument Detection and Search
+  isMusicalInstrument(objectType, title, description) {
+    const instrumentKeywords = [
+      'flygel', 'piano', 'pianino', 'klaver', 'keyboard',
+      'violin', 'viola', 'cello', 'kontrabas', 'fiol', 'altfiol',
+      'gitarr', 'guitar', 'banjo', 'mandolin', 'luta', 'harp', 'harpa',
+      'flöjt', 'flute', 'klarinett', 'oboe', 'fagott', 'saxofon',
+      'trumpet', 'kornett', 'trombon', 'tuba', 'horn',
+      'orgel', 'harmonium', 'dragspel', 'accordion',
+      'trummor', 'drums', 'cymbaler', 'timpani', 'xylofon'
+    ];
+
+    const text = `${objectType} ${title} ${description}`.toLowerCase();
+    return instrumentKeywords.some(keyword => text.includes(keyword));
+  }
+
+  generateMusicalInstrumentSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
+    console.log('🎵 Generating musical instrument search for:', title);
+    
+    // Extract components for musical instruments
+    const brand = this.extractInstrumentBrands(title + ' ' + description);
+    const instrumentType = objectType.toLowerCase();
+    const material = this.extractInstrumentMaterials(title + ' ' + description);
+    const model = this.extractInstrumentModel(title + ' ' + description);
+    const broadPeriod = this.extractBroadPeriod(title + ' ' + description);
+    const country = this.extractGeographicTerms(title + ' ' + description);
+
+    // Build progressive search strategy
+    let primarySearch = instrumentType;
+    let confidence = 0.6;
+    let searchStrategy = 'instrument_basic';
+
+    // Priority 1: Type + Brand (most important for instruments)
+    if (brand) {
+      primarySearch = `${instrumentType} ${brand}`;
+      confidence = 0.8;
+      searchStrategy = 'instrument_brand';
+    } 
+    // Priority 2: Type + Material (for valuable materials like valnöt)
+    else if (material && (material.includes('valnöt') || material.includes('eben') || material.includes('rosenträ'))) {
+      primarySearch = `${instrumentType} ${material}`;
+      confidence = 0.7;
+      searchStrategy = 'instrument_material';
+    }
+    // Priority 3: Type + Country (for famous instrument-making regions)
+    else if (country.length > 0 && (country[0].includes('tyskland') || country[0].includes('italien') || country[0].includes('frankrike'))) {
+      primarySearch = `${instrumentType} ${country[0]}`;
+      confidence = 0.65;
+      searchStrategy = 'instrument_origin';
+    }
+    // Priority 4: Type + Period (for vintage instruments)
+    else if (broadPeriod) {
+      primarySearch = `${instrumentType} ${broadPeriod}`;
+      confidence = 0.6;
+      searchStrategy = 'instrument_period';
+    }
+
+    const searchString = primarySearch;
+    
+    console.log('🎵 Musical instrument search generated:', {
+      brand,
+      material,
+      model,
+      country,
+      broadPeriod,
+      finalSearch: searchString,
+      strategy: searchStrategy,
+      confidence: Math.min(confidence, 0.9)
+    });
+
+    return {
+      searchTerms: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: searchStrategy,
+      termCount: searchString.split(' ').length,
+      hasArtist: false,
+      isInstrument: true
+    };
+  }
+
+  extractInstrumentBrands(text) {
+    const brands = [
+      // Piano brands
+      'steinway', 'bösendorfer', 'fazioli', 'blüthner', 'bechstein',
+      'grotrian-steinweg', 'grotrian', 'steinweg', 'yamaha', 'kawai',
+      'petrof', 'estonia', 'seiler', 'august förster', 'sauter',
+      'schimmel', 'ibach', 'ronisch', 'zimmermann', 'weinbach',
+      'nordiska', 'öhman', 'malmsjö', 'lilje', 'lindgren',
+      
+      // String instruments
+      'stradivarius', 'guarneri', 'amati', 'bergonzi', 'gagliano',
+      'vuillaume', 'mirecourt', 'mittenwald', 'markneukirchen',
+      
+      // Guitar brands
+      'martin', 'gibson', 'fender', 'taylor', 'guild', 'ovation',
+      'yairi', 'takamine', 'ramirez', 'torres', 'hauser',
+      
+      // Wind instruments
+      'selmer', 'yamaha', 'buffet', 'leblanc', 'bach', 'conn',
+      'king', 'holton', 'alexander', 'paxman'
+    ];
+
+    const text_lower = text.toLowerCase();
+    
+    for (const brand of brands) {
+      if (text_lower.includes(brand)) {
+        return brand;
+      }
+    }
+
+    return null;
+  }
+
+  extractInstrumentMaterials(text) {
+    const materials = [
+      'valnöt', 'walnut', 'eben', 'ebony', 'rosenträ', 'rosewood',
+      'mahogny', 'mahogany', 'lönn', 'maple', 'gran', 'spruce',
+      'ek', 'oak', 'björk', 'birch', 'palisander', 'palisander',
+      'elfenben', 'ivory', 'bakelit', 'plast', 'metall', 'mässing', 'brass'
+    ];
+
+    const text_lower = text.toLowerCase();
+    
+    for (const material of materials) {
+      if (text_lower.includes(material)) {
+        return material;
+      }
+    }
+
+    return null;
+  }
+
+  extractInstrumentModel(text) {
+    // Extract model numbers or specific model names
+    const modelPatterns = [
+      /modell\s+(\d+)/i,
+      /model\s+(\d+)/i,
+      /typ\s+(\d+)/i,
+      /size\s+(\d+\/\d+)/i,
+      /(\d+\/\d+)\s+size/i
+    ];
+
+    for (const pattern of modelPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+
+    return null;
   }
 } 

@@ -432,6 +432,14 @@ export class AuctionetAPI {
       return this.buildWatchSearchStrategies(artistName, objectType, technique);
     }
     
+    // NEW: Check if this is a musical instrument search that might need fallbacks
+    const isInstrumentSearch = this.isInstrumentSpecificSearch(artistName);
+    
+    if (isInstrumentSearch) {
+      console.log('🎼 Detected musical instrument search, adding fallback strategies');
+      return this.buildInstrumentSearchStrategies(artistName, objectType, technique);
+    }
+    
     // Strategy 1: Artist + Object Type (most specific)
     if (artistName && objectType) {
       const query = `${artistName} ${objectType}`;
@@ -643,6 +651,110 @@ export class AuctionetAPI {
     });
     
     console.log(`⌚ Built ${strategies.length} watch search strategies`);
+    return strategies;
+  }
+
+  // NEW: Check if search string is musical instrument-specific
+  isInstrumentSpecificSearch(searchString) {
+    if (!searchString) return false;
+    
+    const instrumentTypes = [
+      'flygel', 'piano', 'pianino', 'klaver', 'keyboard',
+      'violin', 'viola', 'cello', 'kontrabas', 'fiol', 'altfiol',
+      'gitarr', 'guitar', 'banjo', 'mandolin', 'luta', 'harp', 'harpa',
+      'flöjt', 'flute', 'klarinett', 'oboe', 'fagott', 'saxofon',
+      'trumpet', 'kornett', 'trombon', 'tuba', 'horn',
+      'orgel', 'harmonium', 'dragspel', 'accordion',
+      'trummor', 'drums', 'cymbaler', 'timpani', 'xylofon'
+    ];
+    
+    const instrumentBrands = [
+      'steinway', 'yamaha', 'kawai', 'grotrian', 'bechstein', 'blüthner',
+      'petrof', 'estonia', 'seiler', 'schimmel', 'ibach', 'nordiska'
+    ];
+    
+    const searchLower = searchString.toLowerCase();
+    const hasInstrumentType = instrumentTypes.some(type => searchLower.includes(type));
+    const hasInstrumentBrand = instrumentBrands.some(brand => searchLower.includes(brand));
+    
+    return hasInstrumentType || hasInstrumentBrand;
+  }
+
+  // NEW: Build instrument-specific search strategies with progressive fallbacks
+  buildInstrumentSearchStrategies(fullSearchString, objectType, technique) {
+    console.log('🎼 Building instrument search strategies for:', fullSearchString);
+    
+    const strategies = [];
+    
+    // Extract components from the instrument search string
+    const parts = fullSearchString.toLowerCase().split(' ');
+    const instrumentType = parts[0]; // e.g., "flygel", "piano"
+    
+    // Common instrument brands that might appear in search
+    const instrumentBrands = [
+      'steinway', 'yamaha', 'kawai', 'grotrian', 'bechstein', 'blüthner',
+      'petrof', 'estonia', 'seiler', 'schimmel', 'ibach', 'nordiska', 'steinweg'
+    ];
+    const brands = parts.filter(part => instrumentBrands.some(brand => part.includes(brand)));
+    
+    // Common materials for instruments
+    const materials = parts.filter(part => /(?:valnöt|walnut|eben|ebony|mahogny|mahogany|lönn|maple|trä|wood)/.test(part));
+    
+    // Extract periods if present
+    const periods = parts.filter(part => /(?:19\d{2}|20\d{2}|\d{2}-tal)/.test(part));
+    
+    console.log('🎼 Extracted components:', { instrumentType, brands, materials, periods, fullParts: parts });
+    
+    // Strategy 1: Type + brand only (most important for instruments - skip overly complex search)
+    if (brands.length > 0) {
+      const query = `${instrumentType} ${brands[0]}`;
+      strategies.push({
+        query: query,
+        description: `Instrument brand: "${query}"`,
+        weight: 1.0
+      });
+    } else {
+      // Strategy 1b: Full search only if reasonably short (avoid "flygel 1941 1941 valnöt braun")
+      if (fullSearchString.length <= 25 && !fullSearchString.includes('1941 1941')) {
+        strategies.push({
+          query: fullSearchString,
+          description: `Instrument specific: "${fullSearchString}"`,
+          weight: 1.0
+        });
+      }
+    }
+    
+    // Strategy 2: Type + material (for valuable materials)
+    if (materials.length > 0) {
+      const primaryMaterial = materials.includes('valnöt') ? 'valnöt' : 
+                             materials.includes('eben') ? 'eben' :
+                             materials.includes('mahogny') ? 'mahogny' : materials[0];
+      const query = `${instrumentType} ${primaryMaterial}`;
+      strategies.push({
+        query: query,
+        description: `Instrument material: "${query}"`,
+        weight: 0.8
+      });
+    }
+    
+    // Strategy 3: Type + period (for vintage instruments)
+    if (periods.length > 0 && periods[0] !== '1941') { // Skip problematic year extraction
+      const query = `${instrumentType} ${periods[0]}`;
+      strategies.push({
+        query: query,
+        description: `Instrument period: "${query}"`,
+        weight: 0.7
+      });
+    }
+    
+    // Strategy 4: Just the instrument type (broadest fallback)
+    strategies.push({
+      query: instrumentType,
+      description: `Instrument type only: "${instrumentType}"`,
+      weight: 0.5
+    });
+    
+    console.log(`🎼 Built ${strategies.length} instrument search strategies`);
     return strategies;
   }
 
