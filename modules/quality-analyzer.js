@@ -1885,92 +1885,6 @@ export class QualityAnalyzer {
     
     let dashboardContent = '';
     
-    // NEW: Search Query Display - Show what was actually searched for
-    if (salesData.searchContext) {
-      const context = salesData.searchContext;
-      let searchDisplay = '';
-      let searchDetails = [];
-      
-      if (context.analysisType === 'freetext') {
-        searchDisplay = `"${context.primarySearch}"`;
-        searchDetails.push(`Fritextsökning (${Math.round((context.confidence || 0) * 100)}% relevans)`);
-        if (context.searchStrategy) {
-          searchDetails.push(`Strategi: ${context.searchStrategy}`);
-        }
-      } else if (context.analysisType === 'brand') {
-        searchDisplay = `"${context.primarySearch}"`;
-        searchDetails.push('Märkesbaserad sökning');
-        if (context.searchStrategy) {
-          searchDetails.push(`Strategi: ${context.searchStrategy}`);
-        }
-      } else if (context.analysisType === 'artist') {
-        // NEW: Enhanced artist search communication
-        const primaryArtistSearch = context.primarySearch;
-        const actualQuery = salesData.historical?.actualSearchQuery || salesData.live?.actualSearchQuery;
-        const searchStrategy = salesData.historical?.searchStrategy || salesData.live?.searchStrategy;
-        
-        // Check if we fell back from artist search to object search
-        const usedArtistSearch = actualQuery && actualQuery.includes(primaryArtistSearch);
-        
-        if (usedArtistSearch) {
-          // Artist search was successful
-          searchDisplay = `"${actualQuery}"`;
-          searchDetails.push(`Konstnärsbaserad sökning lyckades`);
-          if (searchStrategy) {
-            searchDetails.push(`Strategi: ${searchStrategy}`);
-          }
-        } else {
-          // Artist search failed, fell back to object search
-          searchDisplay = `"${primaryArtistSearch}" → "${actualQuery}"`;
-          searchDetails.push(`⚠️ Konstnärssökning gav otillräcklig data`);
-          searchDetails.push(`🔄 Bytte till objektbaserad sökning för mer tillförlitlig marknadsdata`);
-          if (searchStrategy) {
-            searchDetails.push(`Slutlig strategi: ${searchStrategy}`);
-          }
-          
-          // Add explanation of why this happened
-          const artistResultCount = this.getArtistSearchResultCount(salesData);
-          const objectResultCount = salesData.historical?.analyzedSales || 0;
-          if (artistResultCount !== null && objectResultCount > artistResultCount) {
-            searchDetails.push(`📊 Konstnär: ${artistResultCount} försäljningar → Objekt: ${objectResultCount} försäljningar`);
-          }
-        }
-      }
-      
-      // Show Auctionet API queries if available
-      if (salesData.historical?.actualSearchQuery || salesData.live?.actualSearchQuery) {
-        let auctionetQueries = [];
-        
-        if (salesData.historical?.actualSearchQuery) {
-          auctionetQueries.push(`Historisk: "${salesData.historical.actualSearchQuery}"`);
-        }
-        
-        if (salesData.live?.actualSearchQuery) {
-          auctionetQueries.push(`Pågående: "${salesData.live.actualSearchQuery}"`);
-        }
-        
-        if (auctionetQueries.length > 0) {
-          searchDetails.push(`Auctionet API: ${auctionetQueries.join(', ')}`);
-        }
-      }
-      
-      dashboardContent += `
-        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 12px; margin-bottom: 16px;">
-          <div style="font-weight: 600; color: #495057; margin-bottom: 6px; display: flex; align-items: center;">
-            🔍 Sökstrategi
-          </div>
-          <div style="font-family: 'SF Mono', Monaco, monospace; font-size: 13px; color: #6c757d; margin-bottom: 4px;">
-            ${searchDisplay}
-          </div>
-          ${searchDetails.map(detail => `
-            <div style="font-size: 12px; color: #6c757d; margin-bottom: 2px;">
-              ${detail}
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-    
     // Main price range (always show if available)
     if (salesData.priceRange) {
       const confidence = salesData.confidence;
@@ -1979,37 +1893,46 @@ export class QualityAnalyzer {
       const formattedLow = new Intl.NumberFormat('sv-SE').format(priceRange.low);
       const formattedHigh = new Intl.NumberFormat('sv-SE').format(priceRange.high);
       
-      // IMPROVED: More humble confidence messaging with context
+      // Display confidence based on data quality and market coverage
       let confidenceIcon = '';
       let confidenceColor = '';
       let confidenceText = '';
+      let displayConfidence = confidence;
       
-      // Cap displayed confidence to be more realistic and humble
-      const displayConfidence = Math.min(confidence * 0.85, 0.85); // Cap at 85% max
-      const confidencePercent = Math.round(displayConfidence * 100);
-      
-      if (displayConfidence >= 0.75) {
-        confidenceIcon = 'Stark databas';
-        confidenceColor = '#27ae60';
-        confidenceText = `${confidencePercent}% (baserat på liknande försäljningar)`;
-      } else if (displayConfidence >= 0.55) {
-        confidenceIcon = 'Måttlig databas';
-        confidenceColor = '#f39c12';
-        confidenceText = `${confidencePercent}% (begränsad jämförelsedata)`;
-      } else {
-        confidenceIcon = 'Begränsad databas';
-        confidenceColor = '#e67e22';
-        confidenceText = `${confidencePercent}% (osäker jämförelse)`;
+      // Only apply modest reduction for very low quality data
+      if (confidence < 0.6) {
+        displayConfidence = confidence * 0.9; // Small reduction for low quality
       }
       
-      const mainMessage = `${formattedLow}-${formattedHigh} SEK (${confidenceIcon} ${confidenceText}) - vägledning för liknande objekt`;
+      // Cap at 95% (never claim 100% certainty)
+      displayConfidence = Math.min(displayConfidence, 0.95);
+      
+      const confidencePercent = Math.round(displayConfidence * 100);
+      
+      if (displayConfidence >= 0.90) {
+        confidenceIcon = 'Exceptionell';
+        confidenceColor = '#27ae60';
+        confidenceText = `${confidencePercent}%`;
+      } else if (displayConfidence >= 0.75) {
+        confidenceIcon = 'Stark';
+        confidenceColor = '#27ae60';
+        confidenceText = `${confidencePercent}%`;
+      } else if (displayConfidence >= 0.55) {
+        confidenceIcon = 'Måttlig';
+        confidenceColor = '#f39c12';
+        confidenceText = `${confidencePercent}%`;
+      } else {
+        confidenceIcon = 'Begränsad';
+        confidenceColor = '#e67e22';
+        confidenceText = `${confidencePercent}%`;
+      }
       
       dashboardContent += `
         <div class="market-item market-price">
           <div class="market-label">Marknadsvärde</div>
           <div class="market-value">${formattedLow}-${formattedHigh} SEK</div>
           <div class="market-confidence" style="color: ${confidenceColor};">${confidenceIcon} ${confidenceText}</div>
-          <div class="market-help">Vägledning - varje objekt är unikt</div>
+          <div class="market-help">vägledning</div>
         </div>
       `;
     }
@@ -2035,7 +1958,7 @@ export class QualityAnalyzer {
           const linkNumbers = validSales.slice(0, 5).map((sale, index) => 
             `<a href="${sale.url}" target="_blank" style="color: #007cba; text-decoration: none; margin-right: 4px; font-weight: 500; padding: 1px 3px; border-radius: 2px; background: #f0f8ff;" title="Historisk: ${sale.title} - ${sale.price.toLocaleString()} SEK (${sale.date})">${index + 1}</a>`
           ).join(' ');
-          linkSections.push(`<span style="color: #666;">Historiska:</span> ${linkNumbers}`);
+          linkSections.push(`<div style="font-size: 10px; margin-bottom: 2px;"><span style="color: #666;">Historiska:</span> ${linkNumbers}</div>`);
         }
       }
       
@@ -2056,20 +1979,110 @@ export class QualityAnalyzer {
             
             return `<a href="${url}" target="_blank" style="color: #e74c3c; text-decoration: none; margin-right: 4px; font-weight: 500; padding: 1px 3px; border-radius: 2px; background: #fff5f5;" title="Pågående: ${item.title} - Utrop: ${estimate} (${timeLeft} kvar)">${index + 1}</a>`;
           }).join(' ');
-          linkSections.push(`<span style="color: #666;">Pågående:</span> ${liveLinkNumbers}`);
+          linkSections.push(`<div style="font-size: 10px; margin-bottom: 2px;"><span style="color: #666;">Pågående:</span> ${liveLinkNumbers}</div>`);
         }
       }
       
-      // Combine all link sections
+      // Combine all link sections on separate rows
       if (linkSections.length > 0) {
-        auctionLinks = `<br><span style="font-size: 10px; margin-top: 2px; display: block;">${linkSections.join(' | ')}</span>`;
+        auctionLinks = `<br>${linkSections.join('')}`;
+      }
+      
+      // NEW: Create comprehensive data summary showing both total matches AND analyzed sales
+      let dataSummary = '';
+      let detailedBreakdown = [];
+      let auctionetLinks = ''; // NEW: Direct links to view all data on Auctionet
+      
+      if (salesData.historical) {
+        const totalMatches = salesData.historical.totalMatches || 0;
+        const analyzedSales = salesData.historical.analyzedSales || 0;
+        const searchQuery = salesData.historical.actualSearchQuery;
+        
+        if (totalMatches > 0) {
+          // Show total matches found and how many had usable price data
+          detailedBreakdown.push(`${totalMatches.toLocaleString()} historiska träffar (${analyzedSales} med prisdata)`);
+          
+          // Add direct link to view all historical data on Auctionet
+          if (searchQuery) {
+            const encodedQuery = encodeURIComponent(searchQuery);
+            const historicalUrl = `https://auctionet.com/sv/search?event_id=&is=ended&q=${encodedQuery}`;
+            auctionetLinks += `<a href="${historicalUrl}" target="_blank" style="color: #007cba; text-decoration: none; font-weight: 500; padding: 2px 6px; border-radius: 3px; background: #f0f8ff; border: 1px solid #d1ecf1; margin-right: 8px;" title="Visa alla ${totalMatches.toLocaleString()} historiska träffar på Auctionet för '${searchQuery}'">Historiska</a>`;
+          }
+        } else {
+          detailedBreakdown.push(`${analyzedSales} historiska`);
+        }
+      }
+      
+      if (salesData.live) {
+        const totalMatches = salesData.live.totalMatches || 0;
+        const analyzedLive = salesData.live.analyzedLiveItems || 0;
+        const searchQuery = salesData.live.actualSearchQuery;
+        
+        if (totalMatches > 0) {
+          // Show total matches found and how many had usable data
+          detailedBreakdown.push(`${totalMatches.toLocaleString()} pågående träffar (${analyzedLive} analyserade)`);
+          
+          // Add direct link to view all live data on Auctionet
+          if (searchQuery) {
+            const encodedQuery = encodeURIComponent(searchQuery);
+            const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodedQuery}`;
+            auctionetLinks += `<a href="${liveUrl}" target="_blank" style="color: #e74c3c; text-decoration: none; font-weight: 500; padding: 2px 6px; border-radius: 3px; background: #fff5f5; border: 1px solid #f5c6cb; margin-right: 8px;" title="Visa alla ${totalMatches.toLocaleString()} pågående träffar på Auctionet för '${searchQuery}'">Pågående</a>`;
+          }
+        } else {
+          detailedBreakdown.push(`${analyzedLive} pågående`);
+        }
+      }
+      
+      // Use detailed breakdown if we have total matches, otherwise fall back to simple version
+      if (detailedBreakdown.some(item => item.includes('träffar'))) {
+        dataSummary = detailedBreakdown.join(' • ');
+      } else {
+        dataSummary = dataParts.join(' • ') + ' analyserade';
+      }
+      
+      // Sleek inline Auctionet links
+      let inlineAuctionetLinks = '';
+      if (auctionetLinks) {
+        inlineAuctionetLinks = ` ${auctionetLinks}`;
+      }
+      
+      // Super compact auction sample links - just show a few numbers inline
+      let sampleLinks = '';
+      if (linkSections.length > 0) {
+        // Extract just the first 3 links from each section for a clean, minimal display
+        let compactSamples = [];
+        
+        if (salesData.historical && salesData.historical.recentSales) {
+          const validSales = salesData.historical.recentSales.filter(sale => sale.url).slice(0, 3);
+          if (validSales.length > 0) {
+            const numbers = validSales.map((sale, index) => 
+              `<a href="${sale.url}" target="_blank" style="color: #007cba; text-decoration: none; margin-right: 2px; font-size: 8px; padding: 0 1px;" title="${sale.title}">${index + 1}</a>`
+            ).join('');
+            compactSamples.push(`H:${numbers}`);
+          }
+        }
+        
+        if (salesData.live && salesData.live.liveItems) {
+          const validLiveItems = salesData.live.liveItems.filter(item => item.url || item.auctionId).slice(0, 3);
+          if (validLiveItems.length > 0) {
+            const numbers = validLiveItems.map((item, index) => {
+              const url = item.url || `https://auctionet.com/sv/auctions/${item.auctionId}`;
+              return `<a href="${url}" target="_blank" style="color: #e74c3c; text-decoration: none; margin-right: 2px; font-size: 8px; padding: 0 1px;" title="${item.title}">${index + 1}</a>`;
+            }).join('');
+            compactSamples.push(`P:${numbers}`);
+          }
+        }
+        
+        if (compactSamples.length > 0) {
+          sampleLinks = `<br><div style="font-size: 8px; margin-top: 1px; opacity: 0.7;">${compactSamples.join(' ')}</div>`;
+        }
       }
       
       dashboardContent += `
         <div class="market-item market-data">
           <div class="market-label" title="Antal försäljningar och pågående auktioner som analysen baseras på">Dataunderlag</div>
-          <div class="market-value">${dataParts.join(' • ')}${auctionLinks}</div>
-          <div class="market-help">försäljningar analyserade</div>
+          <div class="market-value">${dataSummary}${inlineAuctionetLinks}</div>
+          <div class="market-help">omfattande data${sampleLinks}</div>
         </div>
       `;
     }
@@ -2079,35 +2092,17 @@ export class QualityAnalyzer {
       const exceptional = salesData.historical.exceptionalSales;
       console.log('🌟 Adding exceptional sales to dashboard:', exceptional);
       
-      // Create detailed exceptional sales info with validation links
+      // Create compact exceptional sales info
       let exceptionalDetails = exceptional.description;
-      let validationInfo = '';
       let clickableUrl = null;
+      
+      // Allow more text for exceptional sales - up to ~120 characters (3 rows)
+      if (exceptionalDetails.length > 120) {
+        exceptionalDetails = exceptionalDetails.substring(0, 117) + '...';
+      }
       
       if (exceptional.sales && exceptional.sales.length > 0) {
         const sale = exceptional.sales[0]; // Show details for first exceptional sale
-        
-        // Add house information
-        if (sale.house) {
-          validationInfo += ` • ${sale.house}`;
-        }
-        
-        // Add auction ID or URL for validation
-        if (sale.auctionId) {
-          validationInfo += ` • Auktion #${sale.auctionId}`;
-        } else if (sale.url) {
-          // Extract a short identifier from URL if no auction ID
-          const urlParts = sale.url.split('/');
-          const lastPart = urlParts[urlParts.length - 1];
-          if (lastPart && lastPart.length > 0) {
-            validationInfo += ` • ${lastPart}`;
-          }
-        }
-        
-        // Add date for context
-        if (sale.date) {
-          validationInfo += ` (${sale.date})`;
-        }
         
         // Store URL for click handler
         if (sale.url) {
@@ -2117,9 +2112,9 @@ export class QualityAnalyzer {
       
       dashboardContent += `
         <div class="market-item market-exceptional" ${clickableUrl ? `onclick="window.open('${clickableUrl}', '_blank')" style="cursor: pointer;"` : ''}>
-          <div class="market-label" title="Exceptionellt höga försäljningar som visar marknadens potential">Exceptionella försäljningar</div>
-          <div class="market-value" style="color: #8e44ad;">${exceptionalDetails}${validationInfo}</div>
-          <div class="market-help">${clickableUrl ? 'klicka för att validera auktionen' : 'visar marknadens potential'}</div>
+          <div class="market-label" title="Exceptionellt höga försäljningar som visar marknadens potential">Exceptionella</div>
+          <div class="market-value" style="color: #8e44ad;">${exceptionalDetails}</div>
+          <div class="market-help">${clickableUrl ? 'klicka för info' : 'marknadspotential'}</div>
         </div>
       `;
     }
@@ -2130,19 +2125,18 @@ export class QualityAnalyzer {
       console.log('🔍 DEBUG: Market activity data:', activity);
       
       if (activity.reservesMetPercentage > 60 || activity.reservesMetPercentage < 40) {
-        let activityIcon = '';
         let activityColor = '';
         let activityText = '';
         let helpText = '';
         
         if (activity.reservesMetPercentage > 60) {
-          activityColor = '#27ae60';
-          activityText = `Stark marknad (${activity.reservesMetPercentage}%)`;
-          helpText = 'Bra tid att sälja - många objekt når sina utrop';
+          activityColor = '#1e8449';
+          activityText = `Stark (${activity.reservesMetPercentage}%)`;
+          helpText = 'bra att sälja';
         } else {
-          activityColor = '#e67e22';
-          activityText = `Svag marknad (${activity.reservesMetPercentage}%)`;
-          helpText = 'Överväg lägre utrop - få objekt når sina utrop';
+          activityColor = '#b7472a';
+          activityText = `Svag (${activity.reservesMetPercentage}%)`;
+          helpText = 'sänk utrop';
         }
         
         dashboardContent += `
@@ -2180,12 +2174,12 @@ export class QualityAnalyzer {
         
         // Handle market insights (trends, comparisons)
         let dashboardMessage = insight.message;
-        let messageColor = '#e67e22'; // Orange for insights
+        let messageColor = '#2c3e50'; // Dark blue-gray for insights
         
         if (insight.significance === 'high') {
-          messageColor = '#e74c3c'; // Red for high significance
+          messageColor = '#c0392b'; // Dark red for high significance
         } else if (insight.significance === 'medium') {
-          messageColor = '#f39c12'; // Orange for medium significance
+          messageColor = '#d68910'; // Darker orange for medium significance
         }
         
         // Determine if this is a simple trend or complex analysis
@@ -2217,36 +2211,36 @@ export class QualityAnalyzer {
               if (reserveSuccess !== null) {
                 if (reserveSuccess < 40 && percent > 50) {
                   // High prices but low success rate = overvaluation/bubble
-                  trendDirection = '⚠️ Övervärderad marknad';
+                  trendDirection = 'Övervärderad marknad';
                   isSimpleTrend = true;
                 } else if (reserveSuccess > 70 && percent > 20) {
                   // High prices AND high success = genuine rising market
-                  trendDirection = '📈 Stigande marknad';
+                  trendDirection = 'Stigande marknad';
                   isSimpleTrend = true;
                 } else if (reserveSuccess < 30) {
                   // Low success rate = weak market regardless of prices
-                  trendDirection = '📉 Svag marknad';
+                  trendDirection = 'Svag marknad';
                   isSimpleTrend = true;
                 } else {
                   // Moderate activity with higher prices = cautious optimism
-                  trendDirection = '➡️ Blandad marknad';
+                  trendDirection = 'Blandad marknad';
                   isSimpleTrend = true;
                 }
               } else {
                 // Fallback to simple price-based logic when no activity data
                 if (percent > 30) {
-                  trendDirection = '📈 Stigande marknad';
+                  trendDirection = 'Stigande marknad';
                   isSimpleTrend = true;
                 } else {
-                  trendDirection = '➡️ Stabil marknad';
+                  trendDirection = 'Stabil marknad';
                   isSimpleTrend = true;
                 }
               }
             } else if ((direction === 'under' || direction === 'lägre') && percent > 20) {
-              trendDirection = '📉 Fallande marknad';
+              trendDirection = 'Fallande marknad';
               isSimpleTrend = true;
             } else {
-              trendDirection = '➡️ Stabil marknad';
+              trendDirection = 'Stabil marknad';
               isSimpleTrend = true;
             }
           }
@@ -2416,7 +2410,7 @@ export class QualityAnalyzer {
           border: 1px solid #dee2e6;
           border-radius: 8px;
           margin: 15px 20px;
-          padding: 15px 20px;
+          padding: 12px 16px;
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
@@ -2425,36 +2419,44 @@ export class QualityAnalyzer {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 12px;
-          padding-bottom: 8px;
+          margin-bottom: 10px;
+          padding-bottom: 6px;
           border-bottom: 1px solid #dee2e6;
         }
         
         .market-dashboard-title {
           font-weight: 600;
-          font-size: 14px;
+          font-size: 13px;
           color: #2c3e50;
         }
         
         .market-dashboard-source {
-          font-size: 11px;
+          font-size: 10px;
           color: #6c757d;
           opacity: 0.8;
         }
         
         .market-dashboard-content {
           display: flex;
-          flex-wrap: wrap;
-          gap: 20px;
+          flex-wrap: nowrap;
+          gap: 16px;
           align-items: flex-start;
+          overflow-x: auto;
+          justify-content: center;
         }
         
         .market-item {
           display: flex;
           flex-direction: column;
-          min-width: 120px;
+          min-width: 140px;
+          max-width: 180px;
+          flex-shrink: 0;
           border-right: 0.5px solid #e0e0e0;
-          padding-right: 20px;
+          padding-right: 16px;
+        }
+        
+        .market-item.market-exceptional {
+          max-width: 220px;
         }
         
         .market-item:last-child {
@@ -2463,7 +2465,7 @@ export class QualityAnalyzer {
         }
         
         .market-label {
-          font-size: 10px;
+          font-size: 9px;
           color: #6c757d;
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -2472,21 +2474,21 @@ export class QualityAnalyzer {
         }
         
         .market-value {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
-          color: #2c3e50;
+          color: #1a252f;
           line-height: 1.2;
         }
         
         .market-confidence {
-          font-size: 11px;
-          margin-top: 2px;
+          font-size: 10px;
+          margin-top: 1px;
           font-weight: 500;
         }
         
         .market-help {
-          font-size: 10px;
-          color: #6c757d;
+          font-size: 9px;
+          color: #495057;
           margin-top: 1px;
           font-style: italic;
         }
@@ -2497,19 +2499,17 @@ export class QualityAnalyzer {
         }
         
         .market-activity .market-value {
-          font-size: 12px;
+          font-size: 11px;
         }
         
         .market-insight .market-value {
-          font-size: 12px;
-          max-width: 450px;
+          font-size: 11px;
           line-height: 1.3;
         }
         
         .market-trend .market-value {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
-          min-width: 140px;
         }
         
         .market-trend .market-value[style*="color: #e74c3c"] {
@@ -2518,9 +2518,8 @@ export class QualityAnalyzer {
         }
         
         .market-analysis .market-value {
-          font-size: 11px;
+          font-size: 10px;
           line-height: 1.3;
-          max-width: 400px;
           color: #495057;
         }
         
@@ -2539,7 +2538,7 @@ export class QualityAnalyzer {
         
         .market-valuation-perfect .market-value {
           color: #27ae60;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
         }
         
@@ -2548,16 +2547,26 @@ export class QualityAnalyzer {
         }
         
         .market-dashboard-disclaimer {
-          margin-top: 12px;
-          padding-top: 8px;
+          margin-top: 10px;
+          padding-top: 6px;
           border-top: 1px solid #e9ecef;
+          display: flex;
+          justify-content: center;
         }
         
         .disclaimer-text {
           font-size: 11px;
-          color: #6c757d;
+          color: #495057;
           font-style: italic;
           line-height: 1.3;
+          text-align: center;
+          font-weight: 500;
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          padding: 8px 12px;
+          border-radius: 4px;
+          border: 1px solid #dee2e6;
+          max-width: 600px;
+          margin: 0 auto;
         }
         
         @keyframes perfectGlow {
@@ -2574,60 +2583,16 @@ export class QualityAnalyzer {
           }
         }
         
-        /* Responsive design */
-        @media (max-width: 768px) {
-          .market-data-dashboard {
-            margin: 10px;
-            padding: 12px 15px;
-          }
-          
-          .market-dashboard-content {
-            flex-direction: column;
-            gap: 12px;
-            align-items: flex-start;
-          }
-          
-          .market-item {
-            min-width: auto;
-            width: 100%;
-            border-right: none;
-            border-bottom: 1px solid #dee2e6;
-            padding-right: 0;
-            padding-bottom: 8px;
-          }
-          
-          .market-item:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-          }
-        }
-        
-        .market-analysis .market-label {
-          color: #6c757d;
-        }
-        
-        .market-analysis-positive {
-          background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-          border: 1px solid #b8dacc;
-          border-radius: 6px;
-          padding: 8px 12px;
-          margin: -4px 0;
-        }
-        
-        .market-analysis-positive .market-label {
-          color: #155724;
-          font-weight: 600;
-        }
-        
-        .market-analysis-positive .market-value {
-          color: #155724 !important;
-          font-weight: 700 !important;
+        /* Compact layout for narrow sections */
+        .market-data .market-value {
+          font-size: 11px;
+          line-height: 1.2;
         }
         
         .market-exceptional .market-value {
           color: #8e44ad;
           font-weight: 600;
-          font-size: 12px;
+          font-size: 11px;
           line-height: 1.3;
         }
         
@@ -2659,17 +2624,19 @@ export class QualityAnalyzer {
         .market-data a {
           color: #007cba;
           text-decoration: none;
-          margin-right: 4px;
+          margin-right: 3px;
           font-weight: 500;
-          padding: 1px 3px;
+          padding: 1px 2px;
           border-radius: 2px;
           transition: all 0.2s ease;
+          font-size: 9px;
         }
         
         .market-data a:hover {
-          background-color: #007cba;
-          color: white;
+          background-color: rgba(0, 124, 186, 0.1);
+          color: #005a87;
           text-decoration: none;
+          transform: none;
         }
         
         .market-data a:visited {
@@ -2677,8 +2644,8 @@ export class QualityAnalyzer {
         }
         
         .market-data a:visited:hover {
-          background-color: #005a87;
-          color: white;
+          background-color: rgba(0, 90, 135, 0.1);
+          color: #005a87;
         }
         
         /* NEW: Specific styles for historical vs live auction links */
@@ -2688,10 +2655,10 @@ export class QualityAnalyzer {
         }
         
         .market-data a[style*="background: #f0f8ff"]:hover {
-          background-color: #007cba !important;
+          background-color: rgba(0, 124, 186, 0.15) !important;
           border-color: #007cba;
-          transform: translateY(-1px);
-          box-shadow: 0 2px 4px rgba(0, 124, 186, 0.3);
+          transform: none;
+          box-shadow: none;
         }
         
         .market-data a[style*="background: #fff5f5"] {
@@ -2700,10 +2667,32 @@ export class QualityAnalyzer {
         }
         
         .market-data a[style*="background: #fff5f5"]:hover {
-          background-color: #e74c3c !important;
+          background-color: rgba(231, 76, 60, 0.15) !important;
           border-color: #e74c3c;
-          transform: translateY(-1px);
-          box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+          transform: none;
+          box-shadow: none;
+        }
+        
+        /* Responsive design - only stack on very small screens */
+        @media (max-width: 600px) {
+          .market-dashboard-content {
+            flex-wrap: wrap;
+            gap: 10px;
+          }
+          
+          .market-item {
+            min-width: auto;
+            width: calc(50% - 5px);
+            border-right: none;
+            border-bottom: 1px solid #dee2e6;
+            padding-right: 0;
+            padding-bottom: 6px;
+          }
+          
+          .market-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+          }
         }
       `;
       document.head.appendChild(style);

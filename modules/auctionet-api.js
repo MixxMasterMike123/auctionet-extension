@@ -103,7 +103,7 @@ export class AuctionetAPI {
       }
 
       // Analyze the market data
-      const marketAnalysis = this.analyzeMarketData(bestResult.soldItems);
+      const marketAnalysis = this.analyzeMarketData(bestResult.soldItems, artistName, objectType, totalMatches);
       
       console.log('✅ Auctionet market analysis complete');
       console.log(`📊 Analyzed ${bestResult.soldItems.length} sales from ${totalMatches} total matches`);
@@ -514,34 +514,84 @@ export class AuctionetAPI {
       
       console.log(`📊 Found ${data.items.length} items out of ${data.pagination.total_entries} total matches`);
       
-      // Filter for actually sold items with bid data
-      const soldItems = data.items.filter(item => 
-        item.hammered && 
-        item.bids && 
-        item.bids.length > 0 &&
-        item.bids[0].amount > 0
-        // NOTE: No company exclusion for historical sales - we want our own historical data
-      );
+      // Filter for sold items with ANY price data (not as restrictive as before)
+      const soldItems = data.items.filter(item => {
+        // Include any item that was hammered/sold OR has an estimate
+        const hasValidPrice = (item.hammered && item.bids && item.bids.length > 0 && item.bids[0].amount > 0) ||
+                              (item.estimate && item.estimate > 0) ||
+                              (item.upper_estimate && item.upper_estimate > 0);
+        
+        // Also include items that are clearly ended auctions (historical data)
+        const isHistoricalItem = item.hammered || 
+                                 (item.ends_at && item.ends_at < (Date.now() / 1000)) ||
+                                 item.state === 'ended';
+        
+        return hasValidPrice && isHistoricalItem;
+      });
       
-      console.log(`🔨 Sold items with price data: ${soldItems.length}`);
+      console.log(`🔨 Historical items with usable data: ${soldItems.length}`);
       
+      // If we still don't have enough, be even more lenient
+      if (soldItems.length === 0) {
+        console.log(`⚠️ No strict matches found, trying lenient filtering...`);
+        const lenientItems = data.items.filter(item => {
+          // Accept any item with title matching and some price indication
+          return item.estimate > 0 || item.upper_estimate > 0 || 
+                 (item.bids && item.bids.length > 0);
+        });
+        console.log(`📊 Lenient filtering found: ${lenientItems.length} items`);
+        
+        if (lenientItems.length > 0) {
+          // Use the lenient results but mark them clearly
+          const result = {
+            totalEntries: data.pagination.total_entries,
+            returnedItems: data.items.length,
+            soldItems: lenientItems.slice(0, 10).map(item => ({
+              title: item.title,
+              finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : item.estimate,
+              currency: item.currency,
+              estimate: item.estimate,
+              house: item.house,
+              location: item.location,
+              endDate: new Date(item.ends_at * 1000),
+              bidDate: item.bids && item.bids.length > 0 ? 
+                       new Date(item.bids[0].timestamp * 1000) : 
+                       new Date(item.ends_at * 1000),
+              reserveMet: item.reserve_met,
+              reserveAmount: item.reserve_amount,
+              description: item.description,
+              condition: item.condition,
+              url: this.convertToSwedishUrl(item.url),
+              isEstimateBasedPrice: !(item.bids && item.bids.length > 0) // Flag for estimate-based pricing
+            }))
+          };
+          
+          // Cache the result
+          this.setCachedResult(cacheKey, result);
+          return result;
+        }
+      }
+
       const result = {
         totalEntries: data.pagination.total_entries,
         returnedItems: data.items.length,
         soldItems: soldItems.map(item => ({
           title: item.title,
-          finalPrice: item.bids[0].amount,
+          finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : item.estimate,
           currency: item.currency,
           estimate: item.estimate,
           house: item.house,
           location: item.location,
           endDate: new Date(item.ends_at * 1000),
-          bidDate: new Date(item.bids[0].timestamp * 1000),
+          bidDate: item.bids && item.bids.length > 0 ? 
+                   new Date(item.bids[0].timestamp * 1000) : 
+                   new Date(item.ends_at * 1000),
           reserveMet: item.reserve_met,
           reserveAmount: item.reserve_amount,
           description: item.description,
           condition: item.condition,
-          url: this.convertToSwedishUrl(item.url)
+          url: this.convertToSwedishUrl(item.url),
+          isEstimateBasedPrice: !(item.bids && item.bids.length > 0) // Flag for estimate-based pricing
         }))
       };
       
@@ -557,7 +607,7 @@ export class AuctionetAPI {
   }
 
   // Analyze market data from sold items
-  analyzeMarketData(soldItems, artistName, objectType) {
+  analyzeMarketData(soldItems, artistName, objectType, totalMatches = 0) {
     console.log(`📊 Analyzing market data from ${soldItems.length} sales...`);
     
     if (soldItems.length === 0) {
@@ -576,8 +626,8 @@ export class AuctionetAPI {
     // NEW: Detect exceptional high-value sales that should be highlighted
     const exceptionalSales = this.detectExceptionalSales(soldItems, prices);
     
-    // Calculate confidence based on data quality
-    const confidence = this.calculateConfidence(soldItems, artistName, objectType);
+    // Calculate confidence based on data quality AND total market coverage
+    const confidence = this.calculateConfidence(soldItems, artistName, objectType, totalMatches);
     
     // Analyze trends over time
     const trendAnalysis = this.analyzeTrends(soldItems);
@@ -612,12 +662,14 @@ export class AuctionetAPI {
       trendAnalysis,
       limitations,
       exceptionalSales,
+      totalMatches,
       statistics: {
         average: Math.round(avgPrice),
         median: Math.round(medianPrice),
         min: minPrice,
         max: maxPrice,
-        sampleSize: soldItems.length
+        sampleSize: soldItems.length,
+        totalMatches
       }
     };
   }
@@ -668,13 +720,20 @@ export class AuctionetAPI {
   }
 
   // Calculate confidence score based on data quality
-  calculateConfidence(soldItems, artistName, objectType) {
+  calculateConfidence(soldItems, artistName, objectType, totalMatches = 0) {
     let confidence = 0.5; // Base confidence
     
-    // More sales = higher confidence
-    if (soldItems.length >= 10) confidence += 0.3;
-    else if (soldItems.length >= 5) confidence += 0.2;
-    else if (soldItems.length >= 3) confidence += 0.1;
+    // NEW: Factor in total market coverage (total matches found)
+    if (totalMatches >= 500) confidence += 0.4; // Exceptional market coverage
+    else if (totalMatches >= 100) confidence += 0.3; // Excellent market coverage  
+    else if (totalMatches >= 50) confidence += 0.2; // Very good market coverage
+    else if (totalMatches >= 20) confidence += 0.1; // Good market coverage
+    
+    // Analyzed sales = higher confidence (but less weight now that we factor total matches)
+    if (soldItems.length >= 20) confidence += 0.2;
+    else if (soldItems.length >= 10) confidence += 0.15;
+    else if (soldItems.length >= 5) confidence += 0.1;
+    else if (soldItems.length >= 3) confidence += 0.05;
     
     // Recent sales = higher confidence
     const recentSales = soldItems.filter(item => {
@@ -682,7 +741,7 @@ export class AuctionetAPI {
       return monthsAgo <= 24; // Within 2 years
     });
     
-    if (recentSales.length >= soldItems.length * 0.7) confidence += 0.2;
+    if (recentSales.length >= soldItems.length * 0.7) confidence += 0.15;
     else if (recentSales.length >= soldItems.length * 0.5) confidence += 0.1;
     
     // Artist match = higher confidence
@@ -690,7 +749,7 @@ export class AuctionetAPI {
       const artistMatches = soldItems.filter(item => 
         item.title.toLowerCase().includes(artistName.toLowerCase())
       );
-      if (artistMatches.length >= soldItems.length * 0.8) confidence += 0.2;
+      if (artistMatches.length >= soldItems.length * 0.8) confidence += 0.15;
       else if (artistMatches.length >= soldItems.length * 0.5) confidence += 0.1;
     }
     
@@ -702,7 +761,8 @@ export class AuctionetAPI {
       if (objectMatches.length >= soldItems.length * 0.8) confidence += 0.1;
     }
     
-    return Math.min(1.0, Math.max(0.1, confidence));
+    // Cap at 95% (never claim 100% certainty in market analysis)
+    return Math.min(0.95, Math.max(0.1, confidence));
   }
 
   // Analyze price trends over time
