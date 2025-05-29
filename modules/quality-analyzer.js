@@ -3167,6 +3167,9 @@ export class QualityAnalyzer {
     // NEW: Special handling for audio/electronics equipment
     const isAudio = this.isAudioEquipment(objectType, title, description);
     
+    // NEW: Special handling for watches/timepieces  
+    const isWatch = this.isWatchItem(objectType, title, description);
+    
     // Extract key descriptive terms from title and description
     const text = `${title} ${description}`.toLowerCase();
     const searchTerms = [];
@@ -3202,6 +3205,11 @@ export class QualityAnalyzer {
     if (isAudio) {
       console.log('🎵 Detected audio/electronics item - using audio-specific search strategy');
       return this.generateAudioSearch(objectType, title, description, artistInfo, searchTerms, confidence);
+    }
+    
+    if (isWatch) {
+      console.log('⌚ Detected watch/timepiece item - using watch-specific search strategy');
+      return this.generateWatchSearch(objectType, title, description, artistInfo, searchTerms, confidence);
     }
     
     // Extract title-specific descriptive terms (highest priority after artist)
@@ -4758,5 +4766,183 @@ export class QualityAnalyzer {
     }
     
     return [...new Set(found)].slice(0, 1); // Remove duplicates, max 1
+  }
+
+  // Watch/Timepiece Detection and Search
+  isWatchItem(objectType, title, description) {
+    const watchKeywords = [
+      'armbandsur', 'fickur', 'klocka', 'tidmätare', 'chronometer', 'stoppur',
+      'watch', 'wristwatch', 'pocket watch', 'timepiece', 'chronograph',
+      'väckarklocka', 'bordsur', 'väggur', 'golvur', 'mantelur', 'pendel'
+    ];
+
+    const text = `${objectType} ${title} ${description}`.toLowerCase();
+    return watchKeywords.some(keyword => text.includes(keyword));
+  }
+
+  generateWatchSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
+    console.log('⌚ Generating watch-specific search for:', title);
+    
+    // Extract components for watches
+    const brand = this.extractWatchBrands(title + ' ' + description);
+    const movement = this.extractWatchMovement(title + ' ' + description);
+    const material = this.extractWatchMaterials(title + ' ' + description);
+    const complications = this.extractWatchComplications(title + ' ' + description);
+    const broadPeriod = this.extractBroadPeriod(title + ' ' + description);
+
+    const terms = [];
+    let searchStrategy = 'watch_specific';
+    let confidence = 0.7; // Higher confidence for watches
+
+    // Always start with the watch type
+    terms.push(objectType.toLowerCase());
+
+    // Add brand if found (very important for watches)
+    if (brand) {
+      terms.push(brand);
+      searchStrategy = 'watch_brand';
+      confidence = 0.8;
+    }
+
+    // Add movement type (important for vintage watches)
+    if (movement) {
+      terms.push(movement);
+      confidence += 0.1;
+    }
+
+    // Add material (important for luxury watches)
+    if (material) {
+      terms.push(material);
+      confidence += 0.15;
+    }
+
+    // Add complications (important for collectors)
+    if (complications.length > 0) {
+      terms.push(...complications.slice(0, 1)); // Max 1 complication
+      confidence += 0.1;
+    }
+
+    // Add broad period if available
+    if (broadPeriod) {
+      terms.push(broadPeriod);
+      confidence += 0.1;
+    }
+
+    const searchString = terms.join(' ');
+    
+    console.log('⌚ Watch search generated:', {
+      brand,
+      movement,
+      material,
+      complications,
+      broadPeriod,
+      terms,
+      searchString,
+      strategy: searchStrategy,
+      confidence
+    });
+
+    return {
+      searchTerms: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: searchStrategy,
+      termCount: terms.length,
+      hasArtist: false,
+      isWatch: true
+    };
+  }
+
+  extractWatchBrands(text) {
+    const brands = [
+      // Luxury Swiss brands
+      'rolex', 'omega', 'patek philippe', 'audemars piguet', 'vacheron constantin',
+      'jaeger-lecoultre', 'breitling', 'iwc', 'cartier', 'tudor', 'tag heuer',
+      'longines', 'tissot', 'hamilton', 'oris', 'frederique constant',
+      'ball', 'mido', 'certina', 'maurice lacroix', 'montblanc',
+      
+      // German brands
+      'a. lange & söhne', 'glashütte original', 'nomos', 'sinn', 'stowa',
+      'union glashütte', 'tutima', 'archimede', 'laco', 'damasko',
+      
+      // Japanese brands
+      'seiko', 'citizen', 'casio', 'orient', 'grand seiko', 'credor',
+      
+      // Swedish/Nordic brands
+      'lings', 'halda', 'svenska', 'nordiska', 'stockholm',
+      
+      // Vintage/Historical brands
+      'zenith', 'universal genève', 'vulcain', 'movado', 'eterna',
+      'chronoswiss', 'ebel', 'corum', 'baume & mercier', 'chopard',
+      'hublot', 'panerai', 'bulgari', 'chanel', 'hermès', 'dior'
+    ];
+
+    const text_lower = text.toLowerCase();
+    
+    for (const brand of brands) {
+      if (text_lower.includes(brand)) {
+        return brand;
+      }
+    }
+
+    return null;
+  }
+
+  extractWatchMovement(text) {
+    const movements = [
+      'manuellt uppdrag', 'manuell', 'handuppdrag', 'manual winding',
+      'automatisk', 'automatic', 'self-winding', 'självuppdrag',
+      'quartz', 'kvarts', 'elektronisk', 'digital', 'analog',
+      'kronometer', 'chronometer', 'certifierad', 'certified'
+    ];
+
+    const text_lower = text.toLowerCase();
+    
+    for (const movement of movements) {
+      if (text_lower.includes(movement)) {
+        return movement;
+      }
+    }
+
+    return null;
+  }
+
+  extractWatchMaterials(text) {
+    const materials = [
+      'guld', 'gold', '18k', '14k', '9k', 'vitguld', 'rödguld', 'gulgul',
+      'silver', 'sterling', 'platina', 'platinum', 'titan', 'titanium',
+      'stål', 'steel', 'rostfritt', 'stainless', 'doublé', 'guldpläterad',
+      'förgylld', 'gold-plated', 'pvd', 'dlc', 'keramik', 'ceramic',
+      'kol', 'carbon', 'aluminium', 'bronze', 'messing', 'brass'
+    ];
+
+    const text_lower = text.toLowerCase();
+    
+    for (const material of materials) {
+      if (text_lower.includes(material)) {
+        return material;
+      }
+    }
+
+    return null;
+  }
+
+  extractWatchComplications(text) {
+    const complications = [
+      'kalender', 'calendar', 'månfas', 'moon phase', 'chronograph',
+      'stoppur', 'timer', 'världstid', 'worldtime', 'gmt', 'dual time',
+      'alarm', 'väckare', 'repetition', 'minute repeater', 'tourbillon',
+      'equation', 'annual calendar', 'perpetual calendar', 'rattrapante'
+    ];
+
+    const text_lower = text.toLowerCase();
+    const found = [];
+    
+    for (const complication of complications) {
+      if (text_lower.includes(complication)) {
+        found.push(complication);
+      }
+    }
+    
+    return [...new Set(found)].slice(0, 2); // Max 2 complications
   }
 } 
