@@ -1305,11 +1305,17 @@ SVARA MED JSON:
       // Get market activity context first to inform all other insights
       const marketActivity = liveResult.marketActivity;
       const reserveMetPercentage = marketActivity ? marketActivity.reservesMetPercentage : null;
-      const isWeakMarket = reserveMetPercentage !== null && reserveMetPercentage < 40;
-      const isStrongMarket = reserveMetPercentage !== null && reserveMetPercentage > 70;
+      const analyzedLiveItems = liveResult.analyzedLiveItems || 0;
+      
+      // MINIMUM SAMPLE SIZE CHECK: Need at least 4 live auctions for reliable reserve percentage statistics
+      const hasReliableMarketData = analyzedLiveItems >= 4;
+      const isWeakMarket = hasReliableMarketData && reserveMetPercentage !== null && reserveMetPercentage < 40;
+      const isStrongMarket = hasReliableMarketData && reserveMetPercentage !== null && reserveMetPercentage > 70;
       
       console.log('🏛️ Market context analysis:', {
         reserveMetPercentage,
+        analyzedLiveItems,
+        hasReliableMarketData,
         isWeakMarket,
         isStrongMarket
       });
@@ -1463,7 +1469,7 @@ SVARA MED JSON:
       }
       
       // Market activity insights - but don't duplicate if already mentioned in price comparison
-      if (marketActivity && !insights.some(insight => insight.message.includes('utrop nås'))) {
+      if (marketActivity && hasReliableMarketData && !insights.some(insight => insight.message.includes('utrop nås'))) {
         if (reserveMetPercentage > 70) {
           insights.push({
             type: 'market_strength',
@@ -1477,6 +1483,13 @@ SVARA MED JSON:
             significance: 'medium'
           });
         }
+      } else if (marketActivity && !hasReliableMarketData && analyzedLiveItems > 0) {
+        // Alternative message when we have some live data but not enough for reliable statistics
+        insights.push({
+          type: 'market_info',
+          message: `Begränsad marknadsdata: Endast ${analyzedLiveItems} pågående auktioner analyserade - för få för pålitlig marknadsanalys`,
+          significance: 'low'
+        });
       }
     }
     
