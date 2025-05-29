@@ -2156,6 +2156,52 @@ export class QualityAnalyzer {
       `;
     }
     
+    // NEW: Prominent historical price trend display
+    if (salesData.historical && salesData.historical.trendAnalysis && salesData.historical.trendAnalysis.trend !== 'insufficient_data') {
+      const trend = salesData.historical.trendAnalysis;
+      let trendIcon = '';
+      let trendColor = '';
+      let trendText = '';
+      let helpText = '';
+      
+      // Determine display based on trend type
+      if (trend.trend === 'rising_strong') {
+        trendIcon = '📈';
+        trendColor = '#27ae60';
+        trendText = `+${Math.abs(trend.changePercent)}% senaste tiden`;
+        helpText = 'stark uppgång';
+      } else if (trend.trend === 'rising') {
+        trendIcon = '📈';
+        trendColor = '#2ecc71';
+        trendText = `+${Math.abs(trend.changePercent)}% senaste tiden`;
+        helpText = 'stigande';
+      } else if (trend.trend === 'falling_strong') {
+        trendIcon = '📉';
+        trendColor = '#e74c3c';
+        trendText = `${trend.changePercent}% senaste tiden`;
+        helpText = 'stark nedgång';
+      } else if (trend.trend === 'falling') {
+        trendIcon = '📉';
+        trendColor = '#e67e22';
+        trendText = `${trend.changePercent}% senaste tiden`;
+        helpText = 'fallande';
+      } else {
+        trendIcon = '📊';
+        trendColor = '#3498db';
+        trendText = 'Stabil utveckling';
+        helpText = 'oförändrat';
+      }
+      
+      dashboardContent += `
+        <div class="market-item market-historical-trend">
+          <div class="market-label" title="Prisutveckling baserat på jämförelse mellan äldre och nyare försäljningar">Pristrend ${trendIcon}</div>
+          <div class="market-value" style="color: ${trendColor}; font-weight: 600;">${trendText}</div>
+          <div class="market-help">${helpText}</div>
+        </div>
+      `;
+      console.log('✅ Added prominent historical trend display');
+    }
+    
     // Data summary
     let dataParts = [];
     if (salesData.historical) {
@@ -2466,14 +2512,25 @@ export class QualityAnalyzer {
         }
         
         if (isSimpleTrend) {
-          // Add simple trend indicator
+          // Add simple trend indicator with enhanced details
+          let enhancedTrendText = trendDirection;
+          
+          // If we have historical trend data, add it to the market trend display
+          if (salesData.historical && salesData.historical.trendAnalysis && salesData.historical.trendAnalysis.changePercent !== undefined) {
+            const histTrend = salesData.historical.trendAnalysis;
+            if (histTrend.trend !== 'insufficient_data' && Math.abs(histTrend.changePercent) > 0) {
+              const changeText = histTrend.changePercent > 0 ? `+${histTrend.changePercent}%` : `${histTrend.changePercent}%`;
+              enhancedTrendText += ` (pristrend: ${changeText})`;
+            }
+          }
+          
           dashboardContent += `
             <div class="market-item market-trend">
               <div class="market-label">Marknadstrend</div>
-              <div class="market-value" style="color: ${messageColor};">${trendDirection}</div>
+              <div class="market-value" style="color: ${messageColor}; font-size: 11px; line-height: 1.3;">${enhancedTrendText}</div>
             </div>
           `;
-          console.log('✅ Added market trend box');
+          console.log('✅ Added enhanced market trend box with historical data');
           
           // Add detailed analysis as separate item
           dashboardContent += `
@@ -2912,6 +2969,31 @@ export class QualityAnalyzer {
             border-bottom: none;
             padding-bottom: 0;
           }
+        }
+        
+        /* Exceptional sale styling */
+        .exceptional-sale-item {
+          margin-bottom: 10px;
+        }
+        
+        .exceptional-sale-item:last-child {
+          margin-bottom: 0;
+        }
+        
+        /* Historical trend styling */
+        .market-historical-trend .market-value {
+          font-size: 12px;
+          font-weight: 600;
+        }
+        
+        .market-historical-trend .market-label {
+          color: #2c3e50;
+          font-weight: 500;
+        }
+        
+        .market-historical-trend .market-help {
+          font-size: 9px;
+          font-style: italic;
         }
       `;
       document.head.appendChild(style);
