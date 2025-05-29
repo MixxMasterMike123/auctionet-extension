@@ -416,6 +416,14 @@ export class AuctionetAPI {
     
     const strategies = [];
     
+    // NEW: Check if this is a jewelry-specific search that might need fallbacks
+    const isJewelrySearch = this.isJewelrySpecificSearch(artistName);
+    
+    if (isJewelrySearch) {
+      console.log('💍 Detected jewelry-specific search, adding fallback strategies');
+      return this.buildJewelrySearchStrategies(artistName, objectType, technique);
+    }
+    
     // Strategy 1: Artist + Object Type (most specific)
     if (artistName && objectType) {
       const query = `${artistName} ${objectType}`;
@@ -483,6 +491,79 @@ export class AuctionetAPI {
     }
     
     console.log(`🔧 Built ${strategies.length} search strategies`);
+    return strategies;
+  }
+
+  // NEW: Check if search string is jewelry-specific
+  isJewelrySpecificSearch(searchString) {
+    if (!searchString) return false;
+    
+    const jewelryTypes = ['ring', 'armband', 'halsband', 'örhängen', 'brosch', 'klocka'];
+    const hasJewelryType = jewelryTypes.some(type => searchString.toLowerCase().includes(type));
+    
+    // Check for specific measurements or weight that indicate very specific jewelry search
+    const hasSpecificMeasurements = /(?:gram|längd|diameter|storlek|cm|mm)/.test(searchString.toLowerCase());
+    
+    return hasJewelryType && hasSpecificMeasurements;
+  }
+
+  // NEW: Build jewelry-specific search strategies with progressive fallbacks
+  buildJewelrySearchStrategies(fullSearchString, objectType, technique) {
+    console.log('💍 Building jewelry search strategies for:', fullSearchString);
+    
+    const strategies = [];
+    
+    // Extract components from the full search string
+    const parts = fullSearchString.toLowerCase().split(' ');
+    const jewelryType = parts[0]; // e.g., "armband", "ring"
+    const materials = parts.filter(part => /(?:18k|guld|gold|silver|platina)/.test(part));
+    const weights = parts.filter(part => /(?:\d+[.,]?\d*\s*gram)/.test(part));
+    const sizes = parts.filter(part => /(?:längd|diameter|storlek)/.test(part));
+    
+    console.log('💍 Extracted components:', { jewelryType, materials, weights, sizes });
+    
+    // Strategy 1: Full specific search (original)
+    strategies.push({
+      query: fullSearchString,
+      description: `Jewelry specific: "${fullSearchString}"`,
+      weight: 1.0
+    });
+    
+    // Strategy 2: Type + materials only (no weight/size)
+    if (materials.length > 0) {
+      const query = `${jewelryType} ${materials.join(' ')}`;
+      strategies.push({
+        query: query,
+        description: `Jewelry material: "${query}"`,
+        weight: 0.8
+      });
+    }
+    
+    // Strategy 3: Type + broader material search
+    if (materials.some(m => m.includes('18k'))) {
+      const query = `${jewelryType} guld`;
+      strategies.push({
+        query: query,
+        description: `Jewelry broad material: "${query}"`,
+        weight: 0.6
+      });
+    } else if (materials.some(m => m.includes('silver'))) {
+      const query = `${jewelryType} silver`;
+      strategies.push({
+        query: query,
+        description: `Jewelry broad material: "${query}"`,
+        weight: 0.6
+      });
+    }
+    
+    // Strategy 4: Just the jewelry type (broadest)
+    strategies.push({
+      query: jewelryType,
+      description: `Jewelry type only: "${jewelryType}"`,
+      weight: 0.4
+    });
+    
+    console.log(`💍 Built ${strategies.length} jewelry search strategies`);
     return strategies;
   }
 
