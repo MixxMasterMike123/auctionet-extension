@@ -87,7 +87,7 @@
             sendResponse({ success: true });
           } else if (request.type === 'refresh-model') {
             console.log('Refreshing model selection from popup request');
-            this.apiManager.loadSettings(); // This also loads model selection
+            this.apiManager.refreshModelSelection();
             sendResponse({ success: true });
           } else if (request.type === 'refresh-settings') {
             console.log('Refreshing settings from popup request');

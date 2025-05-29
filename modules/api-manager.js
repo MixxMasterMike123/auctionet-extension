@@ -1,20 +1,36 @@
 // modules/api-manager.js - API Management Module
-import { CONFIG, getCurrentModel } from './config.js';
+import { CONFIG } from './config.js';
 import { AuctionetAPI } from './auctionet-api.js';
 
 export class APIManager {
   constructor() {
     this.apiKey = null;
     this.enableArtistInfo = true;
+    this.currentModel = 'claude-3-5-sonnet'; // Default fallback
     this.auctionetAPI = new AuctionetAPI();
     this.loadSettings();
   }
 
   async loadSettings() {
     try {
-      const result = await chrome.storage.sync.get(['anthropicApiKey', 'enableArtistInfo']);
+      const result = await chrome.storage.sync.get(['anthropicApiKey', 'enableArtistInfo', 'selectedModel']);
       this.apiKey = result.anthropicApiKey;
       this.enableArtistInfo = result.enableArtistInfo !== false;
+      
+      // Load selected model from storage
+      if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
+        const previousModel = this.currentModel;
+        this.currentModel = result.selectedModel;
+        
+        // Log model switch if it changed
+        if (previousModel !== this.currentModel) {
+          console.log(`🤖 Model switched: ${CONFIG.MODELS[previousModel]?.name || previousModel} → ${CONFIG.MODELS[this.currentModel].name}`);
+        } else {
+          console.log(`🤖 Current AI model: ${CONFIG.MODELS[this.currentModel].name}`);
+        }
+      } else {
+        console.log(`🤖 Using default AI model: ${CONFIG.MODELS[this.currentModel].name}`);
+      }
       
       console.log('Artist info setting loaded:', this.enableArtistInfo);
       
@@ -33,6 +49,26 @@ export class APIManager {
     }
   }
 
+  // NEW: Method to refresh just the model selection
+  async refreshModelSelection() {
+    try {
+      const result = await chrome.storage.sync.get(['selectedModel']);
+      if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
+        const previousModel = this.currentModel;
+        this.currentModel = result.selectedModel;
+        
+        console.log(`🤖 Model refreshed: ${CONFIG.MODELS[previousModel]?.name || previousModel} → ${CONFIG.MODELS[this.currentModel].name}`);
+      }
+    } catch (error) {
+      console.error('Error refreshing model selection:', error);
+    }
+  }
+
+  // Get current model (replacing the config version)
+  getCurrentModel() {
+    return CONFIG.MODELS[this.currentModel] || CONFIG.MODELS['claude-3-5-sonnet'];
+  }
+
   async callClaudeAPI(itemData, fieldType, retryCount = 0) {
     if (!this.apiKey) {
       throw new Error('API key not configured. Please set your Anthropic API key in the extension popup.');
@@ -47,7 +83,7 @@ export class APIManager {
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: getCurrentModel().id,
+            model: this.getCurrentModel().id,
             max_tokens: CONFIG.API.maxTokens,
             temperature: CONFIG.API.temperature,
             system: systemPrompt,
@@ -119,7 +155,7 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: getCurrentModel().id,
+            model: this.getCurrentModel().id,
             max_tokens: CONFIG.API.maxTokens,
             temperature: CONFIG.API.temperature,
             system: systemPrompt,
@@ -984,7 +1020,7 @@ Endast om du är mycket säker (confidence > 0.8) på att det finns ett verkligt
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: getCurrentModel().id,
+            model: this.getCurrentModel().id,
             max_tokens: 300,
             temperature: 0.1, // Low temperature for consistent analysis
             messages: [{
@@ -1050,7 +1086,7 @@ SVARA MED JSON:
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: getCurrentModel().id,
+            model: this.getCurrentModel().id,
             max_tokens: 400,
             temperature: 0.1,
             messages: [{
@@ -1673,7 +1709,7 @@ Svara ENDAST med giltig JSON:
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: getCurrentModel().id,
+            model: this.getCurrentModel().id,
             max_tokens: 1000,
             temperature: 0.1, // Low temperature for consistent analysis
             messages: [{
