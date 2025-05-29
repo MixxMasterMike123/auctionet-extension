@@ -4799,45 +4799,47 @@ export class QualityAnalyzer {
     const complications = this.extractWatchComplications(title + ' ' + description);
     const broadPeriod = this.extractBroadPeriod(title + ' ' + description);
 
-    const terms = [];
-    let searchStrategy = 'watch_specific';
-    let confidence = 0.7; // Higher confidence for watches
+    // Build progressive search strategy - prioritize brand and type only
+    const watchType = objectType.toLowerCase();
+    let searchStrategy = 'watch_basic';
+    let confidence = 0.6;
+    let primarySearch = watchType;
 
-    // Always start with the watch type
-    terms.push(objectType.toLowerCase());
-
-    // Add brand if found (very important for watches)
+    // Priority 1: Brand + Type (most important for watches)
     if (brand) {
-      terms.push(brand);
-      searchStrategy = 'watch_brand';
+      primarySearch = `${watchType} ${brand}`;
       confidence = 0.8;
+      searchStrategy = 'watch_brand';
+    } 
+    // Priority 2: Material + Type (if no brand but has valuable material)
+    else if (material) {
+      if (material.includes('guld') || material.includes('gold') || material.includes('18k')) {
+        primarySearch = `${watchType} guld`;
+        confidence = 0.7;
+        searchStrategy = 'watch_material';
+      } else if (material.includes('silver')) {
+        primarySearch = `${watchType} silver`;
+        confidence = 0.65;
+        searchStrategy = 'watch_material';
+      } else if (material.includes('platina') || material.includes('platinum')) {
+        primarySearch = `${watchType} platina`;
+        confidence = 0.75;
+        searchStrategy = 'watch_material';
+      }
+    }
+    // Priority 3: Period + Type (fallback for vintage/antique)
+    else if (broadPeriod) {
+      primarySearch = `${watchType} ${broadPeriod}`;
+      confidence = 0.6;
+      searchStrategy = 'watch_period';
     }
 
-    // Add movement type (important for vintage watches)
-    if (movement) {
-      terms.push(movement);
-      confidence += 0.1;
+    // Boost confidence for luxury complications
+    if (complications.some(c => c.includes('chronograph') || c.includes('kalender') || c.includes('calendar') || c.includes('tourbillon'))) {
+      confidence += 0.05;
     }
 
-    // Add material (important for luxury watches)
-    if (material) {
-      terms.push(material);
-      confidence += 0.15;
-    }
-
-    // Add complications (important for collectors)
-    if (complications.length > 0) {
-      terms.push(...complications.slice(0, 1)); // Max 1 complication
-      confidence += 0.1;
-    }
-
-    // Add broad period if available
-    if (broadPeriod) {
-      terms.push(broadPeriod);
-      confidence += 0.1;
-    }
-
-    const searchString = terms.join(' ');
+    const searchString = primarySearch;
     
     console.log('⌚ Watch search generated:', {
       brand,
@@ -4845,17 +4847,16 @@ export class QualityAnalyzer {
       material,
       complications,
       broadPeriod,
-      terms,
-      searchString,
+      finalSearch: searchString,
       strategy: searchStrategy,
-      confidence
+      confidence: Math.min(confidence, 0.9)
     });
 
     return {
       searchTerms: searchString,
       confidence: Math.min(confidence, 0.9),
       strategy: searchStrategy,
-      termCount: terms.length,
+      termCount: searchString.split(' ').length,
       hasArtist: false,
       isWatch: true
     };

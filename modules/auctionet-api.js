@@ -423,6 +423,14 @@ export class AuctionetAPI {
       console.log('💍 Detected jewelry-specific search, adding fallback strategies');
       return this.buildJewelrySearchStrategies(artistName, objectType, technique);
     }
+
+    // NEW: Check if this is a watch-specific search that might need fallbacks
+    const isWatchSearch = this.isWatchSpecificSearch(artistName);
+    
+    if (isWatchSearch) {
+      console.log('⌚ Detected watch-specific search, adding fallback strategies');
+      return this.buildWatchSearchStrategies(artistName, objectType, technique);
+    }
     
     // Strategy 1: Artist + Object Type (most specific)
     if (artistName && objectType) {
@@ -564,6 +572,77 @@ export class AuctionetAPI {
     });
     
     console.log(`💍 Built ${strategies.length} jewelry search strategies`);
+    return strategies;
+  }
+
+  // NEW: Check if search string is watch-specific
+  isWatchSpecificSearch(searchString) {
+    if (!searchString) return false;
+    
+    const watchTypes = ['armbandsur', 'fickur', 'klocka', 'watch', 'wristwatch', 'timepiece'];
+    return watchTypes.some(type => searchString.toLowerCase().includes(type));
+  }
+
+  // NEW: Build watch-specific search strategies with progressive fallbacks
+  buildWatchSearchStrategies(fullSearchString, objectType, technique) {
+    console.log('⌚ Building watch search strategies for:', fullSearchString);
+    
+    const strategies = [];
+    
+    // Extract components from the watch search string
+    const parts = fullSearchString.toLowerCase().split(' ');
+    const watchType = parts[0]; // e.g., "armbandsur", "fickur"
+    
+    // Common watch brands that might appear in search
+    const watchBrands = ['rolex', 'omega', 'lings', 'halda', 'tissot', 'longines', 'seiko', 'citizen'];
+    const brands = parts.filter(part => watchBrands.some(brand => part.includes(brand)));
+    
+    // Common materials
+    const materials = parts.filter(part => /(?:guld|gold|silver|platina|doublé|stål|steel)/.test(part));
+    
+    console.log('⌚ Extracted components:', { watchType, brands, materials, fullParts: parts });
+    
+    // Strategy 1: Full specific search (original - but only if short enough)
+    if (fullSearchString.length <= 30) {
+      strategies.push({
+        query: fullSearchString,
+        description: `Watch specific: "${fullSearchString}"`,
+        weight: 1.0
+      });
+    }
+    
+    // Strategy 2: Type + brand only (most important for watches)
+    if (brands.length > 0) {
+      const query = `${watchType} ${brands[0]}`;
+      strategies.push({
+        query: query,
+        description: `Watch brand: "${query}"`,
+        weight: 0.9
+      });
+    }
+    
+    // Strategy 3: Type + material (for luxury watches)
+    if (materials.length > 0) {
+      const primaryMaterial = materials.includes('guld') ? 'guld' : 
+                             materials.includes('gold') ? 'guld' :
+                             materials.includes('silver') ? 'silver' :
+                             materials.includes('platina') ? 'platina' : materials[0];
+      const query = `${watchType} ${primaryMaterial}`;
+      strategies.push({
+        query: query,
+        description: `Watch material: "${query}"`,
+        weight: 0.7
+      });
+    }
+    
+    // Strategy 4: Just the watch type (broadest fallback)
+    strategies.push({
+      query: watchType,
+      description: `Watch type only: "${watchType}"`,
+      weight: 0.5
+    });
+    
+    console.log(`⌚ Built ${strategies.length} watch search strategies`);
     return strategies;
   }
 
