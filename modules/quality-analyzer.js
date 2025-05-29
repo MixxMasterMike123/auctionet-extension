@@ -520,7 +520,7 @@ export class QualityAnalyzer {
     // Description quality checks (aggressively softened: 50 → 35)
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
     if (descLength < 35) {
-      warnings.push({ field: 'Beskrivning', issue: 'Överväg att lägga till detaljer om material, teknik, märkningar', severity: 'medium' });
+      warnings.push({ field: 'Beskrivning', issue: 'Överväg att lägga till detaljer om material, teknik, färg, märkningar', severity: 'medium' });
       score -= 20;
     }
     if (!this.hasMeasurements(data.description)) {
@@ -2794,20 +2794,12 @@ export class QualityAnalyzer {
     // Always include the object type
     searchTerms.push(objectType.toLowerCase());
     
-    // Extract materials
-    const materials = this.extractMaterials(text);
-    if (materials.length > 0) {
-      searchTerms.push(...materials);
-      confidence += 0.1;
-      strategy = 'material_based';
-    }
-    
-    // Extract periods/dates
-    const periods = this.extractPeriods(text);
-    if (periods.length > 0) {
-      searchTerms.push(...periods);
-      confidence += 0.1;
-      strategy = 'period_based';
+    // NEW: Extract title-specific descriptive terms first (highest priority)
+    const titleDescriptors = this.extractTitleDescriptors(title);
+    if (titleDescriptors.length > 0) {
+      searchTerms.push(...titleDescriptors);
+      confidence += 0.2;
+      strategy = 'descriptor_based';
     }
     
     // Extract styles
@@ -2815,20 +2807,44 @@ export class QualityAnalyzer {
     if (styles.length > 0) {
       searchTerms.push(...styles);
       confidence += 0.1;
-      strategy = 'style_based';
+      strategy = strategy === 'descriptor_based' ? strategy : 'style_based';
+    }
+    
+    // NEW: Extract colors (important for market matching)
+    const colors = this.extractColors(text);
+    if (colors.length > 0) {
+      searchTerms.push(...colors);
+      confidence += 0.15; // Colors are quite valuable for market analysis
+      strategy = strategy.includes('based') ? strategy : 'color_based';
+    }
+    
+    // Extract periods/dates
+    const periods = this.extractPeriods(text);
+    if (periods.length > 0) {
+      searchTerms.push(...periods);
+      confidence += 0.1;
+      strategy = strategy.includes('based') ? strategy : 'period_based';
+    }
+    
+    // Extract materials (lower priority now)
+    const materials = this.extractMaterials(text);
+    if (materials.length > 0 && searchTerms.length < 3) { // Only add if we need more terms
+      searchTerms.push(...materials);
+      confidence += 0.1;
+      strategy = strategy.includes('based') ? strategy : 'material_based';
     }
     
     // Extract techniques
     const techniques = this.extractTechniques(text);
-    if (techniques.length > 0) {
+    if (techniques.length > 0 && searchTerms.length < 4) {
       searchTerms.push(...techniques);
       confidence += 0.1;
-      strategy = 'technique_based';
+      strategy = strategy.includes('based') ? strategy : 'technique_based';
     }
     
     // Extract manufacturers/makers (not luxury brands)
     const makers = this.extractMakers(text);
-    if (makers.length > 0) {
+    if (makers.length > 0 && searchTerms.length < 4) {
       searchTerms.push(...makers);
       confidence += 0.2;
       strategy = 'maker_based';
@@ -2859,6 +2875,70 @@ export class QualityAnalyzer {
     };
   }
 
+  // NEW: Extract descriptive terms specifically from the title (higher priority than materials)
+  extractTitleDescriptors(title) {
+    const descriptors = [];
+    const titleLower = title.toLowerCase();
+    
+    // Common rug/carpet descriptors
+    const rugDescriptors = [
+      'orientalisk', 'persisk', 'antik', 'vintage', 'handknuten', 'handvävd',
+      'kilim', 'gabbeh', 'tabriz', 'isfahan', 'kashan', 'nain', 'qom', 'heriz',
+      'bidjar', 'shiraz', 'turkisk', 'kaukasisk', 'tibetansk', 'indisk',
+      'bokhara', 'afghanistan', 'beluch', 'turkmen'
+    ];
+    
+    // Art-related descriptors
+    const artDescriptors = [
+      'abstrakt', 'figurativ', 'landskap', 'porträtt', 'stilleben', 'marin', 
+      'genre', 'religiös', 'mytologisk', 'allegorisk', 'historisk'
+    ];
+    
+    // Furniture descriptors  
+    const furnitureDescriptors = [
+      'antik', 'vintage', 'retro', 'modern', 'samtida', 'neoklassisk',
+      'empire', 'biedermeier', 'jugend', 'art deco', 'skandinavisk',
+      'gustaviansk', 'karl johan', 'louis', 'chippendale', 'sheraton'
+    ];
+    
+    // Porcelain/ceramics descriptors
+    const porcelainDescriptors = [
+      'porslin', 'fajans', 'stengods', 'lergods', 'keramik', 'benporslin',
+      'hårdporslin', 'mjukporslin'
+    ];
+    
+    // Glass descriptors
+    const glassDescriptors = [
+      'kristall', 'optisk', 'slipat', 'graverat', 'etsat', 'målat',
+      'färgat', 'klart', 'frostat', 'iriserat'
+    ];
+    
+    // Combine all descriptor lists
+    const allDescriptors = [
+      ...rugDescriptors,
+      ...artDescriptors,
+      ...furnitureDescriptors, 
+      ...porcelainDescriptors,
+      ...glassDescriptors
+    ];
+    
+    // Extract descriptors that appear in title
+    allDescriptors.forEach(descriptor => {
+      if (titleLower.includes(descriptor)) {
+        descriptors.push(descriptor);
+      }
+    });
+    
+    // Also look for numbered items (e.g., "3 st", "ett par")
+    const quantityMatch = titleLower.match(/(\d+\s*st|ett\s*par|par)/);
+    if (quantityMatch) {
+      // For numbered items, the descriptor might be less important
+      // but we still want to capture it for context
+    }
+    
+    return descriptors.slice(0, 2); // Max 2 descriptors from title
+  }
+
   // Helper method to extract materials from text
   extractMaterials(text) {
     const materials = [];
@@ -2878,7 +2958,9 @@ export class QualityAnalyzer {
     ];
     
     materialPatterns.forEach(material => {
-      if (text.includes(material)) {
+      // Use word boundary matching to avoid false positives like "ek" in "dekor"
+      const wordBoundaryPattern = new RegExp(`\\b${material}\\b`, 'i');
+      if (wordBoundaryPattern.test(text)) {
         materials.push(material);
       }
     });
@@ -2905,6 +2987,37 @@ export class QualityAnalyzer {
     });
     
     return periods;
+  }
+
+  // NEW: Extract colors from text (important for market matching)
+  extractColors(text) {
+    const colors = [];
+    const colorPatterns = [
+      // Basic colors
+      'röd', 'blå', 'grön', 'gul', 'svart', 'vit', 'brun', 'grå', 'rosa', 'lila', 'orange',
+      // Color variations
+      'rött', 'blått', 'grönt', 'gult', 'brunt', 'grått', 'rosig', 'ljus', 'mörk',
+      // Specific shades
+      'marinblå', 'turkos', 'beige', 'elfenben', 'krämvit', 'pastellblå', 'djupblå',
+      'smaragdgrön', 'mörkgrön', 'ljusgrön', 'bordeaux', 'vinröd', 'roströd', 'tegelröd',
+      'guldgul', 'citrongul', 'solgul', 'chokladbrun', 'kastanjebrun', 'nötbrun',
+      'silvergrå', 'stålgrå', 'askgrå', 'antracit', 'kol', 'krita', 'snövit',
+      // Color combinations and patterns
+      'flerfärgad', 'blandade färger', 'färgglad', 'färgrik', 'monokrom', 'tvåfärgad',
+      // Special color terms
+      'naturell', 'ofärgad', 'transparent', 'genomskinlig', 'opak', 'matt', 'blank',
+      'metallic', 'glittrande', 'skimrande', 'iriserade'
+    ];
+    
+    colorPatterns.forEach(color => {
+      // Use word boundary matching to avoid false positives
+      const wordBoundaryPattern = new RegExp(`\\b${color}\\b`, 'i');
+      if (wordBoundaryPattern.test(text)) {
+        colors.push(color);
+      }
+    });
+    
+    return colors.slice(0, 2); // Max 2 colors to keep searches focused
   }
 
   // Helper method to extract styles from text

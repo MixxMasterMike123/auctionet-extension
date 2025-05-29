@@ -17,6 +17,18 @@
       "matches": ["https://auctionet.com/admin/*/items/*/edit"],
       "js": ["content-script.js"],
       "css": ["styles.css"]
+    },
+    {
+      "matches": [
+        "https://auctionet.com/admin/*/items/*",
+        "https://auctionet.com/admin/sas/sellers/*/contracts/*/items/*"
+      ],
+      "exclude_matches": [
+        "https://auctionet.com/admin/*/items/*/edit",
+        "https://auctionet.com/admin/sas/sellers/*/contracts/*/items/*/edit"
+      ],
+      "js": ["admin-item-banner.js"],
+      "css": ["styles.css"]
     }
   ],
   "background": {

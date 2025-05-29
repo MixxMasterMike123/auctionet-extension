@@ -443,7 +443,7 @@ class AuctionetCatalogingAssistant {
     // Description quality checks
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
     if (descLength < 50) {
-      warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, märkningar', severity: 'high' });
+      warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, färg, märkningar', severity: 'high' });
       score -= 25;
     }
     if (!data.description.match(/\d+[\s,]*(x|cm)/i)) {
@@ -815,8 +815,8 @@ class AuctionetCatalogingAssistant {
         
       case 'description':
         if (descLength < 25) {
-          issues.push('material', 'technique', 'period', 'measurements');
-          needsMoreInfo = true;
+          warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, färg, märkningar', severity: 'high' });
+          score -= 25;
         }
         if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i) && descLength < 40) {
           issues.push('measurements');
