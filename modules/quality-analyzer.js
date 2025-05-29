@@ -196,9 +196,6 @@ export class QualityAnalyzer {
       // NEW: OBJEKT, quantity, material, "design name" Firstname Middle Lastname, Manufacturer, Country (3-word artist version)
       /^([A-ZÅÄÖÜ]+),\s*\d+\s*st,\s*[a-zåäöü]+,\s*"[^"]+"\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
       
-      // Malformed quotes with company: OBJEKT, details, "Title, Firstname Lastname Company (missing closing quote) - MOVED UP for priority
-      /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)\s+(?:Ikea|IKEA|Svenskt\s+Tenn|Lammhults|Källemo|Norrlands\s+Möbler|Bruno\s+Mathsson|Carl\s+Malmsten|Kosta\s+Boda|Orrefors|Gustavsberg|Artek|Iittala|Arabia)/i,
-      
       // General malformed pattern: OBJEKT, details, "Title, Firstname Lastname (no closing quote) - MOVED UP for priority
       /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)(?:\s+[A-ZÅÄÖÜ][a-zåäöü]+)?/i,
       
@@ -321,6 +318,7 @@ export class QualityAnalyzer {
 
     const trimmedName = name.trim();
     
+    // Standard name validation (existing logic)
     // Must be two or three words (firstname lastname OR firstname middle lastname)
     const words = trimmedName.split(/\s+/);
     if (words.length < 2 || words.length > 3) {
