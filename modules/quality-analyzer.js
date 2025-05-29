@@ -1836,7 +1836,10 @@ export class QualityAnalyzer {
       'glas', 'kristall', 'porslin', 'keramik', 'lergods', 'stengods',
       'trä', 'ek', 'björk', 'furu', 'mahogny', 'valnöt', 'teak', 'bok',
       'läder', 'tyg', 'sammet', 'siden', 'ull', 'bomull', 'lin',
-      'marmor', 'granit', 'kalksten', 'sandsten'
+      'marmor', 'granit', 'kalksten', 'sandsten',
+      // NEW: Model/toy materials
+      'resin', 'metall', 'diecast', 'zink', 'zamak', 'vitmetall', 'aluminium',
+      'vinyl', 'pvc', 'abs', 'polyresin', 'pewter'
     ];
     
     materials.forEach(material => {
@@ -2952,6 +2955,26 @@ export class QualityAnalyzer {
       'färgat', 'klart', 'frostat', 'iriserat'
     ];
     
+    // NEW: Model/toy/collectible descriptors
+    const modelDescriptors = [
+      'modellbilar', 'modellauto', 'miniatyr', 'samlarobjekt', 'vintage',
+      'diecast', 'leksaksbilar', 'racing', 'formel', 'sportvagn', 'limousine',
+      'lastbil', 'buss', 'motorcykel', 'flygplan', 'helikopter', 'båt',
+      'tåg', 'lokomotiv', 'traktor', 'grävmaskin', 'brandkår', 'polis',
+      'ambulans', 'militär', 'ferrari', 'porsche', 'mercedes', 'bmw',
+      'audi', 'volvo', 'saab', 'ford', 'chevrolet', 'jaguar', 'bentley',
+      'rolls-royce', 'lamborghini', 'maserati', 'alfa romeo', 'fiat',
+      'opel', 'volkswagen', 'toyota', 'honda', 'nissan', 'mazda',
+      'tekno', 'dinky', 'corgi', 'hot wheels', 'matchbox', 'bburago',
+      'autoart', 'minichamps', 'kyosho', 'spark', 'neo', 'avenue43'
+    ];
+    
+    // Scale descriptors for models
+    const scaleDescriptors = [
+      '1:43', '1:32', '1:24', '1:18', '1:12', '1:87', 'h0', 'n-skala',
+      'skala', 'scale', 'spur'
+    ];
+    
     // Combine all descriptor lists
     const allDescriptors = [
       ...rugDescriptors,
@@ -2992,8 +3015,11 @@ export class QualityAnalyzer {
       'tyg', 'sammet', 'siden', 'ull', 'bomull', 'lin', 'läder',
       // Stone
       'marmor', 'granit', 'kalksten', 'sandsten',
-      // Other
-      'plast', 'gummi', 'papper', 'kartong'
+      // Other materials
+      'plast', 'gummi', 'papper', 'kartong',
+      // NEW: Model/toy materials
+      'resin', 'metall', 'diecast', 'zink', 'zamak', 'vitmetall', 'aluminium',
+      'vinyl', 'pvc', 'abs', 'polyresin', 'pewter'
     ];
     
     materialPatterns.forEach(material => {
