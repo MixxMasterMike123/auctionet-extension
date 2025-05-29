@@ -1441,6 +1441,10 @@ SVARA MED JSON:
             // In weak market, be cautious about higher live estimates
             message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar, men marknaden är svag (${reserveMetPercentage}% utrop nås på aktuella auktioner just nu) - var försiktig`;
             significance = 'high';
+          } else if (!hasReliableMarketData && reserveMetPercentage !== null && reserveMetPercentage < 40 && priceDiff > 15) {
+            // Even with limited data, warn about weak market indicators
+            message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar, men begränsade marknadsdata visar svag aktivitet (${reserveMetPercentage}% utrop nås, ${analyzedLiveItems} auktioner) - var försiktig`;
+            significance = 'high';
           } else if (isStrongMarket && priceDiff > 15) {
             // In strong market, higher estimates are more reliable
             message = `Stark marknad (${reserveMetPercentage}% utrop nås på aktuella auktioner) och pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - gynnsam marknad`;
