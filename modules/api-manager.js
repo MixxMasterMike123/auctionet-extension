@@ -491,6 +491,34 @@ ENDAST FÖRBÄTTRA:
     return '';
   }
 
+  isSpecializedCategory(itemData) {
+    const category = itemData.category?.toLowerCase() || '';
+    const title = itemData.title?.toLowerCase() || '';
+    const description = itemData.description?.toLowerCase() || '';
+    
+    // Check for specialized categories that need conservative enhancement
+    const specializedKeywords = [
+      // Weapons and militaria
+      'vapen', 'svärd', 'kniv', 'bajonett', 'militaria', 'krigshistoria',
+      'dolk', 'yxa', 'spjut', 'gevär', 'pistol', 'uniformsdelar', 'hjälm',
+      'militär', 'svärdsskola', 'svärdsmed',
+      // Historical items
+      'antikviteter', 'arkeologi', 'etnografika', 'historiska', 'kulturhistoria',
+      'antik', 'historisk', 'forntid', 'medeltid', 'vikinga', 'bronsålder',
+      'kulturell', 'arkeologisk',
+      // Jewelry and precious items
+      'smycken', 'guld', 'silver', 'diamant', 'ädelsten',
+      'ring', 'halsband', 'armband', 'brosch', 'örhängen',
+      'karat', 'rubin', 'safir', 'smaragd'
+    ];
+    
+    return specializedKeywords.some(keyword => 
+      category.includes(keyword) || 
+      title.includes(keyword) || 
+      description.includes(keyword)
+    );
+  }
+
   getSystemPrompt() {
     return `Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.
 
@@ -605,6 +633,13 @@ ANTI-HALLUCINATION INSTRUKTIONER:
 • Uppfinn ALDRIG tidsperioder, material, mått eller skador
 • Förbättra ENDAST språk, struktur och terminologi
 • Om information saknas - utelämna eller använd osäkerhetsmarkörer
+
+${this.isSpecializedCategory(itemData) ? `
+🚨 EXTRA VARNING - SPECIALISERAD KATEGORI DETEKTERAD:
+Detta föremål kräver EXTRA FÖRSIKTIGHET för att undvika AI-hallucinationer och felaktiga tillägg.
+SE KATEGORI-SPECIFIKA REGLER NEDAN för strikt vägledning om vad som är FÖRBJUDET att lägga till.
+VIKTIGASTE REGEL: När i tvivel - FÖRBÄTTRA MINDRE och bevara EXAKTHET över utförlig beskrivning.
+` : ''}
 
 KRITISKT - DATUM OCH PERIODSPECULATION FÖRBJUDEN:
 • EXPANDERA ALDRIG partiella årtal: "55" får INTE bli "1955", "1855" eller något annat
