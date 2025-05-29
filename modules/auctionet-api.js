@@ -532,8 +532,21 @@ export class AuctionetAPI {
       
       console.log(`🔨 Historical items with usable data: ${soldItems.length}`);
       
+      // NEW: Validate search results for data quality when no specific artist
+      const isGenericSearch = !description.includes('Artist') || description.includes('freetext') || description.includes('Object +');
+      let validatedItems = soldItems;
+      
+      if (isGenericSearch && soldItems.length > 3) {
+        console.log(`🔍 Validating generic search results for data quality...`);
+        validatedItems = this.validateSearchResults(soldItems, query, description);
+        
+        if (validatedItems.length < soldItems.length) {
+          console.log(`⚠️ Data quality filter: Removed ${soldItems.length - validatedItems.length} inconsistent items from generic search`);
+        }
+      }
+      
       // If we still don't have enough, be even more lenient
-      if (soldItems.length === 0) {
+      if (validatedItems.length === 0) {
         console.log(`⚠️ No strict matches found, trying lenient filtering...`);
         const lenientItems = data.items.filter(item => {
           // Accept any item with title matching and some price indication
@@ -563,8 +576,10 @@ export class AuctionetAPI {
               description: item.description,
               condition: item.condition,
               url: this.convertToSwedishUrl(item.url),
-              isEstimateBasedPrice: !(item.bids && item.bids.length > 0) // Flag for estimate-based pricing
-            }))
+              isEstimateBasedPrice: !(item.bids && item.bids.length > 0), // Flag for estimate-based pricing
+              dataQuality: 'lenient' // Mark as potentially mixed data
+            })),
+            dataQuality: 'lenient'
           };
           
           // Cache the result
@@ -576,7 +591,7 @@ export class AuctionetAPI {
       const result = {
         totalEntries: data.pagination.total_entries,
         returnedItems: data.items.length,
-        soldItems: soldItems.map(item => ({
+        soldItems: validatedItems.map(item => ({
           title: item.title,
           finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : null,
           currency: item.currency,
@@ -592,8 +607,10 @@ export class AuctionetAPI {
           description: item.description,
           condition: item.condition,
           url: this.convertToSwedishUrl(item.url),
-          isEstimateBasedPrice: !(item.bids && item.bids.length > 0) // Flag for estimate-based pricing
-        }))
+          isEstimateBasedPrice: !(item.bids && item.bids.length > 0), // Flag for estimate-based pricing
+          dataQuality: isGenericSearch ? 'validated' : 'artist_specific'
+        })),
+        dataQuality: isGenericSearch ? 'validated' : 'artist_specific'
       };
       
       // Cache the result
@@ -605,6 +622,133 @@ export class AuctionetAPI {
       console.error(`💥 Search failed for "${description}":`, error);
       return null;
     }
+  }
+
+  // NEW: Validate search results to prevent mixed/irrelevant data from skewing analysis
+  validateSearchResults(soldItems, query, description) {
+    console.log(`🔍 Validating ${soldItems.length} search results for data consistency...`);
+    
+    if (soldItems.length <= 3) {
+      console.log('📊 Too few items to validate - accepting all');
+      return soldItems;
+    }
+    
+    // Extract prices for analysis
+    const prices = soldItems.map(item => {
+      if (item.bids && item.bids.length > 0) {
+        return item.bids[0].amount;
+      } else if (item.estimate) {
+        return item.estimate;
+      } else if (item.upper_estimate) {
+        return item.upper_estimate;
+      }
+      return null;
+    }).filter(price => price && price > 0);
+    
+    if (prices.length < 3) {
+      console.log('📊 Not enough prices to validate - accepting all items');
+      return soldItems;
+    }
+    
+    // 1. Check for extreme price variations that indicate mixed markets
+    const sortedPrices = prices.sort((a, b) => a - b);
+    const lowestPrice = sortedPrices[0];
+    const highestPrice = sortedPrices[sortedPrices.length - 1];
+    const priceRatio = highestPrice / lowestPrice;
+    
+    console.log(`💰 Price analysis: ${lowestPrice.toLocaleString()} - ${highestPrice.toLocaleString()} SEK (ratio: ${priceRatio.toFixed(1)}x)`);
+    
+    // If price ratio is extremely high (>50x), we likely have mixed markets
+    if (priceRatio > 50) {
+      console.log(`⚠️ Extreme price variation detected (${priceRatio.toFixed(1)}x) - filtering outliers`);
+      
+      // Calculate quartiles for outlier detection
+      const q1Index = Math.floor(prices.length * 0.25);
+      const q3Index = Math.floor(prices.length * 0.75);
+      const q1 = sortedPrices[q1Index];
+      const q3 = sortedPrices[q3Index];
+      const iqr = q3 - q1;
+      
+      // Use more conservative outlier bounds for generic searches
+      const lowerBound = q1 - (1.5 * iqr);
+      const upperBound = q3 + (1.5 * iqr);
+      
+      console.log(`📊 IQR filtering: Q1=${q1.toLocaleString()}, Q3=${q3.toLocaleString()}, bounds=[${lowerBound.toLocaleString()}, ${upperBound.toLocaleString()}]`);
+      
+      // Filter out extreme outliers
+      const filteredItems = soldItems.filter(item => {
+        const itemPrice = item.bids && item.bids.length > 0 ? item.bids[0].amount : 
+                         item.estimate ? item.estimate : item.upper_estimate;
+        
+        if (!itemPrice) return true; // Keep items without prices
+        
+        const isWithinBounds = itemPrice >= lowerBound && itemPrice <= upperBound;
+        if (!isWithinBounds) {
+          console.log(`🚫 Filtering outlier: ${item.title.substring(0, 50)}... (${itemPrice.toLocaleString()} SEK)`);
+        }
+        return isWithinBounds;
+      });
+      
+      console.log(`✅ Price filtering: Kept ${filteredItems.length} of ${soldItems.length} items`);
+      return filteredItems;
+    }
+    
+    // 2. Check for title/content consistency to avoid mixing different object types
+    const keyTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
+    
+    if (keyTerms.length > 0) {
+      console.log(`🔍 Checking title consistency for terms: ${keyTerms.join(', ')}`);
+      
+      const consistentItems = soldItems.filter(item => {
+        const titleLower = item.title.toLowerCase();
+        const descLower = (item.description || '').toLowerCase();
+        const fullText = `${titleLower} ${descLower}`;
+        
+        // Item must contain at least one key search term
+        const hasKeyTerm = keyTerms.some(term => fullText.includes(term));
+        
+        if (!hasKeyTerm) {
+          console.log(`🚫 Title mismatch: ${item.title.substring(0, 50)}... (missing: ${keyTerms.join(', ')})`);
+        }
+        
+        return hasKeyTerm;
+      });
+      
+      console.log(`✅ Title filtering: Kept ${consistentItems.length} of ${soldItems.length} items`);
+      
+      if (consistentItems.length >= 3) {
+        return consistentItems;
+      }
+    }
+    
+    // 3. If we still have many items, check for time period clustering
+    // Items from very different time periods might indicate mixed markets
+    const itemDates = soldItems.map(item => item.endDate || item.bidDate).filter(date => date);
+    
+    if (itemDates.length > 5) {
+      const dateSpanYears = (Math.max(...itemDates) - Math.min(...itemDates)) / (1000 * 60 * 60 * 24 * 365);
+      
+      if (dateSpanYears > 10) {
+        console.log(`📅 Large time span detected (${dateSpanYears.toFixed(1)} years) - keeping recent items`);
+        
+        // Keep items from the last 5 years for more relevant data
+        const fiveYearsAgo = new Date();
+        fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+        
+        const recentItems = soldItems.filter(item => {
+          const itemDate = item.endDate || item.bidDate;
+          return itemDate >= fiveYearsAgo;
+        });
+        
+        if (recentItems.length >= 3) {
+          console.log(`✅ Time filtering: Kept ${recentItems.length} recent items`);
+          return recentItems;
+        }
+      }
+    }
+    
+    console.log('✅ Validation complete - data appears consistent');
+    return soldItems;
   }
 
   // Analyze market data from sold items
@@ -851,25 +995,73 @@ export class AuctionetAPI {
     
     const changePercent = ((newerAvg - olderAvg) / olderAvg) * 100;
     
+    // NEW: Detect potentially unrealistic trends that indicate mixed data
+    const isExtremeTrend = Math.abs(changePercent) > 500; // More than 500% change is suspicious
+    const isHighlyExtremeTrend = Math.abs(changePercent) > 1000; // More than 1000% is almost certainly mixed data
+    
+    if (isHighlyExtremeTrend) {
+      console.log(`⚠️ EXTREME trend detected (${changePercent.toFixed(1)}%) - likely mixed market data, using conservative estimate`);
+      
+      // For highly extreme trends, just indicate general direction without specific percentage
+      if (changePercent > 0) {
+        return { 
+          trend: 'rising_strong', 
+          description: 'Stark uppgång i slutpriser (blandad marknadsdata)', 
+          changePercent: Math.min(changePercent, 200), // Cap at 200%
+          dataQuality: 'mixed_suspicious'
+        };
+      } else {
+        return { 
+          trend: 'falling_strong', 
+          description: 'Stark nedgång i slutpriser (blandad marknadsdata)', 
+          changePercent: Math.max(changePercent, -80), // Cap at -80%
+          dataQuality: 'mixed_suspicious'
+        };
+      }
+    }
+    
+    if (isExtremeTrend) {
+      console.log(`⚠️ Extreme trend detected (${changePercent.toFixed(1)}%) - applying conservative interpretation`);
+    }
+    
+    // Apply conservative caps for extreme trends
+    let cappedChangePercent = changePercent;
+    if (isExtremeTrend) {
+      cappedChangePercent = changePercent > 0 ? Math.min(changePercent, 300) : Math.max(changePercent, -75);
+    }
+    
     let trend, description;
-    if (changePercent > 15) {
+    if (cappedChangePercent > 15) {
       trend = 'rising_strong';
-      description = `Stark uppgång: +${Math.round(changePercent)}% senaste försäljningar vs tidigare`;
-    } else if (changePercent > 5) {
+      const percentText = isExtremeTrend ? `>${Math.round(cappedChangePercent)}%` : `+${Math.round(cappedChangePercent)}%`;
+      description = `Stark uppgång: ${percentText} senaste försäljningar vs tidigare`;
+    } else if (cappedChangePercent > 5) {
       trend = 'rising';
-      description = `Stigande: +${Math.round(changePercent)}% senaste försäljningar vs tidigare`;
-    } else if (changePercent < -15) {
+      description = `Stigande: +${Math.round(cappedChangePercent)}% senaste försäljningar vs tidigare`;
+    } else if (cappedChangePercent < -15) {
       trend = 'falling_strong';
-      description = `Stark nedgång: ${Math.round(changePercent)}% senaste försäljningar vs tidigare`;
-    } else if (changePercent < -5) {
+      description = `Stark nedgång: ${Math.round(cappedChangePercent)}% senaste försäljningar vs tidigare`;
+    } else if (cappedChangePercent < -5) {
       trend = 'falling';
-      description = `Fallande: ${Math.round(changePercent)}% senaste försäljningar vs tidigare`;
+      description = `Fallande: ${Math.round(cappedChangePercent)}% senaste försäljningar vs tidigare`;
     } else {
       trend = 'stable';
       description = 'Stabil prisutveckling i slutpriser';
     }
     
-    return { trend, description, changePercent: Math.round(changePercent) };
+    const result = { 
+      trend, 
+      description, 
+      changePercent: Math.round(cappedChangePercent) 
+    };
+    
+    // Add data quality warning for extreme trends
+    if (isExtremeTrend) {
+      result.dataQuality = isHighlyExtremeTrend ? 'mixed_suspicious' : 'extreme_trend';
+      result.warning = 'Extrema trender kan indikera blandade marknadsdata';
+    }
+    
+    return result;
   }
 
   // Generate market context description

@@ -2215,14 +2215,30 @@ export class QualityAnalyzer {
         helpText = `oförändrat${timeframeText}`;
       }
       
+      // NEW: Add data quality warnings for questionable trends
+      let dataQualityWarning = '';
+      let qualityIcon = '';
+      
+      if (trend.dataQuality === 'mixed_suspicious') {
+        dataQualityWarning = ' (blandad data)';
+        qualityIcon = ' ⚠️';
+        helpText = `${helpText} - extrema trender kan indikera blandade marknadsdata`;
+        trendColor = '#f39c12'; // Warning orange
+      } else if (trend.dataQuality === 'extreme_trend') {
+        dataQualityWarning = ' (extremtrend)';
+        qualityIcon = ' ⚠️';
+        helpText = `${helpText} - kontrollera datakvalitet`;
+        trendColor = '#e67e22'; // Warning orange-red
+      }
+      
       dashboardContent += `
         <div class="market-item market-historical-trend">
-          <div class="market-label" title="Prisutveckling baserat på jämförelse mellan äldre och nyare försäljningar från historisk auktionsdata">Pristrend ${trendIcon}</div>
-          <div class="market-value" style="color: ${trendColor}; font-weight: 600;">${trendText}</div>
+          <div class="market-label" title="Prisutveckling baserat på jämförelse mellan äldre och nyare försäljningar från historisk auktionsdata">Pristrend ${trendIcon}${qualityIcon}</div>
+          <div class="market-value" style="color: ${trendColor}; font-weight: 600;">${trendText}${dataQualityWarning}</div>
           <div class="market-help">${helpText}</div>
         </div>
       `;
-      console.log('✅ Added prominent historical trend display with timeframe');
+      console.log('✅ Added prominent historical trend display with timeframe and data quality warnings');
     }
     
     // Data summary
