@@ -3,6 +3,7 @@ export class QualityAnalyzer {
   constructor() {
     this.dataExtractor = null;
     this.apiManager = null;
+    this.previousFreetextData = null;
   }
 
   setDataExtractor(extractor) {
@@ -74,7 +75,11 @@ export class QualityAnalyzer {
         const objectType = this.extractObjectType(title);
         console.log('📝 Extracted object type:', objectType);
         
-        const aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistField);
+        // Get description from current form data for AI analysis
+        const descriptionField = document.querySelector('#item_description_sv');
+        const description = descriptionField ? descriptionField.value : '';
+        
+        const aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistField, description);
         console.log('🤖 AI artist analysis raw result:', aiResult);
         
         if (aiResult && aiResult.hasArtist && aiResult.confidence > 0.8) {
@@ -646,17 +651,52 @@ export class QualityAnalyzer {
         this.pendingAnalyses.delete('artist');
         this.handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore);
         
-        // SMART MARKET ANALYSIS: Use the best available artist
-        const bestArtist = this.determineBestArtistForMarketAnalysis(data, aiArtist);
-        
-        if (bestArtist) {
-          console.log('💰 Starting sales analysis with best artist:', bestArtist);
+        // PRIORITY FIX: If AI found an artist, use it for market analysis (cancel any existing freetext analysis)
+        if (aiArtist && aiArtist.detectedArtist) {
+          console.log('🎯 AI detected artist - prioritizing over any previous analysis:', aiArtist.detectedArtist);
+          console.log('🛑 IMMEDIATELY clearing any existing market dashboards for artist replacement');
+          
+          // CRITICAL: Clear any existing market data dashboard immediately
+          const existingDashboard = document.querySelector('.market-data-dashboard');
+          if (existingDashboard) {
+            console.log('🗑️ Removing existing freetext dashboard to replace with artist analysis');
+            existingDashboard.remove();
+          }
+          
+          // Cancel and clear any pending dashboard updates from freetext analysis
+          if (this.pendingDashboardUpdate) {
+            console.log('⏹️ Cancelling pending freetext dashboard update');
+            clearTimeout(this.pendingDashboardUpdate);
+            this.pendingDashboardUpdate = null;
+          }
+          
+          // Clear any cached freetext data that might interfere
+          this.previousFreetextData = null;
+          
+          // Create artist info object for market analysis
+          const aiArtistInfo = {
+            artist: aiArtist.detectedArtist,
+            source: aiArtist.source || 'ai_detected',
+            confidence: aiArtist.confidence || 0.8
+          };
+          
+          console.log('💰 Starting PRIORITY sales analysis with AI-detected artist:', aiArtistInfo);
           this.pendingAnalyses.add('sales');
-          this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
-          this.startSalesAnalysis(bestArtist, data, currentWarnings, currentScore);
+          this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
+          this.startSalesAnalysis(aiArtistInfo, data, currentWarnings, currentScore);
         } else {
-          console.log('ℹ️ No artist found for sales analysis');
-          this.checkAndHideLoadingIndicator();
+          // No AI artist found, fall back to best available option
+          const bestArtist = this.determineBestArtistForMarketAnalysis(data, aiArtist);
+          
+          if (bestArtist) {
+            console.log('💰 Starting sales analysis with best available artist/search:', bestArtist);
+            this.pendingAnalyses.add('sales');
+            this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
+            this.startSalesAnalysis(bestArtist, data, currentWarnings, currentScore);
+          } else {
+            console.log('ℹ️ No artist found for sales analysis');
+            this.checkAndHideLoadingIndicator();
+          }
         }
       }).catch(error => {
         console.error('Error in AI artist detection:', error);
@@ -673,9 +713,9 @@ export class QualityAnalyzer {
         }
       });
 
-      // IMMEDIATE MARKET ANALYSIS: If we have an immediate artist, start analysis right away
-      if (immediateArtist) {
-        console.log('💰 Starting immediate sales analysis with:', immediateArtist);
+      // CONDITIONAL IMMEDIATE ANALYSIS: Only start immediate analysis if we have a high-confidence artist or brand
+      if (immediateArtist && (immediateArtist.source === 'artist_field' || immediateArtist.confidence > 0.8 || immediateArtist.isBrand)) {
+        console.log('💰 Starting immediate sales analysis with high-confidence artist/brand:', immediateArtist);
         this.pendingAnalyses.add('sales');
         
         // Set appropriate loading message based on analysis type
@@ -691,7 +731,7 @@ export class QualityAnalyzer {
         this.updateAILoadingMessage(loadingMessage);
         this.startSalesAnalysis(immediateArtist, data, currentWarnings, currentScore);
       } else {
-        this.checkAndHideLoadingIndicator();
+        console.log('⏳ Waiting for AI artist detection before starting market analysis (no high-confidence immediate artist found)');
       }
 
     } catch (error) {
@@ -704,49 +744,44 @@ export class QualityAnalyzer {
   async handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore) {
     console.log('🎯 Handling artist detection result:', aiArtist);
     
-    if (aiArtist && aiArtist.source === 'ai') {
-      // Remove any existing rule-based artist warnings
-      const filteredWarnings = currentWarnings.filter(w => 
-        !(w.field === 'Titel' && w.issue.includes('Möjlig konstnär upptäckt'))
-      );
-      
-      let severity = 'medium';
-      let scoreAdjustment = 0;
-      
-      // AI-detected artist with verification info
-      let message = `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>"`;
-      if (aiArtist.verification?.isRealArtist) {
-        message += ` ✓ Verifierad konstnär`;
-        if (aiArtist.verification.biography) {
-          message += ` (${aiArtist.verification.biography.substring(0, 100)}...)`;
-        }
-        severity = 'medium';
-        scoreAdjustment = 20;
-      } else if (aiArtist.verification?.isRealArtist === false) {
-        message += ` ⚠️ Kunde inte verifieras som konstnär`;
-        severity = 'medium';
-        scoreAdjustment = 10;
-      } else {
-        severity = 'medium';
-        scoreAdjustment = 10;
-      }
-      message += ` - kontrollera om den ska flyttas till konstnärsfält`;
-      
-      filteredWarnings.push({ 
-        field: 'Titel', 
-        issue: message, 
-        severity: severity,
-        detectedArtist: aiArtist.detectedArtist // Add for click-to-copy
-      });
-      
-      const newScore = currentScore - scoreAdjustment;
-      
-      // Update UI immediately with artist detection results
-      this.updateQualityIndicator(newScore, filteredWarnings);
-      console.log('✅ Artist detection results displayed');
-    } else {
-      console.log('ℹ️ No AI artist detected (artist field may already be filled or no artist found)');
+    // Check if aiArtist is null or undefined
+    if (!aiArtist || !aiArtist.detectedArtist) {
+      console.log('⚠️ No valid artist detection result, skipping artist warning');
+      return {
+        detectedArtist: null,
+        warnings: currentWarnings,
+        score: currentScore
+      };
     }
+    
+    // Create properly formatted warning for the existing display system
+    const artistMessage = aiArtist.verification ? 
+      `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) ✓ Verifierad konstnär (${aiArtist.verification.biography.substring(0, 80)}...) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
+      `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
+
+    // Insert artist warning at the beginning since it's important info
+    currentWarnings.unshift({
+      field: 'Titel',
+      issue: artistMessage,
+      severity: 'medium',
+      detectedArtist: aiArtist.detectedArtist, // For click-to-copy functionality
+      suggestedTitle: aiArtist.suggestedTitle,
+      suggestedDescription: aiArtist.suggestedDescription,
+      foundIn: aiArtist.foundIn
+    });
+
+    // Update quality display immediately and ensure it's visible
+    this.updateQualityIndicator(currentScore, currentWarnings);
+    console.log('✅ Artist detection results displayed');
+    
+    // Add small delay to ensure the warning is visible before market analysis continues
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return {
+      detectedArtist: aiArtist.detectedArtist,
+      warnings: currentWarnings,
+      score: currentScore
+    };
   }
 
   async startSalesAnalysis(artistInfo, data, currentWarnings, currentScore) {
@@ -788,12 +823,24 @@ export class QualityAnalyzer {
       console.log('🔍 Search context for market analysis:', searchContext);
       
       // Call the API for sales analysis
-      const salesData = await this.apiManager.analyzeSales(searchContext);
+      let salesData = await this.apiManager.analyzeSales(searchContext);
       
       // Add analysis metadata to sales data
       salesData.analysisType = analysisType;
       salesData.searchedEntity = artistName;
       salesData.searchContext = searchContext;
+      
+      // NEW: If this is an AI artist analysis and we previously had freetext data, merge them
+      if (analysisType === 'artist' && this.previousFreetextData) {
+        console.log('🔄 Merging AI artist data with previous freetext data for comprehensive dashboard');
+        salesData = this.mergeSalesData(salesData, this.previousFreetextData);
+      }
+      
+      // Store freetext data for potential merging later
+      if (analysisType === 'freetext') {
+        console.log('💾 Storing freetext data for potential merge with AI data');
+        this.previousFreetextData = salesData;
+      }
       
       console.log('📊 Sales analysis completed:', salesData);
       
@@ -808,6 +855,66 @@ export class QualityAnalyzer {
       this.pendingAnalyses.delete('sales');
       this.showSalesAnalysisError(error, currentWarnings, currentScore);
     }
+  }
+  
+  // NEW: Merge AI artist data with broader freetext market data
+  mergeSalesData(artistData, freetextData) {
+    console.log('🔄 Merging datasets - Artist vs Freetext');
+    
+    // Use artist data as primary (higher confidence, more specific)
+    const mergedData = { ...artistData };
+    
+    // Keep artist analysis type but note the enrichment
+    mergedData.analysisType = 'artist_enriched';
+    mergedData.enrichedWith = 'freetext';
+    
+    // Merge exceptional sales from freetext if artist data doesn't have them
+    if (!mergedData.historical?.exceptionalSales && freetextData.historical?.exceptionalSales) {
+      console.log('📈 Adding exceptional sales from broader market context');
+      if (!mergedData.historical) mergedData.historical = {};
+      mergedData.historical.exceptionalSales = freetextData.historical.exceptionalSales;
+      
+      // Update the exceptional sales description to clarify source
+      if (mergedData.historical.exceptionalSales.description) {
+        mergedData.historical.exceptionalSales.description = 
+          mergedData.historical.exceptionalSales.description.replace('exceptionella', 'exceptionella (bredare marknad)');
+      }
+    }
+    
+    // Add broader market context info
+    if (freetextData.historical?.totalMatches > artistData.historical?.totalMatches) {
+      console.log('📊 Adding broader market context numbers');
+      mergedData.broaderMarket = {
+        totalMatches: freetextData.historical.totalMatches,
+        searchQuery: freetextData.historical.actualSearchQuery,
+        confidence: freetextData.confidence
+      };
+    }
+    
+    // Enhance insights by combining both datasets
+    if (freetextData.insights && freetextData.insights.length > 0) {
+      console.log('💡 Enhancing insights with broader market data');
+      if (!mergedData.insights) mergedData.insights = [];
+      
+      // Add unique insights from freetext that aren't in artist data
+      freetextData.insights.forEach(insight => {
+        const isDuplicate = mergedData.insights.some(existing => 
+          existing.message === insight.message || existing.type === insight.type
+        );
+        
+        if (!isDuplicate) {
+          // Mark as broader market insight
+          const enhancedInsight = { ...insight };
+          if (enhancedInsight.message && !enhancedInsight.message.includes('(bredare marknad)')) {
+            enhancedInsight.message += ' (bredare marknad)';
+          }
+          mergedData.insights.push(enhancedInsight);
+        }
+      });
+    }
+    
+    console.log('✅ Data merge complete - enriched artist analysis');
+    return mergedData;
   }
 
   handleSalesAnalysisResult(salesData, currentWarnings, currentScore) {
@@ -1330,28 +1437,18 @@ export class QualityAnalyzer {
     
     // Use the new formatWarningMessage method for better formatting
     if (warning.field && warning.issue) {
-      // For valuation suggestions with suggestedRange, use special formatting
+      // For valuation suggestions with suggestedRange, use condensed formatting
       if (warning.suggestedRange) {
         warningDiv.innerHTML = `
-          <div style="display: flex; align-items: flex-start; gap: 8px;">
-            <div style="flex: 1;">
-              <strong style="font-size: 11px; opacity: 0.8;">${warning.field}:</strong>
-              <div style="margin-top: 2px;">${warning.issue}</div>
-              <div style="margin-top: 4px; font-size: 10px; opacity: 0.8;">
-                ${warning.suggestedRange}
-              </div>
-            </div>
+          <strong>${warning.field}:</strong> ${warning.issue}
+          <div style="margin-top: 4px; font-size: 10px; opacity: 0.8;">
+            ${warning.suggestedRange}
           </div>
         `;
       } else if (warning.severity.startsWith('market-')) {
-        // Make market data fields more subtle
+        // Make market data fields condensed too
         const contentDiv = document.createElement('div');
-        contentDiv.innerHTML = `
-          <div style="display: flex; align-items: flex-start; gap: 6px;">
-            <span style="min-width: 50px; font-size: 9px; opacity: 0.6; font-weight: 500;">${warning.field}:</span>
-            <span style="flex: 1; font-size: 10px;">${warning.issue}</span>
-          </div>
-        `;
+        contentDiv.innerHTML = `<strong>${warning.field}:</strong> ${warning.issue}`;
         warningDiv.appendChild(contentDiv);
       } else {
         // Regular quality warnings
@@ -1384,12 +1481,8 @@ export class QualityAnalyzer {
           );
         }
         
-        contentDiv.innerHTML = `
-          <div style="display: flex; align-items: flex-start; gap: 8px;">
-            <strong style="min-width: 80px; font-size: 11px; opacity: 0.8;">${warning.field}:</strong>
-            <span style="flex: 1;">${issueContent}</span>
-          </div>
-        `;
+        // Use condensed format like in the image instead of 2-column layout
+        contentDiv.innerHTML = `<strong>${warning.field}:</strong> ${issueContent}`;
         warningDiv.appendChild(contentDiv);
         
         // NEW: Add click handler for artist copying if this warning has a detected artist
@@ -1915,15 +2008,99 @@ export class QualityAnalyzer {
     // DEBUG: Log the full salesData to understand what we're working with
     console.log('🔍 DEBUG: Full salesData for dashboard:', JSON.stringify(salesData, null, 2));
     
+    // Add debouncing to prevent conflicts from parallel analyses
+    const dashboardId = `dashboard-${salesData.analysisType}-${Date.now()}`;
+    
+    // Clear any pending dashboard updates
+    if (this.pendingDashboardUpdate) {
+      clearTimeout(this.pendingDashboardUpdate);
+    }
+    
+    // PRIORITY SYSTEM: Artist analyses always take priority over freetext
+    const isArtistAnalysis = salesData.analysisType === 'artist' || salesData.analysisType === 'artist_enriched';
+    const isBrandAnalysis = salesData.analysisType === 'brand';
+    const isFreetextAnalysis = salesData.analysisType === 'freetext';
+    
+    // Check if there's an existing dashboard and what type it is
+    const existingDashboard = document.querySelector('.market-data-dashboard');
+    if (existingDashboard) {
+      const existingId = existingDashboard.getAttribute('data-dashboard-id');
+      const existingType = existingId ? existingId.split('-')[1] : 'unknown';
+      
+      console.log(`🔄 Existing dashboard type: ${existingType}, new type: ${salesData.analysisType}`);
+      
+      // Artist/Brand analyses should ALWAYS replace freetext analyses
+      if ((isArtistAnalysis || isBrandAnalysis) && existingType === 'freetext') {
+        console.log('🎯 PRIORITY REPLACEMENT: Artist/Brand analysis replacing freetext dashboard');
+        existingDashboard.remove();
+        // Create immediately without delay
+        this.createDashboard(salesData, valuationSuggestions, dashboardId);
+        return;
+      }
+      
+      // Don't let freetext replace artist/brand analyses
+      if (isFreetextAnalysis && (existingType === 'artist' || existingType === 'brand')) {
+        console.log('🚫 BLOCKING: Freetext analysis attempting to replace artist/brand dashboard - ignoring');
+        return; // Don't create freetext dashboard if artist/brand already exists
+      }
+    }
+    
+    // For enriched artist analyses, remove old dashboard immediately but keep artist detection visible
+    if (salesData.analysisType === 'artist_enriched' || salesData.enrichedWith) {
+      if (existingDashboard) {
+        console.log('🔄 Smoothly replacing dashboard for enriched analysis');
+        existingDashboard.style.opacity = '0.5'; // Fade out old dashboard
+        existingDashboard.style.transition = 'opacity 0.3s ease';
+        
+        // Remove after fade animation
+        setTimeout(() => {
+          if (existingDashboard.parentNode) {
+            existingDashboard.parentNode.removeChild(existingDashboard);
+          }
+        }, 300);
+      }
+      
+      // Create new dashboard immediately without delay
+      this.createDashboard(salesData, valuationSuggestions, dashboardId);
+    } else if (isArtistAnalysis || isBrandAnalysis) {
+      // Artist and brand analyses get immediate priority
+      console.log('🎯 Creating priority artist/brand dashboard immediately');
+      this.createDashboard(salesData, valuationSuggestions, dashboardId);
+    } else {
+      // For freetext analyses, use small delay to allow artist detection to complete
+      console.log('⏳ Delaying freetext dashboard creation to allow artist detection');
+      this.pendingDashboardUpdate = setTimeout(() => {
+        // Double-check that no artist analysis has started in the meantime
+        const currentDashboard = document.querySelector('.market-data-dashboard');
+        if (currentDashboard) {
+          const currentId = currentDashboard.getAttribute('data-dashboard-id');
+          const currentType = currentId ? currentId.split('-')[1] : 'unknown';
+          
+          if (currentType === 'artist' || currentType === 'brand') {
+            console.log('🚫 Artist/Brand dashboard now exists - cancelling freetext dashboard');
+            return;
+          }
+        }
+        
+        this.createDashboard(salesData, valuationSuggestions, dashboardId);
+      }, 1000); // Increased delay to give AI detection more time
+    }
+  }
+  
+  createDashboard(salesData, valuationSuggestions, dashboardId) {
     // Remove any existing market data dashboard
     const existingDashboard = document.querySelector('.market-data-dashboard');
     if (existingDashboard) {
+      console.log('🗑️ Removing existing dashboard');
       existingDashboard.remove();
     }
 
     // Create the dashboard container
     const dashboard = document.createElement('div');
     dashboard.className = 'market-data-dashboard';
+    dashboard.setAttribute('data-dashboard-id', dashboardId);
+    
+    console.log(`🎯 Creating new dashboard with ID: ${dashboardId}`);
     
     let dashboardContent = '';
     
@@ -2799,16 +2976,45 @@ export class QualityAnalyzer {
       };
     }
     
-    // NEW: Generic freetext search for items without clear artists or brands
-    const freetextSearch = this.generateFreetextSearch(data.title, data.description);
+    // NEW: Enhanced freetext search that considers any available artist information
+    // Collect any artist info we might have found during detection process
+    let availableArtistInfo = null;
+    
+    // Check if we have any artist information to enhance the freetext search
+    if (data.artist && data.artist.trim().length > 0) {
+      availableArtistInfo = {
+        artist: data.artist.trim(),
+        source: 'artist_field',
+        confidence: 0.9
+      };
+      console.log('🎯 Found artist field for enhanced freetext search:', availableArtistInfo.artist);
+    } else if (detectedArtist && detectedArtist.detectedArtist) {
+      availableArtistInfo = {
+        artist: detectedArtist.detectedArtist,
+        source: detectedArtist.source || 'detected',
+        confidence: detectedArtist.confidence || 0.7
+      };
+      console.log('🎯 Found detected artist for enhanced freetext search:', availableArtistInfo.artist);
+    } else if (ruleBasedArtist && ruleBasedArtist.detectedArtist) {
+      availableArtistInfo = {
+        artist: ruleBasedArtist.detectedArtist,
+        source: 'rule_based',
+        confidence: ruleBasedArtist.confidence || 0.6
+      };
+      console.log('🎯 Found rule-based artist for enhanced freetext search:', availableArtistInfo.artist);
+    }
+    
+    // Generate freetext search with artist enhancement if available
+    const freetextSearch = this.generateFreetextSearch(data.title, data.description, availableArtistInfo);
     if (freetextSearch) {
-      console.log('✅ Using freetext search for market analysis:', freetextSearch.searchTerms);
+      console.log('✅ Using enhanced freetext search for market analysis:', freetextSearch.searchTerms);
       return {
         artist: freetextSearch.searchTerms, // Use search terms as "artist" for market analysis
         source: 'freetext_search',
         confidence: freetextSearch.confidence,
         isFreetext: true, // Flag to indicate this is freetext search
-        searchStrategy: freetextSearch.strategy
+        searchStrategy: freetextSearch.strategy,
+        hasArtist: freetextSearch.hasArtist // Indicates if artist was included
       };
     }
     
@@ -2817,8 +3023,9 @@ export class QualityAnalyzer {
   }
 
   // NEW: Generate intelligent freetext search terms for market analysis
-  generateFreetextSearch(title, description) {
+  generateFreetextSearch(title, description, artistInfo = null) {
     console.log('🔍 Generating freetext search for:', title);
+    console.log('🎯 Artist info available:', artistInfo);
     
     // Extract object type (first word in caps)
     const objectType = this.extractObjectType(title);
@@ -2833,15 +3040,23 @@ export class QualityAnalyzer {
     let confidence = 0.4; // Base confidence for freetext search
     let strategy = 'basic';
     
-    // Always include the object type
+    // PRIORITY: If we have artist information, include it first
+    if (artistInfo && artistInfo.artist) {
+      console.log('🎯 Adding artist to freetext search:', artistInfo.artist);
+      searchTerms.push(artistInfo.artist);
+      confidence += 0.3; // Significantly higher confidence when artist is known
+      strategy = 'artist_enhanced_freetext';
+    }
+    
+    // Always include the object type (but after artist if available)
     searchTerms.push(objectType.toLowerCase());
     
-    // NEW: Extract title-specific descriptive terms first (highest priority)
+    // Extract title-specific descriptive terms (highest priority after artist)
     const titleDescriptors = this.extractTitleDescriptors(title);
     if (titleDescriptors.length > 0) {
       searchTerms.push(...titleDescriptors);
       confidence += 0.2;
-      strategy = 'descriptor_based';
+      strategy = artistInfo ? 'artist_enhanced_freetext' : 'descriptor_based';
     }
     
     // Extract styles
@@ -2849,15 +3064,19 @@ export class QualityAnalyzer {
     if (styles.length > 0) {
       searchTerms.push(...styles);
       confidence += 0.1;
-      strategy = strategy === 'descriptor_based' ? strategy : 'style_based';
+      if (!strategy.includes('artist')) {
+        strategy = strategy === 'descriptor_based' ? strategy : 'style_based';
+      }
     }
     
-    // NEW: Extract colors (important for market matching)
+    // Extract colors (important for market matching)
     const colors = this.extractColors(text);
     if (colors.length > 0) {
       searchTerms.push(...colors);
       confidence += 0.15; // Colors are quite valuable for market analysis
-      strategy = strategy.includes('based') ? strategy : 'color_based';
+      if (!strategy.includes('artist') && !strategy.includes('based')) {
+        strategy = 'color_based';
+      }
     }
     
     // Extract periods/dates
@@ -2865,55 +3084,67 @@ export class QualityAnalyzer {
     if (periods.length > 0) {
       searchTerms.push(...periods);
       confidence += 0.1;
-      strategy = strategy.includes('based') ? strategy : 'period_based';
+      if (!strategy.includes('artist') && !strategy.includes('based')) {
+        strategy = 'period_based';
+      }
     }
     
-    // Extract materials (lower priority now)
+    // Extract materials (lower priority now, and limit to avoid over-long searches)
     const materials = this.extractMaterials(text);
-    if (materials.length > 0 && searchTerms.length < 3) { // Only add if we need more terms
+    if (materials.length > 0 && searchTerms.length < 4) { // Reduced limit when artist is present
       searchTerms.push(...materials);
       confidence += 0.1;
-      strategy = strategy.includes('based') ? strategy : 'material_based';
+      if (!strategy.includes('artist') && !strategy.includes('based')) {
+        strategy = 'material_based';
+      }
     }
     
-    // Extract techniques
+    // Extract techniques (even lower priority when artist is available)
     const techniques = this.extractTechniques(text);
-    if (techniques.length > 0 && searchTerms.length < 4) {
+    if (techniques.length > 0 && searchTerms.length < 5) {
       searchTerms.push(...techniques);
       confidence += 0.1;
-      strategy = strategy.includes('based') ? strategy : 'technique_based';
+      if (!strategy.includes('artist') && !strategy.includes('based')) {
+        strategy = 'technique_based';
+      }
     }
     
-    // Extract manufacturers/makers (not luxury brands)
+    // Extract manufacturers/makers (lowest priority)
     const makers = this.extractMakers(text);
-    if (makers.length > 0 && searchTerms.length < 4) {
+    if (makers.length > 0 && searchTerms.length < 5) {
       searchTerms.push(...makers);
       confidence += 0.2;
-      strategy = 'maker_based';
+      if (!strategy.includes('artist')) {
+        strategy = 'maker_based';
+      }
     }
     
-    // Must have at least 2 search terms to be viable
-    if (searchTerms.length < 2) {
+    // Adjust minimum requirements based on whether we have an artist
+    const minTerms = artistInfo ? 2 : 2; // Artist + 1 descriptor is sufficient
+    if (searchTerms.length < minTerms) {
       console.log('❌ Not enough search terms for viable freetext search:', searchTerms);
       return null;
     }
     
-    // Limit to most relevant terms (max 4-5 terms for focused search)
-    const finalTerms = searchTerms.slice(0, 5);
+    // Limit to most relevant terms (artist searches can be more focused)
+    const maxTerms = artistInfo ? 4 : 5; // Shorter searches when artist is known
+    const finalTerms = searchTerms.slice(0, maxTerms);
     const searchString = finalTerms.join(' ');
     
     console.log('✅ Generated freetext search:', {
       terms: finalTerms,
       searchString: searchString,
       confidence: confidence,
-      strategy: strategy
+      strategy: strategy,
+      hasArtist: !!artistInfo
     });
     
     return {
       searchTerms: searchString,
-      confidence: Math.min(confidence, 0.8), // Cap at 0.8 for freetext
+      confidence: Math.min(confidence, 0.9), // Higher cap when artist is known
       strategy: strategy,
-      termCount: finalTerms.length
+      termCount: finalTerms.length,
+      hasArtist: !!artistInfo
     };
   }
 

@@ -555,17 +555,24 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 • BEHÅLL: "höjd 15,5 cm", "4 snapsglas", "2 vinglas", "består av", "bestående av" - detta är beskrivande information
 • TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
 
-EXPERTKUNSKAP FÖR BESKRIVNING:
+VIKTIGT - PARAGRAFSTRUKTUR:
 ${itemData.artist && this.enableArtistInfo ? 
-  '• När konstnär/formgivare är känd och konstnärsinformation är aktiverad: Lägg till KORT, SPECIFIK kontext om denna modell/serie om du känner till den\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' : 
-  '• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
+  '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' : 
+  '• Returnera befintlig förbättrad beskrivning\n• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
 • Lägg INTE till mått som inte är angivna
 • Lägg INTE till material som inte är nämnt (såvida det inte är känt från konstnärens typiska tekniker)
 • Lägg INTE till märkningar eller signaturer som inte finns
 • Förbättra språk, struktur och befintlig information
 • Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
 
-Returnera ENDAST den förbättrade beskrivningen utan extra formatering eller etiketter.`;
+KRITISKT - RETURFORMAT:
+• Returnera ENDAST beskrivningstexten med radbrytningar för separata paragrafer
+• Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer
+• INGEN HTML-formatering, inga extra etiketter
+• Exempel utan konstnärsinfo: "Förbättrad beskrivning här..."
+• Exempel med konstnärsinfo: "Förbättrad beskrivning här...\\n\\nKonstnärskontext här..."
+
+Returnera ENDAST den förbättrade beskrivningen med radbrytningar för paragrafindelning.`;
 
       case 'condition':
         return baseInfo + `
@@ -732,8 +739,8 @@ Returnera ENDAST sökorden separerade med mellanslag enligt Auctionets format, u
   }
 
   // AI-powered artist detection methods
-  async analyzeForArtist(title, objectType, artistField) {
-    console.log('🎯 analyzeForArtist called with:', { title, objectType, artistField });
+  async analyzeForArtist(title, objectType, artistField, description = '') {
+    console.log('🎯 analyzeForArtist called with:', { title, objectType, artistField, description: description?.substring(0, 100) + '...' });
     
     if (!this.apiKey) {
       console.log('❌ No API key available, skipping AI artist analysis');
@@ -754,27 +761,38 @@ Returnera ENDAST sökorden separerade med mellanslag enligt Auctionets format, u
     console.log('🚀 Starting AI artist analysis...');
     
     try {
-      const prompt = `Analysera denna svenska auktionstitel för konstnärsnamn:
+      const prompt = `Analysera denna svenska auktionspost för konstnärsnamn:
 
 TITEL: "${title}"
+BESKRIVNING: "${description ? description.substring(0, 500) : 'Ingen beskrivning'}"
 OBJEKTTYP: ${objectType || 'Okänd'}
 
 UPPGIFT:
-Innehåller denna titel ett konstnärs- eller designernamn som borde vara i ett separat konstnärsfält istället för i titeln?
+Innehåller denna titel eller beskrivning ett konstnärs- eller designernamn som borde vara i ett separat konstnärsfält?
 
-SVENSKA AUKTIONSKONVENTIONER:
-- Konstnärsnamn placeras ofta felaktigt i titeln som "KONSTNÄR, Objekt, material"
+VIKTIGA REGLER:
+- Sök både i titel OCH beskrivning efter verkliga konstnärsnamn
+- "Signerad [Namn]" i beskrivning indikerar ofta konstnärsnamn
+- Japanska/asiatiska namn som "Fujiwara Toyoyuki" är ofta konstnärsnamn
+- Skolnamn som "Takada" är INTE konstnärsnamn - det är regioner/skolor
 - Beskrivande fraser som "Kvinna med hundar" är INTE konstnärsnamn
 - Företagsnamn som "IKEA", "Axeco" är INTE konstnärsnamn
 - Ortnamn som "Stockholm", "Göteborg" är INTE konstnärsnamn
+
+EXEMPEL:
+- "Signerad Fujiwara Toyoyuki" → KONSTNÄR: "Fujiwara Toyoyuki"
+- "Svärdsskola Takada" → INTE konstnär (skola/region)
+- "Signerad Lars Larsson" → KONSTNÄR: "Lars Larsson"
 
 SVARA MED JSON:
 {
   "hasArtist": boolean,
   "artistName": "namn eller null",
+  "foundIn": "title/description/both",
   "suggestedTitle": "föreslagen titel utan konstnärsnamn eller null",
+  "suggestedDescription": "föreslagen beskrivning utan konstnärsnamn eller null",
   "confidence": 0.0-1.0,
-  "reasoning": "kort förklaring"
+  "reasoning": "kort förklaring om vad som hittades och var"
 }
 
 Endast om du är mycket säker (confidence > 0.8) på att det finns ett verkligt konstnärsnamn.`;
@@ -899,7 +917,9 @@ SVARA MED JSON:
           return {
             hasArtist: parsed.hasArtist,
             artistName: parsed.artistName || null,
+            foundIn: parsed.foundIn || 'unknown',
             suggestedTitle: parsed.suggestedTitle || null,
+            suggestedDescription: parsed.suggestedDescription || null,
             confidence: parsed.confidence,
             reasoning: parsed.reasoning || '',
             source: 'ai'
@@ -911,12 +931,15 @@ SVARA MED JSON:
       const hasArtist = /hasArtist['":\s]*true/i.test(responseText);
       const artistMatch = responseText.match(/artistName['":\s]*["']([^"']+)["']/i);
       const confidenceMatch = responseText.match(/confidence['":\s]*([0-9.]+)/i);
+      const foundInMatch = responseText.match(/foundIn['":\s]*["']([^"']+)["']/i);
       
       if (hasArtist && artistMatch && confidenceMatch) {
         return {
           hasArtist: true,
           artistName: artistMatch[1],
+          foundIn: foundInMatch ? foundInMatch[1] : 'unknown',
           suggestedTitle: null,
+          suggestedDescription: null,
           confidence: parseFloat(confidenceMatch[1]),
           reasoning: 'Fallback parsing',
           source: 'ai'
