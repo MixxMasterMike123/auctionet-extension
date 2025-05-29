@@ -2396,29 +2396,29 @@ export class QualityAnalyzer {
       const exceptional = salesData.historical.exceptionalSales;
       console.log('🌟 Adding exceptional sales to dashboard:', exceptional);
       
-      // Create compact exceptional sales info
+      // Create exceptional sales info with numbered links
       let exceptionalDetails = exceptional.description;
-      let clickableUrl = null;
       
       // Allow more text for exceptional sales - up to ~120 characters (3 rows)
       if (exceptionalDetails.length > 120) {
         exceptionalDetails = exceptionalDetails.substring(0, 117) + '...';
       }
       
+      // Create numbered links for each exceptional sale (similar to data sources)
+      let numberedLinks = '';
       if (exceptional.sales && exceptional.sales.length > 0) {
-        const sale = exceptional.sales[0]; // Show details for first exceptional sale
-        
-        // Store URL for click handler
-        if (sale.url) {
-          clickableUrl = sale.url;
-        }
+        const linkNumbers = exceptional.sales.slice(0, 10).map((sale, index) => {
+          const number = index + 1;
+          return `<a href="${sale.url}" target="_blank" style="color: #8e44ad; text-decoration: none; font-weight: 500; margin-right: 4px;" title="${sale.title} - ${sale.price.toLocaleString()} SEK">${number}</a>`;
+        });
+        numberedLinks = linkNumbers.join(' ');
       }
       
       dashboardContent += `
-        <div class="market-item market-exceptional" ${clickableUrl ? `onclick="window.open('${clickableUrl}', '_blank')" style="cursor: pointer;"` : ''}>
+        <div class="market-item market-exceptional">
           <div class="market-label" title="Exceptionellt höga försäljningar som visar marknadens potential">Exceptionella</div>
           <div class="market-value" style="color: #8e44ad;">${exceptionalDetails}</div>
-          <div class="market-help">${clickableUrl ? 'klicka för info' : 'marknadspotential'}</div>
+          <div class="market-help">${numberedLinks || 'marknadspotential'}</div>
         </div>
       `;
     }
