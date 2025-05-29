@@ -2156,7 +2156,6 @@ export class QualityAnalyzer {
       `;
     }
     
-    }
     
     // Historical trend (NEW: prominently displayed)
     if (salesData.historical && salesData.historical.trendAnalysis && salesData.historical.trendAnalysis.trend !== 'insufficient_data') {
