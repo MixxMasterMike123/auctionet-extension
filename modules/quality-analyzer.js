@@ -2156,50 +2156,6 @@ export class QualityAnalyzer {
       `;
     }
     
-    // NEW: Prominent historical price trend display
-    if (salesData.historical && salesData.historical.trendAnalysis && salesData.historical.trendAnalysis.trend !== 'insufficient_data') {
-      const trend = salesData.historical.trendAnalysis;
-      let trendIcon = '';
-      let trendColor = '';
-      let trendText = '';
-      let helpText = '';
-      
-      // Determine display based on trend type
-      if (trend.trend === 'rising_strong') {
-        trendIcon = '📈';
-        trendColor = '#27ae60';
-        trendText = `+${Math.abs(trend.changePercent)}% senaste tiden`;
-        helpText = 'stark uppgång';
-      } else if (trend.trend === 'rising') {
-        trendIcon = '📈';
-        trendColor = '#2ecc71';
-        trendText = `+${Math.abs(trend.changePercent)}% senaste tiden`;
-        helpText = 'stigande';
-      } else if (trend.trend === 'falling_strong') {
-        trendIcon = '📉';
-        trendColor = '#e74c3c';
-        trendText = `${trend.changePercent}% senaste tiden`;
-        helpText = 'stark nedgång';
-      } else if (trend.trend === 'falling') {
-        trendIcon = '📉';
-        trendColor = '#e67e22';
-        trendText = `${trend.changePercent}% senaste tiden`;
-        helpText = 'fallande';
-      } else {
-        trendIcon = '📊';
-        trendColor = '#3498db';
-        trendText = 'Stabil utveckling';
-        helpText = 'oförändrat';
-      }
-      
-      dashboardContent += `
-        <div class="market-item market-historical-trend">
-          <div class="market-label" title="Prisutveckling baserat på jämförelse mellan äldre och nyare försäljningar">Pristrend ${trendIcon}</div>
-          <div class="market-value" style="color: ${trendColor}; font-weight: 600;">${trendText}</div>
-          <div class="market-help">${helpText}</div>
-        </div>
-      `;
-      console.log('✅ Added prominent historical trend display');
     }
     
     // Historical trend (NEW: prominently displayed)
