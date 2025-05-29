@@ -3155,6 +3155,9 @@ export class QualityAnalyzer {
       return null;
     }
     
+    // NEW: Special handling for jewelry items
+    const isJewelry = this.isJewelryItem(objectType, title, description);
+    
     // Extract key descriptive terms from title and description
     const text = `${title} ${description}`.toLowerCase();
     const searchTerms = [];
@@ -3171,6 +3174,11 @@ export class QualityAnalyzer {
     
     // Always include the object type (but after artist if available)
     searchTerms.push(objectType.toLowerCase());
+    
+    if (isJewelry) {
+      console.log('💍 Detected jewelry item - using jewelry-specific search strategy');
+      return this.generateJewelrySearch(objectType, title, description, artistInfo, searchTerms, confidence);
+    }
     
     // Extract title-specific descriptive terms (highest priority after artist)
     const titleDescriptors = this.extractTitleDescriptors(title);
@@ -3267,6 +3275,169 @@ export class QualityAnalyzer {
       termCount: finalTerms.length,
       hasArtist: !!artistInfo
     };
+  }
+
+  // NEW: Check if item is jewelry
+  isJewelryItem(objectType, title, description) {
+    const jewelryTypes = [
+      'ring', 'ringar', 'förlovningsring', 'vigselring',
+      'halsband', 'kedja', 'collier',
+      'armband', 'bangel',
+      'örhängen', 'örhänge',
+      'brosch', 'nål',
+      'hänge', 'pendant',
+      'klocka', 'armbandsur', 'fickur',
+      'manschettknappar', 'knappar',
+      'smycke', 'smycken', 'juveler'
+    ];
+    
+    const textToCheck = `${objectType} ${title} ${description}`.toLowerCase();
+    return jewelryTypes.some(type => textToCheck.includes(type));
+  }
+
+  // NEW: Generate jewelry-specific search terms
+  generateJewelrySearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
+    console.log('💍 Generating jewelry-specific search for:', objectType);
+    
+    const text = `${title} ${description}`.toLowerCase();
+    const jewelryTerms = [...baseTerms]; // Start with base terms (artist + object type)
+    let confidence = baseConfidence;
+    let strategy = artistInfo ? 'artist_enhanced_jewelry' : 'jewelry_specific';
+    
+    // 1. PRIORITY: Extract material information (most important for jewelry)
+    const materials = this.extractJewelryMaterials(text);
+    if (materials.length > 0) {
+      jewelryTerms.push(...materials.slice(0, 2)); // Max 2 materials
+      confidence += 0.3; // Materials are very important for jewelry
+      console.log('💎 Added jewelry materials:', materials);
+    }
+    
+    // 2. Extract weight information (very specific for jewelry)
+    const weight = this.extractWeight(text);
+    if (weight) {
+      jewelryTerms.push(weight);
+      confidence += 0.2; // Weight is very specific
+      console.log('⚖️ Added weight:', weight);
+    }
+    
+    // 3. Extract stone information
+    const stones = this.extractStones(text);
+    if (stones.length > 0) {
+      jewelryTerms.push(...stones.slice(0, 2)); // Max 2 stones
+      confidence += 0.2;
+      console.log('💎 Added stones:', stones);
+    }
+    
+    // 4. Extract style/period only if no year that would cause mixing
+    const periods = this.extractPeriods(text);
+    const hasSpecificYear = periods.some(period => /^\d{4}$/.test(period));
+    
+    if (!hasSpecificYear) {
+      // Only add style periods, not specific years
+      const stylePeriods = periods.filter(period => !period.match(/^\d{4}$/));
+      if (stylePeriods.length > 0) {
+        jewelryTerms.push(...stylePeriods.slice(0, 1));
+        confidence += 0.1;
+        console.log('🎨 Added style period (no specific year):', stylePeriods);
+      }
+    } else {
+      console.log('⚠️ Skipping specific year to avoid mixed category results');
+    }
+    
+    // 5. Extract size/dimensions (specific to jewelry)
+    const size = this.extractJewelrySize(text);
+    if (size) {
+      jewelryTerms.push(size);
+      confidence += 0.1;
+      console.log('📏 Added size:', size);
+    }
+    
+    // Ensure we have enough terms but not too many
+    if (jewelryTerms.length < 2) {
+      console.log('❌ Not enough jewelry-specific terms found');
+      return null;
+    }
+    
+    // Limit to 4 terms for focused jewelry search
+    const finalTerms = jewelryTerms.slice(0, 4);
+    const searchString = finalTerms.join(' ');
+    
+    console.log('✅ Generated jewelry search:', {
+      terms: finalTerms,
+      searchString: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: strategy,
+      hasArtist: !!artistInfo
+    });
+    
+    return {
+      searchTerms: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: strategy,
+      termCount: finalTerms.length,
+      hasArtist: !!artistInfo,
+      isJewelry: true
+    };
+  }
+
+  // NEW: Extract jewelry-specific materials
+  extractJewelryMaterials(text) {
+    const materialPattern = /(?:(\d+k?\s*)?(?:guld|gold|vit-?guld|rött?-?guld|gul-?guld|ros[ée]-?guld|silver|sterlingsilver|sterling|platina|titan|stål|vitguld|rödguld|gulgul))/gi;
+    const matches = text.match(materialPattern) || [];
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((material, index, arr) => arr.indexOf(material) === index) // Remove duplicates
+      .slice(0, 2); // Max 2 materials
+  }
+
+  // NEW: Extract weight information
+  extractWeight(text) {
+    const weightPattern = /(\d+[,.]?\d*)\s*(?:gram|g|karat|ct|dwt)/gi;
+    const match = text.match(weightPattern);
+    
+    if (match && match[0]) {
+      return match[0].toLowerCase().replace(/[,]/g, '.');
+    }
+    
+    return null;
+  }
+
+  // NEW: Extract stone information
+  extractStones(text) {
+    const stonePattern = /(?:diamant|brilliant|smaragd|rubin|safir|pärla|pearl|onyx|opal|ametist|akvamarin|topas|granat|turmalin|kvarts|jade)/gi;
+    const matches = text.match(stonePattern) || [];
+    
+    return matches
+      .map(stone => stone.toLowerCase())
+      .filter((stone, index, arr) => arr.indexOf(stone) === index)
+      .slice(0, 2);
+  }
+
+  // NEW: Extract jewelry size information
+  extractJewelrySize(text) {
+    // Ring sizes
+    const ringSizePattern = /(?:storlek|size)\s*[\/:]*\s*(\d+[,.]?\d*)/gi;
+    const ringMatch = text.match(ringSizePattern);
+    if (ringMatch) {
+      return `storlek ${ringMatch[0].match(/\d+[,.]?\d*/)[0]}`;
+    }
+    
+    // Diameter
+    const diameterPattern = /(?:diameter|innerdiameter)\s*(\d+[,.]?\d*)\s*(?:mm|cm)/gi;
+    const diameterMatch = text.match(diameterPattern);
+    if (diameterMatch) {
+      return `diameter ${diameterMatch[0].match(/\d+[,.]?\d*/)[0]}mm`;
+    }
+    
+    // Chain length
+    const lengthPattern = /(?:längd|length)\s*(\d+[,.]?\d*)\s*(?:mm|cm)/gi;
+    const lengthMatch = text.match(lengthPattern);
+    if (lengthMatch) {
+      return `längd ${lengthMatch[0].match(/\d+[,.]?\d*/)[0]}cm`;
+    }
+    
+    return null;
   }
 
   // NEW: Extract descriptive terms specifically from the title (higher priority than materials)
