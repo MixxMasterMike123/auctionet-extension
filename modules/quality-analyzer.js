@@ -190,6 +190,12 @@ export class QualityAnalyzer {
 
     // Common Swedish auction title patterns where artist might be misplaced
     const patterns = [
+      // NEW: OBJEKT, quantity, material, "design name" Artist Name, Manufacturer, Country (handles "SEJDLAR, 8 st, glas, "Droppring" Timo Sarpaneva, Iittala, Finland.")
+      /^([A-ZÅÄÖÜ]+),\s*\d+\s*st,\s*[a-zåäöü]+,\s*"[^"]+"\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
+      
+      // NEW: OBJEKT, quantity, material, "design name" Firstname Middle Lastname, Manufacturer, Country (3-word artist version)
+      /^([A-ZÅÄÖÜ]+),\s*\d+\s*st,\s*[a-zåäöü]+,\s*"[^"]+"\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
+      
       // Malformed quotes with company: OBJEKT, details, "Title, Firstname Lastname Company (missing closing quote) - MOVED UP for priority
       /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)\s+(?:Ikea|IKEA|Svenskt\s+Tenn|Lammhults|Källemo|Norrlands\s+Möbler|Bruno\s+Mathsson|Carl\s+Malmsten|Kosta\s+Boda|Orrefors|Gustavsberg|Artek|Iittala|Arabia)/i,
       
@@ -503,16 +509,17 @@ export class QualityAnalyzer {
       let severity = 'medium';
       
       if (ruleBasedArtist.errorType === 'artist_in_title_caps') {
-        warningMessage = `FELAKTIG PLACERING: "${ruleBasedArtist.detectedArtist}" ska flyttas till konstnärsfältet. Föreslagen titel: "${ruleBasedArtist.suggestedTitle}"`;
+        warningMessage = `FELAKTIG PLACERING: "<strong>${ruleBasedArtist.detectedArtist}</strong>" ska flyttas till konstnärsfältet. Föreslagen titel: "${ruleBasedArtist.suggestedTitle}"`;
         severity = 'high';
       } else {
-        warningMessage = `Möjlig konstnär upptäckt: "${ruleBasedArtist.detectedArtist}" - kontrollera om den ska flyttas till konstnärsfält`;
+        warningMessage = `Möjlig konstnär upptäckt: "<strong>${ruleBasedArtist.detectedArtist}</strong>" - kontrollera om den ska flyttas till konstnärsfält`;
       }
       
       warnings.push({ 
         field: 'Titel', 
         issue: warningMessage, 
-        severity: severity 
+        severity: severity,
+        detectedArtist: ruleBasedArtist.detectedArtist // Add for click-to-copy
       });
       score -= (severity === 'high' ? 20 : 10);
     }
@@ -709,7 +716,7 @@ export class QualityAnalyzer {
       let scoreAdjustment = 0;
       
       // AI-detected artist with verification info
-      let message = `AI upptäckte konstnär: "${aiArtist.detectedArtist}"`;
+      let message = `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>"`;
       if (aiArtist.verification?.isRealArtist) {
         message += ` ✓ Verifierad konstnär`;
         if (aiArtist.verification.biography) {
@@ -730,7 +737,8 @@ export class QualityAnalyzer {
       filteredWarnings.push({ 
         field: 'Titel', 
         issue: message, 
-        severity: severity 
+        severity: severity,
+        detectedArtist: aiArtist.detectedArtist // Add for click-to-copy
       });
       
       const newScore = currentScore - scoreAdjustment;
@@ -1350,13 +1358,46 @@ export class QualityAnalyzer {
       } else {
         // Regular quality warnings
         const contentDiv = document.createElement('div');
+        let issueContent = warning.issue;
+        
+        // NEW: Add click-to-copy functionality for artist detection warnings
+        if (warning.detectedArtist) {
+          // Create a clickable version with copy functionality
+          const artistName = warning.detectedArtist;
+          const escapedArtistName = artistName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex chars
+          
+          // Replace the bold artist name with a clickable version
+          issueContent = issueContent.replace(
+            new RegExp(`<strong>${escapedArtistName}</strong>`, 'g'),
+            `<span class="clickable-artist" 
+                   data-artist="${artistName}" 
+                   style="font-weight: bold; 
+                          cursor: pointer; 
+                          color: #2196f3; 
+                          text-decoration: underline; 
+                          padding: 2px 4px; 
+                          border-radius: 3px; 
+                          background: rgba(33, 150, 243, 0.1);
+                          transition: all 0.2s ease;"
+                   title="Klicka för att kopiera '${artistName}'"
+                   onmouseover="this.style.background='rgba(33, 150, 243, 0.2)'"
+                   onmouseout="this.style.background='rgba(33, 150, 243, 0.1)'"
+                   onclick="this.copyArtistName('${artistName}', this)">${artistName}</span>`
+          );
+        }
+        
         contentDiv.innerHTML = `
           <div style="display: flex; align-items: flex-start; gap: 8px;">
             <strong style="min-width: 80px; font-size: 11px; opacity: 0.8;">${warning.field}:</strong>
-            <span style="flex: 1;">${warning.issue}</span>
+            <span style="flex: 1;">${issueContent}</span>
           </div>
         `;
         warningDiv.appendChild(contentDiv);
+        
+        // NEW: Add click handler for artist copying if this warning has a detected artist
+        if (warning.detectedArtist) {
+          this.addClickToCopyHandler(warningDiv, warning.detectedArtist);
+        }
       }
     } else if (warning.issue) {
       // Issue only (for market data)
@@ -3437,5 +3478,88 @@ export class QualityAnalyzer {
     }
     
     return null; // We don't have this data tracked
+  }
+
+  // NEW: Add click-to-copy functionality for artist names
+  addClickToCopyHandler(warningElement, artistName) {
+    const clickableElements = warningElement.querySelectorAll('.clickable-artist');
+    
+    clickableElements.forEach(element => {
+      element.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        try {
+          await navigator.clipboard.writeText(artistName);
+          
+          // Visual feedback - success
+          const originalText = element.textContent;
+          const originalBackground = element.style.background;
+          const originalColor = element.style.color;
+          
+          element.style.background = '#4caf50';
+          element.style.color = 'white';
+          element.textContent = '✓ Kopierat!';
+          element.style.transform = 'scale(1.05)';
+          
+          // Reset after 1.5 seconds
+          setTimeout(() => {
+            element.style.background = originalBackground;
+            element.style.color = originalColor;
+            element.textContent = originalText;
+            element.style.transform = 'scale(1)';
+          }, 1500);
+          
+          console.log(`📋 Artist name copied to clipboard: ${artistName}`);
+          
+        } catch (error) {
+          console.error('Failed to copy artist name:', error);
+          
+          // Visual feedback - error
+          const originalBackground = element.style.background;
+          element.style.background = '#f44336';
+          element.style.color = 'white';
+          
+          setTimeout(() => {
+            element.style.background = originalBackground;
+            element.style.color = '#2196f3';
+          }, 1000);
+          
+          // Fallback - select text for manual copy
+          this.selectTextForManualCopy(element, artistName);
+        }
+      });
+    });
+  }
+
+  // Fallback method for manual text selection if clipboard API fails
+  selectTextForManualCopy(element, artistName) {
+    try {
+      // Create a temporary input element with the artist name
+      const tempInput = document.createElement('input');
+      tempInput.value = artistName;
+      tempInput.style.position = 'absolute';
+      tempInput.style.left = '-9999px';
+      document.body.appendChild(tempInput);
+      
+      // Select the text
+      tempInput.select();
+      tempInput.setSelectionRange(0, artistName.length);
+      
+      // Try to copy using document.execCommand as fallback
+      const success = document.execCommand('copy');
+      
+      if (success) {
+        console.log(`📋 Artist name copied using fallback method: ${artistName}`);
+      } else {
+        console.log(`⚠️ Copy failed - user should manually copy: ${artistName}`);
+      }
+      
+      // Clean up
+      document.body.removeChild(tempInput);
+      
+    } catch (error) {
+      console.error('Fallback copy method also failed:', error);
+    }
   }
 } 
