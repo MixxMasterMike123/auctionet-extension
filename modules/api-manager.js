@@ -1349,26 +1349,26 @@ SVARA MED JSON:
               significance = 'high';
             } else if (priceDiff > 30) {
               // Live estimates are high but market is weak - be cautious
-              message = `Trots att pågående auktioner värderar ${Math.round(priceDiff)}% högre är marknaden svag (${reserveMetPercentage}% utrop nås) - var försiktig`;
+              message = `Trots att pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar är marknaden svag (${reserveMetPercentage}% utrop nås på aktuella auktioner) - var försiktig`;
               significance = 'high';
             } else if (catalogerVsLive > 20) {
               // Cataloger above live estimates in weak market
-              message = `Svag marknad (${reserveMetPercentage}% utrop nås) - din värdering ligger över pågående auktioner, överväg att sänka`;
+              message = `Svag marknad (${reserveMetPercentage}% utrop nås på aktuella auktioner) - din värdering ligger över pågående auktioner, överväg att sänka`;
               significance = 'medium';
             }
           } else if (isStrongMarket) {
             // STRONG MARKET: Be more optimistic but still realistic
             if (catalogerVsHist < -20 && priceDiff > 30) {
               // Cataloger is conservative but market is strong and live is high
-              message = `Stark marknad (${reserveMetPercentage}% utrop nås) och pågående auktioner värderar ${Math.round(priceDiff)}% högre - överväg att höja`;
+              message = `Stark marknad (${reserveMetPercentage}% utrop nås på aktuella auktioner) och pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - överväg att höja`;
               significance = 'medium';
             } else if (catalogerVsHist > 100) {
               // Even in strong market, don't be too aggressive
-              message = `Trots stark marknad (${reserveMetPercentage}% utrop nås) är din värdering ${Math.round(catalogerVsHist)}% över historiska värden - överväg att sänka`;
+              message = `Trots stark marknad (${reserveMetPercentage}% utrop nås på aktuella auktioner) är din värdering ${Math.round(catalogerVsHist)}% över historiska värden - överväg att sänka`;
               significance = 'medium';
             } else if (priceDiff > 50) {
               // Live is much higher and market is strong
-              message = `Stark marknad (${reserveMetPercentage}% utrop nås) och pågående auktioner värderar ${Math.round(priceDiff)}% högre - gynnsam marknad`;
+              message = `Stark marknad (${reserveMetPercentage}% utrop nås på aktuella auktioner) och pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - gynnsam marknad`;
               significance = 'medium';
             }
           } else {
@@ -1377,7 +1377,7 @@ SVARA MED JSON:
               // Cataloger is way above historical
               if (priceDiff > 30) {
                 // Live is also high, but cataloger is even worse
-                message = `Pågående auktioner värderar ${Math.round(priceDiff)}% över historiska försäljningar, men din värdering är ${Math.round(catalogerVsHist)}% över - överväg att sänka`;
+                message = `Pågående auktioner värderas ${Math.round(priceDiff)}% över historiska försäljningar, men din värdering är ${Math.round(catalogerVsHist)}% över - överväg att sänka`;
                 significance = 'high';
               } else {
                 // Live is reasonable, cataloger is the problem
@@ -1388,7 +1388,7 @@ SVARA MED JSON:
               // Cataloger is moderately above historical
               if (priceDiff > 50) {
                 // Live is much higher, maybe market is heating up
-                message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre än historiska försäljningar - marknad kan vara starkare`;
+                message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - marknad kan vara starkare`;
                 significance = 'medium';
               } else {
                 // Live is moderately higher, cataloger should be cautious
@@ -1399,18 +1399,18 @@ SVARA MED JSON:
               // Cataloger is below historical
               if (priceDiff > 30) {
                 // Live is much higher, cataloger might be too conservative
-                message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - överväg att höja utropet`;
+                message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - överväg att höja utropet`;
                 significance = 'medium';
               }
             } else {
               // Cataloger is reasonably close to historical
               if (priceDiff > 50) {
                 // Live is much higher
-                message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - stark marknad för liknande objekt`;
+                message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - stark marknad för liknande objekt`;
                 significance = 'medium';
               } else if (priceDiff < -30) {
                 // Live is much lower
-                message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - marknad kan vara svagare`;
+                message = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar - marknad kan vara svagare`;
                 significance = 'medium';
               }
             }
@@ -1433,22 +1433,22 @@ SVARA MED JSON:
           
           if (isWeakMarket && priceDiff > 15) {
             // In weak market, be cautious about higher live estimates
-            message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre, men marknaden är svag (${reserveMetPercentage}% utrop nås) - var försiktig`;
+            message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar, men marknaden är svag (${reserveMetPercentage}% utrop nås på aktuella auktioner just nu) - var försiktig`;
             significance = 'high';
           } else if (isStrongMarket && priceDiff > 15) {
             // In strong market, higher estimates are more reliable
-            message = `Stark marknad (${reserveMetPercentage}% utrop nås) och pågående auktioner värderar ${Math.round(priceDiff)}% högre - gynnsam marknad`;
+            message = `Stark marknad (${reserveMetPercentage}% utrop nås på aktuella auktioner) och pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - gynnsam marknad`;
             significance = 'medium';
           } else {
             // Normal market logic
             if (priceDiff > 30) {
-              message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre än historiska försäljningar`;
+              message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar`;
             } else if (priceDiff > 15) {
-              message = `Pågående auktioner värderar ${Math.round(priceDiff)}% högre - nuvarande marknad verkar starkare`;
+              message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - nuvarande marknad verkar starkare`;
             } else if (priceDiff < -30) {
-              message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar`;
+              message = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar`;
             } else if (priceDiff < -15) {
-              message = `Pågående auktioner värderar ${Math.abs(Math.round(priceDiff))}% lägre - nuvarande marknad verkar svagare`;
+              message = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar - nuvarande marknad verkar svagare`;
             }
           }
           
@@ -1467,13 +1467,13 @@ SVARA MED JSON:
         if (reserveMetPercentage > 70) {
           insights.push({
             type: 'market_strength',
-            message: `Stark marknad: ${reserveMetPercentage}% av utrop nås - gynnsam försäljningsmiljö`,
+            message: `Stark marknad: ${reserveMetPercentage}% av utrop nås på aktuella auktioner - gynnsam försäljningsmiljö`,
             significance: 'high'
           });
         } else if (reserveMetPercentage < 30) {
           insights.push({
             type: 'market_weakness',
-            message: `Utmanande marknad: Endast ${reserveMetPercentage}% av utrop nås - överväg försiktig prissättning`,
+            message: `Utmanande marknad: Endast ${reserveMetPercentage}% av utrop nås på aktuella auktioner - överväg försiktig prissättning`,
             significance: 'medium'
           });
         }
