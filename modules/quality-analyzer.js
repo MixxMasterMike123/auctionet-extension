@@ -3372,6 +3372,15 @@ export class QualityAnalyzer {
     ];
     
     const textToCheck = `${objectType} ${title} ${description}`.toLowerCase();
+    
+    // Don't treat watches as jewelry if they have watch-specific terms
+    const watchTerms = ['armbandsur', 'fickur', 'manuellt uppdrag', 'automatisk', 'quartz', 'kronometer'];
+    const hasWatchTerms = watchTerms.some(term => textToCheck.includes(term));
+    
+    if (hasWatchTerms) {
+      return false; // Let watch detection handle this
+    }
+    
     return jewelryTypes.some(type => textToCheck.includes(type));
   }
 
