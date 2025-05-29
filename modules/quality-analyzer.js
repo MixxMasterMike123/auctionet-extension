@@ -3272,8 +3272,56 @@ export class QualityAnalyzer {
       }
     }
     
+    // GENERIC FALLBACK SYSTEM: Enhance insufficient searches before giving up
+    if (searchTerms.length < 2) {
+      console.log('🔧 Applying fallback enhancement for insufficient terms:', searchTerms);
+      
+      // Try to extract manufacturers/companies/brands
+      const manufacturers = this.extractManufacturers(text);
+      if (manufacturers.length > 0) {
+        searchTerms.push(...manufacturers.slice(0, 2));
+        confidence += 0.3;
+        strategy = 'manufacturer_enhanced';
+        console.log('🏭 Added manufacturers:', manufacturers);
+      }
+      
+      // Try to extract geographic/origin terms 
+      const geographic = this.extractGeographicTerms(text);
+      if (geographic.length > 0 && searchTerms.length < 3) {
+        searchTerms.push(...geographic.slice(0, 1));
+        confidence += 0.2;
+        strategy = strategy === 'manufacturer_enhanced' ? 'manufacturer_geographic' : 'geographic_enhanced';
+        console.log('🌍 Added geographic terms:', geographic);
+      }
+      
+      // Try to extract traditional/cultural terms
+      const cultural = this.extractCulturalTerms(text);
+      if (cultural.length > 0 && searchTerms.length < 3) {
+        searchTerms.push(...cultural.slice(0, 1));
+        confidence += 0.15;
+        strategy = strategy.includes('enhanced') ? strategy : 'cultural_enhanced';
+        console.log('🏛️ Added cultural terms:', cultural);
+      }
+      
+      // For certain single-term categories, allow the search to proceed
+      if (searchTerms.length === 1) {
+        const singleTermCategories = [
+          'dalahäst', 'keramik', 'porslin', 'glas', 'kristall', 'trä', 'metall',
+          'textil', 'möbler', 'lampa', 'vas', 'skål', 'fat', 'kanna', 'krus',
+          'skulptur', 'relief', 'medalj', 'mynt', 'klocka', 'spegel', 'ram'
+        ];
+        
+        const firstTerm = searchTerms[0].toLowerCase();
+        if (singleTermCategories.some(category => firstTerm.includes(category) || category.includes(firstTerm))) {
+          console.log('✅ Allowing single-term search for recognized category:', firstTerm);
+          confidence = Math.max(confidence, 0.4); // Minimum confidence for single-term
+          strategy = 'single_term_category';
+        }
+      }
+    }
+    
     // Adjust minimum requirements based on whether we have an artist
-    const minTerms = artistInfo ? 2 : 2; // Artist + 1 descriptor is sufficient
+    const minTerms = artistInfo ? 2 : 1; // More flexible: allow single terms in some cases
     if (searchTerms.length < minTerms) {
       console.log('❌ Not enough search terms for viable freetext search:', searchTerms);
       return null;
@@ -4506,5 +4554,130 @@ export class QualityAnalyzer {
     }
 
     return null;
+  }
+
+  // GENERIC FALLBACK METHODS: Enhanced extraction for insufficient searches
+
+  // Extract manufacturers, companies, and well-known brands
+  extractManufacturers(text) {
+    const manufacturers = [
+      // Swedish traditional makers
+      'nils olsson', 'grannas', 'rättvik', 'nusnäs', 'hemslöjd', 'hantverk',
+      
+      // Porcelain/ceramics manufacturers
+      'rörstrand', 'gustavsberg', 'arabia', 'royal copenhagen', 'bing & grøndahl',
+      'meissen', 'dresden', 'königliche', 'sèvres', 'limoges', 'wedgwood',
+      'spode', 'royal doulton', 'minton', 'coalport', 'royal worcester',
+      
+      // Glass manufacturers
+      'orrefors', 'kosta', 'boda', 'åfors', 'strömbergshyttan', 'skruf',
+      'johansfors', 'lindshammar', 'målerås', 'smålandshyttan',
+      'lalique', 'baccarat', 'waterford', 'bohemia', 'moser',
+      
+      // Furniture makers
+      'ikea', 'svenskt tenn', 'carl malmsten', 'bruno mathsson', 'alvar aalto',
+      'arne jacobsen', 'hans wegner', 'finn juhl', 'kaare klint',
+      'vitra', 'herman miller', 'knoll', 'cassina', 'fritz hansen',
+      
+      // Clock/watch manufacturers
+      'omega', 'rolex', 'longines', 'breitling', 'cartier', 'patek philippe',
+      'audemars piguet', 'vacheron constantin', 'iwc', 'jaeger-lecoultre',
+      
+      // General manufacturers
+      'ab', 'aktiebolag', 'ltd', 'limited', 'gmbh', 'inc', 'corporation',
+      'fabriken', 'fabrik', 'werkstätte', 'atelier', 'studio'
+    ];
+
+    const text_lower = text.toLowerCase();
+    const found = [];
+    
+    for (const manufacturer of manufacturers) {
+      if (text_lower.includes(manufacturer)) {
+        found.push(manufacturer);
+      }
+    }
+    
+    return [...new Set(found)].slice(0, 2); // Remove duplicates, max 2
+  }
+
+  // Extract geographic and origin terms
+  extractGeographicTerms(text) {
+    const geographic = [
+      // Nordic countries and regions
+      'sverige', 'sweden', 'svenska', 'stockholm', 'göteborg', 'malmö',
+      'norge', 'norway', 'norsk', 'oslo', 'bergen',
+      'danmark', 'denmark', 'dansk', 'köpenhamn', 'copenhagen',
+      'finland', 'finska', 'helsingfors', 'helsinki',
+      'island', 'iceland', 'isländsk', 'reykjavik',
+      
+      // European regions
+      'frankrike', 'france', 'fransk', 'paris', 'lyon', 'limoges',
+      'tyskland', 'germany', 'tysk', 'berlin', 'münchen', 'dresden',
+      'england', 'engelsk', 'london', 'birmingham', 'stoke-on-trent',
+      'italien', 'italy', 'italiensk', 'rom', 'milano', 'florens',
+      'österrike', 'austria', 'österrikisk', 'wien', 'salzburg',
+      'schweiz', 'switzerland', 'schweizisk', 'zürich', 'geneva',
+      
+      // Asian regions
+      'japan', 'japansk', 'tokyo', 'kyoto', 'osaka',
+      'kina', 'china', 'kinesisk', 'beijing', 'shanghai',
+      'indien', 'india', 'indisk', 'mumbai', 'delhi',
+      
+      // Traditional regions
+      'orientalisk', 'oriental', 'österlandet', 'asiatisk',
+      'skandinavisk', 'nordisk', 'europeisk', 'amerikansk',
+      
+      // Swedish provinces
+      'dalarna', 'skåne', 'värmland', 'småland', 'östergötland',
+      'västergötland', 'uppland', 'sörmland', 'närke', 'västmanland'
+    ];
+
+    const text_lower = text.toLowerCase();
+    const found = [];
+    
+    for (const location of geographic) {
+      if (text_lower.includes(location)) {
+        found.push(location);
+      }
+    }
+    
+    return [...new Set(found)].slice(0, 1); // Remove duplicates, max 1
+  }
+
+  // Extract cultural and traditional terms
+  extractCulturalTerms(text) {
+    const cultural = [
+      // Swedish traditional items
+      'dalahäst', 'dalafolk', 'folkkonst', 'hemslöjd', 'hantverk', 'traditionell',
+      'svensk', 'svenskt', 'gammaldags', 'antik', 'vintage', 'klassisk',
+      
+      // Art movements and styles  
+      'jugend', 'art nouveau', 'art deco', 'bauhaus', 'modernism',
+      'funktionalism', 'skandinavisk design', 'nordisk design',
+      
+      // Cultural periods
+      'medeltid', 'renässans', 'barock', 'rokoko', 'empire', 'biedermeier',
+      'viktoriansk', 'edwardiansk', 'georgian', 'regency',
+      
+      // Traditional crafts
+      'keramik', 'krukmakeri', 'glaskonst', 'textilkonst', 'vävkonst',
+      'broderi', 'spets', 'träskulptur', 'träsnideri', 'metallkonst',
+      'smide', 'silversmide', 'guldsmide', 'emaljkonst',
+      
+      // Cultural descriptors
+      'folklig', 'traditional', 'handgjord', 'handmålad', 'handgraverad',
+      'unik', 'enda', 'begränsad', 'limiterad', 'signerad', 'märkt'
+    ];
+
+    const text_lower = text.toLowerCase();
+    const found = [];
+    
+    for (const term of cultural) {
+      if (text_lower.includes(term)) {
+        found.push(term);
+      }
+    }
+    
+    return [...new Set(found)].slice(0, 1); // Remove duplicates, max 1
   }
 } 
