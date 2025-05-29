@@ -3164,6 +3164,9 @@ export class QualityAnalyzer {
     // NEW: Special handling for stamps/philatelic items
     const isStamp = this.isStampItem(objectType, title, description);
     
+    // NEW: Special handling for audio/electronics equipment
+    const isAudio = this.isAudioEquipment(objectType, title, description);
+    
     // Extract key descriptive terms from title and description
     const text = `${title} ${description}`.toLowerCase();
     const searchTerms = [];
@@ -3194,6 +3197,11 @@ export class QualityAnalyzer {
     if (isStamp) {
       console.log('📜 Detected stamp/philatelic item - using stamp-specific search strategy');
       return this.generateStampSearch(objectType, title, description, artistInfo, searchTerms, confidence);
+    }
+    
+    if (isAudio) {
+      console.log('🎵 Detected audio/electronics item - using audio-specific search strategy');
+      return this.generateAudioSearch(objectType, title, description, artistInfo, searchTerms, confidence);
     }
     
     // Extract title-specific descriptive terms (highest priority after artist)
@@ -4308,31 +4316,195 @@ export class QualityAnalyzer {
 
   // NEW: Extract stamp periods (conservative approach)
   extractStampPeriods(text) {
-    // Look for general periods, not specific overlapping years
-    const periodPattern = /(?:1900-tal|1800-tal|2000-tal|klassisk|modern|äldre|nyare)/gi;
-    const matches = text.match(periodPattern) || [];
-    
-    // If no general periods found, try broader year ranges
-    if (matches.length === 0) {
-      const yearRangePattern = /(?:19\d{2}|20\d{2})/g;
-      const years = text.match(yearRangePattern) || [];
-      
-      if (years.length > 0) {
-        // Convert to general periods instead of specific years
-        const firstYear = parseInt(years[0]);
-        if (firstYear >= 2000) {
-          return ['2000-tal'];
-        } else if (firstYear >= 1900) {
-          return ['1900-tal'];
+    const patterns = [
+      /\b(\d{4})-tal\b/g,           // 1900-tal
+      /\b(\d{4})s?\b/g,            // 1990s
+      /klassisk|vintage|antik/gi    // Classic periods
+    ];
+
+    const periods = [];
+    for (const pattern of patterns) {
+      const matches = [...text.matchAll(pattern)];
+      for (const match of matches) {
+        if (match[1]) {
+          const year = parseInt(match[1]);
+          if (year >= 1800 && year <= 2100) {
+            periods.push(`${year}-tal`);
+          }
         } else {
-          return ['klassisk'];
+          periods.push(match[0].toLowerCase());
         }
       }
     }
+
+    return [...new Set(periods)];
+  }
+
+  // Audio/Electronics Equipment Detection and Search
+  isAudioEquipment(objectType, title, description) {
+    const audioKeywords = [
+      'skivspelare', 'grammofon', 'radio', 'stereo', 'förstärkare', 'högtalare',
+      'kassettdäck', 'cd-spelare', 'tuner', 'mixerbord', 'equalizer',
+      'turntable', 'amplifier', 'speaker', 'receiver', 'deck'
+    ];
+
+    const text = `${objectType} ${title} ${description}`.toLowerCase();
+    return audioKeywords.some(keyword => text.includes(keyword));
+  }
+
+  generateAudioSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
+    console.log('🎵 Generating audio equipment search for:', title);
     
-    return matches
-      .map(match => match.trim().toLowerCase())
-      .filter((period, index, arr) => arr.indexOf(period) === index)
-      .slice(0, 1); // Only one period to avoid complexity
+    // Extract components for audio equipment
+    const brand = this.extractAudioBrands(title + ' ' + description);
+    const model = this.extractAudioModel(title + ' ' + description);
+    const equipmentType = this.extractAudioType(objectType, title);
+    const broadPeriod = this.extractBroadPeriod(title + ' ' + description);
+
+    const terms = [];
+    let searchStrategy = 'audio_equipment';
+    let confidence = 0.7; // Higher confidence for audio equipment
+
+    // Primary strategy: brand + equipment type
+    if (brand && equipmentType) {
+      terms.push(brand, equipmentType);
+      searchStrategy = 'brand_type';
+      confidence = 0.8;
+    } else if (equipmentType) {
+      terms.push(equipmentType);
+      if (brand) {
+        terms.push(brand);
+        searchStrategy = 'type_brand';
+      } else {
+        searchStrategy = 'type_only';
+      }
+    }
+
+    // Add broad period if available (avoid specific years for electronics)
+    if (broadPeriod) {
+      terms.push(broadPeriod);
+    }
+
+    const searchString = terms.join(' ');
+    
+    console.log('🎵 Audio search generated:', {
+      brand,
+      model,
+      equipmentType,
+      broadPeriod,
+      terms,
+      searchString,
+      strategy: searchStrategy,
+      confidence
+    });
+
+    return {
+      searchTerms: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: searchStrategy,
+      termCount: terms.length,
+      hasArtist: false,
+      isAudio: true
+    };
+  }
+
+  extractAudioBrands(text) {
+    const brands = [
+      'bang & olufsen', 'b&o', 'dual', 'technics', 'sony', 'pioneer', 'kenwood',
+      'yamaha', 'denon', 'marantz', 'onkyo', 'harman kardon', 'jbl', 'bose',
+      'mcintosh', 'quad', 'thorens', 'rega', 'linn', 'nad', 'rotel', 'cambridge',
+      'arcam', 'audiolab', 'cyrus', 'naim', 'exposure', 'musical fidelity',
+      'pro-ject', 'clearaudio', 'akai', 'teac', 'tascam', 'revox', 'tandberg',
+      'philips', 'grundig', 'saba', 'telefunken', 'nordmende', 'braun', 'dieter rams'
+    ];
+
+    const text_lower = text.toLowerCase();
+    
+    for (const brand of brands) {
+      if (text_lower.includes(brand)) {
+        return brand;
+      }
+    }
+
+    // Look for model numbers that might indicate brand
+    const modelMatch = text.match(/\b([A-Z]+)\s*\d+/);
+    if (modelMatch) {
+      return modelMatch[1].toLowerCase();
+    }
+
+    return null;
+  }
+
+  extractAudioModel(text) {
+    const patterns = [
+      /\b([A-Z]+)\s*(\d+[A-Z]*)\b/g,  // DUAL 1219, CS505, etc.
+      /modell?\s+([A-Z0-9-]+)/gi,      // modell CS-505
+      /typ\s+([A-Z0-9-]+)/gi           // typ 1219
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        return match[1] || match[2] || match[0];
+      }
+    }
+
+    return null;
+  }
+
+  extractAudioType(objectType, title) {
+    const typeMap = {
+      'skivspelare': 'skivspelare',
+      'grammofon': 'grammofon',
+      'radio': 'radio',
+      'stereo': 'stereo',
+      'förstärkare': 'förstärkare',
+      'amplifier': 'förstärkare',
+      'högtalare': 'högtalare',
+      'speaker': 'högtalare',
+      'kassettdäck': 'kassettdäck',
+      'cd-spelare': 'cd-spelare',
+      'tuner': 'tuner'
+    };
+
+    const text = `${objectType} ${title}`.toLowerCase();
+    
+    for (const [key, value] of Object.entries(typeMap)) {
+      if (text.includes(key)) {
+        return value;
+      }
+    }
+
+    return objectType?.toLowerCase() || 'ljud';
+  }
+
+  extractBroadPeriod(text) {
+    // For electronics, use broad decades
+    const patterns = [
+      { pattern: /\b(19[6-9]\d)/, decade: '60-tal' },  // 1960s-1990s
+      { pattern: /\b60-?tal/i, decade: '60-tal' },
+      { pattern: /\b70-?tal/i, decade: '70-tal' },
+      { pattern: /\b80-?tal/i, decade: '80-tal' },
+      { pattern: /\b90-?tal/i, decade: '90-tal' },
+      { pattern: /vintage|klassisk/i, decade: 'vintage' },
+      { pattern: /modern|samtida/i, decade: 'modern' }
+    ];
+
+    for (const { pattern, decade } of patterns) {
+      if (pattern.test(text)) {
+        // For year ranges, determine the appropriate decade
+        const yearMatch = text.match(/\b(19[6-9]\d)/);
+        if (yearMatch) {
+          const year = parseInt(yearMatch[1]);
+          if (year >= 1960 && year < 1970) return '60-tal';
+          if (year >= 1970 && year < 1980) return '70-tal';
+          if (year >= 1980 && year < 1990) return '80-tal';
+          if (year >= 1990 && year < 2000) return '90-tal';
+        }
+        return decade;
+      }
+    }
+
+    return null;
   }
 } 
