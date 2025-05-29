@@ -1173,13 +1173,14 @@ SVARA MED JSON:
     try {
       // Start both historical and live analysis in parallel for efficiency
       const [historicalResult, liveResult] = await Promise.all([
-        // Historical sales data
+        // Historical sales data - pass currentValuation for exceptional sales filtering
         this.auctionetAPI.analyzeComparableSales(
           artistName, 
           objectType, 
           period, 
           technique, 
-          description
+          description,
+          currentValuation
         ),
         // Live auction data
         this.auctionetAPI.analyzeLiveAuctions(

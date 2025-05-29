@@ -37,9 +37,10 @@ export class AuctionetAPI {
   }
 
   // Main method to analyze comparable sales for an item
-  async analyzeComparableSales(artistName, objectType, period, technique, description) {
+  async analyzeComparableSales(artistName, objectType, period, technique, description, currentValuation = null) {
     console.log('🔍 Starting Auctionet market analysis...');
     console.log(`📊 Searching for: Artist="${artistName}", Object="${objectType}", Period="${period}"`);
+    console.log(`💰 Current valuation for exceptional sales filtering: ${currentValuation ? currentValuation.toLocaleString() + ' SEK' : 'Not provided'}`);
 
     // Ensure company exclusion setting is loaded before searching
     await this.loadExcludeCompanySetting();
@@ -103,7 +104,7 @@ export class AuctionetAPI {
       }
 
       // Analyze the market data
-      const marketAnalysis = this.analyzeMarketData(bestResult.soldItems, artistName, objectType, totalMatches);
+      const marketAnalysis = this.analyzeMarketData(bestResult.soldItems, artistName, objectType, totalMatches, currentValuation);
       
       console.log('✅ Auctionet market analysis complete');
       console.log(`📊 Analyzed ${bestResult.soldItems.length} sales from ${totalMatches} total matches`);
@@ -607,7 +608,7 @@ export class AuctionetAPI {
   }
 
   // Analyze market data from sold items
-  analyzeMarketData(soldItems, artistName, objectType, totalMatches = 0) {
+  analyzeMarketData(soldItems, artistName, objectType, totalMatches = 0, currentValuation = null) {
     console.log(`📊 Analyzing market data from ${soldItems.length} sales...`);
     
     if (soldItems.length === 0) {
@@ -624,7 +625,7 @@ export class AuctionetAPI {
     const medianPrice = this.calculateMedian(prices);
     
     // NEW: Detect exceptional high-value sales that should be highlighted
-    const exceptionalSales = this.detectExceptionalSales(soldItems, prices);
+    const exceptionalSales = this.detectExceptionalSales(soldItems, prices, currentValuation);
     
     // Calculate confidence based on data quality AND total market coverage
     const confidence = this.calculateConfidence(soldItems, artistName, objectType, totalMatches);
@@ -675,7 +676,7 @@ export class AuctionetAPI {
   }
 
   // NEW: Detect exceptional high-value sales that should be highlighted
-  detectExceptionalSales(soldItems, prices) {
+  detectExceptionalSales(soldItems, prices, currentValuation = null) {
     if (prices.length < 3) {
       return null; // Need enough data to determine what's exceptional
     }
@@ -684,10 +685,25 @@ export class AuctionetAPI {
     const median = this.calculateMedian(sortedPrices);
     const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
     
-    // Define exceptional as significantly above Q3 (more than 3x median or 2x Q3)
-    const exceptionalThreshold = Math.max(median * 3, q3 * 2);
+    // Define base exceptional threshold as significantly above Q3 (more than 3x median or 2x Q3)
+    const baseThreshold = Math.max(median * 3, q3 * 2);
     
+    // IMPROVED LOGIC: If current valuation exists, exceptional sales must be higher than valuation
+    let exceptionalThreshold = baseThreshold;
+    let valuationBasedFiltering = false;
+    
+    if (currentValuation && currentValuation > 0) {
+      // Exceptional sales must be both statistically high AND above current valuation
+      exceptionalThreshold = Math.max(baseThreshold, currentValuation);
+      valuationBasedFiltering = true;
+      console.log(`🎯 Exceptional sales filtering: must be > ${currentValuation.toLocaleString()} SEK (current valuation) and > ${baseThreshold.toLocaleString()} SEK (statistical threshold)`);
+    } else {
+      console.log(`📊 Exceptional sales filtering: must be > ${baseThreshold.toLocaleString()} SEK (statistical threshold only, no valuation provided)`);
+    }
+    
+    // Filter for confirmed sales (finalPrice exists) that meet our criteria
     const exceptionalSales = soldItems.filter(item => 
+      item.finalPrice && // Must be a confirmed sale, not just an estimate
       item.finalPrice > exceptionalThreshold
     ).map(item => ({
       price: item.finalPrice,
@@ -699,24 +715,45 @@ export class AuctionetAPI {
       url: this.convertToSwedishUrl(item.url),
       auctionId: this.extractAuctionId(this.convertToSwedishUrl(item.url)),
       priceVsMedian: Math.round((item.finalPrice / median) * 100),
-      priceVsEstimate: item.estimate ? Math.round((item.finalPrice / item.estimate) * 100) : null
+      priceVsEstimate: item.estimate ? Math.round((item.finalPrice / item.estimate) * 100) : null,
+      priceVsValuation: currentValuation ? Math.round((item.finalPrice / currentValuation) * 100) : null
     }));
     
     if (exceptionalSales.length > 0) {
-      console.log(`🌟 Found ${exceptionalSales.length} exceptional high-value sale(s):`);
+      console.log(`🌟 Found ${exceptionalSales.length} exceptional confirmed sale(s):`);
       exceptionalSales.forEach(sale => {
-        console.log(`   ${sale.price.toLocaleString()} SEK - ${sale.title.substring(0, 50)}... (${sale.priceVsMedian}% of median)`);
+        const valuationInfo = sale.priceVsValuation ? ` (${sale.priceVsValuation}% av din värdering)` : '';
+        console.log(`   ${sale.price.toLocaleString()} SEK - ${sale.title.substring(0, 50)}...${valuationInfo}`);
       });
     }
     
-    return exceptionalSales.length > 0 ? {
+    // Generate appropriate description based on whether valuation was used
+    let description;
+    if (exceptionalSales.length === 0) {
+      return null;
+    } else if (exceptionalSales.length === 1) {
+      const sale = exceptionalSales[0];
+      if (valuationBasedFiltering && sale.priceVsValuation) {
+        description = `En bekräftad försäljning på ${sale.price.toLocaleString()} SEK (${sale.priceVsValuation}% av din värdering)`;
+      } else {
+        description = `En exceptionell bekräftad försäljning på ${sale.price.toLocaleString()} SEK (${sale.priceVsMedian}% av medianpriset)`;
+      }
+    } else {
+      if (valuationBasedFiltering) {
+        const avgVsValuation = Math.round(exceptionalSales.reduce((sum, sale) => sum + (sale.priceVsValuation || 0), 0) / exceptionalSales.length);
+        description = `${exceptionalSales.length} bekräftade försäljningar över din värdering (i snitt ${avgVsValuation}% av din värdering)`;
+      } else {
+        description = `${exceptionalSales.length} exceptionella bekräftade försäljningar över ${Math.round(exceptionalThreshold).toLocaleString()} SEK`;
+      }
+    }
+    
+    return {
       count: exceptionalSales.length,
       sales: exceptionalSales,
       threshold: exceptionalThreshold,
-      description: exceptionalSales.length === 1 ? 
-        `En exceptionell försäljning på ${exceptionalSales[0].price.toLocaleString()} SEK (${exceptionalSales[0].priceVsMedian}% av medianpriset)` :
-        `${exceptionalSales.length} exceptionella försäljningar över ${Math.round(exceptionalThreshold).toLocaleString()} SEK`
-    } : null;
+      description: description,
+      valuationBased: valuationBasedFiltering
+    };
   }
 
   // Calculate confidence score based on data quality
