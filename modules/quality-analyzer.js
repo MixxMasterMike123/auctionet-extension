@@ -3161,6 +3161,9 @@ export class QualityAnalyzer {
     // NEW: Special handling for coins/numismatics
     const isCoin = this.isCoinItem(objectType, title, description);
     
+    // NEW: Special handling for stamps/philatelic items
+    const isStamp = this.isStampItem(objectType, title, description);
+    
     // Extract key descriptive terms from title and description
     const text = `${title} ${description}`.toLowerCase();
     const searchTerms = [];
@@ -3186,6 +3189,11 @@ export class QualityAnalyzer {
     if (isCoin) {
       console.log('🪙 Detected coin/numismatic item - using coin-specific search strategy');
       return this.generateCoinSearch(objectType, title, description, artistInfo, searchTerms, confidence);
+    }
+    
+    if (isStamp) {
+      console.log('📜 Detected stamp/philatelic item - using stamp-specific search strategy');
+      return this.generateStampSearch(objectType, title, description, artistInfo, searchTerms, confidence);
     }
     
     // Extract title-specific descriptive terms (highest priority after artist)
@@ -3318,89 +3326,19 @@ export class QualityAnalyzer {
     return coinTypes.some(type => textToCheck.includes(type));
   }
 
-  // NEW: Generate jewelry-specific search terms
-  generateJewelrySearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
-    console.log('💍 Generating jewelry-specific search for:', objectType);
+  // NEW: Check if item is stamp/philatelic
+  isStampItem(objectType, title, description) {
+    const stampTypes = [
+      'frimärke', 'frimärken', 'stamp', 'stamps', 'philatelic', 'philately',
+      'postfrisk', 'stämplad', 'stämpel', 'postmark', 'postal',
+      'brevfrimärke', 'jubileumsfrimärke', 'minnesfrimärke',
+      'frimärkssamling', 'frimärksalbum', 'stampcollection',
+      'frimärksblad', 'frimärksblock', 'block', 'haefte',
+      'frankering', 'porto', 'poststämpel'
+    ];
     
-    const text = `${title} ${description}`.toLowerCase();
-    const jewelryTerms = [...baseTerms]; // Start with base terms (artist + object type)
-    let confidence = baseConfidence;
-    let strategy = artistInfo ? 'artist_enhanced_jewelry' : 'jewelry_specific';
-    
-    // 1. PRIORITY: Extract material information (most important for jewelry)
-    const materials = this.extractJewelryMaterials(text);
-    if (materials.length > 0) {
-      jewelryTerms.push(...materials.slice(0, 2)); // Max 2 materials
-      confidence += 0.3; // Materials are very important for jewelry
-      console.log('💎 Added jewelry materials:', materials);
-    }
-    
-    // 2. Extract weight information (very specific for jewelry)
-    const weight = this.extractWeight(text);
-    if (weight) {
-      jewelryTerms.push(weight);
-      confidence += 0.2; // Weight is very specific
-      console.log('⚖️ Added weight:', weight);
-    }
-    
-    // 3. Extract stone information
-    const stones = this.extractStones(text);
-    if (stones.length > 0) {
-      jewelryTerms.push(...stones.slice(0, 2)); // Max 2 stones
-      confidence += 0.2;
-      console.log('💎 Added stones:', stones);
-    }
-    
-    // 4. Extract style/period only if no year that would cause mixing
-    const periods = this.extractPeriods(text);
-    const hasSpecificYear = periods.some(period => /^\d{4}$/.test(period));
-    
-    if (!hasSpecificYear) {
-      // Only add style periods, not specific years
-      const stylePeriods = periods.filter(period => !period.match(/^\d{4}$/));
-      if (stylePeriods.length > 0) {
-        jewelryTerms.push(...stylePeriods.slice(0, 1));
-        confidence += 0.1;
-        console.log('🎨 Added style period (no specific year):', stylePeriods);
-      }
-    } else {
-      console.log('⚠️ Skipping specific year to avoid mixed category results');
-    }
-    
-    // 5. Extract size/dimensions (specific to jewelry)
-    const size = this.extractJewelrySize(text);
-    if (size) {
-      jewelryTerms.push(size);
-      confidence += 0.1;
-      console.log('📏 Added size:', size);
-    }
-    
-    // Ensure we have enough terms but not too many
-    if (jewelryTerms.length < 2) {
-      console.log('❌ Not enough jewelry-specific terms found');
-      return null;
-    }
-    
-    // Limit to 4 terms for focused jewelry search
-    const finalTerms = jewelryTerms.slice(0, 4);
-    const searchString = finalTerms.join(' ');
-    
-    console.log('✅ Generated jewelry search:', {
-      terms: finalTerms,
-      searchString: searchString,
-      confidence: Math.min(confidence, 0.9),
-      strategy: strategy,
-      hasArtist: !!artistInfo
-    });
-    
-    return {
-      searchTerms: searchString,
-      confidence: Math.min(confidence, 0.9),
-      strategy: strategy,
-      termCount: finalTerms.length,
-      hasArtist: !!artistInfo,
-      isJewelry: true
-    };
+    const textToCheck = `${objectType} ${title} ${description}`.toLowerCase();
+    return stampTypes.some(type => textToCheck.includes(type));
   }
 
   // NEW: Extract jewelry-specific materials
@@ -4263,5 +4201,138 @@ export class QualityAnalyzer {
       .map(match => match.trim().toLowerCase())
       .filter((series, index, arr) => arr.indexOf(series) === index)
       .slice(0, 1);
+  }
+
+  // NEW: Generate stamp-specific search terms
+  generateStampSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
+    console.log('📜 Generating stamp-specific search for:', objectType);
+    
+    const text = `${title} ${description}`.toLowerCase();
+    const stampTerms = [...baseTerms]; // Start with base terms (artist + object type)
+    let confidence = baseConfidence;
+    let strategy = artistInfo ? 'artist_enhanced_stamp' : 'stamp_specific';
+    
+    // 1. PRIORITY: Extract countries/origins (most important for stamps)
+    const countries = this.extractStampCountries(text);
+    if (countries.length > 0) {
+      stampTerms.push(...countries.slice(0, 2)); // Max 2 countries
+      confidence += 0.4; // Countries are very important for stamps
+      console.log('🌍 Added stamp countries:', countries);
+    }
+    
+    // 2. Extract collection types
+    const collectionTypes = this.extractStampCollectionTypes(text);
+    if (collectionTypes.length > 0) {
+      stampTerms.push(...collectionTypes.slice(0, 1)); // Max 1 collection type
+      confidence += 0.3;
+      console.log('📚 Added collection type:', collectionTypes);
+    }
+    
+    // 3. Extract condition information (important for stamps)
+    const conditions = this.extractStampConditions(text);
+    if (conditions.length > 0) {
+      stampTerms.push(...conditions.slice(0, 1)); // Max 1 condition
+      confidence += 0.2;
+      console.log('📜 Added condition:', conditions);
+    }
+    
+    // 4. Extract time periods (but be conservative to avoid overly specific searches)
+    const periods = this.extractStampPeriods(text);
+    if (periods.length > 0) {
+      // Only add one broad period, not multiple overlapping ones
+      stampTerms.push(periods[0]); // Just the first/most general period
+      confidence += 0.2;
+      console.log('📅 Added period (conservative):', periods[0]);
+    }
+    
+    // Ensure we have enough terms but not too many
+    if (stampTerms.length < 2) {
+      console.log('❌ Not enough stamp-specific terms found');
+      return null;
+    }
+    
+    // Limit to 4 terms for focused stamp search
+    const finalTerms = stampTerms.slice(0, 4);
+    const searchString = finalTerms.join(' ');
+    
+    console.log('✅ Generated stamp search:', {
+      terms: finalTerms,
+      searchString: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: strategy,
+      hasArtist: !!artistInfo
+    });
+    
+    return {
+      searchTerms: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: strategy,
+      termCount: finalTerms.length,
+      hasArtist: !!artistInfo,
+      isStamp: true
+    };
+  }
+
+  // NEW: Extract stamp-specific countries
+  extractStampCountries(text) {
+    const countryPattern = /(?:svensk|svenska|sweden|norge|norsk|norway|danmark|danish|finland|finska|tysk|germany|frankrike|france|england|usa|amerikans?k?|ryssland|russia)/gi;
+    const matches = text.match(countryPattern) || [];
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((country, index, arr) => arr.indexOf(country) === index)
+      .slice(0, 2);
+  }
+
+  // NEW: Extract stamp collection types
+  extractStampCollectionTypes(text) {
+    const collectionPattern = /(?:parti|samling|collection|album|lot|block|häfte|serie|set)/gi;
+    const matches = text.match(collectionPattern) || [];
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((type, index, arr) => arr.indexOf(type) === index)
+      .slice(0, 1);
+  }
+
+  // NEW: Extract stamp conditions
+  extractStampConditions(text) {
+    const conditionPattern = /(?:postfrisk|mint|stämplad|used|defekt|damaged|fin|excellent)/gi;
+    const matches = text.match(conditionPattern) || [];
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((condition, index, arr) => arr.indexOf(condition) === index)
+      .slice(0, 1);
+  }
+
+  // NEW: Extract stamp periods (conservative approach)
+  extractStampPeriods(text) {
+    // Look for general periods, not specific overlapping years
+    const periodPattern = /(?:1900-tal|1800-tal|2000-tal|klassisk|modern|äldre|nyare)/gi;
+    const matches = text.match(periodPattern) || [];
+    
+    // If no general periods found, try broader year ranges
+    if (matches.length === 0) {
+      const yearRangePattern = /(?:19\d{2}|20\d{2})/g;
+      const years = text.match(yearRangePattern) || [];
+      
+      if (years.length > 0) {
+        // Convert to general periods instead of specific years
+        const firstYear = parseInt(years[0]);
+        if (firstYear >= 2000) {
+          return ['2000-tal'];
+        } else if (firstYear >= 1900) {
+          return ['1900-tal'];
+        } else {
+          return ['klassisk'];
+        }
+      }
+    }
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((period, index, arr) => arr.indexOf(period) === index)
+      .slice(0, 1); // Only one period to avoid complexity
   }
 } 
