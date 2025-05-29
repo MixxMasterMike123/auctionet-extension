@@ -4099,32 +4099,111 @@ export class QualityAnalyzer {
   // Fallback method for manual text selection if clipboard API fails
   selectTextForManualCopy(element, artistName) {
     try {
-      // Create a temporary input element with the artist name
-      const tempInput = document.createElement('input');
-      tempInput.value = artistName;
-      tempInput.style.position = 'absolute';
-      tempInput.style.left = '-9999px';
-      document.body.appendChild(tempInput);
+      // Clear any existing selection
+      window.getSelection()?.removeAllRanges();
       
-      // Select the text
-      tempInput.select();
-      tempInput.setSelectionRange(0, artistName.length);
+      const range = document.createRange();
+      range.selectNodeContents(element);
       
-      // Try to copy using document.execCommand as fallback
-      const success = document.execCommand('copy');
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
       
-      if (success) {
-        console.log(`📋 Artist name copied using fallback method: ${artistName}`);
-      } else {
-        console.log(`⚠️ Copy failed - user should manually copy: ${artistName}`);
-      }
+      console.log('🎯 Manual text selection successful for:', artistName);
       
-      // Clean up
-      document.body.removeChild(tempInput);
+      // Optional: Show a temporary visual feedback
+      element.style.backgroundColor = '#E3F2FD';
+      setTimeout(() => {
+        element.style.backgroundColor = '';
+      }, 1000);
       
     } catch (error) {
-      console.error('Fallback copy method also failed:', error);
+      console.error('❌ Manual text selection failed:', error);
     }
+  }
+
+  // NEW: Generate jewelry-specific search terms
+  generateJewelrySearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
+    console.log('💍 Generating jewelry-specific search for:', objectType);
+    
+    const text = `${title} ${description}`.toLowerCase();
+    const jewelryTerms = [...baseTerms]; // Start with base terms (artist + object type)
+    let confidence = baseConfidence;
+    let strategy = artistInfo ? 'artist_enhanced_jewelry' : 'jewelry_specific';
+    
+    // 1. PRIORITY: Extract materials (most important for jewelry)
+    const materials = this.extractJewelryMaterials(text);
+    if (materials.length > 0) {
+      jewelryTerms.push(...materials.slice(0, 2)); // Max 2 materials
+      confidence += 0.4; // Materials are very important for jewelry
+      console.log('💍 Added jewelry materials:', materials);
+    }
+    
+    // 2. Extract weight information (important for precious metals)
+    const weight = this.extractWeight(text);
+    if (weight) {
+      jewelryTerms.push(weight);
+      confidence += 0.3; // Weight is important for jewelry valuation
+      console.log('💍 Added weight:', weight);
+    }
+    
+    // 3. Extract stone information
+    const stones = this.extractStones(text);
+    if (stones.length > 0) {
+      jewelryTerms.push(...stones.slice(0, 2)); // Max 2 stones
+      confidence += 0.3;
+      console.log('💍 Added stones:', stones);
+    }
+    
+    // 4. Extract size information (important for rings, chains)
+    const size = this.extractJewelrySize(text);
+    if (size) {
+      jewelryTerms.push(size);
+      confidence += 0.2;
+      console.log('💍 Added size:', size);
+    }
+    
+    // 5. Extract time periods (be conservative to avoid overly specific searches)
+    const periods = this.extractPeriods(text);
+    if (periods.length > 0) {
+      // For jewelry, avoid specific years that might mix categories
+      const broadPeriods = periods.filter(period => 
+        period.includes('-tal') || 
+        ['antik', 'vintage', 'modern', 'klassisk'].includes(period.toLowerCase())
+      );
+      if (broadPeriods.length > 0) {
+        jewelryTerms.push(broadPeriods[0]); // Just one broad period
+        confidence += 0.15;
+        console.log('💍 Added period (conservative):', broadPeriods[0]);
+      }
+    }
+    
+    // Ensure we have enough terms but not too many
+    if (jewelryTerms.length < 2) {
+      console.log('❌ Not enough jewelry-specific terms found');
+      return null;
+    }
+    
+    // Limit to 4 terms for focused jewelry search
+    const finalTerms = jewelryTerms.slice(0, 4);
+    const searchString = finalTerms.join(' ');
+    
+    console.log('✅ Generated jewelry search:', {
+      terms: finalTerms,
+      searchString: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: strategy,
+      hasArtist: !!artistInfo
+    });
+
+    return {
+      searchTerms: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: strategy,
+      termCount: finalTerms.length,
+      hasArtist: !!artistInfo,
+      isJewelry: true
+    };
   }
 
   // NEW: Generate coin-specific search terms
