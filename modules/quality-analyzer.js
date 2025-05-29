@@ -453,9 +453,9 @@ export class QualityAnalyzer {
     // Check if "Inga anmärkningar" (No remarks) is checked (handle missing checkboxes gracefully)
     let noRemarksChecked = false;
     try {
-      const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                               document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                               document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
       noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
     } catch (error) {
       console.log('ℹ️ No remarks checkbox not found (optional)');
@@ -553,17 +553,17 @@ export class QualityAnalyzer {
         // Moderately higher minimum length requirement (14 → 25 characters, not 40)
         if (condLength < 25) {
           warnings.push({ field: 'Kondition', issue: 'Konditionsbeskrivning bör vara mer detaljerad för kundernas trygghet', severity: 'high' });
-          score -= 20;
-        }
+        score -= 20;
+      }
         
         // Still zero tolerance for "bruksslitage" only, but less harsh penalty
-        if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
-          warnings.push({ field: 'Kondition', issue: 'Endast "bruksslitage" är otillräckligt - specificera typ av slitage (repor, nagg, fläckar, etc.)', severity: 'high' });
+      if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
+        warnings.push({ field: 'Kondition', issue: 'Endast "bruksslitage" är otillräckligt - specificera typ av slitage (repor, nagg, fläckar, etc.)', severity: 'high' });
           score -= 35;
-        }
-        
+      }
+      
         // Moderately stricter check for vague condition terms
-        const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
+      const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
         const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
         
         if (hasVaguePhrase && condLength < 40) {
@@ -686,16 +686,16 @@ export class QualityAnalyzer {
           this.startSalesAnalysis(aiArtistInfo, data, currentWarnings, currentScore);
         } else {
           // No AI artist found, fall back to best available option
-          const bestArtist = this.determineBestArtistForMarketAnalysis(data, aiArtist);
-          
-          if (bestArtist) {
+        const bestArtist = this.determineBestArtistForMarketAnalysis(data, aiArtist);
+        
+        if (bestArtist) {
             console.log('💰 Starting sales analysis with best available artist/search:', bestArtist);
-            this.pendingAnalyses.add('sales');
-            this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
-            this.startSalesAnalysis(bestArtist, data, currentWarnings, currentScore);
-          } else {
-            console.log('ℹ️ No artist found for sales analysis');
-            this.checkAndHideLoadingIndicator();
+          this.pendingAnalyses.add('sales');
+          this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
+          this.startSalesAnalysis(bestArtist, data, currentWarnings, currentScore);
+        } else {
+          console.log('ℹ️ No artist found for sales analysis');
+          this.checkAndHideLoadingIndicator();
           }
         }
       }).catch(error => {
@@ -761,7 +761,7 @@ export class QualityAnalyzer {
 
     // Insert artist warning at the beginning since it's important info
     currentWarnings.unshift({
-      field: 'Titel',
+        field: 'Titel', 
       issue: artistMessage,
       severity: 'medium',
       detectedArtist: aiArtist.detectedArtist, // For click-to-copy functionality
@@ -772,7 +772,7 @@ export class QualityAnalyzer {
 
     // Update quality display immediately and ensure it's visible
     this.updateQualityIndicator(currentScore, currentWarnings);
-    console.log('✅ Artist detection results displayed');
+      console.log('✅ Artist detection results displayed');
     
     // Add small delay to ensure the warning is visible before market analysis continues
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -1441,8 +1441,8 @@ export class QualityAnalyzer {
       if (warning.suggestedRange) {
         warningDiv.innerHTML = `
           <strong>${warning.field}:</strong> ${warning.issue}
-          <div style="margin-top: 4px; font-size: 10px; opacity: 0.8;">
-            ${warning.suggestedRange}
+              <div style="margin-top: 4px; font-size: 10px; opacity: 0.8;">
+                ${warning.suggestedRange}
           </div>
         `;
       } else if (warning.severity.startsWith('market-')) {
@@ -1699,9 +1699,9 @@ export class QualityAnalyzer {
     // Check if "Inga anmärkningar" is checked (handle missing checkboxes gracefully)
     let noRemarksChecked = false;
     try {
-      const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                               document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                               document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
       noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
     } catch (error) {
       console.log('ℹ️ No remarks checkbox not found (optional)');
@@ -1757,26 +1757,26 @@ export class QualityAnalyzer {
             // Only apply stricter rules if NOT "ej examinerad ur ram"
             
             // Zero tolerance for "bruksslitage" only
-            if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
-              issues.push('specific_damage', 'wear_details', 'bruksslitage_vague');
-              needsMoreInfo = true;
-            }
+          if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
+            issues.push('specific_damage', 'wear_details', 'bruksslitage_vague');
+            needsMoreInfo = true;
+          }
             
             // Moderately stricter minimum length (15 → 25 characters, not 40)
             if (condLength < 25) {
-              issues.push('condition_details');
-              needsMoreInfo = true;
-            }
-            
+            issues.push('condition_details');
+            needsMoreInfo = true;
+          }
+          
             // Moderate vague phrase detection
             const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
-            const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
-            
+          const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
+          
             // Moderate threshold for vague phrases (40 characters, not 60)
-            if (hasVaguePhrase && condLength < 40) {
-              issues.push('vague_condition_terms');
-              needsMoreInfo = true;
-            }
+          if (hasVaguePhrase && condLength < 40) {
+            issues.push('vague_condition_terms');
+            needsMoreInfo = true;
+          }
           }
           // If "ej examinerad ur ram" - no additional requirements, it's good as is
         }
@@ -1818,9 +1818,9 @@ export class QualityAnalyzer {
     // Check if "Inga anmärkningar" is checked (handle missing checkboxes gracefully)
     let noRemarksChecked = false;
     try {
-      const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                               document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                               document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
       noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
     } catch (error) {
       console.log('ℹ️ No remarks checkbox not found (optional)');
@@ -1845,10 +1845,10 @@ export class QualityAnalyzer {
         // Moderately stricter condition scoring for customer satisfaction
         if (condLength < 25) score -= 20;  // Moderate penalty (15 → 20, not 35)
         if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) score -= 35;  // Strong penalty (25 → 35, not 50)
-        
-        const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
+      
+      const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
         const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
-        
+      
         if (hasVaguePhrase && condLength < 40) score -= 20;  // Moderate penalty (15 → 20, not 40)
       }
       // If "ej examinerad ur ram" - no penalties, it's considered good condition
@@ -2066,7 +2066,7 @@ export class QualityAnalyzer {
       // Artist and brand analyses get immediate priority
       console.log('🎯 Creating priority artist/brand dashboard immediately');
       this.createDashboard(salesData, valuationSuggestions, dashboardId);
-    } else {
+        } else {
       // For freetext analyses, use small delay to allow artist detection to complete
       console.log('⏳ Delaying freetext dashboard creation to allow artist detection');
       this.pendingDashboardUpdate = setTimeout(() => {
@@ -2200,6 +2200,74 @@ export class QualityAnalyzer {
         </div>
       `;
       console.log('✅ Added prominent historical trend display');
+    }
+    
+    // Historical trend (NEW: prominently displayed)
+    if (salesData.historical && salesData.historical.trendAnalysis && salesData.historical.trendAnalysis.trend !== 'insufficient_data') {
+      const trend = salesData.historical.trendAnalysis;
+      let trendIcon = '';
+      let trendColor = '';
+      let trendText = '';
+      let helpText = '';
+      
+      // Calculate timeframe from historical sales data
+      let timeframeText = '';
+      if (salesData.historical.recentSales && salesData.historical.recentSales.length > 0) {
+        const salesDates = salesData.historical.recentSales
+          .map(sale => new Date(sale.date))
+          .filter(date => !isNaN(date));
+        
+        if (salesDates.length > 1) {
+          const oldestDate = new Date(Math.min(...salesDates));
+          const newestDate = new Date(Math.max(...salesDates));
+          const yearSpan = newestDate.getFullYear() - oldestDate.getFullYear();
+          
+          if (yearSpan >= 2) {
+            timeframeText = ` (${yearSpan}+ år data)`;
+          } else if (yearSpan >= 1) {
+            timeframeText = ` (${yearSpan}-${yearSpan + 1} år data)`;
+          } else {
+            timeframeText = ` (senaste året)`;
+          }
+        }
+      }
+      
+      // Determine display based on trend type
+      if (trend.trend === 'rising_strong') {
+        trendIcon = '📈';
+        trendColor = '#27ae60';
+        trendText = `+${Math.abs(trend.changePercent)}% senaste försäljningar vs tidigare`;
+        helpText = `stark uppgång${timeframeText}`;
+      } else if (trend.trend === 'rising') {
+        trendIcon = '📈';
+        trendColor = '#2ecc71';
+        trendText = `+${Math.abs(trend.changePercent)}% senaste försäljningar vs tidigare`;
+        helpText = `stigande${timeframeText}`;
+      } else if (trend.trend === 'falling_strong') {
+        trendIcon = '📉';
+        trendColor = '#e74c3c';
+        trendText = `${trend.changePercent}% senaste försäljningar vs tidigare`;
+        helpText = `stark nedgång${timeframeText}`;
+      } else if (trend.trend === 'falling') {
+        trendIcon = '📉';
+        trendColor = '#e67e22';
+        trendText = `${trend.changePercent}% senaste försäljningar vs tidigare`;
+        helpText = `fallande${timeframeText}`;
+      } else {
+        trendIcon = '📊';
+        trendColor = '#3498db';
+        trendText = 'Stabil utveckling';
+        helpText = `oförändrat${timeframeText}`;
+      }
+      
+      dashboardContent += `
+        <div class="market-item market-historical-trend">
+          <div class="market-label" title="Prisutveckling baserat på jämförelse mellan äldre och nyare försäljningar från historisk auktionsdata">Pristrend ${trendIcon}</div>
+          <div class="market-value" style="color: ${trendColor}; font-weight: 600;">${trendText}</div>
+          <div class="market-help">${helpText}</div>
+        </div>
+      `;
+      console.log('✅ Added prominent historical trend display with timeframe');
     }
     
     // Data summary
@@ -3167,7 +3235,7 @@ export class QualityAnalyzer {
       searchTerms.push(...periods);
       confidence += 0.1;
       if (!strategy.includes('artist') && !strategy.includes('based')) {
-        strategy = 'period_based';
+      strategy = 'period_based';
       }
     }
     
@@ -3187,7 +3255,7 @@ export class QualityAnalyzer {
       searchTerms.push(...techniques);
       confidence += 0.1;
       if (!strategy.includes('artist') && !strategy.includes('based')) {
-        strategy = 'technique_based';
+      strategy = 'technique_based';
       }
     }
     
@@ -3197,7 +3265,7 @@ export class QualityAnalyzer {
       searchTerms.push(...makers);
       confidence += 0.2;
       if (!strategy.includes('artist')) {
-        strategy = 'maker_based';
+      strategy = 'maker_based';
       }
     }
     
