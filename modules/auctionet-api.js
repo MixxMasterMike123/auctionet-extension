@@ -549,7 +549,7 @@ export class AuctionetAPI {
             returnedItems: data.items.length,
             soldItems: lenientItems.slice(0, 10).map(item => ({
               title: item.title,
-              finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : item.estimate,
+              finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : null,
               currency: item.currency,
               estimate: item.estimate,
               house: item.house,
@@ -578,7 +578,7 @@ export class AuctionetAPI {
         returnedItems: data.items.length,
         soldItems: soldItems.map(item => ({
           title: item.title,
-          finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : item.estimate,
+          finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : null,
           currency: item.currency,
           estimate: item.estimate,
           house: item.house,
@@ -615,29 +615,55 @@ export class AuctionetAPI {
       return null;
     }
     
-    // Extract prices and calculate statistics
-    const prices = soldItems.map(item => item.finalPrice);
-    const estimates = soldItems.filter(item => item.estimate > 0).map(item => item.estimate);
+    // Filter out unsold items (finalPrice is null) for market analysis
+    const actualSoldItems = soldItems.filter(item => item.finalPrice && item.finalPrice > 0);
+    console.log(`💰 Found ${actualSoldItems.length} actual sales out of ${soldItems.length} items (${soldItems.length - actualSoldItems.length} unsold)`);
+    
+    if (actualSoldItems.length === 0) {
+      console.log('❌ No actual sales found, cannot perform market analysis');
+      return {
+        priceRange: { low: 0, high: 0, currency: 'SEK' },
+        confidence: 0.1,
+        marketContext: 'Inga bekräftade försäljningar funna - endast utrop eller oavslutade auktioner',
+        recentSales: [],
+        trendAnalysis: { trend: 'no_sales', description: 'Inga försäljningar att analysera' },
+        limitations: 'Ingen marknadsdata tillgänglig - endast utrop funna',
+        exceptionalSales: null,
+        totalMatches,
+        statistics: {
+          average: 0,
+          median: 0,
+          min: 0,
+          max: 0,
+          sampleSize: 0,
+          totalMatches
+        }
+      };
+    }
+    
+    // Extract prices and calculate statistics from actual sales only
+    const prices = actualSoldItems.map(item => item.finalPrice);
+    const estimates = actualSoldItems.filter(item => item.estimate > 0).map(item => item.estimate);
     
     const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const medianPrice = this.calculateMedian(prices);
     
-    // NEW: Detect exceptional high-value sales that should be highlighted
-    const exceptionalSales = this.detectExceptionalSales(soldItems, prices, currentValuation);
+    // NEW: Detect exceptional high-value sales that should be highlighted (only from actual sales)
+    const exceptionalSales = this.detectExceptionalSales(actualSoldItems, prices, currentValuation);
     
-    // Calculate confidence based on data quality AND total market coverage
-    const confidence = this.calculateConfidence(soldItems, artistName, objectType, totalMatches);
+    // Calculate confidence based on actual sales data quality AND total market coverage
+    const confidence = this.calculateConfidence(actualSoldItems, artistName, objectType, totalMatches);
     
-    // Analyze trends over time
-    const trendAnalysis = this.analyzeTrends(soldItems);
+    // Analyze trends over time (only from actual sales)
+    const trendAnalysis = this.analyzeTrends(actualSoldItems);
     
-    // Generate market context
-    const marketContext = this.generateMarketContext(soldItems, avgPrice, estimates, artistName, objectType);
+    // Generate market context (only from actual sales)
+    const marketContext = this.generateMarketContext(actualSoldItems, avgPrice, estimates, artistName, objectType);
     
-    // Get recent sales for display
-    const recentSales = soldItems
+    // Get recent sales for display (only actual sales)
+    const recentSales = actualSoldItems
       .sort((a, b) => b.bidDate - a.bidDate)
       .slice(0, 5)
       .map(item => ({
@@ -653,7 +679,7 @@ export class AuctionetAPI {
     const priceRange = this.calculatePriceRange(prices, confidence);
     
     // Generate limitations text
-    const limitations = this.generateLimitations(soldItems, artistName, objectType);
+    const limitations = this.generateLimitations(actualSoldItems, artistName, objectType);
     
     return {
       priceRange,
@@ -669,7 +695,7 @@ export class AuctionetAPI {
         median: Math.round(medianPrice),
         min: minPrice,
         max: maxPrice,
-        sampleSize: soldItems.length,
+        sampleSize: actualSoldItems.length,
         totalMatches
       }
     };
