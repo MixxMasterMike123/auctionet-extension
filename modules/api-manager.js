@@ -1316,12 +1316,22 @@ SVARA MED JSON:
       
       // NEW: Create more specific bidding activity description
       function getBiddingActivityDescription() {
+        const searchQuery = liveResult.actualSearchQuery;
+        let auctionText = `${analyzedLiveItems} auktioner`;
+        
+        // Add clickable link if we have a search query (similar to "Pågående" link in data sources)
+        if (searchQuery) {
+          const encodedQuery = encodeURIComponent(searchQuery);
+          const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodedQuery}`;
+          auctionText = `<a href="${liveUrl}" target="_blank" style="color: #e74c3c; text-decoration: none; font-weight: 500;" title="Visa alla pågående auktioner på Auctionet för '${searchQuery}'">${analyzedLiveItems} auktioner</a>`;
+        }
+        
         if (totalBids === 0) {
-          return `inga bud (${analyzedLiveItems} auktioner)`;
+          return `inga bud (${auctionText})`;
         } else if (reserveMetPercentage === 0) {
-          return `bud finns men 0% utrop nås (${Math.round(averageBidsPerItem * 10) / 10} bud/auktion)`;
+          return `bud finns men 0% utrop nås (${Math.round(averageBidsPerItem * 10) / 10} bud/auktion, ${auctionText})`;
         } else {
-          return `${reserveMetPercentage}% utrop nås (${analyzedLiveItems} auktioner)`;
+          return `${reserveMetPercentage}% utrop nås (${auctionText})`;
         }
       }
       
