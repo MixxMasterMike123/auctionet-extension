@@ -854,19 +854,19 @@ export class AuctionetAPI {
     let trend, description;
     if (changePercent > 15) {
       trend = 'rising_strong';
-      description = `Stark uppgång: +${Math.round(changePercent)}% senaste tiden`;
+      description = `Stark uppgång: +${Math.round(changePercent)}% senaste försäljningar vs tidigare`;
     } else if (changePercent > 5) {
       trend = 'rising';
-      description = `Stigande: +${Math.round(changePercent)}% senaste tiden`;
+      description = `Stigande: +${Math.round(changePercent)}% senaste försäljningar vs tidigare`;
     } else if (changePercent < -15) {
       trend = 'falling_strong';
-      description = `Stark nedgång: ${Math.round(changePercent)}% senaste tiden`;
+      description = `Stark nedgång: ${Math.round(changePercent)}% senaste försäljningar vs tidigare`;
     } else if (changePercent < -5) {
       trend = 'falling';
-      description = `Fallande: ${Math.round(changePercent)}% senaste tiden`;
+      description = `Fallande: ${Math.round(changePercent)}% senaste försäljningar vs tidigare`;
     } else {
       trend = 'stable';
-      description = 'Stabil prisutveckling';
+      description = 'Stabil prisutveckling i slutpriser';
     }
     
     return { trend, description, changePercent: Math.round(changePercent) };
