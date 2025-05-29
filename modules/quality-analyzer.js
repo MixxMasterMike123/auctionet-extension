@@ -3158,6 +3158,9 @@ export class QualityAnalyzer {
     // NEW: Special handling for jewelry items
     const isJewelry = this.isJewelryItem(objectType, title, description);
     
+    // NEW: Special handling for coins/numismatics
+    const isCoin = this.isCoinItem(objectType, title, description);
+    
     // Extract key descriptive terms from title and description
     const text = `${title} ${description}`.toLowerCase();
     const searchTerms = [];
@@ -3178,6 +3181,11 @@ export class QualityAnalyzer {
     if (isJewelry) {
       console.log('💍 Detected jewelry item - using jewelry-specific search strategy');
       return this.generateJewelrySearch(objectType, title, description, artistInfo, searchTerms, confidence);
+    }
+    
+    if (isCoin) {
+      console.log('🪙 Detected coin/numismatic item - using coin-specific search strategy');
+      return this.generateCoinSearch(objectType, title, description, artistInfo, searchTerms, confidence);
     }
     
     // Extract title-specific descriptive terms (highest priority after artist)
@@ -3293,6 +3301,21 @@ export class QualityAnalyzer {
     
     const textToCheck = `${objectType} ${title} ${description}`.toLowerCase();
     return jewelryTypes.some(type => textToCheck.includes(type));
+  }
+
+  // NEW: Check if item is coin/numismatic
+  isCoinItem(objectType, title, description) {
+    const coinTypes = [
+      'mynt', 'coin', 'coins', 'myntserie', 'myntsamling',
+      'silvermynt', 'guldmynt', 'kopparmynt', 'bronsmynt',
+      'medal', 'medalj', 'minnesmynt', 'commemorative',
+      'sedel', 'banknote', 'paper money', 'riksdaler',
+      'öre', 'krona', 'kronor', 'skilling', 'mark',
+      'numismatic', 'numismatik', 'mynthandel'
+    ];
+    
+    const textToCheck = `${objectType} ${title} ${description}`.toLowerCase();
+    return coinTypes.some(type => textToCheck.includes(type));
   }
 
   // NEW: Generate jewelry-specific search terms
@@ -4108,5 +4131,137 @@ export class QualityAnalyzer {
     } catch (error) {
       console.error('Fallback copy method also failed:', error);
     }
+  }
+
+  // NEW: Generate coin-specific search terms
+  generateCoinSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
+    console.log('🪙 Generating coin-specific search for:', objectType);
+    
+    const text = `${title} ${description}`.toLowerCase();
+    const coinTerms = [...baseTerms]; // Start with base terms (artist + object type)
+    let confidence = baseConfidence;
+    let strategy = artistInfo ? 'artist_enhanced_coin' : 'coin_specific';
+    
+    // 1. PRIORITY: Extract denominations (most important for coins)
+    const denominations = this.extractDenominations(text);
+    if (denominations.length > 0) {
+      coinTerms.push(...denominations.slice(0, 3)); // Max 3 denominations
+      confidence += 0.4; // Denominations are very important for coins
+      console.log('🪙 Added denominations:', denominations);
+    }
+    
+    // 2. Extract material information (important for coins)
+    const materials = this.extractCoinMaterials(text);
+    if (materials.length > 0) {
+      coinTerms.push(...materials.slice(0, 2)); // Max 2 materials
+      confidence += 0.3; // Materials are important for coins
+      console.log('🪙 Added coin materials:', materials);
+    }
+    
+    // 3. Extract country/mint information
+    const countries = this.extractCountries(text);
+    if (countries.length > 0) {
+      coinTerms.push(...countries.slice(0, 1)); // Max 1 country
+      confidence += 0.2;
+      console.log('🪙 Added country:', countries);
+    }
+    
+    // 4. Extract years (but be careful not to be too specific like jewelry)
+    const years = this.extractYears(text);
+    if (years.length > 0) {
+      // For coins, years are often important but we can be more specific than jewelry
+      coinTerms.push(...years.slice(0, 2)); // Max 2 years
+      confidence += 0.2;
+      console.log('🪙 Added years:', years);
+    }
+    
+    // 5. Extract series information
+    const series = this.extractCoinSeries(text);
+    if (series.length > 0) {
+      coinTerms.push(...series.slice(0, 1));
+      confidence += 0.1;
+      console.log('🪙 Added series:', series);
+    }
+    
+    // Ensure we have enough terms but not too many
+    if (coinTerms.length < 2) {
+      console.log('❌ Not enough coin-specific terms found');
+      return null;
+    }
+    
+    // Limit to 5 terms for focused coin search
+    const finalTerms = coinTerms.slice(0, 5);
+    const searchString = finalTerms.join(' ');
+    
+    console.log('✅ Generated coin search:', {
+      terms: finalTerms,
+      searchString: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: strategy,
+      hasArtist: !!artistInfo
+    });
+    
+    return {
+      searchTerms: searchString,
+      confidence: Math.min(confidence, 0.9),
+      strategy: strategy,
+      termCount: finalTerms.length,
+      hasArtist: !!artistInfo,
+      isCoin: true
+    };
+  }
+
+  // NEW: Extract coin denominations
+  extractDenominations(text) {
+    const denominationPattern = /(\d+[,.]?\d*)\s*(?:öre|krona|kronor|skilling|mark|cent|euro|dollar|pound|yen|franc)/gi;
+    const matches = text.match(denominationPattern) || [];
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((denom, index, arr) => arr.indexOf(denom) === index) // Remove duplicates
+      .slice(0, 3); // Max 3 denominations
+  }
+
+  // NEW: Extract coin-specific materials
+  extractCoinMaterials(text) {
+    const materialPattern = /(?:silver|guld|gold|koppar|copper|brons|bronze|nickel|zink|zinc|järn|iron|stål|steel|platina|platinum)/gi;
+    const matches = text.match(materialPattern) || [];
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((material, index, arr) => arr.indexOf(material) === index)
+      .slice(0, 2);
+  }
+
+  // NEW: Extract countries/regions for coins
+  extractCountries(text) {
+    const countryPattern = /(?:sverige|sweden|norge|norway|danmark|denmark|finland|tyskland|germany|frankrike|france|england|usa|amerika|ryssland|russia)/gi;
+    const matches = text.match(countryPattern) || [];
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((country, index, arr) => arr.indexOf(country) === index)
+      .slice(0, 1);
+  }
+
+  // NEW: Extract years for coins
+  extractYears(text) {
+    const yearPattern = /\b(1[6-9]\d{2}|20[0-2]\d)\b/g; // Years from 1600-2029
+    const matches = text.match(yearPattern) || [];
+    
+    return matches
+      .filter((year, index, arr) => arr.indexOf(year) === index)
+      .slice(0, 2);
+  }
+
+  // NEW: Extract coin series information
+  extractCoinSeries(text) {
+    const seriesPattern = /(?:serie|series|samling|collection|minnesmynt|commemorative)/gi;
+    const matches = text.match(seriesPattern) || [];
+    
+    return matches
+      .map(match => match.trim().toLowerCase())
+      .filter((series, index, arr) => arr.indexOf(series) === index)
+      .slice(0, 1);
   }
 } 
