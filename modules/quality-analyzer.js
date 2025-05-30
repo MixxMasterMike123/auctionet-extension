@@ -1270,4 +1270,385 @@ export class QualityAnalyzer {
     
     return warnings;
   }
+
+  showAILoadingIndicator(message = 'AI analysis in progress...') {
+    // Create or update AI loading indicator
+    let indicator = document.querySelector('.ai-analysis-loading');
+    
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'ai-analysis-loading';
+      indicator.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 10000;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        max-width: 300px;
+        backdrop-filter: blur(10px);
+        animation: slideInRight 0.3s ease-out;
+      `;
+      
+      // Add animation keyframes if not already present
+      if (!document.getElementById('ai-loading-styles')) {
+        const style = document.createElement('style');
+        style.id = 'ai-loading-styles';
+        style.textContent = `
+          @keyframes slideInRight {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes slideOutRight {
+            from {
+              transform: translateX(0);
+              opacity: 1;
+            }
+            to {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      document.body.appendChild(indicator);
+    }
+    
+    indicator.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <span>${message}</span>
+      </div>
+    `;
+    
+    // Add spin animation if not already present
+    if (!document.getElementById('ai-spin-styles')) {
+      const style = document.createElement('style');
+      style.id = 'ai-spin-styles';
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    indicator.style.display = 'block';
+    this.aiAnalysisActive = true;
+  }
+
+  updateAILoadingMessage(message) {
+    const indicator = document.querySelector('.ai-analysis-loading span');
+    if (indicator) {
+      indicator.textContent = message;
+    }
+  }
+
+  hideAILoadingIndicator() {
+    const indicator = document.querySelector('.ai-analysis-loading');
+    if (indicator) {
+      indicator.style.animation = 'slideOutRight 0.3s ease-in';
+      setTimeout(() => {
+        if (indicator.parentNode) {
+          indicator.parentNode.removeChild(indicator);
+        }
+      }, 300);
+    }
+    this.aiAnalysisActive = false;
+  }
+
+  determineBestArtistForMarketAnalysis(data, aiArtist = null) {
+    // PRIORITY ORDER for market analysis:
+    // 1. AI-detected artist (highest priority if found)
+    // 2. Artist field (if filled)
+    // 3. Rule-based artist detection
+    // 4. Brand detection from title/description
+    // 5. Freetext search from title/description
+
+    console.log('🎯 Determining best artist for market analysis...');
+    console.log('📊 Available data:', { 
+      artist: data.artist, 
+      title: data.title?.substring(0, 80),
+      aiArtist: aiArtist?.detectedArtist 
+    });
+
+    // 1. PRIORITY: AI-detected artist (most reliable)
+    if (aiArtist && aiArtist.detectedArtist) {
+      console.log('🤖 Using AI-detected artist for market analysis:', aiArtist.detectedArtist);
+      return {
+        artist: aiArtist.detectedArtist,
+        source: 'ai_detected',
+        confidence: aiArtist.confidence || 0.8,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    // 2. Artist field (if filled and reasonable)
+    if (data.artist && data.artist.trim().length > 2) {
+      console.log('👤 Using artist field for market analysis:', data.artist);
+      return {
+        artist: data.artist.trim(),
+        source: 'artist_field',
+        confidence: 0.9,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    // 3. Rule-based artist detection
+    const ruleBasedArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
+    if (ruleBasedArtist && ruleBasedArtist.detectedArtist) {
+      console.log('⚖️ Using rule-based detected artist for market analysis:', ruleBasedArtist.detectedArtist);
+      return {
+        artist: ruleBasedArtist.detectedArtist,
+        source: 'rule_based',
+        confidence: ruleBasedArtist.confidence || 0.7,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    // 4. Brand detection (check for known brands/manufacturers)
+    const brandDetection = this.detectBrandInTitle(data.title, data.description);
+    if (brandDetection) {
+      console.log('🏷️ Using brand detection for market analysis:', brandDetection.brand);
+      return {
+        artist: brandDetection.brand,
+        source: 'brand_detected',
+        confidence: brandDetection.confidence,
+        isBrand: true,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    // 5. FALLBACK: Freetext search from title/description
+    const freetextTerms = this.extractFreetextSearchTerms(data.title, data.description);
+    if (freetextTerms && freetextTerms.searchTerms.length > 0) {
+      console.log('📝 Using freetext search terms for market analysis:', freetextTerms.combined);
+      return {
+        artist: freetextTerms.combined,
+        source: 'freetext',
+        confidence: freetextTerms.confidence,
+        isFreetext: true,
+        searchStrategy: freetextTerms.strategy,
+        termCount: freetextTerms.searchTerms.length,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    console.log('❌ No suitable artist or search terms found for market analysis');
+    return null;
+  }
+
+  detectBrandInTitle(title, description) {
+    // Known Swedish/Nordic brands and manufacturers common in auctions
+    const knownBrands = [
+      // Glass/Crystal
+      { name: 'Orrefors', confidence: 0.85 },
+      { name: 'Kosta', confidence: 0.85 },
+      { name: 'Boda', confidence: 0.80 },
+      { name: 'Iittala', confidence: 0.85 },
+      { name: 'Nuutajärvi', confidence: 0.80 },
+      
+      // Ceramics/Porcelain
+      { name: 'Gustavsberg', confidence: 0.85 },
+      { name: 'Rörstrand', confidence: 0.85 },
+      { name: 'Arabia', confidence: 0.85 },
+      { name: 'Royal Copenhagen', confidence: 0.85 },
+      { name: 'Bing & Grøndahl', confidence: 0.80 },
+      
+      // Furniture/Design
+      { name: 'Lammhults', confidence: 0.75 },
+      { name: 'Källemo', confidence: 0.75 },
+      { name: 'Svenskt Tenn', confidence: 0.80 },
+      
+      // Silver/Jewelry
+      { name: 'GAB', confidence: 0.80 },
+      { name: 'Atelier Borgila', confidence: 0.75 }
+    ];
+
+    const text = `${title} ${description}`.toLowerCase();
+    
+    for (const brand of knownBrands) {
+      if (text.includes(brand.name.toLowerCase())) {
+        console.log(`🏷️ Brand detected: ${brand.name} (confidence: ${brand.confidence})`);
+        return {
+          brand: brand.name,
+          confidence: brand.confidence
+        };
+      }
+    }
+
+    return null;
+  }
+
+  extractFreetextSearchTerms(title, description) {
+    // Extract meaningful search terms for freetext market analysis
+    const text = `${title} ${description}`.toLowerCase();
+    const searchTerms = [];
+    
+    // Extract object type
+    const objectType = this.extractObjectType(title);
+    if (objectType) {
+      searchTerms.push(objectType.toLowerCase());
+    }
+    
+    // Extract materials
+    const materials = this.searchTermExtractor.extractMaterials(text);
+    if (materials.length > 0) {
+      searchTerms.push(...materials.slice(0, 2)); // Top 2 materials
+    }
+    
+    // Extract periods
+    const periods = this.searchTermExtractor.extractPeriods(text);
+    if (periods.length > 0) {
+      searchTerms.push(periods[0]); // Most relevant period
+    }
+    
+    // Extract styles
+    const styles = this.searchTermExtractor.extractStyles(text);
+    if (styles.length > 0) {
+      searchTerms.push(styles[0]); // Most relevant style
+    }
+    
+    // Only proceed if we have meaningful terms
+    if (searchTerms.length < 2) {
+      console.log('⚠️ Not enough meaningful terms for freetext search');
+      return null;
+    }
+    
+    // Filter duplicates and combine
+    const uniqueTerms = [...new Set(searchTerms)];
+    const combined = uniqueTerms.slice(0, 4).join(' '); // Max 4 terms
+    
+    // Calculate confidence based on term quality and count
+    let confidence = 0.4; // Base confidence for freetext
+    if (uniqueTerms.length >= 3) confidence += 0.2;
+    if (materials.length > 0) confidence += 0.1;
+    if (periods.length > 0) confidence += 0.1;
+    
+    console.log(`📝 Extracted freetext terms: "${combined}" (confidence: ${confidence})`);
+    
+    return {
+      searchTerms: uniqueTerms,
+      combined: combined,
+      confidence: Math.min(0.8, confidence), // Cap at 0.8 for freetext
+      strategy: 'extracted_terms'
+    };
+  }
+
+  calculateCurrentQualityScore(data) {
+    let score = 100;
+    
+    // Check if "Inga anmärkningar" is checked
+    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+    const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+    
+    // Quick quality calculation (simplified version of analyzeQuality)
+    const descLength = data.description.replace(/<[^>]*>/g, '').length;
+    const condLength = data.condition.replace(/<[^>]*>/g, '').length;
+    const keywordsLength = data.keywords.length;
+    
+    // Support both comma-separated and Auctionet space-separated formats
+    const keywordCount = data.keywords ? 
+      (data.keywords.includes(',') ? 
+        data.keywords.split(',').filter(k => k.trim().length > 0).length :
+        data.keywords.split(/\s+/).filter(k => k.trim().length > 0).length
+      ) : 0;
+    
+    // Debug logging for calculateCurrentQualityScore
+    console.log('calculateCurrentQualityScore keywords debug:', {
+      keywords: data.keywords,
+      keywordsLength: keywordsLength,
+      keywordCount: keywordCount
+    });
+    
+    if (data.title.length < 20) score -= 20;
+    if (descLength < 50) score -= 25;
+    
+    // Skip condition scoring if "Inga anmärkningar" is checked
+    if (!noRemarksChecked) {
+      if (condLength < 20) score -= 20;
+      if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) score -= 25; // Increased penalty
+      
+      // Check for other vague condition phrases
+      const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage'];
+      const conditionText = data.condition.toLowerCase();
+      const hasVaguePhrase = vaguePhrases.some(phrase => 
+        conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 30
+      );
+      
+      if (hasVaguePhrase) score -= 15;
+    }
+    
+    // Updated keyword scoring with more reasonable thresholds
+    if (keywordsLength === 0 || !data.keywords || data.keywords.trim() === '') score -= 30;
+    else if (keywordCount < 2) score -= 20;
+    else if (keywordCount < 4) score -= 10;
+    // 4-12 keywords = no penalty (sweet spot)
+    else if (keywordCount > 12) score -= 15;
+    
+    if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i)) score -= 20;
+    
+    return Math.max(0, score);
+  }
+
+  extractTechnique(title, description) {
+    // Extract technique/method information from title and description
+    const text = `${title} ${description}`.toLowerCase();
+    
+    // Common techniques in Swedish auction catalogs
+    const techniques = [
+      // Art techniques
+      'olja på duk', 'olja på pannå', 'akvarell', 'tempera', 'gouache',
+      'litografi', 'etsning', 'träsnitt', 'linoleum', 'serigrafi',
+      'blandteknik', 'collage', 'pastell', 'kol', 'tusch',
+      
+      // Sculpture techniques  
+      'brons', 'gjutjärn', 'marmor', 'granit', 'trä', 'terrakotta',
+      'patinerad', 'förgylld', 'försilvrad',
+      
+      // Ceramics techniques
+      'glaserad', 'oglaserad', 'stengods', 'lergods', 'porslin',
+      'rakubränd', 'saltglaserad', 'raku',
+      
+      // Glass techniques
+      'handblåst', 'pressglas', 'kristall', 'optiskt glas',
+      'graverad', 'etsad', 'slipat',
+      
+      // Textile techniques
+      'vävd', 'knuten', 'broderad', 'applikation', 'batik',
+      'rölakan', 'gobeläng', 'flemväv',
+      
+      // Metalwork techniques
+      'smitt', 'gjuten', 'driven', 'ciselerad', 'graverad',
+      'emaljerad', 'förgylld', 'försilvrad'
+    ];
+    
+    // Find the first matching technique
+    for (const technique of techniques) {
+      if (text.includes(technique)) {
+        return technique;
+      }
+    }
+    
+    // No specific technique found
+    return null;
+  }
 }
