@@ -28,6 +28,7 @@ export class QualityAnalyzer {
     this.apiManager = apiManager;
     this.salesAnalysisManager.setApiManager(apiManager);
     this.salesAnalysisManager.setDashboardManager(this.dashboardManager);
+    this.dashboardManager.setApiManager(apiManager);
     // Pass dependencies to the search filter manager
     this.searchFilterManager.setQualityAnalyzer(this);
     this.searchFilterManager.setDashboardManager(this.dashboardManager);
