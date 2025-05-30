@@ -273,6 +273,12 @@ export class DashboardManager {
 
   // Helper method to complete dashboard creation (separated for readability)
   completeDashboardCreation(dashboard, dashboardContent, salesData, valuationSuggestions) {
+    // Generate search filter HTML if candidate terms are available
+    let searchFilterHTML = '';
+    if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms) {
+      searchFilterHTML = this.generateSearchFilterHTML(this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms);
+    }
+    
     // Add the content and finalize dashboard
     dashboard.innerHTML = `
       <div class="market-dashboard-header">
@@ -286,6 +292,7 @@ export class DashboardManager {
       <div class="market-dashboard-content">
         ${dashboardContent}
       </div>
+      ${searchFilterHTML}
     `;
     
     // Apply styles and inject into DOM
@@ -310,6 +317,82 @@ export class DashboardManager {
     if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager.setupHeaderSearchFilterInteractivity) {
       this.qualityAnalyzer.searchFilterManager.setupHeaderSearchFilterInteractivity();
     }
+  }
+
+  // NEW: Generate search filter HTML from candidate terms
+  generateSearchFilterHTML(candidateTerms) {
+    if (!candidateTerms || !candidateTerms.candidates || candidateTerms.candidates.length === 0) {
+      return '';
+    }
+    
+    console.log('🔧 Generating search filter HTML with', candidateTerms.candidates.length, 'candidate terms');
+    
+    // Group candidates by type for better organization
+    const groupedCandidates = {};
+    candidateTerms.candidates.forEach(candidate => {
+      if (!groupedCandidates[candidate.type]) {
+        groupedCandidates[candidate.type] = [];
+      }
+      groupedCandidates[candidate.type].push(candidate);
+    });
+    
+    // Define display order and labels for types
+    const typeOrder = ['artist', 'object_type', 'model', 'reference', 'material', 'period', 'movement', 'keyword'];
+    const typeLabels = {
+      'artist': 'Konstnär/Märke',
+      'object_type': 'Objekttyp', 
+      'model': 'Modell/Serie',
+      'reference': 'Referens',
+      'material': 'Material',
+      'period': 'Tidsperiod',
+      'movement': 'Urverk/Teknik',
+      'keyword': 'Nyckelord'
+    };
+    
+    let filterHTML = `
+      <div class="search-filter-section">
+        <div class="filter-header">
+          <h4 class="filter-title">🔍 Sökfilter (${candidateTerms.candidates.length} termer tillgängliga)</h4>
+          <div class="filter-description">Justera sökorden för att förfina marknadsanalysen</div>
+        </div>
+        <div class="filter-content">`;
+    
+    // Generate checkboxes grouped by type
+    typeOrder.forEach(type => {
+      if (groupedCandidates[type]) {
+        filterHTML += `<div class="filter-group">`;
+        filterHTML += `<span class="filter-group-label">${typeLabels[type]}:</span>`;
+        
+        groupedCandidates[type].forEach(candidate => {
+          const isChecked = candidate.preSelected ? 'checked' : '';
+          const checkboxId = `filter-${type}-${candidate.term.replace(/\s+/g, '-')}`;
+          
+          filterHTML += `
+            <label class="header-search-checkbox">
+              <input type="checkbox" 
+                     class="candidate-checkbox-header" 
+                     value="${candidate.term}" 
+                     id="${checkboxId}"
+                     ${isChecked}>
+              <span>${candidate.term}</span>
+            </label>`;
+        });
+        
+        filterHTML += `</div>`;
+      }
+    });
+    
+    filterHTML += `
+        </div>
+        <div class="filter-actions">
+          <div class="current-search-info">
+            <span class="current-search-label">Aktuell sökning:</span>
+            <span class="current-search-query">"${candidateTerms.currentQuery}"</span>
+          </div>
+        </div>
+      </div>`;
+    
+    return filterHTML;
   }
 
   // Add CSS styles for the market dashboard
@@ -445,6 +528,84 @@ export class DashboardManager {
         .header-search-checkbox:has(input[type="checkbox"]:checked):hover {
           background: #218c54;
           border-color: #218c54;
+        }
+        
+        /* Search filter section styles */
+        .search-filter-section {
+          border-top: 1px solid #dee2e6;
+          margin-top: 12px;
+          padding-top: 12px;
+        }
+        
+        .filter-header {
+          margin-bottom: 8px;
+        }
+        
+        .filter-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: #2c3e50;
+          margin: 0 0 2px 0;
+        }
+        
+        .filter-description {
+          font-size: 10px;
+          color: #6c757d;
+          margin-bottom: 6px;
+        }
+        
+        .filter-content {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-bottom: 8px;
+        }
+        
+        .filter-group {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+          margin-bottom: 4px;
+        }
+        
+        .filter-group-label {
+          font-size: 10px;
+          font-weight: 600;
+          color: #495057;
+          margin-right: 6px;
+          min-width: 70px;
+        }
+        
+        .filter-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 8px;
+          padding-top: 6px;
+          border-top: 1px solid #f0f0f0;
+        }
+        
+        .current-search-info {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .current-search-label {
+          font-size: 10px;
+          color: #6c757d;
+          font-weight: 500;
+        }
+        
+        .current-search-query {
+          font-size: 10px;
+          color: #2c3e50;
+          font-weight: 600;
+          background: #f8f9fa;
+          padding: 2px 6px;
+          border-radius: 4px;
+          border: 1px solid #dee2e6;
         }
       `;
       document.head.appendChild(style);

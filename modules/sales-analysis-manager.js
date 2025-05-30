@@ -36,8 +36,9 @@ export class SalesAnalysisManager {
     // NEW: Test the candidate search terms extraction
     const candidateTerms = searchFilterManager.extractCandidateSearchTerms(data.title, data.description, artistInfo);
     if (candidateTerms) {
-      // Store for dashboard use
+      // Store for dashboard use (in both managers for redundancy)
       this.lastCandidateSearchTerms = candidateTerms;
+      searchFilterManager.lastCandidateSearchTerms = candidateTerms;
       
       console.log('🧪 PHASE 1 TEST - Candidate search terms extracted:');
       console.log('📋 Candidates:');
