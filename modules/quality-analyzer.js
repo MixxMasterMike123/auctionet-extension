@@ -1207,4 +1207,67 @@ export class QualityAnalyzer {
     
     return enhancedTerms.filter(term => term && term.length > 2).slice(0, 5);
   }
+
+  updateQualityIndicator(score, warnings) {
+    const scoreElement = document.querySelector('.quality-score');
+    const warningsElement = document.querySelector('.quality-warnings');
+    
+    if (scoreElement) {
+      // Add smooth transition effect for score changes
+      const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
+      const newScore = score;
+      
+      if (currentScore !== newScore) {
+        scoreElement.style.transform = 'scale(1.1)';
+        setTimeout(() => {
+          scoreElement.style.transform = 'scale(1)';
+        }, 200);
+      }
+      
+      scoreElement.textContent = `${score}/100`;
+      scoreElement.className = `quality-score ${score >= 80 ? 'good' : score >= 60 ? 'medium' : 'poor'}`;
+    }
+    
+    if (warningsElement) {
+      if (warnings.length > 0) {
+        warningsElement.innerHTML = '<ul>' + 
+          warnings.map(w => `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`).join('') +
+          '</ul>';
+      } else {
+        warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
+      }
+    }
+  }
+
+  checkAndHideLoadingIndicator() {
+    // Hide any loading indicators that might be active
+    const loadingIndicators = document.querySelectorAll('.ai-loading-indicator');
+    loadingIndicators.forEach(indicator => {
+      indicator.style.display = 'none';
+    });
+  }
+
+  extractCurrentWarnings() {
+    // Extract current warnings from the DOM
+    const warningsElement = document.querySelector('.quality-warnings ul');
+    const warnings = [];
+    
+    if (warningsElement) {
+      const warningItems = warningsElement.querySelectorAll('li');
+      warningItems.forEach(item => {
+        const strongElement = item.querySelector('strong');
+        if (strongElement) {
+          const field = strongElement.textContent.replace(':', '');
+          const issue = item.textContent.replace(strongElement.textContent, '').trim();
+          const severity = Array.from(item.classList)
+            .find(cls => cls.startsWith('warning-'))
+            ?.replace('warning-', '') || 'medium';
+          
+          warnings.push({ field, issue, severity });
+        }
+      });
+    }
+    
+    return warnings;
+  }
 }
