@@ -208,6 +208,9 @@ export class SalesAnalysisManager {
       }
       
       console.log('✅ Market data dashboard and valuation analysis displayed');
+      
+      // Hide the AI loading indicator now that analysis is complete
+      qualityAnalyzer.hideAILoadingIndicator();
     }
   }
 
@@ -521,6 +524,7 @@ export class SalesAnalysisManager {
     // Update the display
     qualityAnalyzer.updateQualityIndicator(currentScore, updatedWarnings);
     qualityAnalyzer.checkAndHideLoadingIndicator();
+    qualityAnalyzer.hideAILoadingIndicator();
   }
 
   showSalesAnalysisError(error, currentWarnings, currentScore, qualityAnalyzer) {
@@ -543,6 +547,7 @@ export class SalesAnalysisManager {
     }
     
     qualityAnalyzer.checkAndHideLoadingIndicator();
+    qualityAnalyzer.hideAILoadingIndicator();
   }
 
   addMarketDataWarnings(salesData, warnings) {
