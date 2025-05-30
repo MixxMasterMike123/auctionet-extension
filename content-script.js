@@ -1,6 +1,3 @@
-import { SalesAnalysisManager } from "/modules/sales-analysis-manager.js";
-import { ItemTypeHandlers } from "/modules/item-type-handlers.js";
-import { SearchTermExtractor } from "/modules/search-term-extractor.js";
 // content-script.js - Main content script with dynamic module loading
 (async function() {
   'use strict';
