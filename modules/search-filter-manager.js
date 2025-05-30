@@ -433,7 +433,7 @@ export class SearchFilterManager {
         this.lastCandidateSearchTerms.currentQuery = newQuery;
         
         // Regenerate dashboard with filtered results
-        const valuationSuggestions = this.qualityAnalyzer.analyzeValuationSuggestions(filteredSalesData);
+        const valuationSuggestions = this.qualityAnalyzer.salesAnalysisManager.analyzeValuationSuggestions(filteredSalesData);
         this.dashboardManager.addMarketDataDashboard(filteredSalesData, valuationSuggestions);
         
         console.log('✅ Search filter updated successfully');
@@ -534,7 +534,7 @@ export class SearchFilterManager {
       this.lastCandidateSearchTerms.currentQuery = newQuery;
       
       // Regenerate dashboard with filtered results
-      const valuationSuggestions = this.qualityAnalyzer.analyzeValuationSuggestions(filteredSalesData);
+      const valuationSuggestions = this.qualityAnalyzer.salesAnalysisManager.analyzeValuationSuggestions(filteredSalesData);
       this.dashboardManager.addMarketDataDashboard(filteredSalesData, valuationSuggestions);
       
       console.log("✅ Header search filter updated successfully with auto-reload");
