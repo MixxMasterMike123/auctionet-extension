@@ -34,6 +34,7 @@
     // Dynamically import modules
     const { UIManager } = await import(chrome.runtime.getURL('modules/ui-manager.js'));
     const { DashboardManager } = await import(chrome.runtime.getURL('modules/dashboard-manager.js'));
+    const { SearchFilterManager } = await import(chrome.runtime.getURL('modules/search-filter-manager.js'));
     const { QualityAnalyzer } = await import(chrome.runtime.getURL('modules/quality-analyzer.js'));
     const { APIManager } = await import(chrome.runtime.getURL('modules/api-manager.js'));
     const { DataExtractor } = await import(chrome.runtime.getURL('modules/data-extractor.js'));

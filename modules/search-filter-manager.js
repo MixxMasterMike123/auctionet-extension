@@ -1,0 +1,561 @@
+export class SearchFilterManager {
+  constructor() {
+    this.lastCandidateSearchTerms = {};
+  }
+
+  // Set dependencies
+  setQualityAnalyzer(qualityAnalyzer) {
+    this.qualityAnalyzer = qualityAnalyzer;
+  }
+
+  setDashboardManager(dashboardManager) {
+    this.dashboardManager = dashboardManager;
+  }
+
+  setApiManager(apiManager) {
+    this.apiManager = apiManager;
+  }
+
+  setDataExtractor(dataExtractor) {
+    this.dataExtractor = dataExtractor;
+  }
+
+  // Build search query from selected candidates
+  buildQueryFromCandidates(selectedCandidates) {
+    return selectedCandidates.join(' ');
+  }
+
+  // Extract current item data from form
+  extractCurrentItemData() {
+    const titleField = document.querySelector('#item_title_sv');
+    const descriptionField = document.querySelector('#item_description_sv');
+    
+    return {
+      title: titleField ? titleField.value : '',
+      description: descriptionField ? descriptionField.value : ''
+    };
+  }
+
+  // NEW: Extract candidate search terms for interactive user selection
+  extractCandidateSearchTerms(title, description, artistInfo = null) {
+    console.log('🔍 Extracting ALL candidate search terms for:', title);
+    
+    const text = `${title} ${description}`;
+    const candidates = [];
+    
+    // Build current algorithm query to determine what should be pre-selected
+    const currentAlgorithmQuery = this.buildCurrentAlgorithmQuery(title, description, artistInfo);
+    const currentAlgorithmTerms = currentAlgorithmQuery.toLowerCase().split(' ').filter(t => t.length > 1);
+    
+    console.log('🎯 Current algorithm would use:', currentAlgorithmQuery);
+    console.log('📋 Current algorithm terms:', currentAlgorithmTerms);
+    
+    // 1. ARTIST/BRAND (if available)
+    if (artistInfo && artistInfo.artist) {
+      const artistTerm = artistInfo.artist.toLowerCase();
+      candidates.push({
+        term: artistInfo.artist,
+        type: 'artist',
+        priority: 1,
+        description: 'Konstnär/Märke',
+        preSelected: currentAlgorithmTerms.includes(artistTerm)
+      });
+    }
+    
+    // 2. OBJECT TYPE
+    const objectType = this.qualityAnalyzer.extractObjectType(title);
+    if (objectType) {
+      const objectTypeTerm = objectType.toLowerCase();
+      candidates.push({
+        term: objectTypeTerm,
+        type: 'object_type',
+        priority: 2,
+        description: 'Objekttyp',
+        preSelected: currentAlgorithmTerms.includes(objectTypeTerm)
+      });
+    }
+    
+    // 3. WATCH/JEWELRY MODELS AND SERIES
+    const watchModels = this.extractWatchModels(text);
+    watchModels.forEach(model => {
+      const modelTerm = model.toLowerCase();
+      candidates.push({
+        term: model,
+        type: 'model',
+        priority: 3,
+        description: 'Modell/Serie',
+        preSelected: currentAlgorithmTerms.includes(modelTerm)
+      });
+    });
+    
+    // 4. REFERENCE NUMBERS
+    const references = this.extractReferenceNumbers(text);
+    references.forEach(ref => {
+      const refTerm = ref.toLowerCase();
+      candidates.push({
+        term: ref,
+        type: 'reference',
+        priority: 4,
+        description: 'Referensnummer',
+        preSelected: currentAlgorithmTerms.includes(refTerm)
+      });
+    });
+    
+    // 5. MATERIALS
+    const materials = this.extractAllMaterials(text);
+    materials.forEach(material => {
+      const materialTerm = material.toLowerCase();
+      candidates.push({
+        term: material,
+        type: 'material',
+        priority: 5,
+        description: 'Material',
+        preSelected: currentAlgorithmTerms.includes(materialTerm)
+      });
+    });
+    
+    // 6. PERIODS/YEARS
+    const periods = this.extractAllPeriods(text);
+    periods.forEach(period => {
+      const periodTerm = period.toLowerCase();
+      candidates.push({
+        term: period,
+        type: 'period',
+        priority: 6,
+        description: 'Tidsperiod',
+        preSelected: currentAlgorithmTerms.includes(periodTerm)
+      });
+    });
+    
+    // 7. MOVEMENTS/TECHNIQUES
+    const movements = this.extractAllMovements(text);
+    movements.forEach(movement => {
+      const movementTerm = movement.toLowerCase();
+      candidates.push({
+        term: movement,
+        type: 'movement',
+        priority: 7,
+        description: 'Urverk/Teknik',
+        preSelected: currentAlgorithmTerms.includes(movementTerm)
+      });
+    });
+    
+    // 8. SIGNIFICANT WORDS (filtered list)
+    const significantWords = this.extractSignificantWords(text);
+    significantWords.forEach(word => {
+      const wordTerm = word.toLowerCase();
+      // Avoid duplicates
+      const alreadyExists = candidates.some(c => c.term.toLowerCase() === wordTerm);
+      if (!alreadyExists) {
+        candidates.push({
+          term: word,
+          type: 'keyword',
+          priority: 8,
+          description: 'Nyckelord',
+          preSelected: currentAlgorithmTerms.includes(wordTerm)
+        });
+      }
+    });
+    
+    // Sort by priority and then by whether pre-selected
+    candidates.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      if (a.preSelected !== b.preSelected) return b.preSelected ? 1 : -1;
+      return 0;
+    });
+    
+    // Build current query from pre-selected terms
+    const preSelectedTerms = candidates.filter(c => c.preSelected).map(c => c.term);
+    const currentQuery = preSelectedTerms.join(' ');
+    
+    console.log('🎯 ALL extracted candidate search terms:', candidates);
+    console.log('✅ Total candidates found:', candidates.length);
+    
+    return {
+      candidates: candidates,
+      currentQuery: currentQuery,
+      analysisType: artistInfo ? 'artist' : 'freetext'
+    };
+  }
+  
+  // Helper: Build what the current algorithm would query
+  buildCurrentAlgorithmQuery(title, description, artistInfo) {
+    if (artistInfo && artistInfo.artist) {
+      const objectType = this.qualityAnalyzer.extractObjectType(title);
+      return `${artistInfo.artist} ${objectType || ''}`.trim();
+    }
+    
+    // For freetext, use the enhanced search logic
+    const enhancedTerms = this.qualityAnalyzer.extractEnhancedSearchTerms(title, description);
+    return enhancedTerms.searchTerms || title;
+  }
+  
+  // Extract watch/jewelry models like "Seamaster", "Speedmaster", etc.
+  extractWatchModels(text) {
+    const models = [];
+    const text_lower = text.toLowerCase();
+    
+    // Common watch model patterns
+    const watchModelPatterns = [
+      // Omega models
+      /\b(seamaster|speedmaster|constellation|de ville|railmaster|planet ocean|aqua terra)\b/gi,
+      // Rolex models  
+      /\b(submariner|daytona|datejust|day-date|gmt-master|explorer|milgauss|yacht-master)\b/gi,
+      // Other luxury models
+      /\b(nautilus|aquanaut|calatrava|royal oak|overseas|patrimony|traditionelle)\b/gi,
+      // Generic model patterns
+      /\b([a-z]+master)\b/gi,
+      /\b([a-z]+timer)\b/gi
+    ];
+    
+    watchModelPatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const cleaned = match.trim();
+          if (cleaned.length > 2 && !models.includes(cleaned)) {
+            models.push(cleaned);
+          }
+        });
+      }
+    });
+    
+    return models;
+  }
+  
+  // Extract reference numbers
+  extractReferenceNumbers(text) {
+    const references = [];
+    
+    const refPatterns = [
+      /reference\s+([A-Z]{1,3}\s*\d{3,6}[A-Z]*)/gi,
+      /ref\.?\s+([A-Z]{1,3}\s*\d{3,6}[A-Z]*)/gi,
+      /\b([A-Z]{1,3}\s*\d{3,6}[A-Z]*)\b/g  // Generic alphanumeric patterns
+    ];
+    
+    refPatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const cleaned = match.trim().replace(/\s+/g, ' ');
+          if (cleaned.length > 2 && !references.includes(cleaned)) {
+            references.push(cleaned);
+          }
+        });
+      }
+    });
+    
+    return references;
+  }
+  
+  // Extract all materials
+  extractAllMaterials(text) {
+    const materials = [];
+    const text_lower = text.toLowerCase();
+    
+    const materialPatterns = [
+      /\b(guld|silver|platina|titan|stål|keramik|läder|kautschuk|nylon|canvas|metall)\b/gi,
+      /\b(18k|14k|925|950|316l|904l)\b/gi,
+      /\b(vitguld|rödguld|roséguld|gelbgold|weissgold|rotgold)\b/gi
+    ];
+    
+    materialPatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const cleaned = match.trim();
+          if (cleaned.length > 1 && !materials.includes(cleaned)) {
+            materials.push(cleaned);
+          }
+        });
+      }
+    });
+    
+    return materials;
+  }
+  
+  // Extract all periods
+  extractAllPeriods(text) {
+    const periods = [];
+    
+    const periodPatterns = [
+      /\b(\d{4})\b/g,                    // 1950
+      /\b(\d{2,4}-tal)\b/g,              // 1900-tal
+      /\b(\d{2}\/\d{4}-tal)\b/g,         // 17/1800-tal
+      /\b(1[6-9]\d{2})\b/g,              // 1600-1999
+      /\b(20[0-2]\d)\b/g                 // 2000-2029
+    ];
+    
+    periodPatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const cleaned = match.trim();
+          if (cleaned.length > 2 && !periods.includes(cleaned)) {
+            periods.push(cleaned);
+          }
+        });
+      }
+    });
+    
+    return periods;
+  }
+  
+  // Extract all movements
+  extractAllMovements(text) {
+    const movements = [];
+    const text_lower = text.toLowerCase();
+    
+    const movementPatterns = [
+      /\b(automatisk|manuell|kvarts|quartz|mechanical|automatic|manual|handaufzug|automatik)\b/gi,
+      /\b(cronograf|chronograph|perpetual|moon phase|gmt|worldtime)\b/gi,
+      /\b(cal\.\s*\d+|kaliber\s*\d+|calibre\s*\d+)\b/gi
+    ];
+    
+    movementPatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach(match => {
+          const cleaned = match.trim();
+          if (cleaned.length > 2 && !movements.includes(cleaned)) {
+            movements.push(cleaned);
+          }
+        });
+      }
+    });
+    
+    return movements;
+  }
+  
+  // Extract significant words (filtered to avoid noise)
+  extractSignificantWords(text) {
+    const words = [];
+    const stopWords = new Set([
+      'och', 'i', 'på', 'av', 'för', 'med', 'till', 'från', 'ett', 'en', 'det', 'den', 'de', 'är', 'var', 'har', 'hade', 'som', 'om', 'men', 'så', 'kan', 'ska', 'skulle', 'inte', 'eller', 'när', 'där', 'här', 'vid', 'under', 'över', 'efter', 'innan', 'sedan', 'alla', 'mycket', 'bara', 'även', 'utan', 'mellan', 'genom', 'hela', 'andra', 'samma', 'flera', 'några', 'båda', 'varje', 'denna', 'dessa', 'detta', 'ingen', 'inget', 'inga', 'något', 'någon', 'några', 'alla', 'allt', 'många', 'mest', 'mer', 'mindre', 'största', 'minsta', 'första', 'sista', 'nästa', 'förra', 'nya', 'gamla', 'goda', 'bra', 'dålig', 'stor', 'liten', 'hög', 'låg', 'lång', 'kort', 'bred', 'smal', 'tjock', 'tunn'
+    ]);
+    
+    // Extract words that are 3+ characters and not stop words
+    const textWords = text.toLowerCase().match(/\b[a-zåäöü]{3,}\b/g) || [];
+    
+    textWords.forEach(word => {
+      if (!stopWords.has(word) && !words.includes(word)) {
+        words.push(word);
+      }
+    });
+    
+    return words.slice(0, 10); // Limit to prevent overwhelming UI
+  }
+
+  // NEW: Setup interactive search filter functionality (Phase 2)
+  setupSearchFilterInteractivity() {
+    console.log('🔧 Setting up interactive search filter functionality...');
+    
+    const updateBtn = document.getElementById('update-search-btn');
+    const currentSearchDisplay = document.getElementById('current-search-display');
+    const candidateCheckboxes = document.querySelectorAll('.candidate-checkbox');
+    
+    if (!updateBtn || !currentSearchDisplay || candidateCheckboxes.length === 0) {
+      console.log('⚠️ Search filter elements not found - interactivity not available');
+      return;
+    }
+    
+    // Update the current search display as checkboxes change
+    const updateCurrentSearchDisplay = () => {
+      const selectedTerms = [];
+      candidateCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+          selectedTerms.push(checkbox.value);
+        }
+      });
+      
+      const newQuery = selectedTerms.join(' ');
+      currentSearchDisplay.textContent = `"${newQuery}"`;
+      
+      // Update button state
+      const hasChanges = newQuery !== this.lastCandidateSearchTerms.currentQuery;
+      updateBtn.style.background = hasChanges ? '#dc3545' : '#007cba';
+      updateBtn.textContent = hasChanges ? 'Uppdatera ⚡' : 'Uppdatera';
+    };
+    
+    // Add change listeners to all checkboxes
+    candidateCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', updateCurrentSearchDisplay);
+    });
+    
+    // Add click handler to update button
+    updateBtn.addEventListener('click', async () => {
+      console.log('🔄 User triggered search filter update...');
+      
+      const selectedTerms = [];
+      candidateCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+          selectedTerms.push(checkbox.value);
+        }
+      });
+      
+      if (selectedTerms.length === 0) {
+        alert('⚠️ Välj minst en sökterm för marknadsanalys');
+        return;
+      }
+      
+      // Build new search query
+      const newQuery = selectedTerms.join(' ');
+      console.log('🔍 New user-selected search query:', newQuery);
+      
+      // Show loading state
+      updateBtn.textContent = 'Söker...';
+      updateBtn.disabled = true;
+      
+      try {
+        // Get current item data
+        const data = this.dataExtractor.extractItemData();
+        
+        // Create custom search context for user-selected terms
+        const customSearchContext = {
+          primarySearch: newQuery,
+          objectType: this.qualityAnalyzer.extractObjectType(data.title),
+          period: this.qualityAnalyzer.extractPeriod(data.title) || this.qualityAnalyzer.extractPeriod(data.description),
+          technique: this.qualityAnalyzer.extractTechnique(data.title, data.description),
+          analysisType: 'custom_user_filter'
+        };
+        
+        console.log('🎯 Custom search context for filtered analysis:', customSearchContext);
+        
+        // Call API with custom search
+        const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
+        
+        // FIX: Add analysis metadata to sales data (this was missing!)
+        filteredSalesData.analysisType = 'custom_user_filter';
+        filteredSalesData.searchedEntity = newQuery;
+        filteredSalesData.searchContext = customSearchContext;
+        
+        // Update the current search terms for future reference
+        this.lastCandidateSearchTerms.currentQuery = newQuery;
+        
+        // Regenerate dashboard with filtered results
+        const valuationSuggestions = this.qualityAnalyzer.analyzeValuationSuggestions(filteredSalesData);
+        this.dashboardManager.addMarketDataDashboard(filteredSalesData, valuationSuggestions);
+        
+        console.log('✅ Search filter updated successfully');
+        
+      } catch (error) {
+        console.error('❌ Failed to update search filter:', error);
+        alert('❌ Sökning misslyckades. Försök igen.');
+      } finally {
+        // Reset button state
+        updateBtn.textContent = 'Uppdatera';
+        updateBtn.disabled = false;
+        updateBtn.style.background = '#007cba';
+      }
+    });
+    
+    console.log('✅ Interactive search filter setup complete!');
+  }
+
+  // NEW: Setup interactive header search filter functionality with auto-reload
+  setupHeaderSearchFilterInteractivity() {
+    console.log("🔧 Setting up header search filter with auto-reload...");
+    
+    const candidateCheckboxes = document.querySelectorAll(".candidate-checkbox-header");
+    
+    if (candidateCheckboxes.length === 0) {
+      console.log("⚠️ No header search filter checkboxes found");
+      return;
+    }
+    
+    console.log(`✅ Found ${candidateCheckboxes.length} header checkboxes`);
+    
+    // Add change listeners to all checkboxes for auto-reload
+    candidateCheckboxes.forEach((checkbox, index) => {
+      checkbox.addEventListener("change", async (event) => {
+        console.log(`🔄 Checkbox ${index + 1} changed: ${checkbox.value} = ${checkbox.checked}`);
+        
+        // Slight delay to allow UI to update before reload
+        setTimeout(async () => {
+          await this.handleHeaderSearchFilterChange();
+        }, 100);
+      });
+    });
+    
+    console.log("✅ Header search filter auto-reload functionality activated");
+  }
+
+  // Handle search filter changes with auto-reload
+  async handleHeaderSearchFilterChange() {
+    console.log("🔄 Processing header search filter change...");
+    
+    const candidateCheckboxes = document.querySelectorAll(".candidate-checkbox-header");
+    const selectedTerms = [];
+    
+    candidateCheckboxes.forEach(checkbox => {
+      if (checkbox.checked) {
+        selectedTerms.push(checkbox.value);
+      }
+    });
+    
+    console.log("🔍 Selected terms:", selectedTerms);
+    
+    if (selectedTerms.length === 0) {
+      console.log("⚠️ No terms selected - keeping current search");
+      return;
+    }
+    
+    try {
+      // Build new search query
+      const newQuery = selectedTerms.join(" ");
+      console.log("🎯 New search query:", newQuery);
+      
+      // Get current item data
+      const data = this.dataExtractor.extractItemData();
+      
+      // Create custom search context for user-selected terms
+      const customSearchContext = {
+        primarySearch: newQuery,
+        objectType: this.qualityAnalyzer.extractObjectType(data.title),
+        period: this.qualityAnalyzer.extractPeriod(data.title) || this.qualityAnalyzer.extractPeriod(data.description),
+        technique: this.qualityAnalyzer.extractTechnique(data.title, data.description),
+        analysisType: "custom_user_filter"
+      };
+      
+      console.log("🎯 Custom search context for filtered analysis:", customSearchContext);
+      
+      // Show loading indicator on dashboard
+      this.dashboardManager.showDashboardLoading();
+      
+      // Call API with custom search
+      const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
+      
+      // FIX: Add analysis metadata to sales data (this was missing!)
+      filteredSalesData.analysisType = "custom_user_filter";
+      filteredSalesData.searchedEntity = newQuery;
+      filteredSalesData.searchContext = customSearchContext;
+      
+      // Update the current search terms for future reference
+      this.lastCandidateSearchTerms.currentQuery = newQuery;
+      
+      // Regenerate dashboard with filtered results
+      const valuationSuggestions = this.qualityAnalyzer.analyzeValuationSuggestions(filteredSalesData);
+      this.dashboardManager.addMarketDataDashboard(filteredSalesData, valuationSuggestions);
+      
+      console.log("✅ Header search filter updated successfully with auto-reload");
+      
+    } catch (error) {
+      console.error("❌ Error updating search filter:", error);
+      this.dashboardManager.hideDashboardLoading();
+      
+      // Show user-friendly error
+      const dashboard = document.querySelector(".market-data-dashboard");
+      if (dashboard) {
+        const errorDiv = document.createElement("div");
+        errorDiv.innerHTML = `
+          <div style="background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 11px;">
+            ⚠️ Kunde inte uppdatera sökningen. Försök igen.
+          </div>`;
+        dashboard.appendChild(errorDiv);
+        
+        // Remove error after 3 seconds
+        setTimeout(() => errorDiv.remove(), 3000);
+      }
+    }
+  }
+} 

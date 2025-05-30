@@ -304,8 +304,8 @@ export class DashboardManager {
     console.log('📊 Dashboard element:', dashboard);
     
     // Setup interactive search filter if quality analyzer is available
-    if (this.qualityAnalyzer && this.qualityAnalyzer.setupHeaderSearchFilterInteractivity) {
-      this.qualityAnalyzer.setupHeaderSearchFilterInteractivity();
+    if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager.setupHeaderSearchFilterInteractivity) {
+      this.qualityAnalyzer.searchFilterManager.setupHeaderSearchFilterInteractivity();
     }
   }
 
