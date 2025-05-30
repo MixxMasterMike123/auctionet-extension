@@ -1,3 +1,4 @@
+import { ItemTypeHandlers } from "/modules/item-type-handlers.js";
 import { SearchTermExtractor } from "/modules/search-term-extractor.js";
 export class DashboardManager {
   constructor() {
