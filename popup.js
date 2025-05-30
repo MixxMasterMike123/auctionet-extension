@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveModelButton = document.getElementById('save-model');
   const modelDescription = document.getElementById('model-description');
   const enableArtistInfoCheckbox = document.getElementById('enable-artist-info');
+  const showDashboardCheckbox = document.getElementById('show-dashboard');
   const excludeCompanyInput = document.getElementById('exclude-company-id');
   const saveExcludeCompanyButton = document.getElementById('save-exclude-company');
 
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadApiKey();
   await loadModelSelection();
   await loadArtistInfoSetting();
+  await loadShowDashboardSetting();
   await loadExcludeCompanySetting();
   
   // Check extension status
@@ -27,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   saveModelButton.addEventListener('click', saveModelSelection);
   modelSelect.addEventListener('change', updateModelDescription);
   enableArtistInfoCheckbox.addEventListener('change', saveArtistInfoSetting);
+  showDashboardCheckbox.addEventListener('change', saveShowDashboardSetting);
   saveExcludeCompanyButton.addEventListener('click', saveExcludeCompanySetting);
   apiKeyInput.addEventListener('input', () => {
     clearStatus();
@@ -330,6 +333,43 @@ document.addEventListener('DOMContentLoaded', async () => {
       
     } catch (error) {
       console.error('Error saving artist info setting:', error);
+    }
+  }
+
+  async function loadShowDashboardSetting() {
+    try {
+      const result = await chrome.storage.sync.get(['showDashboard']);
+      // Default to true (enabled) if not set
+      const isEnabled = result.showDashboard !== undefined ? result.showDashboard : true;
+      showDashboardCheckbox.checked = isEnabled;
+    } catch (error) {
+      console.error('Error loading show dashboard setting:', error);
+      // Default to enabled on error
+      showDashboardCheckbox.checked = true;
+    }
+  }
+
+  async function saveShowDashboardSetting() {
+    const isEnabled = showDashboardCheckbox.checked;
+    
+    try {
+      await chrome.storage.sync.set({ showDashboard: isEnabled });
+      console.log('Show dashboard setting saved:', isEnabled);
+      
+      // Notify all tabs to refresh their settings
+      try {
+        const tabs = await chrome.tabs.query({ url: 'https://auctionet.com/*' });
+        for (const tab of tabs) {
+          chrome.tabs.sendMessage(tab.id, { type: 'refresh-settings' }).catch(() => {
+            // Ignore errors for tabs that don't have the content script
+          });
+        }
+      } catch (error) {
+        console.log('Could not notify tabs:', error);
+      }
+      
+    } catch (error) {
+      console.error('Error saving show dashboard setting:', error);
     }
   }
 

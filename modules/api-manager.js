@@ -6,6 +6,7 @@ export class APIManager {
   constructor() {
     this.apiKey = null;
     this.enableArtistInfo = true;
+    this.showDashboard = true; // Default to showing dashboard
     this.currentModel = 'claude-3-5-sonnet'; // Default fallback
     this.auctionetAPI = new AuctionetAPI();
     this.loadSettings();
@@ -13,26 +14,29 @@ export class APIManager {
 
   async loadSettings() {
     try {
-      const result = await chrome.storage.sync.get(['anthropicApiKey', 'enableArtistInfo', 'selectedModel']);
+      const result = await chrome.storage.sync.get(['anthropicApiKey', 'enableArtistInfo', 'showDashboard', 'selectedModel']);
       this.apiKey = result.anthropicApiKey;
       this.enableArtistInfo = result.enableArtistInfo !== false;
+      this.showDashboard = result.showDashboard !== false; // Default to true if not set
       
       // Load selected model from storage
       if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
         const previousModel = this.currentModel;
         this.currentModel = result.selectedModel;
         
-        // Log model switch if it changed
+        // Always log which model is loaded, whether it changed or not
+        console.log(`🤖 Model loaded from storage: ${CONFIG.MODELS[this.currentModel].name}`);
+        
+        // Log if this was a change from the default
         if (previousModel !== this.currentModel) {
-          console.log(`🤖 Model switched: ${CONFIG.MODELS[previousModel]?.name || previousModel} → ${CONFIG.MODELS[this.currentModel].name}`);
-        } else {
-          console.log(`🤖 Current AI model: ${CONFIG.MODELS[this.currentModel].name}`);
+          console.log(`🤖 Model changed from default: ${CONFIG.MODELS[previousModel]?.name || previousModel} → ${CONFIG.MODELS[this.currentModel].name}`);
         }
       } else {
-        console.log(`🤖 Using default AI model: ${CONFIG.MODELS[this.currentModel].name}`);
+        console.log(`🤖 Using default AI model: ${CONFIG.MODELS[this.currentModel].name} (no saved model found)`);
       }
       
       console.log('Artist info setting loaded:', this.enableArtistInfo);
+      console.log('Show dashboard setting loaded:', this.showDashboard);
       
       if (this.apiKey) {
         console.log('API key loaded from storage: Found');
@@ -57,7 +61,14 @@ export class APIManager {
         const previousModel = this.currentModel;
         this.currentModel = result.selectedModel;
         
-        console.log(`🤖 Model refreshed: ${CONFIG.MODELS[previousModel]?.name || previousModel} → ${CONFIG.MODELS[this.currentModel].name}`);
+        // Always log the refresh action, even if model didn't change
+        if (previousModel !== this.currentModel) {
+          console.log(`🤖 Model switched: ${CONFIG.MODELS[previousModel]?.name || previousModel} → ${CONFIG.MODELS[this.currentModel].name}`);
+        } else {
+          console.log(`🤖 Model refresh confirmed: ${CONFIG.MODELS[this.currentModel].name} (no change)`);
+        }
+      } else {
+        console.log('🤖 Model refresh: No valid model found in storage, keeping current:', CONFIG.MODELS[this.currentModel]?.name);
       }
     } catch (error) {
       console.error('Error refreshing model selection:', error);

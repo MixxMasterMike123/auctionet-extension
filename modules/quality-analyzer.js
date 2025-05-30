@@ -2005,6 +2005,12 @@ export class QualityAnalyzer {
 
   // NEW: Add market data as a horizontal dashboard bar above the container
   addMarketDataDashboard(salesData, valuationSuggestions = []) {
+    // Check if dashboard display is enabled
+    if (!this.apiManager.showDashboard) {
+      console.log('📊 Dashboard display is disabled in settings - skipping dashboard creation');
+      return;
+    }
+    
     // DEBUG: Log the full salesData to understand what we're working with
     console.log('🔍 DEBUG: Full salesData for dashboard:', JSON.stringify(salesData, null, 2));
     
