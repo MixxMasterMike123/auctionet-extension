@@ -1003,7 +1003,7 @@ export class QualityAnalyzer {
   setupLiveQualityUpdates() {
     // Debounce function to prevent too frequent updates
     let updateTimeout;
-    const debouncedUpdate = async (event) => {
+    const debouncedUpdate = (event) => {
       clearTimeout(updateTimeout);
       updateTimeout = setTimeout(() => {
         console.log('⚡ Live quality update triggered by:', event?.target?.id || event?.target?.tagName || 'unknown field');
