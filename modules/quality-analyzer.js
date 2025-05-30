@@ -1231,9 +1231,31 @@ export class QualityAnalyzer {
     
     if (warningsElement) {
       if (warnings.length > 0) {
-        warningsElement.innerHTML = '<ul>' + 
-          warnings.map(w => `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`).join('') +
-          '</ul>';
+        const warningItems = warnings.map(w => {
+          let issue = w.issue;
+          
+          // ENHANCED: Make artist names clickable for copy functionality
+          if (w.detectedArtist) {
+            // Replace the artist name in quotes with a clickable version
+            const artistPattern = new RegExp(`"${w.detectedArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
+            issue = issue.replace(artistPattern, `"<span class="clickable-artist" style="color: #2196f3; cursor: pointer; text-decoration: underline; font-weight: 600; transition: all 0.2s ease;" title="Klicka för att kopiera konstnärsnamnet">${w.detectedArtist}</span>"`);
+          }
+          
+          return `<li class="warning-${w.severity}" data-artist="${w.detectedArtist || ''}"><strong>${w.field}:</strong> ${issue}</li>`;
+        }).join('');
+        
+        warningsElement.innerHTML = `<ul>${warningItems}</ul>`;
+        
+        // Add click-to-copy handlers for any artist names
+        warnings.forEach((warning, index) => {
+          if (warning.detectedArtist) {
+            const warningItem = warningsElement.querySelectorAll('li')[index];
+            if (warningItem) {
+              this.addClickToCopyHandler(warningItem, warning.detectedArtist);
+            }
+          }
+        });
+        
       } else {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
       }
