@@ -1,3 +1,4 @@
+import { SearchTermExtractor } from "/modules/search-term-extractor.js";
 import { DashboardManager } from './dashboard-manager.js';
 import { SearchFilterManager } from './search-filter-manager.js';
 // modules/quality-analyzer.js - Quality Analysis Module
@@ -8,6 +9,7 @@ export class QualityAnalyzer {
     this.previousFreetextData = null;
     this.dashboardManager = new DashboardManager();
     this.searchFilterManager = new SearchFilterManager();
+    this.searchTermExtractor = new SearchTermExtractor();
   }
 
   setDataExtractor(extractor) {
@@ -2219,7 +2221,7 @@ export class QualityAnalyzer {
     }
     
     // Extract title-specific descriptive terms (highest priority after artist)
-    const titleDescriptors = this.extractTitleDescriptors(title);
+    const titleDescriptors = this.searchTermExtractor.extractTitleDescriptors(title);
     if (titleDescriptors.length > 0) {
       searchTerms.push(...titleDescriptors);
       confidence += 0.2;
@@ -2227,7 +2229,7 @@ export class QualityAnalyzer {
     }
     
     // Extract styles
-    const styles = this.extractStyles(text);
+    const styles = this.searchTermExtractor.extractStyles(text);
     if (styles.length > 0) {
       searchTerms.push(...styles);
       confidence += 0.1;
@@ -2237,7 +2239,7 @@ export class QualityAnalyzer {
     }
     
     // Extract colors (important for market matching)
-    const colors = this.extractColors(text);
+    const colors = this.searchTermExtractor.extractColors(text);
     if (colors.length > 0) {
       searchTerms.push(...colors);
       confidence += 0.15; // Colors are quite valuable for market analysis
@@ -2247,7 +2249,7 @@ export class QualityAnalyzer {
     }
     
     // Extract periods/dates
-    const periods = this.extractPeriods(text);
+    const periods = this.searchTermExtractor.extractPeriods(text);
     if (periods.length > 0) {
       searchTerms.push(...periods);
       confidence += 0.1;
@@ -2257,7 +2259,7 @@ export class QualityAnalyzer {
     }
     
     // Extract materials (lower priority now, and limit to avoid over-long searches)
-    const materials = this.extractMaterials(text);
+    const materials = this.searchTermExtractor.extractMaterials(text);
     if (materials.length > 0 && searchTerms.length < 4) { // Reduced limit when artist is present
       searchTerms.push(...materials);
       confidence += 0.1;
@@ -2267,7 +2269,7 @@ export class QualityAnalyzer {
     }
     
     // Extract techniques (even lower priority when artist is available)
-    const techniques = this.extractTechniques(text);
+    const techniques = this.searchTermExtractor.extractTechniques(text);
     if (techniques.length > 0 && searchTerms.length < 5) {
       searchTerms.push(...techniques);
       confidence += 0.1;
@@ -2277,7 +2279,7 @@ export class QualityAnalyzer {
     }
     
     // Extract manufacturers/makers (lowest priority)
-    const makers = this.extractMakers(text);
+    const makers = this.searchTermExtractor.extractMakers(text);
     if (makers.length > 0 && searchTerms.length < 5) {
       searchTerms.push(...makers);
       confidence += 0.2;
@@ -2291,7 +2293,7 @@ export class QualityAnalyzer {
       console.log('🔧 Applying fallback enhancement for insufficient terms:', searchTerms);
       
       // Try to extract manufacturers/companies/brands
-      const manufacturers = this.extractManufacturers(text);
+      const manufacturers = this.searchTermExtractor.extractManufacturers(text);
       if (manufacturers.length > 0) {
         searchTerms.push(...manufacturers.slice(0, 2));
         confidence += 0.3;
@@ -2300,7 +2302,7 @@ export class QualityAnalyzer {
       }
       
       // Try to extract geographic/origin terms 
-      const geographic = this.extractGeographicTerms(text);
+      const geographic = this.searchTermExtractor.extractGeographicTerms(text);
       if (geographic.length > 0 && searchTerms.length < 3) {
         searchTerms.push(...geographic.slice(0, 1));
         confidence += 0.2;
@@ -2309,7 +2311,7 @@ export class QualityAnalyzer {
       }
       
       // Try to extract traditional/cultural terms
-      const cultural = this.extractCulturalTerms(text);
+      const cultural = this.searchTermExtractor.extractCulturalTerms(text);
       if (cultural.length > 0 && searchTerms.length < 3) {
         searchTerms.push(...cultural.slice(0, 1));
         confidence += 0.15;
@@ -2420,297 +2422,7 @@ export class QualityAnalyzer {
     return stampTypes.some(type => textToCheck.includes(type));
   }
 
-  // NEW: Extract jewelry-specific materials
-  extractJewelryMaterials(text) {
-    const materialPattern = /(?:(\d+k?\s*)?(?:guld|gold|vit-?guld|rött?-?guld|gul-?guld|ros[ée]-?guld|silver|sterlingsilver|sterling|platina|titan|stål|vitguld|rödguld|gulgul))/gi;
-    const matches = text.match(materialPattern) || [];
-    
-    return matches
-      .map(match => match.trim().toLowerCase())
-      .filter((material, index, arr) => arr.indexOf(material) === index) // Remove duplicates
-      .slice(0, 2); // Max 2 materials
-  }
 
-  // NEW: Extract weight information
-  extractWeight(text) {
-    const weightPattern = /(\d+[,.]?\d*)\s*(?:gram|g|karat|ct|dwt)/gi;
-    const match = text.match(weightPattern);
-    
-    if (match && match[0]) {
-      return match[0].toLowerCase().replace(/[,]/g, '.');
-    }
-    
-    return null;
-  }
-
-  // NEW: Extract stone information
-  extractStones(text) {
-    const stonePattern = /(?:diamant|brilliant|smaragd|rubin|safir|pärla|pearl|onyx|opal|ametist|akvamarin|topas|granat|turmalin|kvarts|jade)/gi;
-    const matches = text.match(stonePattern) || [];
-    
-    return matches
-      .map(stone => stone.toLowerCase())
-      .filter((stone, index, arr) => arr.indexOf(stone) === index)
-      .slice(0, 2);
-  }
-
-  // NEW: Extract jewelry size information
-  extractJewelrySize(text) {
-    // Ring sizes
-    const ringSizePattern = /(?:storlek|size)\s*[\/:]*\s*(\d+[,.]?\d*)/gi;
-    const ringMatch = text.match(ringSizePattern);
-    if (ringMatch) {
-      return `storlek ${ringMatch[0].match(/\d+[,.]?\d*/)[0]}`;
-    }
-    
-    // Diameter
-    const diameterPattern = /(?:diameter|innerdiameter)\s*(\d+[,.]?\d*)\s*(?:mm|cm)/gi;
-    const diameterMatch = text.match(diameterPattern);
-    if (diameterMatch) {
-      return `diameter ${diameterMatch[0].match(/\d+[,.]?\d*/)[0]}mm`;
-    }
-    
-    // Chain length
-    const lengthPattern = /(?:längd|length)\s*(\d+[,.]?\d*)\s*(?:mm|cm)/gi;
-    const lengthMatch = text.match(lengthPattern);
-    if (lengthMatch) {
-      return `längd ${lengthMatch[0].match(/\d+[,.]?\d*/)[0]}cm`;
-    }
-    
-    return null;
-  }
-
-  // NEW: Extract descriptive terms specifically from the title (higher priority than materials)
-  extractTitleDescriptors(title) {
-    const descriptors = [];
-    const titleLower = title.toLowerCase();
-    
-    // Common rug/carpet descriptors
-    const rugDescriptors = [
-      'orientalisk', 'persisk', 'antik', 'vintage', 'handknuten', 'handvävd',
-      'kilim', 'gabbeh', 'tabriz', 'isfahan', 'kashan', 'nain', 'qom', 'heriz',
-      'bidjar', 'shiraz', 'turkisk', 'kaukasisk', 'tibetansk', 'indisk',
-      'bokhara', 'afghanistan', 'beluch', 'turkmen'
-    ];
-    
-    // Art-related descriptors
-    const artDescriptors = [
-      'abstrakt', 'figurativ', 'landskap', 'porträtt', 'stilleben', 'marin', 
-      'genre', 'religiös', 'mytologisk', 'allegorisk', 'historisk'
-    ];
-    
-    // Furniture descriptors  
-    const furnitureDescriptors = [
-      'antik', 'vintage', 'retro', 'modern', 'samtida', 'neoklassisk',
-      'empire', 'biedermeier', 'jugend', 'art deco', 'skandinavisk',
-      'gustaviansk', 'karl johan', 'louis', 'chippendale', 'sheraton'
-    ];
-    
-    // Porcelain/ceramics descriptors
-    const porcelainDescriptors = [
-      'porslin', 'fajans', 'stengods', 'lergods', 'keramik', 'benporslin',
-      'hårdporslin', 'mjukporslin'
-    ];
-    
-    // Glass descriptors
-    const glassDescriptors = [
-      'kristall', 'optisk', 'slipat', 'graverat', 'etsat', 'målat',
-      'färgat', 'klart', 'frostat', 'iriserat'
-    ];
-    
-    // NEW: Model/toy/collectible descriptors
-    const modelDescriptors = [
-      'modellbilar', 'modellauto', 'miniatyr', 'samlarobjekt', 'vintage',
-      'diecast', 'leksaksbilar', 'racing', 'formel', 'sportvagn', 'limousine',
-      'lastbil', 'buss', 'motorcykel', 'flygplan', 'helikopter', 'båt',
-      'tåg', 'lokomotiv', 'traktor', 'grävmaskin', 'brandkår', 'polis',
-      'ambulans', 'militär', 'ferrari', 'porsche', 'mercedes', 'bmw',
-      'audi', 'volvo', 'saab', 'ford', 'chevrolet', 'jaguar', 'bentley',
-      'rolls-royce', 'lamborghini', 'maserati', 'alfa romeo', 'fiat',
-      'opel', 'volkswagen', 'toyota', 'honda', 'nissan', 'mazda',
-      'tekno', 'dinky', 'corgi', 'hot wheels', 'matchbox', 'bburago',
-      'autoart', 'minichamps', 'kyosho', 'spark', 'neo', 'avenue43'
-    ];
-    
-    // Scale descriptors for models
-    const scaleDescriptors = [
-      '1:43', '1:32', '1:24', '1:18', '1:12', '1:87', 'h0', 'n-skala',
-      'skala', 'scale', 'spur'
-    ];
-    
-    // Combine all descriptor lists
-    const allDescriptors = [
-      ...rugDescriptors,
-      ...artDescriptors,
-      ...furnitureDescriptors, 
-      ...porcelainDescriptors,
-      ...glassDescriptors
-    ];
-    
-    // Extract descriptors that appear in title
-    allDescriptors.forEach(descriptor => {
-      if (titleLower.includes(descriptor)) {
-        descriptors.push(descriptor);
-      }
-    });
-    
-    // Also look for numbered items (e.g., "3 st", "ett par")
-    const quantityMatch = titleLower.match(/(\d+\s*st|ett\s*par|par)/);
-    if (quantityMatch) {
-      // For numbered items, the descriptor might be less important
-      // but we still want to capture it for context
-    }
-    
-    return descriptors.slice(0, 2); // Max 2 descriptors from title
-  }
-
-  // Helper method to extract materials from text
-  extractMaterials(text) {
-    const materials = [];
-    const materialPatterns = [
-      // Metals
-      'silver', 'guld', 'brons', 'koppar', 'mässing', 'tenn', 'järn', 'stål', 'platina',
-      // Glass and ceramics
-      'glas', 'kristall', 'porslin', 'keramik', 'lergods', 'stengods', 'fajans',
-      // Wood
-      'trä', 'ek', 'björk', 'furu', 'mahogny', 'valnöt', 'teak', 'bok', 'ask', 'lönn',
-      // Textiles
-      'tyg', 'sammet', 'siden', 'ull', 'bomull', 'lin', 'läder',
-      // Stone
-      'marmor', 'granit', 'kalksten', 'sandsten',
-      // Other materials
-      'plast', 'gummi', 'papper', 'kartong',
-      // NEW: Model/toy materials
-      'resin', 'metall', 'diecast', 'zink', 'zamak', 'vitmetall', 'aluminium',
-      'vinyl', 'pvc', 'abs', 'polyresin', 'pewter'
-    ];
-    
-    materialPatterns.forEach(material => {
-      // Use word boundary matching to avoid false positives like "ek" in "dekor"
-      const wordBoundaryPattern = new RegExp(`\\b${material}\\b`, 'i');
-      if (wordBoundaryPattern.test(text)) {
-        materials.push(material);
-      }
-    });
-    
-    return materials.slice(0, 2); // Max 2 materials
-  }
-
-  // Helper method to extract periods from text
-  extractPeriods(text) {
-    const periods = [];
-    const periodPatterns = [
-      /(\d{4})/g,                    // 1950
-      /(\d{2,4}-tal)/g,              // 1900-tal
-      /(\d{2}\/\d{4}-tal)/g,         // 17/1800-tal
-      /(1[6-9]\d{2})/g,              // 1600-1999
-      /(20[0-2]\d)/g                 // 2000-2029
-    ];
-    
-    periodPatterns.forEach(pattern => {
-      const matches = text.match(pattern);
-      if (matches) {
-        periods.push(...matches.slice(0, 1)); // Max 1 period
-      }
-    });
-    
-    return periods;
-  }
-
-  // NEW: Extract colors from text (important for market matching)
-  extractColors(text) {
-    const colors = [];
-    const colorPatterns = [
-      // Basic colors
-      'röd', 'blå', 'grön', 'gul', 'svart', 'vit', 'brun', 'grå', 'rosa', 'lila', 'orange',
-      // Color variations
-      'rött', 'blått', 'grönt', 'gult', 'brunt', 'grått', 'rosig', 'ljus', 'mörk',
-      // Specific shades
-      'marinblå', 'turkos', 'beige', 'elfenben', 'krämvit', 'pastellblå', 'djupblå',
-      'smaragdgrön', 'mörkgrön', 'ljusgrön', 'bordeaux', 'vinröd', 'roströd', 'tegelröd',
-      'guldgul', 'citrongul', 'solgul', 'chokladbrun', 'kastanjebrun', 'nötbrun',
-      'silvergrå', 'stålgrå', 'askgrå', 'antracit', 'kol', 'krita', 'snövit',
-      // Color combinations and patterns
-      'flerfärgad', 'blandade färger', 'färgglad', 'färgrik', 'monokrom', 'tvåfärgad',
-      // Special color terms
-      'naturell', 'ofärgad', 'transparent', 'genomskinlig', 'opak', 'matt', 'blank',
-      'metallic', 'glittrande', 'skimrande', 'iriserade'
-    ];
-    
-    colorPatterns.forEach(color => {
-      // Use word boundary matching to avoid false positives
-      const wordBoundaryPattern = new RegExp(`\\b${color}\\b`, 'i');
-      if (wordBoundaryPattern.test(text)) {
-        colors.push(color);
-      }
-    });
-    
-    return colors.slice(0, 2); // Max 2 colors to keep searches focused
-  }
-
-  // Helper method to extract styles from text
-  extractStyles(text) {
-    const styles = [];
-    const stylePatterns = [
-      'art deco', 'jugend', 'funktionalism', 'bauhaus', 'modernism',
-      'klassicism', 'empire', 'gustaviansk', 'rokoko', 'barock',
-      'skandinavisk', 'svensk', 'dansk', 'norsk', 'finsk',
-      'minimalistisk', 'rustik', 'lantlig', 'elegant'
-    ];
-    
-    stylePatterns.forEach(style => {
-      if (text.includes(style)) {
-        styles.push(style);
-      }
-    });
-    
-    return styles.slice(0, 1); // Max 1 style
-  }
-
-  // Helper method to extract techniques from text
-  extractTechniques(text) {
-    const techniques = [];
-    const techniquePatterns = [
-      'handmålad', 'handgjord', 'maskingjord', 'pressad', 'gjuten', 'svarv',
-      'intarsia', 'fanér', 'massiv', 'laminerad', 'slipad', 'graverad',
-      'emaljerad', 'förgylld', 'försilvrad', 'patinerad', 'polerad'
-    ];
-    
-    techniquePatterns.forEach(technique => {
-      if (text.includes(technique)) {
-        techniques.push(technique);
-      }
-    });
-    
-    return techniques.slice(0, 1); // Max 1 technique
-  }
-
-  // Helper method to extract makers/manufacturers (not luxury brands)
-  extractMakers(text) {
-    const makers = [];
-    const makerPatterns = [
-      // Swedish manufacturers
-      'kockums', 'husqvarna', 'electrolux', 'ericsson', 'volvo',
-      'saab', 'scania', 'sandvik', 'atlas copco',
-      // International manufacturers
-      'philips', 'siemens', 'bosch', 'braun', 'sony', 'panasonic',
-      'general electric', 'westinghouse', 'kodak', 'leica',
-      // Toy manufacturers
-      'lego', 'brio', 'meccano', 'dinky toys', 'corgi', 'tekno',
-      // Clock manufacturers
-      'westclox', 'sessions', 'ansonia', 'waterbury', 'ingraham'
-    ];
-    
-    makerPatterns.forEach(maker => {
-      if (text.includes(maker)) {
-        makers.push(maker);
-      }
-    });
-    
-    return makers.slice(0, 1); // Max 1 maker
-  }
-
-  // NEW: Detect brands for market analysis (luxury goods, designer items, etc.)
   detectBrandForMarketAnalysis(title, description) {
     const text = `${title} ${description}`.toLowerCase();
     
@@ -2808,7 +2520,7 @@ export class QualityAnalyzer {
       if (titleLower.startsWith(brand + ',') || titleLower.startsWith(brand + ' ')) {
         console.log(`🏷️ Found brand at title start: ${brand} (confidence: ${info.confidence})`);
         return {
-          brand: this.formatBrandName(brand),
+          brand: this.searchTermExtractor.formatBrandName(brand),
           confidence: info.confidence,
           category: info.category,
           position: 'title_start'
@@ -2819,7 +2531,7 @@ export class QualityAnalyzer {
       if (titleLower.includes(brand)) {
         console.log(`🏷️ Found brand in title: ${brand} (confidence: ${info.confidence * 0.9})`);
         return {
-          brand: this.formatBrandName(brand),
+          brand: this.searchTermExtractor.formatBrandName(brand),
           confidence: info.confidence * 0.9, // Slightly lower confidence
           category: info.category,
           position: 'title'
@@ -2832,7 +2544,7 @@ export class QualityAnalyzer {
       if (text.includes(brand)) {
         console.log(`🏷️ Found brand in description: ${brand} (confidence: ${info.confidence * 0.7})`);
         return {
-          brand: this.formatBrandName(brand),
+          brand: this.searchTermExtractor.formatBrandName(brand),
           confidence: info.confidence * 0.7, // Lower confidence for description matches
           category: info.category,
           position: 'description'
@@ -2844,41 +2556,6 @@ export class QualityAnalyzer {
     return null;
   }
 
-  // Helper method to format brand names properly
-  formatBrandName(brand) {
-    // Handle special cases
-    const specialCases = {
-      'patek philippe': 'Patek Philippe',
-      'audemars piguet': 'Audemars Piguet',
-      'vacheron constantin': 'Vacheron Constantin',
-      'jaeger-lecoultre': 'Jaeger-LeCoultre',
-      'tag heuer': 'TAG Heuer',
-      'van cleef': 'Van Cleef & Arpels',
-      'harry winston': 'Harry Winston',
-      'georg jensen': 'Georg Jensen',
-      'royal copenhagen': 'Royal Copenhagen',
-      'bing & grøndahl': 'Bing & Grøndahl',
-      'kosta boda': 'Kosta Boda',
-      'svenskt tenn': 'Svenskt Tenn',
-      'carl malmsten': 'Carl Malmsten',
-      'bruno mathsson': 'Bruno Mathsson',
-      'norrlands möbler': 'Norrlands Möbler',
-      'herman miller': 'Herman Miller',
-      'fritz hansen': 'Fritz Hansen',
-      'louis vuitton': 'Louis Vuitton',
-      'bottega veneta': 'Bottega Veneta',
-      'yves saint laurent': 'Yves Saint Laurent'
-    };
-    
-    if (specialCases[brand.toLowerCase()]) {
-      return specialCases[brand.toLowerCase()];
-    }
-    
-    // Default: capitalize first letter of each word
-    return brand.split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }
 
   // NEW: Add market data warnings in a structured, digestible way
   addMarketDataWarnings(salesData, warnings) {
@@ -3155,7 +2832,7 @@ export class QualityAnalyzer {
     let strategy = artistInfo ? 'artist_enhanced_jewelry' : 'jewelry_specific';
     
     // 1. PRIORITY: Extract materials (most important for jewelry)
-    const materials = this.extractJewelryMaterials(text);
+    const materials = this.searchTermExtractor.extractJewelryMaterials(text);
     if (materials.length > 0) {
       jewelryTerms.push(...materials.slice(0, 2)); // Max 2 materials
       confidence += 0.4; // Materials are very important for jewelry
@@ -3163,7 +2840,7 @@ export class QualityAnalyzer {
     }
     
     // 2. Extract weight information (important for precious metals)
-    const weight = this.extractWeight(text);
+    const weight = this.searchTermExtractor.extractWeight(text);
     if (weight) {
       jewelryTerms.push(weight);
       confidence += 0.3; // Weight is important for jewelry valuation
@@ -3171,7 +2848,7 @@ export class QualityAnalyzer {
     }
     
     // 3. Extract stone information
-    const stones = this.extractStones(text);
+    const stones = this.searchTermExtractor.extractStones(text);
     if (stones.length > 0) {
       jewelryTerms.push(...stones.slice(0, 2)); // Max 2 stones
       confidence += 0.3;
@@ -3179,7 +2856,7 @@ export class QualityAnalyzer {
     }
     
     // 4. Extract size information (important for rings, chains)
-    const size = this.extractJewelrySize(text);
+    const size = this.searchTermExtractor.extractJewelrySize(text);
     if (size) {
       jewelryTerms.push(size);
       confidence += 0.2;
@@ -3187,7 +2864,7 @@ export class QualityAnalyzer {
     }
     
     // 5. Extract time periods (be conservative to avoid overly specific searches)
-    const periods = this.extractPeriods(text);
+    const periods = this.searchTermExtractor.extractPeriods(text);
     if (periods.length > 0) {
       // For jewelry, avoid specific years that might mix categories
       const broadPeriods = periods.filter(period => 
@@ -3509,7 +3186,7 @@ export class QualityAnalyzer {
     const brand = this.extractAudioBrands(title + ' ' + description);
     const model = this.extractAudioModel(title + ' ' + description);
     const equipmentType = this.extractAudioType(objectType, title);
-    const broadPeriod = this.extractBroadPeriod(title + ' ' + description);
+    const broadPeriod = this.searchTermExtractor.extractBroadPeriod(title + ' ' + description);
 
     const terms = [];
     let searchStrategy = 'audio_equipment';
@@ -3628,173 +3305,6 @@ export class QualityAnalyzer {
     return objectType?.toLowerCase() || 'ljud';
   }
 
-  extractBroadPeriod(text) {
-    // For electronics, use broad decades
-    const patterns = [
-      { pattern: /\b(19[6-9]\d)/, decade: '60-tal' },  // 1960s-1990s
-      { pattern: /\b60-?tal/i, decade: '60-tal' },
-      { pattern: /\b70-?tal/i, decade: '70-tal' },
-      { pattern: /\b80-?tal/i, decade: '80-tal' },
-      { pattern: /\b90-?tal/i, decade: '90-tal' },
-      { pattern: /vintage|klassisk/i, decade: 'vintage' },
-      { pattern: /modern|samtida/i, decade: 'modern' }
-    ];
-
-    for (const { pattern, decade } of patterns) {
-      if (pattern.test(text)) {
-        // For year ranges, determine the appropriate decade
-        const yearMatch = text.match(/\b(19[6-9]\d)/);
-        if (yearMatch) {
-          const year = parseInt(yearMatch[1]);
-          if (year >= 1960 && year < 1970) return '60-tal';
-          if (year >= 1970 && year < 1980) return '70-tal';
-          if (year >= 1980 && year < 1990) return '80-tal';
-          if (year >= 1990 && year < 2000) return '90-tal';
-        }
-        return decade;
-      }
-    }
-
-    return null;
-  }
-
-  // GENERIC FALLBACK METHODS: Enhanced extraction for insufficient searches
-
-  // Extract manufacturers, companies, and well-known brands
-  extractManufacturers(text) {
-    const manufacturers = [
-      // Swedish traditional makers
-      'nils olsson', 'grannas', 'rättvik', 'nusnäs', 'hemslöjd', 'hantverk',
-      
-      // Porcelain/ceramics manufacturers
-      'rörstrand', 'gustavsberg', 'arabia', 'royal copenhagen', 'bing & grøndahl',
-      'meissen', 'dresden', 'königliche', 'sèvres', 'limoges', 'wedgwood',
-      'spode', 'royal doulton', 'minton', 'coalport', 'royal worcester',
-      
-      // Glass manufacturers
-      'orrefors', 'kosta', 'boda', 'åfors', 'strömbergshyttan', 'skruf',
-      'johansfors', 'lindshammar', 'målerås', 'smålandshyttan',
-      'lalique', 'baccarat', 'waterford', 'bohemia', 'moser',
-      
-      // Furniture makers
-      'ikea', 'svenskt tenn', 'carl malmsten', 'bruno mathsson', 'alvar aalto',
-      'arne jacobsen', 'hans wegner', 'finn juhl', 'kaare klint',
-      'vitra', 'herman miller', 'knoll', 'cassina', 'fritz hansen',
-      
-      // Clock/watch manufacturers
-      'omega', 'rolex', 'longines', 'breitling', 'cartier', 'patek philippe',
-      'audemars piguet', 'vacheron constantin', 'iwc', 'jaeger-lecoultre',
-      
-      // General manufacturers
-      'ab', 'aktiebolag', 'ltd', 'limited', 'gmbh', 'inc', 'corporation',
-      'fabriken', 'fabrik', 'werkstätte', 'atelier', 'studio'
-    ];
-
-    const text_lower = text.toLowerCase();
-    const found = [];
-    
-    for (const manufacturer of manufacturers) {
-      if (text_lower.includes(manufacturer)) {
-        found.push(manufacturer);
-      }
-    }
-    
-    return [...new Set(found)].slice(0, 2); // Remove duplicates, max 2
-  }
-
-  // Extract geographic and origin terms
-  extractGeographicTerms(text) {
-    const geographic = [
-      // Nordic countries and regions
-      'sverige', 'sweden', 'svenska', 'stockholm', 'göteborg', 'malmö',
-      'norge', 'norway', 'norsk', 'oslo', 'bergen',
-      'danmark', 'denmark', 'dansk', 'köpenhamn', 'copenhagen',
-      'finland', 'finska', 'helsingfors', 'helsinki',
-      'island', 'iceland', 'isländsk', 'reykjavik',
-      
-      // European regions
-      'frankrike', 'france', 'fransk', 'paris', 'lyon', 'limoges',
-      'tyskland', 'germany', 'tysk', 'berlin', 'münchen', 'dresden',
-      'england', 'engelsk', 'london', 'birmingham', 'stoke-on-trent',
-      'italien', 'italy', 'italiensk', 'rom', 'milano', 'florens',
-      'österrike', 'austria', 'österrikisk', 'wien', 'salzburg',
-      'schweiz', 'switzerland', 'schweizisk', 'zürich', 'geneva',
-      
-      // Asian regions
-      'japan', 'japansk', 'tokyo', 'kyoto', 'osaka',
-      'kina', 'china', 'kinesisk', 'beijing', 'shanghai',
-      'indien', 'india', 'indisk', 'mumbai', 'delhi',
-      
-      // Traditional regions
-      'orientalisk', 'oriental', 'österlandet', 'asiatisk',
-      'skandinavisk', 'nordisk', 'europeisk', 'amerikansk',
-      
-      // Swedish provinces
-      'dalarna', 'skåne', 'värmland', 'småland', 'östergötland',
-      'västergötland', 'uppland', 'sörmland', 'närke', 'västmanland'
-    ];
-
-    const text_lower = text.toLowerCase();
-    const found = [];
-    
-    for (const location of geographic) {
-      if (text_lower.includes(location)) {
-        found.push(location);
-      }
-    }
-    
-    return [...new Set(found)].slice(0, 1); // Remove duplicates, max 1
-  }
-
-  // Extract cultural and traditional terms
-  extractCulturalTerms(text) {
-    const cultural = [
-      // Swedish traditional items
-      'dalahäst', 'dalafolk', 'folkkonst', 'hemslöjd', 'hantverk', 'traditionell',
-      'svensk', 'svenskt', 'gammaldags', 'antik', 'vintage', 'klassisk',
-      
-      // Art movements and styles  
-      'jugend', 'art nouveau', 'art deco', 'bauhaus', 'modernism',
-      'funktionalism', 'skandinavisk design', 'nordisk design',
-      
-      // Cultural periods
-      'medeltid', 'renässans', 'barock', 'rokoko', 'empire', 'biedermeier',
-      'viktoriansk', 'edwardiansk', 'georgian', 'regency',
-      
-      // Traditional crafts
-      'keramik', 'krukmakeri', 'glaskonst', 'textilkonst', 'vävkonst',
-      'broderi', 'spets', 'träskulptur', 'träsnideri', 'metallkonst',
-      'smide', 'silversmide', 'guldsmide', 'emaljkonst',
-      
-      // Cultural descriptors
-      'folklig', 'traditional', 'handgjord', 'handmålad', 'handgraverad',
-      'unik', 'enda', 'begränsad', 'limiterad', 'signerad', 'märkt'
-    ];
-
-    const text_lower = text.toLowerCase();
-    const found = [];
-    
-    for (const term of cultural) {
-      if (text_lower.includes(term)) {
-        found.push(term);
-      }
-    }
-    
-    return [...new Set(found)].slice(0, 1); // Remove duplicates, max 1
-  }
-
-  // Watch/Timepiece Detection and Search
-  isWatchItem(objectType, title, description) {
-    const watchKeywords = [
-      'armbandsur', 'fickur', 'klocka', 'tidmätare', 'chronometer', 'stoppur',
-      'watch', 'wristwatch', 'pocket watch', 'timepiece', 'chronograph',
-      'väckarklocka', 'bordsur', 'väggur', 'golvur', 'mantelur', 'pendel'
-    ];
-
-    const text = `${objectType} ${title} ${description}`.toLowerCase();
-    return watchKeywords.some(keyword => text.includes(keyword));
-  }
-
   generateWatchSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
     console.log('⌚ Generating watch-specific search for:', title);
     
@@ -3803,7 +3313,7 @@ export class QualityAnalyzer {
     const movement = this.extractWatchMovement(title + ' ' + description);
     const material = this.extractWatchMaterials(title + ' ' + description);
     const complications = this.extractWatchComplications(title + ' ' + description);
-    const broadPeriod = this.extractBroadPeriod(title + ' ' + description);
+    const broadPeriod = this.searchTermExtractor.extractBroadPeriod(title + ' ' + description);
 
     // Build progressive search strategy - prioritize brand and type only
     const watchType = objectType.toLowerCase();
@@ -3986,8 +3496,8 @@ export class QualityAnalyzer {
     const instrumentType = objectType.toLowerCase();
     const material = this.extractInstrumentMaterials(title + ' ' + description);
     const model = this.extractInstrumentModel(title + ' ' + description);
-    const broadPeriod = this.extractBroadPeriod(title + ' ' + description);
-    const country = this.extractGeographicTerms(title + ' ' + description);
+    const broadPeriod = this.searchTermExtractor.extractBroadPeriod(title + ' ' + description);
+    const country = this.searchTermExtractor.extractGeographicTerms(title + ' ' + description);
 
     // Build progressive search strategy
     let primarySearch = instrumentType;
@@ -4110,6 +3620,18 @@ export class QualityAnalyzer {
         setTimeout(() => errorDiv.remove(), 3000);
       }
     }
+  }
+
+  // Watch/Timepiece Detection and Search
+  isWatchItem(objectType, title, description) {
+    const watchKeywords = [
+      'armbandsur', 'fickur', 'klocka', 'tidmätare', 'chronometer', 'stoppur',
+      'watch', 'wristwatch', 'pocket watch', 'timepiece', 'chronograph',
+      'väckarklocka', 'bordsur', 'väggur', 'golvur', 'mantelur', 'pendel'
+    ];
+
+    const text = `${objectType} ${title} ${description}`.toLowerCase();
+    return watchKeywords.some(keyword => text.includes(keyword));
   }
 
 }

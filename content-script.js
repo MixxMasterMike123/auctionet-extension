@@ -1,3 +1,4 @@
+import { SearchTermExtractor } from "/modules/search-term-extractor.js";
 // content-script.js - Main content script with dynamic module loading
 (async function() {
   'use strict';

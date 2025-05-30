@@ -1,3 +1,4 @@
+import { SearchTermExtractor } from "/modules/search-term-extractor.js";
 export class DashboardManager {
   constructor() {
     this.pendingDashboardUpdate = null;
