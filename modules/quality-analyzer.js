@@ -1236,16 +1236,30 @@ export class QualityAnalyzer {
           
           // ENHANCED: Make artist names clickable for copy functionality
           if (w.detectedArtist) {
-            // Replace the artist name in quotes with a clickable version
-            const artistPattern = new RegExp(`"${w.detectedArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
-            issue = issue.replace(artistPattern, `"<span class="clickable-artist" style="color: #2196f3; cursor: pointer; text-decoration: underline; font-weight: 600; transition: all 0.2s ease;" title="Klicka för att kopiera konstnärsnamnet">${w.detectedArtist}</span>"`);
+            // Replace the artist name in quotes with a clickable version (handle both with and without <strong> tags)
+            const escapedArtist = w.detectedArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            
+            // Try both patterns: with <strong> tags and without
+            const strongPattern = new RegExp(`"<strong>${escapedArtist}</strong>"`, 'g');
+            const plainPattern = new RegExp(`"${escapedArtist}"`, 'g');
+            
+            // Replace with clickable version
+            const clickableReplacement = `"<span class="clickable-artist" style="color: #2196f3; cursor: pointer; text-decoration: underline; font-weight: 600; transition: all 0.2s ease;" title="Klicka för att kopiera konstnärsnamnet">${w.detectedArtist}</span>"`;
+            
+            // First try to replace the pattern with <strong> tags
+            if (strongPattern.test(issue)) {
+              issue = issue.replace(strongPattern, clickableReplacement);
+            } else {
+              // Fallback to pattern without <strong> tags
+              issue = issue.replace(plainPattern, clickableReplacement);
+            }
           }
           
           return `<li class="warning-${w.severity}" data-artist="${w.detectedArtist || ''}"><strong>${w.field}:</strong> ${issue}</li>`;
         }).join('');
-        
+         
         warningsElement.innerHTML = `<ul>${warningItems}</ul>`;
-        
+         
         // Add click-to-copy handlers for any artist names
         warnings.forEach((warning, index) => {
           if (warning.detectedArtist) {
@@ -1255,7 +1269,7 @@ export class QualityAnalyzer {
             }
           }
         });
-        
+         
       } else {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
       }
@@ -1518,7 +1532,7 @@ export class QualityAnalyzer {
 
     return null;
   }
-
+  
   extractFreetextSearchTerms(title, description) {
     // Extract meaningful search terms for freetext market analysis
     const text = `${title} ${description}`.toLowerCase();
@@ -1579,8 +1593,8 @@ export class QualityAnalyzer {
     
     // Check if "Inga anmärkningar" is checked
     const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+                              document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                              document.querySelector('input[type="checkbox"][name*="no_remarks"]');
     const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
     
     // Quick quality calculation (simplified version of analyzeQuality)
