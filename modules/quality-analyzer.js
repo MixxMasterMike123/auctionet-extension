@@ -999,4 +999,212 @@ export class QualityAnalyzer {
     }
   }
 
+  setupLiveQualityUpdates() {
+    // Debounce function to prevent too frequent updates
+    let updateTimeout;
+    const debouncedUpdate = async (event) => {
+      clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(() => {
+        console.log('⚡ Live quality update triggered by:', event?.target?.id || event?.target?.tagName || 'unknown field');
+        this.analyzeQuality();
+      }, 800); // Wait 800ms after user stops typing
+    };
+
+    // Use the exact same selectors as extractItemData()
+    const fieldsToMonitor = [
+      '#item_title_sv',
+      '#item_description_sv', 
+      '#item_condition_sv',
+      '#item_hidden_keywords',
+      'input[type="checkbox"][value="Inga anmärkningar"]',
+      'input[type="checkbox"]#item_no_remarks',
+      'input[type="checkbox"][name*="no_remarks"]'
+    ];
+
+    let monitoredCount = 0;
+    fieldsToMonitor.forEach(selector => {
+      const element = document.querySelector(selector);
+      if (element) {
+        console.log(`Setting up live monitoring for: ${selector}`);
+        monitoredCount++;
+        
+        // Add event listeners for different input types
+        if (element.type === 'checkbox') {
+          element.addEventListener('change', debouncedUpdate);
+          console.log(`✅ Added 'change' listener to checkbox: ${selector}`);
+        } else {
+          element.addEventListener('input', debouncedUpdate);
+          element.addEventListener('paste', debouncedUpdate);
+          element.addEventListener('keyup', debouncedUpdate);
+          console.log(`✅ Added 'input', 'paste', 'keyup' listeners to: ${selector}`);
+        }
+        
+        // Test immediate trigger
+        element.addEventListener('focus', () => {
+          console.log(`🎯 Field focused: ${selector}`);
+        });
+      } else {
+        console.warn(`Field not found for live monitoring: ${selector}`);
+      }
+    });
+
+    // Also monitor for changes in rich text editors (if any)
+    const richTextEditors = document.querySelectorAll('[contenteditable="true"]');
+    richTextEditors.forEach(editor => {
+      console.log('Setting up live monitoring for rich text editor');
+      editor.addEventListener('input', debouncedUpdate);
+      editor.addEventListener('paste', debouncedUpdate);
+      monitoredCount++;
+    });
+
+    console.log(`🎯 Live quality monitoring set up for ${monitoredCount} fields`);
+    
+    // Test if fields exist right now
+    console.log('🔍 Field existence check:');
+    console.log('Title field:', document.querySelector('#item_title_sv'));
+    console.log('Description field:', document.querySelector('#item_description_sv'));
+    console.log('Condition field:', document.querySelector('#item_condition_sv'));
+    console.log('Keywords field:', document.querySelector('#item_hidden_keywords'));
+  }
+
+  assessDataQuality(data, fieldType) {
+    const descLength = data.description.replace(/<[^>]*>/g, '').length;
+    const condLength = data.condition.replace(/<[^>]*>/g, '').length;
+    const titleLength = data.title.length;
+    
+    // Check if "Inga anmärkningar" is checked
+    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+    const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+    
+    // Calculate overall quality score
+    const qualityScore = this.calculateCurrentQualityScore(data);
+    
+    const issues = [];
+    let needsMoreInfo = false;
+    
+    // Critical quality thresholds
+    if (qualityScore < 30) {
+      needsMoreInfo = true;
+      issues.push('critical_quality');
+    }
+    
+    // Field-specific quality checks
+    switch(fieldType) {
+      case 'title':
+        // Check if we can safely improve title
+        if (!data.description.match(/\d{4}|\d{2,4}-tal|1[6-9]\d{2}|20[0-2]\d/i) && !data.artist && descLength < 30) {
+          issues.push('period');
+          needsMoreInfo = true;
+        }
+        if (titleLength < 15 && descLength < 25) {
+          issues.push('basic_info');
+          needsMoreInfo = true;
+        }
+        // Check if artist is unknown/obscure and might lead to hallucination
+        if (data.artist && data.artist.length > 0 && descLength < 20) {
+          issues.push('artist_verification');
+          needsMoreInfo = true;
+        }
+        break;
+        
+      case 'description':
+        if (descLength < 25) {
+          needsMoreInfo = true;
+          issues.push('short_description');
+        }
+        if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i) && descLength < 40) {
+          issues.push('measurements');
+          needsMoreInfo = true;
+        }
+        break;
+        
+      case 'condition':
+        // Skip condition checks if "Inga anmärkningar" is checked
+        if (!noRemarksChecked) {
+          if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
+            issues.push('specific_damage', 'wear_details', 'bruksslitage_vague');
+            needsMoreInfo = true;
+          }
+          if (condLength < 15) {
+            issues.push('condition_details');
+            needsMoreInfo = true;
+          }
+          
+          // Check for other vague condition phrases
+          const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage'];
+          const conditionText = data.condition.toLowerCase();
+          const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
+          
+          if (hasVaguePhrase && condLength < 40) {
+            issues.push('vague_condition_terms');
+            needsMoreInfo = true;
+          }
+        }
+        break;
+        
+      case 'keywords':
+        // Keywords can usually be generated even with sparse data
+        if (qualityScore < 20) {
+          issues.push('basic_info');
+          needsMoreInfo = true;
+        }
+        break;
+        
+      case 'all':
+        // For "Förbättra alla" - comprehensive check
+        if (qualityScore < 40) {
+          needsMoreInfo = true;
+          issues.push('critical_quality');
+        }
+        if (descLength < 30) {
+          issues.push('material', 'technique', 'period');
+          needsMoreInfo = true;
+        }
+        if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i) && descLength < 50) {
+          issues.push('measurements');
+          needsMoreInfo = true;
+        }
+        if (!noRemarksChecked && data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
+          issues.push('specific_damage');
+          needsMoreInfo = true;
+        }
+        break;
+    }
+    
+    return { needsMoreInfo, missingInfo: issues, qualityScore };
+  }
+
+  extractEnhancedSearchTerms(title, description) {
+    // Extract enhanced search terms for better market analysis
+    const text = `${title} ${description}`.toLowerCase();
+    const enhancedTerms = [];
+    
+    // Extract materials
+    const materials = this.searchTermExtractor.extractMaterials(text);
+    if (materials.length > 0) {
+      enhancedTerms.push(...materials.slice(0, 2));
+    }
+    
+    // Extract techniques
+    const techniques = this.extractTechnique(title, description);
+    if (techniques && techniques.length > 0) {
+      enhancedTerms.push(techniques);
+    }
+    
+    // Extract periods
+    const periods = this.searchTermExtractor.extractPeriods(text);
+    if (periods.length > 0) {
+      enhancedTerms.push(...periods.slice(0, 1));
+    }
+    
+    // Extract colors (for art/decorative items)
+    const colors = this.searchTermExtractor.extractColors(text);
+    if (colors.length > 0) {
+      enhancedTerms.push(...colors.slice(0, 1));
+    }
+    
+    return enhancedTerms.filter(term => term && term.length > 2).slice(0, 5);
+  }
 }
