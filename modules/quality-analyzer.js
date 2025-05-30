@@ -2048,6 +2048,7 @@ export class QualityAnalyzer {
     const isArtistAnalysis = salesData.analysisType === 'artist' || salesData.analysisType === 'artist_enriched';
     const isBrandAnalysis = salesData.analysisType === 'brand';
     const isFreetextAnalysis = salesData.analysisType === 'freetext';
+    const isCustomFilter = salesData.analysisType === 'custom_user_filter';
     
     // Check if there's an existing dashboard and what type it is
     const existingDashboard = document.querySelector('.market-data-dashboard');
@@ -2056,6 +2057,14 @@ export class QualityAnalyzer {
       const existingType = existingId ? existingId.split('-')[1] : 'unknown';
       
       console.log(`🔄 Existing dashboard type: ${existingType}, new type: ${salesData.analysisType}`);
+      
+      // Custom filters should replace any existing dashboard (user explicitly requested new search)
+      if (isCustomFilter) {
+        console.log('🎯 CUSTOM FILTER REPLACEMENT: User-selected terms replacing existing dashboard');
+        existingDashboard.remove();
+        this.createDashboard(salesData, valuationSuggestions, dashboardId);
+        return;
+      }
       
       // Artist/Brand analyses should ALWAYS replace freetext analyses
       if ((isArtistAnalysis || isBrandAnalysis) && existingType === 'freetext') {
@@ -2090,8 +2099,8 @@ export class QualityAnalyzer {
       
       // Create new dashboard immediately without delay
       this.createDashboard(salesData, valuationSuggestions, dashboardId);
-    } else if (isArtistAnalysis || isBrandAnalysis) {
-      // Artist and brand analyses get immediate priority
+    } else if (isArtistAnalysis || isBrandAnalysis || isCustomFilter) {
+      // Artist, brand, and custom filter analyses get immediate priority
       console.log('🎯 Creating priority artist/brand dashboard immediately');
       this.createDashboard(salesData, valuationSuggestions, dashboardId);
         } else {
@@ -5747,6 +5756,11 @@ export class QualityAnalyzer {
         // Call API with custom search
         const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
         
+        // FIX: Add analysis metadata to sales data (this was missing!)
+        filteredSalesData.analysisType = 'custom_user_filter';
+        filteredSalesData.searchedEntity = newQuery;
+        filteredSalesData.searchContext = customSearchContext;
+        
         // Update the current search terms for future reference
         this.lastCandidateSearchTerms.currentQuery = newQuery;
         
@@ -5842,6 +5856,11 @@ export class QualityAnalyzer {
       
       // Call API with custom search
       const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
+      
+      // FIX: Add analysis metadata to sales data (this was missing!)
+      filteredSalesData.analysisType = "custom_user_filter";
+      filteredSalesData.searchedEntity = newQuery;
+      filteredSalesData.searchContext = customSearchContext;
       
       // Update the current search terms for future reference
       this.lastCandidateSearchTerms.currentQuery = newQuery;
