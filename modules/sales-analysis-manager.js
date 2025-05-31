@@ -40,8 +40,16 @@ export class SalesAnalysisManager {
   async startSalesAnalysis(artistInfo, data, currentWarnings, currentScore, searchFilterManager, qualityAnalyzer) {
     console.log('💰 Starting sales analysis with best available artist/search:', artistInfo);
     
-    // NEW: Test the candidate search terms extraction
-    const candidateTerms = searchFilterManager.extractCandidateSearchTerms(data.title, data.description, artistInfo);
+    // CRITICAL FIX: Get the actual search query from SSoT to pass to extractCandidateSearchTerms
+    // This ensures the AI Rules selection is respected for preSelected terms
+    let actualSearchQuery = null;
+    if (this.searchQuerySSoT && this.searchQuerySSoT.getCurrentQuery()) {
+      actualSearchQuery = this.searchQuerySSoT.getCurrentQuery();
+      console.log('🎯 FIXED: Using SSoT query for candidate term extraction:', actualSearchQuery);
+    }
+    
+    // NEW: Test the candidate search terms extraction with AI Rules query
+    const candidateTerms = searchFilterManager.extractCandidateSearchTerms(data.title, data.description, artistInfo, actualSearchQuery);
     if (candidateTerms) {
       // Store for dashboard use (in both managers for redundancy)
       this.lastCandidateSearchTerms = candidateTerms;
