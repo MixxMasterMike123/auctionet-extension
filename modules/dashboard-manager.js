@@ -1003,6 +1003,7 @@ export class DashboardManager {
     });
     
     // CRITICAL FIX: Remove redundant name parts if full name exists
+    let finalAvailableTerms = availableTerms; // Use let instead of trying to reassign const
     const hasFullName = availableTerms.some(term => 
       term.term === 'Lisa Larson' && term.isSelected
     );
@@ -1022,16 +1023,16 @@ export class DashboardManager {
       });
       
       // Use filtered terms
-      availableTerms = filteredTerms;
-      console.log(`✅ Removed redundant name parts, ${availableTerms.length} terms remaining`);
+      finalAvailableTerms = filteredTerms;
+      console.log(`✅ Removed redundant name parts, ${finalAvailableTerms.length} terms remaining`);
     }
     
     // 🔧 EXTENDED TERMS STRATEGY: Show ALL available terms (both selected and unselected)
     // User requested: Core terms + Extended terms as checkboxes for complete control
     
-    // Split terms into selected and unselected
-    const selectedTermObjects = availableTerms.filter(term => term.isSelected);
-    const unselectedTermObjects = availableTerms.filter(term => !term.isSelected);
+    // Split terms into selected and unselected (using filtered terms)
+    const selectedTermObjects = finalAvailableTerms.filter(term => term.isSelected);
+    const unselectedTermObjects = finalAvailableTerms.filter(term => !term.isSelected);
     
     console.log(`📊 Extended terms strategy: ${selectedTermObjects.length} selected + ${unselectedTermObjects.length} unselected terms available`);
     
