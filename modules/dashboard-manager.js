@@ -1937,17 +1937,23 @@ export class DashboardManager {
   getInitialQueryForSSoTInit(salesData) {
     console.log('🔧 Getting initial query for SSoT initialization from salesData');
     
-    // Fallback priority order for initial SSoT initialization
-    if (salesData.historical && salesData.historical.actualSearchQuery) {
+    // CRITICAL FIX: Prioritize the ENHANCED candidateSearchTerms.currentQuery over API actualSearchQuery
+    // The candidateSearchTerms.currentQuery includes important terms like "Seamaster" that the API query loses
+    if (salesData.candidateSearchTerms && salesData.candidateSearchTerms.currentQuery) {
+      console.log('✅ Using ENHANCED candidateSearchTerms.currentQuery (includes Seamaster, etc.)');
+      return salesData.candidateSearchTerms.currentQuery;
+    } else if (salesData.searchedEntity) {
+      console.log('✅ Using searchedEntity as fallback');
+      return salesData.searchedEntity;
+    } else if (salesData.historical && salesData.historical.actualSearchQuery) {
+      console.log('⚠️ Using simplified API query as fallback (may lose enhanced terms)');
       return salesData.historical.actualSearchQuery;
     } else if (salesData.live && salesData.live.actualSearchQuery) {
+      console.log('⚠️ Using simplified live API query as fallback (may lose enhanced terms)');
       return salesData.live.actualSearchQuery;
-    } else if (salesData.searchedEntity) {
-      return salesData.searchedEntity;
-    } else if (salesData.candidateSearchTerms && salesData.candidateSearchTerms.currentQuery) {
-      return salesData.candidateSearchTerms.currentQuery;
     } else {
       // Final fallback
+      console.log('⚠️ Using analysis type as final fallback');
       return salesData.analysisType || 'Okänd sökning';
     }
   }
