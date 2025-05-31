@@ -983,7 +983,7 @@ export class DashboardManager {
       <div class="search-filter-section">
         <div class="filter-header">
           <h4 class="filter-title">🧠 AI-smarta sökförslag</h4>
-          <div class="filter-description">Lägg till relevanta termer för mer exakt analys - uppdateras automatiskt</div>
+          <div class="filter-description">Anpassa alla termer efter behov - du har full kontroll över sökningen</div>
         </div>
         <div class="smart-suggestions">
           <div class="current-query-display">
@@ -1006,7 +1006,7 @@ export class DashboardManager {
       const finalPriority = isCore ? 'priority-core' : priority;
       const coreClass = isCore ? 'core-term' : '';
       const disabledAttr = isCore ? 'data-core="true"' : '';
-      const coreTitle = isCore ? ' (Kärnsökterm - kan ej tas bort)' : '';
+      const coreTitle = isCore ? ' (AI-rekommenderad som viktig - du kan ändra)' : '';
       
       filterHTML += `
         <label class="smart-suggestion-checkbox ${finalPriority} ${coreClass}" 
@@ -1016,8 +1016,7 @@ export class DashboardManager {
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
                  ${disabledAttr}
-                 ${suggestion.preSelected ? 'checked' : ''}
-                 ${isCore ? 'disabled' : ''}>
+                 ${suggestion.preSelected ? 'checked' : ''}>
           <span class="suggestion-text">${suggestion.term}</span>
           <span class="suggestion-type">${icon}</span>
         </label>`;
@@ -1456,33 +1455,6 @@ export class DashboardManager {
           color: #bf360c;
         }
         
-        /* CRITICAL FIX: Disabled core terms (cannot be unchecked) */
-        .smart-suggestion-checkbox.priority-core:has(input[type="checkbox"]:disabled) {
-          background: #ffcc02;
-          border-color: #f57c00;
-          color: #bf360c;
-          cursor: not-allowed;
-          opacity: 0.9;
-        }
-        
-        .smart-suggestion-checkbox.priority-core:has(input[type="checkbox"]:disabled) .suggestion-text {
-          color: #bf360c;
-          font-weight: 700;
-        }
-        
-        .smart-suggestion-checkbox.priority-core:has(input[type="checkbox"]:disabled:checked) {
-          background: #ff8f00;
-          border-color: #e65100;
-          color: #ffffff;
-          cursor: not-allowed;
-          transform: none; /* Don't scale disabled elements */
-        }
-        
-        .smart-suggestion-checkbox.priority-core:has(input[type="checkbox"]:disabled:checked) .suggestion-text {
-          color: #ffffff;
-          font-weight: 700;
-        }
-        
         .smart-suggestion-checkbox.priority-selected {
           background: #d4edda;
           border-color: #c3e6cb;
@@ -1826,7 +1798,7 @@ export class DashboardManager {
       <div class="search-filter-section">
         <div class="filter-header">
           <h4 class="filter-title">🧠 AI-smarta sökförslag</h4>
-          <div class="filter-description">Lägg till relevanta termer för mer exakt analys - uppdateras automatiskt</div>
+          <div class="filter-description">Anpassa alla termer efter behov - du har full kontroll över sökningen</div>
         </div>
         <div class="smart-suggestions">
           <div class="current-query-display">
@@ -1849,7 +1821,7 @@ export class DashboardManager {
       const finalPriority = isCore ? 'priority-core' : priority;
       const coreClass = isCore ? 'core-term' : '';
       const disabledAttr = isCore ? 'data-core="true"' : '';
-      const coreTitle = isCore ? ' (Kärnsökterm - kan ej tas bort)' : '';
+      const coreTitle = isCore ? ' (AI-rekommenderad som viktig - du kan ändra)' : '';
       
       filterHTML += `
         <label class="smart-suggestion-checkbox ${finalPriority} ${coreClass}" 
@@ -1859,8 +1831,7 @@ export class DashboardManager {
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
                  ${disabledAttr}
-                 ${suggestion.preSelected ? 'checked' : ''}
-                 ${isCore ? 'disabled' : ''}>
+                 ${suggestion.preSelected ? 'checked' : ''}>
           <span class="suggestion-text">${suggestion.term}</span>
           <span class="suggestion-type">${icon}</span>
         </label>`;
