@@ -439,23 +439,51 @@ export class DashboardManager {
         let linksHTML = '';
         
         if (salesData.historical.actualSearchQuery) {
-          // USE SSoT: Generate URLs from SearchQueryManager instead of hardcoded logic
-          const urls = this.searchQueryManager.generateAuctionetUrls(salesData.historical.actualSearchQuery);
+          // USE SSoT: Generate URLs from SearchQueryManager if available, otherwise fallback
+          let urls;
+          if (this.searchQueryManager) {
+            urls = this.searchQueryManager.generateAuctionetUrls(salesData.historical.actualSearchQuery);
+          } else {
+            // Fallback URL generation when SSoT not available yet
+            console.log('⚠️ SearchQueryManager not available, using fallback URL generation');
+            const query = encodeURIComponent(salesData.historical.actualSearchQuery);
+            urls = {
+              historical: `https://auctionet.com/sv/search?past_auctions=1&q=${query}`,
+              live: `https://auctionet.com/sv/search?event_id=&q=${query}`
+            };
+          }
+          
           linksHTML += `
             <div class="data-link-row">
               <a href="${urls.historical}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">${historicalCount} historiska träffar</a>
               <span class="data-link-meta">(${historicalTotal} analyserade)</span>
             </div>`;
+        } else {
+          helpText = 'bekräftade försäljningar';
         }
         
         if (salesData.live.actualSearchQuery) {
-          // USE SSoT: Generate URLs from SearchQueryManager instead of hardcoded logic
-          const urls = this.searchQueryManager.generateAuctionetUrls(salesData.live.actualSearchQuery);
+          // USE SSoT: Generate URLs from SearchQueryManager if available, otherwise fallback
+          let urls;
+          if (this.searchQueryManager) {
+            urls = this.searchQueryManager.generateAuctionetUrls(salesData.live.actualSearchQuery);
+          } else {
+            // Fallback URL generation when SSoT not available yet
+            console.log('⚠️ SearchQueryManager not available, using fallback URL generation');
+            const query = encodeURIComponent(salesData.live.actualSearchQuery);
+            urls = {
+              historical: `https://auctionet.com/sv/search?past_auctions=1&q=${query}`,
+              live: `https://auctionet.com/sv/search?event_id=&q=${query}`
+            };
+          }
+          
           linksHTML += `
             <div class="data-link-row">
               <a href="${urls.live}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">${liveCount} pågående auktioner</a>
               <span class="data-link-meta">(${liveTotal} träffar)</span>
             </div>`;
+        } else {
+          helpText = 'aktiva auktioner';
         }
         
         helpText = linksHTML;
@@ -464,8 +492,19 @@ export class DashboardManager {
         dataText = `${historicalCount} historiska träffar (${historicalTotal} med prisdata)`;
         
         if (salesData.historical.actualSearchQuery) {
-          // USE SSoT: Generate URLs from SearchQueryManager instead of hardcoded logic
-          const urls = this.searchQueryManager.generateAuctionetUrls(salesData.historical.actualSearchQuery);
+          // USE SSoT: Generate URLs from SearchQueryManager if available, otherwise fallback
+          let urls;
+          if (this.searchQueryManager) {
+            urls = this.searchQueryManager.generateAuctionetUrls(salesData.historical.actualSearchQuery);
+          } else {
+            // Fallback URL generation when SSoT not available yet
+            console.log('⚠️ SearchQueryManager not available, using fallback URL generation');
+            const query = encodeURIComponent(salesData.historical.actualSearchQuery);
+            urls = {
+              historical: `https://auctionet.com/sv/search?past_auctions=1&q=${query}`,
+              live: `https://auctionet.com/sv/search?event_id=&q=${query}`
+            };
+          }
           
           helpText = `
             <div class="data-link-row">
@@ -479,8 +518,19 @@ export class DashboardManager {
         dataText = `${liveCount} pågående (${liveTotal} träffar)`;
         
         if (salesData.live.actualSearchQuery) {
-          // USE SSoT: Generate URLs from SearchQueryManager instead of hardcoded logic
-          const urls = this.searchQueryManager.generateAuctionetUrls(salesData.live.actualSearchQuery);
+          // USE SSoT: Generate URLs from SearchQueryManager if available, otherwise fallback
+          let urls;
+          if (this.searchQueryManager) {
+            urls = this.searchQueryManager.generateAuctionetUrls(salesData.live.actualSearchQuery);
+          } else {
+            // Fallback URL generation when SSoT not available yet
+            console.log('⚠️ SearchQueryManager not available, using fallback URL generation');
+            const query = encodeURIComponent(salesData.live.actualSearchQuery);
+            urls = {
+              historical: `https://auctionet.com/sv/search?past_auctions=1&q=${query}`,
+              live: `https://auctionet.com/sv/search?event_id=&q=${query}`
+            };
+          }
           
           helpText = `
             <div class="data-link-row">
@@ -731,11 +781,15 @@ export class DashboardManager {
       const actualSearchQuery = this.determineActualSearchQuery(salesData);
       console.log('🚀 Initializing SearchQueryManager SSoT with actual query:', actualSearchQuery);
       
-      this.searchQueryManager.initialize(
-        actualSearchQuery,
-        salesData.candidateSearchTerms,
-        salesData.hotReload ? 'user' : 'system'
-      );
+      if (this.searchQueryManager) {
+        this.searchQueryManager.initialize(
+          actualSearchQuery,
+          salesData.candidateSearchTerms,
+          salesData.hotReload ? 'user' : 'system'
+        );
+      } else {
+        console.log('⚠️ SearchQueryManager not available during dashboard creation - will be initialized later');
+      }
       
     } else if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms) {
       console.log('🔧 Fallback: Using candidate search terms from quality analyzer');
@@ -743,23 +797,35 @@ export class DashboardManager {
       
       // Initialize SSoT with fallback data
       const actualSearchQuery = this.determineActualSearchQuery(salesData);
-      this.searchQueryManager.initialize(
-        actualSearchQuery,
-        this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms,
-        'system'
-      );
+      if (this.searchQueryManager) {
+        this.searchQueryManager.initialize(
+          actualSearchQuery,
+          this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms,
+          'system'
+        );
+      } else {
+        console.log('⚠️ SearchQueryManager not available for fallback initialization');
+      }
       
     } else {
       console.log('⚠️ No candidate search terms available for dashboard');
       
       // Initialize SSoT with basic query only
       const actualSearchQuery = this.determineActualSearchQuery(salesData);
-      this.searchQueryManager.initialize(actualSearchQuery, null, 'system');
+      if (this.searchQueryManager) {
+        this.searchQueryManager.initialize(actualSearchQuery, null, 'system');
+      } else {
+        console.log('⚠️ SearchQueryManager not available for basic initialization');
+      }
     }
     
-    // Determine the actual search query used (legacy for backward compatibility)
-    const actualSearchQuery = this.searchQueryManager.getCurrentQuery();
-    const querySource = this.searchQueryManager.getQuerySource();
+    // Determine the actual search query used (with safety check)
+    const actualSearchQuery = this.searchQueryManager ? 
+      this.searchQueryManager.getCurrentQuery() : 
+      this.determineActualSearchQuery(salesData);
+    const querySource = this.searchQueryManager ? 
+      this.searchQueryManager.getQuerySource() : 
+      (salesData.hotReload ? 'user' : 'system');
     
     // Update legacy currentSearchQuery for backward compatibility
     this.currentSearchQuery = actualSearchQuery;
