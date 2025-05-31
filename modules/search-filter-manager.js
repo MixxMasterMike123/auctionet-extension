@@ -103,7 +103,16 @@ export class SearchFilterManager {
         'longines', 'tissot', 'seiko', 'citizen', 'hamilton', 'tudor', 'zenith'
       ];
       
-      if (jewelryBrands.includes(termLower) || watchBrands.includes(termLower)) {
+      // SYNTHESIZER & ELECTRONIC INSTRUMENT BRANDS
+      const synthesizerBrands = [
+        'yamaha', 'roland', 'korg', 'moog', 'sequential', 'oberheim', 'arp', 
+        'prophet', 'juno', 'jupiter', 'sh', 'tr', 'tb', 'dx', 'sy', 'psr',
+        'kurzweil', 'ensoniq', 'akai', 'emu', 'fairlight', 'synclavier',
+        'nord', 'access', 'novation', 'arturia', 'dave smith', 'elektron',
+        'teenage engineering', 'buchla', 'doepfer', 'make noise', 'eurorack'
+      ];
+      
+      if (jewelryBrands.includes(termLower) || watchBrands.includes(termLower) || synthesizerBrands.includes(termLower)) {
         console.log(`🤖 AI DECISION: "${term}" is RECOGNIZED BRAND - CRITICAL for market data ✅`);
         return true;
       }
