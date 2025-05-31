@@ -369,23 +369,32 @@ export class DashboardManager {
         
         dataText = `${totalAnalyzed} träffar (${totalFound} med prisdata)`;
         
-        let historicalLink = `${historicalCount} historiska`;
-        let liveLink = `${liveCount} pågående`;
+        // Create prominent clickable links on separate lines
+        let linksHTML = '';
         
-        // Add clickable links with API context
         if (salesData.historical.actualSearchQuery) {
           const encodedQuery = encodeURIComponent(salesData.historical.actualSearchQuery);
           const historicalUrl = `https://auctionet.com/sv/search?event_id=&is=ended&q=${encodedQuery}`;
-          historicalLink = `<a href="${historicalUrl}" target="_blank" style="color: #2c3e50; text-decoration: none; font-weight: 600;" title="Visa ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">${historicalCount} historiska</a>`;
+          linksHTML += `
+            <div class="data-link-row">
+              <span class="data-link-icon">📜</span>
+              <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">${historicalCount} historiska träffar</a>
+              <span class="data-link-meta">(${historicalTotal} analyserade)</span>
+            </div>`;
         }
         
         if (salesData.live.actualSearchQuery) {
           const encodedQuery = encodeURIComponent(salesData.live.actualSearchQuery);
           const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodedQuery}`;
-          liveLink = `<a href="${liveUrl}" target="_blank" style="color: #2c3e50; text-decoration: none; font-weight: 600;" title="Visa ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">${liveCount} pågående</a>`;
+          linksHTML += `
+            <div class="data-link-row">
+              <span class="data-link-icon">🔴</span>
+              <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">${liveCount} pågående auktioner</a>
+              <span class="data-link-meta">(${liveTotal} träffar)</span>
+            </div>`;
         }
         
-        helpText = `${historicalLink} (${historicalTotal} analyserade), ${liveLink}`;
+        helpText = linksHTML;
       } else if (historicalCount > 0) {
         // Only historical data
         dataText = `${historicalCount} historiska träffar (${historicalTotal} med prisdata)`;
@@ -393,8 +402,12 @@ export class DashboardManager {
         if (salesData.historical.actualSearchQuery) {
           const encodedQuery = encodeURIComponent(salesData.historical.actualSearchQuery);
           const historicalUrl = `https://auctionet.com/sv/search?event_id=&is=ended&q=${encodedQuery}`;
-          dataText = `<a href="${historicalUrl}" target="_blank" style="color: #2c3e50; text-decoration: none; font-weight: 600;" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">${historicalCount} historiska träffar</a>`;
-          helpText = `(${historicalTotal} analyserade)`;
+          
+          helpText = `
+            <div class="data-link-row">
+              <span class="data-link-icon">📜</span>
+              <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">Visa alla ${historicalTotal} historiska träffar</a>
+            </div>`;
         } else {
           helpText = 'bekräftade försäljningar';
         }
@@ -405,8 +418,12 @@ export class DashboardManager {
         if (salesData.live.actualSearchQuery) {
           const encodedQuery = encodeURIComponent(salesData.live.actualSearchQuery);
           const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodedQuery}`;
-          dataText = `<a href="${liveUrl}" target="_blank" style="color: #2c3e50; text-decoration: none; font-weight: 600;" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">${liveCount} pågående</a>`;
-          helpText = `(${liveTotal} träffar)`;
+          
+          helpText = `
+            <div class="data-link-row">
+              <span class="data-link-icon">🔴</span>
+              <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">Visa alla ${liveTotal} pågående auktioner</a>
+            </div>`;
         } else {
           helpText = 'aktiva auktioner';
         }
@@ -1404,6 +1421,47 @@ export class DashboardManager {
           text-align: center;
           font-style: italic;
           line-height: 1.4;
+        }
+        
+        /* Data Foundation Link Styles */
+        .data-link-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin: 3px 0;
+          padding: 2px 0;
+        }
+        
+        .data-link-icon {
+          font-size: 10px;
+          width: 14px;
+          text-align: center;
+        }
+        
+        .data-link-prominent {
+          color: #007cba !important;
+          text-decoration: underline !important;
+          font-weight: 600 !important;
+          font-size: 10px !important;
+          border-bottom: 1px solid #007cba;
+          padding-bottom: 1px;
+          transition: all 0.2s ease;
+        }
+        
+        .data-link-prominent:hover {
+          color: #005c87 !important;
+          text-decoration: underline !important;
+          border-bottom: 2px solid #005c87;
+          background: rgba(0, 124, 186, 0.05);
+          padding: 1px 3px;
+          border-radius: 3px;
+        }
+        
+        .data-link-meta {
+          font-size: 9px;
+          color: #6c757d;
+          font-style: italic;
+          margin-left: 4px;
         }
       `;
       document.head.appendChild(style);
