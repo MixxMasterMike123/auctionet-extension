@@ -104,18 +104,33 @@ export class SearchQueryManager {
     buildSearchContext(artistInfo = null, objectType = '', period = '', technique = '', enhancedTerms = {}, analysisType = 'freetext') {
         console.log('🔧 SSoT: Building search context for API');
         
+        // CRITICAL: Extract artist name from artistInfo for primarySearch
+        let primarySearch = '';
+        if (artistInfo && artistInfo.name) {
+            primarySearch = artistInfo.name;
+            console.log('✅ Using artist name for primarySearch:', primarySearch);
+        } else if (artistInfo && typeof artistInfo === 'string') {
+            primarySearch = artistInfo;
+            console.log('✅ Using artist string for primarySearch:', primarySearch);
+        } else if (this.currentQuery) {
+            primarySearch = this.currentQuery;
+            console.log('✅ Using currentQuery for primarySearch:', primarySearch);
+        } else {
+            console.log('⚠️ No artist info or currentQuery available for primarySearch');
+        }
+        
         const searchContext = {
-            primarySearch: this.currentQuery,
+            primarySearch: primarySearch,
             objectType: objectType,
             period: period,
             technique: technique,
             enhancedTerms: enhancedTerms,
             analysisType: analysisType,
-            searchTerms: this.currentQuery,
-            finalSearch: this.currentQuery
+            searchTerms: primarySearch,
+            finalSearch: primarySearch
         };
         
-        if (artistInfo) {
+        if (artistInfo && typeof artistInfo === 'object') {
             searchContext.searchStrategy = artistInfo.searchStrategy;
             searchContext.confidence = artistInfo.confidence;
             searchContext.termCount = artistInfo.termCount;

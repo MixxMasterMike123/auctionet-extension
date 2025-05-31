@@ -83,102 +83,40 @@ export class DashboardManager {
   }
 
   // NEW: Add market data as a horizontal dashboard bar above the container
-  addMarketDataDashboard(salesData, valuationSuggestions = []) {
-    // Check if dashboard display is enabled
-    if (!this.apiManager.showDashboard) {
-      console.log('📊 Dashboard display is disabled in settings - skipping dashboard creation');
+  addMarketDataDashboard(salesData, analysisType = 'artist') {
+    console.log('💰 Processing comprehensive market analysis results');
+    
+    if (!salesData || !salesData.hasComparableData) {
+      console.log('❌ No comparable data available for dashboard');
       return;
     }
+
+    // CRITICAL: Initialize SearchQueryManager SSoT IMMEDIATELY with candidate terms
+    const actualSearchQuery = this.determineActualSearchQuery(salesData);
+    if (salesData.candidateSearchTerms) {
+      const initialized = this.initializeSearchQueryManagerIfAvailable(
+        salesData.candidateSearchTerms, 
+        actualSearchQuery
+      );
+      if (!initialized) {
+        console.log('⚠️ Could not initialize SearchQueryManager - will use fallback');
+        // Ensure query terms are at least set
+        this.ensureQueryTermsInSSoT(actualSearchQuery);
+      }
+    } else {
+      console.log('⚠️ No candidate terms available for SSoT initialization');
+      this.ensureQueryTermsInSSoT(actualSearchQuery);
+    }
+
+    console.log('🎯 Creating priority analysis dashboard immediately');
     
-    // DEBUG: Log the full salesData to understand what we're working with
-    console.log('🔍 DEBUG: Full salesData for dashboard:', JSON.stringify(salesData, null, 2));
-    
-    // Add debouncing to prevent conflicts from parallel analyses
-    const dashboardId = `dashboard-${salesData.analysisType}-${Date.now()}`;
-    
-    // Clear any pending dashboard updates
+    // Remove existing dashboard if present
     if (this.pendingDashboardUpdate) {
       clearTimeout(this.pendingDashboardUpdate);
+      this.pendingDashboardUpdate = null;
     }
-    
-    // PRIORITY SYSTEM: Artist analyses always take priority over freetext
-    const isArtistAnalysis = salesData.analysisType === 'artist' || salesData.analysisType === 'artist_enriched';
-    const isBrandAnalysis = salesData.analysisType === 'brand';
-    const isFreetextAnalysis = salesData.analysisType === 'freetext';
-    const isCustomFilter = salesData.analysisType === 'custom_user_filter';
-    
-    // Check if there's an existing dashboard and what type it is
-    const existingDashboard = document.querySelector('.market-data-dashboard');
-    if (existingDashboard) {
-      const existingId = existingDashboard.getAttribute('data-dashboard-id');
-      const existingType = existingId ? existingId.split('-')[1] : 'unknown';
-      
-      console.log(`🔄 Existing dashboard type: ${existingType}, new type: ${salesData.analysisType}`);
-      
-      // Custom filters should replace any existing dashboard (user explicitly requested new search)
-      if (isCustomFilter) {
-        console.log('🎯 CUSTOM FILTER REPLACEMENT: User-selected terms replacing existing dashboard');
-        existingDashboard.remove();
-        this.createDashboard(salesData, valuationSuggestions, dashboardId);
-        return;
-      }
-      
-      // Artist/Brand analyses should ALWAYS replace freetext analyses
-      if ((isArtistAnalysis || isBrandAnalysis) && existingType === 'freetext') {
-        console.log('🎯 PRIORITY REPLACEMENT: Artist/Brand analysis replacing freetext dashboard');
-        existingDashboard.remove();
-        // Create immediately without delay
-        this.createDashboard(salesData, valuationSuggestions, dashboardId);
-        return;
-      }
-      
-      // Don't let freetext replace artist/brand analyses
-      if (isFreetextAnalysis && (existingType === 'artist' || existingType === 'brand')) {
-        console.log('🚫 BLOCKING: Freetext analysis attempting to replace artist/brand dashboard - ignoring');
-        return; // Don't create freetext dashboard if artist/brand already exists
-      }
-    }
-    
-    // For enriched artist analyses, remove old dashboard immediately but keep artist detection visible
-    if (salesData.analysisType === 'artist_enriched' || salesData.enrichedWith) {
-      if (existingDashboard) {
-        console.log('🔄 Smoothly replacing dashboard for enriched analysis');
-        existingDashboard.style.opacity = '0.5'; // Fade out old dashboard
-        existingDashboard.style.transition = 'opacity 0.3s ease';
-        
-        // Remove after fade animation
-        setTimeout(() => {
-          if (existingDashboard.parentNode) {
-            existingDashboard.parentNode.removeChild(existingDashboard);
-          }
-        }, 300);
-      }
-      
-      // Create new dashboard immediately without delay
-      this.createDashboard(salesData, valuationSuggestions, dashboardId);
-    } else if (isArtistAnalysis || isBrandAnalysis || isCustomFilter) {
-      // Artist, brand, and custom filter analyses get immediate priority
-      console.log('🎯 Creating priority analysis dashboard immediately');
-      this.createDashboard(salesData, valuationSuggestions, dashboardId);
-        } else {
-      // For freetext analyses, use small delay to allow artist detection to complete
-      console.log('⏳ Delaying freetext dashboard creation to allow artist detection');
-      this.pendingDashboardUpdate = setTimeout(() => {
-        // Double-check that no artist analysis has started in the meantime
-        const currentDashboard = document.querySelector('.market-data-dashboard');
-        if (currentDashboard) {
-          const currentId = currentDashboard.getAttribute('data-dashboard-id');
-          const currentType = currentId ? currentId.split('-')[1] : 'unknown';
-          
-          if (currentType === 'artist' || currentType === 'brand') {
-            console.log('🚫 Artist/Brand dashboard now exists - cancelling freetext dashboard');
-            return;
-          }
-        }
-        
-        this.createDashboard(salesData, valuationSuggestions, dashboardId);
-      }, 1000); // Increased delay to give AI detection more time
-    }
+
+    this.createDashboard(salesData, analysisType);
   }
   
   createDashboard(salesData, valuationSuggestions, dashboardId) {
@@ -1997,5 +1935,125 @@ export class DashboardManager {
     console.log('🎯 Pre-selected terms included (LEGACY):', preSelectedTerms.map(s => s.term));
     
     return finalSuggestions;
+  }
+
+  // NEW: Initialize SearchQueryManager SSoT immediately when candidate terms are available
+  initializeSearchQueryManagerIfAvailable(candidateTerms, actualSearchQuery) {
+    if (this.searchQueryManager && candidateTerms && actualSearchQuery) {
+      console.log('🚀 IMMEDIATE SSoT initialization with candidate terms');
+      console.log('   Actual Query:', actualSearchQuery);
+      console.log('   Candidates:', candidateTerms.candidates?.length || 0);
+      
+      this.searchQueryManager.initialize(actualSearchQuery, candidateTerms, 'system');
+      console.log('✅ SearchQueryManager SSoT initialized BEFORE dashboard creation');
+      return true;
+    }
+    return false;
+  }
+
+  // CRITICAL: Ensure SearchQueryManager has all current query terms available
+  ensureQueryTermsInSSoT(actualSearchQuery) {
+    if (!this.searchQueryManager || !actualSearchQuery) return;
+    
+    // Force ensure current query terms are available
+    this.searchQueryManager.currentQuery = actualSearchQuery;
+    this.searchQueryManager.ensureCurrentQueryTermsAvailable();
+    console.log('✅ Forced current query terms into SSoT:', actualSearchQuery);
+  }
+
+  // UPDATED: Use SearchQueryManager SSoT for smart suggestions
+  generateSmartSearchFilters(candidateSearchTerms, hotReload = false) {
+    console.log('🔧 Generating smart search filters for dashboard UI');
+    
+    // CRITICAL: Use SearchQueryManager SSoT if available
+    if (this.searchQueryManager) {
+      console.log('✅ Using SearchQueryManager SSoT for smart suggestions');
+      
+      const availableTerms = this.searchQueryManager.getAvailableTerms();
+      const currentQuery = this.searchQueryManager.getCurrentQuery();
+      
+      console.log('📋 SSoT Available Terms:', availableTerms.length);
+      console.log('📋 SSoT Current Query:', currentQuery);
+      
+      // Generate HTML for each available term
+      const suggestions = availableTerms
+        .sort((a, b) => (b.score || 0) - (a.score || 0)) // Sort by score
+        .slice(0, 5) // Take top 5
+        .map(termObj => {
+          const isSelected = this.searchQueryManager.isTermSelected(termObj.term);
+          const isCore = this.searchQueryManager.isCoreTerm(termObj.term);
+          
+          // Visual styling based on term importance
+          let className = 'smart-suggestion';
+          if (isCore) className += ' core-term'; // Orange for core terms like brands
+          if (isSelected) className += ' selected'; // Blue for selected terms
+          
+          return `<span class="${className}" 
+                        data-suggestion="${termObj.term}" 
+                        data-type="${termObj.type || 'keyword'}"
+                        data-core="${isCore}"
+                        title="${termObj.description || 'Klicka för att lägga till/ta bort'}">
+                    ${termObj.term} ${termObj.type === 'period' ? '📅' : termObj.type === 'model' ? '🔧' : isCore ? '🏷️' : ''}
+                   </span>`;
+        })
+        .join('');
+      
+      console.log('✅ Generated smart suggestions using SSoT');
+      return suggestions;
+    }
+    
+    // FALLBACK: Use legacy method if SSoT not available
+    console.log('⚠️ SearchQueryManager not available, falling back to legacy method');
+    return this.generateLegacySmartSearchFilters(candidateSearchTerms, hotReload);
+  }
+
+  // Keep legacy method as fallback
+  generateLegacySmartSearchFilters(candidateSearchTerms, hotReload = false) {
+    if (!candidateSearchTerms || !candidateSearchTerms.candidates || candidateSearchTerms.candidates.length === 0) {
+      return '';
+    }
+    
+    console.log('🔧 Using LEGACY smart search filter generation');
+    
+    // Use the old method as fallback
+    const smartSuggestions = this.selectSmartSuggestions(candidateSearchTerms.candidates);
+    const currentQuery = candidateSearchTerms.currentQuery || 'Automatisk sökning';
+    
+    let filterHTML = `
+      <div class="search-filter-section">
+        <div class="filter-header">
+          <h4 class="filter-title">🧠 AI-smarta sökförslag</h4>
+          <div class="filter-description">Lägg till relevanta termer för mer exakt analys - uppdateras automatiskt</div>
+        </div>
+        <div class="smart-suggestions">
+          <div class="current-query-display">
+            <span class="current-label">Nuvarande:</span>
+            <span class="current-query" id="current-search-display">"${currentQuery}"</span>
+          </div>
+          <div class="suggestion-controls">`;
+
+    smartSuggestions.forEach(suggestion => {
+      const priority = this.getSuggestionPriority(suggestion);
+      const icon = this.getTypeIcon(suggestion.type);
+      
+      filterHTML += `
+        <span class="smart-suggestion ${priority} ${suggestion.preSelected ? 'selected' : ''}" 
+              data-suggestion="${suggestion.term}" 
+              data-type="${suggestion.type}"
+              title="${suggestion.description || 'Klicka för att lägga till/ta bort'}">
+          ${suggestion.term} ${icon}
+        </span>`;
+    });
+
+    filterHTML += `
+          </div>
+        </div>
+        <div class="filter-status">
+          <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
+          <span class="update-status" id="filter-status">Klicka på förslag för att förfina sökningen</span>
+        </div>
+      </div>`;
+
+    return filterHTML;
   }
 } 
