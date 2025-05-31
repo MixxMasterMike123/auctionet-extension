@@ -103,41 +103,58 @@ export class SearchQueryManager {
      */
     buildSearchContext(artistInfo = null, objectType = '', period = '', technique = '', enhancedTerms = {}, analysisType = 'freetext') {
         console.log('🔧 SSoT: Building search context for API');
+        console.log('🔧 SSoT: Input artistInfo:', artistInfo);
+        console.log('🔧 SSoT: Input objectType:', objectType);
         
         // CRITICAL: Extract artist name from artistInfo for primarySearch
         let primarySearch = '';
-        if (artistInfo && artistInfo.name) {
-            primarySearch = artistInfo.name;
-            console.log('✅ Using artist name for primarySearch:', primarySearch);
-        } else if (artistInfo && typeof artistInfo === 'string') {
-            primarySearch = artistInfo;
-            console.log('✅ Using artist string for primarySearch:', primarySearch);
-        } else if (this.currentQuery) {
-            primarySearch = this.currentQuery;
-            console.log('✅ Using currentQuery for primarySearch:', primarySearch);
-        } else {
-            console.log('⚠️ No artist info or currentQuery available for primarySearch');
+        let artistName = '';
+        
+        // Enhanced artist extraction logic
+        if (artistInfo) {
+            if (typeof artistInfo === 'string') {
+                artistName = artistInfo;
+                primarySearch = artistInfo;
+                console.log('✅ Using artist string for primarySearch:', primarySearch);
+            } else if (artistInfo.artist) {
+                artistName = artistInfo.artist;
+                primarySearch = artistInfo.artist;
+                console.log('✅ Using artistInfo.artist for primarySearch:', primarySearch);
+            } else if (artistInfo.name) {
+                artistName = artistInfo.name;
+                primarySearch = artistInfo.name;
+                console.log('✅ Using artistInfo.name for primarySearch:', primarySearch);
+            }
         }
         
-        const searchContext = {
+        // Fallback to currentQuery if available
+        if (!primarySearch && this.currentQuery) {
+            primarySearch = this.currentQuery;
+            console.log('✅ Using currentQuery for primarySearch:', primarySearch);
+        }
+        
+        // Build complete search terms
+        const searchTerms = [primarySearch, objectType, period].filter(Boolean).join(' ').trim();
+        const finalSearch = searchTerms || primarySearch || objectType || 'Unknown';
+        
+        console.log('🎯 SSoT: Final primarySearch:', primarySearch);
+        console.log('🎯 SSoT: Final searchTerms:', searchTerms);
+        console.log('🎯 SSoT: Final finalSearch:', finalSearch);
+        
+        const context = {
             primarySearch: primarySearch,
+            artistName: artistName,
             objectType: objectType,
             period: period,
             technique: technique,
-            enhancedTerms: enhancedTerms,
+            enhancedTerms: enhancedTerms || {},
             analysisType: analysisType,
-            searchTerms: primarySearch,
-            finalSearch: primarySearch
+            searchTerms: searchTerms,
+            finalSearch: finalSearch
         };
         
-        if (artistInfo && typeof artistInfo === 'object') {
-            searchContext.searchStrategy = artistInfo.searchStrategy;
-            searchContext.confidence = artistInfo.confidence;
-            searchContext.termCount = artistInfo.termCount;
-        }
-        
-        console.log('📋 SSoT: Generated search context:', searchContext);
-        return searchContext;
+        console.log('📋 SSoT: Generated search context:', context);
+        return context;
     }
 
     /**

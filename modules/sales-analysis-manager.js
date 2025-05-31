@@ -80,10 +80,10 @@ export class SalesAnalysisManager {
       // SMART ENHANCEMENT: Extract additional search terms for better matching
       const enhancedTerms = qualityAnalyzer.extractEnhancedSearchTerms(data.title, data.description);
       
-      // USE SSoT: Prepare search context using SearchQueryManager instead of hardcoded logic
+      // USE SSoT: Prepare search context using SearchQueryManager with PROPER artist info
       let searchContext = this.searchQueryManager ? 
         this.searchQueryManager.buildSearchContext(
-          artistInfo, 
+          artistInfo.artist || artistInfo, // CRITICAL: Pass the actual artist name/info
           objectType, 
           period, 
           technique, 
@@ -96,7 +96,9 @@ export class SalesAnalysisManager {
           period: period,
           technique: technique,
           enhancedTerms: enhancedTerms,
-          analysisType: analysisType
+          analysisType: analysisType,
+          searchTerms: `${artistName} ${objectType}`.trim(),
+          finalSearch: `${artistName} ${objectType}`.trim()
         };
       
       if (isFreetext && artistInfo) {
