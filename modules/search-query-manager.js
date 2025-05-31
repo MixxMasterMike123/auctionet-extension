@@ -153,17 +153,34 @@ export class SearchQueryManager {
         const searchTerms = this.currentQuery || primarySearch || objectType || 'Unknown';
         const finalSearch = searchTerms;
         
+        // CRITICAL FIX: Filter out rejected parameters that aren't selected in SSoT
+        // Only include period/technique if they're actually selected terms
+        const selectedTerms = Array.from(this.selectedTerms);
+        const selectedTermsLower = selectedTerms.map(t => t.toLowerCase());
+        
+        const filteredPeriod = (period && selectedTermsLower.some(term => term.includes(period.toLowerCase()))) ? period : '';
+        const filteredTechnique = (technique && selectedTermsLower.some(term => term.includes(technique.toLowerCase()))) ? technique : '';
+        
+        if (period && !filteredPeriod) {
+            console.log(`🚫 SSoT: Filtering out rejected period parameter: "${period}" (not in selected terms)`);
+        }
+        if (technique && !filteredTechnique) {
+            console.log(`🚫 SSoT: Filtering out rejected technique parameter: "${technique}" (not in selected terms)`);
+        }
+        
         console.log('🎯 SSoT: Final primarySearch:', primarySearch);
         console.log('🎯 SSoT: Final searchTerms (using SSoT currentQuery):', searchTerms);
         console.log('🎯 SSoT: Final finalSearch:', finalSearch);
-        console.log('🔒 SSoT: RESPECTING AI/USER DECISIONS - no unauthorized term additions');
+        console.log('🎯 SSoT: Filtered period:', filteredPeriod || 'NONE');
+        console.log('🎯 SSoT: Filtered technique:', filteredTechnique || 'NONE');
+        console.log('🔒 SSoT: RESPECTING AI/USER DECISIONS - no unauthorized parameters');
         
         const context = {
             primarySearch: primarySearch,
             artistName: artistName,
             objectType: objectType,
-            period: period,
-            technique: technique,
+            period: filteredPeriod,
+            technique: filteredTechnique,
             enhancedTerms: enhancedTerms || {},
             analysisType: analysisType,
             searchTerms: searchTerms,
