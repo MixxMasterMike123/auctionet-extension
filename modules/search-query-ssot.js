@@ -33,8 +33,18 @@ export class SearchQuerySSoT {
     // Set or preserve the current query
     if (currentQuery) {
       this.currentQuery = currentQuery;
-      // Extract terms from the query
-      this.currentTerms = currentQuery.split(' ').filter(term => term.trim().length > 0);
+      
+      // CRITICAL FIX: Get original search terms from AI Rules (preserves "Niels Thorsson" as one term)
+      const selectedCandidates = candidateTerms.candidates.filter(c => c.preSelected);
+      if (selectedCandidates.length > 0) {
+        // Use the original terms from AI Rules selection (preserves artist names)
+        this.currentTerms = selectedCandidates.map(c => c.term);
+        console.log('✅ SSoT: Using original AI Rules terms (preserves artist names):', this.currentTerms);
+      } else {
+        // Fallback: Extract terms from the query by splitting (old behavior)
+        this.currentTerms = currentQuery.split(' ').filter(term => term.trim().length > 0);
+        console.log('⚠️ SSoT: Fallback to splitting query by spaces:', this.currentTerms);
+      }
     }
     
     // CRITICAL: ALWAYS populate availableTerms from candidateTerms for extended functionality
@@ -103,7 +113,18 @@ export class SearchQuerySSoT {
     console.log('🔒 SSoT: Setting authoritative query:', queryData);
     
     this.currentQuery = queryData.query || '';
-    this.currentTerms = queryData.searchTerms || [];
+    
+    // CRITICAL FIX: Preserve original searchTerms structure to maintain "Niels Thorsson" as one term
+    if (queryData.searchTerms && Array.isArray(queryData.searchTerms)) {
+      // Use provided searchTerms array (preserves "Niels Thorsson" as one term)
+      this.currentTerms = [...queryData.searchTerms];
+      console.log('✅ SSoT: Using provided searchTerms array (preserves artist names):', this.currentTerms);
+    } else {
+      // Fallback: split query by spaces (old behavior)
+      this.currentTerms = this.currentQuery.split(' ').filter(term => term.trim().length > 0);
+      console.log('⚠️ SSoT: Fallback to splitting query by spaces:', this.currentTerms);
+    }
+    
     this.currentMetadata = {
       reasoning: queryData.reasoning || '',
       confidence: queryData.confidence || 0.5,
