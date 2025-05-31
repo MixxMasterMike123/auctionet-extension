@@ -96,13 +96,13 @@ export class DashboardManager {
     // 🚨 CRITICAL: FORCE SSoT initialization FIRST before anything else
     console.log('🚨 FORCING SSoT to be the ONLY source of search terms');
     this.forceSSoTInitializationAsync(salesData).then(ssotSuccess => {
-      if (!ssotSuccess) {
-        console.error('❌ Failed to initialize SSoT - cannot proceed with dashboard');
-        return;
-      }
-      
-      console.log('✅ SSoT forced initialization successful - all components now use same source');
-      
+    if (!ssotSuccess) {
+      console.error('❌ Failed to initialize SSoT - cannot proceed with dashboard');
+      return;
+    }
+    
+    console.log('✅ SSoT forced initialization successful - all components now use same source');
+    
       // Continue with dashboard creation after SSoT is ready
       this.completeDashboardCreation(salesData);
     }).catch(error => {
@@ -156,7 +156,7 @@ export class DashboardManager {
     
     console.log('✅ Dashboard creation complete with SSoT consistency');
   }
-
+  
   createDashboard(salesData, valuationSuggestions, dashboardId) {
     // Remove any existing market data dashboard
     const existingDashboard = document.querySelector('.market-data-dashboard');
@@ -301,7 +301,7 @@ export class DashboardManager {
               <span class="data-link-icon">📊</span>
               <a href="${auctionetUrls.historical}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
               <span class="data-link-meta">bekräftade</span>
-            </div>
+        </div>
             <div class="data-link-row">
               <span class="data-link-icon">🔴</span>
               <a href="${auctionetUrls.live}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
@@ -346,15 +346,15 @@ export class DashboardManager {
       const exceptional = salesData.historical.exceptionalSales;
       const exceptionellaCount = exceptional.count || 0;
       
-      dashboardContent += `
+        dashboardContent += `
         <div class="market-item market-exceptional">
           <div class="market-label" title="Särskilt höga bekräftade försäljningar som överträffar normal marknadsnivå">Exceptionella</div>
           <div class="market-value">${exceptionellaCount} exceptionella bekräftade försäljningar över 30 000 SEK</div>
           <div class="market-help">${exceptional.description || 'Bekräftade höga försäljningar'}</div>
-        </div>
-      `;
+          </div>
+        `;
     }
-    
+
     // Market Activity Section (if live data available)
     if (salesData.live && salesData.live.marketActivity) {
       const activity = salesData.live.marketActivity;
@@ -385,7 +385,7 @@ export class DashboardManager {
       if (significantInsight.type === 'price_comparison' && significantInsight.message.includes('höja')) {
         trendIcon = 'KONFLIKT: Pågående auktioner värderas 503% högre än slutpriser, men marknaden är svag (38% utrop ej klarat (50 auktioner)) - hög eftertrågan';
         trendColor = '#dc3545';
-      } else {
+          } else {
         trendIcon = significantInsight.message;
         trendColor = '#28a745';
       }
@@ -590,61 +590,61 @@ export class DashboardManager {
   // NEW: Restore SearchQueryManager reference using multiple strategies
   async restoreSearchQueryManagerReference() {
     console.log('🔧 Attempting to restore SearchQueryManager reference...');
-    
-    // Try multiple restoration sources in order of preference
-    let restored = false;
-    
-    // 1. Try to restore from quality analyzer
-    if (this.qualityAnalyzer && this.qualityAnalyzer.searchQueryManager) {
-      this.searchQueryManager = this.qualityAnalyzer.searchQueryManager;
-      console.log('✅ Restored SearchQueryManager reference from quality analyzer');
-      restored = true;
-    } 
-    // 2. Try to restore from API manager
-    else if (this.apiManager && this.apiManager.searchQueryManager) {
-      this.searchQueryManager = this.apiManager.searchQueryManager;
-      console.log('✅ Restored SearchQueryManager reference from API manager');
-      restored = true;
-    }
-    // 3. Try to find it in the global scope (from content script)
-    else if (typeof window !== 'undefined' && window.auctionetAssistant && window.auctionetAssistant.searchQueryManager) {
-      this.searchQueryManager = window.auctionetAssistant.searchQueryManager;
-      console.log('✅ Restored SearchQueryManager reference from global window');
-      restored = true;
-    }
-    // 4. Try to create a new instance with current data as last resort
-    else {
-      try {
-        const SearchQueryManager = await import('/modules/search-query-manager.js').then(m => m.SearchQueryManager);
-        this.searchQueryManager = new SearchQueryManager();
-        
-        // Try to initialize with current dashboard data
-        const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
-        const terms = Array.from(smartCheckboxes).map(cb => ({
-          term: cb.value,
-          type: 'unknown',
-          description: cb.value,
-          priority: 5,
-          isSelected: cb.checked
-        }));
-        
-        if (terms.length > 0) {
-          this.searchQueryManager.initialize('', { candidates: terms }, 'emergency_restore');
-          console.log('✅ Created new SearchQueryManager instance and initialized with current dashboard data');
-          restored = true;
+      
+      // Try multiple restoration sources in order of preference
+      let restored = false;
+      
+      // 1. Try to restore from quality analyzer
+      if (this.qualityAnalyzer && this.qualityAnalyzer.searchQueryManager) {
+        this.searchQueryManager = this.qualityAnalyzer.searchQueryManager;
+        console.log('✅ Restored SearchQueryManager reference from quality analyzer');
+        restored = true;
+      } 
+      // 2. Try to restore from API manager
+      else if (this.apiManager && this.apiManager.searchQueryManager) {
+        this.searchQueryManager = this.apiManager.searchQueryManager;
+        console.log('✅ Restored SearchQueryManager reference from API manager');
+        restored = true;
+      }
+      // 3. Try to find it in the global scope (from content script)
+      else if (typeof window !== 'undefined' && window.auctionetAssistant && window.auctionetAssistant.searchQueryManager) {
+        this.searchQueryManager = window.auctionetAssistant.searchQueryManager;
+        console.log('✅ Restored SearchQueryManager reference from global window');
+        restored = true;
+      }
+      // 4. Try to create a new instance with current data as last resort
+      else {
+        try {
+          const SearchQueryManager = await import('/modules/search-query-manager.js').then(m => m.SearchQueryManager);
+          this.searchQueryManager = new SearchQueryManager();
+          
+          // Try to initialize with current dashboard data
+          const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
+          const terms = Array.from(smartCheckboxes).map(cb => ({
+            term: cb.value,
+            type: 'unknown',
+            description: cb.value,
+            priority: 5,
+            isSelected: cb.checked
+          }));
+          
+          if (terms.length > 0) {
+            this.searchQueryManager.initialize('', { candidates: terms }, 'emergency_restore');
+            console.log('✅ Created new SearchQueryManager instance and initialized with current dashboard data');
+            restored = true;
+          }
+        } catch (error) {
+          console.error('❌ Failed to create emergency SearchQueryManager instance:', error);
         }
-      } catch (error) {
-        console.error('❌ Failed to create emergency SearchQueryManager instance:', error);
       }
-    }
-    
-    if (!restored) {
-      // Show user-friendly error
-      const statusIndicator = document.getElementById('filter-status');
-      if (statusIndicator) {
-        statusIndicator.textContent = 'Sökfunktion inte tillgänglig - ladda om sidan för att aktivera';
-        statusIndicator.style.color = '#e74c3c';
-      }
+      
+      if (!restored) {
+        // Show user-friendly error
+        const statusIndicator = document.getElementById('filter-status');
+        if (statusIndicator) {
+          statusIndicator.textContent = 'Sökfunktion inte tillgänglig - ladda om sidan för att aktivera';
+          statusIndicator.style.color = '#e74c3c';
+        }
     }
   }
   
@@ -679,9 +679,9 @@ export class DashboardManager {
         
         if (!termValue || termValue === '0' || termValue === '1') {
           // Skip checkboxes with generic values or empty values
-          return;
-        }
-        
+        return;
+      }
+      
         console.log(`🔍 Checking checkbox with value: "${termValue}"`);
         
         // Check if this term should be selected based on SSoT

@@ -45,11 +45,19 @@ export class SearchQueryManager {
                 type: candidate.type,
                 description: candidate.description,
                 priority: candidate.priority,
+                preSelected: candidate.preSelected || false, // CRITICAL: Keep preSelected for AI logic
                 isSelected: candidate.preSelected || false,
                 score: candidate.score || this.calculateTermScore(candidate)
             }));
             
             console.log('✅ SSoT: Processed', this.availableTerms.length, 'candidate terms');
+            console.log('🤖 SSoT: AI pre-selection data available:', this.availableTerms.some(t => t.hasOwnProperty('preSelected')));
+            
+            // Debug: Show pre-selection decisions
+            const preSelectedTerms = this.availableTerms.filter(t => t.preSelected).map(t => t.term);
+            const rejectedTerms = this.availableTerms.filter(t => t.preSelected === false).map(t => t.term);
+            console.log('🤖 SSoT: AI pre-selected terms:', preSelectedTerms);
+            console.log('🤖 SSoT: AI rejected terms:', rejectedTerms);
         }
         
         // Initialize selected terms from current query
