@@ -1431,6 +1431,13 @@ SVARA MED JSON:
         isStrongMarket
       });
       
+      // CRITICAL FIX: Check if priceRange exists before accessing its properties
+      if (!historicalResult.priceRange || !historicalResult.priceRange.low || !historicalResult.priceRange.high) {
+        console.warn('⚠️ Historical result missing priceRange data, skipping price comparison insights');
+        console.log('🔍 Available historicalResult properties:', Object.keys(historicalResult || {}));
+        return insights; // Return early with empty insights
+      }
+      
       // Compare historical vs live pricing WITH market context
       const histAvg = (historicalResult.priceRange.low + historicalResult.priceRange.high) / 2;
       const liveAvg = liveResult.currentEstimates ? 
