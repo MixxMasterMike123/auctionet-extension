@@ -700,12 +700,19 @@ export class AuctionetAPI {
       'flöjt', 'flute', 'klarinett', 'oboe', 'fagott', 'saxofon',
       'trumpet', 'kornett', 'trombon', 'tuba', 'horn',
       'orgel', 'harmonium', 'dragspel', 'accordion',
-      'trummor', 'drums', 'cymbaler', 'timpani', 'xylofon'
+      'trummor', 'drums', 'cymbaler', 'timpani', 'xylofon',
+      // SYNTHESIZERS & ELECTRONIC INSTRUMENTS
+      'synthesizer', 'synth', 'synthesiser', 'syntetiserare', 'syntheziser',
+      'keyboard', 'drum machine', 'trummaskin', 'sampler', 'sequencer',
+      'moog', 'roland', 'yamaha', 'korg', 'arp', 'oberheim', 'sequential'
     ];
     
     const instrumentBrands = [
       'steinway', 'yamaha', 'kawai', 'grotrian', 'bechstein', 'blüthner',
-      'petrof', 'estonia', 'seiler', 'schimmel', 'ibach', 'nordiska'
+      'petrof', 'estonia', 'seiler', 'schimmel', 'ibach', 'nordiska',
+      // SYNTHESIZER BRANDS
+      'roland', 'korg', 'moog', 'sequential', 'oberheim', 'arp', 'ensoniq',
+      'kurzweil', 'akai', 'emu', 'fairlight', 'synclavier', 'nord'
     ];
     
     const searchLower = searchString.toLowerCase();
@@ -723,8 +730,79 @@ export class AuctionetAPI {
     
     // Extract components from the instrument search string
     const parts = fullSearchString.toLowerCase().split(' ');
-    const instrumentType = parts[0]; // e.g., "flygel", "piano"
+    const instrumentType = parts[0]; // e.g., "flygel", "piano", "synthesizer"
     
+    // SYNTHESIZER-SPECIFIC DETECTION AND STRATEGIES
+    const isSynthesizerSearch = /synthesizer|synth|keyboard|drum machine|sampler/.test(fullSearchString.toLowerCase());
+    
+    if (isSynthesizerSearch) {
+      console.log('🎹 Detected synthesizer search, building specialized strategies');
+      
+      // Extract synthesizer brands and models
+      const synthBrands = ['yamaha', 'roland', 'korg', 'moog', 'sequential', 'oberheim', 'arp', 'ensoniq', 'kurzweil', 'akai'];
+      const brands = parts.filter(part => synthBrands.some(brand => part.includes(brand)));
+      
+      // Extract model numbers (like DX7, SH101, JP8000)
+      const models = parts.filter(part => /^[a-z]{1,4}\d{1,4}[a-z]*$/i.test(part));
+      
+      console.log('🎹 Synthesizer components:', { brands, models, fullParts: parts });
+      
+      // STRATEGY 1: Brand + Model (MOST IMPORTANT for synthesizers)
+      if (brands.length > 0 && models.length > 0) {
+        const query = `${brands[0]} ${models[0]}`;
+        strategies.push({
+          query: query,
+          description: `Synthesizer Brand+Model: "${query}"`,
+          weight: 1.0
+        });
+        console.log(`🎹 Priority 1: Brand+Model "${query}"`);
+      }
+      
+      // STRATEGY 2: Model only (like "DX7")
+      if (models.length > 0) {
+        const query = models[0];
+        strategies.push({
+          query: query,
+          description: `Synthesizer Model: "${query}"`,
+          weight: 0.9
+        });
+        console.log(`🎹 Priority 2: Model only "${query}"`);
+      }
+      
+      // STRATEGY 3: Brand + synthesizer type
+      if (brands.length > 0) {
+        const query = `${brands[0]} synthesizer`;
+        strategies.push({
+          query: query,
+          description: `Synthesizer Brand: "${query}"`,
+          weight: 0.8
+        });
+        console.log(`🎹 Priority 3: Brand+Type "${query}"`);
+      }
+      
+      // STRATEGY 4: Brand only (broadest brand search)
+      if (brands.length > 0) {
+        const query = brands[0];
+        strategies.push({
+          query: query,
+          description: `Brand only: "${query}"`,
+          weight: 0.7
+        });
+        console.log(`🎹 Priority 4: Brand only "${query}"`);
+      }
+      
+      // STRATEGY 5: Generic synthesizer search (fallback)
+      strategies.push({
+        query: 'synthesizer',
+        description: `Synthesizer generic: "synthesizer"`,
+        weight: 0.5
+      });
+      
+      console.log(`🎹 Built ${strategies.length} synthesizer search strategies`);
+      return strategies;
+    }
+    
+    // TRADITIONAL INSTRUMENT SEARCH STRATEGIES (piano, violin, etc.)
     // Common instrument brands that might appear in search
     const instrumentBrands = [
       'steinway', 'yamaha', 'kawai', 'grotrian', 'bechstein', 'blüthner',
