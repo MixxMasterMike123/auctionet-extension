@@ -25,24 +25,48 @@ export class SearchQueryManager {
     }
 
     /**
-     * Initialize the query manager with initial search data
+     * Initialize the SearchQueryManager with query and terms
      */
     initialize(initialQuery = '', candidateTerms = null, source = 'system') {
-        console.log('🚀 INITIALIZING SearchQueryManager SSoT');
+        console.log('🚀 SSoT: Initializing SearchQueryManager');
+        console.log('   Initial Query:', initialQuery);
+        console.log('   Candidate Terms:', candidateTerms ? candidateTerms.candidates?.length || 0 : 0);
+        console.log('   Source:', source);
+        
+        // Set initial query
         this.currentQuery = initialQuery;
         
-        if (candidateTerms) {
-            this.availableTerms = candidateTerms.candidates || [];
-            this.identifyCoreTerms();
-            this.syncSelectedTermsFromQuery();
+        // Process candidate terms if provided
+        if (candidateTerms && candidateTerms.candidates) {
+            this.availableTerms = candidateTerms.candidates.map(candidate => ({
+                term: candidate.term,
+                type: candidate.type || 'keyword',
+                description: candidate.description || 'Sökterm',
+                priority: candidate.priority || 5,
+                isSelected: candidate.preSelected || false,
+                score: candidate.score || 5
+            }));
+        } else {
+            this.availableTerms = [];
         }
         
-        this.logState();
-        this.notifyListeners('initialize', { 
-            query: this.currentQuery, 
-            terms: this.availableTerms, 
-            source 
+        // CRITICAL: Ensure all current query terms are available for smart suggestions
+        this.ensureCurrentQueryTermsAvailable();
+        
+        // Identify core terms and sync selections
+        this.identifyCoreTerms();
+        this.syncSelectedTermsFromQuery();
+        
+        // Notify listeners
+        this.notifyListeners('initialized', {
+            query: this.currentQuery,
+            source: source,
+            availableTerms: this.availableTerms.length,
+            coreTerms: Array.from(this.coreTerms).length
         });
+        
+        console.log('✅ SSoT: SearchQueryManager initialized successfully');
+        this.logState();
     }
 
     // ========== CONSOLIDATED SEARCH GENERATION METHODS ==========
@@ -507,11 +531,16 @@ export class SearchQueryManager {
             'högtalare': 'högtalare',
             'speaker': 'högtalare',
             'skivspelare': 'skivspelare',
-            'turntable': 'skivspelare'
+            'turntable': 'skivspelare',
+            'cd': 'cd-spelare',
+            'kassett': 'kassettspelare'
         };
+        
         const text = `${objectType} ${title}`.toLowerCase();
         for (const [key, value] of Object.entries(typeMap)) {
-            if (text.includes(key)) return value;
+            if (text.includes(key)) {
+                return value;
+            }
         }
         return objectType?.toLowerCase() || 'ljud';
     }
@@ -673,17 +702,74 @@ export class SearchQueryManager {
     }
 
     /**
+     * Check if a term is a core search term (brand, artist, etc.) even if not in availableTerms
+     * This is critical for preserving important terms like "Omega" when they're in the query
+     */
+    isCoreSearchTerm(term) {
+        const termLower = term.toLowerCase();
+        
+        // Check if it's a watch brand
+        const watchBrands = [
+            'rolex', 'omega', 'patek philippe', 'audemars piguet', 'vacheron constantin',
+            'jaeger-lecoultre', 'iwc', 'breitling', 'tag heuer', 'cartier',
+            'longines', 'tissot', 'seiko', 'citizen', 'casio', 'hamilton',
+            'tudor', 'zenith', 'panerai', 'hublot', 'richard mille'
+        ];
+        
+        if (watchBrands.includes(termLower)) return true;
+        
+        // Check if it's a jewelry brand
+        const jewelryBrands = [
+            'cartier', 'tiffany', 'bulgari', 'van cleef', 'arpels', 'harry winston',
+            'graff', 'chopard', 'boucheron', 'piaget', 'georg jensen'
+        ];
+        
+        if (jewelryBrands.includes(termLower)) return true;
+        
+        // Check if it's an audio brand
+        const audioBrands = [
+            'technics', 'pioneer', 'marantz', 'yamaha', 'denon', 'onkyo',
+            'harman kardon', 'jbl', 'bang & olufsen', 'b&o', 'linn', 'naim',
+            'mcintosh', 'mark levinson', 'krell', 'conrad johnson'
+        ];
+        
+        if (audioBrands.includes(termLower)) return true;
+        
+        // Check if it's an important object type
+        const objectTypes = [
+            'armbandsur', 'fickur', 'klocka', 'ring', 'halsband', 'armband',
+            'tavla', 'målning', 'skulptur', 'vas', 'lampa', 'piano', 'gitarr'
+        ];
+        
+        if (objectTypes.includes(termLower)) return true;
+        
+        return false;
+    }
+
+    /**
      * Identify core terms that should be protected
      */
     identifyCoreTerms() {
         const coreTypes = ['artist', 'brand', 'object_type'];
         this.coreTerms.clear();
         
+        // Add core terms from availableTerms
         this.availableTerms.forEach(termObj => {
             if (coreTypes.includes(termObj.type)) {
                 this.coreTerms.add(termObj.term);
             }
         });
+        
+        // CRITICAL: Also check current query for core terms that might not be in availableTerms
+        if (this.currentQuery) {
+            const queryTerms = this.currentQuery.split(' ').filter(t => t.length > 1);
+            queryTerms.forEach(term => {
+                if (this.isCoreSearchTerm(term)) {
+                    this.coreTerms.add(term);
+                    console.log('🎯 SSoT: Found core term in query:', term);
+                }
+            });
+        }
         
         console.log('🔒 SSoT: Identified core terms:', Array.from(this.coreTerms));
     }
@@ -1492,5 +1578,65 @@ export class SearchQueryManager {
             }
         }
         return null;
+    }
+
+    /**
+     * Ensure all current query terms are available in availableTerms
+     * This is critical for showing missing terms like "Omega" in smart suggestions
+     */
+    ensureCurrentQueryTermsAvailable() {
+        if (!this.currentQuery) return;
+        
+        const queryTerms = this.currentQuery.split(' ').filter(t => t.length > 1);
+        const existingTerms = new Set(this.availableTerms.map(t => t.term.toLowerCase()));
+        
+        queryTerms.forEach(term => {
+            const termLower = term.toLowerCase();
+            
+            // If term is not in availableTerms, add it
+            if (!existingTerms.has(termLower)) {
+                const termType = this.detectTermType(term);
+                const isCore = this.isCoreSearchTerm(term);
+                
+                const newTerm = {
+                    term: term,
+                    type: termType,
+                    description: isCore ? 'Viktig sökterm' : 'Nuvarande sökterm',
+                    priority: isCore ? 1 : 3,
+                    isCore: isCore,
+                    isSelected: true, // Always selected since it's in current query
+                    score: isCore ? 25 : 15 // High score to ensure inclusion
+                };
+                
+                this.availableTerms.push(newTerm);
+                console.log('➕ SSoT: Added missing query term to availableTerms:', newTerm);
+            }
+        });
+    }
+    
+    /**
+     * Detect term type for a given term
+     */
+    detectTermType(term) {
+        const termLower = term.toLowerCase();
+        
+        // Watch brands
+        const watchBrands = ['rolex', 'omega', 'patek philippe', 'audemars piguet', 'cartier', 'breitling', 'tag heuer', 'longines', 'tissot'];
+        if (watchBrands.includes(termLower)) return 'artist'; // Use 'artist' for brand terms
+        
+        // Object types
+        const objectTypes = ['armbandsur', 'fickur', 'klocka', 'ring', 'halsband', 'armband', 'tavla', 'målning'];
+        if (objectTypes.includes(termLower)) return 'object_type';
+        
+        // Years/periods
+        if (/^\d{4}$/.test(term) || /\d{4}[-\s]tal/.test(termLower)) return 'period';
+        
+        // Models
+        if (/seamaster|speedmaster|submariner|datejust|daytona/i.test(term)) return 'model';
+        
+        // Materials
+        if (['guld', 'silver', 'stål', 'platina', 'titan'].includes(termLower)) return 'material';
+        
+        return 'keyword';
     }
 } 
