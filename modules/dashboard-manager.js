@@ -377,7 +377,6 @@ export class DashboardManager {
           const historicalUrl = `https://auctionet.com/sv/search?event_id=&is=ended&q=${encodedQuery}`;
           linksHTML += `
             <div class="data-link-row">
-              <span class="data-link-icon">📜</span>
               <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">${historicalCount} historiska träffar</a>
               <span class="data-link-meta">(${historicalTotal} analyserade)</span>
             </div>`;
@@ -388,7 +387,6 @@ export class DashboardManager {
           const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodedQuery}`;
           linksHTML += `
             <div class="data-link-row">
-              <span class="data-link-icon">🔴</span>
               <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">${liveCount} pågående auktioner</a>
               <span class="data-link-meta">(${liveTotal} träffar)</span>
             </div>`;
@@ -405,7 +403,6 @@ export class DashboardManager {
           
           helpText = `
             <div class="data-link-row">
-              <span class="data-link-icon">📜</span>
               <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">Visa alla ${historicalTotal} historiska träffar</a>
             </div>`;
         } else {
@@ -421,7 +418,6 @@ export class DashboardManager {
           
           helpText = `
             <div class="data-link-row">
-              <span class="data-link-icon">🔴</span>
               <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">Visa alla ${liveTotal} pågående auktioner</a>
             </div>`;
         } else {
@@ -1428,8 +1424,8 @@ export class DashboardManager {
           display: flex;
           align-items: center;
           gap: 6px;
-          margin: 3px 0;
-          padding: 2px 0;
+          margin: 2px 0;
+          padding: 1px 0;
         }
         
         .data-link-icon {
@@ -1441,24 +1437,18 @@ export class DashboardManager {
         .data-link-prominent {
           color: #007cba !important;
           text-decoration: underline !important;
-          font-weight: 600 !important;
-          font-size: 10px !important;
-          border-bottom: 1px solid #007cba;
-          padding-bottom: 1px;
-          transition: all 0.2s ease;
+          font-weight: 500 !important;
+          font-size: 9px !important;
+          transition: color 0.2s ease;
         }
         
         .data-link-prominent:hover {
           color: #005c87 !important;
           text-decoration: underline !important;
-          border-bottom: 2px solid #005c87;
-          background: rgba(0, 124, 186, 0.05);
-          padding: 1px 3px;
-          border-radius: 3px;
         }
         
         .data-link-meta {
-          font-size: 9px;
+          font-size: 8px;
           color: #6c757d;
           font-style: italic;
           margin-left: 4px;
