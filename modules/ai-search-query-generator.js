@@ -22,9 +22,22 @@ export class AISearchQueryGenerator {
     const inputData = { title, description, artist, aiArtist };
     const rulesResult = applySearchRules(inputData);
     
-    if (rulesResult.searchTerms.length >= 2) {
+    // ENHANCED SUFFICIENCY CHECK: Artist field has special priority
+    const hasArtistField = artist && artist.trim();
+    const artistTermFound = rulesResult.searchTerms.some(term => 
+      hasArtistField && term.toLowerCase().includes(artist.toLowerCase())
+    );
+    
+    // Accept AI Rules result if:
+    // 1. Has 2+ terms (original logic), OR
+    // 2. Has artist field present and artist term found (NEW: artist field priority)
+    const isRulesSufficient = rulesResult.searchTerms.length >= 2 || 
+                              (hasArtistField && artistTermFound && rulesResult.searchTerms.length >= 1);
+    
+    if (isRulesSufficient) {
       console.log('✅ AI RULES: Generated sufficient search terms, using rules-based approach');
       console.log('🎯 Rules-based query:', rulesResult.searchTerms.join(' '));
+      console.log('👤 Artist field priority mode:', hasArtistField && artistTermFound ? 'ACTIVE' : 'inactive');
       return {
         success: true,
         searchTerms: rulesResult.searchTerms,
@@ -39,6 +52,7 @@ export class AISearchQueryGenerator {
       };
     } else {
       console.log('⚠️ AI RULES: Insufficient terms from rules, falling back to Claude AI generation');
+      console.log('🔧 Terms found:', rulesResult.searchTerms.length, 'Artist found:', artistTermFound);
     }
 
     // STEP 2: Fallback to Claude AI if rules don't generate enough terms

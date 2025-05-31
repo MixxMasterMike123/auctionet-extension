@@ -174,64 +174,82 @@ export function applySearchRules(inputData) {
     console.log(`🎯 AI RULES: Artist field found - "${artistName}" (priority: 100, atomic: true)`);
   }
   
-  // RULE 2: Brand recognition in title
-  const titleLower = title.toLowerCase();
-  for (const brand of AI_SEARCH_RULES.brandRecognition.knownBrands) {
-    if (titleLower.includes(brand.toLowerCase())) {
-      // Check for redundancy - don't add if artist already contains brand
-      const artistContainsBrand = artist && artist.toLowerCase().includes(brand.toLowerCase());
-      if (!artistContainsBrand) {
-        extractedTerms.push({
-          term: brand,
-          type: 'brand',
-          priority: AI_SEARCH_RULES.brandRecognition.priority,
-          source: 'title_brand_detection',
-          reasoning: `Known brand detected: ${brand}`,
-          wordCount: brand.split(' ').length
-        });
-        reasoning.push(`Brand "${brand}" detected in title`);
-        console.log(`🏷️ AI RULES: Brand detected - "${brand}" (priority: 90)`);
-      } else {
-        console.log(`🚫 AI RULES: Brand "${brand}" skipped - already covered by artist field`);
-        reasoning.push(`Brand "${brand}" skipped (redundant with artist)`);
-      }
-    }
-  }
-  
-  // RULE 3: Object type detection
-  const words = title.toLowerCase().split(/[\s,]+/);
-  for (const word of words) {
-    if (AI_SEARCH_RULES.objectType.translations[word]) {
-      extractedTerms.push({
-        term: word,
-        type: 'object_type',
-        priority: AI_SEARCH_RULES.objectType.priority,
-        source: 'title_object_detection',
-        reasoning: `Object type: ${word}`,
-        wordCount: 1
+  // RULE 2: Brand recognition (90 priority)
+  const brandTerms = [];
+  const knownBrands = AI_SEARCH_RULES.brandRecognition.knownBrands;
+  for (const brand of knownBrands) {
+    if (title.toLowerCase().includes(brand.toLowerCase())) {
+      brandTerms.push({
+        term: brand,
+        type: 'brand',
+        priority: AI_SEARCH_RULES.brandRecognition.priority,
+        source: 'brand_recognition',
+        reasoning: `Brand "${brand}" detected`,
+        isAtomic: true
       });
-      reasoning.push(`Object type "${word}" identified`);
-      console.log(`📦 AI RULES: Object type detected - "${word}" (priority: 80)`);
+      reasoning.push(`Brand "${brand}" detected in title`);
+      console.log(`🏷️ AI RULES: Brand detected - "${brand}" (priority: 90)`);
     }
   }
+  extractedTerms.push(...brandTerms);
   
-  // RULE 4: Model number detection
-  for (const word of words) {
-    for (const pattern of AI_SEARCH_RULES.modelNumbers.patterns) {
-      if (pattern.test(word)) {
-        extractedTerms.push({
-          term: word,
-          type: 'model',
-          priority: AI_SEARCH_RULES.modelNumbers.priority,
-          source: 'title_model_detection',
-          reasoning: `Model/pattern: ${word}`,
-          wordCount: 1
-        });
-        reasoning.push(`Model/pattern "${word}" detected`);
-        console.log(`🔢 AI RULES: Model detected - "${word}" (priority: 75)`);
-      }
+  // RULE 3: Object type specificity (80 priority) - ENHANCED for artist fields
+  const objectTypes = ['fat', 'skulptur', 'armbandsur', 'vas', 'skål', 'tallrik', 'keramik', 'porslin'];
+  const objectTerms = [];
+  for (const objType of objectTypes) {
+    if (title.toLowerCase().includes(objType.toLowerCase())) {
+      // ARTIST FIELD ENHANCEMENT: Boost priority when artist is present
+      const enhancedPriority = artist && artist.trim() ? 
+        AI_SEARCH_RULES.objectType.priority + 5 : // Boost to 85 when artist present
+        AI_SEARCH_RULES.objectType.priority;
+      
+      objectTerms.push({
+        term: objType.toUpperCase(), // Normalize to uppercase
+        type: 'object_type',
+        priority: enhancedPriority,
+        source: 'object_type_detection',
+        reasoning: `Object type "${objType}" detected${artist ? ' (boosted priority due to artist field)' : ''}`,
+        isAtomic: true
+      });
+      reasoning.push(`Object type "${objType}" detected (enhanced priority due to artist field)`);
+      console.log(`📦 AI RULES: Object type detected - "${objType}" (priority: ${enhancedPriority})`);
     }
   }
+  extractedTerms.push(...objectTerms);
+  
+  // RULE 4: Model numbers/identifiers (75 priority) - ENHANCED for artist fields  
+  const modelPatterns = [
+    /dx[0-9]+/i, /speedmaster/i, /musselmalet/i, /blue fluted/i,
+    /"([^"]+)"/g, // Quoted model names like "Storseglaren"
+  ];
+  
+  const modelTerms = [];
+  for (const pattern of modelPatterns) {
+    const matches = title.match(pattern) || description.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        const cleanMatch = match.replace(/"/g, ''); // Remove quotes
+        if (cleanMatch.length > 2) {
+          // ARTIST FIELD ENHANCEMENT: Boost priority when artist is present
+          const enhancedPriority = artist && artist.trim() ? 
+            AI_SEARCH_RULES.modelNumbers.priority + 5 : // Boost to 80 when artist present
+            AI_SEARCH_RULES.modelNumbers.priority;
+            
+          modelTerms.push({
+            term: cleanMatch,
+            type: 'model',
+            priority: enhancedPriority,
+            source: 'model_detection',
+            reasoning: `Model identifier "${cleanMatch}" detected${artist ? ' (boosted priority due to artist field)' : ''}`,
+            isAtomic: true
+          });
+          reasoning.push(`Model identifier "${cleanMatch}" detected (enhanced priority due to artist field)`);
+          console.log(`🔢 AI RULES: Model detected - "${cleanMatch}" (priority: ${enhancedPriority})`);
+        }
+      });
+    }
+  }
+  extractedTerms.push(...modelTerms);
   
   // NEW: Smart term selection with word count awareness
   extractedTerms.sort((a, b) => b.priority - a.priority);
