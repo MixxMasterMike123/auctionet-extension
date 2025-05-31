@@ -73,6 +73,12 @@ export class SearchFilterManager {
     
     // Helper function to check if term should be pre-selected
     const shouldBePreSelected = (term) => {
+      // Guard against null/undefined terms
+      if (!term || typeof term !== 'string') {
+        console.log(`🚨 AI DECISION: Invalid term (null/undefined) - skipping ❌`);
+        return false;
+      }
+      
       // 🤖 AI-INTELLIGENT PRE-SELECTION: Only select the 2-3 most strategically important terms
       // Prioritize BROAD market coverage over narrow specificity for initial search
       
@@ -103,7 +109,8 @@ export class SearchFilterManager {
       }
       
       // PRIORITY 2: Object type is ALWAYS pre-selected (second most important)
-      if (term.toLowerCase() === 'rolex' || this.qualityAnalyzer.extractObjectType(title).toLowerCase() === termLower) {
+      const objectType = this.qualityAnalyzer.extractObjectType(title);
+      if (term.toLowerCase() === 'rolex' || (objectType && objectType.toLowerCase() === termLower)) {
         console.log(`🤖 AI DECISION: "${term}" is OBJECT TYPE - CRITICAL for market categorization ✅`);
         return true;
       }
@@ -172,83 +179,95 @@ export class SearchFilterManager {
     // 3. WATCH/JEWELRY MODELS AND SERIES
     const watchModels = this.extractWatchModels(text);
     watchModels.forEach(model => {
-      const preSelected = shouldBePreSelected(model);
-      candidates.push({
-        term: model,
-        type: 'model',
-        priority: 3,
-        description: 'Modell/Serie',
-        preSelected: preSelected
-      });
+      if (model && typeof model === 'string') {
+        const preSelected = shouldBePreSelected(model);
+        candidates.push({
+          term: model,
+          type: 'model',
+          priority: 3,
+          description: 'Modell/Serie',
+          preSelected: preSelected
+        });
+      }
     });
     
     // 4. REFERENCE NUMBERS
     const references = this.extractReferenceNumbers(text);
     references.forEach(ref => {
-      const preSelected = shouldBePreSelected(ref);
-      candidates.push({
-        term: ref,
-        type: 'reference',
-        priority: 4,
-        description: 'Referensnummer',
-        preSelected: preSelected
-      });
+      if (ref && typeof ref === 'string') {
+        const preSelected = shouldBePreSelected(ref);
+        candidates.push({
+          term: ref,
+          type: 'reference',
+          priority: 4,
+          description: 'Referensnummer',
+          preSelected: preSelected
+        });
+      }
     });
     
     // 5. MATERIALS
     const materials = this.extractAllMaterials(text);
     materials.forEach(material => {
-      const preSelected = shouldBePreSelected(material);
-      candidates.push({
-        term: material,
-        type: 'material',
-        priority: 5,
-        description: 'Material',
-        preSelected: preSelected
-      });
+      if (material && typeof material === 'string') {
+        const preSelected = shouldBePreSelected(material);
+        candidates.push({
+          term: material,
+          type: 'material',
+          priority: 5,
+          description: 'Material',
+          preSelected: preSelected
+        });
+      }
     });
     
     // 6. PERIODS/YEARS
     const periods = this.extractAllPeriods(text);
     periods.forEach(period => {
-      const preSelected = shouldBePreSelected(period);
-      console.log(`📅 PERIOD DEBUG: "${period}" should be pre-selected: ${preSelected}`);
-      candidates.push({
-        term: period,
-        type: 'period',
-        priority: 6,
-        description: 'Tidsperiod',
-        preSelected: preSelected
-      });
+      if (period && typeof period === 'string') {
+        const preSelected = shouldBePreSelected(period);
+        console.log(`📅 PERIOD DEBUG: "${period}" should be pre-selected: ${preSelected}`);
+        candidates.push({
+          term: period,
+          type: 'period',
+          priority: 6,
+          description: 'Tidsperiod',
+          preSelected: preSelected
+        });
+      }
     });
     
     // 7. MOVEMENTS/TECHNIQUES
     const movements = this.extractAllMovements(text);
     movements.forEach(movement => {
-      const preSelected = shouldBePreSelected(movement);
-      candidates.push({
-        term: movement,
-        type: 'movement',
-        priority: 7,
-        description: 'Urverk/Teknik',
-        preSelected: preSelected
-      });
+      if (movement && typeof movement === 'string') {
+        const preSelected = shouldBePreSelected(movement);
+        candidates.push({
+          term: movement,
+          type: 'movement',
+          priority: 7,
+          description: 'Urverk/Teknik',
+          preSelected: preSelected
+        });
+      }
     });
     
     // 8. SIGNIFICANT WORDS (filtered list)
     const significantWords = this.extractSignificantWords(text);
     significantWords.forEach(word => {
-      // Avoid duplicates
-      const alreadyExists = candidates.some(c => c.term.toLowerCase() === word.toLowerCase());
-      if (!alreadyExists) {
-        const preSelected = shouldBePreSelected(word);
-        candidates.push({
-          term: word,
-          type: 'keyword',
-          priority: 8,
-          description: 'Nyckelord',
-          preSelected: preSelected
-        });
+      if (word && typeof word === 'string') {
+        // Avoid duplicates
+        const alreadyExists = candidates.some(c => c.term.toLowerCase() === word.toLowerCase());
+        if (!alreadyExists) {
+          const preSelected = shouldBePreSelected(word);
+          candidates.push({
+            term: word,
+            type: 'keyword',
+            priority: 8,
+            description: 'Nyckelord',
+            preSelected: preSelected
+          });
+        }
       }
     });
     
