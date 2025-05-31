@@ -1365,15 +1365,13 @@ SVARA MED JSON:
       
       // NEW: Create more specific bidding activity description
       function getBiddingActivityDescription() {
-        const searchQuery = liveResult.actualSearchQuery;
+        const searchQuery = historicalResult.actualSearchQuery || liveResult.actualSearchQuery || '';
         let auctionText = `${analyzedLiveItems} auktioner`;
         
         // Add clickable link if we have a search query (similar to "Pågående" link in data sources)
         if (searchQuery) {
-          // USE SSoT: Generate URL using SearchQueryManager if available
-          const liveUrl = this.searchQueryManager ? 
-            this.searchQueryManager.generateAuctionetUrls(searchQuery).live :
-            `https://auctionet.com/sv/search?event_id=&q=${encodeURIComponent(searchQuery)}`;
+          // SAFETY CHECK: Use fallback URL generation since this is a nested function
+          const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodeURIComponent(searchQuery)}`;
           auctionText = `<a href="${liveUrl}" target="_blank" style="color: #e74c3c; text-decoration: none; font-weight: 500;" title="Visa alla pågående auktioner på Auctionet för '${searchQuery}'">${analyzedLiveItems} auktioner</a>`;
         }
         
