@@ -62,27 +62,42 @@ export class SearchFilterManager {
   extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null) {
     console.log('🔍 Extracting ALL candidate search terms for:', title);
     
-    const text = `${title} ${description}`;
+    const text = `${title} ${description}`.toLowerCase();
     const candidates = [];
     
-    // Build current algorithm query to determine what should be pre-selected
-    // PRIORITY: Use actual search query if provided, otherwise build theoretical one
-    let currentAlgorithmQuery;
-    if (actualSearchQuery) {
-      currentAlgorithmQuery = actualSearchQuery;
-      console.log('🎯 Using provided actual search query:', actualSearchQuery);
-    } else {
-      currentAlgorithmQuery = this.buildCurrentAlgorithmQuery(title, description, artistInfo);
-      console.log('🎯 Built enhanced theoretical query:', currentAlgorithmQuery);
+    // NEW: Check if we have AI Rules results to respect
+    let aiSelectedTerms = [];
+    if (actualSearchQuery && this.searchQuerySSoT) {
+      // Get the AI Rules selected terms from SSoT
+      const currentTerms = this.searchQuerySSoT.getCurrentTerms();
+      if (currentTerms && currentTerms.length > 0) {
+        aiSelectedTerms = currentTerms;
+        console.log('🤖 AI RULES: Respecting AI-selected terms for preSelection:', aiSelectedTerms);
+      }
     }
     
-    const currentAlgorithmTerms = currentAlgorithmQuery.toLowerCase().split(' ').filter(t => t.length > 1);
-    
-    console.log('🎯 ENHANCED algorithm query:', currentAlgorithmQuery);
-    console.log('📋 ENHANCED algorithm terms for pre-selection:', currentAlgorithmTerms);
-    
-    // Helper function to check if term should be pre-selected
     const shouldBePreSelected = (term) => {
+      // NEW: PRIORITY 1 - Respect AI Rules selection if available
+      if (aiSelectedTerms.length > 0) {
+        // Check if this term is in the AI Rules selection
+        const isAISelected = aiSelectedTerms.some(aiTerm => {
+          const normalizedAI = aiTerm.toLowerCase().trim();
+          const normalizedTerm = term.toLowerCase().trim();
+          return normalizedAI === normalizedTerm || 
+                 normalizedAI.includes(normalizedTerm) || 
+                 normalizedTerm.includes(normalizedAI);
+        });
+        
+        if (isAISelected) {
+          console.log(`🤖 AI RULES: "${term}" is AI-selected - CRITICAL for market data ✅`);
+          return true;
+        } else {
+          console.log(`🤖 AI RULES: "${term}" not in AI selection - available as refinement ⚪`);
+          return false;
+        }
+      }
+      
+      // FALLBACK: Use original logic when no AI Rules available
       // Guard against null/undefined terms
       if (!term || typeof term !== 'string') {
         console.log(`🚨 AI DECISION: Invalid term (null/undefined) - skipping ❌`);
