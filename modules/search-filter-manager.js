@@ -63,19 +63,19 @@ export class SearchFilterManager {
       console.log('🎯 Using provided actual search query:', actualSearchQuery);
     } else {
       currentAlgorithmQuery = this.buildCurrentAlgorithmQuery(title, description, artistInfo);
-      console.log('🎯 Built theoretical query:', currentAlgorithmQuery);
+      console.log('🎯 Built enhanced theoretical query:', currentAlgorithmQuery);
     }
     
     const currentAlgorithmTerms = currentAlgorithmQuery.toLowerCase().split(' ').filter(t => t.length > 1);
     
-    console.log('🎯 Current algorithm would use:', currentAlgorithmQuery);
-    console.log('📋 Current algorithm terms for matching:', currentAlgorithmTerms);
+    console.log('🎯 ENHANCED algorithm query:', currentAlgorithmQuery);
+    console.log('📋 ENHANCED algorithm terms for pre-selection:', currentAlgorithmTerms);
     
     // Helper function to check if term should be pre-selected
     const shouldBePreSelected = (term) => {
       const termLower = term.toLowerCase();
       const isSelected = currentAlgorithmTerms.includes(termLower);
-      console.log(`🔍 Checking pre-selection for "${term}" (${termLower}): ${isSelected ? 'YES' : 'NO'}`);
+      console.log(`🔍 Checking pre-selection for "${term}" (${termLower}): ${isSelected ? 'YES ✅' : 'NO ❌'}`);
       return isSelected;
     };
     
@@ -211,12 +211,48 @@ export class SearchFilterManager {
   
   // Helper: Build what the current algorithm would query
   buildCurrentAlgorithmQuery(title, description, artistInfo) {
+    // ENHANCED: Smart pre-selection that includes critical terms beyond just artist + object type
+    const queryTerms = [];
+    
     if (artistInfo && artistInfo.artist) {
+      // Always include the artist/brand
+      queryTerms.push(artistInfo.artist);
+      
+      // Always include object type
       const objectType = this.qualityAnalyzer.extractObjectType(title);
-      return `${artistInfo.artist} ${objectType || ''}`.trim();
+      if (objectType) {
+        queryTerms.push(objectType);
+      }
+      
+      // CRITICAL FIX: Include important watch/jewelry models for better market relevance
+      const watchModels = this.extractWatchModels(title + ' ' + description);
+      if (watchModels.length > 0) {
+        // For watches, model is extremely important - include the most significant one
+        queryTerms.push(watchModels[0]); // "Seamaster", "Speedmaster", etc.
+        console.log(`🎯 ENHANCED: Including critical watch model "${watchModels[0]}" in base query`);
+      }
+      
+      // Include reference numbers if present (critical for watch identification)
+      const references = this.extractReferenceNumbers(title + ' ' + description);
+      if (references.length > 0) {
+        queryTerms.push(references[0]); // Most relevant reference
+        console.log(`🎯 ENHANCED: Including reference "${references[0]}" in base query`);
+      }
+      
+      // Include most significant period if clearly specified
+      const periods = this.extractAllPeriods(title + ' ' + description);
+      const significantPeriod = periods.find(p => p.includes('-tal') || /^\d{4}$/.test(p));
+      if (significantPeriod) {
+        queryTerms.push(significantPeriod);
+        console.log(`🎯 ENHANCED: Including significant period "${significantPeriod}" in base query`);
+      }
+      
+      const enhancedQuery = queryTerms.join(' ').trim();
+      console.log(`🎯 ENHANCED ALGORITHM: "${enhancedQuery}" (vs old simple: "${artistInfo.artist} ${objectType || ''}")`);
+      return enhancedQuery;
     }
     
-    // For freetext, use the enhanced search logic
+    // For freetext (no artist), use the enhanced search logic
     const enhancedTerms = this.qualityAnalyzer.extractEnhancedSearchTerms(title, description);
     return enhancedTerms.searchTerms || title;
   }
@@ -226,17 +262,28 @@ export class SearchFilterManager {
     const models = [];
     const text_lower = text.toLowerCase();
     
-    // Common watch model patterns
+    // ENHANCED: More comprehensive watch model patterns
     const watchModelPatterns = [
-      // Omega models
-      /\b(seamaster|speedmaster|constellation|de ville|railmaster|planet ocean|aqua terra)\b/gi,
-      // Rolex models  
-      /\b(submariner|daytona|datejust|day-date|gmt-master|explorer|milgauss|yacht-master)\b/gi,
-      // Other luxury models
-      /\b(nautilus|aquanaut|calatrava|royal oak|overseas|patrimony|traditionelle)\b/gi,
+      // Omega models (expanded)
+      /\b(seamaster|speedmaster|constellation|de ville|railmaster|planet ocean|aqua terra|dynamic|genève|geneve)\b/gi,
+      // Rolex models (expanded)
+      /\b(submariner|daytona|datejust|day-date|gmt-master|explorer|milgauss|yacht-master|cellini|air-king)\b/gi,
+      // Patek Philippe models
+      /\b(nautilus|aquanaut|calatrava|complications|grand complications)\b/gi,
+      // Audemars Piguet models
+      /\b(royal oak|millenary|jules audemars)\b/gi,
+      // Vacheron Constantin models
+      /\b(overseas|patrimony|traditionelle|malte)\b/gi,
+      // IWC models
+      /\b(pilot|portuguese|portofino|aquatimer|ingenieur)\b/gi,
+      // Breitling models
+      /\b(navitimer|superocean|avenger|chronomat|premier)\b/gi,
       // Generic model patterns
-      /\b([a-z]+master)\b/gi,
-      /\b([a-z]+timer)\b/gi
+      /\b([a-z]+master)\b/gi,       // Seamaster, Speedmaster, etc.
+      /\b([a-z]+timer)\b/gi,        // Navitimer, Aquatimer, etc.
+      /\b([a-z]+ocean)\b/gi,        // Superocean, Planet Ocean, etc.
+      // Specific model names with numbers/letters
+      /\b(de ville|royal oak|grand [a-z]+)\b/gi
     ];
     
     watchModelPatterns.forEach(pattern => {
@@ -244,12 +291,25 @@ export class SearchFilterManager {
       if (matches) {
         matches.forEach(match => {
           const cleaned = match.trim();
-          if (cleaned.length > 2 && !models.includes(cleaned)) {
+          if (cleaned.length > 2 && !models.some(m => m.toLowerCase() === cleaned.toLowerCase())) {
             models.push(cleaned);
+            console.log(`🔍 WATCH MODEL DETECTED: "${cleaned}"`);
           }
         });
       }
     });
+    
+    // Special handling for quoted model names like "The Grand"
+    const quotedModels = text.match(/"([^"]{3,})"/g);
+    if (quotedModels) {
+      quotedModels.forEach(quoted => {
+        const modelName = quoted.replace(/"/g, '').trim();
+        if (modelName.length > 2 && !models.some(m => m.toLowerCase() === modelName.toLowerCase())) {
+          models.push(modelName);
+          console.log(`🔍 QUOTED MODEL DETECTED: "${modelName}"`);
+        }
+      });
+    }
     
     return models;
   }
