@@ -1220,7 +1220,7 @@ SVARA MED JSON:
       // Run historical and live analysis in parallel
       const [historicalResult, liveResult] = await Promise.all([
         this.auctionetAPI.analyzeComparableSales(artistName, objectType, period, technique, currentValuation),
-        this.auctionetAPI.analyzeLiveAuctions(artistName, objectType, period, technique)
+        this.auctionetAPI.analyzeLiveAuctions(artistName, objectType, period, technique, this.searchQueryManager)
       ]);
       
       // Combine historical and live data intelligently
@@ -1319,30 +1319,38 @@ SVARA MED JSON:
       termCount
     } = searchContext;
     
-    // For freetext searches, we need to handle the search differently
-    if (analysisType === 'freetext') {
-      console.log(`🔍 Performing freetext search with strategy: ${searchStrategy}, confidence: ${confidence}`);
+    // Store original SSoT query for logging purposes only
+    const originalSSoTQuery = this.searchQueryManager ? this.searchQueryManager.getCurrentQuery() : null;
+    console.log('🔧 Original SSoT query before API call:', originalSSoTQuery);
+    
+    let analysisResult;
+    
+    try {
+      if (analysisType === 'artist') {
+        console.log('🎯 Performing artist search for:', primarySearch);
+        analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
+      } else if (analysisType === 'brand') {
+        console.log('🎯 Performing brand search for:', primarySearch);
+        analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
+      } else if (analysisType === 'freetext') {
+        console.log('🎯 Performing freetext search for:', primarySearch);
+        analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
+      } else {
+        console.log('🎯 Performing default search for:', primarySearch);
+        analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
+      }
+
+      console.log('✅ Market analysis successful');
       
-      // For freetext, the primarySearch contains the combined search terms
-      // We'll use it as the "artist" parameter but the Auctionet API will understand it's a general search
-      return await this.analyzeComparableSales(
-        primarySearch,  // This contains the combined search terms like "spegel empire 1800-tal förgylld"
-        null,           // Don't specify object type separately since it's in the search terms
-        null,           // Don't specify period separately since it's in the search terms  
-        null,           // Don't specify technique separately since it's in the search terms
-        `Fritextsökning: ${primarySearch}. Sökstrategi: ${searchStrategy}. Relevans: ${Math.round(confidence * 100)}%`
-      );
-    } else {
-      // For artist and brand searches, use the existing logic
-      console.log(`🎯 Performing ${analysisType} search for: ${primarySearch}`);
+      // Keep original SSoT query intact - NO OVERRIDES
+      console.log('🔒 SSoT remains unchanged - respecting Single Source of Truth principle');
+      console.log('🎯 Final SSoT query:', this.searchQueryManager ? this.searchQueryManager.getCurrentQuery() : 'N/A');
       
-      return await this.analyzeComparableSales(
-        primarySearch,
-        objectType,
-        period,
-        technique,
-        `${analysisType === 'brand' ? 'Märkesbaserad' : 'Konstnärsbaserad'} analys för ${primarySearch}`
-      );
+      return analysisResult;
+
+    } catch (error) {
+      console.error('❌ Market analysis failed:', error);
+      throw error;
     }
   }
 

@@ -163,59 +163,58 @@ export class AuctionetAPI {
     }
   }
 
-  // NEW: Analyze live auction data for market intelligence
-  async analyzeLiveAuctions(artistName, objectType, period, technique) {
+  // NEW: Analyze live auctions for current market activity
+  async analyzeLiveAuctions(artistName, objectType, period, technique, searchQueryManager = null) {
     console.log('🔴 Starting LIVE auction analysis...');
+    console.log(`🎯 Artist: ${artistName}, Object: ${objectType}, Period: ${period}, Technique: ${technique}`);
     
-    console.log(`📊 LIVE search parameters: Artist="${artistName}", Object="${objectType}", Period="${period}", Technique="${technique}"`);
-
-    // Ensure company exclusion setting is loaded before searching
-    await this.loadExcludeCompanySetting();
-
-    try {
-      let bestResult = null;
-      let totalMatches = 0;
-      let usedStrategy = null; // Track which strategy was actually used
+    // CRITICAL FIX: ALWAYS try SearchQueryManager SSoT query FIRST
+    let bestResult = null;
+    let usedStrategy = null;
+    let totalMatches = 0;
+    
+    // PRIORITY 1: Use SearchQueryManager SSoT query if available
+    if (searchQueryManager && searchQueryManager.getCurrentQuery()) {
+      const ssotQuery = searchQueryManager.getCurrentQuery();
+      console.log(`🎯 PRIORITY 1: Trying SearchQueryManager SSoT query: "${ssotQuery}"`);
       
-      // PRIORITY 1: Try the canonical query first (from centralized SearchQueryBuilder)
-      const basicQuery = [artistName, objectType, period, technique].filter(Boolean).join(' ');
-      console.log(`🎯 Trying basic query for LIVE auctions: "${basicQuery}"`);
-      const canonicalResult = await this.searchLiveAuctions(basicQuery, "Basic combined query");
-      
-      if (canonicalResult && canonicalResult.liveItems.length >= 1) {
-        // For live auctions, even 1 item can be valuable
-        console.log(`✅ SUCCESS: Canonical LIVE query found ${canonicalResult.liveItems.length} live items`);
-        bestResult = canonicalResult;
-        totalMatches = canonicalResult.totalEntries;
-        usedStrategy = { 
-          query: basicQuery, 
-          description: "Basic combined query",
-          source: "Direct search" 
+      const ssotResult = await this.searchLiveAuctions(ssotQuery, `SSoT Query: ${ssotQuery}`);
+      if (ssotResult && ssotResult.liveItems && ssotResult.liveItems.length > 0) {
+        console.log(`✅ SSoT query found ${ssotResult.liveItems.length} live items - USING SSoT`);
+        bestResult = ssotResult;
+        usedStrategy = {
+          query: ssotQuery,
+          description: 'SearchQueryManager SSoT',
+          source: 'ssot'
         };
+        totalMatches = ssotResult.totalEntries;
       } else {
-        console.log(`⚠️ Canonical LIVE query found no results, trying fallback strategies...`);
-        
-        // FALLBACK: Build search strategies for live auctions
+        console.log(`❌ SSoT query "${ssotQuery}" found no live auctions - will fallback to strategies`);
+      }
+    } else {
+      console.log('⚠️ No SearchQueryManager or SSoT query available - starting with fallback strategies');
+    }
+    
+    // FALLBACK: Only use search strategies if SSoT query failed
+    if (!bestResult) {
+      console.log('🔄 SSoT failed, trying fallback search strategies...');
+      
+      try {
         const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
+        console.log(`🎯 Trying ${searchStrategies.length} LIVE search strategies...`);
         
-        // Try each search strategy for live auctions
         for (const strategy of searchStrategies) {
-          console.log(`🎯 Trying LIVE fallback search strategy: ${strategy.description}`);
-          console.log(`🔍 Actual LIVE fallback query: "${strategy.query}"`);
+          console.log(`🔍 Trying LIVE strategy: ${strategy.description} - "${strategy.query}"`);
           
           const result = await this.searchLiveAuctions(strategy.query, strategy.description);
           
-          if (result && result.liveItems.length > 0) {
-            console.log(`✅ Found ${result.liveItems.length} live items with fallback strategy: ${strategy.description}`);
+          if (result && result.liveItems && result.liveItems.length > 0) {
+            console.log(`✅ Found ${result.liveItems.length} LIVE items with strategy: ${strategy.description}`);
+            bestResult = result;
+            usedStrategy = strategy;
+            totalMatches = result.totalEntries;
             
-            if (!bestResult || result.liveItems.length > bestResult.liveItems.length) {
-              bestResult = result;
-              totalMatches = result.totalEntries;
-              usedStrategy = strategy; // Track the successful strategy
-              console.log(`🏆 New best LIVE fallback strategy: "${usedStrategy.query}"`);
-            }
-            
-            // For live auctions, even 1-2 items can be valuable
+            // Stop at first successful strategy with enough data
             if (result.liveItems.length >= 3) {
               console.log(`🛑 Stopping LIVE fallback search - found enough data (${result.liveItems.length} items)`);
               break;
@@ -224,39 +223,37 @@ export class AuctionetAPI {
             console.log(`❌ No LIVE results for fallback query: "${strategy.query}"`);
           }
         }
+      } catch (error) {
+        console.error('💥 Error in fallback strategies:', error);
       }
+    }
       
-      if (!bestResult || bestResult.liveItems.length === 0) {
-        console.log('❌ No live auctions found for this search');
-        return null;
-      }
-      
-      // Analyze live auction data
-      const liveAnalysis = this.analyzeLiveMarketData(bestResult.liveItems, artistName, objectType);
-      
-      console.log('✅ Live auction analysis complete');
-      console.log(`📊 Analyzed ${bestResult.liveItems.length} live auctions from ${totalMatches} total matches`);
-      console.log(`🎯 Used LIVE search strategy: ${usedStrategy ? usedStrategy.description : 'Unknown'}`);
-      console.log(`🔍 Final LIVE actualSearchQuery being returned: "${usedStrategy ? usedStrategy.query : null}"`);
-      
-      return {
-        hasLiveData: true,
-        dataSource: 'auctionet_live',
-        totalMatches: totalMatches,
-        analyzedLiveItems: bestResult.liveItems.length,
-        currentEstimates: liveAnalysis.estimateRange,
-        currentBids: liveAnalysis.bidRange,
-        marketActivity: liveAnalysis.marketActivity,
-        liveItems: liveAnalysis.liveItems,
-        marketSentiment: liveAnalysis.marketSentiment,
-        actualSearchQuery: usedStrategy ? usedStrategy.query : null,
-        searchStrategy: usedStrategy ? usedStrategy.description : null
-      };
-      
-    } catch (error) {
-      console.error('💥 Live auction API error:', error);
+    if (!bestResult || bestResult.liveItems.length === 0) {
+      console.log('❌ No live auctions found for this search');
       return null;
     }
+    
+    // Analyze live auction data
+    const liveAnalysis = this.analyzeLiveMarketData(bestResult.liveItems, artistName, objectType);
+    
+    console.log('✅ Live auction analysis complete');
+    console.log(`📊 Analyzed ${bestResult.liveItems.length} live auctions from ${totalMatches} total matches`);
+    console.log(`🎯 Used LIVE search strategy: ${usedStrategy ? usedStrategy.description : 'Unknown'}`);
+    console.log(`🔍 Final LIVE actualSearchQuery being returned: "${usedStrategy ? usedStrategy.query : null}"`);
+    
+    return {
+      hasLiveData: true,
+      dataSource: 'auctionet_live',
+      totalMatches: totalMatches,
+      analyzedLiveItems: bestResult.liveItems.length,
+      currentEstimates: liveAnalysis.estimateRange,
+      currentBids: liveAnalysis.bidRange,
+      marketActivity: liveAnalysis.marketActivity,
+      liveItems: liveAnalysis.liveItems,
+      marketSentiment: liveAnalysis.marketSentiment,
+      actualSearchQuery: usedStrategy ? usedStrategy.query : null,
+      searchStrategy: usedStrategy ? usedStrategy.description : null
+    };
   }
 
   // NEW: Search live auctions (without is=ended parameter)

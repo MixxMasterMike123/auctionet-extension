@@ -275,14 +275,10 @@ export class DashboardManager {
       const totalMatches = salesData.historical.totalMatches || 0;
       const liveSales = salesData.live ? salesData.live.analyzedLiveItems : 0;
       
-      // Get auctionet.com URLs from SearchQueryManager SSoT
-      let auctionetUrls = null;
-      if (this.searchQueryManager) {
-        auctionetUrls = this.searchQueryManager.getSearchUrls();
-      }
-      
-      let dataDescription = '';
-      let dataLinks = '';
+      // Generate URLs using SearchQueryManager SSoT
+      const auctionetUrls = this.searchQueryManager ? 
+        this.searchQueryManager.getSearchUrls() : 
+        { historical: '#', live: '#', all: '#' };
       
       // Main heading text (preserve original format)
       if (historicalSales > 0 && liveSales > 0) {
@@ -374,7 +370,7 @@ export class DashboardManager {
         </div>
       `;
     }
-    
+
     // Market Trend/Insights Section (if insights available)
     if (salesData.insights && salesData.insights.length > 0) {
       const significantInsight = salesData.insights.find(insight => insight.significance === 'high') || salesData.insights[0];
@@ -683,13 +679,13 @@ export class DashboardManager {
       }
       
         console.log(`🔍 Checking checkbox with value: "${termValue}"`);
-        
+      
         // Check if this term should be selected based on SSoT
         const shouldBeChecked = ssotSelectedTerms.some(selectedTerm => 
           selectedTerm.toLowerCase() === termValue.toLowerCase() ||
           this.searchQueryManager.normalizeTermForMatching(selectedTerm) === this.searchQueryManager.normalizeTermForMatching(termValue)
         );
-        
+      
         // Update checkbox state if it doesn't match SSoT (user has full control)
         if (checkbox.checked !== shouldBeChecked) {
           checkbox.checked = shouldBeChecked;
