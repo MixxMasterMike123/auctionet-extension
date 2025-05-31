@@ -115,6 +115,29 @@ export class SearchFilterManager {
         return true;
       }
       
+      // PRIORITY 3: Recognizable COMPLETE MODEL NAMES are strategically important
+      // Watch models: Submariner, Speedmaster, etc.
+      // Synthesizer models: DX7, JP8000, SH101, etc.
+      const knownModels = [
+        'submariner', 'speedmaster', 'seamaster', 'daytona', 'datejust', 'explorer', 'nautilus', 'aquanaut',
+        'royal oak', 'overseas', 'pilot', 'portuguese', 'navitimer', 'superocean', 'avenger',
+        // Synthesizer and electronic instrument models
+        'dx7', 'dx100', 'dx27', 'juno', 'jupiter', 'sh101', 'sh303', 'tr808', 'tr909', 'tb303',
+        'jp8000', 'jv1000', 'mpc2000', 'sp1200', 'd50', 'jd800', 'xp50', 'k2000'
+      ];
+      
+      // Check if it's a known model name (case insensitive)
+      if (knownModels.some(model => termLower.includes(model) || model.includes(termLower))) {
+        console.log(`🤖 AI DECISION: "${term}" is KNOWN MODEL - CRITICAL for targeted market data ✅`);
+        return true;
+      }
+      
+      // Check for synthesizer/electronic instrument pattern (letters + numbers, like DX7, SH101)
+      if (/^[A-Z]{1,4}\d{1,4}[A-Z]*$/i.test(term) && term.length >= 3 && term.length <= 8) {
+        console.log(`🤖 AI DECISION: "${term}" is ELECTRONIC INSTRUMENT MODEL - CRITICAL for market data ✅`);
+        return true;
+      }
+      
       // CONSERVATIVE CHANGE: Complete models are valuable but should be OPTIONAL for broader coverage
       // Make them available as refinements rather than pre-selected to avoid overly narrow searches
       if (term.length > 10 && (term.includes(' ') || term.includes('-'))) {
@@ -123,7 +146,7 @@ export class SearchFilterManager {
       }
       
       // 🤖 AI REJECTS individual model words - they fragment the search and reduce market data
-      if (['oyster', 'perpetual', 'air', 'king', 'precision', 'seamaster', 'speedmaster'].includes(termLower)) {
+      if (['oyster', 'perpetual', 'air', 'king', 'precision'].includes(termLower)) {
         console.log(`🤖 AI DECISION: "${term}" is MODEL FRAGMENT - Better as complete model name ❌`);
         return false;
       }
@@ -134,14 +157,19 @@ export class SearchFilterManager {
         return false;
       }
       
-      // 🤖 AI REJECTS reference numbers for initial broad search
-      if (/^[A-Z]?\d+/.test(term) || term.toLowerCase().includes('ref')) {
+      // 🤖 AI ENHANCED: Reject generic reference numbers but allow important models through
+      if (/^\d{4}$/.test(term)) {
+        // Reject standalone years (like 1983, 1987)
+        console.log(`🤖 AI DECISION: "${term}" is YEAR - Too specific for initial market search ❌`);
+        return false;
+      } else if (term.toLowerCase().includes('ref')) {
+        // Reject explicit reference patterns
         console.log(`🤖 AI DECISION: "${term}" is REFERENCE - Too specific for initial market search ❌`);
         return false;
       }
       
       // 🤖 AI REJECTS technical specifications for initial broad search
-      if (['automatic', 'manuell', 'cal', 'caliber', 'diameter', 'mm'].some(tech => termLower.includes(tech))) {
+      if (['automatic', 'manuell', 'cal', 'caliber', 'diameter', 'mm', 'programmable', 'algorithm'].some(tech => termLower.includes(tech))) {
         console.log(`🤖 AI DECISION: "${term}" is TECHNICAL SPEC - Too narrow for initial market search ❌`);
         return false;
       }
@@ -351,38 +379,72 @@ export class SearchFilterManager {
     const models = [];
     const text_lower = text.toLowerCase();
     
-    // ENHANCED: More comprehensive watch model patterns
-    const watchModelPatterns = [
-      // Omega models (expanded)
+    // ENHANCED: More comprehensive model patterns including synthesizers and electronic instruments
+    const modelPatterns = [
+      // Watch models (expanded)
       /\b(seamaster|speedmaster|constellation|de ville|railmaster|planet ocean|aqua terra|dynamic|genève|geneve)\b/gi,
-      // Rolex models (expanded)
       /\b(submariner|daytona|datejust|day-date|gmt-master|explorer|milgauss|yacht-master|cellini|air-king)\b/gi,
-      // Patek Philippe models
       /\b(nautilus|aquanaut|calatrava|complications|grand complications)\b/gi,
-      // Audemars Piguet models
       /\b(royal oak|millenary|jules audemars)\b/gi,
-      // Vacheron Constantin models
       /\b(overseas|patrimony|traditionelle|malte)\b/gi,
-      // IWC models
       /\b(pilot|portuguese|portofino|aquatimer|ingenieur)\b/gi,
-      // Breitling models
       /\b(navitimer|superocean|avenger|chronomat|premier)\b/gi,
-      // Generic model patterns
       /\b([a-z]+master)\b/gi,       // Seamaster, Speedmaster, etc.
       /\b([a-z]+timer)\b/gi,        // Navitimer, Aquatimer, etc.
       /\b([a-z]+ocean)\b/gi,        // Superocean, Planet Ocean, etc.
-      // Specific model names with numbers/letters
-      /\b(de ville|royal oak|grand [a-z]+)\b/gi
+      /\b(de ville|royal oak|grand [a-z]+)\b/gi,
+      
+      // SYNTHESIZER & ELECTRONIC INSTRUMENT MODELS
+      /\b(DX\d+[A-Z]*)\b/gi,        // DX7, DX100, DX27, etc.
+      /\b(MX\d+[A-Z]*)\b/gi,        // MX series
+      /\b(PSR?\d+[A-Z]*)\b/gi,      // PSR series
+      /\b(SY\d+[A-Z]*)\b/gi,        // SY series
+      /\b(CS\d+[A-Z]*)\b/gi,        // CS series
+      /\b(MT\d+[A-Z]*)\b/gi,        // MT series
+      /\b(RX\d+[A-Z]*)\b/gi,        // RX series
+      /\b(QX\d+[A-Z]*)\b/gi,        // QX series
+      /\b(AN\d+[A-Z]*)\b/gi,        // AN series
+      /\b(TX\d+[A-Z]*)\b/gi,        // TX series
+      /\b(TG\d+[A-Z]*)\b/gi,        // TG series
+      /\b(EX\d+[A-Z]*)\b/gi,        // EX series
+      /\b(GX\d+[A-Z]*)\b/gi,        // GX series
+      /\b(VL\d+[A-Z]*)\b/gi,        // VL series
+      /\b(V\d+[A-Z]*)\b/gi,         // V series synthesizers
+      /\b(SH\d+[A-Z]*)\b/gi,        // SH series (Roland)
+      /\b(JP\d+[A-Z]*)\b/gi,        // JP series (Roland)
+      /\b(JV\d+[A-Z]*)\b/gi,        // JV series (Roland)
+      /\b(D\d+[A-Z]*)\b/gi,         // D series (Roland)
+      /\b(TR\d+[A-Z]*)\b/gi,        // TR drum machines
+      /\b(TB\d+[A-Z]*)\b/gi,        // TB bass machines
+      /\b(MC\d+[A-Z]*)\b/gi,        // MC series
+      /\b(SP\d+[A-Z]*)\b/gi,        // SP series
+      /\b(MPC\d+[A-Z]*)\b/gi,       // MPC series (Akai)
+      /\b(S\d+[A-Z]*)\b/gi,         // S series samplers
+      /\b(K\d+[A-Z]*)\b/gi,         // K series (Kurzweil)
+      /\b(PC\d+[A-Z]*)\b/gi,        // PC series (Kurzweil)
+      /\b(JD\d+[A-Z]*)\b/gi,        // JD series (Roland)
+      /\b(XP\d+[A-Z]*)\b/gi,        // XP series (Roland)
+      /\b(XV\d+[A-Z]*)\b/gi,        // XV series (Roland)
+      /\b(JUNO\d+[A-Z]*)\b/gi,      // JUNO series
+      /\b(JUPITER\d+[A-Z]*)\b/gi,   // JUPITER series
+      
+      // GENERIC ALPHANUMERIC MODEL PATTERNS (enhanced)
+      /\b([A-Z]{1,4}\d{1,4}[A-Z]*)\b/g,     // DX7, SH101, JP8000, etc.
+      /\b([A-Z]+\d+[A-Z]*\d*)\b/g           // More flexible patterns
     ];
     
-    watchModelPatterns.forEach(pattern => {
+    modelPatterns.forEach(pattern => {
       const matches = text.match(pattern);
       if (matches) {
         matches.forEach(match => {
           const cleaned = match.trim();
-          if (cleaned.length > 2 && !models.some(m => m.toLowerCase() === cleaned.toLowerCase())) {
+          // Filter out unwanted matches like years and common false positives
+          if (cleaned.length > 1 && 
+              !cleaned.match(/^\d{4}$/) && // Not a year like 1983
+              !cleaned.match(/^[A-Z]{1}$/) && // Not single letters
+              !models.some(m => m.toLowerCase() === cleaned.toLowerCase())) {
             models.push(cleaned);
-            console.log(`🔍 WATCH MODEL DETECTED: "${cleaned}"`);
+            console.log(`🔍 MODEL DETECTED: "${cleaned}"`);
           }
         });
       }
