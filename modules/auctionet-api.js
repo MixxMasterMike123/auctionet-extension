@@ -298,13 +298,69 @@ export class AuctionetAPI {
       console.log(`🔴 Active items before company exclusion: ${allActiveItems.length}`);
       
       // Apply company exclusion filter
-      const liveItems = allActiveItems.filter(item => {
+      const filteredItems = allActiveItems.filter(item => {
         if (this.excludeCompanyId && item.company_id && item.company_id.toString() === this.excludeCompanyId) {
           console.log(`🚫 Excluding LIVE item from company ${this.excludeCompanyId}: ${item.title.substring(0, 50)}...`);
           return false;
         }
         return true;
-      }).map(item => ({
+      });
+      
+      // CRITICAL FIX: Validate relevance for fallback searches to prevent misleading results
+      let liveItems = filteredItems;
+      
+      // Only apply relevance filtering for broad fallback searches (not specific SSoT queries)
+      if (description.includes('Brand only') || description.includes('generic') || query.split(' ').length === 1) {
+        console.log(`🔍 RELEVANCE CHECK: Validating fallback search results for "${query}" (${description})`);
+        
+        // For synthesizer searches, ensure items are actually synthesizers/keyboards
+        if (description.toLowerCase().includes('synthesizer') || query.toLowerCase().includes('synthesizer')) {
+          const originalCount = liveItems.length;
+          liveItems = liveItems.filter(item => {
+            const title = item.title.toLowerCase();
+            const isRelevant = title.includes('synthesizer') || title.includes('synth') || 
+                              title.includes('keyboard') || title.includes('piano') ||
+                              title.includes('dx7') || title.includes('juno') || 
+                              title.includes('jupiter') || title.includes('moog');
+            
+            if (!isRelevant) {
+              console.log(`🚫 RELEVANCE: Filtering non-synthesizer Yamaha item: ${item.title.substring(0, 50)}...`);
+            }
+            return isRelevant;
+          });
+          
+          if (originalCount > liveItems.length) {
+            console.log(`🎹 RELEVANCE: Filtered ${originalCount - liveItems.length} non-synthesizer items, keeping ${liveItems.length} relevant synthesizer listings`);
+          }
+        }
+        
+        // For watch searches, ensure items are actually watches
+        else if (description.toLowerCase().includes('watch') || query.toLowerCase().includes('klocka') || query.toLowerCase().includes('armbandsur')) {
+          const originalCount = liveItems.length;
+          liveItems = liveItems.filter(item => {
+            const title = item.title.toLowerCase();
+            const isRelevant = title.includes('klocka') || title.includes('armbandsur') || 
+                              title.includes('fickur') || title.includes('watch') ||
+                              title.includes('timepiece') || title.includes('ur');
+            
+            if (!isRelevant) {
+              console.log(`🚫 RELEVANCE: Filtering non-watch item: ${item.title.substring(0, 50)}...`);
+            }
+            return isRelevant;
+          });
+          
+          if (originalCount > liveItems.length) {
+            console.log(`⌚ RELEVANCE: Filtered ${originalCount - liveItems.length} non-watch items, keeping ${liveItems.length} relevant watch listings`);
+          }
+        }
+      } else {
+        console.log(`✅ RELEVANCE: Specific search query - no relevance filtering needed`);
+      }
+      
+      console.log(`🔴 Final active live items after relevance check: ${liveItems.length}`);
+      
+      // Transform to our format
+      const transformedItems = liveItems.map(item => ({
         title: item.title,
         estimate: item.estimate,
         upperEstimate: item.upper_estimate,
@@ -325,10 +381,8 @@ export class AuctionetAPI {
         auctionId: this.extractAuctionId(this.convertToSwedishUrl(item.url))
       }));
       
-      console.log(`🔴 Active live items after company exclusion: ${liveItems.length}`);
-      
-      if (this.excludeCompanyId && allActiveItems.length > liveItems.length) {
-        console.log(`🚫 Company exclusion (LIVE only): Filtered out ${allActiveItems.length - liveItems.length} live items from company ${this.excludeCompanyId}`);
+      if (this.excludeCompanyId && allActiveItems.length > filteredItems.length) {
+        console.log(`🚫 Company exclusion (LIVE only): Filtered out ${allActiveItems.length - filteredItems.length} live items from company ${this.excludeCompanyId}`);
       } else if (this.excludeCompanyId) {
         console.log(`ℹ️ Company exclusion active for ${this.excludeCompanyId}, but no items were filtered out`);
       } else {
@@ -338,7 +392,7 @@ export class AuctionetAPI {
       const result = {
         totalEntries: data.pagination.total_entries,
         returnedItems: data.items.length,
-        liveItems: liveItems
+        liveItems: transformedItems
       };
       
       // Cache the result (shorter cache for live data)
