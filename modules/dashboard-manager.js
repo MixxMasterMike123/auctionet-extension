@@ -683,6 +683,9 @@ export class DashboardManager {
       <div class="market-dashboard-content">
         ${dashboardContent}
       </div>
+      <div class="market-dashboard-disclaimer">
+        💡 Marknadsdata är vägledning - varje objekt är unikt och kan ha särskilda egenskaper som påverkar värdet
+      </div>
     `;
     
     // Apply styles and inject into DOM
@@ -1387,6 +1390,20 @@ export class DashboardManager {
           font-size: 10px;
           color: #6c757d;
           font-style: italic;
+        }
+        
+        /* Market dashboard disclaimer */
+        .market-dashboard-disclaimer {
+          margin-top: 12px;
+          padding: 8px 12px;
+          background: #f8f9fa;
+          border: 1px solid #e9ecef;
+          border-radius: 6px;
+          font-size: 10px;
+          color: #6c757d;
+          text-align: center;
+          font-style: italic;
+          line-height: 1.4;
         }
       `;
       document.head.appendChild(style);
