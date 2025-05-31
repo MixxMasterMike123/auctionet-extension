@@ -39,6 +39,8 @@
     const { APIManager } = await import(chrome.runtime.getURL('modules/api-manager.js'));
     const { DataExtractor } = await import(chrome.runtime.getURL('modules/data-extractor.js'));
     const { SearchQueryManager } = await import(chrome.runtime.getURL('modules/search-query-manager.js'));
+    const { SearchQuerySSoT } = await import(chrome.runtime.getURL('modules/search-query-ssot.js'));
+    const { SalesAnalysisManager } = await import(chrome.runtime.getURL('modules/sales-analysis-manager.js'));
     
     console.log('Modules loaded successfully, initializing assistant...');
     
@@ -50,20 +52,30 @@
         this.apiManager = new APIManager();
         this.qualityAnalyzer = new QualityAnalyzer();
         
-        // Initialize SearchQueryManager SSoT
+        // Initialize SearchQueryManager SSoT (legacy)
         this.searchQueryManager = new SearchQueryManager();
         console.log('🔧 SearchQueryManager SSoT initialized');
+        
+        // NEW: Initialize AI-only SearchQuerySSoT
+        this.searchQuerySSoT = new SearchQuerySSoT(this.apiManager);
+        console.log('🤖 AI-only SearchQuerySSoT initialized');
         
         // Initialize other managers
         this.dashboardManager = new DashboardManager();
         this.searchFilterManager = new SearchFilterManager();
+        this.salesAnalysisManager = new SalesAnalysisManager();
         this.uiManager = new UIManager(this.apiManager, this.qualityAnalyzer);
         
-        // Wire up SearchQueryManager SSoT to all components
+        // Wire up SearchQueryManager SSoT to all components (legacy)
         this.apiManager.setSearchQueryManager(this.searchQueryManager);
         this.dashboardManager.setSearchQueryManager(this.searchQueryManager);
         this.searchFilterManager.setSearchQueryManager(this.searchQueryManager);
+        this.salesAnalysisManager.setSearchQueryManager(this.searchQueryManager);
         console.log('✅ SearchQueryManager SSoT wired to all components');
+        
+        // NEW: Wire up AI-only SearchQuerySSoT
+        this.qualityAnalyzer.setSearchQuerySSoT(this.searchQuerySSoT);
+        console.log('🤖 AI-only SearchQuerySSoT wired to QualityAnalyzer');
         
         // CRITICAL FIX: Make assistant instance available globally for hot reload restoration
         if (typeof window !== 'undefined') {
@@ -75,6 +87,7 @@
         this.qualityAnalyzer.setDataExtractor(this.dataExtractor);
         this.qualityAnalyzer.setApiManager(this.apiManager);
         this.qualityAnalyzer.setSearchQueryManager(this.searchQueryManager);
+        this.qualityAnalyzer.salesAnalysisManager = this.salesAnalysisManager; // For market analysis
         
         this.init();
         this.setupEventListeners();

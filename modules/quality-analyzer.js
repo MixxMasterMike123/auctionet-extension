@@ -3,17 +3,21 @@ import { ItemTypeHandlers } from "/modules/item-type-handlers.js";
 import { SalesAnalysisManager } from "/modules/sales-analysis-manager.js";
 import { DashboardManager } from './dashboard-manager.js';
 import { SearchFilterManager } from './search-filter-manager.js';
+import { DataExtractor } from './data-extractor.js';
+import { searchTermExtractor } from './search-term-extractor.js';
+import { SearchQuerySSoT } from './search-query-ssot.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
   constructor() {
     this.warnings = [];
     this.currentScore = 100;
-    this.dataExtractor = null;
+    this.dataExtractor = new DataExtractor();
     this.apiManager = null;
     this.searchQueryManager = null; // SSoT reference
+    this.searchQuerySSoT = null; // NEW: AI-only search query system
     this.immediateAnalysisStarted = false; // Prevent duplicate sales analysis
     this.previousFreetextData = null;
-    this.searchTermExtractor = new SearchTermExtractor();
+    this.searchTermExtractor = searchTermExtractor;
     this.itemTypeHandlers = new ItemTypeHandlers();
     
     // Initialize manager instances
@@ -26,6 +30,8 @@ export class QualityAnalyzer {
     
     // Inject dependencies
     this.itemTypeHandlers.setSearchTermExtractor(this.searchTermExtractor);
+    
+    console.log('✅ QualityAnalyzer initialized');
   }
 
   setDataExtractor(extractor) {
@@ -51,6 +57,12 @@ export class QualityAnalyzer {
     this.salesAnalysisManager.setSearchQueryManager(searchQueryManager);
     this.searchFilterManager.setSearchQueryManager(searchQueryManager);
     console.log('✅ QualityAnalyzer: SearchQueryManager SSoT connected');
+  }
+
+  // NEW: Set AI-only search query system
+  setSearchQuerySSoT(searchQuerySSoT) {
+    this.searchQuerySSoT = searchQuerySSoT;
+    console.log('✅ QualityAnalyzer: AI-only SearchQuerySSoT connected');
   }
 
   // Helper method to check for measurements in Swedish format
@@ -664,7 +676,7 @@ export class QualityAnalyzer {
       const artistAnalysisPromise = this.detectMisplacedArtist(data.title, data.artist);
       
       // Handle artist detection results as soon as they're ready
-      artistAnalysisPromise.then(aiArtist => {
+      artistAnalysisPromise.then(async (aiArtist) => {
         this.pendingAnalyses.delete('artist');
         this.handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore);
         
@@ -714,26 +726,26 @@ export class QualityAnalyzer {
           this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
           this.salesAnalysisManager.startSalesAnalysis(aiArtistInfo, data, currentWarnings, currentScore, this.searchFilterManager, this);
         } else {
-          // No AI artist found, fall back to best available option
-        const bestArtist = this.determineBestArtistForMarketAnalysis(data, aiArtist);
+          // No AI artist found, use AI-generated search query
+          const bestSearchQuery = await this.determineBestSearchQueryForMarketAnalysis(data, aiArtist);
         
-        if (bestArtist) {
-          // CRITICAL FIX: Check if sales analysis is already running
-          if (this.pendingAnalyses.has('sales')) {
-            console.log('⚠️ Sales analysis already running - skipping fallback duplicate analysis');
-            return;
-          }
-          
-            console.log('💰 Starting sales analysis with best available artist/search:', bestArtist);
-          this.pendingAnalyses.add('sales');
-          this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
-          this.salesAnalysisManager.startSalesAnalysis(bestArtist, data, currentWarnings, currentScore, this.searchFilterManager, this);
-        } else {
-          console.log('ℹ️ No artist found for sales analysis');
-          this.checkAndHideLoadingIndicator();
+          if (bestSearchQuery) {
+            // CRITICAL FIX: Check if sales analysis is already running
+            if (this.pendingAnalyses.has('sales')) {
+              console.log('⚠️ Sales analysis already running - skipping fallback duplicate analysis');
+              return;
+            }
+            
+            console.log('💰 Starting sales analysis with AI-generated search query:', bestSearchQuery);
+            this.pendingAnalyses.add('sales');
+            this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
+            this.salesAnalysisManager.startSalesAnalysis(bestSearchQuery, data, currentWarnings, currentScore, this.searchFilterManager, this);
+          } else {
+            console.log('ℹ️ No search query generated for sales analysis');
+            this.checkAndHideLoadingIndicator();
           }
         }
-      }).catch(error => {
+      }).catch(async (error) => {
         console.error('Error in AI artist detection:', error);
         this.pendingAnalyses.delete('artist');
         
@@ -1754,6 +1766,126 @@ export class QualityAnalyzer {
     }
     
     // No specific technique found
+    return null;
+  }
+
+  // NEW: AI-ONLY search query generation for market analysis
+  async determineBestSearchQueryForMarketAnalysis(data, aiArtist = null) {
+    console.log('🤖 AI-ONLY: Determining optimal search query for market analysis...');
+    console.log('📊 Input data:', { 
+      title: data.title?.substring(0, 80),
+      description: data.description?.substring(0, 100),
+      artist: data.artist,
+      aiArtist: aiArtist?.detectedArtist 
+    });
+
+    // Use AI-only SearchQuerySSoT if available
+    if (this.searchQuerySSoT) {
+      try {
+        const result = await this.searchQuerySSoT.generateAndSetQuery(data.title, data.description);
+        
+        if (result && result.success) {
+          console.log('✅ AI-ONLY: Generated optimal search query:', result.query);
+          console.log('🧠 AI reasoning:', result.reasoning);
+          
+          return {
+            searchQuery: result.query,
+            searchTerms: result.searchTerms,
+            source: 'ai_only',
+            confidence: result.confidence,
+            reasoning: result.reasoning,
+            metadata: this.searchQuerySSoT.getCurrentMetadata()
+          };
+        }
+      } catch (error) {
+        console.error('💥 AI-ONLY: Search query generation failed:', error);
+      }
+    }
+
+    // Fallback: Use the old complex system if AI-only fails
+    console.log('⚠️ AI-ONLY system unavailable, using legacy fallback...');
+    return this.determineBestArtistForMarketAnalysis_LEGACY(data, aiArtist);
+  }
+
+  // LEGACY: Keep old method as fallback
+  determineBestArtistForMarketAnalysis_LEGACY(data, aiArtist = null) {
+    // PRIORITY ORDER for market analysis:
+    // 1. AI-detected artist (highest priority if found)
+    // 2. Artist field (if filled)
+    // 3. Rule-based artist detection
+    // 4. Brand detection from title/description
+    // 5. Freetext search from title/description
+
+    console.log('🎯 LEGACY: Determining best artist for market analysis...');
+    console.log('📊 Available data:', { 
+      artist: data.artist, 
+      title: data.title?.substring(0, 80),
+      aiArtist: aiArtist?.detectedArtist 
+    });
+
+    // 1. PRIORITY: AI-detected artist (most reliable)
+    if (aiArtist && aiArtist.detectedArtist) {
+      console.log('🤖 Using AI-detected artist for market analysis:', aiArtist.detectedArtist);
+      return {
+        artist: aiArtist.detectedArtist,
+        source: 'ai_detected',
+        confidence: aiArtist.confidence || 0.8,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    // 2. Artist field (if filled and reasonable)
+    if (data.artist && data.artist.trim().length > 2) {
+      console.log('👤 Using artist field for market analysis:', data.artist);
+      return {
+        artist: data.artist.trim(),
+        source: 'artist_field',
+        confidence: 0.9,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    // 3. Rule-based artist detection
+    const ruleBasedArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
+    if (ruleBasedArtist && ruleBasedArtist.detectedArtist) {
+      console.log('⚖️ Using rule-based detected artist for market analysis:', ruleBasedArtist.detectedArtist);
+      return {
+        artist: ruleBasedArtist.detectedArtist,
+        source: 'rule_based',
+        confidence: ruleBasedArtist.confidence || 0.7,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    // 4. Brand detection (check for known brands/manufacturers)
+    const brandDetection = this.detectBrandInTitle(data.title, data.description);
+    if (brandDetection) {
+      console.log('🏷️ Using brand detection for market analysis:', brandDetection.brand);
+      return {
+        artist: brandDetection.brand,
+        source: 'brand_detected',
+        confidence: brandDetection.confidence,
+        isBrand: true,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    // 5. FALLBACK: Freetext search from title/description
+    const freetextTerms = this.extractFreetextSearchTerms(data.title, data.description);
+    if (freetextTerms && freetextTerms.searchTerms.length > 0) {
+      console.log('📝 Using freetext search terms for market analysis:', freetextTerms.combined);
+      return {
+        artist: freetextTerms.combined,
+        source: 'freetext',
+        confidence: freetextTerms.confidence,
+        isFreetext: true,
+        searchStrategy: freetextTerms.strategy,
+        termCount: freetextTerms.searchTerms.length,
+        objectType: this.extractObjectType(data.title)
+      };
+    }
+
+    console.log('❌ No suitable artist or search terms found for market analysis');
     return null;
   }
 }
