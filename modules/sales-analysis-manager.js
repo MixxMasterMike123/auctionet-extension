@@ -190,6 +190,12 @@ export class SalesAnalysisManager {
     if (salesData && salesData.hasComparableData) {
       console.log('💰 Processing comprehensive market analysis results');
       
+      // NEW: Add candidate search terms to sales data for dashboard access
+      if (this.lastCandidateSearchTerms) {
+        salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
+        console.log('📋 Added candidate search terms to sales data for dashboard');
+      }
+      
       // NEW: Analyze valuation and suggest changes if needed
       const valuationSuggestions = this.analyzeValuationSuggestions(salesData);
       console.log('💰 Generated valuation suggestions:', valuationSuggestions);

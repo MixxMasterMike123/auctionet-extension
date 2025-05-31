@@ -655,10 +655,16 @@ export class DashboardManager {
 
   // Helper method to complete dashboard creation (separated for readability)
   completeDashboardCreation(dashboard, dashboardContent, salesData, valuationSuggestions) {
-    // Generate search filter HTML if candidate terms are available
+    // Generate search filter HTML if candidate terms are available in salesData
     let searchFilterHTML = '';
-    if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms) {
+    if (salesData.candidateSearchTerms) {
+      console.log('🔧 Using candidate search terms from salesData');
+      searchFilterHTML = this.generateSearchFilterHTML(salesData.candidateSearchTerms);
+    } else if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms) {
+      console.log('🔧 Fallback: Using candidate search terms from quality analyzer');
       searchFilterHTML = this.generateSearchFilterHTML(this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms);
+    } else {
+      console.log('⚠️ No candidate search terms available for dashboard');
     }
     
     // Determine the actual search query used
