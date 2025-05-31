@@ -1,14 +1,14 @@
 import { SalesAnalysisManager } from "/modules/sales-analysis-manager.js";
 import { ItemTypeHandlers } from "/modules/item-type-handlers.js";
 import { SearchTermExtractor } from "/modules/search-term-extractor.js";
-import { SearchQueryManager } from "/modules/search-query-manager.js";
+// DEPRECATED: SearchQueryManager import removed - using AI-only SearchQuerySSoT instead
 
 export class DashboardManager {
   constructor() {
     this.currentSearchQuery = '';
     this.apiManager = null;
     this.qualityAnalyzer = null;
-    this.searchQueryManager = null;
+    this.searchQuerySSoT = null; // NEW: AI-only search query system
     this.pendingDashboardUpdate = null;
     this.changeListeners = [];
     this.isHotReloading = false;
@@ -24,54 +24,60 @@ export class DashboardManager {
     this.qualityAnalyzer = qualityAnalyzer;
   }
 
-  // NEW: Set SearchQueryManager for SSoT usage
-  setSearchQueryManager(searchQueryManager) {
-    this.searchQueryManager = searchQueryManager;
-    console.log('✅ DashboardManager: SearchQueryManager SSoT connected');
-    
-    // Setup SSoT change listeners
-    this.searchQueryManager.addChangeListener((event, data) => {
-      this.onSearchQueryChange(event, data);
-    });
+  // NEW: Set AI-only SearchQuerySSoT
+  setSearchQuerySSoT(searchQuerySSoT) {
+    this.searchQuerySSoT = searchQuerySSoT;
+    console.log('✅ DashboardManager: AI-only SearchQuerySSoT connected');
   }
 
-  // NEW: Handle search query changes from SSoT
+  // DEPRECATED: SearchQueryManager functionality removed - using AI-only SearchQuerySSoT instead
+  setSearchQueryManager(searchQueryManager) {
+    console.log('⚠️ DashboardManager: setSearchQueryManager is deprecated - use AI-only SearchQuerySSoT');
+    // Legacy method kept for hot reload compatibility but not functional
+  }
+
+  // DEPRECATED: onSearchQueryChange removed - using AI-only SearchQuerySSoT instead
   onSearchQueryChange(event, data) {
-    console.log('🔄 DashboardManager received SSoT change:', event, data);
-    
-    // Update legacy currentSearchQuery for backward compatibility
-    this.currentSearchQuery = data.query || '';
-    
-    // Update dashboard header display in real-time
-    this.updateDashboardHeader(data.query || '', data.source || 'system');
-    
-    // Update smart suggestions display
-    this.updateSmartSuggestionsDisplay();
+    console.log('⚠️ DashboardManager: onSearchQueryChange is deprecated - use AI-only SearchQuerySSoT');
   }
 
   // NEW: Update dashboard header with current query from SSoT
   updateDashboardHeader(query, source) {
+    console.log('🔄 Updating dashboard header with query:', query, 'source:', source);
+    
+    // Update the "Sökning:" field in dashboard header
     const headerQueryText = document.querySelector('.query-text');
     if (headerQueryText) {
       headerQueryText.textContent = `"${query}"`;
+      console.log('✅ Updated dashboard header "Sökning:" field');
+    } else {
+      console.log('⚠️ Dashboard header .query-text element not found');
     }
     
+    // Update the source indication
     const headerQuerySource = document.querySelector('.query-source');
     if (headerQuerySource) {
-      const sourceText = source === 'user' ? 'användarval' : 'automatisk analys';
+      const sourceText = source === 'user_selection' ? 'användarval' : 
+                        source === 'user' ? 'användarval' : 
+                        source || 'automatisk analys';
       headerQuerySource.textContent = `(${sourceText})`;
+      console.log('✅ Updated dashboard header source:', sourceText);
+    } else {
+      console.log('⚠️ Dashboard header .query-source element not found');
     }
     
+    // Also update the "Nuvarande:" field for consistency
     const currentQueryDisplay = document.getElementById('current-search-display');
     if (currentQueryDisplay) {
       currentQueryDisplay.textContent = `"${query}"`;
+      console.log('✅ Updated "Nuvarande:" field for consistency');
     }
   }
 
   // NEW: Update smart suggestions display based on SSoT
   updateSmartSuggestionsDisplay() {
-    if (!this.searchQueryManager) {
-      console.log('⚠️ SearchQueryManager not available for suggestions display update');
+    if (!this.searchQuerySSoT) {
+      console.log('⚠️ SearchQuerySSoT not available for suggestions display update');
       return;
     }
     
@@ -79,7 +85,7 @@ export class DashboardManager {
     
     smartCheckboxes.forEach(checkbox => {
       const term = checkbox.value;
-      const isSelected = this.searchQueryManager.isTermSelected(term);
+      const isSelected = this.searchQuerySSoT.isTermSelected(term);
       checkbox.checked = isSelected;
     });
   }
@@ -112,49 +118,29 @@ export class DashboardManager {
   
   // NEW: Complete dashboard creation after SSoT is initialized
   completeDashboardCreation(salesData) {
-    // CRITICAL FIX: Preserve SearchQueryManager reference during hot reload
-    const originalSearchQueryManager = this.searchQueryManager;
-    const preservedApiManager = this.apiManager;
-    const preservedQualityAnalyzer = this.qualityAnalyzer;
-    const isHotReload = this.isHotReloading;
+    console.log('🎯 Creating dashboard with current SearchQuerySSoT reference');
+    console.log('🔧 Current SearchQuerySSoT status:', !!this.searchQuerySSoT);
     
-    if (isHotReload && originalSearchQueryManager) {
-      console.log('🔒 HOT RELOAD: Preserving original SearchQueryManager reference');
-    }
-    
-    // CRITICAL FIX: Prevent duplicate dashboard creation unless it's a hot reload or initialization
+    // CRITICAL FIX: Prevent duplicate dashboard creation
     const existingDashboard = document.querySelector('.market-data-dashboard');
-    if (existingDashboard && !this.isHotReloading && this.dashboardCreated) {
-      console.log('⚠️ Dashboard already exists and not hot reloading - removing existing first');
+    if (existingDashboard && this.dashboardCreated) {
+      console.log('⚠️ Dashboard already exists - removing existing first');
       existingDashboard.remove();
     }
-    
-    // Reset the flag for this creation cycle
-    this.dashboardCreated = false;
     
     console.log('🎯 Creating new dashboard with SSoT-unified data');
     
     // Generate dashboard ID
     const dashboardId = `dashboard-${Date.now()}`;
     
-    // Create and populate the dashboard
+    // Create and populate the dashboard - this should NOT modify references
     this.createDashboard(salesData, [], dashboardId);
     
-    // CRITICAL FIX: RESTORE ALL REFERENCES after dashboard recreation
-    this.searchQueryManager = originalSearchQueryManager;
-    this.apiManager = preservedApiManager;
-    this.qualityAnalyzer = preservedQualityAnalyzer;
+    // Mark dashboard as created
     this.dashboardCreated = true;
     
-    console.log('✅ Restored all critical references after dashboard recreation');
-    console.log('🔒 SearchQueryManager restored:', !!this.searchQueryManager);
-    console.log('🔒 ApiManager restored:', !!this.apiManager);
-    console.log('🔒 QualityAnalyzer restored:', !!this.qualityAnalyzer);
-    
-    // Mark dashboard as created
-    this.isHotReloading = false; // Reset hot reload flag
-    
     console.log('✅ Dashboard creation complete with SSoT consistency');
+    console.log('🔧 Final SearchQuerySSoT status:', !!this.searchQuerySSoT);
   }
   
   createDashboard(salesData, valuationSuggestions, dashboardId) {
@@ -275,10 +261,32 @@ export class DashboardManager {
       const totalMatches = salesData.historical.totalMatches || 0;
       const liveSales = salesData.live ? salesData.live.analyzedLiveItems : 0;
       
-      // Generate URLs using SearchQueryManager SSoT
-      const auctionetUrls = this.searchQueryManager ? 
-        this.searchQueryManager.getSearchUrls() : 
-        { historical: '#', live: '#', all: '#' };
+      // 🔧 STRICT SSoT: Use SSoT search query for all URLs (prioritizing consistency over results)
+      let historicalUrl = '#';
+      let liveUrl = '#';
+      let allUrl = '#';
+      
+      // Get SSoT query as the authoritative source
+      const ssotQuery = this.searchQuerySSoT?.getCurrentQuery();
+      
+      console.log('🔗 Dashboard URL generation (STRICT SSoT):');
+      console.log('  Using SSoT query for ALL URLs:', ssotQuery);
+      console.log('  Historical query that found data (IGNORED):', salesData.historical?.actualSearchQuery);
+      console.log('  Live query that found data (IGNORED):', salesData.live?.actualSearchQuery);
+      
+      // Generate ALL URLs using the SSoT query for consistency
+      const baseUrl = 'https://auctionet.com/sv/search';
+      
+      if (ssotQuery) {
+        historicalUrl = `${baseUrl}?event_id=&is=ended&q=${encodeURIComponent(ssotQuery)}`;
+        liveUrl = `${baseUrl}?event_id=&is=&q=${encodeURIComponent(ssotQuery)}`;
+        allUrl = `${baseUrl}?event_id=&is=&q=${encodeURIComponent(ssotQuery)}`;
+      }
+      
+      console.log('🔗 Generated URLs (ALL use SSoT query):');
+      console.log('  Historical:', historicalUrl);
+      console.log('  Live:', liveUrl);
+      console.log('  All:', allUrl);
       
       // Initialize description and links variables
       let dataDescription = '';
@@ -293,35 +301,33 @@ export class DashboardManager {
         dataDescription = `${liveSales} pågående auktioner`;
       }
       
-      // Add detailed links if SearchQueryManager is available
-      if (auctionetUrls) {
-        if (historicalSales > 0 && liveSales > 0) {
-          dataLinks = `
-            <div class="data-link-row">
-              <span class="data-link-icon">📊</span>
-              <a href="${auctionetUrls.historical}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
-              <span class="data-link-meta">bekräftade</span>
-        </div>
-            <div class="data-link-row">
-              <span class="data-link-icon">🔴</span>
-              <a href="${auctionetUrls.live}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
-              <span class="data-link-meta">live</span>
-            </div>`;
-        } else if (historicalSales > 0) {
-          dataLinks = `
-            <div class="data-link-row">
-              <span class="data-link-icon">📊</span>
-              <a href="${auctionetUrls.historical}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
-              <span class="data-link-meta">bekräftade</span>
-            </div>`;
-        } else if (liveSales > 0) {
-          dataLinks = `
-            <div class="data-link-row">
-              <span class="data-link-icon">🔴</span>
-              <a href="${auctionetUrls.live}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
-              <span class="data-link-meta">live</span>
-            </div>`;
-        }
+      // Add detailed links using actual working URLs
+      if (historicalSales > 0 && liveSales > 0) {
+        dataLinks = `
+          <div class="data-link-row">
+            <span class="data-link-icon">📊</span>
+            <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
+            <span class="data-link-meta">bekräftade</span>
+      </div>
+          <div class="data-link-row">
+            <span class="data-link-icon">🔴</span>
+            <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
+            <span class="data-link-meta">live</span>
+          </div>`;
+      } else if (historicalSales > 0) {
+        dataLinks = `
+          <div class="data-link-row">
+            <span class="data-link-icon">📊</span>
+            <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
+            <span class="data-link-meta">bekräftade</span>
+          </div>`;
+      } else if (liveSales > 0) {
+        dataLinks = `
+          <div class="data-link-row">
+            <span class="data-link-icon">🔴</span>
+            <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
+            <span class="data-link-meta">live</span>
+          </div>`;
       }
       
       if (totalMatches > historicalSales + liveSales) {
@@ -408,15 +414,77 @@ export class DashboardManager {
     
     // Generate search filter HTML using SSoT
     let searchFilterHTML = '';
+    
+    // CRITICAL DEBUG: Check all sources for available terms
+    console.log('🔧 EXTENDED TERMS DEBUG: Checking all sources for available terms...');
+    console.log('📋 salesData.candidateSearchTerms exists:', !!salesData.candidateSearchTerms);
+    console.log('📋 this.searchQuerySSoT exists:', !!this.searchQuerySSoT);
+    
     if (salesData.candidateSearchTerms) {
-      console.log('🔧 Generating search filter HTML with SSoT-unified candidate terms');
-      searchFilterHTML = this.generateSearchFilterHTML(salesData.candidateSearchTerms);
-    } else {
-      console.log('⚠️ No candidateSearchTerms available after SSoT initialization');
+      console.log('📋 candidateSearchTerms.candidates length:', salesData.candidateSearchTerms.candidates?.length);
+      console.log('📋 candidateSearchTerms.candidates:', salesData.candidateSearchTerms.candidates?.map(c => c.term));
     }
     
-    const querySource = this.searchQueryManager ? 
-      this.searchQueryManager.getQuerySource() : 
+    if (this.searchQuerySSoT) {
+      const availableTerms = this.searchQuerySSoT.getAvailableTerms();
+      console.log('📋 SearchQuerySSoT.getAvailableTerms() length:', availableTerms.length);
+      console.log('📋 SearchQuerySSoT available terms:', availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
+    }
+    
+    // STRATEGY 1: Try to use SearchQuerySSoT terms directly if available
+    if (this.searchQuerySSoT) {
+      const availableTerms = this.searchQuerySSoT.getAvailableTerms();
+      if (availableTerms.length > 0) {
+        console.log('✅ EXTENDED TERMS: Using SearchQuerySSoT terms directly (bypassing candidateSearchTerms)');
+        
+        // Create fake candidateTerms structure from SearchQuerySSoT
+        const fakeCandidateTerms = {
+          candidates: availableTerms.map(term => ({
+            term: term.term,
+            type: term.type,
+            description: term.description,
+            priority: term.priority,
+            preSelected: term.isSelected
+          })),
+          currentQuery: this.searchQuerySSoT.getCurrentQuery(),
+          analysisType: 'ssot_direct'
+        };
+        
+        console.log('🔧 EXTENDED TERMS: Generated fake candidateTerms from SSoT:', fakeCandidateTerms);
+        searchFilterHTML = this.generateSearchFilterHTML(fakeCandidateTerms);
+      } else {
+        console.log('⚠️ EXTENDED TERMS: SearchQuerySSoT has no available terms');
+      }
+    }
+    
+    // STRATEGY 2: Fallback to original candidateSearchTerms if SSoT failed
+    if (!searchFilterHTML && salesData.candidateSearchTerms) {
+      console.log('🔧 EXTENDED TERMS: Fallback to original candidateSearchTerms method');
+      searchFilterHTML = this.generateSearchFilterHTML(salesData.candidateSearchTerms);
+    }
+    
+    // STRATEGY 3: Final fallback - show debug info if nothing worked
+    if (!searchFilterHTML) {
+      console.log('❌ EXTENDED TERMS: No search filter HTML generated - adding debug section');
+      searchFilterHTML = `
+        <div class="search-filter-section">
+          <div class="filter-header">
+            <h4 class="filter-title">🔧 Debug: Extended Terms Issue</h4>
+            <div class="filter-description">Extended checkboxes not showing - debug info:</div>
+          </div>
+          <div class="debug-info">
+            <p>candidateSearchTerms: ${!!salesData.candidateSearchTerms}</p>
+            <p>searchQuerySSoT: ${!!this.searchQuerySSoT}</p>
+            <p>SSoT available terms: ${this.searchQuerySSoT ? this.searchQuerySSoT.getAvailableTerms().length : 'N/A'}</p>
+          </div>
+        </div>
+      `;
+    } else {
+      console.log('✅ EXTENDED TERMS: Search filter HTML generated successfully');
+    }
+    
+    const querySource = this.searchQuerySSoT ? 
+      this.searchQuerySSoT.getQuerySource() : 
       (salesData.hotReload ? 'user' : 'system');
     
     // Add the content and finalize dashboard
@@ -497,12 +565,12 @@ export class DashboardManager {
   async handleSmartSuggestionChange() {
     console.log('🔄 Processing smart suggestion change with immediate SSoT sync...');
     
-    // CRITICAL FIX: Check if SearchQueryManager is available before proceeding
-    if (!this.searchQueryManager) {
-      console.error('❌ CHECKBOX SYNC ERROR: SearchQueryManager is null');
-      await this.restoreSearchQueryManagerReference();
+    // CRITICAL FIX: Check if SearchQuerySSoT is available before proceeding
+    if (!this.searchQuerySSoT) {
+      console.error('❌ CHECKBOX SYNC ERROR: SearchQuerySSoT is null');
+      await this.restoreSearchQuerySSoTReference();
       
-      if (!this.searchQueryManager) {
+      if (!this.searchQuerySSoT) {
         console.error('❌ All restoration attempts failed - checkbox sync not possible');
         return;
       }
@@ -512,33 +580,76 @@ export class DashboardManager {
     const allCheckboxes = document.querySelectorAll('.smart-checkbox');
     const userSelectedTerms = [];
     
-    allCheckboxes.forEach(checkbox => {
+    console.log('🔍 CHECKBOX DEBUG: Processing checkbox changes...');
+    console.log('🔍 Total checkboxes found:', allCheckboxes.length);
+    
+    allCheckboxes.forEach((checkbox, index) => {
+      console.log(`🔍 Checkbox ${index + 1}: "${checkbox.value}" - checked: ${checkbox.checked}`);
       if (checkbox.checked) {
         userSelectedTerms.push(checkbox.value);
       }
     });
     
     console.log('👤 User selected terms from checkboxes:', userSelectedTerms);
+    console.log('🔍 BEFORE UPDATE - Current SSoT query:', this.searchQuerySSoT.getCurrentQuery());
+    console.log('🔍 BEFORE UPDATE - Current SSoT terms:', this.searchQuerySSoT.getCurrentTerms());
     
-    // Update SearchQueryManager SSoT with user selections
-    this.searchQueryManager.updateUserSelections(userSelectedTerms);
+    // Update SearchQuerySSoT SSoT with user selections
+    this.searchQuerySSoT.updateUserSelections(userSelectedTerms);
+    
+    console.log('🔍 AFTER UPDATE - New SSoT query:', this.searchQuerySSoT.getCurrentQuery());
+    console.log('🔍 AFTER UPDATE - New SSoT terms:', this.searchQuerySSoT.getCurrentTerms());
+    console.log('🔍 EXPECTED: Query should be:', userSelectedTerms.join(' '));
+    
+    // CRITICAL FIX: Update dashboard header "Sökning:" field with new SSoT query
+    const newQuery = this.searchQuerySSoT.getCurrentQuery();
+    const querySource = this.searchQuerySSoT.getQuerySource();
+    this.updateDashboardHeader(newQuery, querySource);
+    console.log('✅ Updated dashboard header "Sökning:" field with new SSoT query:', newQuery);
     
     // Re-sync all checkboxes to ensure consistency
     this.syncAllCheckboxesWithSSoT();
     
     // Preserve all critical references for hot reload
     console.log('🔒 Preserving all critical references for hot reload');
-    const currentQuery = this.searchQueryManager.getCurrentQuery();
+    const currentQuery = this.searchQuerySSoT.getCurrentQuery();
     console.log('🔄 SSoT updated query:', currentQuery);
     
     // Get search context for API call
-    const searchContext = this.searchQueryManager.buildSearchContext();
+    const searchContext = this.searchQuerySSoT.buildSearchContext();
     
     console.log('🎯 Triggering new API analysis with SSoT query:', searchContext.primarySearch);
     
+    // IMPROVED: Multiple strategies to get ApiManager for hot reload
+    let apiManager = this.apiManager;
+    
+    // Strategy 1: Use existing apiManager reference
+    if (!apiManager && this.qualityAnalyzer && this.qualityAnalyzer.apiManager) {
+      console.log('🔧 Getting ApiManager from quality analyzer...');
+      apiManager = this.qualityAnalyzer.apiManager;
+      // Store it for future use
+      this.apiManager = apiManager;
+    }
+    
+    // Strategy 2: Try to get from global assistant instance
+    if (!apiManager && typeof window !== 'undefined' && window.auctionetAssistant && window.auctionetAssistant.apiManager) {
+      console.log('🔧 Getting ApiManager from global assistant...');
+      apiManager = window.auctionetAssistant.apiManager;
+      this.apiManager = apiManager;
+    }
+    
+    // Strategy 3: Try to get through searchQuerySSoT
+    if (!apiManager && this.searchQuerySSoT && this.searchQuerySSoT.apiManager) {
+      console.log('🔧 Getting ApiManager from SearchQuerySSoT...');
+      apiManager = this.searchQuerySSoT.apiManager;
+      this.apiManager = apiManager;
+    }
+    
     // Trigger new API analysis with the updated query
-    if (this.apiManager) {
+    if (apiManager) {
       try {
+        console.log('✅ ApiManager found, starting hot reload analysis...');
+        
         // Update loading status
         const loadingElement = document.getElementById('filter-loading');
         const statusElement = document.getElementById('filter-status');
@@ -547,7 +658,7 @@ export class DashboardManager {
         if (statusElement) statusElement.textContent = 'Uppdaterar analys med nya söktermer...';
         
         // Call API with new search context
-        const salesData = await this.apiManager.analyzeSales(searchContext);
+        const salesData = await apiManager.analyzeSales(searchContext);
         
         // Hide loading
         if (loadingElement) loadingElement.style.display = 'none';
@@ -583,7 +694,21 @@ export class DashboardManager {
         }
       }
     } else {
-      console.error('❌ ApiManager not available for hot reload');
+      console.error('❌ No ApiManager available for hot reload after all strategies');
+      console.log('🔧 Available references:', {
+        'this.apiManager': !!this.apiManager,
+        'this.qualityAnalyzer': !!this.qualityAnalyzer,
+        'this.qualityAnalyzer.apiManager': !!(this.qualityAnalyzer && this.qualityAnalyzer.apiManager),
+        'window.auctionetAssistant': !!(typeof window !== 'undefined' && window.auctionetAssistant),
+        'searchQuerySSoT.apiManager': !!(this.searchQuerySSoT && this.searchQuerySSoT.apiManager)
+      });
+      
+      // Show user-friendly error
+      const statusElement = document.getElementById('filter-status');
+      if (statusElement) {
+        statusElement.textContent = 'Hot reload inte tillgänglig - ladda om sidan för att aktivera';
+        statusElement.style.color = '#e74c3c';
+      }
     }
   }
   
@@ -596,46 +721,26 @@ export class DashboardManager {
       
       // 1. Try to restore from quality analyzer
       if (this.qualityAnalyzer && this.qualityAnalyzer.searchQueryManager) {
-        this.searchQueryManager = this.qualityAnalyzer.searchQueryManager;
+        this.searchQuerySSoT = this.qualityAnalyzer.searchQueryManager;
         console.log('✅ Restored SearchQueryManager reference from quality analyzer');
         restored = true;
       } 
       // 2. Try to restore from API manager
       else if (this.apiManager && this.apiManager.searchQueryManager) {
-        this.searchQueryManager = this.apiManager.searchQueryManager;
+        this.searchQuerySSoT = this.apiManager.searchQueryManager;
         console.log('✅ Restored SearchQueryManager reference from API manager');
         restored = true;
       }
       // 3. Try to find it in the global scope (from content script)
       else if (typeof window !== 'undefined' && window.auctionetAssistant && window.auctionetAssistant.searchQueryManager) {
-        this.searchQueryManager = window.auctionetAssistant.searchQueryManager;
+        this.searchQuerySSoT = window.auctionetAssistant.searchQueryManager;
         console.log('✅ Restored SearchQueryManager reference from global window');
         restored = true;
       }
       // 4. Try to create a new instance with current data as last resort
       else {
-        try {
-          const SearchQueryManager = await import('/modules/search-query-manager.js').then(m => m.SearchQueryManager);
-          this.searchQueryManager = new SearchQueryManager();
-          
-          // Try to initialize with current dashboard data
-          const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
-          const terms = Array.from(smartCheckboxes).map(cb => ({
-            term: cb.value,
-            type: 'unknown',
-            description: cb.value,
-            priority: 5,
-            isSelected: cb.checked
-          }));
-          
-          if (terms.length > 0) {
-            this.searchQueryManager.initialize('', { candidates: terms }, 'emergency_restore');
-            console.log('✅ Created new SearchQueryManager instance and initialized with current dashboard data');
-            restored = true;
-          }
-        } catch (error) {
-          console.error('❌ Failed to create emergency SearchQueryManager instance:', error);
-        }
+        console.log('⚠️ SearchQueryManager import removed - using AI-only SearchQuerySSoT instead');
+        console.log('⚠️ Hot reload functionality deprecated - please refresh page');
       }
       
       if (!restored) {
@@ -650,14 +755,14 @@ export class DashboardManager {
   
   // NEW: Sync all checkbox instances with SSoT state
   syncAllCheckboxesWithSSoT() {
-    if (!this.searchQueryManager) {
+    if (!this.searchQuerySSoT) {
       console.log('⚠️ Cannot sync checkboxes - SearchQueryManager not available');
       return;
     }
     
     console.log('🔄 Syncing ALL checkbox instances with SSoT state...');
     
-    const ssotSelectedTerms = this.searchQueryManager.getSelectedTerms() || [];
+    const ssotSelectedTerms = this.searchQuerySSoT.getSelectedTerms() || [];
     console.log('🔍 SSoT selected terms for sync:', ssotSelectedTerms);
     
     // CRITICAL FIX: Use setTimeout to ensure DOM elements are available after recreation
@@ -687,7 +792,7 @@ export class DashboardManager {
         // Check if this term should be selected based on SSoT
         const shouldBeChecked = ssotSelectedTerms.some(selectedTerm => 
           selectedTerm.toLowerCase() === termValue.toLowerCase() ||
-          this.searchQueryManager.normalizeTermForMatching(selectedTerm) === this.searchQueryManager.normalizeTermForMatching(termValue)
+          this.searchQuerySSoT.normalizeTermForMatching(selectedTerm) === this.searchQuerySSoT.normalizeTermForMatching(termValue)
         );
       
         // Update checkbox state if it doesn't match SSoT (user has full control)
@@ -706,7 +811,7 @@ export class DashboardManager {
       }
       
       // Also update the current query display
-      const currentQuery = this.searchQueryManager.getCurrentQuery();
+      const currentQuery = this.searchQuerySSoT.getCurrentQuery();
       const currentQueryDisplay = document.getElementById('current-search-display');
       if (currentQueryDisplay) {
         currentQueryDisplay.textContent = `"${currentQuery || 'Ingen sökning'}"`;
@@ -720,7 +825,7 @@ export class DashboardManager {
     
     try {
       // Get available terms from SSoT
-      const availableTerms = this.searchQueryManager.getAvailableTerms();
+      const availableTerms = this.searchQuerySSoT.getAvailableTerms();
       
       if (availableTerms.length > 0) {
         // Convert back to candidate terms format for dashboard
@@ -753,18 +858,18 @@ export class DashboardManager {
   // NEW: Generate search filter HTML from candidate terms
   generateSearchFilterHTML(candidateTerms) {
     // Check if we have SearchQueryManager available
-    if (!this.searchQueryManager) {
+    if (!this.searchQuerySSoT) {
       console.log('⚠️ SearchQueryManager not available, falling back to legacy method');
       return this.generateLegacySearchFilterHTML(candidateTerms);
     }
     
     // CRITICAL FIX: Don't fail just because getCurrentQuery() is empty string
     // SSoT might be initialized but not have a query yet, or query might be ""
-    const currentQuery = this.searchQueryManager.getCurrentQuery();
+    const currentQuery = this.searchQuerySSoT.getCurrentQuery();
     console.log('🔧 SSoT Query from getCurrentQuery():', `"${currentQuery}"`);
     
     // Get available terms from SearchQueryManager SSoT
-    const availableTerms = this.searchQueryManager.getAvailableTerms();
+    const availableTerms = this.searchQuerySSoT.getAvailableTerms();
     
     if (availableTerms.length === 0) {
       console.log('⚠️ No available terms in SearchQueryManager SSoT, using legacy fallback');
@@ -834,8 +939,8 @@ export class DashboardManager {
     console.log('🧠 AI-selecting smart suggestions from SSoT with', availableTerms.length, 'available terms');
     
     // CRITICAL: Get the actual selected terms from SSoT - not just query string
-    const ssotSelectedTerms = this.searchQueryManager.getSelectedTerms() || [];
-    const currentQuery = this.searchQueryManager.getCurrentQuery();
+    const ssotSelectedTerms = this.searchQuerySSoT.getSelectedTerms() || [];
+    const currentQuery = this.searchQuerySSoT.getCurrentQuery();
     
     console.log('🔍 SSoT selected terms:', ssotSelectedTerms);
     console.log('🔍 Current query string:', currentQuery);
@@ -844,14 +949,14 @@ export class DashboardManager {
     ssotSelectedTerms.forEach(selectedTerm => {
       const matchingTerm = availableTerms.find(t => 
         t.term.toLowerCase() === selectedTerm.toLowerCase() || 
-        this.searchQueryManager.normalizeTermForMatching(t.term) === this.searchQueryManager.normalizeTermForMatching(selectedTerm)
+        this.searchQuerySSoT.normalizeTermForMatching(t.term) === this.searchQuerySSoT.normalizeTermForMatching(selectedTerm)
       );
       
       if (!matchingTerm) {
         console.log('🔧 Adding missing SSoT selected term to availableTerms:', selectedTerm);
         
         // Detect if this is a core term
-        const isCore = this.searchQueryManager.isCoreSearchTerm(selectedTerm);
+        const isCore = this.searchQuerySSoT.isCoreSearchTerm(selectedTerm);
         const termType = isCore ? 
           (this.isWatchBrand(selectedTerm) ? 'brand' : 'artist') :
           this.detectTermTypeForMissing(selectedTerm);
@@ -871,7 +976,7 @@ export class DashboardManager {
         // Ensure existing term is marked as selected based on SSoT
         matchingTerm.isSelected = true;
         // Check if it should be marked as core
-        if (this.searchQueryManager.isCoreSearchTerm(matchingTerm.term)) {
+        if (this.searchQuerySSoT.isCoreSearchTerm(matchingTerm.term)) {
           matchingTerm.isCore = true;
           console.log(`🔒 Marked existing term "${matchingTerm.term}" as CORE (from SSoT selected)`);
         }
@@ -883,14 +988,14 @@ export class DashboardManager {
       // Check if this term is actually selected in SSoT
       const isSelectedInSSoT = ssotSelectedTerms.some(selectedTerm => 
         selectedTerm.toLowerCase() === term.term.toLowerCase() ||
-        this.searchQueryManager.normalizeTermForMatching(selectedTerm) === this.searchQueryManager.normalizeTermForMatching(term.term)
+        this.searchQuerySSoT.normalizeTermForMatching(selectedTerm) === this.searchQuerySSoT.normalizeTermForMatching(term.term)
       );
       
       // Override the isSelected based on actual SSoT state
       term.isSelected = isSelectedInSSoT;
       
       // Check if it's a core term
-      if (this.searchQueryManager.isCoreSearchTerm(term.term)) {
+      if (this.searchQuerySSoT.isCoreSearchTerm(term.term)) {
         term.isCore = true;
       }
       
@@ -921,32 +1026,37 @@ export class DashboardManager {
       console.log(`✅ Removed redundant name parts, ${availableTerms.length} terms remaining`);
     }
     
-    // CRITICAL FIX: New selection strategy - ALWAYS include selected terms first
+    // 🔧 EXTENDED TERMS STRATEGY: Show ALL available terms (both selected and unselected)
+    // User requested: Core terms + Extended terms as checkboxes for complete control
+    
+    // Split terms into selected and unselected
     const selectedTermObjects = availableTerms.filter(term => term.isSelected);
     const unselectedTermObjects = availableTerms.filter(term => !term.isSelected);
     
-    console.log(`📊 Selection strategy: ${selectedTermObjects.length} selected + ${unselectedTermObjects.length} unselected terms available`);
+    console.log(`📊 Extended terms strategy: ${selectedTermObjects.length} selected + ${unselectedTermObjects.length} unselected terms available`);
     
     // Start with ALL selected terms (these must always be shown)
     const smartSuggestions = [...selectedTermObjects];
     
-    // Add unselected terms sorted by priority until we reach limit
+    // Sort unselected terms by priority and add them ALL (up to reasonable limit)
     const sortedUnselectedTerms = unselectedTermObjects
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
     
-    // Add unselected terms up to total limit of 8 (more generous limit)
-    const maxTotal = 8;
+    // 🎯 EXTENDED FUNCTIONALITY: Show up to 12 total terms (more generous for extended functionality)
+    const maxTotal = 12;
     const remainingSlots = Math.max(0, maxTotal - selectedTermObjects.length);
     
+    // Add ALL unselected terms up to the limit
     smartSuggestions.push(...sortedUnselectedTerms.slice(0, remainingSlots));
     
-    console.log('🎯 Selected smart suggestions with SSoT-synced selection state:');
-    console.log(`   📌 Selected terms (always shown): ${selectedTermObjects.length}`);
-    console.log(`   📋 Additional unselected terms: ${Math.min(remainingSlots, sortedUnselectedTerms.length)}`);
+    console.log('🎯 Selected smart suggestions with EXTENDED terms (selected + unselected):');
+    console.log(`   📌 Selected (pre-checked): ${selectedTermObjects.length}`);
+    console.log(`   📋 Extended (unchecked): ${Math.min(remainingSlots, sortedUnselectedTerms.length)}`);
     console.log(`   📊 Total suggestions: ${smartSuggestions.length}`);
     
     smartSuggestions.forEach((term, index) => {
-      console.log(`   ${index + 1}. "${term.term}" (${term.type}) - Priority: ${term.priority}, Selected: ${term.isSelected}, Core: ${term.isCore || false}`);
+      const checkboxState = term.isSelected ? '✓' : '○';
+      console.log(`   ${index + 1}. "${term.term}" (${term.type}) - Priority: ${term.priority}, Selected: ${checkboxState}, Core: ${term.isCore || false}`);
     });
     
     return smartSuggestions;
@@ -1000,8 +1110,8 @@ export class DashboardManager {
     
     // CRITICAL FIX: Even in legacy mode, prioritize SSoT for currentQuery
     let currentQuery;
-    if (this.searchQueryManager && this.searchQueryManager.getCurrentQuery()) {
-      currentQuery = this.searchQueryManager.getCurrentQuery();
+    if (this.searchQuerySSoT && this.searchQuerySSoT.getCurrentQuery()) {
+      currentQuery = this.searchQuerySSoT.getCurrentQuery();
       console.log('✅ LEGACY mode using SSoT query:', currentQuery);
     } else {
       currentQuery = candidateTerms.currentQuery || 'Automatisk sökning';
@@ -1647,8 +1757,8 @@ export class DashboardManager {
   // NEW: Determine actual search query from SSoT first, then sales data
   determineActualSearchQuery(salesData) {
     // CRITICAL FIX: Always check SearchQueryManager SSoT FIRST
-    if (this.searchQueryManager && this.searchQueryManager.getCurrentQuery()) {
-      const ssotQuery = this.searchQueryManager.getCurrentQuery();
+    if (this.searchQuerySSoT && this.searchQuerySSoT.getCurrentQuery()) {
+      const ssotQuery = this.searchQuerySSoT.getCurrentQuery();
       console.log('🎯 Using SSoT query as primary source:', ssotQuery);
       return ssotQuery;
     }
@@ -1745,12 +1855,12 @@ export class DashboardManager {
 
   // NEW: Initialize SearchQueryManager SSoT immediately when candidate terms are available
   initializeSearchQueryManagerIfAvailable(candidateTerms, actualSearchQuery) {
-    if (this.searchQueryManager && candidateTerms && actualSearchQuery) {
+    if (this.searchQuerySSoT && candidateTerms && actualSearchQuery) {
       console.log('🚀 IMMEDIATE SSoT initialization with candidate terms');
       console.log('   Actual Query:', actualSearchQuery);
       console.log('   Candidates:', candidateTerms.candidates?.length || 0);
       
-      this.searchQueryManager.initialize(actualSearchQuery, candidateTerms, 'system');
+      this.searchQuerySSoT.initialize(actualSearchQuery, candidateTerms, 'system');
       console.log('✅ SearchQueryManager SSoT initialized BEFORE dashboard creation');
       return true;
     }
@@ -1759,11 +1869,11 @@ export class DashboardManager {
 
   // CRITICAL: Ensure SearchQueryManager has all current query terms available
   ensureQueryTermsInSSoT(actualSearchQuery) {
-    if (!this.searchQueryManager || !actualSearchQuery) return;
+    if (!this.searchQuerySSoT || !actualSearchQuery) return;
     
     // Force ensure current query terms are available
-    this.searchQueryManager.currentQuery = actualSearchQuery;
-    this.searchQueryManager.ensureCurrentQueryTermsAvailable();
+    this.searchQuerySSoT.currentQuery = actualSearchQuery;
+    this.searchQuerySSoT.ensureCurrentQueryTermsAvailable();
     console.log('✅ Forced current query terms into SSoT:', actualSearchQuery);
   }
 
@@ -1772,11 +1882,11 @@ export class DashboardManager {
     console.log('🔧 Generating smart search filters for dashboard UI');
     
     // CRITICAL: Use SearchQueryManager SSoT if available
-    if (this.searchQueryManager) {
+    if (this.searchQuerySSoT) {
       console.log('✅ Using SearchQueryManager SSoT for smart suggestions');
       
-      const availableTerms = this.searchQueryManager.getAvailableTerms();
-      const currentQuery = this.searchQueryManager.getCurrentQuery();
+      const availableTerms = this.searchQuerySSoT.getAvailableTerms();
+      const currentQuery = this.searchQuerySSoT.getCurrentQuery();
       
       console.log('📋 SSoT Available Terms:', availableTerms.length);
       console.log('📋 SSoT Current Query:', currentQuery);
@@ -1786,8 +1896,8 @@ export class DashboardManager {
         .sort((a, b) => (b.score || 0) - (a.score || 0)) // Sort by score
         .slice(0, 5) // Take top 5
         .map(termObj => {
-          const isSelected = this.searchQueryManager.isTermSelected(termObj.term);
-          const isCore = this.searchQueryManager.isCoreTerm(termObj.term);
+          const isSelected = this.searchQuerySSoT.isTermSelected(termObj.term);
+          const isCore = this.searchQuerySSoT.isCoreTerm(termObj.term);
           
           // Visual styling based on term importance
           let className = 'smart-suggestion';
@@ -1961,8 +2071,8 @@ export class DashboardManager {
   // NEW: Get final query from SSoT (after SSoT is initialized with candidate terms)
   getFinalQueryFromSSoT(salesData) {
     // CRITICAL: Always prioritize SSoT after it's been properly initialized
-    if (this.searchQueryManager && this.searchQueryManager.getCurrentQuery()) {
-      const ssotQuery = this.searchQueryManager.getCurrentQuery();
+    if (this.searchQuerySSoT && this.searchQuerySSoT.getCurrentQuery()) {
+      const ssotQuery = this.searchQuerySSoT.getCurrentQuery();
       console.log('🎯 Using FINAL SSoT query as authoritative source:', ssotQuery);
       return ssotQuery;
     }
@@ -1973,127 +2083,52 @@ export class DashboardManager {
     return this.getInitialQueryForSSoTInit(salesData);
   }
 
-  // NEW: FORCE ALL components to use SSoT ONLY - no more candidateSearchTerms chaos
-  async forceSSoTInitializationAsync(salesData) {
+  // NEW: Force SSoT initialization when dashboard is accessed without proper initialization
+  async forceSSoTInitializationAsync() {
     console.log('🚨 FORCING SSoT initialization - eliminating all other search term sources');
     
-    // CRITICAL FIX: Ensure SearchQueryManager reference is available
-    if (!this.searchQueryManager) {
-      console.log('⚠️ SearchQueryManager reference missing - attempting recovery...');
-      
-      // Recovery Strategy 1: Check if we have it via QualityAnalyzer
-      if (this.qualityAnalyzer && this.qualityAnalyzer.searchQueryManager) {
-        console.log('🔧 Recovery: Found SearchQueryManager via QualityAnalyzer');
-        this.searchQueryManager = this.qualityAnalyzer.searchQueryManager;
-      }
-      // Recovery Strategy 2: Check if we have it via ApiManager
-      else if (this.apiManager && this.apiManager.searchQueryManager) {
-        console.log('🔧 Recovery: Found SearchQueryManager via ApiManager');
-        this.searchQueryManager = this.apiManager.searchQueryManager;
-      }
-      // Recovery Strategy 3: Check global assistant instance
-      else if (typeof window !== 'undefined' && window.auctionetAssistant && window.auctionetAssistant.searchQueryManager) {
-        console.log('🔧 Recovery: Found SearchQueryManager via global assistant');
-        this.searchQueryManager = window.auctionetAssistant.searchQueryManager;
-      }
-      // Recovery Strategy 4: Create emergency instance as last resort
-      else {
-        console.log('🚨 Recovery: Creating emergency SearchQueryManager instance');
-        const { SearchQueryManager } = await import(chrome.runtime.getURL('modules/search-query-manager.js'));
-        this.searchQueryManager = new SearchQueryManager();
+    try {
+      // Check if SearchQuerySSoT is already available
+      if (this.searchQuerySSoT) {
+        console.log('✅ SearchQuerySSoT already available, proceeding...');
+        return true;
       }
       
-      if (this.searchQueryManager) {
-        console.log('✅ SearchQueryManager recovery successful');
+      console.log('⚠️ SearchQuerySSoT reference missing - attempting recovery...');
+      await this.restoreSearchQuerySSoTReference();
+      
+      if (this.searchQuerySSoT) {
+        console.log('✅ SearchQuerySSoT recovery successful');
+        return true;
       } else {
-        console.error('❌ CRITICAL: SearchQueryManager recovery failed completely');
+        console.log('🚨 Recovery: SearchQuerySSoT import removed - using AI-only SearchQuerySSoT');
+        console.error('❌ CRITICAL: No SearchQuerySSoT available - please refresh page');
         return false;
       }
-    }
-    
-    // STEP 1: Get basic query from salesData (only for initial SSoT setup)
-    let baseQuery = this.getInitialQueryForSSoTInit(salesData);
-    console.log('🔧 Base query for SSoT init:', baseQuery);
-    
-    // STEP 2: If we have candidate terms, extract them ONCE and put into SSoT
-    let candidateTermsForSSoT = null;
-    
-    if (salesData.candidateSearchTerms) {
-      console.log('✅ Using existing candidateSearchTerms for SSoT');
-      candidateTermsForSSoT = salesData.candidateSearchTerms;
-    } else {
-      console.log('🔧 No candidateSearchTerms - SSoT will handle term extraction');
-      
-      // Let SSoT extract its own terms from base data
-      if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager) {
-        const filterManager = this.qualityAnalyzer.searchFilterManager;
-        
-        // Extract fresh candidate terms ONCE
-        const extractedTerms = filterManager.extractCandidateSearchTerms(
-          salesData.title || '',
-          salesData.description || '',
-          salesData.artistInfo || null,
-          baseQuery
-        );
-        
-        candidateTermsForSSoT = extractedTerms;
-        console.log('🔧 Extracted candidate terms for SSoT:', candidateTermsForSSoT);
-      }
-    }
-    
-    // STEP 3: Initialize SSoT with ALL the terms
-    if (this.searchQueryManager) {
-      this.searchQueryManager.initialize(
-        baseQuery,
-        candidateTermsForSSoT,
-        salesData.hotReload ? 'user' : 'system'
-      );
-      console.log('✅ SSoT initialized with candidate terms');
-    } else {
-      console.error('❌ CRITICAL: SearchQueryManager not available for forced initialization');
+    } catch (error) {
+      console.error('💥 SSoT force initialization failed:', error);
       return false;
     }
+  }
+
+  // NEW: Restore SearchQuerySSoT reference during hot reload or after errors
+  async restoreSearchQuerySSoTReference() {
+    console.log('🔧 Attempting to restore SearchQuerySSoT reference...');
     
-    // STEP 4: Now get the AUTHORITATIVE query from SSoT
-    const authoritativeQuery = this.searchQueryManager.getCurrentQuery();
-    console.log('🎯 AUTHORITATIVE SSoT query:', authoritativeQuery);
-    
-    // STEP 5: FORCE all salesData to use SSoT values ONLY
-    salesData.searchedEntity = authoritativeQuery;
-    
-    if (salesData.historical) {
-      salesData.historical.actualSearchQuery = authoritativeQuery;
+    // Strategy 1: Check if we have it via QualityAnalyzer
+    if (this.qualityAnalyzer && this.qualityAnalyzer.searchQuerySSoT) {
+      console.log('✅ Found SearchQuerySSoT via QualityAnalyzer');
+      this.searchQuerySSoT = this.qualityAnalyzer.searchQuerySSoT;
+      return;
     }
     
-    if (salesData.live) {
-      salesData.live.actualSearchQuery = authoritativeQuery;
+    // Strategy 2: Check global assistant instance
+    if (typeof window !== 'undefined' && window.auctionetAssistant && window.auctionetAssistant.searchQuerySSoT) {
+      console.log('✅ Found SearchQuerySSoT via global assistant');
+      this.searchQuerySSoT = window.auctionetAssistant.searchQuerySSoT;
+      return;
     }
     
-    // STEP 6: Create SSoT-based candidateSearchTerms that everything will use
-    const ssotTerms = this.searchQueryManager.getAvailableTerms();
-    const ssotCandidateTerms = {
-      candidates: ssotTerms.map(term => ({
-        term: term.term,
-        type: term.type,
-        description: term.description,
-        priority: term.priority,
-        preSelected: term.isSelected
-      })),
-      currentQuery: authoritativeQuery,
-      analysisType: salesData.analysisType || 'ssot_forced'
-    };
-    
-    salesData.candidateSearchTerms = ssotCandidateTerms;
-    
-    // STEP 7: Update all manager references to use SSoT
-    if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager) {
-      this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms = ssotCandidateTerms;
-    }
-    
-    console.log('🚨 FORCED SSoT initialization complete - all components now use same source');
-    console.log('🎯 Final authoritative query:', authoritativeQuery);
-    console.log('🔧 Available SSoT terms:', ssotTerms.length);
-    
-    return true;
+    console.log('⚠️ No SearchQuerySSoT reference found - please refresh page');
   }
 } 

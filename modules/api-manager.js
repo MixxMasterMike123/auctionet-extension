@@ -7,8 +7,9 @@ export class APIManager {
     this.apiKey = null;
     this.enableArtistInfo = true;
     this.showDashboard = true; // Default to showing dashboard
-    this.currentModel = 'claude-3-5-sonnet'; // Default fallback
+    this.currentModel = 'claude-3-5-sonnet'; // Set default model instead of null
     this.auctionetAPI = new AuctionetAPI();
+    this.searchQuerySSoT = null; // NEW: AI-only SearchQuerySSoT support
     this.loadSettings();
   }
 
@@ -208,6 +209,12 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     if (!response || typeof response !== 'string') {
       console.error('Invalid response format:', response);
       throw new Error('Invalid response format from Claude');
+    }
+    
+    // SPECIAL CASE: Handle search_query field type - return raw JSON response
+    if (fieldType === 'search_query') {
+      console.log('🔧 Processing search_query response - returning raw JSON');
+      return response.trim();
     }
     
     // For single field requests
@@ -853,6 +860,28 @@ STRIKT FORMAT - KRITISKT:
 
 Returnera ENDAST sökorden separerade med mellanslag enligt Auctionets format, utan extra formatering eller etiketter.`;
 
+      case 'search_query':
+        return `You are an expert auction search optimizer. Generate 2-3 optimal search terms for finding comparable items.
+
+TITLE: "${itemData.title}"
+DESCRIPTION: "${itemData.description}"
+
+GUIDELINES:
+1. PRIORITY: Brand/Manufacturer → Model → Category
+2. NEVER use years, conditions, technical specs, or materials (unless luxury)
+3. BE CONSERVATIVE: Better few good results than many mixed
+4. EXAMPLES:
+   - "SYNTHESIZER, Yamaha DX7..." → ["Yamaha", "DX7"] 
+   - "ROLEX Submariner..." → ["Rolex", "Submariner"]
+   - "RING, 18k gold..." → ["18k gold", "ring"]
+
+Return JSON only:
+{
+  "searchTerms": ["term1", "term2"],
+  "reasoning": "Brief explanation", 
+  "confidence": 0.9
+}`;
+
       default:
         return baseInfo;
     }
@@ -1219,8 +1248,8 @@ SVARA MED JSON:
       
       // Run historical and live analysis in parallel
       const [historicalResult, liveResult] = await Promise.all([
-        this.auctionetAPI.analyzeComparableSales(artistName, objectType, period, technique, currentValuation),
-        this.auctionetAPI.analyzeLiveAuctions(artistName, objectType, period, technique, this.searchQueryManager)
+        this.auctionetAPI.analyzeComparableSales(artistName, objectType, period, technique, currentValuation, this.searchQuerySSoT),
+        this.auctionetAPI.analyzeLiveAuctions(artistName, objectType, period, technique, this.searchQuerySSoT)
       ]);
       
       // Combine historical and live data intelligently
@@ -1320,7 +1349,7 @@ SVARA MED JSON:
     } = searchContext;
     
     // Store original SSoT query for logging purposes only
-    const originalSSoTQuery = this.searchQueryManager ? this.searchQueryManager.getCurrentQuery() : null;
+    const originalSSoTQuery = this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : null;
     console.log('🔧 Original SSoT query before API call:', originalSSoTQuery);
     
     let analysisResult;
@@ -1344,7 +1373,7 @@ SVARA MED JSON:
       
       // Keep original SSoT query intact - NO OVERRIDES
       console.log('🔒 SSoT remains unchanged - respecting Single Source of Truth principle');
-      console.log('🎯 Final SSoT query:', this.searchQueryManager ? this.searchQueryManager.getCurrentQuery() : 'N/A');
+      console.log('🎯 Final SSoT query:', this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : 'N/A');
       
       return analysisResult;
 
@@ -1835,9 +1864,9 @@ Svara ENDAST med giltig JSON:
     return null;
   }
 
-  // NEW: Set SearchQueryManager for SSoT usage
-  setSearchQueryManager(searchQueryManager) {
-    this.searchQueryManager = searchQueryManager;
-    console.log('✅ ApiManager: SearchQueryManager SSoT connected');
+  // NEW: Set SearchQuerySSoT for AI-only search decisions
+  setSearchQuerySSoT(searchQuerySSoT) {
+    this.searchQuerySSoT = searchQuerySSoT;
+    console.log('✅ APIManager: SearchQuerySSoT connected');
   }
 } 

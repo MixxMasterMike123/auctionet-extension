@@ -6,7 +6,7 @@ export class SalesAnalysisManager {
     this.previousFreetextData = null;
     this.pendingAnalyses = new Set();
     this.lastCandidateSearchTerms = null;
-    this.searchQueryManager = null;
+    this.searchQuerySSoT = null;
   }
 
   setApiManager(apiManager) {
@@ -29,10 +29,10 @@ export class SalesAnalysisManager {
     this.lastCandidateSearchTerms = searchTerms;
   }
 
-  // NEW: Set SearchQueryManager for SSoT usage
-  setSearchQueryManager(searchQueryManager) {
-    this.searchQueryManager = searchQueryManager;
-    console.log('✅ SalesAnalysisManager: SearchQueryManager SSoT connected');
+  // NEW: Set AI-only SearchQuerySSoT
+  setSearchQuerySSoT(searchQuerySSoT) {
+    this.searchQuerySSoT = searchQuerySSoT;
+    console.log('✅ SalesAnalysisManager: AI-only SearchQuerySSoT connected');
   }
 
   // ==================== MAIN SALES ANALYSIS ====================
@@ -47,21 +47,19 @@ export class SalesAnalysisManager {
       this.lastCandidateSearchTerms = candidateTerms;
       searchFilterManager.lastCandidateSearchTerms = candidateTerms;
       
-      // CRITICAL FIX: Initialize SearchQueryManager SSoT with extracted candidate terms
-      if (this.searchQueryManager) {
-        console.log('🔧 CRITICAL FIX: Initializing SearchQueryManager SSoT with candidate terms');
-        this.searchQueryManager.initialize(
-          candidateTerms.currentQuery,
-          candidateTerms,
-          'sales_analysis'
-        );
-        console.log('✅ SearchQueryManager SSoT initialized with:', {
-          query: candidateTerms.currentQuery,
-          candidates: candidateTerms.candidates.length,
-          analysisType: candidateTerms.analysisType
-        });
+      // CRITICAL FIX: ALWAYS initialize SSoT with candidate terms for extended checkbox functionality
+      // Even if SSoT already has an AI query, it needs ALL candidate terms for user control
+      if (this.searchQuerySSoT) {
+        console.log('🔧 FORCING SSoT initialization with ALL candidate terms for extended checkboxes');
+        console.log('   Current AI query:', this.searchQuerySSoT.getCurrentQuery());
+        console.log('   Will add', candidateTerms.candidates?.length || 0, 'candidate terms');
+        
+        // Force initialization with all candidate terms
+        this.searchQuerySSoT.initialize(this.searchQuerySSoT.getCurrentQuery(), candidateTerms, 'system_with_extensions');
+        console.log('✅ SSoT re-initialized with AI query + ALL extended candidate terms');
       } else {
-        console.error('❌ CRITICAL ERROR: SearchQueryManager not available for initialization');
+        console.error('❌ CRITICAL ERROR: SearchQuerySSoT not available for initialization');
+        console.error('🔧 SearchQuerySSoT reference:', this.searchQuerySSoT);
       }
       
       console.log('🧪 PHASE 1 TEST - Candidate search terms extracted:');
@@ -79,9 +77,28 @@ export class SalesAnalysisManager {
     }
     
     try {
-      const artistName = typeof artistInfo === 'string' ? artistInfo : artistInfo.artist;
-      const isBrand = artistInfo.isBrand || false;
-      const isFreetext = artistInfo.isFreetext || false;
+      // NEW: Handle AI-only search query structure
+      let artistName;
+      let isBrand = false;
+      let isFreetext = false;
+      
+      if (typeof artistInfo === 'string') {
+        artistName = artistInfo;
+      } else if (artistInfo.artist) {
+        artistName = artistInfo.artist;
+        isBrand = artistInfo.isBrand || false;
+        isFreetext = artistInfo.isFreetext || false;
+      } else if (artistInfo.searchQuery) {
+        // AI-only structure
+        artistName = artistInfo.searchQuery;
+        isFreetext = true; // AI-generated queries are essentially freetext
+      } else if (artistInfo.searchTerms && Array.isArray(artistInfo.searchTerms)) {
+        artistName = artistInfo.searchTerms.join(' ');
+        isFreetext = true;
+      } else {
+        console.error('❌ Invalid artistInfo structure:', artistInfo);
+        return;
+      }
       
       let analysisType = 'artist';
       if (isBrand) analysisType = 'brand';
@@ -97,34 +114,54 @@ export class SalesAnalysisManager {
       // SMART ENHANCEMENT: Extract additional search terms for better matching
       const enhancedTerms = qualityAnalyzer.extractEnhancedSearchTerms(data.title, data.description);
       
-      // USE SSoT: Prepare search context using SearchQueryManager with PROPER artist info
-      let searchContext = this.searchQueryManager ? 
-        this.searchQueryManager.buildSearchContext(
-          artistInfo.artist || artistInfo, // CRITICAL: Pass the actual artist name/info
-          objectType, 
-          period, 
-          technique, 
-          enhancedTerms, 
-          analysisType
-        ) : {
-          // Fallback to legacy logic if SSoT not available
-          primarySearch: artistName,
-          objectType: objectType,
-          period: period,
-          technique: technique,
-          enhancedTerms: enhancedTerms,
-          analysisType: analysisType,
-          searchTerms: `${artistName} ${objectType}`.trim(),
-          finalSearch: `${artistName} ${objectType}`.trim()
-        };
+      // 🚨 STRICT SSoT: Use ONLY SearchQuerySSoT for all search operations
+      let searchContext;
       
-      if (isFreetext && artistInfo) {
-        searchContext.searchStrategy = artistInfo.searchStrategy;
-        searchContext.confidence = artistInfo.confidence;
-        searchContext.termCount = artistInfo.termCount;
+      console.log('🔧 DEBUGGING: Checking SearchQuerySSoT before buildSearchContext');
+      console.log('🔧 this.searchQuerySSoT exists:', !!this.searchQuerySSoT);
+      console.log('🔧 this.searchQuerySSoT type:', typeof this.searchQuerySSoT);
+      if (this.searchQuerySSoT) {
+        console.log('🔧 SearchQuerySSoT methods available:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.searchQuerySSoT)));
+        console.log('🔧 buildSearchContext method exists:', typeof this.searchQuerySSoT.buildSearchContext);
       }
       
-      console.log('🔍 Search context for market analysis:', searchContext);
+      if (this.searchQuerySSoT) {
+        // MANDATORY: Use SSoT as the ONLY source
+        searchContext = this.searchQuerySSoT.buildSearchContext();
+        console.log('✅ STRICT SSoT: Using SearchQuerySSoT as ONLY source for market analysis');
+        console.log('🔒 SSoT Search Context:', searchContext);
+        
+        // Override any additional context with SSoT metadata
+        const ssotMetadata = this.searchQuerySSoT.getCurrentMetadata();
+        if (ssotMetadata) {
+          searchContext.confidence = ssotMetadata.confidence;
+          searchContext.source = ssotMetadata.source;
+          searchContext.reasoning = ssotMetadata.reasoning;
+        }
+        
+      } else {
+        // CRITICAL ERROR: No SSoT available - this should not happen
+        console.error('🚨 CRITICAL ERROR: SearchQuerySSoT not available - cannot perform SSoT-only analysis');
+        console.error('🔧 DETAILED DEBUG: this reference type:', typeof this);
+        console.error('🔧 DETAILED DEBUG: this.searchQuerySSoT value:', this.searchQuerySSoT);
+        console.error('🔧 DETAILED DEBUG: All this properties:', Object.keys(this));
+        throw new Error('SearchQuerySSoT required for market analysis - SSoT-only mode enforced');
+      }
+      
+      // STRICT SSoT: analysisType must come from SSoT, not legacy detection
+      searchContext.analysisType = 'ssot_query'; // Mark as SSoT-driven
+      
+      console.log('🔍 STRICT SSoT: Search context for market analysis:', searchContext);
+      
+      // Check if apiManager is available
+      if (!this.apiManager) {
+        throw new Error('ApiManager not initialized - cannot perform sales analysis');
+      }
+      
+      // Check if analyzeSales method exists
+      if (typeof this.apiManager.analyzeSales !== 'function') {
+        throw new Error('ApiManager.analyzeSales method not available');
+      }
       
       // Call the API for sales analysis
       let salesData = await this.apiManager.analyzeSales(searchContext);
@@ -133,6 +170,15 @@ export class SalesAnalysisManager {
       salesData.analysisType = analysisType;
       salesData.searchedEntity = artistName;
       salesData.searchContext = searchContext;
+      
+      // 🔧 CRITICAL FIX: Add candidate search terms to salesData for dashboard checkboxes
+      if (this.lastCandidateSearchTerms) {
+        salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
+        console.log('✅ Added candidateSearchTerms to salesData for dashboard checkboxes');
+        console.log('📋 Candidates available:', salesData.candidateSearchTerms.candidates.length);
+      } else {
+        console.log('⚠️ No candidateSearchTerms available to add to salesData');
+      }
       
       // NEW: If this is an AI artist analysis and we previously had freetext data, merge them
       if (analysisType === 'artist' && this.previousFreetextData) {
@@ -222,77 +268,56 @@ export class SalesAnalysisManager {
   }
 
   handleSalesAnalysisResult(salesData, currentWarnings, currentScore, qualityAnalyzer, searchFilterManager = null) {
-    // ENHANCED: Check for both comparable data AND meaningful price information
-    if (salesData && salesData.hasComparableData && (salesData.priceRange || (salesData.historical && salesData.historical.analyzedSales > 0) || (salesData.live && salesData.live.analyzedLiveItems > 0))) {
+    // ENHANCED: Show dashboard if we have ANY meaningful data or candidate search terms
+    const hasValidData = salesData && (
+      // Traditional good data
+      (salesData.hasComparableData && (salesData.priceRange || 
+       (salesData.historical && salesData.historical.analyzedSales > 0) || 
+       (salesData.live && salesData.live.analyzedLiveItems > 0))) ||
+      // OR we have candidate search terms (AI-generated search strategy)
+      salesData.candidateSearchTerms ||
+      // OR SearchQuerySSoT has generated a query
+      (this.searchQuerySSoT && this.searchQuerySSoT.getCurrentQuery())
+    );
+    
+    if (hasValidData) {
       console.log('💰 Processing comprehensive market analysis results');
       
-      // CRITICAL FIX: Use SearchQueryManager SSoT instead of re-extracting terms
-      if (this.searchQueryManager) {
-        console.log('🎯 CONSISTENCY FIX: Using SearchQueryManager SSoT for candidate terms');
+      // If we don't have traditional sales data but have AI-generated terms, create mock data
+      if (!salesData.hasComparableData && (salesData.candidateSearchTerms || (this.searchQuerySSoT && this.searchQuerySSoT.getCurrentQuery()))) {
+        console.log('🤖 Creating dashboard with AI-generated search strategy (no historical sales data)');
         
-        // Get the ACTUAL search query from SSoT (preserves "Omega")
-        const actualSearchQuery = this.searchQueryManager.getCurrentQuery();
-        console.log('🔧 SSoT Actual Search Query:', actualSearchQuery);
-        
-        // Get available terms from SSoT (includes all analyzed terms)
-        const availableTerms = this.searchQueryManager.getAvailableTerms();
-        console.log('🔧 SSoT Available Terms:', availableTerms.length);
-        
-        // Build candidate terms using SSoT data (preserves all context)
-        const candidateTermsFromSSoT = {
-          candidates: availableTerms.map(termObj => ({
-            term: termObj.term,
-            type: termObj.type,
-            priority: termObj.priority || this.getTermPriority(termObj.type),
-            description: termObj.description || this.getTermDescription(termObj.type),
-            preSelected: termObj.isSelected || false
-          })),
-          currentQuery: actualSearchQuery, // CRITICAL: Use SSoT query
-          analysisType: salesData.analysisType || 'artist'
+        // Create basic structure for dashboard
+        salesData.hasComparableData = true;
+        salesData.historical = salesData.historical || {
+          analyzedSales: 0,
+          totalMatches: 0,
+          actualSearchQuery: this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : 'AI-genererad sökning'
         };
+        salesData.confidence = 0.5; // Medium confidence for AI-only
+        salesData.dataSource = 'AI-genererad sökstrategi';
+      }
+      
+      // CRITICAL FIX: Use AI-only SearchQuerySSoT instead of re-extracting terms
+      if (this.searchQuerySSoT) {
+        console.log('🎯 CONSISTENCY FIX: Using AI-only SearchQuerySSoT for search query');
         
-        this.lastCandidateSearchTerms = candidateTermsFromSSoT;
-        salesData.candidateSearchTerms = candidateTermsFromSSoT;
+        // Get the ACTUAL search query from AI-only SSoT
+        const actualSearchQuery = this.searchQuerySSoT.getCurrentQuery();
+        console.log('🔧 AI-only SSoT Query:', actualSearchQuery);
         
-        console.log('✅ CONSISTENCY FIX: Used SearchQueryManager SSoT data');
-        console.log('🔧 SSoT Final currentQuery:', candidateTermsFromSSoT.currentQuery);
+        // Get metadata from AI-only SSoT
+        const metadata = this.searchQuerySSoT.getCurrentMetadata();
+        console.log('🔧 AI-only SSoT Metadata:', metadata);
+        
+        // Use AI-only data for dashboard
+        salesData.aiOnlyQuery = actualSearchQuery;
+        salesData.aiOnlyMetadata = metadata;
+        
+        console.log('✅ CONSISTENCY FIX: Used AI-only SearchQuerySSoT data');
         
       } else {
-        console.log('⚠️ SearchQueryManager not available - falling back to legacy extraction');
-        
-        // LEGACY FALLBACK: Extract actual search query from sales data
-        let actualSearchQuery = '';
-        if (salesData.historical && salesData.historical.actualSearchQuery) {
-          actualSearchQuery = salesData.historical.actualSearchQuery;
-        } else if (salesData.live && salesData.live.actualSearchQuery) {
-          actualSearchQuery = salesData.live.actualSearchQuery;
-        } else if (salesData.searchedEntity) {
-          actualSearchQuery = salesData.searchedEntity;
-        }
-        
-        if (actualSearchQuery) {
-          // RE-EXTRACT candidate terms with the actual search query for proper pre-selection
-          console.log('🔧 RE-EXTRACTING candidate terms with actual search query:', actualSearchQuery);
-          const data = this.dataExtractor.extractItemData();
-          const updatedCandidateTerms = searchFilterManager.extractCandidateSearchTerms(
-            data.title, 
-            data.description, 
-            null, // no artistInfo needed for re-extraction
-            actualSearchQuery // pass the actual search query
-          );
-          
-          if (updatedCandidateTerms) {
-            this.lastCandidateSearchTerms = updatedCandidateTerms;
-            salesData.candidateSearchTerms = updatedCandidateTerms;
-            console.log('✅ Updated candidate terms with proper pre-selection based on actual search');
-          } else {
-            // Fallback to original logic
-            this.lastCandidateSearchTerms.currentQuery = actualSearchQuery;
-            salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
-          }
-        } else {
-          salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
-        }
+        console.log('⚠️ AI-only SearchQuerySSoT not available - using sales data as-is');
       }
       
       // NEW: Analyze valuation and suggest changes if needed

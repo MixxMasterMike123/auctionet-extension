@@ -38,7 +38,6 @@
     const { QualityAnalyzer } = await import(chrome.runtime.getURL('modules/quality-analyzer.js'));
     const { APIManager } = await import(chrome.runtime.getURL('modules/api-manager.js'));
     const { DataExtractor } = await import(chrome.runtime.getURL('modules/data-extractor.js'));
-    const { SearchQueryManager } = await import(chrome.runtime.getURL('modules/search-query-manager.js'));
     const { SearchQuerySSoT } = await import(chrome.runtime.getURL('modules/search-query-ssot.js'));
     const { SalesAnalysisManager } = await import(chrome.runtime.getURL('modules/sales-analysis-manager.js'));
     
@@ -47,47 +46,47 @@
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
       constructor() {
-        // Initialize core modules
-        this.dataExtractor = new DataExtractor();
-        this.apiManager = new APIManager();
+        // Initialize quality analyzer first since other managers depend on it
         this.qualityAnalyzer = new QualityAnalyzer();
+        this.dataExtractor = new DataExtractor();
         
-        // Initialize SearchQueryManager SSoT (legacy)
-        this.searchQueryManager = new SearchQueryManager();
-        console.log('🔧 SearchQueryManager SSoT initialized');
-        
-        // NEW: Initialize AI-only SearchQuerySSoT
+        // Initialize AI-only SearchQuerySSoT
+        this.apiManager = new APIManager();
         this.searchQuerySSoT = new SearchQuerySSoT(this.apiManager);
         console.log('🤖 AI-only SearchQuerySSoT initialized');
         
         // Initialize other managers
         this.dashboardManager = new DashboardManager();
-        this.searchFilterManager = new SearchFilterManager();
         this.salesAnalysisManager = new SalesAnalysisManager();
         this.uiManager = new UIManager(this.apiManager, this.qualityAnalyzer);
         
-        // Wire up SearchQueryManager SSoT to all components (legacy)
-        this.apiManager.setSearchQueryManager(this.searchQueryManager);
-        this.dashboardManager.setSearchQueryManager(this.searchQueryManager);
-        this.searchFilterManager.setSearchQueryManager(this.searchQueryManager);
-        this.salesAnalysisManager.setSearchQueryManager(this.searchQueryManager);
-        console.log('✅ SearchQueryManager SSoT wired to all components');
-        
-        // NEW: Wire up AI-only SearchQuerySSoT
-        this.qualityAnalyzer.setSearchQuerySSoT(this.searchQuerySSoT);
-        console.log('🤖 AI-only SearchQuerySSoT wired to QualityAnalyzer');
-        
-        // CRITICAL FIX: Make assistant instance available globally for hot reload restoration
-        if (typeof window !== 'undefined') {
-          window.auctionetAssistant = this;
-          console.log('🌐 Assistant instance exposed globally for hot reload support');
-        }
-        
-        // Set up other dependencies
+        // Set up quality analyzer dependencies first
         this.qualityAnalyzer.setDataExtractor(this.dataExtractor);
-        this.qualityAnalyzer.setApiManager(this.apiManager);
-        this.qualityAnalyzer.setSearchQueryManager(this.searchQueryManager);
-        this.qualityAnalyzer.salesAnalysisManager = this.salesAnalysisManager; // For market analysis
+        this.qualityAnalyzer.setDashboardManager(this.dashboardManager);
+        
+        // Get SearchFilterManager from QualityAnalyzer (properly connected with SearchTermExtractor)
+        this.searchFilterManager = this.qualityAnalyzer.searchFilterManager;
+        console.log('✅ Using QualityAnalyzer SearchFilterManager (with SearchTermExtractor connected)');
+        
+        // Wire up AI-only SearchQuerySSoT to all components
+        this.qualityAnalyzer.setSearchQuerySSoT(this.searchQuerySSoT);
+        this.salesAnalysisManager.setSearchQuerySSoT(this.searchQuerySSoT);
+        this.searchFilterManager.setSearchQuerySSoT(this.searchQuerySSoT);
+        this.dashboardManager.setSearchQuerySSoT(this.searchQuerySSoT);
+        
+        // 🔧 CRITICAL FIX: Wire DashboardManager to SalesAnalysisManager
+        this.salesAnalysisManager.setDashboardManager(this.dashboardManager);
+        console.log('🔗 SalesAnalysisManager connected to DashboardManager');
+        
+        console.log('✅ AI-only SearchQuerySSoT wired to all components');
+        
+        // CRITICAL FIX: Set up dependencies in correct order
+        this.qualityAnalyzer.salesAnalysisManager = this.salesAnalysisManager; // MUST be before setApiManager
+        this.qualityAnalyzer.setApiManager(this.apiManager); // Now this can properly inject into salesAnalysisManager
+        
+        // CRITICAL FIX: Ensure dashboard manager has direct ApiManager reference for hot reload
+        this.dashboardManager.setApiManager(this.apiManager);
+        console.log('✅ DashboardManager: Direct ApiManager reference set for hot reload');
         
         this.init();
         this.setupEventListeners();

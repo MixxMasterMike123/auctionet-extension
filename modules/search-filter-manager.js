@@ -1,8 +1,12 @@
 export class SearchFilterManager {
   constructor() {
-    this.lastCandidateSearchTerms = null;
+    this.qualityAnalyzer = null;
+    this.dashboardManager = null;
+    this.apiManager = null;
     this.dataExtractor = null;
-    this.searchQueryManager = null; // SSoT reference
+    this.searchQuerySSoT = null; // NEW: AI-only search query system
+    this.searchTermExtractor = null; // NEW: For extended term extraction
+    this.lastCandidateSearchTerms = null;
   }
 
   // Set dependencies
@@ -22,16 +26,22 @@ export class SearchFilterManager {
     this.dataExtractor = dataExtractor;
   }
 
-  // NEW: Set SearchQueryManager for SSoT usage
-  setSearchQueryManager(searchQueryManager) {
-    this.searchQueryManager = searchQueryManager;
-    console.log('✅ SearchFilterManager: SearchQueryManager SSoT connected');
+  // NEW: Set SearchTermExtractor for extended term extraction
+  setSearchTermExtractor(searchTermExtractor) {
+    this.searchTermExtractor = searchTermExtractor;
+    console.log('✅ SearchFilterManager: SearchTermExtractor connected for extended terms');
+  }
+
+  // NEW: Set AI-only SearchQuerySSoT
+  setSearchQuerySSoT(searchQuerySSoT) {
+    this.searchQuerySSoT = searchQuerySSoT;
+    console.log('✅ SearchFilterManager: AI-only SearchQuerySSoT connected');
   }
 
   // USE SSoT: Build search query from selected candidates
   buildQueryFromCandidates(selectedCandidates) {
-    if (this.searchQueryManager) {
-      return this.searchQueryManager.buildQueryFromCandidates(selectedCandidates);
+    if (this.searchQuerySSoT) {
+      return this.searchQuerySSoT.buildQueryFromCandidates(selectedCandidates);
     }
     // Fallback to legacy logic
     return selectedCandidates.join(' ');
@@ -291,17 +301,43 @@ export class SearchFilterManager {
     
     // 8. SIGNIFICANT WORDS (filtered list)
     const significantWords = this.extractSignificantWords(text);
+    console.log('🔧 DEBUG: Significant words extracted:', significantWords);
+    
     significantWords.forEach(word => {
       if (word && typeof word === 'string') {
         // Avoid duplicates
         const alreadyExists = candidates.some(c => c.term.toLowerCase() === word.toLowerCase());
         if (!alreadyExists) {
           const preSelected = shouldBePreSelected(word);
+          console.log(`🔧 DEBUG: Processing significant word "${word}" - preSelected: ${preSelected}`);
           candidates.push({
             term: word,
             type: 'keyword',
             priority: 8,
             description: 'Nyckelord',
+            preSelected: preSelected
+          });
+        } else {
+          console.log(`🔧 DEBUG: Skipping duplicate significant word "${word}"`);
+        }
+      }
+    });
+    
+    // 9. GEOGRAPHIC TERMS (from searchTermExtractor)
+    const geographicTerms = this.searchTermExtractor?.extractGeographicTerms(text) || [];
+    console.log('🔧 DEBUG: Geographic terms extracted:', geographicTerms);
+    
+    geographicTerms.forEach(geoTerm => {
+      if (geoTerm && typeof geoTerm === 'string') {
+        const alreadyExists = candidates.some(c => c.term.toLowerCase() === geoTerm.toLowerCase());
+        if (!alreadyExists) {
+          const preSelected = shouldBePreSelected(geoTerm);
+          console.log(`🔧 DEBUG: Processing geographic term "${geoTerm}" - preSelected: ${preSelected}`);
+          candidates.push({
+            term: geoTerm,
+            type: 'origin',
+            priority: 8.5,
+            description: 'Ursprung/Land',
             preSelected: preSelected
           });
         }
@@ -322,6 +358,22 @@ export class SearchFilterManager {
     console.log('🎯 ALL extracted candidate search terms:', candidates);
     console.log('✅ Total candidates found:', candidates.length);
     console.log('✅ Pre-selected candidates:', preSelectedTerms);
+    console.log('🔧 EXTENDED TERMS DEBUG - All candidates by type:');
+    
+    const selectedCandidates = candidates.filter(c => c.preSelected);
+    const unselectedCandidates = candidates.filter(c => !c.preSelected);
+    
+    console.log(`📌 SELECTED (will be checked): ${selectedCandidates.length}`);
+    selectedCandidates.forEach(c => console.log(`   ✅ "${c.term}" (${c.type}) - ${c.description}`));
+    
+    console.log(`📋 UNSELECTED (should be available as unchecked): ${unselectedCandidates.length}`);
+    unselectedCandidates.forEach(c => console.log(`   ⚪ "${c.term}" (${c.type}) - ${c.description}`));
+    
+    if (unselectedCandidates.length === 0) {
+      console.warn('⚠️ PROBLEM: No unselected candidates found - should have extended terms like japan, synthesizer, etc.');
+    } else {
+      console.log(`✅ GOOD: Found ${unselectedCandidates.length} extended terms for user control`);
+    }
     
     return {
       candidates: candidates,
@@ -665,7 +717,7 @@ export class SearchFilterManager {
         const data = this.dataExtractor.extractItemData();
         
         // CRITICAL FIX: Use SearchQueryManager SSoT for consistent query building
-        if (!this.searchQueryManager) {
+        if (!this.searchQuerySSoT) {
           console.error('❌ CONSISTENCY ERROR: SearchQueryManager not available for interactive filter');
           alert('⚠️ Sökfunktion inte tillgänglig - ladda om sidan');
           return;
@@ -674,14 +726,14 @@ export class SearchFilterManager {
         console.log('🔧 CONSISTENCY FIX: Using SearchQueryManager SSoT for interactive filter');
         
         // Update SSoT with user selections
-        this.searchQueryManager.updateUserSelections(selectedTerms);
+        this.searchQuerySSoT.updateUserSelections(selectedTerms);
         
         // Get the new query from SSoT (with core terms preserved)
-        const newQueryFromSSoT = this.searchQueryManager.getCurrentQuery();
+        const newQueryFromSSoT = this.searchQuerySSoT.getCurrentQuery();
         console.log('🎯 SSoT generated consistent query:', newQueryFromSSoT);
         
         // Build search context using SSoT
-        const customSearchContext = this.searchQueryManager.buildSearchContext(
+        const customSearchContext = this.searchQuerySSoT.buildSearchContext(
           null, // artistInfo (SSoT handles this internally)
           '', // objectType (SSoT handles this internally)  
           '', // period (SSoT handles this internally)
@@ -773,7 +825,7 @@ export class SearchFilterManager {
     
     try {
       // CRITICAL FIX: Use SearchQueryManager SSoT for consistent query building
-      if (!this.searchQueryManager) {
+      if (!this.searchQuerySSoT) {
         console.error('❌ CONSISTENCY ERROR: SearchQueryManager not available for header filter change');
         return;
       }
@@ -781,14 +833,14 @@ export class SearchFilterManager {
       console.log("🔧 CONSISTENCY FIX: Using SearchQueryManager SSoT for header filter");
       
       // Update SSoT with user selections
-      this.searchQueryManager.updateUserSelections(selectedTerms);
+      this.searchQuerySSoT.updateUserSelections(selectedTerms);
       
       // Get the new query from SSoT (with core terms preserved)
-      const newQuery = this.searchQueryManager.getCurrentQuery();
+      const newQuery = this.searchQuerySSoT.getCurrentQuery();
       console.log("🎯 SSoT generated consistent query:", newQuery);
       
       // Build search context using SSoT
-      const customSearchContext = this.searchQueryManager.buildSearchContext(
+      const customSearchContext = this.searchQuerySSoT.buildSearchContext(
         null, // artistInfo (SSoT handles this internally)
         '', // objectType (SSoT handles this internally)
         '', // period (SSoT handles this internally)

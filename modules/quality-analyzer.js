@@ -4,7 +4,6 @@ import { SalesAnalysisManager } from "/modules/sales-analysis-manager.js";
 import { DashboardManager } from './dashboard-manager.js';
 import { SearchFilterManager } from './search-filter-manager.js';
 import { DataExtractor } from './data-extractor.js';
-import { searchTermExtractor } from './search-term-extractor.js';
 import { SearchQuerySSoT } from './search-query-ssot.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
@@ -17,7 +16,7 @@ export class QualityAnalyzer {
     this.searchQuerySSoT = null; // NEW: AI-only search query system
     this.immediateAnalysisStarted = false; // Prevent duplicate sales analysis
     this.previousFreetextData = null;
-    this.searchTermExtractor = searchTermExtractor;
+    this.searchTermExtractor = new SearchTermExtractor(); // Fix: create instance of class
     this.itemTypeHandlers = new ItemTypeHandlers();
     
     // Initialize manager instances
@@ -39,10 +38,41 @@ export class QualityAnalyzer {
     this.salesAnalysisManager.setDataExtractor(extractor);
   }
 
+  setDashboardManager(dashboardManager) {
+    this.dashboardManager = dashboardManager;
+    this.salesAnalysisManager.setDashboardManager(dashboardManager);
+    this.searchFilterManager.setDashboardManager(dashboardManager);
+  }
+
   setApiManager(apiManager) {
     this.apiManager = apiManager;
-    this.salesAnalysisManager.setApiManager(apiManager);
-    this.salesAnalysisManager.setDashboardManager(this.dashboardManager);
+    
+    // Connect SearchQuerySSoT to apiManager for SSoT-consistent queries
+    if (this.searchQuerySSoT) {
+      console.log('🔗 Connecting SearchQuerySSoT to APIManager for consistent live auction queries');
+      apiManager.setSearchQuerySSoT(this.searchQuerySSoT);
+    } else {
+      console.log('⚠️ SearchQuerySSoT not available yet during setApiManager - will connect later');
+    }
+    
+    // Debug: Check if salesAnalysisManager is available
+    if (this.salesAnalysisManager) {
+      console.log('✅ SalesAnalysisManager available, setting API manager');
+      this.salesAnalysisManager.setApiManager(apiManager);
+      
+      // 🔧 CRITICAL FIX: Only set DashboardManager if SalesAnalysisManager doesn't already have one
+      if (!this.salesAnalysisManager.dashboardManager) {
+        console.log('⚠️ SalesAnalysisManager has no DashboardManager, setting QualityAnalyzer instance');
+        this.salesAnalysisManager.setDashboardManager(this.dashboardManager);
+      } else {
+        console.log('✅ SalesAnalysisManager already has DashboardManager (from content script), preserving it');
+      }
+      
+      this.salesAnalysisManager.setDataExtractor(this.dataExtractor); // NEW: Set data extractor
+    } else {
+      console.error('❌ SalesAnalysisManager not available during setApiManager call');
+    }
+    
     this.dashboardManager.setApiManager(apiManager);
     // Pass dependencies to the search filter manager
     this.searchFilterManager.setQualityAnalyzer(this);
@@ -54,15 +84,25 @@ export class QualityAnalyzer {
   // NEW: Set SearchQueryManager for SSoT usage
   setSearchQueryManager(searchQueryManager) {
     this.searchQueryManager = searchQueryManager;
-    this.salesAnalysisManager.setSearchQueryManager(searchQueryManager);
-    this.searchFilterManager.setSearchQueryManager(searchQueryManager);
-    console.log('✅ QualityAnalyzer: SearchQueryManager SSoT connected');
+    // DEPRECATED: This method is kept for backward compatibility but should use setSearchQuerySSoT
+    console.log('⚠️ QualityAnalyzer: Using legacy SearchQueryManager - consider updating to SearchQuerySSoT');
   }
 
   // NEW: Set AI-only search query system
   setSearchQuerySSoT(searchQuerySSoT) {
     this.searchQuerySSoT = searchQuerySSoT;
-    console.log('✅ QualityAnalyzer: AI-only SearchQuerySSoT connected');
+    
+    // Connect SearchQuerySSoT to apiManager for SSoT-consistent queries
+    if (this.apiManager) {
+      console.log('🔗 Connecting SearchQuerySSoT to APIManager for consistent live auction queries');
+      this.apiManager.setSearchQuerySSoT(searchQuerySSoT);
+    }
+    
+    // Wire SearchQuerySSoT to all components that need it
+    this.salesAnalysisManager.setSearchQuerySSoT(searchQuerySSoT);
+    this.searchFilterManager.setSearchQuerySSoT(searchQuerySSoT);
+    
+    console.log('✅ QualityAnalyzer: AI-only SearchQuerySSoT connected to all components');
   }
 
   // Helper method to check for measurements in Swedish format
@@ -729,19 +769,31 @@ export class QualityAnalyzer {
           // No AI artist found, use AI-generated search query
           const bestSearchQuery = await this.determineBestSearchQueryForMarketAnalysis(data, aiArtist);
         
-          if (bestSearchQuery) {
+          if (bestSearchQuery && bestSearchQuery.source === 'ai_only') {
             // CRITICAL FIX: Check if sales analysis is already running
             if (this.pendingAnalyses.has('sales')) {
-              console.log('⚠️ Sales analysis already running - skipping fallback duplicate analysis');
+              console.log('⚠️ Sales analysis already running - skipping SSoT duplicate analysis');
               return;
             }
             
-            console.log('💰 Starting sales analysis with AI-generated search query:', bestSearchQuery);
+            console.log('💰 Starting STRICT SSoT sales analysis with AI-generated search query:', bestSearchQuery);
+            this.pendingAnalyses.add('sales');
+            this.updateAILoadingMessage('💰 Analyserar marknadsvärde med SSoT...');
+            this.salesAnalysisManager.startSalesAnalysis(bestSearchQuery, data, currentWarnings, currentScore, this.searchFilterManager, this);
+          } else if (bestSearchQuery) {
+            // LEGACY fallback - but log warning that SSoT should be used
+            console.log('⚠️ Using legacy search query (SSoT unavailable):', bestSearchQuery);
+            if (this.pendingAnalyses.has('sales')) {
+              console.log('⚠️ Sales analysis already running - skipping legacy fallback duplicate analysis');
+              return;
+            }
+            
+            console.log('💰 Starting legacy sales analysis with fallback query:', bestSearchQuery);
             this.pendingAnalyses.add('sales');
             this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
             this.salesAnalysisManager.startSalesAnalysis(bestSearchQuery, data, currentWarnings, currentScore, this.searchFilterManager, this);
           } else {
-            console.log('ℹ️ No search query generated for sales analysis');
+            console.log('ℹ️ No search query generated for sales analysis (neither SSoT nor legacy)');
             this.checkAndHideLoadingIndicator();
           }
         }
@@ -797,31 +849,87 @@ export class QualityAnalyzer {
         }
       });
 
-      // CONDITIONAL IMMEDIATE ANALYSIS: Only start immediate analysis if we have a high-confidence artist or brand AND no AI detection is running
+      // 🚨 STRICT SSoT: Prioritize SSoT for immediate analysis over legacy detection
       if (immediateArtist && (immediateArtist.source === 'artist_field' || immediateArtist.confidence > 0.8 || immediateArtist.isBrand)) {
-        console.log('💰 Starting immediate sales analysis with high-confidence artist/brand:', immediateArtist);
+        console.log('⚠️ Legacy immediate analysis available, but checking SSoT first...');
         
-        // CRITICAL FIX: Check if sales analysis is already running to prevent duplicates
-        if (this.pendingAnalyses.has('sales')) {
-          console.log('⚠️ Sales analysis already running - skipping duplicate immediate analysis');
-        } else {
-          this.pendingAnalyses.add('sales');
+        // PRIORITY: Try SSoT first even for immediate analysis
+        if (this.searchQuerySSoT) {
+          console.log('🚨 OVERRIDING immediate analysis with SSoT for consistency');
           
-          // Set appropriate loading message based on analysis type
-          let loadingMessage = '💰 Analyserar marknadsvärde...';
-          if (immediateArtist.isBrand) {
-            loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
-          } else if (immediateArtist.isFreetext) {
-            loadingMessage = `🔍 Söker jämförbara objekt: "${immediateArtist.artist}"...`;
-          } else {
-            loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+          try {
+            const ssotResult = await this.searchQuerySSoT.generateAndSetQuery(data.title, data.description, data.artist || '', data.aiArtist || '');
+            
+            if (ssotResult && ssotResult.success) {
+              console.log('✅ SSoT override successful for immediate analysis:', ssotResult.query);
+              
+              // Use SSoT instead of immediate artist
+              const ssotSearchQuery = {
+                searchQuery: ssotResult.query,
+                searchTerms: ssotResult.searchTerms,
+                source: 'ai_only',
+                confidence: ssotResult.confidence,
+                reasoning: ssotResult.reasoning
+              };
+              
+              if (this.pendingAnalyses.has('sales')) {
+                console.log('⚠️ Sales analysis already running - skipping SSoT immediate analysis');
+              } else {
+                this.pendingAnalyses.add('sales');
+                this.updateAILoadingMessage('💰 Analyserar marknadsvärde med SSoT...');
+                this.salesAnalysisManager.startSalesAnalysis(ssotSearchQuery, data, currentWarnings, currentScore, this.searchFilterManager, this);
+                this.immediateAnalysisStarted = true;
+              }
+            } else {
+              throw new Error('SSoT generation failed');
+            }
+          } catch (error) {
+            console.log('⚠️ SSoT override failed, falling back to immediate artist:', error);
+            
+            // Fallback to original immediate analysis
+            console.log('💰 Starting immediate sales analysis with high-confidence artist/brand:', immediateArtist);
+            
+            if (this.pendingAnalyses.has('sales')) {
+              console.log('⚠️ Sales analysis already running - skipping duplicate immediate analysis');
+            } else {
+              this.pendingAnalyses.add('sales');
+              
+              let loadingMessage = '💰 Analyserar marknadsvärde...';
+              if (immediateArtist.isBrand) {
+                loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+              } else if (immediateArtist.isFreetext) {
+                loadingMessage = `🔍 Söker jämförbara objekt: "${immediateArtist.artist}"...`;
+              } else {
+                loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+              }
+              
+              this.updateAILoadingMessage(loadingMessage);
+              this.salesAnalysisManager.startSalesAnalysis(immediateArtist, data, currentWarnings, currentScore, this.searchFilterManager, this);
+              this.immediateAnalysisStarted = true;
+            }
           }
+        } else {
+          // No SSoT available, use original immediate analysis
+          console.log('💰 Starting immediate sales analysis with high-confidence artist/brand (no SSoT):', immediateArtist);
           
-          this.updateAILoadingMessage(loadingMessage);
-          this.salesAnalysisManager.startSalesAnalysis(immediateArtist, data, currentWarnings, currentScore, this.searchFilterManager, this);
-          
-          // CRITICAL FIX: Mark that immediate analysis was started to prevent AI duplication
-          this.immediateAnalysisStarted = true;
+          if (this.pendingAnalyses.has('sales')) {
+            console.log('⚠️ Sales analysis already running - skipping duplicate immediate analysis');
+          } else {
+            this.pendingAnalyses.add('sales');
+            
+            let loadingMessage = '💰 Analyserar marknadsvärde...';
+            if (immediateArtist.isBrand) {
+              loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+            } else if (immediateArtist.isFreetext) {
+              loadingMessage = `🔍 Söker jämförbara objekt: "${immediateArtist.artist}"...`;
+            } else {
+              loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+            }
+            
+            this.updateAILoadingMessage(loadingMessage);
+            this.salesAnalysisManager.startSalesAnalysis(immediateArtist, data, currentWarnings, currentScore, this.searchFilterManager, this);
+            this.immediateAnalysisStarted = true;
+          }
         }
       } else {
         console.log('⏳ Waiting for AI artist detection before starting market analysis (no high-confidence immediate artist found)');
@@ -1782,7 +1890,7 @@ export class QualityAnalyzer {
     // Use AI-only SearchQuerySSoT if available
     if (this.searchQuerySSoT) {
       try {
-        const result = await this.searchQuerySSoT.generateAndSetQuery(data.title, data.description);
+        const result = await this.searchQuerySSoT.generateAndSetQuery(data.title, data.description, data.artist || '', aiArtist?.detectedArtist || '');
         
         if (result && result.success) {
           console.log('✅ AI-ONLY: Generated optimal search query:', result.query);
@@ -1887,5 +1995,18 @@ export class QualityAnalyzer {
 
     console.log('❌ No suitable artist or search terms found for market analysis');
     return null;
+  }
+
+  // Set SearchFilterManager reference and provide dependencies
+  setSearchFilterManager(searchFilterManager) {
+    this.searchFilterManager = searchFilterManager;
+    
+    // NEW: Provide SearchTermExtractor for extended term extraction
+    if (this.searchTermExtractor) {
+      this.searchFilterManager.setSearchTermExtractor(this.searchTermExtractor);
+      console.log('✅ QualityAnalyzer: Provided SearchTermExtractor to SearchFilterManager for extended terms');
+    }
+    
+    console.log('✅ QualityAnalyzer: SearchFilterManager connected');
   }
 }

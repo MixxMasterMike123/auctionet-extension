@@ -1,171 +1,180 @@
-// modules/ai-search-query-generator.js - AI-Only Search Query Generation
-// The ONLY source for search query decisions - pure AI intelligence
+// modules/ai-search-query-generator.js - AI-powered search query generation
+// Uses Claude to generate optimal search terms for auction market analysis
+
+import { APIManager } from './api-manager.js';
+import { applySearchRules } from './ai-search-rules.js';
 
 export class AISearchQueryGenerator {
-  constructor(apiManager) {
-    this.apiManager = apiManager;
+  constructor(apiManagerInstance = null) {
+    this.apiManager = apiManagerInstance || new APIManager();
     this.cache = new Map();
-    this.cacheExpiry = 60 * 60 * 1000; // 1 hour cache for AI decisions
+    this.cacheExpiry = 30 * 60 * 1000; // 30 minutes
   }
 
-  // MAIN METHOD: Generate optimal search query using pure AI
-  async generateOptimalSearchQuery(title, description = '') {
+  async generateOptimalSearchQuery(title, description = '', artist = '', aiArtist = '') {
     console.log('🤖 AI-ONLY: Starting pure AI search query generation...');
-    console.log(`📝 Title: ${title}`);
-    console.log(`📄 Description: ${description.substring(0, 100)}...`);
+    console.log('📝 Title:', title);
+    console.log('📄 Description:', description);
+    console.log('👤 Artist field:', artist);
+    console.log('🤖 AI Artist:', aiArtist);
 
-    // Check cache first
-    const cacheKey = `${title}_${description}`.substring(0, 200);
-    const cached = this.getCachedResult(cacheKey);
-    if (cached) {
-      console.log('📦 Using cached AI search query:', cached);
-      return cached;
+    // STEP 1: Apply AI rules first (especially artist field respect)
+    const inputData = { title, description, artist, aiArtist };
+    const rulesResult = applySearchRules(inputData);
+    
+    if (rulesResult.searchTerms.length >= 2) {
+      console.log('✅ AI RULES: Generated sufficient search terms, using rules-based approach');
+      console.log('🎯 Rules-based query:', rulesResult.searchTerms.join(' '));
+      return {
+        success: true,
+        searchTerms: rulesResult.searchTerms,
+        query: rulesResult.searchTerms.join(' '),
+        reasoning: rulesResult.reasoning,
+        confidence: rulesResult.confidence,
+        source: 'ai_rules',
+        originalTitle: title,
+        originalDescription: description,
+        artist: artist,
+        appliedRules: rulesResult.appliedRules
+      };
+    } else {
+      console.log('⚠️ AI RULES: Insufficient terms from rules, falling back to Claude AI generation');
     }
 
+    // STEP 2: Fallback to Claude AI if rules don't generate enough terms
     try {
-      const aiResult = await this.callAIForSearchQuery(title, description);
+      // Check cache first
+      const cacheKey = this.generateCacheKey(title, description, artist);
+      const cached = this.getCachedResult(cacheKey);
+      if (cached) {
+        console.log('📦 Using cached AI search query result');
+        return cached;
+      }
+
+      // Build context for AI (including artist field if available)
+      const context = this.buildAIContext(title, description, artist, aiArtist);
       
-      if (aiResult && aiResult.success && aiResult.searchTerms) {
-        console.log('✅ AI generated optimal search query:', aiResult.searchTerms);
+      console.log('🚀 Calling AI for search query generation...');
+      const response = await this.callClaudeAPI(context);
+      
+      if (response.success) {
+        const result = {
+          success: true,
+          searchTerms: response.searchTerms,
+          query: response.searchTerms.join(' '),
+          reasoning: response.reasoning,
+          confidence: response.confidence,
+          source: 'ai_claude',
+          originalTitle: title,
+          originalDescription: description,
+          artist: artist
+        };
         
         // Cache the result
-        this.setCachedResult(cacheKey, aiResult);
-        
-        return aiResult;
+        this.setCachedResult(cacheKey, result);
+        return result;
       } else {
-        console.error('❌ AI failed to generate search query:', aiResult);
-        return this.getFallbackQuery(title);
+        throw new Error('AI generation failed');
       }
+
     } catch (error) {
       console.error('💥 AI search query generation failed:', error);
-      return this.getFallbackQuery(title);
+      
+      // Emergency fallback
+      const fallbackTerms = this.generateFallbackQuery(title);
+      return {
+        success: true,
+        searchTerms: fallbackTerms,
+        query: fallbackTerms.join(' '),
+        reasoning: 'Emergency fallback due to AI failure',
+        confidence: 0.3,
+        source: 'emergency_fallback',
+        originalTitle: title,
+        originalDescription: description,
+        artist: artist
+      };
     }
+  }
+
+  buildAIContext(title, description, artist, aiArtist) {
+    // Build enhanced context that emphasizes artist field importance
+    let context = `Generate optimal search terms for auction market analysis.
+
+CRITICAL RULE: If artist field is provided, it MUST be included in the search terms.
+
+Title: "${title}"
+Description: "${description}"`;
+
+    if (artist && artist.trim()) {
+      context += `
+Artist field (MANDATORY to include): "${artist}"`;
+    }
+
+    if (aiArtist && aiArtist.trim() && aiArtist !== artist) {
+      context += `
+AI detected artist: "${aiArtist}"`;
+    }
+
+    context += `
+
+Rules:
+1. ALWAYS include artist field content if provided (highest priority)
+2. Include brand names (Royal Copenhagen, Yamaha, Omega, etc.)
+3. Include specific object types (fat, armbandsur, synthesizer, etc.)
+4. Include model numbers or pattern names
+5. Maximum 4 terms, prioritize by market relevance
+6. Terms should be in the language they appear (Swedish/English mix is fine)
+
+Return JSON format:
+{
+  "searchTerms": ["term1", "term2", "term3"],
+  "reasoning": "explanation of term selection prioritizing artist field",
+  "confidence": 0.95
+}`;
+
+    return context;
+  }
+
+  // Generate cache key for search results
+  generateCacheKey(title, description, artist) {
+    const key = `${title}_${description}_${artist}`.substring(0, 200);
+    return key.replace(/[^\w\s-]/g, ''); // Remove special characters
   }
 
   // AI prompt and analysis
-  async callAIForSearchQuery(title, description) {
-    const prompt = this.buildAIPrompt(title, description);
-    
-    console.log('🚀 Calling AI for search query generation...');
-    
+  async callClaudeAPI(prompt) {
     try {
-      const response = await this.apiManager.callAI(prompt);
+      console.log('🚀 Calling AI for search query generation...');
+      const response = await this.apiManager.callAI(prompt, 'search_query');
       
-      if (response && response.success) {
-        return this.parseAIResponse(response.data);
+      if (response && response.searchTerms) {
+        console.log('✅ AI search query generation successful, received raw JSON');
+        return {
+          success: true,
+          searchTerms: response.searchTerms,
+          reasoning: response.reasoning,
+          confidence: response.confidence
+        };
       } else {
-        throw new Error('AI API call failed');
+        throw new Error('Invalid AI response format');
       }
     } catch (error) {
-      console.error('💥 AI API call error:', error);
-      throw error;
+      console.error('💥 AI call failed:', error);
+      return { success: false, error: error.message };
     }
   }
 
-  // Build the AI prompt with clear guidelines
-  buildAIPrompt(title, description) {
-    return `You are an expert auction search optimizer. Your task is to generate 2-3 optimal search terms that will find comparable items on auction sites.
-
-TITLE: "${title}"
-DESCRIPTION: "${description}"
-
-CRITICAL GUIDELINES:
-1. PRIORITY ORDER: Brand/Manufacturer → Specific Model → Category
-2. NEVER use years unless vintage-specific (1960s Rolex = OK, 1983 = NO)
-3. NEVER use conditions (excellent, damaged, working)
-4. NEVER use technical specs (61 keys, MIDI, automatic movement)
-5. NEVER use materials unless luxury (18k gold = OK, steel = NO)
-6. BE CONSERVATIVE: Better few good results than many mixed results
-7. VERIFY: These terms must work on auctionet.com search
-
-EXAMPLES:
-- "SYNTHESIZER, Yamaha DX7 Programmable Algorithm..." → ["Yamaha", "DX7"]
-- "ROLEX Submariner ref 16610 automatic..." → ["Rolex", "Submariner"]
-- "RING, 18k gold with diamonds, size 17..." → ["18k gold", "ring"]
-- "WATCH, vintage Omega Speedmaster Professional..." → ["Omega", "Speedmaster"]
-
-RESPONSE FORMAT (JSON only):
-{
-  "searchTerms": ["term1", "term2", "term3"],
-  "reasoning": "Brief explanation of why these terms",
-  "confidence": 0.9
-}
-
-Generate the optimal search terms now:`;
-  }
-
-  // Parse AI response
-  parseAIResponse(aiResponseText) {
-    try {
-      console.log('📥 Raw AI response:', aiResponseText);
-      
-      // Extract JSON from response
-      const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No JSON found in AI response');
-      }
-      
-      const parsed = JSON.parse(jsonMatch[0]);
-      
-      // Validate response structure
-      if (!parsed.searchTerms || !Array.isArray(parsed.searchTerms)) {
-        throw new Error('Invalid AI response structure');
-      }
-      
-      // Clean and validate search terms
-      const cleanedTerms = parsed.searchTerms
-        .filter(term => term && typeof term === 'string')
-        .map(term => term.trim())
-        .filter(term => term.length > 0 && term.length <= 50)
-        .slice(0, 3); // Max 3 terms
-      
-      if (cleanedTerms.length === 0) {
-        throw new Error('No valid search terms in AI response');
-      }
-      
-      console.log('🧠 AI reasoning:', parsed.reasoning);
-      console.log('📊 AI confidence:', parsed.confidence);
-      console.log('✅ Cleaned search terms:', cleanedTerms);
-      
-      return {
-        success: true,
-        searchTerms: cleanedTerms,
-        reasoning: parsed.reasoning || 'No reasoning provided',
-        confidence: parsed.confidence || 0.5,
-        source: 'ai_only',
-        query: cleanedTerms.join(' ')
-      };
-      
-    } catch (error) {
-      console.error('💥 Failed to parse AI response:', error);
-      console.error('📄 Response text:', aiResponseText);
-      return {
-        success: false,
-        error: error.message,
-        source: 'ai_parse_error'
-      };
-    }
-  }
-
-  // Emergency fallback if AI completely fails
-  getFallbackQuery(title) {
-    console.log('⚠️ Using emergency fallback for title:', title);
+  // Emergency fallback query generation
+  generateFallbackQuery(title) {
+    console.log('🚨 Generating emergency fallback query from title');
     
-    // Very simple extraction as last resort
     const words = title.toLowerCase()
       .replace(/[^\w\såäöüß-]/g, ' ')
       .split(/\s+/)
       .filter(word => word.length > 2)
       .slice(0, 3);
     
-    return {
-      success: true,
-      searchTerms: words,
-      reasoning: 'Emergency fallback - AI unavailable',
-      confidence: 0.3,
-      source: 'emergency_fallback',
-      query: words.join(' ')
-    };
+    return words.length > 0 ? words : ['objekt'];
   }
 
   // Cache management
@@ -184,22 +193,11 @@ Generate the optimal search terms now:`;
     });
   }
 
-  // Clear expired cache entries
-  clearExpiredCache() {
-    const now = Date.now();
-    for (const [key, value] of this.cache.entries()) {
-      if (now - value.timestamp >= this.cacheExpiry) {
-        this.cache.delete(key);
-      }
-    }
-  }
-
   // Get cache statistics
   getCacheStats() {
-    const total = this.cache.size;
-    const expired = Array.from(this.cache.values())
-      .filter(entry => Date.now() - entry.timestamp >= this.cacheExpiry).length;
-    
-    return { total, active: total - expired, expired };
+    return {
+      size: this.cache.size,
+      expiry: this.cacheExpiry
+    };
   }
 } 

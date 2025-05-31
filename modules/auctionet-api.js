@@ -37,7 +37,7 @@ export class AuctionetAPI {
   }
 
   // Main method to analyze comparable sales for an item
-  async analyzeComparableSales(artistName, objectType, period, technique, currentValuation = null) {
+  async analyzeComparableSales(artistName, objectType, period, technique, currentValuation = null, searchQueryManager = null) {
     console.log('🔍 Starting Auctionet market analysis...');
     console.log(`💰 Current valuation for exceptional sales filtering: ${currentValuation ? currentValuation.toLocaleString() + ' SEK' : 'Not provided'}`);
     
@@ -52,58 +52,132 @@ export class AuctionetAPI {
       let usedStrategy = null; // Track which strategy was actually used
       let artistSearchResults = 0; // NEW: Track artist-only search results
       
-      // PRIORITY 1: Try the canonical query first (from centralized SearchQueryBuilder)
-      const basicQuery = [artistName, objectType, period, technique].filter(Boolean).join(' ');
-      console.log(`🎯 Trying basic query first: "${basicQuery}"`);
-      const canonicalResult = await this.searchAuctionResults(basicQuery, "Basic combined query");
-      
-      if (canonicalResult && canonicalResult.soldItems.length >= 3) {
-        // Canonical query succeeded with good results - use it!
-        console.log(`✅ SUCCESS: Canonical query found ${canonicalResult.soldItems.length} sold items`);
-        bestResult = canonicalResult;
-        totalMatches = canonicalResult.totalEntries;
-        usedStrategy = { 
-          query: basicQuery, 
-          description: "Basic combined query",
-          source: "Direct search" 
-        };
-      } else {
-        console.log(`⚠️ Canonical query found insufficient results (${canonicalResult?.soldItems.length || 0}), trying fallback strategies...`);
+      // 🚨 CRITICAL SSoT ENFORCEMENT: Check for user-selected SSoT query FIRST
+      if (searchQueryManager && searchQueryManager.getCurrentQuery()) {
+        const ssotQuery = searchQueryManager.getCurrentQuery();
+        const querySource = searchQueryManager.getQuerySource ? searchQueryManager.getQuerySource() : 'unknown';
+        const rawMetadata = searchQueryManager.getCurrentMetadata ? searchQueryManager.getCurrentMetadata() : {};
         
-        // FALLBACK: Build search strategies with different levels of specificity
-        const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
+        console.log(`🎯 STRICT SSoT: Found SearchQueryManager query: "${ssotQuery}"`);
+        console.log(`🎯 Query source (mapped): "${querySource}"`);
+        console.log(`🎯 Raw metadata source: "${rawMetadata.source}"`);
+        console.log(`🎯 Checking if user selection...`);
         
-        // Try each search strategy until we get good results
-        for (const strategy of searchStrategies) {
-          console.log(`🎯 Trying fallback search strategy: ${strategy.description}`);
-          console.log(`🔍 Fallback query: "${strategy.query}"`);
+        // Check BOTH raw source and mapped source for user selection detection
+        const isUserSelection = 
+          querySource === 'användarval' || 
+          querySource === 'user_selection' || 
+          querySource.includes('användar') ||
+          rawMetadata.source === 'user_selection' ||
+          rawMetadata.source === 'användarval' ||
+          rawMetadata.source === 'user_modified';
+        
+        console.log(`🎯 Is user selection: ${isUserSelection}`);
+        
+        // If this is a user selection, ONLY use SSoT query (no fallbacks)
+        if (isUserSelection) {
+          console.log(`🔒 USER SELECTION DETECTED: Using ONLY SSoT query "${ssotQuery}" - NO FALLBACKS ALLOWED`);
           
-          const result = await this.searchAuctionResults(strategy.query, strategy.description);
+          const ssotResult = await this.searchAuctionResults(ssotQuery, `User-Selected SSoT Query: ${ssotQuery}`);
           
-          // NEW: Track artist-only search results for comparison
-          if (strategy.description.includes('Artist only') && result && result.soldItems) {
-            artistSearchResults = result.soldItems.length;
-            console.log(`👤 Artist-only search found: ${artistSearchResults} results`);
-          }
-          
-          if (result && result.soldItems.length > 0) {
-            console.log(`✅ Found ${result.soldItems.length} sold items with fallback strategy: ${strategy.description}`);
-            
-            // Use the first strategy that gives us results, or combine results
-            if (!bestResult || result.soldItems.length > bestResult.soldItems.length) {
-              bestResult = result;
-              totalMatches = result.totalEntries;
-              usedStrategy = strategy; // Store the winning strategy
-              console.log(`🏆 New best fallback strategy: "${strategy.query}"`);
-            }
-            
-            // Stop if we have enough data (5+ items)
-            if (result.soldItems.length >= 5) {
-              console.log('🛑 Stopping fallback search - found enough data (' + result.soldItems.length + ' items)');
-              break;
-            }
+          if (ssotResult && ssotResult.soldItems.length > 0) {
+            console.log(`✅ User-selected SSoT query found ${ssotResult.soldItems.length} sold items - SUCCESS`);
+            bestResult = ssotResult;
+            totalMatches = ssotResult.totalEntries;
+            usedStrategy = { 
+              query: ssotQuery, 
+              description: "User-Selected SSoT Query (strict)",
+              source: "user_ssot" 
+            };
           } else {
-            console.log(`❌ No results for fallback query: "${strategy.query}"`);
+            console.log(`⚠️ User-selected SSoT query "${ssotQuery}" found ${ssotResult?.soldItems.length || 0} items - RESPECTING USER CHOICE (no fallbacks)`);
+            // 🔒 NO FALLBACKS - respect user's specific search choices even if low results
+            bestResult = ssotResult || { soldItems: [], totalEntries: 0 };
+            totalMatches = ssotResult?.totalEntries || 0;
+            usedStrategy = { 
+              query: ssotQuery, 
+              description: "User-Selected SSoT Query (respected choice)",
+              source: "user_ssot" 
+            };
+          }
+        } else {
+          // AI-generated query - can use with fallbacks if needed
+          console.log(`🤖 AI-generated SSoT query: "${ssotQuery}" - fallbacks allowed if insufficient results`);
+          const ssotResult = await this.searchAuctionResults(ssotQuery, `AI-Generated SSoT Query: ${ssotQuery}`);
+          
+          if (ssotResult && ssotResult.soldItems.length >= 3) {
+            console.log(`✅ AI-generated SSoT query found sufficient results: ${ssotResult.soldItems.length} sold items`);
+            bestResult = ssotResult;
+            totalMatches = ssotResult.totalEntries;
+            usedStrategy = { 
+              query: ssotQuery, 
+              description: "AI-Generated SSoT Query",
+              source: "ai_ssot" 
+            };
+          } else {
+            console.log(`⚠️ AI-generated SSoT query found insufficient results (${ssotResult?.soldItems.length || 0}), trying fallback strategies...`);
+            // Continue to fallback logic below
+          }
+        }
+      }
+      
+      // Only use fallback strategies if no SSoT query or AI-generated query with insufficient results
+      if (!bestResult || bestResult.soldItems.length === 0) {
+        console.log(`🎯 Using fallback search strategies (no SSoT user selection)`);
+        
+        // PRIORITY 1: Try the canonical query first (from centralized SearchQueryBuilder)
+        const basicQuery = [artistName, objectType, period, technique].filter(Boolean).join(' ');
+        console.log(`🎯 Trying basic query first: "${basicQuery}"`);
+        const canonicalResult = await this.searchAuctionResults(basicQuery, "Basic combined query");
+        
+        if (canonicalResult && canonicalResult.soldItems.length >= 3) {
+          // Canonical query succeeded with good results - use it!
+          console.log(`✅ SUCCESS: Canonical query found ${canonicalResult.soldItems.length} sold items`);
+          bestResult = canonicalResult;
+          totalMatches = canonicalResult.totalEntries;
+          usedStrategy = { 
+            query: basicQuery, 
+            description: "Basic combined query",
+            source: "Direct search" 
+          };
+        } else {
+          console.log(`⚠️ Canonical query found insufficient results (${canonicalResult?.soldItems.length || 0}), trying fallback strategies...`);
+          
+          // FALLBACK: Build search strategies with different levels of specificity
+          const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
+          
+          // Try each search strategy until we get good results
+          for (const strategy of searchStrategies) {
+            console.log(`🎯 Trying fallback search strategy: ${strategy.description}`);
+            console.log(`🔍 Fallback query: "${strategy.query}"`);
+            
+            const result = await this.searchAuctionResults(strategy.query, strategy.description);
+            
+            // NEW: Track artist-only search results for comparison
+            if (strategy.description.includes('Artist only') && result && result.soldItems) {
+              artistSearchResults = result.soldItems.length;
+              console.log(`👤 Artist-only search found: ${artistSearchResults} results`);
+            }
+            
+            if (result && result.soldItems.length > 0) {
+              console.log(`✅ Found ${result.soldItems.length} sold items with fallback strategy: ${strategy.description}`);
+              
+              // Use the first strategy that gives us results, or combine results
+              if (!bestResult || result.soldItems.length > bestResult.soldItems.length) {
+                bestResult = result;
+                totalMatches = result.totalEntries;
+                usedStrategy = strategy; // Store the winning strategy
+                console.log(`🏆 New best fallback strategy: "${strategy.query}"`);
+              }
+              
+              // Stop if we have enough data (5+ items)
+              if (result.soldItems.length >= 5) {
+                console.log('🛑 Stopping fallback search - found enough data (' + result.soldItems.length + ' items)');
+                break;
+              }
+            } else {
+              console.log(`❌ No results for fallback query: "${strategy.query}"`);
+            }
           }
         }
       }
@@ -168,19 +242,19 @@ export class AuctionetAPI {
     console.log('🔴 Starting LIVE auction analysis...');
     console.log(`🎯 Artist: ${artistName}, Object: ${objectType}, Period: ${period}, Technique: ${technique}`);
     
-    // CRITICAL FIX: ALWAYS try SearchQueryManager SSoT query FIRST
+    // 🚨 CRITICAL SSoT ENFORCEMENT: ONLY use SearchQueryManager SSoT query - NO FALLBACKS
     let bestResult = null;
     let usedStrategy = null;
     let totalMatches = 0;
     
-    // PRIORITY 1: Use SearchQueryManager SSoT query if available
+    // STRICT SSoT: Use SearchQueryManager SSoT query EXCLUSIVELY
     if (searchQueryManager && searchQueryManager.getCurrentQuery()) {
       const ssotQuery = searchQueryManager.getCurrentQuery();
-      console.log(`🎯 PRIORITY 1: Trying SearchQueryManager SSoT query: "${ssotQuery}"`);
+      console.log(`🎯 STRICT SSoT: Using ONLY SearchQueryManager query (no fallbacks): "${ssotQuery}"`);
       
       const ssotResult = await this.searchLiveAuctions(ssotQuery, `SSoT Query: ${ssotQuery}`);
       if (ssotResult && ssotResult.liveItems && ssotResult.liveItems.length > 0) {
-        console.log(`✅ SSoT query found ${ssotResult.liveItems.length} live items - USING SSoT`);
+        console.log(`✅ SSoT query found ${ssotResult.liveItems.length} live items - SUCCESS`);
         bestResult = ssotResult;
         usedStrategy = {
           query: ssotQuery,
@@ -189,48 +263,42 @@ export class AuctionetAPI {
         };
         totalMatches = ssotResult.totalEntries;
       } else {
-        console.log(`❌ SSoT query "${ssotQuery}" found no live auctions - will fallback to strategies`);
+        console.log(`❌ SSoT query "${ssotQuery}" found no live auctions - RESPECTING SSoT (no fallbacks)`);
+        // 🔒 NO FALLBACKS - respect Single Source of Truth even if zero results
+        // This ensures live auction query is IDENTICAL to historical query
+        usedStrategy = {
+          query: ssotQuery,
+          description: 'SearchQueryManager SSoT (zero results)',
+          source: 'ssot'
+        };
       }
     } else {
-      console.log('⚠️ No SearchQueryManager or SSoT query available - starting with fallback strategies');
+      console.log('❌ No SearchQueryManager or SSoT query available - cannot proceed with live analysis');
+      return null;
     }
     
-    // FALLBACK: Only use search strategies if SSoT query failed
-    if (!bestResult) {
-      console.log('🔄 SSoT failed, trying fallback search strategies...');
+    // 🚨 REMOVED: All fallback search strategies eliminated to enforce SSoT compliance
+    // Historical: "Yamaha DX7" ✅ 
+    // Live: "Yamaha DX7" ✅ (even if zero results)
+    // NEVER: "yamaha yamaha" or any other fallback queries
       
-      try {
-        const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
-        console.log(`🎯 Trying ${searchStrategies.length} LIVE search strategies...`);
-        
-        for (const strategy of searchStrategies) {
-          console.log(`🔍 Trying LIVE strategy: ${strategy.description} - "${strategy.query}"`);
-          
-          const result = await this.searchLiveAuctions(strategy.query, strategy.description);
-          
-          if (result && result.liveItems && result.liveItems.length > 0) {
-            console.log(`✅ Found ${result.liveItems.length} LIVE items with strategy: ${strategy.description}`);
-            bestResult = result;
-            usedStrategy = strategy;
-            totalMatches = result.totalEntries;
-            
-            // Stop at first successful strategy with enough data
-            if (result.liveItems.length >= 3) {
-              console.log(`🛑 Stopping LIVE fallback search - found enough data (${result.liveItems.length} items)`);
-              break;
-            }
-          } else {
-            console.log(`❌ No LIVE results for fallback query: "${strategy.query}"`);
-          }
-        }
-      } catch (error) {
-        console.error('💥 Error in fallback strategies:', error);
-      }
-    }
+    if (!bestResult || (bestResult && bestResult.liveItems.length === 0)) {
+      console.log(`✅ SSoT ENFORCED: No live auctions found for "${usedStrategy.query}" but maintaining query consistency with historical data`);
       
-    if (!bestResult || bestResult.liveItems.length === 0) {
-      console.log('❌ No live auctions found for this search');
-      return null;
+      // Return empty result but with correct SSoT query for dashboard consistency
+      return {
+        hasLiveData: false,
+        dataSource: 'auctionet_live_ssot',
+        totalMatches: 0,
+        analyzedLiveItems: 0,
+        currentEstimates: null,
+        currentBids: null,
+        marketActivity: null,
+        liveItems: [],
+        marketSentiment: 'no_data',
+        actualSearchQuery: usedStrategy.query,  // 🔒 Always use SSoT query
+        searchStrategy: usedStrategy.description
+      };
     }
     
     // Analyze live auction data
@@ -243,7 +311,7 @@ export class AuctionetAPI {
     
     return {
       hasLiveData: true,
-      dataSource: 'auctionet_live',
+      dataSource: 'auctionet_live_ssot',
       totalMatches: totalMatches,
       analyzedLiveItems: bestResult.liveItems.length,
       currentEstimates: liveAnalysis.estimateRange,
@@ -271,6 +339,7 @@ export class AuctionetAPI {
       // No is=ended parameter for live auctions
       const url = `${this.baseUrl}?q=${encodeURIComponent(query)}&per_page=${maxResults}`;
       console.log(`📡 Fetching LIVE: ${url}`);
+      console.log(`🔴 LIVE DATA: Company filtering ENABLED - excluding company ${this.excludeCompanyId || 'none'} to avoid conflicts of interest`);
       console.log(`🚫 Company exclusion setting: ${this.excludeCompanyId || 'Not set'}`);
       
       const response = await fetch(url);
@@ -935,9 +1004,13 @@ export class AuctionetAPI {
       return cached;
     }
     
+    console.log(`🔍 HISTORICAL SEARCH: "${query}" (${description})`);
+    console.log(`📊 HISTORICAL DATA: Company filtering DISABLED - includes ALL companies (even ${this.excludeCompanyId || 'none'}) for complete market analysis`);
+    
     try {
       const url = `${this.baseUrl}?is=ended&q=${encodeURIComponent(query)}&per_page=${maxResults}`;
-      console.log(`📡 Fetching: ${url}`);
+      console.log(`📡 API URL: ${url}`);
+      console.log(`🔗 Equivalent website URL: https://auctionet.com/sv/search?event_id=&is=ended&q=${encodeURIComponent(query)}`);
       
       const response = await fetch(url);
       
