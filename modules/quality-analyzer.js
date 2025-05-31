@@ -36,6 +36,14 @@ export class QualityAnalyzer {
     this.searchFilterManager.setDataExtractor(this.dataExtractor);
   }
 
+  // NEW: Set SearchQueryManager for SSoT usage
+  setSearchQueryManager(searchQueryManager) {
+    this.searchQueryManager = searchQueryManager;
+    this.salesAnalysisManager.setSearchQueryManager(searchQueryManager);
+    this.searchFilterManager.setSearchQueryManager(searchQueryManager);
+    console.log('✅ QualityAnalyzer: SearchQueryManager SSoT connected');
+  }
+
   // Helper method to check for measurements in Swedish format
   hasMeasurements(text) {
     const measurementPatterns = [

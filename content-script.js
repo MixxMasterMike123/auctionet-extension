@@ -38,20 +38,37 @@
     const { QualityAnalyzer } = await import(chrome.runtime.getURL('modules/quality-analyzer.js'));
     const { APIManager } = await import(chrome.runtime.getURL('modules/api-manager.js'));
     const { DataExtractor } = await import(chrome.runtime.getURL('modules/data-extractor.js'));
+    const { SearchQueryManager } = await import(chrome.runtime.getURL('modules/search-query-manager.js'));
     
     console.log('Modules loaded successfully, initializing assistant...');
     
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
       constructor() {
+        // Initialize core modules
         this.dataExtractor = new DataExtractor();
         this.apiManager = new APIManager();
         this.qualityAnalyzer = new QualityAnalyzer();
+        
+        // Initialize SearchQueryManager SSoT
+        this.searchQueryManager = new SearchQueryManager();
+        console.log('🔧 SearchQueryManager SSoT initialized');
+        
+        // Initialize other managers
+        this.dashboardManager = new DashboardManager();
+        this.searchFilterManager = new SearchFilterManager();
         this.uiManager = new UIManager(this.apiManager, this.qualityAnalyzer);
         
-        // Set up dependencies
+        // Wire up SearchQueryManager SSoT to all components
+        this.apiManager.setSearchQueryManager(this.searchQueryManager);
+        this.dashboardManager.setSearchQueryManager(this.searchQueryManager);
+        this.searchFilterManager.setSearchQueryManager(this.searchQueryManager);
+        console.log('✅ SearchQueryManager SSoT wired to all components');
+        
+        // Set up other dependencies
         this.qualityAnalyzer.setDataExtractor(this.dataExtractor);
         this.qualityAnalyzer.setApiManager(this.apiManager);
+        this.qualityAnalyzer.setSearchQueryManager(this.searchQueryManager);
         
         this.init();
         this.setupEventListeners();

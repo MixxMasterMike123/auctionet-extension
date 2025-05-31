@@ -1370,8 +1370,10 @@ SVARA MED JSON:
         
         // Add clickable link if we have a search query (similar to "Pågående" link in data sources)
         if (searchQuery) {
-          const encodedQuery = encodeURIComponent(searchQuery);
-          const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodedQuery}`;
+          // USE SSoT: Generate URL using SearchQueryManager if available
+          const liveUrl = this.searchQueryManager ? 
+            this.searchQueryManager.generateAuctionetUrls(searchQuery).live :
+            `https://auctionet.com/sv/search?event_id=&q=${encodeURIComponent(searchQuery)}`;
           auctionText = `<a href="${liveUrl}" target="_blank" style="color: #e74c3c; text-decoration: none; font-weight: 500;" title="Visa alla pågående auktioner på Auctionet för '${searchQuery}'">${analyzedLiveItems} auktioner</a>`;
         }
         
@@ -1825,5 +1827,11 @@ Svara ENDAST med giltig JSON:
     }
     
     return null;
+  }
+
+  // NEW: Set SearchQueryManager for SSoT usage
+  setSearchQueryManager(searchQueryManager) {
+    this.searchQueryManager = searchQueryManager;
+    console.log('✅ ApiManager: SearchQueryManager SSoT connected');
   }
 } 

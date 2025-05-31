@@ -6,6 +6,7 @@ export class SalesAnalysisManager {
     this.previousFreetextData = null;
     this.pendingAnalyses = new Set();
     this.lastCandidateSearchTerms = null;
+    this.searchQueryManager = null;
   }
 
   setApiManager(apiManager) {
@@ -26,6 +27,12 @@ export class SalesAnalysisManager {
 
   setLastCandidateSearchTerms(searchTerms) {
     this.lastCandidateSearchTerms = searchTerms;
+  }
+
+  // NEW: Set SearchQueryManager for SSoT usage
+  setSearchQueryManager(searchQueryManager) {
+    this.searchQueryManager = searchQueryManager;
+    console.log('✅ SalesAnalysisManager: SearchQueryManager SSoT connected');
   }
 
   // ==================== MAIN SALES ANALYSIS ====================
@@ -73,17 +80,26 @@ export class SalesAnalysisManager {
       // SMART ENHANCEMENT: Extract additional search terms for better matching
       const enhancedTerms = qualityAnalyzer.extractEnhancedSearchTerms(data.title, data.description);
       
-      // Prepare search context based on analysis type
-      let searchContext = {
-        primarySearch: artistName,
-        objectType: objectType,
-        period: period,
-        technique: technique,
-        enhancedTerms: enhancedTerms,
-        analysisType: analysisType
-      };
+      // USE SSoT: Prepare search context using SearchQueryManager instead of hardcoded logic
+      let searchContext = this.searchQueryManager ? 
+        this.searchQueryManager.buildSearchContext(
+          artistInfo, 
+          objectType, 
+          period, 
+          technique, 
+          enhancedTerms, 
+          analysisType
+        ) : {
+          // Fallback to legacy logic if SSoT not available
+          primarySearch: artistName,
+          objectType: objectType,
+          period: period,
+          technique: technique,
+          enhancedTerms: enhancedTerms,
+          analysisType: analysisType
+        };
       
-      if (isFreetext) {
+      if (isFreetext && artistInfo) {
         searchContext.searchStrategy = artistInfo.searchStrategy;
         searchContext.confidence = artistInfo.confidence;
         searchContext.termCount = artistInfo.termCount;

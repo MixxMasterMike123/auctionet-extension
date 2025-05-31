@@ -428,21 +428,21 @@ export class DashboardManager {
         let linksHTML = '';
         
         if (salesData.historical.actualSearchQuery) {
-          const encodedQuery = encodeURIComponent(salesData.historical.actualSearchQuery);
-          const historicalUrl = `https://auctionet.com/sv/search?event_id=&is=ended&q=${encodedQuery}`;
+          // USE SSoT: Generate URLs from SearchQueryManager instead of hardcoded logic
+          const urls = this.searchQueryManager.generateAuctionetUrls(salesData.historical.actualSearchQuery);
           linksHTML += `
             <div class="data-link-row">
-              <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">${historicalCount} historiska träffar</a>
+              <a href="${urls.historical}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">${historicalCount} historiska träffar</a>
               <span class="data-link-meta">(${historicalTotal} analyserade)</span>
             </div>`;
         }
         
         if (salesData.live.actualSearchQuery) {
-          const encodedQuery = encodeURIComponent(salesData.live.actualSearchQuery);
-          const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodedQuery}`;
+          // USE SSoT: Generate URLs from SearchQueryManager instead of hardcoded logic
+          const urls = this.searchQueryManager.generateAuctionetUrls(salesData.live.actualSearchQuery);
           linksHTML += `
             <div class="data-link-row">
-              <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">${liveCount} pågående auktioner</a>
+              <a href="${urls.live}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">${liveCount} pågående auktioner</a>
               <span class="data-link-meta">(${liveTotal} träffar)</span>
             </div>`;
         }
@@ -453,12 +453,12 @@ export class DashboardManager {
         dataText = `${historicalCount} historiska träffar (${historicalTotal} med prisdata)`;
         
         if (salesData.historical.actualSearchQuery) {
-          const encodedQuery = encodeURIComponent(salesData.historical.actualSearchQuery);
-          const historicalUrl = `https://auctionet.com/sv/search?event_id=&is=ended&q=${encodedQuery}`;
+          // USE SSoT: Generate URLs from SearchQueryManager instead of hardcoded logic
+          const urls = this.searchQueryManager.generateAuctionetUrls(salesData.historical.actualSearchQuery);
           
           helpText = `
             <div class="data-link-row">
-              <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">Visa alla ${historicalTotal} historiska träffar</a>
+              <a href="${urls.historical}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">Visa alla ${historicalTotal} historiska träffar</a>
             </div>`;
         } else {
           helpText = 'bekräftade försäljningar';
@@ -468,12 +468,12 @@ export class DashboardManager {
         dataText = `${liveCount} pågående (${liveTotal} träffar)`;
         
         if (salesData.live.actualSearchQuery) {
-          const encodedQuery = encodeURIComponent(salesData.live.actualSearchQuery);
-          const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodedQuery}`;
+          // USE SSoT: Generate URLs from SearchQueryManager instead of hardcoded logic
+          const urls = this.searchQueryManager.generateAuctionetUrls(salesData.live.actualSearchQuery);
           
           helpText = `
             <div class="data-link-row">
-              <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">Visa alla ${liveTotal} pågående auktioner</a>
+              <a href="${urls.live}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">Visa alla ${liveTotal} pågående auktioner</a>
             </div>`;
         } else {
           helpText = 'aktiva auktioner';
@@ -875,11 +875,19 @@ export class DashboardManager {
       this.showDashboardLoading();
       
       // Create custom search context using SSoT query
-      const customSearchContext = {
-        primarySearch: newQuery,
-        analysisType: 'custom_user_filter',
-        hotReload: true
-      };
+      const customSearchContext = this.searchQueryManager.buildSearchContext(
+        null, // artistInfo
+        '', // objectType
+        '', // period
+        '', // technique
+        {}, // enhancedTerms
+        'user_filtered' // analysisType
+      );
+      
+      // Override the primarySearch with user's new query from SSoT
+      customSearchContext.primarySearch = newQuery;
+      customSearchContext.searchTerms = newQuery;
+      customSearchContext.finalSearch = newQuery;
       
       console.log('🎯 Triggering new API analysis with SSoT query:', newQuery);
       

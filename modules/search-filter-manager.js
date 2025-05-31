@@ -1,6 +1,8 @@
 export class SearchFilterManager {
   constructor() {
-    this.lastCandidateSearchTerms = {};
+    this.lastCandidateSearchTerms = null;
+    this.dataExtractor = null;
+    this.searchQueryManager = null; // SSoT reference
   }
 
   // Set dependencies
@@ -20,8 +22,18 @@ export class SearchFilterManager {
     this.dataExtractor = dataExtractor;
   }
 
-  // Build search query from selected candidates
+  // NEW: Set SearchQueryManager for SSoT usage
+  setSearchQueryManager(searchQueryManager) {
+    this.searchQueryManager = searchQueryManager;
+    console.log('✅ SearchFilterManager: SearchQueryManager SSoT connected');
+  }
+
+  // USE SSoT: Build search query from selected candidates
   buildQueryFromCandidates(selectedCandidates) {
+    if (this.searchQueryManager) {
+      return this.searchQueryManager.buildQueryFromCandidates(selectedCandidates);
+    }
+    // Fallback to legacy logic
     return selectedCandidates.join(' ');
   }
 
@@ -429,14 +441,25 @@ export class SearchFilterManager {
         // Get current item data
         const data = this.dataExtractor.extractItemData();
         
-        // Create custom search context for user-selected terms
-        const customSearchContext = {
-          primarySearch: newQuery,
-          objectType: this.qualityAnalyzer.extractObjectType(data.title),
-          period: this.qualityAnalyzer.extractPeriod(data.title) || this.qualityAnalyzer.extractPeriod(data.description),
-          technique: this.qualityAnalyzer.extractTechnique(data.title, data.description),
-          analysisType: 'custom_user_filter'
-        };
+        // USE SSoT: Build new search context using SearchQueryManager
+        const customSearchContext = this.searchQueryManager ? 
+          this.searchQueryManager.buildSearchContext(
+            null, // artistInfo
+            '', // objectType
+            '', // period
+            '', // technique
+            {}, // enhancedTerms
+            'user_interactive' // analysisType
+          ) : {
+            // Fallback to legacy logic
+            primarySearch: newQuery,
+            analysisType: 'user_interactive'
+          };
+        
+        // Override with user's selection
+        customSearchContext.primarySearch = newQuery;
+        customSearchContext.searchTerms = newQuery;
+        customSearchContext.finalSearch = newQuery;
         
         console.log('🎯 Custom search context for filtered analysis:', customSearchContext);
         
@@ -527,14 +550,25 @@ export class SearchFilterManager {
       // Get current item data
       const data = this.dataExtractor.extractItemData();
       
-      // Create custom search context for user-selected terms
-      const customSearchContext = {
-        primarySearch: newQuery,
-        objectType: this.qualityAnalyzer.extractObjectType(data.title),
-        period: this.qualityAnalyzer.extractPeriod(data.title) || this.qualityAnalyzer.extractPeriod(data.description),
-        technique: this.qualityAnalyzer.extractTechnique(data.title, data.description),
-        analysisType: "custom_user_filter"
-      };
+      // USE SSoT: Build new search context using SearchQueryManager
+      const customSearchContext = this.searchQueryManager ? 
+        this.searchQueryManager.buildSearchContext(
+          null, // artistInfo
+          '', // objectType
+          '', // period
+          '', // technique
+          {}, // enhancedTerms
+          'user_header_filter' // analysisType
+        ) : {
+          // Fallback to legacy logic
+          primarySearch: newQuery,
+          analysisType: 'user_header_filter'
+        };
+      
+      // Override with user's selection
+      customSearchContext.primarySearch = newQuery;
+      customSearchContext.searchTerms = newQuery;
+      customSearchContext.finalSearch = newQuery;
       
       console.log("🎯 Custom search context for filtered analysis:", customSearchContext);
       
