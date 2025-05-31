@@ -784,17 +784,14 @@ export class DashboardManager {
         
         if (!termValue || termValue === '0' || termValue === '1') {
           // Skip checkboxes with generic values or empty values
-        return;
-      }
-      
+          return;
+        }
+        
         console.log(`🔍 Checking checkbox with value: "${termValue}"`);
-      
-        // Check if this term should be selected based on SSoT
-        const shouldBeChecked = ssotSelectedTerms.some(selectedTerm => 
-          selectedTerm.toLowerCase() === termValue.toLowerCase() ||
-          this.searchQuerySSoT.normalizeTermForMatching(selectedTerm) === this.searchQuerySSoT.normalizeTermForMatching(termValue)
-        );
-      
+        
+        // ENHANCED MATCHING: Check if this term should be selected based on SSoT
+        const shouldBeChecked = this.shouldCheckboxBeSelected(termValue, ssotSelectedTerms);
+        
         // Update checkbox state if it doesn't match SSoT (user has full control)
         if (checkbox.checked !== shouldBeChecked) {
           checkbox.checked = shouldBeChecked;
@@ -817,6 +814,66 @@ export class DashboardManager {
         currentQueryDisplay.textContent = `"${currentQuery || 'Ingen sökning'}"`;
       }
     }, 100); // Wait 100ms for DOM to be ready
+  }
+
+  // NEW: Enhanced matching logic for SSoT terms vs checkbox values
+  shouldCheckboxBeSelected(checkboxValue, ssotSelectedTerms) {
+    const normalizedCheckboxValue = checkboxValue.toLowerCase().trim();
+    
+    for (const selectedTerm of ssotSelectedTerms) {
+      const normalizedSelectedTerm = selectedTerm.toLowerCase().trim();
+      
+      // EXACT MATCH (case-insensitive)
+      if (normalizedSelectedTerm === normalizedCheckboxValue) {
+        console.log(`✅ EXACT match: "${checkboxValue}" = "${selectedTerm}"`);
+        return true;
+      }
+      
+      // COMPOSITE TERM MATCHING: "brons skulptur" should match "brons" checkbox
+      if (normalizedSelectedTerm.includes(' ')) {
+        const words = normalizedSelectedTerm.split(' ');
+        if (words.includes(normalizedCheckboxValue)) {
+          console.log(`✅ COMPOSITE match: "${checkboxValue}" found in "${selectedTerm}"`);
+          return true;
+        }
+      }
+      
+      // REVERSE COMPOSITE: "Lisa Larson" checkbox should match "Lisa" or "Larson" in SSoT
+      if (normalizedCheckboxValue.includes(' ')) {
+        const checkboxWords = normalizedCheckboxValue.split(' ');
+        if (checkboxWords.includes(normalizedSelectedTerm)) {
+          console.log(`✅ REVERSE COMPOSITE match: "${selectedTerm}" found in "${checkboxValue}"`);
+          return true;
+        }
+      }
+      
+      // CASE VARIATIONS: "SKULPTUR" vs "skulptur"
+      if (normalizedSelectedTerm === normalizedCheckboxValue) {
+        console.log(`✅ CASE match: "${checkboxValue}" = "${selectedTerm}" (case insensitive)`);
+        return true;
+      }
+      
+      // PARTIAL MATCH for similar terms: "skulptur" vs "SKULPTUR"
+      const similarity = this.calculateTermSimilarity(normalizedCheckboxValue, normalizedSelectedTerm);
+      if (similarity > 0.8) {
+        console.log(`✅ SIMILARITY match: "${checkboxValue}" ≈ "${selectedTerm}" (${Math.round(similarity * 100)}%)`);
+        return true;
+      }
+    }
+    
+    console.log(`❌ NO match: "${checkboxValue}" not found in SSoT selected terms`);
+    return false;
+  }
+
+  // Helper: Calculate term similarity for fuzzy matching
+  calculateTermSimilarity(term1, term2) {
+    if (term1 === term2) return 1.0;
+    
+    // Simple character-based similarity
+    const maxLength = Math.max(term1.length, term2.length);
+    const commonChars = [...term1].filter(char => term2.includes(char)).length;
+    
+    return commonChars / maxLength;
   }
 
   // NEW: Preserve candidate terms for continued hot reloading
