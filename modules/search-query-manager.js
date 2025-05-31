@@ -148,13 +148,15 @@ export class SearchQueryManager {
             console.log('✅ Using currentQuery for primarySearch:', primarySearch);
         }
         
-        // Build complete search terms
-        const searchTerms = [primarySearch, objectType, period].filter(Boolean).join(' ').trim();
-        const finalSearch = searchTerms || primarySearch || objectType || 'Unknown';
+        // CRITICAL FIX: Use ONLY SSoT current query instead of adding unauthorized terms
+        // The SSoT represents the user's/AI's actual decision - don't add extra terms!
+        const searchTerms = this.currentQuery || primarySearch || objectType || 'Unknown';
+        const finalSearch = searchTerms;
         
         console.log('🎯 SSoT: Final primarySearch:', primarySearch);
-        console.log('🎯 SSoT: Final searchTerms:', searchTerms);
+        console.log('🎯 SSoT: Final searchTerms (using SSoT currentQuery):', searchTerms);
         console.log('🎯 SSoT: Final finalSearch:', finalSearch);
+        console.log('🔒 SSoT: RESPECTING AI/USER DECISIONS - no unauthorized term additions');
         
         const context = {
             primarySearch: primarySearch,
