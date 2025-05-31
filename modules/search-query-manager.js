@@ -14,6 +14,7 @@ export class SearchQueryManager {
     constructor() {
         // SSoT: Current search query state
         this.currentQuery = '';
+        this.querySource = 'system'; // Track source of query changes
         this.selectedTerms = new Set();
         this.availableTerms = [];
         this.coreTerms = new Set(); // Protected terms that should never be removed
@@ -25,48 +26,54 @@ export class SearchQueryManager {
     }
 
     /**
-     * Initialize the SearchQueryManager with query and terms
+     * Initialize the SearchQueryManager with query and candidate terms
      */
     initialize(initialQuery = '', candidateTerms = null, source = 'system') {
         console.log('🚀 SSoT: Initializing SearchQueryManager');
         console.log('   Initial Query:', initialQuery);
-        console.log('   Candidate Terms:', candidateTerms ? candidateTerms.candidates?.length || 0 : 0);
+        console.log('   Candidate Terms:', candidateTerms ? candidateTerms.candidates?.length : 'none');
         console.log('   Source:', source);
         
-        // Set initial query
+        // Set initial query and source
         this.currentQuery = initialQuery;
+        this.querySource = source;
         
-        // Process candidate terms if provided
+        // Process candidate terms if available
         if (candidateTerms && candidateTerms.candidates) {
             this.availableTerms = candidateTerms.candidates.map(candidate => ({
                 term: candidate.term,
-                type: candidate.type || 'keyword',
-                description: candidate.description || 'Sökterm',
-                priority: candidate.priority || 5,
+                type: candidate.type,
+                description: candidate.description,
+                priority: candidate.priority,
                 isSelected: candidate.preSelected || false,
-                score: candidate.score || 5
+                score: candidate.score || this.calculateTermScore(candidate)
             }));
-        } else {
-            this.availableTerms = [];
+            
+            console.log('✅ SSoT: Processed', this.availableTerms.length, 'candidate terms');
         }
         
-        // CRITICAL: Ensure all current query terms are available for smart suggestions
-        this.ensureCurrentQueryTermsAvailable();
-        
-        // Identify core terms and sync selections
-        this.identifyCoreTerms();
+        // Initialize selected terms from current query
         this.syncSelectedTermsFromQuery();
         
-        // Notify listeners
+        // Identify and protect core terms
+        this.identifyCoreTerms();
+        
+        // Ensure current query terms are available for selection
+        this.ensureCurrentQueryTermsAvailable();
+        
+        console.log('✅ SSoT: Initialization complete');
+        console.log('   Final Query:', this.currentQuery);
+        console.log('   Available Terms:', this.availableTerms.length);
+        console.log('   Selected Terms:', this.selectedTerms.size);
+        console.log('   Core Terms:', this.coreTerms.size);
+        
+        // Notify listeners of initialization
         this.notifyListeners('initialized', {
             query: this.currentQuery,
-            source: source,
+            source: this.querySource,
             availableTerms: this.availableTerms.length,
-            coreTerms: Array.from(this.coreTerms).length
+            selectedTerms: Array.from(this.selectedTerms)
         });
-        
-        console.log('✅ SSoT: SearchQueryManager initialized successfully');
-        this.logState();
     }
 
     // ========== CONSOLIDATED SEARCH GENERATION METHODS ==========
@@ -667,12 +674,18 @@ export class SearchQueryManager {
         const oldQuery = this.currentQuery;
         const rebuiltTerms = Array.from(this.selectedTerms).filter(term => term && term.trim());
         this.currentQuery = rebuiltTerms.join(' ');
+        this.querySource = source; // Track source of the change
         
         console.log('🔧 SSoT: Query rebuilt:');
         console.log('   Old:', oldQuery);
         console.log('   New:', this.currentQuery);
+        console.log('   Source:', source);
         
-        this.notifyListeners('rebuild', { oldQuery, newQuery: this.currentQuery });
+        this.notifyListeners('rebuild', { 
+            oldQuery, 
+            newQuery: this.currentQuery, 
+            source: this.querySource 
+        });
     }
 
     /**
@@ -680,6 +693,13 @@ export class SearchQueryManager {
      */
     getCurrentQuery() {
         return this.currentQuery;
+    }
+
+    /**
+     * Get the source of the current query (system/user)
+     */
+    getQuerySource() {
+        return this.querySource || 'system';
     }
 
     /**
@@ -1670,5 +1690,90 @@ export class SearchQueryManager {
         if (['guld', 'silver', 'stål', 'platina', 'titan'].includes(termLower)) return 'material';
         
         return 'keyword';
+    }
+
+    /**
+     * Update user selections and rebuild query while preserving core terms
+     * CRITICAL: This method ensures consistency across all components
+     */
+    updateUserSelections(userSelectedTerms) {
+        console.log('👤 SSoT: Updating user selections:', userSelectedTerms);
+        console.log('🔒 SSoT: Core terms to preserve:', Array.from(this.coreTerms));
+        
+        // Clear current selections
+        this.selectedTerms.clear();
+        
+        // Add all core terms (always selected, cannot be removed)
+        this.coreTerms.forEach(coreTerm => {
+            this.selectedTerms.add(coreTerm);
+            console.log('🔒 SSoT: Preserved core term:', coreTerm);
+        });
+        
+        // Add user-selected terms (excluding duplicates)
+        userSelectedTerms.forEach(term => {
+            if (term && term.trim()) {
+                this.selectedTerms.add(term.trim());
+                console.log('👤 SSoT: Added user selection:', term.trim());
+            }
+        });
+        
+        // Rebuild query from updated selections
+        this.rebuildQuery('user');
+        
+        // Update availableTerms selection state
+        this.availableTerms.forEach(termObj => {
+            termObj.isSelected = this.selectedTerms.has(termObj.term);
+        });
+        
+        console.log('✅ SSoT: User selections updated. New query:', this.currentQuery);
+        console.log('✅ SSoT: Selected terms:', Array.from(this.selectedTerms));
+        
+        // Notify listeners
+        this.notifyListeners('user_selection', { 
+            query: this.currentQuery, 
+            selectedTerms: Array.from(this.selectedTerms),
+            source: 'user'
+        });
+    }
+
+    /**
+     * Calculate a score for a term based on its type and properties
+     */
+    calculateTermScore(candidate) {
+        let score = 0;
+        
+        // Base score by type priority
+        const typeScores = {
+            'artist': 15,
+            'brand': 15,
+            'object_type': 12,
+            'model': 10,
+            'reference': 8,
+            'material': 6,
+            'period': 5,
+            'movement': 4,
+            'keyword': 3
+        };
+        
+        score += typeScores[candidate.type] || 3;
+        
+        // Boost for pre-selected terms
+        if (candidate.preSelected) {
+            score += 10;
+        }
+        
+        // Boost for core terms
+        if (this.isCoreSearchTerm(candidate.term)) {
+            score += 8;
+        }
+        
+        return score;
+    }
+
+    /**
+     * Get selected terms as array
+     */
+    getSelectedTerms() {
+        return Array.from(this.selectedTerms);
     }
 } 

@@ -47,6 +47,23 @@ export class SalesAnalysisManager {
       this.lastCandidateSearchTerms = candidateTerms;
       searchFilterManager.lastCandidateSearchTerms = candidateTerms;
       
+      // CRITICAL FIX: Initialize SearchQueryManager SSoT with extracted candidate terms
+      if (this.searchQueryManager) {
+        console.log('🔧 CRITICAL FIX: Initializing SearchQueryManager SSoT with candidate terms');
+        this.searchQueryManager.initialize(
+          candidateTerms.currentQuery,
+          candidateTerms,
+          'sales_analysis'
+        );
+        console.log('✅ SearchQueryManager SSoT initialized with:', {
+          query: candidateTerms.currentQuery,
+          candidates: candidateTerms.candidates.length,
+          analysisType: candidateTerms.analysisType
+        });
+      } else {
+        console.error('❌ CRITICAL ERROR: SearchQueryManager not available for initialization');
+      }
+      
       console.log('🧪 PHASE 1 TEST - Candidate search terms extracted:');
       console.log('📋 Candidates:');
       candidateTerms.candidates.forEach((candidate, index) => {
@@ -208,10 +225,42 @@ export class SalesAnalysisManager {
     if (salesData && salesData.hasComparableData) {
       console.log('💰 Processing comprehensive market analysis results');
       
-      // NEW: Add candidate search terms to sales data for dashboard access
-      if (this.lastCandidateSearchTerms) {
-        // Ensure the currentQuery matches the actual search query used
-        let actualSearchQuery = null;
+      // CRITICAL FIX: Use SearchQueryManager SSoT instead of re-extracting terms
+      if (this.searchQueryManager) {
+        console.log('🎯 CONSISTENCY FIX: Using SearchQueryManager SSoT for candidate terms');
+        
+        // Get the ACTUAL search query from SSoT (preserves "Omega")
+        const actualSearchQuery = this.searchQueryManager.getCurrentQuery();
+        console.log('🔧 SSoT Actual Search Query:', actualSearchQuery);
+        
+        // Get available terms from SSoT (includes all analyzed terms)
+        const availableTerms = this.searchQueryManager.getAvailableTerms();
+        console.log('🔧 SSoT Available Terms:', availableTerms.length);
+        
+        // Build candidate terms using SSoT data (preserves all context)
+        const candidateTermsFromSSoT = {
+          candidates: availableTerms.map(termObj => ({
+            term: termObj.term,
+            type: termObj.type,
+            priority: termObj.priority || this.getTermPriority(termObj.type),
+            description: termObj.description || this.getTermDescription(termObj.type),
+            preSelected: termObj.isSelected || false
+          })),
+          currentQuery: actualSearchQuery, // CRITICAL: Use SSoT query
+          analysisType: salesData.analysisType || 'artist'
+        };
+        
+        this.lastCandidateSearchTerms = candidateTermsFromSSoT;
+        salesData.candidateSearchTerms = candidateTermsFromSSoT;
+        
+        console.log('✅ CONSISTENCY FIX: Used SearchQueryManager SSoT data');
+        console.log('🔧 SSoT Final currentQuery:', candidateTermsFromSSoT.currentQuery);
+        
+      } else {
+        console.log('⚠️ SearchQueryManager not available - falling back to legacy extraction');
+        
+        // LEGACY FALLBACK: Extract actual search query from sales data
+        let actualSearchQuery = '';
         if (salesData.historical && salesData.historical.actualSearchQuery) {
           actualSearchQuery = salesData.historical.actualSearchQuery;
         } else if (salesData.live && salesData.live.actualSearchQuery) {
@@ -243,9 +292,6 @@ export class SalesAnalysisManager {
         } else {
           salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
         }
-        
-        console.log('📋 Added candidate search terms to sales data for dashboard');
-        console.log('🔧 Final currentQuery:', salesData.candidateSearchTerms.currentQuery);
       }
       
       // NEW: Analyze valuation and suggest changes if needed
@@ -552,6 +598,37 @@ export class SalesAnalysisManager {
   // Helper method to format SEK amounts
   formatSEK(amount) {
     return new Intl.NumberFormat('sv-SE').format(amount);
+  }
+
+  // NEW: Helper methods for SearchQueryManager SSoT integration
+  getTermPriority(type) {
+    const priorities = {
+      'artist': 1,
+      'brand': 1,
+      'object_type': 2,
+      'model': 3,
+      'reference': 4,
+      'material': 5,
+      'period': 6,
+      'movement': 7,
+      'keyword': 8
+    };
+    return priorities[type] || 8;
+  }
+
+  getTermDescription(type) {
+    const descriptions = {
+      'artist': 'Konstnär/Märke',
+      'brand': 'Konstnär/Märke',
+      'object_type': 'Objekttyp',
+      'model': 'Modell/Serie',
+      'reference': 'Referensnummer',
+      'material': 'Material',
+      'period': 'Tidsperiod',
+      'movement': 'Urverk/Teknik',
+      'keyword': 'Nyckelord'
+    };
+    return descriptions[type] || 'Nyckelord';
   }
 
   showNoSalesDataMessage(currentWarnings, currentScore, analysisType = 'artist', entityName = '', qualityAnalyzer) {

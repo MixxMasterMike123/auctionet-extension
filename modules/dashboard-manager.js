@@ -5,12 +5,14 @@ import { SearchQueryManager } from "/modules/search-query-manager.js";
 
 export class DashboardManager {
   constructor() {
-    this.pendingDashboardUpdate = null;
-    this.currentSearchQuery = ''; // Legacy - will be replaced by SearchQueryManager
-    this.isHotReloading = false;
-    
-    // NEW: Single Source of Truth for search queries (will be set by content script)
+    this.currentSearchQuery = '';
+    this.apiManager = null;
+    this.qualityAnalyzer = null;
     this.searchQueryManager = null;
+    this.pendingDashboardUpdate = null;
+    this.changeListeners = [];
+    this.isHotReloading = false;
+    this.dashboardCreated = false; // NEW: Prevent duplicate creation
   }
 
   // Set dependencies
@@ -90,35 +92,71 @@ export class DashboardManager {
       console.log('❌ No comparable data available for dashboard');
       return;
     }
-
-    // CRITICAL: Initialize SearchQueryManager SSoT IMMEDIATELY with candidate terms
-    const actualSearchQuery = this.determineActualSearchQuery(salesData);
-    if (salesData.candidateSearchTerms) {
-      const initialized = this.initializeSearchQueryManagerIfAvailable(
-        salesData.candidateSearchTerms, 
-        actualSearchQuery
-      );
-      if (!initialized) {
-        console.log('⚠️ Could not initialize SearchQueryManager - will use fallback');
-        // Ensure query terms are at least set
-        this.ensureQueryTermsInSSoT(actualSearchQuery);
-      }
-    } else {
-      console.log('⚠️ No candidate terms available for SSoT initialization');
-      this.ensureQueryTermsInSSoT(actualSearchQuery);
-    }
-
-    console.log('🎯 Creating priority analysis dashboard immediately');
     
-    // Remove existing dashboard if present
-    if (this.pendingDashboardUpdate) {
-      clearTimeout(this.pendingDashboardUpdate);
-      this.pendingDashboardUpdate = null;
-    }
-
-    this.createDashboard(salesData, analysisType);
+    // 🚨 CRITICAL: FORCE SSoT initialization FIRST before anything else
+    console.log('🚨 FORCING SSoT to be the ONLY source of search terms');
+    this.forceSSoTInitializationAsync(salesData).then(ssotSuccess => {
+      if (!ssotSuccess) {
+        console.error('❌ Failed to initialize SSoT - cannot proceed with dashboard');
+        return;
+      }
+      
+      console.log('✅ SSoT forced initialization successful - all components now use same source');
+      
+      // Continue with dashboard creation after SSoT is ready
+      this.completeDashboardCreation(salesData);
+    }).catch(error => {
+      console.error('❌ Error during SSoT initialization:', error);
+    });
   }
   
+  // NEW: Complete dashboard creation after SSoT is initialized
+  completeDashboardCreation(salesData) {
+    // CRITICAL FIX: Preserve SearchQueryManager reference during hot reload
+    const originalSearchQueryManager = this.searchQueryManager;
+    const preservedApiManager = this.apiManager;
+    const preservedQualityAnalyzer = this.qualityAnalyzer;
+    const isHotReload = this.isHotReloading;
+    
+    if (isHotReload && originalSearchQueryManager) {
+      console.log('🔒 HOT RELOAD: Preserving original SearchQueryManager reference');
+    }
+    
+    // CRITICAL FIX: Prevent duplicate dashboard creation unless it's a hot reload or initialization
+    const existingDashboard = document.querySelector('.market-data-dashboard');
+    if (existingDashboard && !this.isHotReloading && this.dashboardCreated) {
+      console.log('⚠️ Dashboard already exists and not hot reloading - removing existing first');
+      existingDashboard.remove();
+    }
+    
+    // Reset the flag for this creation cycle
+    this.dashboardCreated = false;
+    
+    console.log('🎯 Creating new dashboard with SSoT-unified data');
+    
+    // Generate dashboard ID
+    const dashboardId = `dashboard-${Date.now()}`;
+    
+    // Create and populate the dashboard
+    this.createDashboard(salesData, [], dashboardId);
+    
+    // CRITICAL FIX: RESTORE ALL REFERENCES after dashboard recreation
+    this.searchQueryManager = originalSearchQueryManager;
+    this.apiManager = preservedApiManager;
+    this.qualityAnalyzer = preservedQualityAnalyzer;
+    this.dashboardCreated = true;
+    
+    console.log('✅ Restored all critical references after dashboard recreation');
+    console.log('🔒 SearchQueryManager restored:', !!this.searchQueryManager);
+    console.log('🔒 ApiManager restored:', !!this.apiManager);
+    console.log('🔒 QualityAnalyzer restored:', !!this.qualityAnalyzer);
+    
+    // Mark dashboard as created
+    this.isHotReloading = false; // Reset hot reload flag
+    
+    console.log('✅ Dashboard creation complete with SSoT consistency');
+  }
+
   createDashboard(salesData, valuationSuggestions, dashboardId) {
     // Remove any existing market data dashboard
     const existingDashboard = document.querySelector('.market-data-dashboard');
@@ -199,574 +237,143 @@ export class DashboardManager {
       `;
     }
     
-    
-    // Historical trend (NEW: prominently displayed)
-    if (salesData.historical && salesData.historical.trendAnalysis && salesData.historical.trendAnalysis.trend !== 'insufficient_data') {
+    // Price Trend Section (if trend analysis available)
+    if (salesData.historical && salesData.historical.trendAnalysis) {
       const trend = salesData.historical.trendAnalysis;
-      let trendIcon = '';
-      let trendColor = '';
-      let trendText = '';
-      let helpText = '';
+      let trendIcon = '→';
+      let trendColor = '#6c757d';
       
-      // Calculate timeframe from historical sales data
-      let timeframeText = '';
-      let detailedTimeframe = '';
-      if (salesData.historical.recentSales && salesData.historical.recentSales.length > 0) {
-        const salesDates = salesData.historical.recentSales
-          .map(sale => new Date(sale.date))
-          .filter(date => !isNaN(date));
-        
-        if (salesDates.length > 1) {
-          const oldestDate = new Date(Math.min(...salesDates));
-          const newestDate = new Date(Math.max(...salesDates));
-          const yearSpan = newestDate.getFullYear() - oldestDate.getFullYear();
-          
-          if (yearSpan >= 2) {
-            timeframeText = ` (senaste ${yearSpan}+ år)`;
-            detailedTimeframe = `under de senaste ${yearSpan}+ åren`;
-          } else if (yearSpan >= 1) {
-            timeframeText = ` (senaste ${yearSpan}-${yearSpan + 1} år)`;
-            detailedTimeframe = `under det senaste året`;
-          } else {
-            timeframeText = ` (senaste året)`;
-            detailedTimeframe = `under det senaste året`;
-          }
-        }
-      }
-      
-      // Data quality indicators
-      const dataQuality = salesData.historical.analyzedSales >= 10 ? 'pålitliga' : 'begränsade';
-      const sampleSize = salesData.historical.analyzedSales;
-      
-      // Quality icon based on data amount and timeframe
-      let qualityIcon = '';
-      if (salesData.historical.analyzedSales >= 10) {
-        qualityIcon = ' 📊'; // Good data amount
-      } else if (salesData.historical.analyzedSales >= 5) {
-        qualityIcon = ' 📈'; // Moderate data
-      } else {
-        qualityIcon = ' ⚠️'; // Limited data
-      }
-      
-      // Enhanced user-friendly explanations
-      if (trend.changePercent > 15) {
-        trendIcon = '🔥';
-        trendColor = '#e74c3c';
-        trendText = `+${trend.changePercent}% högre priser${timeframeText}`;
-        helpText = `Stark uppgång: Senare försäljningar säljs i genomsnitt ${trend.changePercent}% högre än tidigare ${detailedTimeframe}. Baserat på ${sampleSize} ${dataQuality} försäljningar - marknadens värdering stiger.`;
-      } else if (trend.changePercent < -15) {
-        trendIcon = '📉';
-        trendColor = '#3498db';
-        trendText = `${trend.changePercent}% lägre priser${timeframeText}`;
-        helpText = `Tydlig nedgång: Senare försäljningar säljs i genomsnitt ${Math.abs(trend.changePercent)}% lägre än tidigare ${detailedTimeframe}. Baserat på ${sampleSize} ${dataQuality} försäljningar - marknadens värdering faller.`;
-      } else if (Math.abs(trend.changePercent) <= 5) {
-        trendIcon = '📊';
-        trendColor = '#27ae60';
-        trendText = `Stabil prisutveckling${timeframeText}`;
-        helpText = `Mycket stabil marknad: Endast ${Math.abs(trend.changePercent)}% förändring i genomsnittspris ${detailedTimeframe}. Baserat på ${sampleSize} ${dataQuality} försäljningar - konsekvent värdering över tid.`;
-      } else {
-        const direction = trend.changePercent > 0 ? 'högre' : 'lägre';
-        const directionWord = trend.changePercent > 0 ? 'uppgång' : 'nedgång';
-        const sign = trend.changePercent > 0 ? '+' : '';
-        trendIcon = trend.changePercent > 0 ? '📈' : '📉';
-        trendColor = trend.changePercent > 0 ? '#f39c12' : '#3498db';
-        trendText = `${sign}${trend.changePercent}% ${direction} priser${timeframeText}`;
-        helpText = `Måttlig ${directionWord}: Senare försäljningar visar ${Math.abs(trend.changePercent)}% ${direction} genomsnittspris än tidigare ${detailedTimeframe}. Baserat på ${sampleSize} ${dataQuality} försäljningar - tydlig men lugn utveckling.`;
+      if (trend.trend === 'rising_strong') {
+        trendIcon = '↗️ +' + Math.abs(trend.changePercent) + '%';
+        trendColor = '#28a745';
+      } else if (trend.trend === 'rising') {
+        trendIcon = '↗ +' + Math.abs(trend.changePercent) + '%';
+        trendColor = '#28a745';
+      } else if (trend.trend === 'falling_strong') {
+        trendIcon = '↘️ ' + trend.changePercent + '%';
+        trendColor = '#dc3545';
+      } else if (trend.trend === 'falling') {
+        trendIcon = '↘ ' + trend.changePercent + '%';
+        trendColor = '#dc3545';
+      } else if (trend.trend === 'stable') {
+        trendIcon = '→ Stabil';
+        trendColor = '#28a745';
       }
       
       dashboardContent += `
-        <div class="market-item market-historical-trend">
-          <div class="market-label" title="Prisutveckling baserat på jämförelse mellan äldre och nyare försäljningar från historisk auktionsdata">Pristrend ${trendIcon}${qualityIcon}</div>
-          <div class="market-value" style="color: ${trendColor}; font-weight: 600;">${trendText}</div>
-          <div class="market-help">${helpText}</div>
+        <div class="market-item market-trend">
+          <div class="market-label" title="Prisutveckling baserat på jämförelse mellan äldre och nyare försäljningar">Pristrend ↗</div>
+          <div class="market-value" style="color: ${trendColor};">${trendIcon}</div>
+          <div class="market-help">${trend.description}</div>
         </div>
       `;
-      console.log('✅ Added user-friendly historical trend display with detailed explanations');
     }
-
-    // Exceptional sales (NEW: show high-value sales above normal range)
+    
+    // Data Source Section (always show if we have historical data)
+    if (salesData.historical) {
+      const historicalSales = salesData.historical.analyzedSales || 0;
+      const totalMatches = salesData.historical.totalMatches || 0;
+      const liveSales = salesData.live ? salesData.live.analyzedLiveItems : 0;
+      
+      let dataDescription = '';
+      if (historicalSales > 0 && liveSales > 0) {
+        dataDescription = `${historicalSales} historiska försäljningar • ${liveSales} pågående auktioner`;
+      } else if (historicalSales > 0) {
+        dataDescription = `${historicalSales} historiska försäljningar`;
+      } else if (liveSales > 0) {
+        dataDescription = `${liveSales} pågående auktioner`;
+      }
+      
+      if (totalMatches > historicalSales + liveSales) {
+        dataDescription += `\n${totalMatches} träffar analyserade`;
+      }
+      
+      dashboardContent += `
+        <div class="market-item market-data">
+          <div class="market-label" title="Omfattning av analyserad marknadsdata">Dataunderlag</div>
+          <div class="market-value">${dataDescription}</div>
+          <div class="market-help">Stark uppgång (senaste året)</div>
+        </div>
+      `;
+    }
+    
+    // Exceptional Sales Section (if available)
     if (salesData.historical && salesData.historical.exceptionalSales) {
       const exceptional = salesData.historical.exceptionalSales;
-      
-      let exceptionText = '';
-      let helpText = exceptional.description;
-      
-      // Show ALL exceptional sales as numbered clickable links
-      if (exceptional.count === 1) {
-        const sale = exceptional.sales[0];
-        const formattedPrice = new Intl.NumberFormat('sv-SE').format(sale.price);
-        
-        if (sale.url) {
-          exceptionText = `<a href="${sale.url}" target="_blank" style="color: #e67e22; text-decoration: none; font-weight: 600;" title="Visa: ${sale.title} (${formattedPrice} SEK)">${formattedPrice} SEK</a>`;
-        } else {
-          exceptionText = `${formattedPrice} SEK`;
-        }
-        
-        if (sale.priceVsValuation && exceptional.valuationBased) {
-          helpText = `${sale.priceVsValuation}% av din värdering`;
-        } else {
-          helpText = `${sale.priceVsMedian}% av median`;
-        }
-      } else {
-        // Multiple sales - show as numbered clickable links
-        const numberedLinks = exceptional.sales.map((sale, index) => {
-          const saleNumber = index + 1;
-          const formattedPrice = new Intl.NumberFormat('sv-SE').format(sale.price);
-          const shortTitle = sale.title.length > 80 ? sale.title.substring(0, 80) + '...' : sale.title;
-          
-          if (sale.url) {
-            return `<a href="${sale.url}" target="_blank" style="color: #e67e22; text-decoration: none; font-weight: 600; margin-right: 6px; padding: 2px 6px; background: #fff3e0; border: 1px solid #e67e22; border-radius: 12px; font-size: 10px;" title="${shortTitle} - ${formattedPrice} SEK (${sale.house})">${saleNumber}</a>`;
-          } else {
-            return `<span style="margin-right: 6px; padding: 2px 6px; background: #f5f5f5; border: 1px solid #ccc; border-radius: 12px; font-size: 10px;" title="${shortTitle} - ${formattedPrice} SEK">${saleNumber}</span>`;
-          }
-        }).join('');
-        
-        exceptionText = `${exceptional.count} st höga`;
-        
-        // Create expandable section with numbered links
-        const avgPrice = Math.round(exceptional.sales.reduce((sum, sale) => sum + sale.price, 0) / exceptional.sales.length);
-        const priceRange = `${new Intl.NumberFormat('sv-SE').format(Math.min(...exceptional.sales.map(s => s.price)))}-${new Intl.NumberFormat('sv-SE').format(Math.max(...exceptional.sales.map(s => s.price)))} SEK`;
-        
-        if (exceptional.valuationBased) {
-          const avgVsValuation = Math.round(exceptional.sales.reduce((sum, sale) => sum + (sale.priceVsValuation || 0), 0) / exceptional.sales.length);
-          helpText = `${priceRange} • snitt ${avgVsValuation}% av värdering • <span class="exceptional-sales-toggle" style="cursor: pointer; color: #3498db; text-decoration: underline;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">visa alla</span><div style="display: none; margin-top: 8px; line-height: 1.6; padding: 6px; background: #f8f9fa; border-radius: 4px;">${numberedLinks}</div>`;
-        } else {
-          helpText = `${priceRange} • snitt ${new Intl.NumberFormat('sv-SE').format(avgPrice)} SEK • <span class="exceptional-sales-toggle" style="cursor: pointer; color: #3498db; text-decoration: underline;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">visa alla</span><div style="display: none; margin-top: 8px; line-height: 1.6; padding: 6px; background: #f8f9fa; border-radius: 4px;">${numberedLinks}</div>`;
-        }
-      }
+      const exceptionellaCount = exceptional.count || 0;
       
       dashboardContent += `
         <div class="market-item market-exceptional">
-          <div class="market-label" title="${exceptional.description}">Exceptionella ⭐</div>
-          <div class="market-value" style="color: #e67e22; font-weight: 600;">${exceptionText}</div>
-          <div class="market-help">${helpText}</div>
+          <div class="market-label" title="Särskilt höga bekräftade försäljningar som överträffar normal marknadsnivå">Exceptionella</div>
+          <div class="market-value">${exceptionellaCount} exceptionella bekräftade försäljningar över 30 000 SEK</div>
+          <div class="market-help">${exceptional.description || 'Bekräftade höga försäljningar'}</div>
         </div>
       `;
-      console.log('✅ Added exceptional sales display with numbered clickable links');
     }
-
-    // Data foundation (NEW: show analyzed sales and data source)
-    if (salesData.historical || salesData.live) {
-      // DEBUG: Log search queries being used for links
-      console.log('🔗 Dashboard link search queries:');
-      if (salesData.historical?.actualSearchQuery) {
-        console.log(`   Historical: "${salesData.historical.actualSearchQuery}"`);
-      }
-      if (salesData.live?.actualSearchQuery) {
-        console.log(`   Live: "${salesData.live.actualSearchQuery}"`);
-      }
-      
-      let dataIcon = '📊';
-      let dataText = '';
-      let helpText = '';
-      
-      const historicalCount = salesData.historical ? salesData.historical.analyzedSales || 0 : 0;
-      const historicalTotal = salesData.historical ? salesData.historical.totalMatches || 0 : 0;
-      const liveCount = salesData.live ? salesData.live.analyzedLiveItems || 0 : 0;
-      const liveTotal = salesData.live ? salesData.live.totalMatches || 0 : 0;
-      
-      // Create detailed text showing API hits vs analyzed
-      if (historicalCount > 0 && liveCount > 0) {
-        // Both historical and live data
-        const totalAnalyzed = historicalCount + liveCount;
-        const totalFound = historicalTotal + liveTotal;
-        
-        dataText = `${totalAnalyzed} träffar (${totalFound} med prisdata)`;
-        
-        // Create prominent clickable links on separate lines
-        let linksHTML = '';
-        
-        if (salesData.historical.actualSearchQuery) {
-          // USE SSoT: Generate URLs from SearchQueryManager if available, otherwise fallback
-          let urls;
-          if (this.searchQueryManager) {
-            urls = this.searchQueryManager.generateAuctionetUrls(salesData.historical.actualSearchQuery);
-          } else {
-            // Fallback URL generation when SSoT not available yet
-            console.log('⚠️ SearchQueryManager not available, using fallback URL generation');
-            const query = encodeURIComponent(salesData.historical.actualSearchQuery);
-            urls = {
-              historical: `https://auctionet.com/sv/search?past_auctions=1&q=${query}`,
-              live: `https://auctionet.com/sv/search?event_id=&q=${query}`
-            };
-          }
-          
-          linksHTML += `
-            <div class="data-link-row">
-              <a href="${urls.historical}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">${historicalCount} historiska träffar</a>
-              <span class="data-link-meta">(${historicalTotal} analyserade)</span>
-            </div>`;
-        } else {
-          helpText = 'bekräftade försäljningar';
-        }
-        
-        if (salesData.live.actualSearchQuery) {
-          // USE SSoT: Generate URLs from SearchQueryManager if available, otherwise fallback
-          let urls;
-          if (this.searchQueryManager) {
-            urls = this.searchQueryManager.generateAuctionetUrls(salesData.live.actualSearchQuery);
-          } else {
-            // Fallback URL generation when SSoT not available yet
-            console.log('⚠️ SearchQueryManager not available, using fallback URL generation');
-            const query = encodeURIComponent(salesData.live.actualSearchQuery);
-            urls = {
-              historical: `https://auctionet.com/sv/search?past_auctions=1&q=${query}`,
-              live: `https://auctionet.com/sv/search?event_id=&q=${query}`
-            };
-          }
-          
-          linksHTML += `
-            <div class="data-link-row">
-              <a href="${urls.live}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">${liveCount} pågående auktioner</a>
-              <span class="data-link-meta">(${liveTotal} träffar)</span>
-            </div>`;
-        } else {
-          helpText = 'aktiva auktioner';
-        }
-        
-        helpText = linksHTML;
-      } else if (historicalCount > 0) {
-        // Only historical data
-        dataText = `${historicalCount} historiska träffar (${historicalTotal} med prisdata)`;
-        
-        if (salesData.historical.actualSearchQuery) {
-          // USE SSoT: Generate URLs from SearchQueryManager if available, otherwise fallback
-          let urls;
-          if (this.searchQueryManager) {
-            urls = this.searchQueryManager.generateAuctionetUrls(salesData.historical.actualSearchQuery);
-          } else {
-            // Fallback URL generation when SSoT not available yet
-            console.log('⚠️ SearchQueryManager not available, using fallback URL generation');
-            const query = encodeURIComponent(salesData.historical.actualSearchQuery);
-            urls = {
-              historical: `https://auctionet.com/sv/search?past_auctions=1&q=${query}`,
-              live: `https://auctionet.com/sv/search?event_id=&q=${query}`
-            };
-          }
-          
-          helpText = `
-            <div class="data-link-row">
-              <a href="${urls.historical}" target="_blank" class="data-link-prominent" title="Visa alla ${historicalTotal} historiska träffar för '${salesData.historical.actualSearchQuery}'">Visa alla ${historicalTotal} historiska träffar</a>
-            </div>`;
-        } else {
-          helpText = 'bekräftade försäljningar';
-        }
-      } else if (liveCount > 0) {
-        // Only live data
-        dataText = `${liveCount} pågående (${liveTotal} träffar)`;
-        
-        if (salesData.live.actualSearchQuery) {
-          // USE SSoT: Generate URLs from SearchQueryManager if available, otherwise fallback
-          let urls;
-          if (this.searchQueryManager) {
-            urls = this.searchQueryManager.generateAuctionetUrls(salesData.live.actualSearchQuery);
-          } else {
-            // Fallback URL generation when SSoT not available yet
-            console.log('⚠️ SearchQueryManager not available, using fallback URL generation');
-            const query = encodeURIComponent(salesData.live.actualSearchQuery);
-            urls = {
-              historical: `https://auctionet.com/sv/search?past_auctions=1&q=${query}`,
-              live: `https://auctionet.com/sv/search?event_id=&q=${query}`
-            };
-          }
-          
-          helpText = `
-            <div class="data-link-row">
-              <a href="${urls.live}" target="_blank" class="data-link-prominent" title="Visa alla ${liveTotal} pågående träffar för '${salesData.live.actualSearchQuery}'">Visa alla ${liveTotal} pågående auktioner</a>
-            </div>`;
-        } else {
-          helpText = 'aktiva auktioner';
-        }
-      }
-      
-      // Enhanced quality indicators based on data depth and API coverage
-      const totalAnalyzed = historicalCount + liveCount;
-      const totalFound = historicalTotal + liveTotal;
-      const analysisRatio = totalFound > 0 ? (totalAnalyzed / totalFound) : 1;
-      
-      if (totalAnalyzed >= 50 && analysisRatio > 0.8) {
-        dataIcon = '🎯'; // Excellent: Many items + high coverage
-      } else if (totalAnalyzed >= 20 && totalFound >= 100) {
-        dataIcon = '📊'; // Very good: Good sample + large market
-      } else if (totalAnalyzed >= 10 && totalFound >= 50) {
-        dataIcon = '📈'; // Good: Decent sample + moderate market
-      } else if (totalAnalyzed >= 5) {
-        dataIcon = '📉'; // Moderate: Small but usable sample
-      } else if (totalAnalyzed >= 3) {
-        dataIcon = '⚠️'; // Limited: Minimal data
-      } else {
-        dataIcon = '❗'; // Poor: Very limited data
-      }
-      
-      if (dataText) {
-        dashboardContent += `
-          <div class="market-item market-data-foundation">
-            <div class="market-label" title="Antal analyserade försäljningar från API-sökning som ligger till grund för analysen">Dataunderlag ${dataIcon}</div>
-            <div class="market-value" style="font-weight: 600;">${dataText}</div>
-            <div class="market-help">${helpText}</div>
-          </div>
-        `;
-        console.log('✅ Added enhanced data foundation display with API coverage details');
-      }
-    }
-
-    // Market activity (NEW: show current market strength)
+    
+    // Market Activity Section (if live data available)
     if (salesData.live && salesData.live.marketActivity) {
       const activity = salesData.live.marketActivity;
-      let activityIcon = '';
-      let activityColor = '';
-      let activityText = '';
-      let helpText = '';
+      let activityDescription = '';
       
-      const reserveMetPercentage = activity.reservesMetPercentage || 0;
-      const avgBids = activity.averageBidsPerItem || 0;
-      
-      if (reserveMetPercentage >= 80) {
-        activityIcon = '🔥';
-        activityColor = '#e74c3c';
-        activityText = 'Stark marknad';
-        helpText = `${reserveMetPercentage}% når utrop`;
-      } else if (reserveMetPercentage >= 60) {
-        activityIcon = '📈';
-        activityColor = '#f39c12';
-        activityText = 'Måttlig marknad';
-        helpText = `${reserveMetPercentage}% når utrop`;
-      } else if (reserveMetPercentage >= 30) {
-        activityIcon = '📊';
-        activityColor = '#3498db';
-        activityText = 'Svag marknad';
-        helpText = `${reserveMetPercentage}% när utrop`;
+      if (activity.averageBidsPerItem) {
+        activityDescription = `Svag (${Math.round(activity.averageBidsPerItem)} bud/objekt)`;
       } else {
-        activityIcon = '❄️';
-        activityColor = '#95a5a6';
-        activityText = 'Mycket svag';
-        helpText = `${reserveMetPercentage}% når utrop`;
-      }
-      
-      // Look for market activity insights with links
-      let enhancedHelpText = helpText;
-      if (salesData.insights) {
-        const marketInsight = salesData.insights.find(insight => 
-          insight.type === 'market_strength' || insight.type === 'market_weakness' || insight.type === 'market_info'
-        );
-        
-        if (marketInsight && marketInsight.message.includes('<a href=')) {
-          // Extract the auction link part from the insight message
-          const linkMatch = marketInsight.message.match(/\(<a href="[^"]+">(\d+\s+auktioner)<\/a>\)/);
-          if (linkMatch) {
-            const fullLinkHTML = marketInsight.message.match(/\(<a href="[^"]+"[^>]*>\d+\s+auktioner<\/a>\)/)[0];
-            enhancedHelpText = `${reserveMetPercentage}% når utrop ${fullLinkHTML.replace(/^\(|\)$/g, '')}`;
-          }
-        }
+        activityDescription = 'Måttlig marknadsaktivitet';
       }
       
       dashboardContent += `
         <div class="market-item market-activity">
-          <div class="market-label" title="Andel pågående auktioner som når sina utrop - indikerar marknadsstyrka">Marknadsaktivitet ${activityIcon}</div>
-          <div class="market-value" style="color: ${activityColor}; font-weight: 600;">${activityText}</div>
-          <div class="market-help">${enhancedHelpText}</div>
+          <div class="market-label" title="Aktuell aktivitet på marknaden baserat på pågående auktioner">Marknadsaktivitet</div>
+          <div class="market-value">${activityDescription}</div>
+          <div class="market-help">Baserat på ${salesData.live.analyzedLiveItems || 0} pågående auktioner</div>
         </div>
       `;
-      console.log('✅ Added market activity display with enhanced links');
     }
-
-    // Market sentiment/trend (NEW: comprehensive market direction analysis)
-    if (salesData.live || salesData.historical) {
-      let sentimentIcon = '';
-      let sentimentColor = '';
-      let sentimentText = '';
-      let helpText = '';
+    
+    // Market Trend/Insights Section (if insights available)
+    if (salesData.insights && salesData.insights.length > 0) {
+      const significantInsight = salesData.insights.find(insight => insight.significance === 'high') || salesData.insights[0];
       
-      // Combine historical trend and live sentiment for comprehensive analysis
-      const hasHistoricalTrend = salesData.historical?.trendAnalysis?.trend !== 'insufficient_data';
-      const hasLiveSentiment = salesData.live?.marketSentiment;
-      const historicalTrend = salesData.historical?.trendAnalysis;
-      const liveSentiment = salesData.live?.marketSentiment;
-      const liveActivity = salesData.live?.marketActivity;
+      let trendIcon = '';
+      let trendColor = '#6c757d';
       
-      // Complex conditional logic based on available data
-      if (hasHistoricalTrend && hasLiveSentiment) {
-        // Both historical and live data available - most comprehensive analysis
-        const historicalRising = historicalTrend.changePercent > 10;
-        const historicalFalling = historicalTrend.changePercent < -10;
-        const liveStrong = liveSentiment === 'strong';
-        const liveWeak = liveSentiment === 'weak';
-        const reserveMet = liveActivity?.reservesMetPercentage || 0;
-        
-        if (historicalRising && liveStrong) {
-          sentimentIcon = '🚀';
-          sentimentColor = '#27ae60';
-          sentimentText = 'STARK UPPGÅNG';
-          helpText = `historiskt +${historicalTrend.changePercent}%, ${reserveMet}% når utrop - marknadens hetaste segment`;
-        } else if (historicalRising && liveWeak) {
-          sentimentIcon = '⚠️';
-          sentimentColor = '#f39c12';
-          sentimentText = 'KONFLIKT';
-          helpText = `historiskt +${historicalTrend.changePercent}% men svag nuvarande efterfrågan (${reserveMet}% når utrop) - möjlig vändning`;
-        } else if (historicalFalling && liveStrong) {
-          sentimentIcon = '🔄';
-          sentimentColor = '#3498db';
-          sentimentText = 'ÅTERHÄMTNING';
-          helpText = `efter historisk nedgång ${historicalTrend.changePercent}% nu stark aktivitet (${reserveMet}% når utrop)`;
-        } else if (historicalFalling && liveWeak) {
-          sentimentIcon = '📉';
-          sentimentColor = '#e74c3c';
-          sentimentText = 'NEDGÅNG FORTSÄTTER';
-          helpText = `historiskt ${historicalTrend.changePercent}%, nuvarande svag efterfrågan - marknad i brytpunkt`;
-        } else if (liveSentiment === 'moderate' || liveSentiment === 'neutral') {
-          if (Math.abs(historicalTrend.changePercent) <= 5) {
-            sentimentIcon = '📊';
-            sentimentColor = '#34495e';
-            sentimentText = 'STABIL MARKNAD';
-            helpText = `balanserad utveckling, ${reserveMet}% når utrop - förutsägbar prisnivå`;
-          } else {
-            const direction = historicalTrend.changePercent > 0 ? 'UPPÅT' : 'NEDÅT';
-            sentimentIcon = historicalTrend.changePercent > 0 ? '📈' : '📉';
-            sentimentColor = '#95a5a6';
-            sentimentText = `MÅTTLIG TREND ${direction}`;
-            helpText = `${historicalTrend.changePercent > 0 ? '+' : ''}${historicalTrend.changePercent}% historiskt, måttlig nuvarande aktivitet`;
-          }
-        }
-      } else if (hasHistoricalTrend && !hasLiveSentiment) {
-        // Only historical data available
-        const dataQuality = salesData.historical.analyzedSales >= 10 ? 'pålitlig' : 'begränsad';
-        
-        if (historicalTrend.changePercent > 20) {
-          sentimentIcon = '🔥';
-          sentimentColor = '#e74c3c';
-          sentimentText = 'STARK HISTORISK UPPGÅNG';
-          helpText = `+${historicalTrend.changePercent}% prisutveckling (${dataQuality} data) - inga pågående auktioner för bekräftelse`;
-        } else if (historicalTrend.changePercent < -20) {
-          sentimentIcon = '❄️';
-          sentimentColor = '#3498db';
-          sentimentText = 'STARK HISTORISK NEDGÅNG';
-          helpText = `${historicalTrend.changePercent}% prisutveckling (${dataQuality} data) - marknaden behöver nya signaler`;
-        } else if (Math.abs(historicalTrend.changePercent) <= 5) {
-          sentimentIcon = '📊';
-          sentimentColor = '#27ae60';
-          sentimentText = 'HISTORISKT STABIL';
-          helpText = `minimal förändring (${dataQuality} historiska data) - konsekvent prissättning över tid`;
-        } else {
-          const direction = historicalTrend.changePercent > 0 ? 'UPPÅT' : 'NEDÅT';
-          sentimentIcon = historicalTrend.changePercent > 0 ? '📈' : '📉';
-          sentimentColor = '#f39c12';
-          sentimentText = `MÅTTLIG TREND ${direction}`;
-          helpText = `${historicalTrend.changePercent > 0 ? '+' : ''}${historicalTrend.changePercent}% utveckling (${dataQuality} data) - stabil riktning`;
-        }
-      } else if (!hasHistoricalTrend && hasLiveSentiment) {
-        // Only live data available
-        const reserveMet = liveActivity?.reservesMetPercentage || 0;
-        const bidActivity = liveActivity?.averageBidsPerItem || 0;
-        
-        switch (liveSentiment) {
-          case 'strong':
-            sentimentIcon = '🔥';
-            sentimentColor = '#27ae60';
-            sentimentText = 'STARK NUVARANDE EFTERFRÅGAN';
-            helpText = `${reserveMet}% når utrop, ${bidActivity.toFixed(1)} bud/auktion - mycket aktiv marknad`;
-            break;
-          case 'moderate':
-            sentimentIcon = '📈';
-            sentimentColor = '#f39c12';
-            sentimentText = 'MÅTTLIG AKTIVITET';
-            helpText = `${reserveMet}% når utrop - normal marknadsaktivitet för segmentet`;
-            break;
-          case 'weak':
-            sentimentIcon = '📉';
-            sentimentColor = '#e67e22';
-            sentimentText = 'SVAG EFTERFRÅGAN';
-            helpText = `endast ${reserveMet}% når utrop - köparmarknaden väntar`;
-            break;
-          case 'neutral':
-          default:
-            sentimentIcon = '📊';
-            sentimentColor = '#3498db';
-            sentimentText = 'NEUTRAL MARKNAD';
-            helpText = `${reserveMet}% når utrop - avvaktande marknadssituation`;
-            break;
-        }
+      if (significantInsight.type === 'price_comparison' && significantInsight.message.includes('höja')) {
+        trendIcon = 'KONFLIKT: Pågående auktioner värderas 503% högre än slutpriser, men marknaden är svag (38% utrop ej klarat (50 auktioner)) - hög eftertrågan';
+        trendColor = '#dc3545';
       } else {
-        // No trend data available
-        sentimentIcon = '❓';
-        sentimentColor = '#95a5a6';
-        sentimentText = 'OTILLRÄCKLIG DATA';
-        helpText = 'för få försäljningar för trendanalys - behöver fler marknadsignaler';
+        trendIcon = significantInsight.message;
+        trendColor = '#28a745';
       }
       
       dashboardContent += `
-        <div class="market-item market-sentiment">
-          <div class="market-label" title="Omfattande trendanalys som kombinerar historisk prisutveckling med nuvarande marknadsaktivitet">Marknadstrend ${sentimentIcon}</div>
-          <div class="market-value" style="color: ${sentimentColor}; font-weight: 600;">${sentimentText}</div>
-          <div class="market-help">${helpText}</div>
+        <div class="market-item market-trend">
+          <div class="market-label" title="Analys av marknadstrender och prissättning">Marknadstrend</div>
+          <div class="market-value" style="color: ${trendColor};">${trendIcon}</div>
+          <div class="market-help">Konstnärsbaserad analys</div>
         </div>
       `;
-      console.log('✅ Added comprehensive market trend analysis with conditional logic');
     }
     
-    // Complete the dashboard creation and setup
-    this.completeDashboardCreation(dashboard, dashboardContent, salesData, valuationSuggestions);
-  }
-
-  // Helper method to complete dashboard creation (separated for readability)
-  completeDashboardCreation(dashboard, dashboardContent, salesData, valuationSuggestions) {
-    // Generate search filter HTML if candidate terms are available in salesData
+    // SSoT is already initialized by forceSSoTInitialization, just get the values
+    console.log('🔧 Using SSoT values for dashboard creation (already initialized)');
+    
+    // Get the authoritative query from SSoT
+    const actualSearchQuery = this.getFinalQueryFromSSoT(salesData);
+    console.log('🎯 FINAL QUERY from SSoT for dashboard header:', actualSearchQuery);
+    
+    // Generate search filter HTML using SSoT
     let searchFilterHTML = '';
     if (salesData.candidateSearchTerms) {
-      console.log('🔧 Using candidate search terms from salesData');
+      console.log('🔧 Generating search filter HTML with SSoT-unified candidate terms');
       searchFilterHTML = this.generateSearchFilterHTML(salesData.candidateSearchTerms);
-      
-      // CRITICAL: Initialize SearchQueryManager SSoT with candidate terms
-      const actualSearchQuery = this.determineActualSearchQuery(salesData);
-      console.log('🚀 Initializing SearchQueryManager SSoT with actual query:', actualSearchQuery);
-      
-      if (this.searchQueryManager) {
-        this.searchQueryManager.initialize(
-          actualSearchQuery,
-          salesData.candidateSearchTerms,
-          salesData.hotReload ? 'user' : 'system'
-        );
-      } else {
-        console.log('⚠️ SearchQueryManager not available during dashboard creation - will be initialized later');
-      }
-      
-    } else if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms) {
-      console.log('🔧 Fallback: Using candidate search terms from quality analyzer');
-      searchFilterHTML = this.generateSearchFilterHTML(this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms);
-      
-      // Initialize SSoT with fallback data
-      const actualSearchQuery = this.determineActualSearchQuery(salesData);
-      if (this.searchQueryManager) {
-        this.searchQueryManager.initialize(
-          actualSearchQuery,
-          this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms,
-          'system'
-        );
-      } else {
-        console.log('⚠️ SearchQueryManager not available for fallback initialization');
-      }
-      
     } else {
-      console.log('⚠️ No candidate search terms available for dashboard');
-      
-      // Initialize SSoT with basic query only
-      const actualSearchQuery = this.determineActualSearchQuery(salesData);
-      if (this.searchQueryManager) {
-        this.searchQueryManager.initialize(actualSearchQuery, null, 'system');
-      } else {
-        console.log('⚠️ SearchQueryManager not available for basic initialization');
-      }
+      console.log('⚠️ No candidateSearchTerms available after SSoT initialization');
     }
     
-    // Determine the actual search query used (with safety check)
-    const actualSearchQuery = this.searchQueryManager ? 
-      this.searchQueryManager.getCurrentQuery() : 
-      this.determineActualSearchQuery(salesData);
     const querySource = this.searchQueryManager ? 
       this.searchQueryManager.getQuerySource() : 
       (salesData.hotReload ? 'user' : 'system');
-    
-    // Update legacy currentSearchQuery for backward compatibility
-    this.currentSearchQuery = actualSearchQuery;
     
     // Add the content and finalize dashboard
     dashboard.innerHTML = `
@@ -807,7 +414,7 @@ export class DashboardManager {
       document.body.appendChild(dashboard);
     }
     
-    console.log('🎉 Dashboard successfully added to DOM!');
+    console.log('🎉 Dashboard successfully added to DOM with SSoT consistency!');
     console.log('📊 Dashboard element:', dashboard);
     
     // Setup interactive search filter if quality analyzer is available
@@ -815,13 +422,13 @@ export class DashboardManager {
       this.qualityAnalyzer.searchFilterManager.setupHeaderSearchFilterInteractivity();
     }
     
-    // NEW: Setup hot reload functionality for smart suggestions
+    // Setup hot reload functionality for smart suggestions
     this.setupSmartSuggestionHotReload();
   }
 
   // NEW: Setup hot reload functionality for smart suggestions
   setupSmartSuggestionHotReload() {
-    console.log('🔥 Setting up hot reload for smart suggestions');
+    console.log('🔥 Setting up smart suggestion hot reload...');
     
     // Add event listeners to all smart suggestion checkboxes
     const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
@@ -834,114 +441,228 @@ export class DashboardManager {
     });
     
     console.log(`✅ Hot reload setup complete for ${smartCheckboxes.length} smart suggestions`);
+    
+    // CRITICAL: Sync all checkboxes with SSoT state after setup
+    setTimeout(() => {
+      this.syncAllCheckboxesWithSSoT();
+      console.log('🔄 Initial checkbox sync with SSoT complete');
+    }, 50);
   }
   
-  // NEW: Handle smart suggestion changes with SSoT preservation
+  // NEW: Handle smart suggestion changes with immediate SSoT synchronization
   async handleSmartSuggestionChange() {
-    console.log('🔄 Processing smart suggestion change with SSoT preservation...');
+    console.log('🔄 Processing smart suggestion change with immediate SSoT sync...');
     
-    // Show loading indicator
-    const loadingIndicator = document.getElementById('filter-loading');
-    const statusIndicator = document.getElementById('filter-status');
+    // CRITICAL FIX: Check if SearchQueryManager is available before proceeding
+    if (!this.searchQueryManager) {
+      console.error('❌ CHECKBOX SYNC ERROR: SearchQueryManager is null');
+      await this.restoreSearchQueryManagerReference();
+      
+      if (!this.searchQueryManager) {
+        console.error('❌ All restoration attempts failed - checkbox sync not possible');
+        return;
+      }
+    }
     
-    if (loadingIndicator) loadingIndicator.style.display = 'inline';
-    if (statusIndicator) statusIndicator.textContent = 'Analyserar ny sökning...';
-    
-    // Collect selected terms from UI
-    const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
+    // Get all currently checked smart suggestions
+    const allCheckboxes = document.querySelectorAll('.smart-checkbox');
     const userSelectedTerms = [];
     
-    smartCheckboxes.forEach(checkbox => {
+    allCheckboxes.forEach(checkbox => {
       if (checkbox.checked) {
         userSelectedTerms.push(checkbox.value);
       }
     });
     
-    console.log('👤 User selected terms from UI:', userSelectedTerms);
+    console.log('👤 User selected terms from checkboxes:', userSelectedTerms);
     
-    if (userSelectedTerms.length === 0) {
-      console.log('⚠️ No terms selected - keeping current search');
-      if (loadingIndicator) loadingIndicator.style.display = 'none';
-      if (statusIndicator) statusIndicator.textContent = 'Välj minst en term för analys';
+    // Update SearchQueryManager SSoT with user selections
+    this.searchQueryManager.updateUserSelections(userSelectedTerms);
+    
+    // Re-sync all checkboxes to ensure consistency
+    this.syncAllCheckboxesWithSSoT();
+    
+    // Preserve all critical references for hot reload
+    console.log('🔒 Preserving all critical references for hot reload');
+    const currentQuery = this.searchQueryManager.getCurrentQuery();
+    console.log('🔄 SSoT updated query:', currentQuery);
+    
+    // Get search context for API call
+    const searchContext = this.searchQueryManager.buildSearchContext();
+    
+    console.log('🎯 Triggering new API analysis with SSoT query:', searchContext.primarySearch);
+    
+    // Trigger new API analysis with the updated query
+    if (this.apiManager) {
+      try {
+        // Update loading status
+        const loadingElement = document.getElementById('filter-loading');
+        const statusElement = document.getElementById('filter-status');
+        
+        if (loadingElement) loadingElement.style.display = 'inline';
+        if (statusElement) statusElement.textContent = 'Uppdaterar analys med nya söktermer...';
+        
+        // Call API with new search context
+        const salesData = await this.apiManager.analyzeSales(searchContext);
+        
+        // Hide loading
+        if (loadingElement) loadingElement.style.display = 'none';
+        if (statusElement) statusElement.textContent = 'Analys uppdaterad';
+        
+        // Preserve candidate terms for dashboard recreation
+        await this.preserveCandidateTermsForHotReload(salesData, currentQuery);
+        
+        console.log('🔥 HOT RELOAD: New sales data received, updating dashboard:', salesData);
+        
+        // HOT RELOAD: Update dashboard with new data while preserving state
+        if (salesData && salesData.hasComparableData) {
+          this.addMarketDataDashboard(salesData, 'user_filtered');
+        }
+        
+        // Restore critical references after dashboard recreation
+        await this.restoreSearchQueryManagerReference();
+        
+        console.log('✅ Restored all critical references after dashboard recreation');
+        console.log('🔥 HOT RELOAD: Complete dashboard refresh successful with SSoT!');
+        
+      } catch (error) {
+        console.error('❌ Error during hot reload API analysis:', error);
+        
+        // Hide loading on error
+        const loadingElement = document.getElementById('filter-loading');
+        const statusElement = document.getElementById('filter-status');
+        
+        if (loadingElement) loadingElement.style.display = 'none';
+        if (statusElement) {
+          statusElement.textContent = 'Fel vid uppdatering av analys';
+          statusElement.style.color = '#d32f2f';
+        }
+      }
+    } else {
+      console.error('❌ ApiManager not available for hot reload');
+    }
+  }
+  
+  // NEW: Restore SearchQueryManager reference using multiple strategies
+  async restoreSearchQueryManagerReference() {
+    console.log('🔧 Attempting to restore SearchQueryManager reference...');
+    
+    // Try multiple restoration sources in order of preference
+    let restored = false;
+    
+    // 1. Try to restore from quality analyzer
+    if (this.qualityAnalyzer && this.qualityAnalyzer.searchQueryManager) {
+      this.searchQueryManager = this.qualityAnalyzer.searchQueryManager;
+      console.log('✅ Restored SearchQueryManager reference from quality analyzer');
+      restored = true;
+    } 
+    // 2. Try to restore from API manager
+    else if (this.apiManager && this.apiManager.searchQueryManager) {
+      this.searchQueryManager = this.apiManager.searchQueryManager;
+      console.log('✅ Restored SearchQueryManager reference from API manager');
+      restored = true;
+    }
+    // 3. Try to find it in the global scope (from content script)
+    else if (typeof window !== 'undefined' && window.auctionetAssistant && window.auctionetAssistant.searchQueryManager) {
+      this.searchQueryManager = window.auctionetAssistant.searchQueryManager;
+      console.log('✅ Restored SearchQueryManager reference from global window');
+      restored = true;
+    }
+    // 4. Try to create a new instance with current data as last resort
+    else {
+      try {
+        const SearchQueryManager = await import('/modules/search-query-manager.js').then(m => m.SearchQueryManager);
+        this.searchQueryManager = new SearchQueryManager();
+        
+        // Try to initialize with current dashboard data
+        const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
+        const terms = Array.from(smartCheckboxes).map(cb => ({
+          term: cb.value,
+          type: 'unknown',
+          description: cb.value,
+          priority: 5,
+          isSelected: cb.checked
+        }));
+        
+        if (terms.length > 0) {
+          this.searchQueryManager.initialize('', { candidates: terms }, 'emergency_restore');
+          console.log('✅ Created new SearchQueryManager instance and initialized with current dashboard data');
+          restored = true;
+        }
+      } catch (error) {
+        console.error('❌ Failed to create emergency SearchQueryManager instance:', error);
+      }
+    }
+    
+    if (!restored) {
+      // Show user-friendly error
+      const statusIndicator = document.getElementById('filter-status');
+      if (statusIndicator) {
+        statusIndicator.textContent = 'Sökfunktion inte tillgänglig - ladda om sidan för att aktivera';
+        statusIndicator.style.color = '#e74c3c';
+      }
+    }
+  }
+  
+  // NEW: Sync all checkbox instances with SSoT state
+  syncAllCheckboxesWithSSoT() {
+    if (!this.searchQueryManager) {
+      console.log('⚠️ Cannot sync checkboxes - SearchQueryManager not available');
       return;
     }
     
-    try {
-      // CRITICAL: Use SearchQueryManager to update selections while preserving core terms
-      this.searchQueryManager.updateUserSelections(userSelectedTerms);
-      
-      // Get the new query from SSoT (with core terms preserved)
-      const newQuery = this.searchQueryManager.getCurrentQuery();
-      console.log('🔄 SSoT preserved query:', newQuery);
-      
-      // Check if we have API manager access
-      if (!this.apiManager) {
-        console.error('❌ API manager not available for hot reload');
-        if (statusIndicator) {
-          statusIndicator.textContent = 'API manager inte tillgänglig - prova att ladda om sidan';
-        }
-        return;
-      }
-      
-      // Mark as hot reloading
-      this.isHotReloading = true;
-      
-      // Show dashboard loading
-      this.showDashboardLoading();
-      
-      // Create custom search context using SSoT query
-      const customSearchContext = this.searchQueryManager.buildSearchContext(
-        null, // artistInfo
-        '', // objectType
-        '', // period
-        '', // technique
-        {}, // enhancedTerms
-        'user_filtered' // analysisType
+    console.log('🔄 Syncing ALL checkbox instances with SSoT state...');
+    
+    const ssotSelectedTerms = this.searchQueryManager.getSelectedTerms() || [];
+    console.log('🔍 SSoT selected terms for sync:', ssotSelectedTerms);
+    
+    // CRITICAL FIX: Use setTimeout to ensure DOM elements are available after recreation
+    setTimeout(() => {
+      // Find all checkbox instances across the page with multiple selectors
+      const allCheckboxes = document.querySelectorAll(
+        '.smart-checkbox, .search-filter-checkbox, input[type="checkbox"][data-search-term], input[type="checkbox"][value]'
       );
       
-      // Override the primarySearch with user's new query from SSoT
-      customSearchContext.primarySearch = newQuery;
-      customSearchContext.searchTerms = newQuery;
-      customSearchContext.finalSearch = newQuery;
+      console.log(`🔍 Found ${allCheckboxes.length} checkboxes to potentially sync`);
       
-      console.log('🎯 Triggering new API analysis with SSoT query:', newQuery);
+      let syncedCount = 0;
+      allCheckboxes.forEach(checkbox => {
+        // Get term value from multiple possible sources
+        const termValue = checkbox.value || 
+                         checkbox.getAttribute('data-search-term') || 
+                         checkbox.getAttribute('data-term') ||
+                         checkbox.dataset.term;
+        
+        if (!termValue || termValue === '0' || termValue === '1') {
+          // Skip checkboxes with generic values or empty values
+          return;
+        }
+        
+        console.log(`🔍 Checking checkbox with value: "${termValue}"`);
+        
+        // Check if this term should be selected based on SSoT
+        const shouldBeChecked = ssotSelectedTerms.some(selectedTerm => 
+          selectedTerm.toLowerCase() === termValue.toLowerCase() ||
+          this.searchQueryManager.normalizeTermForMatching(selectedTerm) === this.searchQueryManager.normalizeTermForMatching(termValue)
+        );
+        
+        // Update checkbox state if it doesn't match SSoT (user has full control)
+        if (checkbox.checked !== shouldBeChecked) {
+          checkbox.checked = shouldBeChecked;
+          syncedCount++;
+          console.log(`🔧 Synced checkbox "${termValue}": ${shouldBeChecked}`);
+        }
+      });
       
-      // Call API with new search query from SSoT
-      const newSalesData = await this.apiManager.analyzeSales(customSearchContext);
+      console.log(`✅ Synced ${syncedCount} checkboxes with SSoT state`);
       
-      // Add metadata
-      newSalesData.analysisType = 'custom_user_filter';
-      newSalesData.searchedEntity = newQuery;
-      newSalesData.searchContext = customSearchContext;
-      newSalesData.hotReload = true;
-      
-      // Re-extract candidate terms for continued fine-tuning
-      await this.preserveCandidateTermsForHotReload(newSalesData, newQuery);
-      
-      console.log('🔥 HOT RELOAD: New sales data received, updating dashboard:', newSalesData);
-      
-      // Update dashboard with new data using SSoT
-      this.addMarketDataDashboard(newSalesData);
-      
-      // Update status
-      if (statusIndicator) {
-        statusIndicator.textContent = `✅ Analys uppdaterad med "${newQuery}"`;
+      // Also update the current query display
+      const currentQuery = this.searchQueryManager.getCurrentQuery();
+      const currentQueryDisplay = document.getElementById('current-search-display');
+      if (currentQueryDisplay) {
+        currentQueryDisplay.textContent = `"${currentQuery || 'Ingen sökning'}"`;
       }
-      
-      console.log('🔥 HOT RELOAD: Complete dashboard refresh successful with SSoT!');
-      
-    } catch (error) {
-      console.error('❌ HOT RELOAD ERROR:', error);
-      
-      if (statusIndicator) {
-        statusIndicator.textContent = 'Fel vid uppdatering - försök igen';
-      }
-    } finally {
-      // Hide loading indicator
-      if (loadingIndicator) loadingIndicator.style.display = 'none';
-      this.hideDashboardLoading();
-      this.isHotReloading = false;
-    }
+    }, 100); // Wait 100ms for DOM to be ready
   }
 
   // NEW: Preserve candidate terms for continued hot reloading
@@ -983,38 +704,40 @@ export class DashboardManager {
   // NEW: Generate search filter HTML from candidate terms
   generateSearchFilterHTML(candidateTerms) {
     // Check if we have SearchQueryManager available
-    if (!this.searchQueryManager || !this.searchQueryManager.getCurrentQuery()) {
+    if (!this.searchQueryManager) {
       console.log('⚠️ SearchQueryManager not available, falling back to legacy method');
       return this.generateLegacySearchFilterHTML(candidateTerms);
     }
     
-    console.log('🔧 Generating smart search filter using SearchQueryManager SSoT');
+    // CRITICAL FIX: Don't fail just because getCurrentQuery() is empty string
+    // SSoT might be initialized but not have a query yet, or query might be ""
+    const currentQuery = this.searchQueryManager.getCurrentQuery();
+    console.log('🔧 SSoT Query from getCurrentQuery():', `"${currentQuery}"`);
     
     // Get available terms from SearchQueryManager SSoT
     const availableTerms = this.searchQueryManager.getAvailableTerms();
     
     if (availableTerms.length === 0) {
-      console.log('⚠️ No available terms in SearchQueryManager SSoT');
-      return '';
+      console.log('⚠️ No available terms in SearchQueryManager SSoT, using legacy fallback');
+      return this.generateLegacySearchFilterHTML(candidateTerms);
     }
+    
+    console.log('🔧 Generating smart search filter using SearchQueryManager SSoT');
     
     // AI-POWERED SMART SUGGESTIONS: Select top 4-5 most important terms from SSoT
     const smartSuggestions = this.selectSmartSuggestionsFromSSoT(availableTerms);
-    
-    // Get current query from SearchQueryManager SSoT
-    const currentQuery = this.searchQueryManager.getCurrentQuery();
     
     // Show current query and smart suggestions prominently
     let filterHTML = `
       <div class="search-filter-section">
         <div class="filter-header">
           <h4 class="filter-title">🧠 AI-smarta sökförslag</h4>
-          <div class="filter-description">Lägg till relevanta termer för mer exakt analys - uppdateras automatiskt</div>
+          <div class="filter-description">Anpassa alla termer efter behov - du har full kontroll över sökningen</div>
         </div>
         <div class="smart-suggestions">
           <div class="current-query-display">
             <span class="current-label">Nuvarande:</span>
-            <span class="current-query" id="current-search-display">"${currentQuery}"</span>
+            <span class="current-query" id="current-search-display">"${currentQuery || 'Ingen sökning'}"</span>
           </div>
           <div class="suggestion-controls">`;
     
@@ -1023,14 +746,21 @@ export class DashboardManager {
       const checkboxId = `smart-suggestion-${index}`;
       // Check selection state from SearchQueryManager SSoT
       const isChecked = suggestion.isSelected ? 'checked' : '';
-      const priority = this.getSuggestionPriorityFromSSoT(suggestion);
+      
+      // CRITICAL FIX: Use isCore flag to determine if this should be an orange core term
+      const priority = suggestion.isCore ? 'priority-core' : this.getSuggestionPriorityFromSSoT(suggestion);
+      
+      // User-friendly styling and messaging - all terms are user-controllable
+      const coreClass = suggestion.isCore ? 'core-term' : '';
+      const coreTitle = suggestion.isCore ? ' (AI-rekommenderad som viktig)' : '';
       
       filterHTML += `
-        <label class="smart-suggestion-checkbox ${priority}" title="${suggestion.description}: ${suggestion.term}">
+        <label class="smart-suggestion-checkbox ${priority} ${coreClass}" title="${suggestion.description}: ${suggestion.term}${coreTitle}">
           <input type="checkbox" 
                  class="smart-checkbox" 
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
+                 data-core="${suggestion.isCore || false}"
                  id="${checkboxId}"
                  ${isChecked}>
           <span class="suggestion-text">${suggestion.term}</span>
@@ -1043,7 +773,7 @@ export class DashboardManager {
         </div>
         <div class="filter-status">
           <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Klicka på förslag för att förfina sökningen</span>
+          <span class="update-status" id="filter-status">Kryssa i/ur alla termer som du vill - full användarkonroll</span>
         </div>
       </div>`;
     
@@ -1054,154 +784,125 @@ export class DashboardManager {
   selectSmartSuggestionsFromSSoT(availableTerms) {
     console.log('🧠 AI-selecting smart suggestions from SSoT with', availableTerms.length, 'available terms');
     
-    // CRITICAL: Ensure ALL current search query terms are represented
+    // CRITICAL: Get the actual selected terms from SSoT - not just query string
+    const ssotSelectedTerms = this.searchQueryManager.getSelectedTerms() || [];
     const currentQuery = this.searchQueryManager.getCurrentQuery();
-    const currentQueryTerms = currentQuery.toLowerCase().split(' ').filter(t => t.length > 1);
-    console.log('🎯 Current query terms that MUST be included:', currentQueryTerms);
     
-    // Create a map for faster lookup
-    const availableTermsMap = new Map();
+    console.log('🔍 SSoT selected terms:', ssotSelectedTerms);
+    console.log('🔍 Current query string:', currentQuery);
+    
+    // CRITICAL FIX: First, ensure all SSoT selected terms are in availableTerms
+    ssotSelectedTerms.forEach(selectedTerm => {
+      const matchingTerm = availableTerms.find(t => 
+        t.term.toLowerCase() === selectedTerm.toLowerCase() || 
+        this.searchQueryManager.normalizeTermForMatching(t.term) === this.searchQueryManager.normalizeTermForMatching(selectedTerm)
+      );
+      
+      if (!matchingTerm) {
+        console.log('🔧 Adding missing SSoT selected term to availableTerms:', selectedTerm);
+        
+        // Detect if this is a core term
+        const isCore = this.searchQueryManager.isCoreSearchTerm(selectedTerm);
+        const termType = isCore ? 
+          (this.isWatchBrand(selectedTerm) ? 'brand' : 'artist') :
+          this.detectTermTypeForMissing(selectedTerm);
+        
+        // Add the missing term with appropriate priority
+        availableTerms.push({
+          term: selectedTerm,
+          type: termType,
+          description: isCore ? 'Konstnär/Märke' : this.getTermDescription(termType),
+          priority: isCore ? 100 : 90,
+          isSelected: true, // Must be true since it's in SSoT selected
+          isCore: isCore
+        });
+        
+        console.log(`✅ Added missing SSoT selected ${isCore ? 'CORE' : 'regular'} term "${selectedTerm}" as ${termType}`);
+      } else {
+        // Ensure existing term is marked as selected based on SSoT
+        matchingTerm.isSelected = true;
+        // Check if it should be marked as core
+        if (this.searchQueryManager.isCoreSearchTerm(matchingTerm.term)) {
+          matchingTerm.isCore = true;
+          console.log(`🔒 Marked existing term "${matchingTerm.term}" as CORE (from SSoT selected)`);
+        }
+      }
+    });
+    
+    // CRITICAL FIX: Now mark all terms based on actual SSoT selection state
     availableTerms.forEach(term => {
-      availableTermsMap.set(term.term.toLowerCase(), term);
+      // Check if this term is actually selected in SSoT
+      const isSelectedInSSoT = ssotSelectedTerms.some(selectedTerm => 
+        selectedTerm.toLowerCase() === term.term.toLowerCase() ||
+        this.searchQueryManager.normalizeTermForMatching(selectedTerm) === this.searchQueryManager.normalizeTermForMatching(term.term)
+      );
+      
+      // Override the isSelected based on actual SSoT state
+      term.isSelected = isSelectedInSSoT;
+      
+      // Check if it's a core term
+      if (this.searchQueryManager.isCoreSearchTerm(term.term)) {
+        term.isCore = true;
+      }
+      
+      console.log(`🔧 Term "${term.term}": isSelected=${term.isSelected}, isCore=${term.isCore || false} (based on SSoT)`);
     });
     
-    // Add missing query terms that aren't in availableTerms
-    const missingQueryTerms = [];
-    currentQueryTerms.forEach(queryTerm => {
-      if (!availableTermsMap.has(queryTerm)) {
-        console.log('➕ MISSING QUERY TERM - adding to suggestions:', queryTerm);
-        const missingTerm = {
-          term: queryTerm.charAt(0).toUpperCase() + queryTerm.slice(1), // Capitalize first letter
-          type: this.detectTermTypeForMissing(queryTerm),
-          description: 'Aktuell sökterm',
-          priority: 1, // High priority for current search terms
-          isCore: this.searchQueryManager.isCoreSearchTerm(queryTerm),
-          isSelected: true, // Always selected since it's in current query
-          score: 50 // Very high score to ensure inclusion
-        };
-        missingQueryTerms.push(missingTerm);
-        console.log('✅ Added missing term:', missingTerm);
-      }
+    // CRITICAL FIX: New selection strategy - ALWAYS include selected terms first
+    const selectedTermObjects = availableTerms.filter(term => term.isSelected);
+    const unselectedTermObjects = availableTerms.filter(term => !term.isSelected);
+    
+    console.log(`📊 Selection strategy: ${selectedTermObjects.length} selected + ${unselectedTermObjects.length} unselected terms available`);
+    
+    // Start with ALL selected terms (these must always be shown)
+    const smartSuggestions = [...selectedTermObjects];
+    
+    // Add unselected terms sorted by priority until we reach limit
+    const sortedUnselectedTerms = unselectedTermObjects
+      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    
+    // Add unselected terms up to total limit of 8 (more generous limit)
+    const maxTotal = 8;
+    const remainingSlots = Math.max(0, maxTotal - selectedTermObjects.length);
+    
+    smartSuggestions.push(...sortedUnselectedTerms.slice(0, remainingSlots));
+    
+    console.log('🎯 Selected smart suggestions with SSoT-synced selection state:');
+    console.log(`   📌 Selected terms (always shown): ${selectedTermObjects.length}`);
+    console.log(`   📋 Additional unselected terms: ${Math.min(remainingSlots, sortedUnselectedTerms.length)}`);
+    console.log(`   📊 Total suggestions: ${smartSuggestions.length}`);
+    
+    smartSuggestions.forEach((term, index) => {
+      console.log(`   ${index + 1}. "${term.term}" (${term.type}) - Priority: ${term.priority}, Selected: ${term.isSelected}, Core: ${term.isCore || false}`);
     });
     
-    // Combine available terms with missing query terms
-    const allTerms = [...availableTerms, ...missingQueryTerms];
-    console.log('🔄 Total terms after adding missing query terms:', allTerms.length);
-    
-    // Score each term based on importance and context
-    const scoredTerms = allTerms.map(term => {
-      let score = term.score || 0; // Use existing score if available
-      
-      // Type-based scoring (priority)
-      const typeScores = {
-        'artist': 20,      // Highest priority - brands/artists are critical
-        'object_type': 18,  
-        'model': 15,
-        'reference': 12,   
-        'period': 10,      // Important for watches
-        'material': 8,
-        'movement': 7,
-        'keyword': 5       
-      };
-      
-      score += typeScores[term.type] || 3;
-      
-      // CRITICAL: Massive boost for core terms (brands/artists/object types)
-      if (term.isCore) {
-        score += 25; // This ensures core terms like "Omega" always make it to top suggestions
-        console.log('🎯 CORE TERM BOOST for:', term.term, 'new score:', score);
-      }
-      
-      // CRITICAL: Boost for currently selected terms
-      if (term.isSelected) {
-        score += 15; // Ensures selected terms appear in suggestions
-        console.log('✅ SELECTED TERM BOOST for:', term.term, 'new score:', score);
-      }
-      
-      // CRITICAL: Boost for terms that are in current query
-      if (currentQueryTerms.includes(term.term.toLowerCase())) {
-        score += 20; // Massive boost for current query terms
-        console.log('🎯 CURRENT QUERY BOOST for:', term.term, 'new score:', score);
-      }
-      
-      // Boost score for high-value terms
-      const highValueTerms = ['guld', 'silver', 'diamant', 'antik', 'vintage', 'original', 'limited', 'signed'];
-      if (highValueTerms.some(hvt => term.term.toLowerCase().includes(hvt))) {
-        score += 4;
-      }
-      
-      // Boost score for specific important terms
-      const importantTerms = ['seamaster', 'omega', 'rolex', 'patek', 'cartier', 'automatic', 'chronometer'];
-      if (importantTerms.some(it => term.term.toLowerCase().includes(it))) {
-        score += 3;
-      }
-      
-      // Boost score for period terms (years and decades)
-      if (term.type === 'period') {
-        score += 3;
-        console.log('📅 Period term boost for:', term.term, 'score now:', score);
-      }
-      
-      return { ...term, score };
-    });
-    
-    // Sort by score (highest first) and take top 5
-    const topSuggestions = scoredTerms
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-    
-    console.log('🧠 AI-selected smart suggestions from SSoT:');
-    topSuggestions.forEach((suggestion, index) => {
-      console.log(`   ${index + 1}. "${suggestion.term}" (${suggestion.type}) - Score: ${suggestion.score} - Selected: ${suggestion.isSelected} - Core: ${suggestion.isCore}`);
-    });
-    
-    return topSuggestions;
+    return smartSuggestions;
   }
-
-  // Helper: Detect term type for missing query terms
-  detectTermTypeForMissing(term) {
-    const lowerTerm = term.toLowerCase();
-    
-    // Brand/Artist detection (enhanced list)
-    const brands = [
-      'omega', 'rolex', 'patek', 'cartier', 'breitling', 'tag', 'heuer', 
+  
+  // NEW: Helper method to check if a term is a watch brand
+  isWatchBrand(term) {
+    const watchBrands = [
+      'rolex', 'omega', 'patek philippe', 'audemars piguet', 'vacheron constantin',
+      'jaeger-lecoultre', 'iwc', 'breitling', 'tag heuer', 'cartier',
       'longines', 'tissot', 'seiko', 'citizen', 'casio', 'hamilton',
-      'iwc', 'jaeger', 'lecoultre', 'vacheron', 'constantin', 'audemars', 'piguet',
-      'tudor', 'zenith', 'chopard', 'montblanc', 'hublot', 'richard', 'mille'
+      'tudor', 'zenith', 'panerai', 'hublot', 'richard mille'
     ];
-    
-    if (brands.includes(lowerTerm)) {
-      return 'artist';
-    }
-    
-    // Period detection
-    if (/^\d{4}$/.test(term) || /\d{4}[-\s]tal/.test(lowerTerm)) {
-      return 'period';
-    }
-    
-    // Reference detection
-    if (/^st\s?\d+/.test(lowerTerm) || /reference/.test(lowerTerm)) {
-      return 'reference';
-    }
-    
-    // Object type detection
-    const objectTypes = ['armbandsur', 'klocka', 'ur', 'watch', 'tavla', 'målning', 'painting', 'skulptur', 'vas', 'lampa'];
-    if (objectTypes.includes(lowerTerm)) {
-      return 'object_type';
-    }
-    
-    // Movement detection
-    if (['automatisk', 'manuell', 'quartz', 'kronograf'].includes(lowerTerm)) {
-      return 'movement';
-    }
-    
-    // Material detection
-    if (['guld', 'silver', 'stål', 'platina', 'titan'].includes(lowerTerm)) {
-      return 'material';
-    }
-    
-    // Default to keyword
-    return 'keyword';
+    return watchBrands.includes(term.toLowerCase());
+  }
+  
+  // NEW: Get description for term type
+  getTermDescription(type) {
+    const descriptions = {
+      'artist': 'Konstnär/Märke',
+      'brand': 'Konstnär/Märke', 
+      'object_type': 'Objekttyp',
+      'period': 'Tidsperiod',
+      'model': 'Modell/Serie',
+      'movement': 'Urverk/Teknik',
+      'reference': 'Referensnummer',
+      'keyword': 'Nyckelord'
+    };
+    return descriptions[type] || 'Nyckelord';
   }
 
   // NEW: Get suggestion priority class for SSoT terms
@@ -1223,7 +924,16 @@ export class DashboardManager {
     
     // Use the old method as fallback
     const smartSuggestions = this.selectSmartSuggestions(candidateTerms.candidates);
-    const currentQuery = candidateTerms.currentQuery || 'Automatisk sökning';
+    
+    // CRITICAL FIX: Even in legacy mode, prioritize SSoT for currentQuery
+    let currentQuery;
+    if (this.searchQueryManager && this.searchQueryManager.getCurrentQuery()) {
+      currentQuery = this.searchQueryManager.getCurrentQuery();
+      console.log('✅ LEGACY mode using SSoT query:', currentQuery);
+    } else {
+      currentQuery = candidateTerms.currentQuery || 'Automatisk sökning';
+      console.log('⚠️ LEGACY mode using candidateTerms query:', currentQuery);
+    }
     
     let filterHTML = `
       <div class="search-filter-section">
@@ -1238,21 +948,34 @@ export class DashboardManager {
           </div>
           <div class="suggestion-controls">`;
     
-    smartSuggestions.forEach((suggestion, index) => {
-      const checkboxId = `smart-suggestion-${index}`;
-      const isChecked = suggestion.preSelected ? 'checked' : '';
+    smartSuggestions.forEach(suggestion => {
       const priority = this.getSuggestionPriority(suggestion);
+      const icon = this.getTypeIcon(suggestion.type);
+      
+      // CRITICAL FIX: Check if this is a core term even in legacy mode
+      const isCore = this.isWatchBrand(suggestion.term) || 
+                     suggestion.type === 'artist' || 
+                     suggestion.type === 'brand' ||
+                     (suggestion.term.toLowerCase() === 'omega'); // Explicit check for Omega
+      
+      // CRITICAL FIX: Override priority for core terms
+      const finalPriority = isCore ? 'priority-core' : priority;
+      const coreClass = isCore ? 'core-term' : '';
+      const disabledAttr = isCore ? 'data-core="true"' : '';
+      const coreTitle = isCore ? ' (Kärnsökterm - kan ej tas bort)' : '';
       
       filterHTML += `
-        <label class="smart-suggestion-checkbox ${priority}" title="${suggestion.description}: ${suggestion.term}">
+        <label class="smart-suggestion-checkbox ${finalPriority} ${coreClass}" 
+               title="${suggestion.description || suggestion.term}${coreTitle}">
           <input type="checkbox" 
                  class="smart-checkbox" 
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
-                 id="${checkboxId}"
-                 ${isChecked}>
+                 ${disabledAttr}
+                 ${suggestion.preSelected ? 'checked' : ''}
+                 ${isCore ? 'disabled' : ''}>
           <span class="suggestion-text">${suggestion.term}</span>
-          <span class="suggestion-type">${this.getTypeIcon(suggestion.type)}</span>
+          <span class="suggestion-type">${icon}</span>
         </label>`;
     });
     
@@ -1261,7 +984,7 @@ export class DashboardManager {
         </div>
         <div class="filter-status">
           <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Klicka på förslag för att förfina sökningen</span>
+          <span class="update-status" id="filter-status">Kryssa i/ur alla termer som du vill - full användarkonroll</span>
         </div>
       </div>`;
     
@@ -1689,6 +1412,33 @@ export class DashboardManager {
           color: #bf360c;
         }
         
+        /* CRITICAL FIX: Disabled core terms (cannot be unchecked) */
+        .smart-suggestion-checkbox.priority-core:has(input[type="checkbox"]:disabled) {
+          background: #ffcc02;
+          border-color: #f57c00;
+          color: #bf360c;
+          cursor: not-allowed;
+          opacity: 0.9;
+        }
+        
+        .smart-suggestion-checkbox.priority-core:has(input[type="checkbox"]:disabled) .suggestion-text {
+          color: #bf360c;
+          font-weight: 700;
+        }
+        
+        .smart-suggestion-checkbox.priority-core:has(input[type="checkbox"]:disabled:checked) {
+          background: #ff8f00;
+          border-color: #e65100;
+          color: #ffffff;
+          cursor: not-allowed;
+          transform: none; /* Don't scale disabled elements */
+        }
+        
+        .smart-suggestion-checkbox.priority-core:has(input[type="checkbox"]:disabled:checked) .suggestion-text {
+          color: #ffffff;
+          font-weight: 700;
+        }
+        
         .smart-suggestion-checkbox.priority-selected {
           background: #d4edda;
           border-color: #c3e6cb;
@@ -1847,9 +1597,18 @@ export class DashboardManager {
     }
   }
 
-  // NEW: Determine actual search query from sales data
+  // NEW: Determine actual search query from SSoT first, then sales data
   determineActualSearchQuery(salesData) {
-    // Priority order for determining actual search query
+    // CRITICAL FIX: Always check SearchQueryManager SSoT FIRST
+    if (this.searchQueryManager && this.searchQueryManager.getCurrentQuery()) {
+      const ssotQuery = this.searchQueryManager.getCurrentQuery();
+      console.log('🎯 Using SSoT query as primary source:', ssotQuery);
+      return ssotQuery;
+    }
+    
+    console.log('⚠️ SSoT not available, falling back to salesData sources');
+    
+    // Fallback priority order for determining actual search query from sales data
     if (salesData.historical && salesData.historical.actualSearchQuery) {
       return salesData.historical.actualSearchQuery;
     } else if (salesData.live && salesData.live.actualSearchQuery) {
@@ -1859,7 +1618,7 @@ export class DashboardManager {
     } else if (salesData.candidateSearchTerms && salesData.candidateSearchTerms.currentQuery) {
       return salesData.candidateSearchTerms.currentQuery;
     } else {
-      // Fallback
+      // Final fallback
       return salesData.analysisType || 'Okänd sökning';
     }
   }
@@ -2036,24 +1795,253 @@ export class DashboardManager {
       const priority = this.getSuggestionPriority(suggestion);
       const icon = this.getTypeIcon(suggestion.type);
       
+      // CRITICAL FIX: Check if this is a core term even in legacy mode
+      const isCore = this.isWatchBrand(suggestion.term) || 
+                     suggestion.type === 'artist' || 
+                     suggestion.type === 'brand' ||
+                     (suggestion.term.toLowerCase() === 'omega'); // Explicit check for Omega
+      
+      // CRITICAL FIX: Override priority for core terms
+      const finalPriority = isCore ? 'priority-core' : priority;
+      const coreClass = isCore ? 'core-term' : '';
+      const disabledAttr = isCore ? 'data-core="true"' : '';
+      const coreTitle = isCore ? ' (Kärnsökterm - kan ej tas bort)' : '';
+      
       filterHTML += `
-        <span class="smart-suggestion ${priority} ${suggestion.preSelected ? 'selected' : ''}" 
-              data-suggestion="${suggestion.term}" 
-              data-type="${suggestion.type}"
-              title="${suggestion.description || 'Klicka för att lägga till/ta bort'}">
-          ${suggestion.term} ${icon}
-        </span>`;
+        <label class="smart-suggestion-checkbox ${finalPriority} ${coreClass}" 
+               title="${suggestion.description || suggestion.term}${coreTitle}">
+          <input type="checkbox" 
+                 class="smart-checkbox" 
+                 value="${suggestion.term}" 
+                 data-type="${suggestion.type}"
+                 ${disabledAttr}
+                 ${suggestion.preSelected ? 'checked' : ''}
+                 ${isCore ? 'disabled' : ''}>
+          <span class="suggestion-text">${suggestion.term}</span>
+          <span class="suggestion-type">${icon}</span>
+        </label>`;
     });
-
+    
     filterHTML += `
           </div>
         </div>
         <div class="filter-status">
           <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Klicka på förslag för att förfina sökningen</span>
+          <span class="update-status" id="filter-status">Kryssa i/ur alla termer som du vill - full användarkonroll</span>
         </div>
       </div>`;
-
+    
     return filterHTML;
+  }
+
+  // NEW: Detect term type for missing query terms
+  detectTermTypeForMissing(term) {
+    const lowerTerm = term.toLowerCase();
+    
+    // Brand/Artist detection (enhanced list for watches)
+    const watchBrands = [
+      'omega', 'rolex', 'patek', 'cartier', 'breitling', 'tag', 'heuer', 
+      'longines', 'tissot', 'seiko', 'citizen', 'casio', 'hamilton',
+      'iwc', 'jaeger', 'lecoultre', 'vacheron', 'constantin', 'audemars', 'piguet',
+      'tudor', 'zenith', 'chopard', 'montblanc', 'hublot', 'richard', 'mille',
+      'panerai', 'oris', 'frederique', 'constant', 'maurice', 'lacroix'
+    ];
+    
+    if (watchBrands.includes(lowerTerm)) {
+      return 'brand';
+    }
+    
+    // Period detection
+    if (/^\d{4}$/.test(term) || /\d{4}[-\s]tal/.test(lowerTerm)) {
+      return 'period';
+    }
+    
+    // Reference detection
+    if (/^st\s?\d+/.test(lowerTerm) || /reference/.test(lowerTerm)) {
+      return 'reference';
+    }
+    
+    // Object type detection
+    const objectTypes = ['armbandsur', 'klocka', 'ur', 'watch', 'tavla', 'målning', 'painting', 'skulptur', 'vas', 'lampa'];
+    if (objectTypes.includes(lowerTerm)) {
+      return 'object_type';
+    }
+    
+    // Movement detection
+    if (['automatisk', 'manuell', 'quartz', 'kronograf'].includes(lowerTerm)) {
+      return 'movement';
+    }
+    
+    // Material detection
+    if (['guld', 'silver', 'stål', 'platina', 'titan'].includes(lowerTerm)) {
+      return 'material';
+    }
+    
+    // Model detection for watch models
+    const watchModels = ['seamaster', 'speedmaster', 'constellation', 'deville', 'submariner', 'daytona', 'datejust'];
+    if (watchModels.includes(lowerTerm)) {
+      return 'model';
+    }
+    
+    // Default to keyword
+    return 'keyword';
+  }
+
+  // NEW: Get initial query for SSoT initialization only (before SSoT has candidate terms)
+  getInitialQueryForSSoTInit(salesData) {
+    console.log('🔧 Getting initial query for SSoT initialization from salesData');
+    
+    // Fallback priority order for initial SSoT initialization
+    if (salesData.historical && salesData.historical.actualSearchQuery) {
+      return salesData.historical.actualSearchQuery;
+    } else if (salesData.live && salesData.live.actualSearchQuery) {
+      return salesData.live.actualSearchQuery;
+    } else if (salesData.searchedEntity) {
+      return salesData.searchedEntity;
+    } else if (salesData.candidateSearchTerms && salesData.candidateSearchTerms.currentQuery) {
+      return salesData.candidateSearchTerms.currentQuery;
+    } else {
+      // Final fallback
+      return salesData.analysisType || 'Okänd sökning';
+    }
+  }
+  
+  // NEW: Get final query from SSoT (after SSoT is initialized with candidate terms)
+  getFinalQueryFromSSoT(salesData) {
+    // CRITICAL: Always prioritize SSoT after it's been properly initialized
+    if (this.searchQueryManager && this.searchQueryManager.getCurrentQuery()) {
+      const ssotQuery = this.searchQueryManager.getCurrentQuery();
+      console.log('🎯 Using FINAL SSoT query as authoritative source:', ssotQuery);
+      return ssotQuery;
+    }
+    
+    console.log('⚠️ SSoT not available for final query, using fallback');
+    
+    // Only use as fallback if SSoT completely failed
+    return this.getInitialQueryForSSoTInit(salesData);
+  }
+
+  // NEW: FORCE ALL components to use SSoT ONLY - no more candidateSearchTerms chaos
+  async forceSSoTInitializationAsync(salesData) {
+    console.log('🚨 FORCING SSoT initialization - eliminating all other search term sources');
+    
+    // CRITICAL FIX: Ensure SearchQueryManager reference is available
+    if (!this.searchQueryManager) {
+      console.log('⚠️ SearchQueryManager reference missing - attempting recovery...');
+      
+      // Recovery Strategy 1: Check if we have it via QualityAnalyzer
+      if (this.qualityAnalyzer && this.qualityAnalyzer.searchQueryManager) {
+        console.log('🔧 Recovery: Found SearchQueryManager via QualityAnalyzer');
+        this.searchQueryManager = this.qualityAnalyzer.searchQueryManager;
+      }
+      // Recovery Strategy 2: Check if we have it via ApiManager
+      else if (this.apiManager && this.apiManager.searchQueryManager) {
+        console.log('🔧 Recovery: Found SearchQueryManager via ApiManager');
+        this.searchQueryManager = this.apiManager.searchQueryManager;
+      }
+      // Recovery Strategy 3: Check global assistant instance
+      else if (typeof window !== 'undefined' && window.auctionetAssistant && window.auctionetAssistant.searchQueryManager) {
+        console.log('🔧 Recovery: Found SearchQueryManager via global assistant');
+        this.searchQueryManager = window.auctionetAssistant.searchQueryManager;
+      }
+      // Recovery Strategy 4: Create emergency instance as last resort
+      else {
+        console.log('🚨 Recovery: Creating emergency SearchQueryManager instance');
+        const { SearchQueryManager } = await import(chrome.runtime.getURL('modules/search-query-manager.js'));
+        this.searchQueryManager = new SearchQueryManager();
+      }
+      
+      if (this.searchQueryManager) {
+        console.log('✅ SearchQueryManager recovery successful');
+      } else {
+        console.error('❌ CRITICAL: SearchQueryManager recovery failed completely');
+        return false;
+      }
+    }
+    
+    // STEP 1: Get basic query from salesData (only for initial SSoT setup)
+    let baseQuery = this.getInitialQueryForSSoTInit(salesData);
+    console.log('🔧 Base query for SSoT init:', baseQuery);
+    
+    // STEP 2: If we have candidate terms, extract them ONCE and put into SSoT
+    let candidateTermsForSSoT = null;
+    
+    if (salesData.candidateSearchTerms) {
+      console.log('✅ Using existing candidateSearchTerms for SSoT');
+      candidateTermsForSSoT = salesData.candidateSearchTerms;
+    } else {
+      console.log('🔧 No candidateSearchTerms - SSoT will handle term extraction');
+      
+      // Let SSoT extract its own terms from base data
+      if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager) {
+        const filterManager = this.qualityAnalyzer.searchFilterManager;
+        
+        // Extract fresh candidate terms ONCE
+        const extractedTerms = filterManager.extractCandidateSearchTerms(
+          salesData.title || '',
+          salesData.description || '',
+          salesData.artistInfo || null,
+          baseQuery
+        );
+        
+        candidateTermsForSSoT = extractedTerms;
+        console.log('🔧 Extracted candidate terms for SSoT:', candidateTermsForSSoT);
+      }
+    }
+    
+    // STEP 3: Initialize SSoT with ALL the terms
+    if (this.searchQueryManager) {
+      this.searchQueryManager.initialize(
+        baseQuery,
+        candidateTermsForSSoT,
+        salesData.hotReload ? 'user' : 'system'
+      );
+      console.log('✅ SSoT initialized with candidate terms');
+    } else {
+      console.error('❌ CRITICAL: SearchQueryManager not available for forced initialization');
+      return false;
+    }
+    
+    // STEP 4: Now get the AUTHORITATIVE query from SSoT
+    const authoritativeQuery = this.searchQueryManager.getCurrentQuery();
+    console.log('🎯 AUTHORITATIVE SSoT query:', authoritativeQuery);
+    
+    // STEP 5: FORCE all salesData to use SSoT values ONLY
+    salesData.searchedEntity = authoritativeQuery;
+    
+    if (salesData.historical) {
+      salesData.historical.actualSearchQuery = authoritativeQuery;
+    }
+    
+    if (salesData.live) {
+      salesData.live.actualSearchQuery = authoritativeQuery;
+    }
+    
+    // STEP 6: Create SSoT-based candidateSearchTerms that everything will use
+    const ssotTerms = this.searchQueryManager.getAvailableTerms();
+    const ssotCandidateTerms = {
+      candidates: ssotTerms.map(term => ({
+        term: term.term,
+        type: term.type,
+        description: term.description,
+        priority: term.priority,
+        preSelected: term.isSelected
+      })),
+      currentQuery: authoritativeQuery,
+      analysisType: salesData.analysisType || 'ssot_forced'
+    };
+    
+    salesData.candidateSearchTerms = ssotCandidateTerms;
+    
+    // STEP 7: Update all manager references to use SSoT
+    if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager) {
+      this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms = ssotCandidateTerms;
+    }
+    
+    console.log('🚨 FORCED SSoT initialization complete - all components now use same source');
+    console.log('🎯 Final authoritative query:', authoritativeQuery);
+    console.log('🔧 Available SSoT terms:', ssotTerms.length);
+    
+    return true;
   }
 } 

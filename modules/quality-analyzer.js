@@ -6,14 +6,23 @@ import { SearchFilterManager } from './search-filter-manager.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
   constructor() {
+    this.warnings = [];
+    this.currentScore = 100;
     this.dataExtractor = null;
     this.apiManager = null;
+    this.searchQueryManager = null; // SSoT reference
+    this.immediateAnalysisStarted = false; // Prevent duplicate sales analysis
     this.previousFreetextData = null;
-    this.dashboardManager = new DashboardManager();
-    this.searchFilterManager = new SearchFilterManager();
     this.searchTermExtractor = new SearchTermExtractor();
     this.itemTypeHandlers = new ItemTypeHandlers();
+    
+    // Initialize manager instances
     this.salesAnalysisManager = new SalesAnalysisManager();
+    this.searchFilterManager = new SearchFilterManager();
+    this.dashboardManager = new DashboardManager();
+    
+    this.pendingAnalyses = new Set();
+    this.aiAnalysisActive = false;
     
     // Inject dependencies
     this.itemTypeHandlers.setSearchTermExtractor(this.searchTermExtractor);
@@ -681,6 +690,12 @@ export class QualityAnalyzer {
         this.pendingAnalyses.delete('artist');
         this.handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore);
         
+        // CRITICAL FIX: Only start AI-based analysis if immediate analysis wasn't already started
+        if (this.immediateAnalysisStarted) {
+          console.log('⚠️ Immediate analysis already started - skipping AI-based duplicate analysis');
+          return;
+        }
+        
         // PRIORITY FIX: If AI found an artist, use it for market analysis (cancel any existing freetext analysis)
         if (aiArtist && aiArtist.detectedArtist) {
           console.log('🎯 AI detected artist - prioritizing over any previous analysis:', aiArtist.detectedArtist);
@@ -710,6 +725,12 @@ export class QualityAnalyzer {
             confidence: aiArtist.confidence || 0.8
           };
           
+          // CRITICAL FIX: Check if sales analysis is already running
+          if (this.pendingAnalyses.has('sales')) {
+            console.log('⚠️ Sales analysis already running - skipping AI duplicate analysis');
+            return;
+          }
+          
           console.log('💰 Starting PRIORITY sales analysis with AI-detected artist:', aiArtistInfo);
           this.pendingAnalyses.add('sales');
           this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
@@ -719,6 +740,12 @@ export class QualityAnalyzer {
         const bestArtist = this.determineBestArtistForMarketAnalysis(data, aiArtist);
         
         if (bestArtist) {
+          // CRITICAL FIX: Check if sales analysis is already running
+          if (this.pendingAnalyses.has('sales')) {
+            console.log('⚠️ Sales analysis already running - skipping fallback duplicate analysis');
+            return;
+          }
+          
             console.log('💰 Starting sales analysis with best available artist/search:', bestArtist);
           this.pendingAnalyses.add('sales');
           this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
@@ -732,8 +759,20 @@ export class QualityAnalyzer {
         console.error('Error in AI artist detection:', error);
         this.pendingAnalyses.delete('artist');
         
+        // CRITICAL FIX: Only start error fallback if immediate analysis wasn't already started
+        if (this.immediateAnalysisStarted) {
+          console.log('⚠️ Immediate analysis already started - skipping error fallback duplicate analysis');
+          return;
+        }
+        
         // Even if AI detection fails, try market analysis with immediate artist
         if (immediateArtist) {
+          // CRITICAL FIX: Check if sales analysis is already running
+          if (this.pendingAnalyses.has('sales')) {
+            console.log('⚠️ Sales analysis already running - skipping error fallback duplicate analysis');
+            return;
+          }
+          
           console.log('💰 AI failed, but starting sales analysis with immediate artist:', immediateArtist);
           this.pendingAnalyses.add('sales');
           this.updateAILoadingMessage('💰 Analyserar marknadsvärde...');
@@ -743,25 +782,35 @@ export class QualityAnalyzer {
         }
       });
 
-      // CONDITIONAL IMMEDIATE ANALYSIS: Only start immediate analysis if we have a high-confidence artist or brand
+      // CONDITIONAL IMMEDIATE ANALYSIS: Only start immediate analysis if we have a high-confidence artist or brand AND no AI detection is running
       if (immediateArtist && (immediateArtist.source === 'artist_field' || immediateArtist.confidence > 0.8 || immediateArtist.isBrand)) {
         console.log('💰 Starting immediate sales analysis with high-confidence artist/brand:', immediateArtist);
-        this.pendingAnalyses.add('sales');
         
-        // Set appropriate loading message based on analysis type
-        let loadingMessage = '💰 Analyserar marknadsvärde...';
-        if (immediateArtist.isBrand) {
-          loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
-        } else if (immediateArtist.isFreetext) {
-          loadingMessage = `🔍 Söker jämförbara objekt: "${immediateArtist.artist}"...`;
+        // CRITICAL FIX: Check if sales analysis is already running to prevent duplicates
+        if (this.pendingAnalyses.has('sales')) {
+          console.log('⚠️ Sales analysis already running - skipping duplicate immediate analysis');
         } else {
-          loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+          this.pendingAnalyses.add('sales');
+          
+          // Set appropriate loading message based on analysis type
+          let loadingMessage = '💰 Analyserar marknadsvärde...';
+          if (immediateArtist.isBrand) {
+            loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+          } else if (immediateArtist.isFreetext) {
+            loadingMessage = `🔍 Söker jämförbara objekt: "${immediateArtist.artist}"...`;
+          } else {
+            loadingMessage = `💰 Analyserar marknadsvärde för ${immediateArtist.artist}...`;
+          }
+          
+          this.updateAILoadingMessage(loadingMessage);
+          this.salesAnalysisManager.startSalesAnalysis(immediateArtist, data, currentWarnings, currentScore, this.searchFilterManager, this);
+          
+          // CRITICAL FIX: Mark that immediate analysis was started to prevent AI duplication
+          this.immediateAnalysisStarted = true;
         }
-        
-        this.updateAILoadingMessage(loadingMessage);
-        this.salesAnalysisManager.startSalesAnalysis(immediateArtist, data, currentWarnings, currentScore, this.searchFilterManager, this);
       } else {
         console.log('⏳ Waiting for AI artist detection before starting market analysis (no high-confidence immediate artist found)');
+        this.immediateAnalysisStarted = false; // No immediate analysis, AI detection can proceed
       }
 
     } catch (error) {

@@ -65,6 +65,12 @@
         this.searchFilterManager.setSearchQueryManager(this.searchQueryManager);
         console.log('✅ SearchQueryManager SSoT wired to all components');
         
+        // CRITICAL FIX: Make assistant instance available globally for hot reload restoration
+        if (typeof window !== 'undefined') {
+          window.auctionetAssistant = this;
+          console.log('🌐 Assistant instance exposed globally for hot reload support');
+        }
+        
         // Set up other dependencies
         this.qualityAnalyzer.setDataExtractor(this.dataExtractor);
         this.qualityAnalyzer.setApiManager(this.apiManager);

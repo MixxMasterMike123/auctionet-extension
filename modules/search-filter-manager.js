@@ -441,38 +441,44 @@ export class SearchFilterManager {
         // Get current item data
         const data = this.dataExtractor.extractItemData();
         
-        // USE SSoT: Build new search context using SearchQueryManager
-        const customSearchContext = this.searchQueryManager ? 
-          this.searchQueryManager.buildSearchContext(
-            null, // artistInfo
-            '', // objectType
-            '', // period
-            '', // technique
-            {}, // enhancedTerms
-            'user_interactive' // analysisType
-          ) : {
-            // Fallback to legacy logic
-            primarySearch: newQuery,
-            analysisType: 'user_interactive'
-          };
+        // CRITICAL FIX: Use SearchQueryManager SSoT for consistent query building
+        if (!this.searchQueryManager) {
+          console.error('❌ CONSISTENCY ERROR: SearchQueryManager not available for interactive filter');
+          alert('⚠️ Sökfunktion inte tillgänglig - ladda om sidan');
+          return;
+        }
         
-        // Override with user's selection
-        customSearchContext.primarySearch = newQuery;
-        customSearchContext.searchTerms = newQuery;
-        customSearchContext.finalSearch = newQuery;
+        console.log('🔧 CONSISTENCY FIX: Using SearchQueryManager SSoT for interactive filter');
         
-        console.log('🎯 Custom search context for filtered analysis:', customSearchContext);
+        // Update SSoT with user selections
+        this.searchQueryManager.updateUserSelections(selectedTerms);
+        
+        // Get the new query from SSoT (with core terms preserved)
+        const newQueryFromSSoT = this.searchQueryManager.getCurrentQuery();
+        console.log('🎯 SSoT generated consistent query:', newQueryFromSSoT);
+        
+        // Build search context using SSoT
+        const customSearchContext = this.searchQueryManager.buildSearchContext(
+          null, // artistInfo (SSoT handles this internally)
+          '', // objectType (SSoT handles this internally)  
+          '', // period (SSoT handles this internally)
+          '', // technique
+          {}, // enhancedTerms
+          'user_interactive' // analysisType
+        );
+        
+        console.log('🎯 SSoT search context for interactive filter:', customSearchContext);
         
         // Call API with custom search
         const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
         
         // FIX: Add analysis metadata to sales data (this was missing!)
         filteredSalesData.analysisType = 'custom_user_filter';
-        filteredSalesData.searchedEntity = newQuery;
+        filteredSalesData.searchedEntity = newQueryFromSSoT;
         filteredSalesData.searchContext = customSearchContext;
         
         // Update the current search terms for future reference
-        this.lastCandidateSearchTerms.currentQuery = newQuery;
+        this.lastCandidateSearchTerms.currentQuery = newQueryFromSSoT;
         
         // Regenerate dashboard with filtered results
         const valuationSuggestions = this.qualityAnalyzer.salesAnalysisManager.analyzeValuationSuggestions(filteredSalesData);
@@ -535,7 +541,7 @@ export class SearchFilterManager {
       }
     });
     
-    console.log("🔍 Selected terms:", selectedTerms);
+    console.log("👤 User selected terms from UI:", selectedTerms);
     
     if (selectedTerms.length === 0) {
       console.log("⚠️ No terms selected - keeping current search");
@@ -543,72 +549,53 @@ export class SearchFilterManager {
     }
     
     try {
-      // Build new search query
-      const newQuery = selectedTerms.join(" ");
-      console.log("🎯 New search query:", newQuery);
+      // CRITICAL FIX: Use SearchQueryManager SSoT for consistent query building
+      if (!this.searchQueryManager) {
+        console.error('❌ CONSISTENCY ERROR: SearchQueryManager not available for header filter change');
+        return;
+      }
       
-      // Get current item data
-      const data = this.dataExtractor.extractItemData();
+      console.log("🔧 CONSISTENCY FIX: Using SearchQueryManager SSoT for header filter");
       
-      // USE SSoT: Build new search context using SearchQueryManager
-      const customSearchContext = this.searchQueryManager ? 
-        this.searchQueryManager.buildSearchContext(
-          null, // artistInfo
-          '', // objectType
-          '', // period
-          '', // technique
-          {}, // enhancedTerms
-          'user_header_filter' // analysisType
-        ) : {
-          // Fallback to legacy logic
-          primarySearch: newQuery,
-          analysisType: 'user_header_filter'
-        };
+      // Update SSoT with user selections
+      this.searchQueryManager.updateUserSelections(selectedTerms);
       
-      // Override with user's selection
-      customSearchContext.primarySearch = newQuery;
-      customSearchContext.searchTerms = newQuery;
-      customSearchContext.finalSearch = newQuery;
+      // Get the new query from SSoT (with core terms preserved)
+      const newQuery = this.searchQueryManager.getCurrentQuery();
+      console.log("🎯 SSoT generated consistent query:", newQuery);
       
-      console.log("🎯 Custom search context for filtered analysis:", customSearchContext);
+      // Build search context using SSoT
+      const customSearchContext = this.searchQueryManager.buildSearchContext(
+        null, // artistInfo (SSoT handles this internally)
+        '', // objectType (SSoT handles this internally)
+        '', // period (SSoT handles this internally)
+        '', // technique
+        {}, // enhancedTerms
+        'user_header_filter' // analysisType
+      );
+      
+      console.log("🎯 SSoT search context for header filter:", customSearchContext);
       
       // Show loading indicator on dashboard
       this.dashboardManager.showDashboardLoading();
       
-      // Call API with custom search
+      // Call API with SSoT-generated search context
       const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
       
-      // FIX: Add analysis metadata to sales data (this was missing!)
+      // Add analysis metadata
       filteredSalesData.analysisType = "custom_user_filter";
       filteredSalesData.searchedEntity = newQuery;
       filteredSalesData.searchContext = customSearchContext;
       
-      // Update the current search terms for future reference
-      this.lastCandidateSearchTerms.currentQuery = newQuery;
+      console.log("🔥 Header filter analysis complete with SSoT consistency");
       
-      // Regenerate dashboard with filtered results
-      const valuationSuggestions = this.qualityAnalyzer.salesAnalysisManager.analyzeValuationSuggestions(filteredSalesData);
-      this.dashboardManager.addMarketDataDashboard(filteredSalesData, valuationSuggestions);
-      
-      console.log("✅ Header search filter updated successfully with auto-reload");
+      // Update dashboard with new data
+      this.dashboardManager.addMarketDataDashboard(filteredSalesData);
       
     } catch (error) {
-      console.error("❌ Error updating search filter:", error);
+      console.error("❌ Header search filter error:", error);
+    } finally {
       this.dashboardManager.hideDashboardLoading();
-      
-      // Show user-friendly error
-      const dashboard = document.querySelector(".market-data-dashboard");
-      if (dashboard) {
-        const errorDiv = document.createElement("div");
-        errorDiv.innerHTML = `
-          <div style="background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 11px;">
-            ⚠️ Kunde inte uppdatera sökningen. Försök igen.
-          </div>`;
-        dashboard.appendChild(errorDiv);
-        
-        // Remove error after 3 seconds
-        setTimeout(() => errorDiv.remove(), 3000);
-      }
     }
   }
 } 
