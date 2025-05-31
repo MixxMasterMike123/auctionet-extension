@@ -9,13 +9,8 @@ export class DashboardManager {
     this.currentSearchQuery = ''; // Legacy - will be replaced by SearchQueryManager
     this.isHotReloading = false;
     
-    // NEW: Single Source of Truth for search queries
-    this.searchQueryManager = new SearchQueryManager();
-    
-    // Setup SSoT change listeners
-    this.searchQueryManager.addChangeListener((event, data) => {
-      this.onSearchQueryChange(event, data);
-    });
+    // NEW: Single Source of Truth for search queries (will be set by content script)
+    this.searchQueryManager = null;
   }
 
   // Set dependencies
@@ -27,15 +22,26 @@ export class DashboardManager {
     this.qualityAnalyzer = qualityAnalyzer;
   }
 
+  // NEW: Set SearchQueryManager for SSoT usage
+  setSearchQueryManager(searchQueryManager) {
+    this.searchQueryManager = searchQueryManager;
+    console.log('✅ DashboardManager: SearchQueryManager SSoT connected');
+    
+    // Setup SSoT change listeners
+    this.searchQueryManager.addChangeListener((event, data) => {
+      this.onSearchQueryChange(event, data);
+    });
+  }
+
   // NEW: Handle search query changes from SSoT
   onSearchQueryChange(event, data) {
     console.log('🔄 DashboardManager received SSoT change:', event, data);
     
     // Update legacy currentSearchQuery for backward compatibility
-    this.currentSearchQuery = data.query;
+    this.currentSearchQuery = data.query || '';
     
     // Update dashboard header display in real-time
-    this.updateDashboardHeader(data.query, data.source);
+    this.updateDashboardHeader(data.query || '', data.source || 'system');
     
     // Update smart suggestions display
     this.updateSmartSuggestionsDisplay();
@@ -62,6 +68,11 @@ export class DashboardManager {
 
   // NEW: Update smart suggestions display based on SSoT
   updateSmartSuggestionsDisplay() {
+    if (!this.searchQueryManager) {
+      console.log('⚠️ SearchQueryManager not available for suggestions display update');
+      return;
+    }
+    
     const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
     
     smartCheckboxes.forEach(checkbox => {
