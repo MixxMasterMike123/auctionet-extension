@@ -979,7 +979,7 @@ export class QualityAnalyzer {
     }
   }
 
-  // NEW: Add click-to-copy functionality for artist names
+  // NEW: Add click-to-add-to-artist-field functionality for artist names
   addClickToCopyHandler(warningElement, artistName) {
     const clickableElements = warningElement.querySelectorAll('.clickable-artist');
     
@@ -989,7 +989,26 @@ export class QualityAnalyzer {
         e.stopPropagation();
         
         try {
-          await navigator.clipboard.writeText(artistName);
+          // Find the artist field
+          const artistField = document.querySelector('#item_artist_name_sv');
+          
+          if (!artistField) {
+            console.error('❌ Artist field not found');
+            this.showErrorFeedback(element, 'Konstnärsfält hittades inte');
+            return;
+          }
+          
+          // Add artist name to the field
+          artistField.value = artistName;
+          
+          // Trigger any necessary events for form validation/autocomplete
+          artistField.dispatchEvent(new Event('input', { bubbles: true }));
+          artistField.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          // Trigger quality re-analysis since adding an artist likely improves the score
+          setTimeout(() => {
+            this.analyzeQuality();
+          }, 100);
           
           // Visual feedback - success
           const originalText = element.textContent;
@@ -998,8 +1017,13 @@ export class QualityAnalyzer {
           
           element.style.background = '#4caf50';
           element.style.color = 'white';
-          element.textContent = '✓ Kopierat!';
+          element.textContent = '✓ Tillagd!';
           element.style.transform = 'scale(1.05)';
+          
+          // Briefly highlight the artist field to show where it was added
+          const originalFieldBackground = artistField.style.backgroundColor;
+          artistField.style.backgroundColor = '#e8f5e8';
+          artistField.style.transition = 'background-color 0.3s ease';
           
           // Reset after 1.5 seconds
           setTimeout(() => {
@@ -1007,54 +1031,36 @@ export class QualityAnalyzer {
             element.style.color = originalColor;
             element.textContent = originalText;
             element.style.transform = 'scale(1)';
+            
+            // Reset field highlight
+            artistField.style.backgroundColor = originalFieldBackground;
           }, 1500);
           
-          console.log(`📋 Artist name copied to clipboard: ${artistName}`);
+          console.log(`✅ Artist name added to field: ${artistName}`);
           
         } catch (error) {
-          console.error('Failed to copy artist name:', error);
-          
-          // Visual feedback - error
-          const originalBackground = element.style.background;
-          element.style.background = '#f44336';
-          element.style.color = 'white';
-          
-          setTimeout(() => {
-            element.style.background = originalBackground;
-            element.style.color = '#2196f3';
-          }, 1000);
-          
-          // Fallback - select text for manual copy
-          this.selectTextForManualCopy(element, artistName);
+          console.error('Failed to add artist name to field:', error);
+          this.showErrorFeedback(element, 'Misslyckades att lägga till');
         }
       });
     });
   }
 
-  // Fallback method for manual text selection if clipboard API fails
-  selectTextForManualCopy(element, artistName) {
-    try {
-      // Clear any existing selection
-      window.getSelection()?.removeAllRanges();
-      
-      const range = document.createRange();
-      range.selectNodeContents(element);
-      
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      
-      console.log('🎯 Manual text selection successful for:', artistName);
-      
-      // Optional: Show a temporary visual feedback
-      element.style.backgroundColor = '#E3F2FD';
-      setTimeout(() => {
-        element.style.backgroundColor = '';
-      }, 1000);
-      
-    } catch (error) {
-      console.error('❌ Manual text selection failed:', error);
-    }
+  // Helper method to show error feedback
+  showErrorFeedback(element, message) {
+    const originalBackground = element.style.background;
+    const originalColor = element.style.color;
+    const originalText = element.textContent;
+    
+    element.style.background = '#f44336';
+    element.style.color = 'white';
+    element.textContent = message;
+    
+    setTimeout(() => {
+      element.style.background = originalBackground;
+      element.style.color = originalColor;
+      element.textContent = originalText;
+    }, 1500);
   }
 
   setupLiveQualityUpdates() {
@@ -1303,7 +1309,7 @@ export class QualityAnalyzer {
             const plainPattern = new RegExp(`"${escapedArtist}"`, 'g');
             
             // Replace with clickable version
-            const clickableReplacement = `"<span class="clickable-artist" style="color: #2196f3; cursor: pointer; text-decoration: underline; font-weight: 600; transition: all 0.2s ease;" title="Klicka för att kopiera konstnärsnamnet">${w.detectedArtist}</span>"`;
+            const clickableReplacement = `"<span class="clickable-artist" style="color: #2196f3; cursor: pointer; text-decoration: underline; font-weight: 600; transition: all 0.2s ease;" title="Klicka för att lägga till i konstnärsfältet">${w.detectedArtist}</span>"`;
             
             // First try to replace the pattern with <strong> tags
             if (strongPattern.test(issue)) {
