@@ -145,7 +145,10 @@ Return JSON format:
   async callClaudeAPI(prompt) {
     try {
       console.log('🚀 Calling AI for search query generation...');
-      const response = await this.apiManager.callAI(prompt, 'search_query');
+      const response = await this.apiManager.callClaudeAPI({
+        title: 'Search Query Generation',
+        description: prompt
+      }, 'search_query');
       
       if (response && response.searchTerms) {
         console.log('✅ AI search query generation successful, received raw JSON');
