@@ -150,16 +150,30 @@ Return JSON format:
         description: prompt
       }, 'search_query');
       
-      if (response && response.searchTerms) {
-        console.log('✅ AI search query generation successful, received raw JSON');
+      console.log('🔧 Raw AI response:', response);
+      
+      // Parse the JSON response (API returns raw text for search_query field type)
+      let parsedResponse;
+      try {
+        parsedResponse = JSON.parse(response);
+        console.log('✅ Successfully parsed AI JSON response:', parsedResponse);
+      } catch (parseError) {
+        console.error('💥 Failed to parse AI JSON response:', parseError);
+        console.error('Raw response was:', response);
+        throw new Error('Invalid JSON format in AI response');
+      }
+      
+      if (parsedResponse && parsedResponse.searchTerms && Array.isArray(parsedResponse.searchTerms)) {
+        console.log('✅ AI search query generation successful');
         return {
           success: true,
-          searchTerms: response.searchTerms,
-          reasoning: response.reasoning,
-          confidence: response.confidence
+          searchTerms: parsedResponse.searchTerms,
+          reasoning: parsedResponse.reasoning || 'AI-generated search terms',
+          confidence: parsedResponse.confidence || 0.8
         };
       } else {
-        throw new Error('Invalid AI response format');
+        console.error('💥 Invalid AI response structure:', parsedResponse);
+        throw new Error('AI response missing required searchTerms array');
       }
     } catch (error) {
       console.error('💥 AI call failed:', error);
