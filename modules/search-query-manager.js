@@ -890,7 +890,7 @@ export class SearchQueryManager {
         console.log('🔄 SSoT: Synced selected terms:', Array.from(this.selectedTerms));
         
         // Update core terms based on selected terms
-        this.updateCoreTerms();
+        this.identifyCoreTerms();
     }
 
     /**
