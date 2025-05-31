@@ -100,8 +100,8 @@ export class SearchQuerySSoT {
     } catch (error) {
       console.error('💥 SSoT: Failed to generate AI query:', error);
       
-      // Emergency fallback
-      const fallback = this.getEmergencyFallback(title);
+      // Emergency fallback with artist field priority
+      const fallback = this.getEmergencyFallback(title, artist, description);
       this.setCurrentQuery(fallback);
       console.log('⚠️ SSoT: Emergency fallback set as authoritative source');
       return fallback;
@@ -228,23 +228,85 @@ export class SearchQuerySSoT {
     }
   }
 
-  // Emergency fallback (very basic)
-  getEmergencyFallback(title) {
-    console.log('🚨 SSoT: Generating emergency fallback query');
+  // Emergency fallback (ARTIST FIELD PRIORITY)
+  getEmergencyFallback(title, artist, description) {
+    console.log('🚨 SSoT: Generating emergency fallback query with artist field priority');
+    console.log(`👤 Artist field: "${artist}"`);
+    console.log(`📝 Title: "${title}"`);
     
-    const words = title.toLowerCase()
-      .replace(/[^\w\såäöüß-]/g, ' ')
-      .split(/\s+/)
-      .filter(word => word.length > 2)
-      .slice(0, 2);
+    let fallbackTerms = [];
+    let reasoning = 'Emergency fallback: ';
+    
+    // PRIORITY 1: Artist field (HIGHEST PRIORITY - same as AI Rules)
+    if (artist && artist.trim()) {
+      const artistName = artist.trim();
+      fallbackTerms.push(artistName);
+      reasoning += `Artist field "${artistName}" included as primary term. `;
+      console.log(`✅ EMERGENCY: Using artist field "${artistName}" as primary search term`);
+    }
+    
+    // PRIORITY 2: Extract object type from title (if not enough terms yet)
+    if (fallbackTerms.length < 2) {
+      // Simple object type detection
+      const objectTypes = ['skulptur', 'målning', 'tavla', 'keramik', 'fat', 'vas', 'armbandsur', 'klocka', 'ur', 'halsband', 'ring', 'brosch'];
+      const titleLower = title.toLowerCase();
+      
+      for (const objType of objectTypes) {
+        if (titleLower.includes(objType) && !fallbackTerms.some(term => term.toLowerCase().includes(objType))) {
+          fallbackTerms.push(objType);
+          reasoning += `Object type "${objType}" detected. `;
+          console.log(`✅ EMERGENCY: Added object type "${objType}"`);
+          break;
+        }
+      }
+    }
+    
+    // PRIORITY 3: Extract significant words from title (if still not enough terms)
+    if (fallbackTerms.length < 3) {
+      const words = title.toLowerCase()
+        .replace(/[^\w\såäöüß-]/g, ' ')
+        .split(/\s+/)
+        .filter(word => 
+          word.length > 2 && 
+          !fallbackTerms.some(term => term.toLowerCase().includes(word.toLowerCase())) &&
+          !['och', 'med', 'för', 'från', 'till', 'signerad', 'numrerad', 'höjd', 'diameter'].includes(word)
+        )
+        .slice(0, 3 - fallbackTerms.length);
+      
+      fallbackTerms.push(...words);
+      if (words.length > 0) {
+        reasoning += `Added significant words: ${words.join(', ')}. `;
+        console.log(`✅ EMERGENCY: Added significant words: ${words.join(', ')}`);
+      }
+    }
+    
+    // Ensure we have at least one term
+    if (fallbackTerms.length === 0) {
+      const basicWords = title.toLowerCase()
+        .replace(/[^\w\såäöüß-]/g, ' ')
+        .split(/\s+/)
+        .filter(word => word.length > 2)
+        .slice(0, 2);
+      
+      fallbackTerms = basicWords;
+      reasoning += 'Used basic word extraction as last resort.';
+      console.log(`⚠️ EMERGENCY: Last resort - basic words: ${basicWords.join(', ')}`);
+    }
+    
+    const query = fallbackTerms.join(' ');
+    const confidence = artist && artist.trim() ? 0.7 : 0.2; // Higher confidence if artist field used
+    
+    console.log(`✅ EMERGENCY FALLBACK: Generated query "${query}" with confidence ${confidence}`);
+    console.log(`📋 Emergency terms: ${fallbackTerms.join(', ')}`);
+    console.log(`🧠 Emergency reasoning: ${reasoning}`);
     
     return {
       success: true,
-      query: words.join(' '),
-      searchTerms: words,
-      reasoning: 'Emergency fallback - basic word extraction',
-      confidence: 0.2,
-      source: 'emergency_fallback'
+      query: query,
+      searchTerms: fallbackTerms,
+      reasoning: reasoning,
+      confidence: confidence,
+      source: 'emergency_fallback_with_artist'
     };
   }
 
