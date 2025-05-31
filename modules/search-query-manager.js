@@ -406,18 +406,23 @@ export class SearchQueryManager {
         let confidence = 0.6;
         let searchStrategy = 'coin_basic';
         
-        if (country) {
-            primarySearch = `${primarySearch} ${country}`;
-            confidence = 0.7;
+        // Priority 1: Country + Type (most important for coins)
+        if (country && country.length > 0) {
+            primarySearch = `${objectType.toLowerCase()} ${country[0]}`;
+            confidence = 0.8;
             searchStrategy = 'coin_country';
-        } else if (denomination) {
-            primarySearch = `${primarySearch} ${denomination}`;
-            confidence = 0.65;
-            searchStrategy = 'coin_denomination';
-        } else if (material) {
-            primarySearch = `${primarySearch} ${material}`;
-            confidence = 0.6;
+        }
+        // Priority 2: Material + Type (if no country but has precious material)
+        else if (material) {
+            primarySearch = `${objectType.toLowerCase()} ${material}`;
+            confidence = 0.75;
             searchStrategy = 'coin_material';
+        }
+        // Priority 3: Year + Type (if no country/material but has year)
+        else if (this.extractYears(title + ' ' + description)) {
+            primarySearch = `${objectType.toLowerCase()} ${this.extractYears(title + ' ' + description)}`;
+            confidence = 0.7;
+            searchStrategy = 'coin_year';
         }
         
         return {
@@ -680,6 +685,8 @@ export class SearchQueryManager {
         console.log('   Old:', oldQuery);
         console.log('   New:', this.currentQuery);
         console.log('   Source:', source);
+        console.log('   Selected terms used:', rebuiltTerms);
+        console.log('   Raw selected terms:', Array.from(this.selectedTerms));
         
         this.notifyListeners('rebuild', { 
             oldQuery, 
@@ -835,17 +842,34 @@ export class SearchQueryManager {
         if (!this.currentQuery) return;
         
         const queryTerms = this.currentQuery.toLowerCase().split(' ').filter(t => t.length > 1);
+        console.log('🔍 SSoT: Syncing from query:', this.currentQuery);
+        console.log('🔍 SSoT: Query terms:', queryTerms);
         
         this.availableTerms.forEach(termObj => {
             const termLower = termObj.term.toLowerCase();
-            const isInQuery = queryTerms.some(qt => {
-                return qt === termLower || 
-                       qt.includes(termLower) || 
-                       termLower.includes(qt) ||
-                       this.normalizeTermForMatching(qt) === this.normalizeTermForMatching(termLower);
-            });
             
-            if (isInQuery) {
+            // CRITICAL FIX: Use exact word matching instead of substring matching
+            // This prevents "1970" from being detected in "1970-tal"
+            const isExactMatch = queryTerms.includes(termLower);
+            
+            // FIXED: Proper multi-word matching for terms like "Arne Norell"
+            let isMultiWordMatch = false;
+            if (termLower.includes(' ')) {
+                const termWords = termLower.split(' ').filter(w => w.length > 1);
+                // Check if ALL words of the multi-word term are present in the query
+                isMultiWordMatch = termWords.every(termWord => queryTerms.includes(termWord));
+            }
+            
+            // DEBUG: Log matching decisions for year-related terms and artist terms
+            if (termLower.includes('1970') || termLower.includes('tal') || termLower.includes('arne') || termLower.includes('norell')) {
+                console.log(`🔍 SSoT: Checking term "${termObj.term}"`);
+                console.log(`   - termLower: "${termLower}"`);
+                console.log(`   - isExactMatch: ${isExactMatch} (queryTerms.includes("${termLower}"))`);
+                console.log(`   - isMultiWordMatch: ${isMultiWordMatch}`);
+                console.log(`   - will be selected: ${isExactMatch || isMultiWordMatch}`);
+            }
+            
+            if (isExactMatch || isMultiWordMatch) {
                 this.selectedTerms.add(termObj.term);
             }
         });
@@ -859,8 +883,7 @@ export class SearchQueryManager {
     normalizeTermForMatching(term) {
         return term.toLowerCase()
                   .replace(/\s+/g, '')
-                  .replace(/[^\w\d]/g, '')
-                  .replace(/tal$/, ''); // Handle "1970" vs "1970-tal"
+                  .replace(/[^\w\d-]/g, ''); // Keep hyphens for year periods like "1970-tal"
     }
 
     /**
@@ -1642,11 +1665,30 @@ export class SearchQueryManager {
         const queryTerms = this.currentQuery.split(' ').filter(t => t.length > 1);
         const existingTerms = new Set(this.availableTerms.map(t => t.term.toLowerCase()));
         
+        console.log('🔍 SSoT: Ensuring query terms available');
+        console.log('   - currentQuery:', this.currentQuery);
+        console.log('   - queryTerms:', queryTerms);
+        console.log('   - existingTerms:', Array.from(existingTerms));
+        
+        // IMPROVED: Check if individual words are already covered by multi-word terms
+        const isWordCoveredByMultiWordTerm = (word) => {
+            return this.availableTerms.some(termObj => {
+                return termObj.term.toLowerCase().includes(' ') && 
+                       termObj.term.toLowerCase().includes(word.toLowerCase());
+            });
+        };
+        
         queryTerms.forEach(term => {
             const termLower = term.toLowerCase();
             
             // If term is not in availableTerms, add it
             if (!existingTerms.has(termLower)) {
+                // IMPROVED: Don't add individual words if they're part of an existing multi-word term
+                if (isWordCoveredByMultiWordTerm(term)) {
+                    console.log(`⏭️ SSoT: Skipping "${term}" - already covered by multi-word term`);
+                    return;
+                }
+                
                 const termType = this.detectTermType(term);
                 const isCore = this.isCoreSearchTerm(term);
                 
@@ -1662,6 +1704,8 @@ export class SearchQueryManager {
                 
                 this.availableTerms.push(newTerm);
                 console.log('➕ SSoT: Added missing query term to availableTerms:', newTerm);
+            } else {
+                console.log(`✅ SSoT: Term "${term}" already exists in availableTerms`);
             }
         });
     }
@@ -1696,26 +1740,41 @@ export class SearchQueryManager {
      * Update user selections and rebuild query while preserving core terms
      * CRITICAL: This method ensures consistency across all components
      */
-    updateUserSelections(userSelectedTerms) {
+    updateUserSelections(userSelectedTerms, allowCoreTermRemoval = true) {
         console.log('👤 SSoT: Updating user selections:', userSelectedTerms);
         console.log('🔒 SSoT: Core terms to preserve:', Array.from(this.coreTerms));
+        console.log('👤 SSoT: User has full control (can remove core terms):', allowCoreTermRemoval);
         
         // Clear current selections
         this.selectedTerms.clear();
         
-        // Add all core terms (always selected, cannot be removed)
-        this.coreTerms.forEach(coreTerm => {
-            this.selectedTerms.add(coreTerm);
-            console.log('🔒 SSoT: Preserved core term:', coreTerm);
-        });
+        if (allowCoreTermRemoval) {
+            // USER HAS FULL CONTROL MODE: Only add what user explicitly selected
+            console.log('👤 USER CONTROL MODE: Only using user-selected terms (ignoring core term protection)');
+            userSelectedTerms.forEach(term => {
+                if (term && term.trim()) {
+                    this.selectedTerms.add(term.trim());
+                    console.log('👤 SSoT: Added user selection:', term.trim());
+                }
+            });
+        } else {
+            // LEGACY PROTECTION MODE: Add all core terms (always selected, cannot be removed)
+            console.log('🔒 LEGACY PROTECTION MODE: Preserving core terms');
+            this.coreTerms.forEach(coreTerm => {
+                this.selectedTerms.add(coreTerm);
+                console.log('🔒 SSoT: Preserved core term:', coreTerm);
+            });
+            
+            // Add user-selected terms (excluding duplicates)
+            userSelectedTerms.forEach(term => {
+                if (term && term.trim()) {
+                    this.selectedTerms.add(term.trim());
+                    console.log('👤 SSoT: Added user selection:', term.trim());
+                }
+            });
+        }
         
-        // Add user-selected terms (excluding duplicates)
-        userSelectedTerms.forEach(term => {
-            if (term && term.trim()) {
-                this.selectedTerms.add(term.trim());
-                console.log('👤 SSoT: Added user selection:', term.trim());
-            }
-        });
+        console.log('🔧 SSoT: About to rebuild query with selected terms:', Array.from(this.selectedTerms));
         
         // Rebuild query from updated selections
         this.rebuildQuery('user');

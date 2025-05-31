@@ -700,6 +700,11 @@ export class DashboardManager {
       
       console.log(`✅ Synced ${syncedCount} checkboxes with SSoT state`);
       
+      // Clarify when 0 checkboxes are synced
+      if (syncedCount === 0) {
+        console.log('ℹ️ 0 checkboxes synced = All checkboxes already in correct state (this is good!)');
+      }
+      
       // Also update the current query display
       const currentQuery = this.searchQueryManager.getCurrentQuery();
       const currentQueryDisplay = document.getElementById('current-search-display');
@@ -796,7 +801,7 @@ export class DashboardManager {
       
       // User-friendly styling and messaging - all terms are user-controllable
       const coreClass = suggestion.isCore ? 'core-term' : '';
-      const coreTitle = suggestion.isCore ? ' (AI-rekommenderad som viktig)' : '';
+      const coreTitle = suggestion.isCore ? ' (AI-rekommenderad som viktig - du kan kryssa ur den)' : '';
       
       filterHTML += `
         <label class="smart-suggestion-checkbox ${priority} ${coreClass}" title="${suggestion.description}: ${suggestion.term}${coreTitle}">
@@ -817,7 +822,7 @@ export class DashboardManager {
         </div>
         <div class="filter-status">
           <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Kryssa i/ur alla termer som du vill - full användarkonroll</span>
+          <span class="update-status" id="filter-status">Du har full kontroll - kryssa ur ALLA termer (även AI-förslag) om du vill</span>
         </div>
       </div>`;
     
@@ -891,6 +896,30 @@ export class DashboardManager {
       
       console.log(`🔧 Term "${term.term}": isSelected=${term.isSelected}, isCore=${term.isCore || false} (based on SSoT)`);
     });
+    
+    // CRITICAL FIX: Remove redundant name parts if full name exists
+    const hasFullName = availableTerms.some(term => 
+      term.term === 'Lisa Larson' && term.isSelected
+    );
+    
+    if (hasFullName) {
+      // Filter out individual name parts to avoid redundancy
+      const filteredTerms = availableTerms.filter(term => {
+        const isRedundantNamePart = (term.term === 'Lisa' || term.term === 'Larson') && 
+                                   term.type === 'keyword' && 
+                                   term.description === 'Nuvarande sökterm';
+        
+        if (isRedundantNamePart) {
+          console.log(`🗑️ Filtering out redundant name part: "${term.term}" (full name "Lisa Larson" already included)`);
+          return false;
+        }
+        return true;
+      });
+      
+      // Use filtered terms
+      availableTerms = filteredTerms;
+      console.log(`✅ Removed redundant name parts, ${availableTerms.length} terms remaining`);
+    }
     
     // CRITICAL FIX: New selection strategy - ALWAYS include selected terms first
     const selectedTermObjects = availableTerms.filter(term => term.isSelected);
@@ -1005,7 +1034,7 @@ export class DashboardManager {
       // CRITICAL FIX: Override priority for core terms
       const finalPriority = isCore ? 'priority-core' : priority;
       const coreClass = isCore ? 'core-term' : '';
-      const disabledAttr = isCore ? 'data-core="true"' : '';
+      // REMOVED: No more disabled attributes - users have full control
       const coreTitle = isCore ? ' (AI-rekommenderad som viktig - du kan ändra)' : '';
       
       filterHTML += `
@@ -1015,7 +1044,7 @@ export class DashboardManager {
                  class="smart-checkbox" 
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
-                 ${disabledAttr}
+                 data-core="${isCore}"
                  ${suggestion.preSelected ? 'checked' : ''}>
           <span class="suggestion-text">${suggestion.term}</span>
           <span class="suggestion-type">${icon}</span>
@@ -1027,7 +1056,7 @@ export class DashboardManager {
         </div>
         <div class="filter-status">
           <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Kryssa i/ur alla termer som du vill - full användarkonroll</span>
+          <span class="update-status" id="filter-status">Du har full kontroll - kryssa ur ALLA termer (även AI-förslag) om du vill</span>
         </div>
       </div>`;
     
@@ -1442,6 +1471,7 @@ export class DashboardManager {
           border-color: #ff9800;
           color: #e65100;
           font-weight: 600;
+          cursor: pointer; /* Ensure all terms are clickable */
         }
         
         .smart-suggestion-checkbox.priority-core .suggestion-text {
@@ -1453,6 +1483,7 @@ export class DashboardManager {
           background: #ffcc02;
           border-color: #f57c00;
           color: #bf360c;
+          cursor: pointer; /* Emphasize that even core terms are clickable */
         }
         
         .smart-suggestion-checkbox.priority-selected {
@@ -1820,7 +1851,7 @@ export class DashboardManager {
       // CRITICAL FIX: Override priority for core terms
       const finalPriority = isCore ? 'priority-core' : priority;
       const coreClass = isCore ? 'core-term' : '';
-      const disabledAttr = isCore ? 'data-core="true"' : '';
+      // REMOVED: No more disabled attributes - users have full control
       const coreTitle = isCore ? ' (AI-rekommenderad som viktig - du kan ändra)' : '';
       
       filterHTML += `
@@ -1830,7 +1861,7 @@ export class DashboardManager {
                  class="smart-checkbox" 
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
-                 ${disabledAttr}
+                 data-core="${isCore}"
                  ${suggestion.preSelected ? 'checked' : ''}>
           <span class="suggestion-text">${suggestion.term}</span>
           <span class="suggestion-type">${icon}</span>
@@ -1842,7 +1873,7 @@ export class DashboardManager {
         </div>
         <div class="filter-status">
           <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Kryssa i/ur alla termer som du vill - full användarkonroll</span>
+          <span class="update-status" id="filter-status">Du har full kontroll - kryssa ur ALLA termer (även AI-förslag) om du vill</span>
         </div>
       </div>`;
     
