@@ -1214,34 +1214,36 @@ SVARA MED JSON:
   async analyzeComparableSales(artistName, objectType, period, technique, description, currentValuation = null) {
     console.log('💰 analyzeComparableSales called with:', { artistName, objectType, period, technique, currentValuation });
     
-    // Use Auctionet API for real market data instead of Claude estimates
-    console.log('🔍 Using Auctionet API for comprehensive market data analysis...');
-    
     try {
-      // Start both historical and live analysis in parallel for efficiency
+      console.log('🔍 Using Auctionet API for comprehensive market data analysis...');
+      
+      // Run historical and live analysis in parallel
       const [historicalResult, liveResult] = await Promise.all([
-        // Historical sales data - pass currentValuation for exceptional sales filtering
-        this.auctionetAPI.analyzeComparableSales(
-          artistName, 
-          objectType, 
-          period, 
-          technique, 
-          description,
-          currentValuation
-        ),
-        // Live auction data
-        this.auctionetAPI.analyzeLiveAuctions(
-          artistName,
-          objectType,
-          period,
-          technique,
-          description
-        )
+        this.auctionetAPI.analyzeComparableSales(artistName, objectType, period, technique, currentValuation),
+        this.auctionetAPI.analyzeLiveAuctions(artistName, objectType, period, technique)
       ]);
       
       // Combine historical and live data intelligently
       if (historicalResult || liveResult) {
         console.log('✅ Market analysis successful');
+        
+        // Create SSoT for WORKING search queries (the ones that actually found data)
+        const workingQueries = {
+          historical: historicalResult?.actualSearchQuery || null,
+          live: liveResult?.actualSearchQuery || null
+        };
+        
+        // Determine the best working query for dashboard links (prioritize historical)
+        const bestWorkingQuery = workingQueries.historical || workingQueries.live;
+        
+        if (workingQueries.historical !== workingQueries.live && workingQueries.historical && workingQueries.live) {
+          console.log(`⚠️ SEARCH QUERY MISMATCH DETECTED:`);
+          console.log(`   Historical query: "${workingQueries.historical}"`);
+          console.log(`   Live query: "${workingQueries.live}"`);
+          console.log(`   🎯 Dashboard will use both actual queries that found data`);
+        } else {
+          console.log(`✅ Using consistent working query: "${bestWorkingQuery}"`);
+        }
         
         const combinedResult = {
           hasComparableData: !!(historicalResult || liveResult),

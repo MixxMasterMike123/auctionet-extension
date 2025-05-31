@@ -37,55 +37,74 @@ export class AuctionetAPI {
   }
 
   // Main method to analyze comparable sales for an item
-  async analyzeComparableSales(artistName, objectType, period, technique, description, currentValuation = null) {
+  async analyzeComparableSales(artistName, objectType, period, technique, currentValuation = null) {
     console.log('🔍 Starting Auctionet market analysis...');
-    console.log(`📊 Searching for: Artist="${artistName}", Object="${objectType}", Period="${period}"`);
     console.log(`💰 Current valuation for exceptional sales filtering: ${currentValuation ? currentValuation.toLocaleString() + ' SEK' : 'Not provided'}`);
+    
+    console.log(`📊 Search parameters: Artist="${artistName}", Object="${objectType}", Period="${period}", Technique="${technique}"`);
 
     // Ensure company exclusion setting is loaded before searching
     await this.loadExcludeCompanySetting();
 
     try {
-      // Build search strategies with different levels of specificity
-      const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
-      
       let bestResult = null;
       let totalMatches = 0;
       let usedStrategy = null; // Track which strategy was actually used
       let artistSearchResults = 0; // NEW: Track artist-only search results
       
-      // Try each search strategy until we get good results
-      for (const strategy of searchStrategies) {
-        console.log(`🎯 Trying search strategy: ${strategy.description}`);
-        console.log(`🔍 Actual query being searched: "${strategy.query}"`);
+      // PRIORITY 1: Try the canonical query first (from centralized SearchQueryBuilder)
+      const basicQuery = [artistName, objectType, period, technique].filter(Boolean).join(' ');
+      console.log(`🎯 Trying basic query first: "${basicQuery}"`);
+      const canonicalResult = await this.searchAuctionResults(basicQuery, "Basic combined query");
+      
+      if (canonicalResult && canonicalResult.soldItems.length >= 3) {
+        // Canonical query succeeded with good results - use it!
+        console.log(`✅ SUCCESS: Canonical query found ${canonicalResult.soldItems.length} sold items`);
+        bestResult = canonicalResult;
+        totalMatches = canonicalResult.totalEntries;
+        usedStrategy = { 
+          query: basicQuery, 
+          description: "Basic combined query",
+          source: "Direct search" 
+        };
+      } else {
+        console.log(`⚠️ Canonical query found insufficient results (${canonicalResult?.soldItems.length || 0}), trying fallback strategies...`);
         
-        const result = await this.searchAuctionResults(strategy.query, strategy.description);
+        // FALLBACK: Build search strategies with different levels of specificity
+        const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
         
-        // NEW: Track artist-only search results for comparison
-        if (strategy.description.includes('Artist only') && result && result.soldItems) {
-          artistSearchResults = result.soldItems.length;
-          console.log(`👤 Artist-only search found: ${artistSearchResults} results`);
-        }
-        
-        if (result && result.soldItems.length > 0) {
-          console.log(`✅ Found ${result.soldItems.length} sold items with strategy: ${strategy.description}`);
-          console.log(`✅ Successful query was: "${strategy.query}"`);
+        // Try each search strategy until we get good results
+        for (const strategy of searchStrategies) {
+          console.log(`🎯 Trying fallback search strategy: ${strategy.description}`);
+          console.log(`🔍 Fallback query: "${strategy.query}"`);
           
-          // Use the first strategy that gives us results, or combine results
-          if (!bestResult || result.soldItems.length > bestResult.soldItems.length) {
-            bestResult = result;
-            totalMatches = result.totalEntries;
-            usedStrategy = strategy; // Store the winning strategy
-            console.log(`🏆 New best strategy: "${strategy.query}"`);
+          const result = await this.searchAuctionResults(strategy.query, strategy.description);
+          
+          // NEW: Track artist-only search results for comparison
+          if (strategy.description.includes('Artist only') && result && result.soldItems) {
+            artistSearchResults = result.soldItems.length;
+            console.log(`👤 Artist-only search found: ${artistSearchResults} results`);
           }
           
-          // Stop if we have enough data (5+ items)
-          if (result.soldItems.length >= 5) {
-            console.log('🛑 Stopping search - found enough data (' + result.soldItems.length + ' items)');
-            break;
+          if (result && result.soldItems.length > 0) {
+            console.log(`✅ Found ${result.soldItems.length} sold items with fallback strategy: ${strategy.description}`);
+            
+            // Use the first strategy that gives us results, or combine results
+            if (!bestResult || result.soldItems.length > bestResult.soldItems.length) {
+              bestResult = result;
+              totalMatches = result.totalEntries;
+              usedStrategy = strategy; // Store the winning strategy
+              console.log(`🏆 New best fallback strategy: "${strategy.query}"`);
+            }
+            
+            // Stop if we have enough data (5+ items)
+            if (result.soldItems.length >= 5) {
+              console.log('🛑 Stopping fallback search - found enough data (' + result.soldItems.length + ' items)');
+              break;
+            }
+          } else {
+            console.log(`❌ No results for fallback query: "${strategy.query}"`);
           }
-        } else {
-          console.log(`❌ No results for query: "${strategy.query}"`);
         }
       }
 
@@ -145,46 +164,65 @@ export class AuctionetAPI {
   }
 
   // NEW: Analyze live auction data for market intelligence
-  async analyzeLiveAuctions(artistName, objectType, period, technique, description) {
+  async analyzeLiveAuctions(artistName, objectType, period, technique) {
     console.log('🔴 Starting LIVE auction analysis...');
-    console.log(`📊 Searching live auctions for: Artist="${artistName}", Object="${objectType}"`);
+    
+    console.log(`📊 LIVE search parameters: Artist="${artistName}", Object="${objectType}", Period="${period}", Technique="${technique}"`);
 
     // Ensure company exclusion setting is loaded before searching
     await this.loadExcludeCompanySetting();
 
     try {
-      // Build search strategies for live auctions
-      const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
-      
       let bestResult = null;
       let totalMatches = 0;
       let usedStrategy = null; // Track which strategy was actually used
       
-      // Try each search strategy for live auctions
-      for (const strategy of searchStrategies) {
-        console.log(`🎯 Trying LIVE search strategy: ${strategy.description}`);
-        console.log(`🔍 Actual LIVE query being searched: "${strategy.query}"`);
+      // PRIORITY 1: Try the canonical query first (from centralized SearchQueryBuilder)
+      const basicQuery = [artistName, objectType, period, technique].filter(Boolean).join(' ');
+      console.log(`🎯 Trying basic query for LIVE auctions: "${basicQuery}"`);
+      const canonicalResult = await this.searchLiveAuctions(basicQuery, "Basic combined query");
+      
+      if (canonicalResult && canonicalResult.liveItems.length >= 1) {
+        // For live auctions, even 1 item can be valuable
+        console.log(`✅ SUCCESS: Canonical LIVE query found ${canonicalResult.liveItems.length} live items`);
+        bestResult = canonicalResult;
+        totalMatches = canonicalResult.totalEntries;
+        usedStrategy = { 
+          query: basicQuery, 
+          description: "Basic combined query",
+          source: "Direct search" 
+        };
+      } else {
+        console.log(`⚠️ Canonical LIVE query found no results, trying fallback strategies...`);
         
-        const result = await this.searchLiveAuctions(strategy.query, strategy.description);
+        // FALLBACK: Build search strategies for live auctions
+        const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
         
-        if (result && result.liveItems.length > 0) {
-          console.log(`✅ Found ${result.liveItems.length} live items with strategy: ${strategy.description}`);
-          console.log(`✅ Successful LIVE query was: "${strategy.query}"`);
+        // Try each search strategy for live auctions
+        for (const strategy of searchStrategies) {
+          console.log(`🎯 Trying LIVE fallback search strategy: ${strategy.description}`);
+          console.log(`🔍 Actual LIVE fallback query: "${strategy.query}"`);
           
-          if (!bestResult || result.liveItems.length > bestResult.liveItems.length) {
-            bestResult = result;
-            totalMatches = result.totalEntries;
-            usedStrategy = strategy; // Track the successful strategy
-            console.log(`🏆 New best LIVE strategy: "${usedStrategy.query}"`);
-          }
+          const result = await this.searchLiveAuctions(strategy.query, strategy.description);
           
-          // For live auctions, even 1-2 items can be valuable
-          if (result.liveItems.length >= 3) {
-            console.log(`🛑 Stopping LIVE search - found enough data (${result.liveItems.length} items)`);
-            break;
+          if (result && result.liveItems.length > 0) {
+            console.log(`✅ Found ${result.liveItems.length} live items with fallback strategy: ${strategy.description}`);
+            
+            if (!bestResult || result.liveItems.length > bestResult.liveItems.length) {
+              bestResult = result;
+              totalMatches = result.totalEntries;
+              usedStrategy = strategy; // Track the successful strategy
+              console.log(`🏆 New best LIVE fallback strategy: "${usedStrategy.query}"`);
+            }
+            
+            // For live auctions, even 1-2 items can be valuable
+            if (result.liveItems.length >= 3) {
+              console.log(`🛑 Stopping LIVE fallback search - found enough data (${result.liveItems.length} items)`);
+              break;
+            }
+          } else {
+            console.log(`❌ No LIVE results for fallback query: "${strategy.query}"`);
           }
-        } else {
-          console.log(`❌ No LIVE results for query: "${strategy.query}"`);
         }
       }
       
@@ -222,7 +260,7 @@ export class AuctionetAPI {
   }
 
   // NEW: Search live auctions (without is=ended parameter)
-  async searchLiveAuctions(query, description, maxResults = 50) {
+  async searchLiveAuctions(query, description, maxResults = 200) {
     // Check cache first (shorter cache for live data)
     // Include excludeCompanyId in cache key to ensure exclusion settings are respected
     const cacheKey = `live_${query}_${maxResults}_exclude_${this.excludeCompanyId || 'none'}`;
@@ -759,7 +797,7 @@ export class AuctionetAPI {
   }
 
   // Search Auctionet API for auction results
-  async searchAuctionResults(query, description, maxResults = 50) {
+  async searchAuctionResults(query, description, maxResults = 200) {
     // Check cache first
     const cacheKey = `search_${query}_${maxResults}`;
     const cached = this.getCachedResult(cacheKey);
@@ -787,8 +825,22 @@ export class AuctionetAPI {
       
       console.log(`📊 Found ${data.items.length} items out of ${data.pagination.total_entries} total matches`);
       
+      // Debug: Check currency distribution before filtering
+      const currencyDistribution = {};
+      data.items.forEach(item => {
+        const currency = item.currency || 'unknown';
+        currencyDistribution[currency] = (currencyDistribution[currency] || 0) + 1;
+      });
+      console.log(`💱 Currency distribution:`, currencyDistribution);
+      
       // Filter for sold items with ANY price data (not as restrictive as before)
       const soldItems = data.items.filter(item => {
+        // CRITICAL: Only include Swedish currency items to avoid mixing DKK/NOK/EUR with SEK
+        if (item.currency && item.currency !== 'SEK') {
+          console.log(`🚫 Filtering non-SEK currency item: ${item.title.substring(0, 30)}... (${item.currency})`);
+          return false;
+        }
+        
         // Include any item that was hammered/sold OR has an estimate
         const hasValidPrice = (item.hammered && item.bids && item.bids.length > 0 && item.bids[0].amount > 0) ||
                               (item.estimate && item.estimate > 0) ||
@@ -821,6 +873,12 @@ export class AuctionetAPI {
       if (validatedItems.length === 0) {
         console.log(`⚠️ No strict matches found, trying lenient filtering...`);
         const lenientItems = data.items.filter(item => {
+          // CRITICAL: Only include Swedish currency items to avoid mixing DKK/NOK/EUR with SEK
+          if (item.currency && item.currency !== 'SEK') {
+            console.log(`🚫 Filtering non-SEK currency item (lenient): ${item.title.substring(0, 30)}... (${item.currency})`);
+            return false;
+          }
+          
           // Accept any item with title matching and some price indication
           return item.estimate > 0 || item.upper_estimate > 0 || 
                  (item.bids && item.bids.length > 0);
@@ -832,7 +890,7 @@ export class AuctionetAPI {
           const result = {
             totalEntries: data.pagination.total_entries,
             returnedItems: data.items.length,
-            soldItems: lenientItems.slice(0, 10).map(item => ({
+            soldItems: lenientItems.map(item => ({
               title: item.title,
               finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : null,
               currency: item.currency,
@@ -930,9 +988,15 @@ export class AuctionetAPI {
     
     console.log(`💰 Price analysis: ${lowestPrice.toLocaleString()} - ${highestPrice.toLocaleString()} SEK (ratio: ${priceRatio.toFixed(1)}x)`);
     
-    // If price ratio is extremely high (>50x), we likely have mixed markets
-    if (priceRatio > 50) {
-      console.log(`⚠️ Extreme price variation detected (${priceRatio.toFixed(1)}x) - filtering outliers`);
+    // TEMPORARY: Completely disable price ratio filtering for luxury brands
+    // The expensive models (Speedmaster, Flightmaster, etc.) are legitimate market data
+    console.log(`✅ LUXURY BRAND MODE: Price ratio filtering DISABLED (${priceRatio.toFixed(1)}x) - keeping ALL ${soldItems.length} items`);
+    
+    /* DISABLED - WAS FILTERING OUT EXPENSIVE OMEGA WATCHES
+    // IMPORTANT: For luxury brands like OMEGA, high-value items are legitimate, not outliers
+    // Only filter if we have truly extreme ratios (>200x) that indicate data quality issues
+    if (priceRatio > 200) {
+      console.log(`⚠️ Extreme price variation detected (${priceRatio.toFixed(1)}x) - checking for data quality issues`);
       
       // Calculate quartiles for outlier detection
       const q1Index = Math.floor(prices.length * 0.25);
@@ -941,13 +1005,14 @@ export class AuctionetAPI {
       const q3 = sortedPrices[q3Index];
       const iqr = q3 - q1;
       
-      // Use more conservative outlier bounds for generic searches
-      const lowerBound = q1 - (1.5 * iqr);
-      const upperBound = q3 + (1.5 * iqr);
+      // Use VERY conservative outlier bounds - only remove obvious data errors
+      // Changed from 1.5 * IQR to 5.0 * IQR to preserve legitimate high-value items
+      const lowerBound = q1 - (5.0 * iqr);
+      const upperBound = q3 + (5.0 * iqr);
       
-      console.log(`📊 IQR filtering: Q1=${q1.toLocaleString()}, Q3=${q3.toLocaleString()}, bounds=[${lowerBound.toLocaleString()}, ${upperBound.toLocaleString()}]`);
+      console.log(`📊 Conservative filtering: Q1=${q1.toLocaleString()}, Q3=${q3.toLocaleString()}, bounds=[${lowerBound.toLocaleString()}, ${upperBound.toLocaleString()}]`);
       
-      // Filter out extreme outliers
+      // Filter out only truly extreme outliers (likely data errors)
       const filteredItems = soldItems.filter(item => {
         const itemPrice = item.bids && item.bids.length > 0 ? item.bids[0].amount : 
                          item.estimate ? item.estimate : item.upper_estimate;
@@ -961,9 +1026,12 @@ export class AuctionetAPI {
         return isWithinBounds;
       });
       
-      console.log(`✅ Price filtering: Kept ${filteredItems.length} of ${soldItems.length} items`);
+      console.log(`✅ Conservative filtering: Kept ${filteredItems.length} of ${soldItems.length} items`);
       return filteredItems;
+    } else {
+      console.log(`✅ Price ratio acceptable (${priceRatio.toFixed(1)}x) - keeping all items including high-value models`);
     }
+    */
     
     // 2. Check for title/content consistency to avoid mixing different object types
     const keyTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
@@ -1027,59 +1095,46 @@ export class AuctionetAPI {
   analyzeMarketData(soldItems, artistName, objectType, totalMatches = 0, currentValuation = null) {
     console.log(`📊 Analyzing market data from ${soldItems.length} sales...`);
     
-    if (soldItems.length === 0) {
+    if (!soldItems || soldItems.length === 0) {
+      console.log('❌ No sold items to analyze');
       return null;
     }
     
-    // Filter out unsold items (finalPrice is null) for market analysis
-    const actualSoldItems = soldItems.filter(item => item.finalPrice && item.finalPrice > 0);
-    console.log(`💰 Found ${actualSoldItems.length} actual sales out of ${soldItems.length} items (${soldItems.length - actualSoldItems.length} unsold)`);
+    // Count actual sales vs unsold items
+    const actualSales = soldItems.filter(item => item.finalPrice > 0);
+    const unsoldItems = soldItems.filter(item => item.finalPrice === 0);
+    console.log(`💰 Found ${actualSales.length} actual sales out of ${soldItems.length} items (${unsoldItems.length} unsold)`);
     
-    if (actualSoldItems.length === 0) {
-      console.log('❌ No actual sales found, cannot perform market analysis');
-      return {
-        priceRange: { low: 0, high: 0, currency: 'SEK' },
-        confidence: 0.1,
-        marketContext: 'Inga bekräftade försäljningar funna - endast utrop eller oavslutade auktioner',
-        recentSales: [],
-        trendAnalysis: { trend: 'no_sales', description: 'Inga försäljningar att analysera' },
-        limitations: 'Ingen marknadsdata tillgänglig - endast utrop funna',
-        exceptionalSales: null,
-        totalMatches,
-        statistics: {
-          average: 0,
-          median: 0,
-          min: 0,
-          max: 0,
-          sampleSize: 0,
-          totalMatches
-        }
-      };
+    if (actualSales.length === 0) {
+      console.log('❌ No actual sales found');
+      return null;
     }
     
-    // Extract prices and calculate statistics from actual sales only
-    const prices = actualSoldItems.map(item => item.finalPrice);
-    const estimates = actualSoldItems.filter(item => item.estimate > 0).map(item => item.estimate);
+    // Extract prices from actual sales
+    const prices = actualSales.map(item => item.finalPrice).filter(price => price > 0);
     
-    const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const medianPrice = this.calculateMedian(prices);
+    // CRITICAL: Extract exceptional sales BEFORE outlier filtering
+    const exceptionalSales = this.detectExceptionalSales(actualSales, prices, currentValuation);
+    console.log(`🌟 Exceptional sales detected BEFORE outlier filtering: ${exceptionalSales ? exceptionalSales.count : 0}`);
     
-    // NEW: Detect exceptional high-value sales that should be highlighted (only from actual sales)
-    const exceptionalSales = this.detectExceptionalSales(actualSoldItems, prices, currentValuation);
+    // For luxury brands, keep ALL prices - don't remove "outliers" that might be legitimate premium models
+    console.log(`📊 Luxury brand analysis: Using ALL ${prices.length} prices (no outlier filtering)`);
     
-    // Calculate confidence based on actual sales data quality AND total market coverage
-    const confidence = this.calculateConfidence(actualSoldItems, artistName, objectType, totalMatches);
+    // Calculate confidence based on all data
+    const confidence = this.calculateConfidence(actualSales, artistName, objectType, totalMatches);
     
     // Analyze trends over time (only from actual sales)
-    const trendAnalysis = this.analyzeTrends(actualSoldItems);
+    const trendAnalysis = this.analyzeTrends(actualSales);
+    
+    // Calculate statistics for market context
+    const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+    const estimates = actualSales.filter(item => item.estimate > 0).map(item => item.estimate);
     
     // Generate market context (only from actual sales)
-    const marketContext = this.generateMarketContext(actualSoldItems, avgPrice, estimates, artistName, objectType);
+    const marketContext = this.generateMarketContext(actualSales, avgPrice, estimates, artistName, objectType);
     
     // Get recent sales for display (only actual sales)
-    const recentSales = actualSoldItems
+    const recentSales = actualSales
       .sort((a, b) => b.bidDate - a.bidDate)
       .slice(0, 5)
       .map(item => ({
@@ -1095,7 +1150,7 @@ export class AuctionetAPI {
     const priceRange = this.calculatePriceRange(prices, confidence);
     
     // Generate limitations text
-    const limitations = this.generateLimitations(actualSoldItems, artistName, objectType);
+    const limitations = this.generateLimitations(actualSales, artistName, objectType);
     
     return {
       priceRange,
@@ -1107,11 +1162,11 @@ export class AuctionetAPI {
       exceptionalSales,
       totalMatches,
       statistics: {
-        average: Math.round(avgPrice),
-        median: Math.round(medianPrice),
-        min: minPrice,
-        max: maxPrice,
-        sampleSize: actualSoldItems.length,
+        average: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
+        median: this.calculateMedian(prices),
+        min: Math.min(...prices),
+        max: Math.max(...prices),
+        sampleSize: actualSales.length,
         totalMatches
       }
     };
@@ -1388,70 +1443,34 @@ export class AuctionetAPI {
     // Sort prices for analysis
     const sortedPrices = [...prices].sort((a, b) => a - b);
     
-    // STEP 1: Remove extreme outliers using intelligent analysis
-    const cleanedPrices = this.removeExtremeOutliers(sortedPrices);
+    // IMPORTANT: For luxury brands, show the ACTUAL market range
+    // Don't use percentiles - show from cheapest to most expensive
+    console.log(`📊 Using ALL ${prices.length} prices for range calculation (no outlier filtering)`);
     
-    console.log(`🧹 Outlier removal: ${prices.length} → ${cleanedPrices.length} prices`);
-    if (cleanedPrices.length < prices.length) {
-      const removedPrices = prices.filter(p => !cleanedPrices.includes(p));
-      console.log(`🚫 Removed outliers: ${removedPrices.map(p => p.toLocaleString()).join(', ')} SEK`);
+    // For luxury brands like OMEGA, show the true market range
+    const minPrice = sortedPrices[0];
+    const maxPrice = sortedPrices[sortedPrices.length - 1];
+    const avgPrice = sortedPrices.reduce((a, b) => a + b, 0) / sortedPrices.length;
+    
+    // Use actual min/max with slight adjustments for market reality
+    // For high-end items, buyers want to see the full price spectrum
+    let low = Math.round(minPrice);
+    let high = Math.round(maxPrice);
+    
+    // Only apply minimum range logic if we have very few data points
+    if (sortedPrices.length <= 3) {
+      const currentRangeWidth = high - low;
+      const minRangeWidth = avgPrice * 0.15;
+      
+      if (currentRangeWidth < minRangeWidth) {
+        const center = (low + high) / 2;
+        const expansion = (minRangeWidth - currentRangeWidth) / 2;
+        low = Math.max(0, Math.round(center - (currentRangeWidth / 2) - expansion));
+        high = Math.round(center + (currentRangeWidth / 2) + expansion);
+      }
     }
     
-    // Use cleaned prices for calculations
-    const workingPrices = cleanedPrices.length >= 3 ? cleanedPrices : sortedPrices;
-    const avgPrice = workingPrices.reduce((a, b) => a + b, 0) / workingPrices.length;
-    
-    // STEP 2: Use percentile-based approach on cleaned data
-    let lowPercentile, highPercentile;
-    
-    if (confidence > 0.8) {
-      // High confidence: Use tighter range (25th-75th percentile)
-      lowPercentile = 0.25;
-      highPercentile = 0.75;
-    } else if (confidence > 0.6) {
-      // Medium confidence: Use moderate range (20th-80th percentile)
-      lowPercentile = 0.20;
-      highPercentile = 0.80;
-    } else {
-      // Low confidence: Use wider range (10th-90th percentile)
-      lowPercentile = 0.10;
-      highPercentile = 0.90;
-    }
-    
-    // Calculate percentile indices
-    const lowIndex = Math.floor(workingPrices.length * lowPercentile);
-    const highIndex = Math.floor(workingPrices.length * highPercentile);
-    
-    // Get percentile values
-    const lowValue = workingPrices[Math.max(0, lowIndex)];
-    const highValue = workingPrices[Math.min(workingPrices.length - 1, highIndex)];
-    
-    // Use percentile values directly with minimal adjustment
-    let low = Math.round(lowValue);
-    let high = Math.round(highValue);
-    
-    // Only ensure minimum range width if the percentile range is too narrow
-    const currentRangeWidth = high - low;
-    const minRangeWidth = avgPrice * 0.15; // Reduced from 0.2 to 0.15
-    
-    if (currentRangeWidth < minRangeWidth) {
-      // Expand range symmetrically around the median of the percentile range
-      const center = (low + high) / 2;
-      const expansion = (minRangeWidth - currentRangeWidth) / 2;
-      low = Math.max(0, Math.round(center - (currentRangeWidth / 2) - expansion));
-      high = Math.round(center + (currentRangeWidth / 2) + expansion);
-    }
-    
-    // Final safety check: ensure range is reasonable relative to cleaned data
-    const dataRange = workingPrices[workingPrices.length - 1] - workingPrices[0];
-    if (high - low > dataRange * 1.5) {
-      // If our calculated range is larger than 1.5x the actual data range, constrain it
-      const median = this.calculateMedian(workingPrices);
-      low = Math.max(0, Math.round(median * 0.7));
-      high = Math.round(median * 1.3);
-    }
-    
-    console.log(`📊 Price range calculation: ${low.toLocaleString()}-${high.toLocaleString()} SEK (from ${workingPrices.length} prices)`);
+    console.log(`📊 Price range calculation: ${low.toLocaleString()}-${high.toLocaleString()} SEK (from ${sortedPrices.length} prices, FULL RANGE: ${minPrice.toLocaleString()}-${maxPrice.toLocaleString()})`);
     
     return { low, high, currency: 'SEK' };
   }
