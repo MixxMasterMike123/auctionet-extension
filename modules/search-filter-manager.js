@@ -73,10 +73,57 @@ export class SearchFilterManager {
     
     // Helper function to check if term should be pre-selected
     const shouldBePreSelected = (term) => {
+      // 🤖 AI-INTELLIGENT PRE-SELECTION: Only select the 3 most strategically important terms
+      // Don't just match words - think like a market analyst about what's most important
+      
       const termLower = term.toLowerCase();
-      const isSelected = currentAlgorithmTerms.includes(termLower);
-      console.log(`🔍 Checking pre-selection for "${term}" (${termLower}): ${isSelected ? 'YES ✅' : 'NO ❌'}`);
-      return isSelected;
+      
+      // PRIORITY 1: Brand/Artist is ALWAYS pre-selected (most important for market data)
+      if (artistInfo && artistInfo.artist && termLower.includes(artistInfo.artist.toLowerCase())) {
+        console.log(`🤖 AI DECISION: "${term}" is BRAND - CRITICAL for market data ✅`);
+        return true;
+      }
+      
+      // PRIORITY 2: Object type is ALWAYS pre-selected (second most important)
+      if (term.toLowerCase() === 'rolex' || this.qualityAnalyzer.extractObjectType(title).toLowerCase() === termLower) {
+        console.log(`🤖 AI DECISION: "${term}" is OBJECT TYPE - CRITICAL for market categorization ✅`);
+        return true;
+      }
+      
+      // PRIORITY 3: Choose ONE model series (not individual words)
+      // For watches: "Oyster Perpetual Air King Precision" is better than "oyster", "air", "king", "precision" separately
+      if (term.length > 10 && (term.includes(' ') || term.includes('-'))) {
+        console.log(`🤖 AI DECISION: "${term}" is COMPLETE MODEL - High market value for identification ✅`);
+        return true;
+      }
+      
+      // 🤖 AI REJECTS individual model words - they fragment the search and reduce market data
+      if (['oyster', 'perpetual', 'air', 'king', 'precision', 'seamaster', 'speedmaster'].includes(termLower)) {
+        console.log(`🤖 AI DECISION: "${term}" is MODEL FRAGMENT - Better as complete model name ❌`);
+        return false;
+      }
+      
+      // 🤖 AI REJECTS materials for initial broad search
+      if (['stål', 'guld', 'silver', 'titan', 'steel', 'gold'].includes(termLower)) {
+        console.log(`🤖 AI DECISION: "${term}" is MATERIAL - Too narrow for initial market search ❌`);
+        return false;
+      }
+      
+      // 🤖 AI REJECTS reference numbers for initial broad search
+      if (/^[A-Z]?\d+/.test(term) || term.toLowerCase().includes('ref')) {
+        console.log(`🤖 AI DECISION: "${term}" is REFERENCE - Too specific for initial market search ❌`);
+        return false;
+      }
+      
+      // 🤖 AI REJECTS technical specifications for initial broad search
+      if (['automatic', 'manuell', 'cal', 'caliber', 'diameter', 'mm'].some(tech => termLower.includes(tech))) {
+        console.log(`🤖 AI DECISION: "${term}" is TECHNICAL SPEC - Too narrow for initial market search ❌`);
+        return false;
+      }
+      
+      // Default: reject unless specifically identified as strategically important
+      console.log(`🤖 AI DECISION: "${term}" not strategically important for initial market search ❌`);
+      return false;
     };
     
     // 1. ARTIST/BRAND (if available)
