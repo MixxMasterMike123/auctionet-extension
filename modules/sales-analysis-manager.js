@@ -48,8 +48,54 @@ export class SalesAnalysisManager {
       console.log('🎯 FIXED: Using SSoT query for candidate term extraction:', actualSearchQuery);
     }
     
+    // CRITICAL FIX: Transform artistInfo to proper structure for SearchFilterManager
+    let properArtistInfo = null;
+    if (artistInfo) {
+      // Get the original artist field from the form data (not the AI search query)
+      const currentData = this.dataExtractor?.extractItemData();
+      const originalArtist = currentData?.artist;
+      
+      if (originalArtist && originalArtist.trim()) {
+        console.log('🎯 ARTIST FIX: Using original artist field for candidate terms:', originalArtist);
+        properArtistInfo = {
+          artist: originalArtist,
+          isBrand: false,
+          isFreetext: false
+        };
+      } else if (typeof artistInfo === 'string') {
+        properArtistInfo = {
+          artist: artistInfo,
+          isBrand: false,
+          isFreetext: true
+        };
+      } else if (artistInfo.artist) {
+        properArtistInfo = artistInfo; // Already in correct format
+      } else {
+        console.log('🎯 ARTIST FIX: Creating artistInfo from AI data structure');
+        // Extract artist from searchTerms if available
+        const searchTerms = artistInfo.searchTerms || [];
+        const artistTerm = searchTerms.find(term => 
+          typeof term === 'string' && 
+          term.length > 1 && 
+          !['SKULPTUR', 'skulptur', 'BRONZE', 'bronze', 'SILVER', 'silver'].includes(term.toUpperCase()) &&
+          !/^\d+$/.test(term) // Not just numbers
+        );
+        
+        if (artistTerm) {
+          console.log('🎯 ARTIST FIX: Extracted artist from searchTerms:', artistTerm);
+          properArtistInfo = {
+            artist: artistTerm,
+            isBrand: false,
+            isFreetext: true
+          };
+        }
+      }
+    }
+    
+    console.log('🎯 ARTIST FIX: Final artistInfo for candidate extraction:', properArtistInfo);
+    
     // NEW: Test the candidate search terms extraction with AI Rules query
-    const candidateTerms = searchFilterManager.extractCandidateSearchTerms(data.title, data.description, artistInfo, actualSearchQuery);
+    const candidateTerms = searchFilterManager.extractCandidateSearchTerms(data.title, data.description, properArtistInfo, actualSearchQuery);
     if (candidateTerms) {
       // Store for dashboard use (in both managers for redundancy)
       this.lastCandidateSearchTerms = candidateTerms;
