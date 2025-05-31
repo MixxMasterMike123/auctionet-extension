@@ -845,36 +845,52 @@ export class SearchQueryManager {
         console.log('🔍 SSoT: Syncing from query:', this.currentQuery);
         console.log('🔍 SSoT: Query terms:', queryTerms);
         
-        this.availableTerms.forEach(termObj => {
-            const termLower = termObj.term.toLowerCase();
-            
-            // CRITICAL FIX: Use exact word matching instead of substring matching
-            // This prevents "1970" from being detected in "1970-tal"
-            const isExactMatch = queryTerms.includes(termLower);
-            
-            // FIXED: Proper multi-word matching for terms like "Arne Norell"
-            let isMultiWordMatch = false;
-            if (termLower.includes(' ')) {
-                const termWords = termLower.split(' ').filter(w => w.length > 1);
-                // Check if ALL words of the multi-word term are present in the query
-                isMultiWordMatch = termWords.every(termWord => queryTerms.includes(termWord));
-            }
-            
-            // DEBUG: Log matching decisions for year-related terms and artist terms
-            if (termLower.includes('1970') || termLower.includes('tal') || termLower.includes('arne') || termLower.includes('norell')) {
+        // 🤖 CRITICAL FIX: Respect AI pre-selection decisions instead of word-matching
+        // If we have candidate terms with pre-selection info, use that instead of blind word matching
+        const hasPreSelectionData = this.availableTerms.some(t => t.hasOwnProperty('preSelected'));
+        
+        if (hasPreSelectionData) {
+            console.log('🤖 SSoT: Using AI pre-selection decisions (respecting smart choices)');
+            this.availableTerms.forEach(termObj => {
+                if (termObj.preSelected === true) {
+                    this.selectedTerms.add(termObj.term);
+                    console.log(`🤖 SSoT: Selected "${termObj.term}" based on AI decision ✅`);
+                } else {
+                    console.log(`🤖 SSoT: Skipped "${termObj.term}" based on AI decision ❌`);
+                }
+            });
+        } else {
+            console.log('⚠️ SSoT: No AI pre-selection data, falling back to word matching');
+            // FALLBACK: Use the old word-matching logic when no AI data available
+            this.availableTerms.forEach(termObj => {
+                const termLower = termObj.term.toLowerCase();
+                
+                // CRITICAL FIX: Use exact word matching instead of substring matching
+                // This prevents "1970" from being detected in "1970-tal"
+                const isExactMatch = queryTerms.includes(termLower);
+                
+                // Multi-word term matching (e.g., "Arne Norell" should match if both "arne" and "norell" are in query)
+                const isMultiWordMatch = termObj.term.includes(' ') && 
+                    termObj.term.toLowerCase().split(' ').every(word => 
+                        queryTerms.some(qt => this.normalizeTermForMatching(qt) === this.normalizeTermForMatching(word))
+                    );
+                
                 console.log(`🔍 SSoT: Checking term "${termObj.term}"`);
                 console.log(`   - termLower: "${termLower}"`);
                 console.log(`   - isExactMatch: ${isExactMatch} (queryTerms.includes("${termLower}"))`);
                 console.log(`   - isMultiWordMatch: ${isMultiWordMatch}`);
                 console.log(`   - will be selected: ${isExactMatch || isMultiWordMatch}`);
-            }
-            
-            if (isExactMatch || isMultiWordMatch) {
-                this.selectedTerms.add(termObj.term);
-            }
-        });
+                
+                if (isExactMatch || isMultiWordMatch) {
+                    this.selectedTerms.add(termObj.term);
+                }
+            });
+        }
         
         console.log('🔄 SSoT: Synced selected terms:', Array.from(this.selectedTerms));
+        
+        // Update core terms based on selected terms
+        this.updateCoreTerms();
     }
 
     /**
