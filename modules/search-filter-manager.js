@@ -84,6 +84,24 @@ export class SearchFilterManager {
         return true;
       }
       
+      // PRIORITY 1.5: Standalone brand detection (even without artistInfo)
+      // Check if this term is a known jewelry/watch brand
+      const jewelryBrands = [
+        'cartier', 'tiffany', 'bulgari', 'van cleef', 'arpels', 'harry winston',
+        'graff', 'chopard', 'boucheron', 'piaget', 'georg jensen', 'tresor',
+        'david yurman', 'mikimoto', 'chanel', 'dior', 'swarovski', 'pandora'
+      ];
+      const watchBrands = [
+        'rolex', 'omega', 'patek philippe', 'audemars piguet', 'vacheron constantin',
+        'jaeger-lecoultre', 'iwc', 'breitling', 'tag heuer', 'cartier',
+        'longines', 'tissot', 'seiko', 'citizen', 'hamilton', 'tudor', 'zenith'
+      ];
+      
+      if (jewelryBrands.includes(termLower) || watchBrands.includes(termLower)) {
+        console.log(`🤖 AI DECISION: "${term}" is RECOGNIZED BRAND - CRITICAL for market data ✅`);
+        return true;
+      }
+      
       // PRIORITY 2: Object type is ALWAYS pre-selected (second most important)
       if (term.toLowerCase() === 'rolex' || this.qualityAnalyzer.extractObjectType(title).toLowerCase() === termLower) {
         console.log(`🤖 AI DECISION: "${term}" is OBJECT TYPE - CRITICAL for market categorization ✅`);
