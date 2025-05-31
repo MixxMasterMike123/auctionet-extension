@@ -1510,6 +1510,21 @@ export class AuctionetAPI {
     // Sort by date
     const sortedSales = soldItems.sort((a, b) => a.bidDate - b.bidDate);
     
+    // Calculate time span of historical data
+    const oldestSale = sortedSales[0];
+    const newestSale = sortedSales[sortedSales.length - 1];
+    const timeSpanYears = (newestSale.bidDate - oldestSale.bidDate) / (1000 * 60 * 60 * 24 * 365.25);
+    
+    // Generate time span text for descriptions
+    let timeSpanText = '';
+    if (timeSpanYears >= 1) {
+      const years = Math.round(timeSpanYears);
+      timeSpanText = ` (baserat på historisk data från ${years} år tillbaka)`;
+    } else {
+      const months = Math.round(timeSpanYears * 12);
+      timeSpanText = ` (baserat på historisk data från ${months} månader tillbaka)`;
+    }
+    
     // Split into older and newer halves
     const midPoint = Math.floor(sortedSales.length / 2);
     const olderSales = sortedSales.slice(0, midPoint);
@@ -1535,14 +1550,14 @@ export class AuctionetAPI {
       if (changePercent > 0) {
         return { 
           trend: 'rising_strong', 
-          description: 'Stark uppgång i slutpriser (blandad marknadsdata)', 
+          description: `Stark uppgång i slutpriser (blandad marknadsdata)${timeSpanText}`, 
           changePercent: Math.min(changePercent, 200), // Cap at 200%
           dataQuality: 'mixed_suspicious'
         };
       } else {
         return { 
           trend: 'falling_strong', 
-          description: 'Stark nedgång i slutpriser (blandad marknadsdata)', 
+          description: `Stark nedgång i slutpriser (blandad marknadsdata)${timeSpanText}`, 
           changePercent: Math.max(changePercent, -80), // Cap at -80%
           dataQuality: 'mixed_suspicious'
         };
@@ -1563,25 +1578,26 @@ export class AuctionetAPI {
     if (cappedChangePercent > 15) {
       trend = 'rising_strong';
       const percentText = isExtremeTrend ? `>${Math.round(cappedChangePercent)}%` : `+${Math.round(cappedChangePercent)}%`;
-      description = `Stark uppgång: ${percentText} senaste försäljningar vs tidigare`;
+      description = `Stark uppgång: ${percentText}${timeSpanText}`;
     } else if (cappedChangePercent > 5) {
       trend = 'rising';
-      description = `Stigande: +${Math.round(cappedChangePercent)}% senaste försäljningar vs tidigare`;
+      description = `Stigande: +${Math.round(cappedChangePercent)}%${timeSpanText}`;
     } else if (cappedChangePercent < -15) {
       trend = 'falling_strong';
-      description = `Stark nedgång: ${Math.round(cappedChangePercent)}% senaste försäljningar vs tidigare`;
+      description = `Stark nedgång: ${Math.round(cappedChangePercent)}%${timeSpanText}`;
     } else if (cappedChangePercent < -5) {
       trend = 'falling';
-      description = `Fallande: ${Math.round(cappedChangePercent)}% senaste försäljningar vs tidigare`;
+      description = `Fallande: ${Math.round(cappedChangePercent)}%${timeSpanText}`;
     } else {
       trend = 'stable';
-      description = 'Stabil prisutveckling i slutpriser';
+      description = `Stabil prisutveckling i slutpriser${timeSpanText}`;
     }
     
     const result = { 
       trend, 
       description, 
-      changePercent: Math.round(cappedChangePercent) 
+      changePercent: Math.round(cappedChangePercent),
+      timeSpanYears: Math.round(timeSpanYears * 10) / 10 // Round to 1 decimal place
     };
     
     // Add data quality warning for extreme trends
