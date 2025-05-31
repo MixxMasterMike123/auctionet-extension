@@ -222,7 +222,8 @@ export class SalesAnalysisManager {
   }
 
   handleSalesAnalysisResult(salesData, currentWarnings, currentScore, qualityAnalyzer, searchFilterManager = null) {
-    if (salesData && salesData.hasComparableData) {
+    // ENHANCED: Check for both comparable data AND meaningful price information
+    if (salesData && salesData.hasComparableData && (salesData.priceRange || (salesData.historical && salesData.historical.analyzedSales > 0) || (salesData.live && salesData.live.analyzedLiveItems > 0))) {
       console.log('💰 Processing comprehensive market analysis results');
       
       // CRITICAL FIX: Use SearchQueryManager SSoT instead of re-extracting terms
@@ -316,6 +317,26 @@ export class SalesAnalysisManager {
       
       // Hide the AI loading indicator now that analysis is complete
       qualityAnalyzer.hideAILoadingIndicator();
+    } else {
+      // NO MEANINGFUL DATA: Show appropriate message
+      console.log('ℹ️ No meaningful market data found - showing no data message');
+      
+      // Determine entity name for the message
+      let entityName = 'okänd';
+      let analysisType = 'freetext';
+      
+      if (salesData) {
+        if (salesData.searchedEntity) {
+          entityName = salesData.searchedEntity;
+        } else if (salesData.analysisType) {
+          analysisType = salesData.analysisType;
+        }
+        if (salesData.analysisType) {
+          analysisType = salesData.analysisType;
+        }
+      }
+      
+      this.showNoSalesDataMessage(currentWarnings, currentScore, analysisType, entityName, qualityAnalyzer);
     }
   }
 
