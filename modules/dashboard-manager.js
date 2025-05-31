@@ -1,10 +1,21 @@
 import { SalesAnalysisManager } from "/modules/sales-analysis-manager.js";
 import { ItemTypeHandlers } from "/modules/item-type-handlers.js";
 import { SearchTermExtractor } from "/modules/search-term-extractor.js";
+import { SearchQueryManager } from "/modules/search-query-manager.js";
 
 export class DashboardManager {
   constructor() {
     this.pendingDashboardUpdate = null;
+    this.currentSearchQuery = ''; // Legacy - will be replaced by SearchQueryManager
+    this.isHotReloading = false;
+    
+    // NEW: Single Source of Truth for search queries
+    this.searchQueryManager = new SearchQueryManager();
+    
+    // Setup SSoT change listeners
+    this.searchQueryManager.addChangeListener((event, data) => {
+      this.onSearchQueryChange(event, data);
+    });
   }
 
   // Set dependencies
@@ -14,6 +25,50 @@ export class DashboardManager {
 
   setQualityAnalyzer(qualityAnalyzer) {
     this.qualityAnalyzer = qualityAnalyzer;
+  }
+
+  // NEW: Handle search query changes from SSoT
+  onSearchQueryChange(event, data) {
+    console.log('🔄 DashboardManager received SSoT change:', event, data);
+    
+    // Update legacy currentSearchQuery for backward compatibility
+    this.currentSearchQuery = data.query;
+    
+    // Update dashboard header display in real-time
+    this.updateDashboardHeader(data.query, data.source);
+    
+    // Update smart suggestions display
+    this.updateSmartSuggestionsDisplay();
+  }
+
+  // NEW: Update dashboard header with current query from SSoT
+  updateDashboardHeader(query, source) {
+    const headerQueryText = document.querySelector('.query-text');
+    if (headerQueryText) {
+      headerQueryText.textContent = `"${query}"`;
+    }
+    
+    const headerQuerySource = document.querySelector('.query-source');
+    if (headerQuerySource) {
+      const sourceText = source === 'user' ? 'användarval' : 'automatisk analys';
+      headerQuerySource.textContent = `(${sourceText})`;
+    }
+    
+    const currentQueryDisplay = document.getElementById('current-search-display');
+    if (currentQueryDisplay) {
+      currentQueryDisplay.textContent = `"${query}"`;
+    }
+  }
+
+  // NEW: Update smart suggestions display based on SSoT
+  updateSmartSuggestionsDisplay() {
+    const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
+    
+    smartCheckboxes.forEach(checkbox => {
+      const term = checkbox.value;
+      const isSelected = this.searchQueryManager.isTermSelected(term);
+      checkbox.checked = isSelected;
+    });
   }
 
   // NEW: Add market data as a horizontal dashboard bar above the container
@@ -660,28 +715,43 @@ export class DashboardManager {
     if (salesData.candidateSearchTerms) {
       console.log('🔧 Using candidate search terms from salesData');
       searchFilterHTML = this.generateSearchFilterHTML(salesData.candidateSearchTerms);
+      
+      // CRITICAL: Initialize SearchQueryManager SSoT with candidate terms
+      const actualSearchQuery = this.determineActualSearchQuery(salesData);
+      console.log('🚀 Initializing SearchQueryManager SSoT with actual query:', actualSearchQuery);
+      
+      this.searchQueryManager.initialize(
+        actualSearchQuery,
+        salesData.candidateSearchTerms,
+        salesData.hotReload ? 'user' : 'system'
+      );
+      
     } else if (this.qualityAnalyzer && this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms) {
       console.log('🔧 Fallback: Using candidate search terms from quality analyzer');
       searchFilterHTML = this.generateSearchFilterHTML(this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms);
+      
+      // Initialize SSoT with fallback data
+      const actualSearchQuery = this.determineActualSearchQuery(salesData);
+      this.searchQueryManager.initialize(
+        actualSearchQuery,
+        this.qualityAnalyzer.searchFilterManager.lastCandidateSearchTerms,
+        'system'
+      );
+      
     } else {
       console.log('⚠️ No candidate search terms available for dashboard');
+      
+      // Initialize SSoT with basic query only
+      const actualSearchQuery = this.determineActualSearchQuery(salesData);
+      this.searchQueryManager.initialize(actualSearchQuery, null, 'system');
     }
     
-    // Determine the actual search query used
-    let actualSearchQuery = '';
-    let querySource = '';
+    // Determine the actual search query used (legacy for backward compatibility)
+    const actualSearchQuery = this.searchQueryManager.getCurrentQuery();
+    const querySource = this.searchQueryManager.getQuerySource();
     
-    if (salesData.historical && salesData.historical.actualSearchQuery) {
-      actualSearchQuery = salesData.historical.actualSearchQuery;
-      querySource = 'historisk data';
-    } else if (salesData.live && salesData.live.actualSearchQuery) {
-      actualSearchQuery = salesData.live.actualSearchQuery;
-      querySource = 'pågående auktioner';
-    } else {
-      // Fallback to entity name or analysis type
-      actualSearchQuery = salesData.searchedEntity || salesData.analysisType || 'Okänd sökning';
-      querySource = 'automatisk analys';
-    }
+    // Update legacy currentSearchQuery for backward compatibility
+    this.currentSearchQuery = actualSearchQuery;
     
     // Add the content and finalize dashboard
     dashboard.innerHTML = `
@@ -751,31 +821,30 @@ export class DashboardManager {
     console.log(`✅ Hot reload setup complete for ${smartCheckboxes.length} smart suggestions`);
   }
   
-  // NEW: Handle smart suggestion changes with hot reload
+  // NEW: Handle smart suggestion changes with SSoT preservation
   async handleSmartSuggestionChange() {
-    console.log('🔄 Processing smart suggestion change with hot reload...');
+    console.log('🔄 Processing smart suggestion change with SSoT preservation...');
     
     // Show loading indicator
     const loadingIndicator = document.getElementById('filter-loading');
     const statusIndicator = document.getElementById('filter-status');
-    const currentQueryDisplay = document.getElementById('current-search-display');
     
     if (loadingIndicator) loadingIndicator.style.display = 'inline';
     if (statusIndicator) statusIndicator.textContent = 'Analyserar ny sökning...';
     
-    // Collect selected terms
+    // Collect selected terms from UI
     const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
-    const selectedTerms = [];
+    const userSelectedTerms = [];
     
     smartCheckboxes.forEach(checkbox => {
       if (checkbox.checked) {
-        selectedTerms.push(checkbox.value);
+        userSelectedTerms.push(checkbox.value);
       }
     });
     
-    console.log('🎯 Selected terms for hot reload:', selectedTerms);
+    console.log('👤 User selected terms from UI:', userSelectedTerms);
     
-    if (selectedTerms.length === 0) {
+    if (userSelectedTerms.length === 0) {
       console.log('⚠️ No terms selected - keeping current search');
       if (loadingIndicator) loadingIndicator.style.display = 'none';
       if (statusIndicator) statusIndicator.textContent = 'Välj minst en term för analys';
@@ -783,64 +852,60 @@ export class DashboardManager {
     }
     
     try {
-      // Build new search query
-      const newQuery = selectedTerms.join(' ');
-      console.log('🔥 HOT RELOAD: New search query:', newQuery);
+      // CRITICAL: Use SearchQueryManager to update selections while preserving core terms
+      this.searchQueryManager.updateUserSelections(userSelectedTerms);
       
-      // Update current query display
-      if (currentQueryDisplay) {
-        currentQueryDisplay.textContent = `"${newQuery}"`;
-      }
+      // Get the new query from SSoT (with core terms preserved)
+      const newQuery = this.searchQueryManager.getCurrentQuery();
+      console.log('🔄 SSoT preserved query:', newQuery);
       
-      // Get current item data (assuming we have access to this)
-      if (!this.qualityAnalyzer) {
-        console.error('❌ Quality analyzer not available for hot reload');
+      // Check if we have API manager access
+      if (!this.apiManager) {
+        console.error('❌ API manager not available for hot reload');
+        if (statusIndicator) {
+          statusIndicator.textContent = 'API manager inte tillgänglig - prova att ladda om sidan';
+        }
         return;
       }
       
-      const dataExtractor = this.qualityAnalyzer.dataExtractor;
-      if (!dataExtractor) {
-        console.error('❌ Data extractor not available for hot reload');
-        return;
-      }
-      
-      const data = dataExtractor.extractItemData();
-      
-      // Create custom search context for user-selected terms
-      const customSearchContext = {
-        primarySearch: newQuery,
-        objectType: this.qualityAnalyzer.extractObjectType(data.title),
-        period: this.qualityAnalyzer.extractPeriod(data.title) || this.qualityAnalyzer.extractPeriod(data.description),
-        technique: this.qualityAnalyzer.extractTechnique(data.title, data.description),
-        analysisType: 'custom_user_filter',
-        hotReload: true // Flag to indicate this is a hot reload
-      };
-      
-      console.log('🔥 HOT RELOAD: Custom search context:', customSearchContext);
+      // Mark as hot reloading
+      this.isHotReloading = true;
       
       // Show dashboard loading
       this.showDashboardLoading();
       
-      // Call API with custom search for hot reload
-      const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
+      // Create custom search context using SSoT query
+      const customSearchContext = {
+        primarySearch: newQuery,
+        analysisType: 'custom_user_filter',
+        hotReload: true
+      };
       
-      // Add analysis metadata
-      filteredSalesData.analysisType = 'custom_user_filter';
-      filteredSalesData.searchedEntity = newQuery;
-      filteredSalesData.searchContext = customSearchContext;
-      filteredSalesData.hotReload = true;
+      console.log('🎯 Triggering new API analysis with SSoT query:', newQuery);
       
-      console.log('🔥 HOT RELOAD: New sales data received:', filteredSalesData);
+      // Call API with new search query from SSoT
+      const newSalesData = await this.apiManager.analyzeSales(customSearchContext);
       
-      // Update dashboard with new data
-      this.addMarketDataDashboard(filteredSalesData);
+      // Add metadata
+      newSalesData.analysisType = 'custom_user_filter';
+      newSalesData.searchedEntity = newQuery;
+      newSalesData.searchContext = customSearchContext;
+      newSalesData.hotReload = true;
+      
+      // Re-extract candidate terms for continued fine-tuning
+      await this.preserveCandidateTermsForHotReload(newSalesData, newQuery);
+      
+      console.log('🔥 HOT RELOAD: New sales data received, updating dashboard:', newSalesData);
+      
+      // Update dashboard with new data using SSoT
+      this.addMarketDataDashboard(newSalesData);
       
       // Update status
       if (statusIndicator) {
-        statusIndicator.textContent = `Analys uppdaterad med "${newQuery}"`;
+        statusIndicator.textContent = `✅ Analys uppdaterad med "${newQuery}"`;
       }
       
-      console.log('🔥 HOT RELOAD: Dashboard successfully updated!');
+      console.log('🔥 HOT RELOAD: Complete dashboard refresh successful with SSoT!');
       
     } catch (error) {
       console.error('❌ HOT RELOAD ERROR:', error);
@@ -851,19 +916,70 @@ export class DashboardManager {
     } finally {
       // Hide loading indicator
       if (loadingIndicator) loadingIndicator.style.display = 'none';
+      this.hideDashboardLoading();
+      this.isHotReloading = false;
+    }
+  }
+
+  // NEW: Preserve candidate terms for continued hot reloading
+  async preserveCandidateTermsForHotReload(salesData, currentQuery) {
+    console.log('🔧 HOT RELOAD: Preserving candidate terms for continued fine-tuning...');
+    
+    try {
+      // Get available terms from SSoT
+      const availableTerms = this.searchQueryManager.getAvailableTerms();
+      
+      if (availableTerms.length > 0) {
+        // Convert back to candidate terms format for dashboard
+        const candidateTerms = {
+          candidates: availableTerms.map(term => ({
+            term: term.term,
+            type: term.type,
+            description: term.description,
+            priority: term.priority,
+            preSelected: term.isSelected
+          })),
+          currentQuery: currentQuery,
+          analysisType: 'custom_user_filter'
+        };
+        
+        // Add to sales data for dashboard use
+        salesData.candidateSearchTerms = candidateTerms;
+        
+        console.log('✅ HOT RELOAD: Preserved candidate terms from SSoT');
+        console.log('🔧 Available terms:', availableTerms.length);
+        console.log('🔧 Selected terms:', availableTerms.filter(t => t.isSelected).length);
+      } else {
+        console.log('⚠️ HOT RELOAD: No candidate terms available in SSoT');
+      }
+    } catch (error) {
+      console.error('❌ Error preserving candidate terms for hot reload:', error);
     }
   }
 
   // NEW: Generate search filter HTML from candidate terms
   generateSearchFilterHTML(candidateTerms) {
-    if (!candidateTerms || !candidateTerms.candidates || candidateTerms.candidates.length === 0) {
+    // Check if we have SearchQueryManager available
+    if (!this.searchQueryManager || !this.searchQueryManager.getCurrentQuery()) {
+      console.log('⚠️ SearchQueryManager not available, falling back to legacy method');
+      return this.generateLegacySearchFilterHTML(candidateTerms);
+    }
+    
+    console.log('🔧 Generating smart search filter using SearchQueryManager SSoT');
+    
+    // Get available terms from SearchQueryManager SSoT
+    const availableTerms = this.searchQueryManager.getAvailableTerms();
+    
+    if (availableTerms.length === 0) {
+      console.log('⚠️ No available terms in SearchQueryManager SSoT');
       return '';
     }
     
-    console.log('🔧 Generating smart search filter with', candidateTerms.candidates.length, 'candidate terms');
+    // AI-POWERED SMART SUGGESTIONS: Select top 4-5 most important terms from SSoT
+    const smartSuggestions = this.selectSmartSuggestionsFromSSoT(availableTerms);
     
-    // AI-POWERED SMART SUGGESTIONS: Select top 4-5 most important terms
-    const smartSuggestions = this.selectSmartSuggestions(candidateTerms.candidates);
+    // Get current query from SearchQueryManager SSoT
+    const currentQuery = this.searchQueryManager.getCurrentQuery();
     
     // Show current query and smart suggestions prominently
     let filterHTML = `
@@ -875,11 +991,230 @@ export class DashboardManager {
         <div class="smart-suggestions">
           <div class="current-query-display">
             <span class="current-label">Nuvarande:</span>
-            <span class="current-query" id="current-search-display">"${candidateTerms.currentQuery}"</span>
+            <span class="current-query" id="current-search-display">"${currentQuery}"</span>
           </div>
           <div class="suggestion-controls">`;
     
-    // Generate smart suggestion checkboxes
+    // Generate smart suggestion checkboxes using SSoT selection state
+    smartSuggestions.forEach((suggestion, index) => {
+      const checkboxId = `smart-suggestion-${index}`;
+      // Check selection state from SearchQueryManager SSoT
+      const isChecked = suggestion.isSelected ? 'checked' : '';
+      const priority = this.getSuggestionPriorityFromSSoT(suggestion);
+      
+      filterHTML += `
+        <label class="smart-suggestion-checkbox ${priority}" title="${suggestion.description}: ${suggestion.term}">
+          <input type="checkbox" 
+                 class="smart-checkbox" 
+                 value="${suggestion.term}" 
+                 data-type="${suggestion.type}"
+                 id="${checkboxId}"
+                 ${isChecked}>
+          <span class="suggestion-text">${suggestion.term}</span>
+          <span class="suggestion-type">${this.getTypeIcon(suggestion.type)}</span>
+        </label>`;
+    });
+    
+    filterHTML += `
+          </div>
+        </div>
+        <div class="filter-status">
+          <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
+          <span class="update-status" id="filter-status">Klicka på förslag för att förfina sökningen</span>
+        </div>
+      </div>`;
+    
+    return filterHTML;
+  }
+
+  // NEW: Select smart suggestions from SearchQueryManager SSoT
+  selectSmartSuggestionsFromSSoT(availableTerms) {
+    console.log('🧠 AI-selecting smart suggestions from SSoT with', availableTerms.length, 'available terms');
+    
+    // CRITICAL: Ensure ALL current search query terms are represented
+    const currentQuery = this.searchQueryManager.getCurrentQuery();
+    const currentQueryTerms = currentQuery.toLowerCase().split(' ').filter(t => t.length > 1);
+    console.log('🎯 Current query terms that MUST be included:', currentQueryTerms);
+    
+    // Create a map for faster lookup
+    const availableTermsMap = new Map();
+    availableTerms.forEach(term => {
+      availableTermsMap.set(term.term.toLowerCase(), term);
+    });
+    
+    // Add missing query terms that aren't in availableTerms
+    const missingQueryTerms = [];
+    currentQueryTerms.forEach(queryTerm => {
+      if (!availableTermsMap.has(queryTerm)) {
+        console.log('➕ MISSING QUERY TERM - adding to suggestions:', queryTerm);
+        const missingTerm = {
+          term: queryTerm.charAt(0).toUpperCase() + queryTerm.slice(1), // Capitalize first letter
+          type: this.detectTermTypeForMissing(queryTerm),
+          description: 'Aktuell sökterm',
+          priority: 1, // High priority for current search terms
+          isCore: this.searchQueryManager.isCoreSearchTerm(queryTerm),
+          isSelected: true, // Always selected since it's in current query
+          score: 50 // Very high score to ensure inclusion
+        };
+        missingQueryTerms.push(missingTerm);
+        console.log('✅ Added missing term:', missingTerm);
+      }
+    });
+    
+    // Combine available terms with missing query terms
+    const allTerms = [...availableTerms, ...missingQueryTerms];
+    console.log('🔄 Total terms after adding missing query terms:', allTerms.length);
+    
+    // Score each term based on importance and context
+    const scoredTerms = allTerms.map(term => {
+      let score = term.score || 0; // Use existing score if available
+      
+      // Type-based scoring (priority)
+      const typeScores = {
+        'artist': 20,      // Highest priority - brands/artists are critical
+        'object_type': 18,  
+        'model': 15,
+        'reference': 12,   
+        'period': 10,      // Important for watches
+        'material': 8,
+        'movement': 7,
+        'keyword': 5       
+      };
+      
+      score += typeScores[term.type] || 3;
+      
+      // CRITICAL: Massive boost for core terms (brands/artists/object types)
+      if (term.isCore) {
+        score += 25; // This ensures core terms like "Omega" always make it to top suggestions
+        console.log('🎯 CORE TERM BOOST for:', term.term, 'new score:', score);
+      }
+      
+      // CRITICAL: Boost for currently selected terms
+      if (term.isSelected) {
+        score += 15; // Ensures selected terms appear in suggestions
+        console.log('✅ SELECTED TERM BOOST for:', term.term, 'new score:', score);
+      }
+      
+      // CRITICAL: Boost for terms that are in current query
+      if (currentQueryTerms.includes(term.term.toLowerCase())) {
+        score += 20; // Massive boost for current query terms
+        console.log('🎯 CURRENT QUERY BOOST for:', term.term, 'new score:', score);
+      }
+      
+      // Boost score for high-value terms
+      const highValueTerms = ['guld', 'silver', 'diamant', 'antik', 'vintage', 'original', 'limited', 'signed'];
+      if (highValueTerms.some(hvt => term.term.toLowerCase().includes(hvt))) {
+        score += 4;
+      }
+      
+      // Boost score for specific important terms
+      const importantTerms = ['seamaster', 'omega', 'rolex', 'patek', 'cartier', 'automatic', 'chronometer'];
+      if (importantTerms.some(it => term.term.toLowerCase().includes(it))) {
+        score += 3;
+      }
+      
+      // Boost score for period terms (years and decades)
+      if (term.type === 'period') {
+        score += 3;
+        console.log('📅 Period term boost for:', term.term, 'score now:', score);
+      }
+      
+      return { ...term, score };
+    });
+    
+    // Sort by score (highest first) and take top 5
+    const topSuggestions = scoredTerms
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    
+    console.log('🧠 AI-selected smart suggestions from SSoT:');
+    topSuggestions.forEach((suggestion, index) => {
+      console.log(`   ${index + 1}. "${suggestion.term}" (${suggestion.type}) - Score: ${suggestion.score} - Selected: ${suggestion.isSelected} - Core: ${suggestion.isCore}`);
+    });
+    
+    return topSuggestions;
+  }
+
+  // Helper: Detect term type for missing query terms
+  detectTermTypeForMissing(term) {
+    const lowerTerm = term.toLowerCase();
+    
+    // Brand/Artist detection (enhanced list)
+    const brands = [
+      'omega', 'rolex', 'patek', 'cartier', 'breitling', 'tag', 'heuer', 
+      'longines', 'tissot', 'seiko', 'citizen', 'casio', 'hamilton',
+      'iwc', 'jaeger', 'lecoultre', 'vacheron', 'constantin', 'audemars', 'piguet',
+      'tudor', 'zenith', 'chopard', 'montblanc', 'hublot', 'richard', 'mille'
+    ];
+    
+    if (brands.includes(lowerTerm)) {
+      return 'artist';
+    }
+    
+    // Period detection
+    if (/^\d{4}$/.test(term) || /\d{4}[-\s]tal/.test(lowerTerm)) {
+      return 'period';
+    }
+    
+    // Reference detection
+    if (/^st\s?\d+/.test(lowerTerm) || /reference/.test(lowerTerm)) {
+      return 'reference';
+    }
+    
+    // Object type detection
+    const objectTypes = ['armbandsur', 'klocka', 'ur', 'watch', 'tavla', 'målning', 'painting', 'skulptur', 'vas', 'lampa'];
+    if (objectTypes.includes(lowerTerm)) {
+      return 'object_type';
+    }
+    
+    // Movement detection
+    if (['automatisk', 'manuell', 'quartz', 'kronograf'].includes(lowerTerm)) {
+      return 'movement';
+    }
+    
+    // Material detection
+    if (['guld', 'silver', 'stål', 'platina', 'titan'].includes(lowerTerm)) {
+      return 'material';
+    }
+    
+    // Default to keyword
+    return 'keyword';
+  }
+
+  // NEW: Get suggestion priority class for SSoT terms
+  getSuggestionPriorityFromSSoT(suggestion) {
+    if (suggestion.isCore) return 'priority-core';
+    if (suggestion.isSelected) return 'priority-selected';
+    if (suggestion.score >= 15) return 'priority-high';
+    if (suggestion.score >= 10) return 'priority-medium';
+    return 'priority-low';
+  }
+
+  // LEGACY: Fallback method for when SSoT is not available
+  generateLegacySearchFilterHTML(candidateTerms) {
+    if (!candidateTerms || !candidateTerms.candidates || candidateTerms.candidates.length === 0) {
+      return '';
+    }
+    
+    console.log('🔧 Using LEGACY smart search filter generation');
+    
+    // Use the old method as fallback
+    const smartSuggestions = this.selectSmartSuggestions(candidateTerms.candidates);
+    const currentQuery = candidateTerms.currentQuery || 'Automatisk sökning';
+    
+    let filterHTML = `
+      <div class="search-filter-section">
+        <div class="filter-header">
+          <h4 class="filter-title">🧠 AI-smarta sökförslag</h4>
+          <div class="filter-description">Lägg till relevanta termer för mer exakt analys - uppdateras automatiskt</div>
+        </div>
+        <div class="smart-suggestions">
+          <div class="current-query-display">
+            <span class="current-label">Nuvarande:</span>
+            <span class="current-query" id="current-search-display">"${currentQuery}"</span>
+          </div>
+          <div class="suggestion-controls">`;
+    
     smartSuggestions.forEach((suggestion, index) => {
       const checkboxId = `smart-suggestion-${index}`;
       const isChecked = suggestion.preSelected ? 'checked' : '';
@@ -909,58 +1244,8 @@ export class DashboardManager {
     
     return filterHTML;
   }
-  
-  // NEW: AI-powered smart suggestion selection
-  selectSmartSuggestions(candidates) {
-    // Score each candidate based on importance and context
-    const scoredCandidates = candidates.map(candidate => {
-      let score = 0;
-      
-      // Type-based scoring (priority)
-      const typeScores = {
-        'artist': 10,      // Highest priority
-        'object_type': 9,  
-        'model': 8,
-        'material': 7,
-        'reference': 6,
-        'period': 5,
-        'movement': 4,
-        'keyword': 3       // Lowest priority
-      };
-      
-      score += typeScores[candidate.type] || 1;
-      
-      // Boost score if already pre-selected (current algorithm chose it)
-      if (candidate.preSelected) {
-        score += 5;
-      }
-      
-      // Boost score for high-value terms
-      const highValueTerms = ['guld', 'silver', 'diamant', 'antik', 'vintage', 'original', 'limited', 'signed'];
-      if (highValueTerms.some(term => candidate.term.toLowerCase().includes(term))) {
-        score += 3;
-      }
-      
-      // Penalize very generic terms
-      const genericTerms = ['objekt', 'föremål', 'sak', 'konstarbete'];
-      if (genericTerms.some(term => candidate.term.toLowerCase().includes(term))) {
-        score -= 2;
-      }
-      
-      return { ...candidate, score };
-    });
-    
-    // Sort by score and select top 5
-    const topSuggestions = scoredCandidates
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-    
-    console.log('🧠 AI-selected smart suggestions:', topSuggestions.map(s => `${s.term} (${s.score})`));
-    
-    return topSuggestions;
-  }
-  
-  // Helper: Get suggestion priority class for styling
+
+  // Helper: Get suggestion priority class for suggestions
   getSuggestionPriority(suggestion) {
     if (suggestion.preSelected) return 'priority-selected';
     if (suggestion.score >= 10) return 'priority-high';
@@ -981,6 +1266,39 @@ export class DashboardManager {
       'keyword': '🔤'
     };
     return icons[type] || '•';
+  }
+
+  // Helper: Detect term type for missing search terms
+  detectTermType(term) {
+    const lowerTerm = term.toLowerCase();
+    
+    // Period detection
+    if (/^\d{4}$/.test(term) || /\d{4}[-\s]tal/.test(lowerTerm)) {
+      return 'period';
+    }
+    
+    // Reference detection
+    if (/^st\s?\d+/.test(lowerTerm) || /reference/.test(lowerTerm)) {
+      return 'reference';
+    }
+    
+    // Object type detection
+    if (['armbandsur', 'tavla', 'skulptur', 'vas', 'lampa'].includes(lowerTerm)) {
+      return 'object_type';
+    }
+    
+    // Movement detection
+    if (['automatisk', 'manuell', 'quartz', 'kronograf'].includes(lowerTerm)) {
+      return 'movement';
+    }
+    
+    // Material detection
+    if (['guld', 'silver', 'stål', 'platina', 'titan'].includes(lowerTerm)) {
+      return 'material';
+    }
+    
+    // Default to keyword
+    return 'keyword';
   }
 
   // Add CSS styles for the market dashboard
@@ -1330,6 +1648,24 @@ export class DashboardManager {
         }
         
         /* Priority-based styling */
+        .smart-suggestion-checkbox.priority-core {
+          background: #fff3e0;
+          border-color: #ff9800;
+          color: #e65100;
+          font-weight: 600;
+        }
+        
+        .smart-suggestion-checkbox.priority-core .suggestion-text {
+          color: #e65100;
+          font-weight: 700;
+        }
+        
+        .smart-suggestion-checkbox.priority-core:hover {
+          background: #ffcc02;
+          border-color: #f57c00;
+          color: #bf360c;
+        }
+        
         .smart-suggestion-checkbox.priority-selected {
           background: #d4edda;
           border-color: #c3e6cb;
@@ -1486,5 +1822,95 @@ export class DashboardManager {
     if (loadingDiv) {
       loadingDiv.remove();
     }
+  }
+
+  // NEW: Determine actual search query from sales data
+  determineActualSearchQuery(salesData) {
+    // Priority order for determining actual search query
+    if (salesData.historical && salesData.historical.actualSearchQuery) {
+      return salesData.historical.actualSearchQuery;
+    } else if (salesData.live && salesData.live.actualSearchQuery) {
+      return salesData.live.actualSearchQuery;
+    } else if (salesData.searchedEntity) {
+      return salesData.searchedEntity;
+    } else if (salesData.candidateSearchTerms && salesData.candidateSearchTerms.currentQuery) {
+      return salesData.candidateSearchTerms.currentQuery;
+    } else {
+      // Fallback
+      return salesData.analysisType || 'Okänd sökning';
+    }
+  }
+
+  // LEGACY: AI-powered smart suggestion selection (kept for backward compatibility)
+  selectSmartSuggestions(candidates) {
+    // Score each candidate based on importance and context
+    const scoredCandidates = candidates.map(candidate => {
+      let score = 0;
+      
+      // Type-based scoring (priority)
+      const typeScores = {
+        'artist': 15,      // Highest priority
+        'object_type': 14,  
+        'model': 12,
+        'reference': 10,   // Boost reference scoring
+        'period': 9,       // Boost period scoring (for terms like "1970")
+        'material': 8,
+        'movement': 7,
+        'keyword': 5       // Increase keyword scoring
+      };
+      
+      score += typeScores[candidate.type] || 3;
+      
+      // CRITICAL: Massive boost for pre-selected terms (current search terms)
+      if (candidate.preSelected) {
+        score += 20; // This ensures pre-selected terms always make it to top 5
+        console.log('🎯 PRIORITY BOOST for pre-selected term:', candidate.term, 'new score:', score);
+      }
+      
+      // Boost score for high-value terms
+      const highValueTerms = ['guld', 'silver', 'diamant', 'antik', 'vintage', 'original', 'limited', 'signed'];
+      if (highValueTerms.some(term => candidate.term.toLowerCase().includes(term))) {
+        score += 4;
+      }
+      
+      // Boost score for specific important terms
+      const importantTerms = ['seamaster', 'omega', 'rolex', 'patek', 'cartier', 'automatic', 'chronometer'];
+      if (importantTerms.some(term => candidate.term.toLowerCase().includes(term))) {
+        score += 3;
+      }
+      
+      // Boost score for period terms (years and decades)
+      if (candidate.type === 'period') {
+        score += 3;
+        console.log('📅 Period term boost for:', candidate.term, 'score now:', score);
+      }
+      
+      // Penalize very generic terms (but not too much)
+      const genericTerms = ['objekt', 'föremål', 'sak', 'konstarbete'];
+      if (genericTerms.some(term => candidate.term.toLowerCase().includes(term))) {
+        score -= 1; // Reduced penalty
+      }
+      
+      return { ...candidate, score };
+    });
+    
+    // CRITICAL: Ensure ALL pre-selected terms are included first
+    const preSelectedTerms = scoredCandidates.filter(candidate => candidate.preSelected);
+    const otherTerms = scoredCandidates.filter(candidate => !candidate.preSelected);
+    
+    // Sort non-pre-selected terms by score
+    const topOtherTerms = otherTerms
+      .sort((a, b) => b.score - a.score)
+      .slice(0, Math.max(1, 5 - preSelectedTerms.length)); // Ensure at least 1 slot for other terms
+    
+    // Combine pre-selected terms (always included) with top scoring other terms
+    const finalSuggestions = [...preSelectedTerms, ...topOtherTerms]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    
+    console.log('🧠 AI-selected smart suggestions (LEGACY):', finalSuggestions.map(s => `${s.term} (${s.score})`));
+    console.log('🎯 Pre-selected terms included (LEGACY):', preSelectedTerms.map(s => s.term));
+    
+    return finalSuggestions;
   }
 } 

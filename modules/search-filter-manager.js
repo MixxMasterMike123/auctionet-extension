@@ -37,122 +37,140 @@ export class SearchFilterManager {
   }
 
   // NEW: Extract candidate search terms for interactive user selection
-  extractCandidateSearchTerms(title, description, artistInfo = null) {
+  extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null) {
     console.log('🔍 Extracting ALL candidate search terms for:', title);
     
     const text = `${title} ${description}`;
     const candidates = [];
     
     // Build current algorithm query to determine what should be pre-selected
-    const currentAlgorithmQuery = this.buildCurrentAlgorithmQuery(title, description, artistInfo);
+    // PRIORITY: Use actual search query if provided, otherwise build theoretical one
+    let currentAlgorithmQuery;
+    if (actualSearchQuery) {
+      currentAlgorithmQuery = actualSearchQuery;
+      console.log('🎯 Using provided actual search query:', actualSearchQuery);
+    } else {
+      currentAlgorithmQuery = this.buildCurrentAlgorithmQuery(title, description, artistInfo);
+      console.log('🎯 Built theoretical query:', currentAlgorithmQuery);
+    }
+    
     const currentAlgorithmTerms = currentAlgorithmQuery.toLowerCase().split(' ').filter(t => t.length > 1);
     
     console.log('🎯 Current algorithm would use:', currentAlgorithmQuery);
-    console.log('📋 Current algorithm terms:', currentAlgorithmTerms);
+    console.log('📋 Current algorithm terms for matching:', currentAlgorithmTerms);
+    
+    // Helper function to check if term should be pre-selected
+    const shouldBePreSelected = (term) => {
+      const termLower = term.toLowerCase();
+      const isSelected = currentAlgorithmTerms.includes(termLower);
+      console.log(`🔍 Checking pre-selection for "${term}" (${termLower}): ${isSelected ? 'YES' : 'NO'}`);
+      return isSelected;
+    };
     
     // 1. ARTIST/BRAND (if available)
     if (artistInfo && artistInfo.artist) {
-      const artistTerm = artistInfo.artist.toLowerCase();
+      const preSelected = shouldBePreSelected(artistInfo.artist);
       candidates.push({
         term: artistInfo.artist,
         type: 'artist',
         priority: 1,
         description: 'Konstnär/Märke',
-        preSelected: currentAlgorithmTerms.includes(artistTerm)
+        preSelected: preSelected
       });
     }
     
     // 2. OBJECT TYPE
     const objectType = this.qualityAnalyzer.extractObjectType(title);
     if (objectType) {
-      const objectTypeTerm = objectType.toLowerCase();
+      const preSelected = shouldBePreSelected(objectType);
       candidates.push({
-        term: objectTypeTerm,
+        term: objectType,
         type: 'object_type',
         priority: 2,
         description: 'Objekttyp',
-        preSelected: currentAlgorithmTerms.includes(objectTypeTerm)
+        preSelected: preSelected
       });
     }
     
     // 3. WATCH/JEWELRY MODELS AND SERIES
     const watchModels = this.extractWatchModels(text);
     watchModels.forEach(model => {
-      const modelTerm = model.toLowerCase();
+      const preSelected = shouldBePreSelected(model);
       candidates.push({
         term: model,
         type: 'model',
         priority: 3,
         description: 'Modell/Serie',
-        preSelected: currentAlgorithmTerms.includes(modelTerm)
+        preSelected: preSelected
       });
     });
     
     // 4. REFERENCE NUMBERS
     const references = this.extractReferenceNumbers(text);
     references.forEach(ref => {
-      const refTerm = ref.toLowerCase();
+      const preSelected = shouldBePreSelected(ref);
       candidates.push({
         term: ref,
         type: 'reference',
         priority: 4,
         description: 'Referensnummer',
-        preSelected: currentAlgorithmTerms.includes(refTerm)
+        preSelected: preSelected
       });
     });
     
     // 5. MATERIALS
     const materials = this.extractAllMaterials(text);
     materials.forEach(material => {
-      const materialTerm = material.toLowerCase();
+      const preSelected = shouldBePreSelected(material);
       candidates.push({
         term: material,
         type: 'material',
         priority: 5,
         description: 'Material',
-        preSelected: currentAlgorithmTerms.includes(materialTerm)
+        preSelected: preSelected
       });
     });
     
     // 6. PERIODS/YEARS
     const periods = this.extractAllPeriods(text);
     periods.forEach(period => {
-      const periodTerm = period.toLowerCase();
+      const preSelected = shouldBePreSelected(period);
+      console.log(`📅 PERIOD DEBUG: "${period}" should be pre-selected: ${preSelected}`);
       candidates.push({
         term: period,
         type: 'period',
         priority: 6,
         description: 'Tidsperiod',
-        preSelected: currentAlgorithmTerms.includes(periodTerm)
+        preSelected: preSelected
       });
     });
     
     // 7. MOVEMENTS/TECHNIQUES
     const movements = this.extractAllMovements(text);
     movements.forEach(movement => {
-      const movementTerm = movement.toLowerCase();
+      const preSelected = shouldBePreSelected(movement);
       candidates.push({
         term: movement,
         type: 'movement',
         priority: 7,
         description: 'Urverk/Teknik',
-        preSelected: currentAlgorithmTerms.includes(movementTerm)
+        preSelected: preSelected
       });
     });
     
     // 8. SIGNIFICANT WORDS (filtered list)
     const significantWords = this.extractSignificantWords(text);
     significantWords.forEach(word => {
-      const wordTerm = word.toLowerCase();
       // Avoid duplicates
-      const alreadyExists = candidates.some(c => c.term.toLowerCase() === wordTerm);
+      const alreadyExists = candidates.some(c => c.term.toLowerCase() === word.toLowerCase());
       if (!alreadyExists) {
+        const preSelected = shouldBePreSelected(word);
         candidates.push({
           term: word,
           type: 'keyword',
           priority: 8,
           description: 'Nyckelord',
-          preSelected: currentAlgorithmTerms.includes(wordTerm)
+          preSelected: preSelected
         });
       }
     });
@@ -170,6 +188,7 @@ export class SearchFilterManager {
     
     console.log('🎯 ALL extracted candidate search terms:', candidates);
     console.log('✅ Total candidates found:', candidates.length);
+    console.log('✅ Pre-selected candidates:', preSelectedTerms);
     
     return {
       candidates: candidates,

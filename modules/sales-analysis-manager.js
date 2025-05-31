@@ -117,7 +117,7 @@ export class SalesAnalysisManager {
       this.pendingAnalyses.delete('sales');
       
       // Handle the results
-      this.handleSalesAnalysisResult(salesData, currentWarnings, currentScore, qualityAnalyzer);
+      this.handleSalesAnalysisResult(salesData, currentWarnings, currentScore, qualityAnalyzer, searchFilterManager);
       
     } catch (error) {
       console.error('❌ Sales analysis failed:', error);
@@ -186,14 +186,48 @@ export class SalesAnalysisManager {
     return mergedData;
   }
 
-  handleSalesAnalysisResult(salesData, currentWarnings, currentScore, qualityAnalyzer) {
+  handleSalesAnalysisResult(salesData, currentWarnings, currentScore, qualityAnalyzer, searchFilterManager = null) {
     if (salesData && salesData.hasComparableData) {
       console.log('💰 Processing comprehensive market analysis results');
       
       // NEW: Add candidate search terms to sales data for dashboard access
       if (this.lastCandidateSearchTerms) {
-        salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
+        // Ensure the currentQuery matches the actual search query used
+        let actualSearchQuery = null;
+        if (salesData.historical && salesData.historical.actualSearchQuery) {
+          actualSearchQuery = salesData.historical.actualSearchQuery;
+        } else if (salesData.live && salesData.live.actualSearchQuery) {
+          actualSearchQuery = salesData.live.actualSearchQuery;
+        } else if (salesData.searchedEntity) {
+          actualSearchQuery = salesData.searchedEntity;
+        }
+        
+        if (actualSearchQuery) {
+          // RE-EXTRACT candidate terms with the actual search query for proper pre-selection
+          console.log('🔧 RE-EXTRACTING candidate terms with actual search query:', actualSearchQuery);
+          const data = this.dataExtractor.extractItemData();
+          const updatedCandidateTerms = searchFilterManager.extractCandidateSearchTerms(
+            data.title, 
+            data.description, 
+            null, // no artistInfo needed for re-extraction
+            actualSearchQuery // pass the actual search query
+          );
+          
+          if (updatedCandidateTerms) {
+            this.lastCandidateSearchTerms = updatedCandidateTerms;
+            salesData.candidateSearchTerms = updatedCandidateTerms;
+            console.log('✅ Updated candidate terms with proper pre-selection based on actual search');
+          } else {
+            // Fallback to original logic
+            this.lastCandidateSearchTerms.currentQuery = actualSearchQuery;
+            salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
+          }
+        } else {
+          salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
+        }
+        
         console.log('📋 Added candidate search terms to sales data for dashboard');
+        console.log('🔧 Final currentQuery:', salesData.candidateSearchTerms.currentQuery);
       }
       
       // NEW: Analyze valuation and suggest changes if needed

@@ -89,8 +89,13 @@ export class UIManager {
       
       // Set up live quality monitoring
       console.log('🚀 Setting up live quality monitoring...');
-      this.qualityAnalyzer.setupLiveQualityUpdates();
-      console.log('✅ Live quality monitoring setup complete');
+      try {
+        this.qualityAnalyzer.setupLiveQualityUpdates();
+        console.log('✅ Live quality monitoring setup complete');
+      } catch (error) {
+        console.error('❌ Error setting up live quality monitoring:', error);
+        console.log('⚠️ Extension will continue without live monitoring');
+      }
       
       // Note: Initial quality analysis will be called after API key is loaded
     } else {
