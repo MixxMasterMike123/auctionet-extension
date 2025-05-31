@@ -282,9 +282,21 @@ export class DashboardManager {
       }
       
       let dataDescription = '';
+      let dataLinks = '';
+      
+      // Main heading text (preserve original format)
       if (historicalSales > 0 && liveSales > 0) {
-        if (auctionetUrls) {
-          dataDescription = `
+        dataDescription = `${historicalSales} historiska försäljningar • ${liveSales} pågående auktioner`;
+      } else if (historicalSales > 0) {
+        dataDescription = `${historicalSales} historiska försäljningar`;
+      } else if (liveSales > 0) {
+        dataDescription = `${liveSales} pågående auktioner`;
+      }
+      
+      // Add detailed links if SearchQueryManager is available
+      if (auctionetUrls) {
+        if (historicalSales > 0 && liveSales > 0) {
+          dataLinks = `
             <div class="data-link-row">
               <span class="data-link-icon">📊</span>
               <a href="${auctionetUrls.historical}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
@@ -295,42 +307,36 @@ export class DashboardManager {
               <a href="${auctionetUrls.live}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
               <span class="data-link-meta">live</span>
             </div>`;
-        } else {
-          dataDescription = `${historicalSales} historiska försäljningar • ${liveSales} pågående auktioner`;
-        }
-      } else if (historicalSales > 0) {
-        if (auctionetUrls) {
-          dataDescription = `
+        } else if (historicalSales > 0) {
+          dataLinks = `
             <div class="data-link-row">
               <span class="data-link-icon">📊</span>
               <a href="${auctionetUrls.historical}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
               <span class="data-link-meta">bekräftade</span>
             </div>`;
-        } else {
-          dataDescription = `${historicalSales} historiska försäljningar`;
-        }
-      } else if (liveSales > 0) {
-        if (auctionetUrls) {
-          dataDescription = `
+        } else if (liveSales > 0) {
+          dataLinks = `
             <div class="data-link-row">
               <span class="data-link-icon">🔴</span>
               <a href="${auctionetUrls.live}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
               <span class="data-link-meta">live</span>
             </div>`;
-        } else {
-          dataDescription = `${liveSales} pågående auktioner`;
         }
       }
       
       if (totalMatches > historicalSales + liveSales) {
-        dataDescription += `<div class="data-link-row"><span class="data-link-icon">🔍</span>${totalMatches} träffar analyserade</div>`;
+        if (dataLinks) {
+          dataLinks += `<div class="data-link-row"><span class="data-link-icon">🔍</span>${totalMatches} träffar analyserade</div>`;
+        } else {
+          dataDescription += `\n${totalMatches} träffar analyserade`;
+        }
       }
       
       dashboardContent += `
         <div class="market-item market-data">
           <div class="market-label" title="Omfattning av analyserad marknadsdata">Dataunderlag</div>
           <div class="market-value">${dataDescription}</div>
-          <div class="market-help">Stark uppgång (senaste året)</div>
+          ${dataLinks ? `<div class="market-help">${dataLinks}</div>` : '<div class="market-help">Stark uppgång (senaste året)</div>'}
         </div>
       `;
     }
