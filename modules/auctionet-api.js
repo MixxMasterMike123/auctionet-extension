@@ -1519,10 +1519,10 @@ export class AuctionetAPI {
     let timeSpanText = '';
     if (timeSpanYears >= 1) {
       const years = Math.round(timeSpanYears);
-      timeSpanText = ` (baserat på Auctionet's data från ${years} år tillbaka)`;
+      timeSpanText = ` (baserat på ${soldItems.length} analyserade objekt från Auctionet, ${years} år tillbaka)`;
     } else {
       const months = Math.round(timeSpanYears * 12);
-      timeSpanText = ` (baserat på Auctionet's data från ${months} månader tillbaka)`;
+      timeSpanText = ` (baserat på ${soldItems.length} analyserade objekt från Auctionet, ${months} månader tillbaka)`;
     }
     
     // Split into older and newer halves
