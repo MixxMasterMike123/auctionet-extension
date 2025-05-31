@@ -299,9 +299,27 @@ export class SearchFilterManager {
       }
     });
     
-    // 8. SIGNIFICANT WORDS (filtered list)
-    const significantWords = this.extractSignificantWords(text);
-    console.log('🔧 DEBUG: Significant words extracted:', significantWords);
+    // 8. SIGNIFICANT WORDS (filtered list) - EXCLUDE artist name words to prevent duplication
+    let textForSignificantWords = text;
+    
+    // CRITICAL FIX: If artist field is provided, remove artist name words from text before extracting significant words
+    // This prevents "Niels Thorsson" from creating separate "Niels" and "Thorsson" checkboxes
+    if (artistInfo && artistInfo.artist) {
+      const artistWords = artistInfo.artist.toLowerCase().split(/\s+/);
+      console.log(`🔧 ARTIST DEDUPLICATION: Removing artist words from significant word extraction:`, artistWords);
+      
+      // Remove artist words from the text to prevent duplication
+      artistWords.forEach(artistWord => {
+        if (artistWord.length > 2) { // Only remove meaningful words
+          const wordRegex = new RegExp(`\\b${artistWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+          textForSignificantWords = textForSignificantWords.replace(wordRegex, '');
+          console.log(`🔧 Removed artist word "${artistWord}" from significant word extraction`);
+        }
+      });
+    }
+    
+    const significantWords = this.extractSignificantWords(textForSignificantWords);
+    console.log('🔧 DEBUG: Significant words extracted (after artist deduplication):', significantWords);
     
     significantWords.forEach(word => {
       if (word && typeof word === 'string') {
