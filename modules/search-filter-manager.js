@@ -73,8 +73,8 @@ export class SearchFilterManager {
     
     // Helper function to check if term should be pre-selected
     const shouldBePreSelected = (term) => {
-      // 🤖 AI-INTELLIGENT PRE-SELECTION: Only select the 3 most strategically important terms
-      // Don't just match words - think like a market analyst about what's most important
+      // 🤖 AI-INTELLIGENT PRE-SELECTION: Only select the 2-3 most strategically important terms
+      // Prioritize BROAD market coverage over narrow specificity for initial search
       
       const termLower = term.toLowerCase();
       
@@ -90,11 +90,11 @@ export class SearchFilterManager {
         return true;
       }
       
-      // PRIORITY 3: Choose ONE model series (not individual words)
-      // For watches: "Oyster Perpetual Air King Precision" is better than "oyster", "air", "king", "precision" separately
+      // CONSERVATIVE CHANGE: Complete models are valuable but should be OPTIONAL for broader coverage
+      // Make them available as refinements rather than pre-selected to avoid overly narrow searches
       if (term.length > 10 && (term.includes(' ') || term.includes('-'))) {
-        console.log(`🤖 AI DECISION: "${term}" is COMPLETE MODEL - High market value for identification ✅`);
-        return true;
+        console.log(`🤖 AI DECISION: "${term}" is COMPLETE MODEL - Available as optional refinement for narrower search ⚪`);
+        return false; // Changed from true to false - make available but not pre-selected
       }
       
       // 🤖 AI REJECTS individual model words - they fragment the search and reduce market data
