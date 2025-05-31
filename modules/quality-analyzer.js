@@ -544,28 +544,6 @@ export class QualityAnalyzer {
       }
     }
 
-    // Add immediate rule-based artist detection
-    const ruleBasedArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
-    if (ruleBasedArtist) {
-      let warningMessage;
-      let severity = 'medium';
-      
-      if (ruleBasedArtist.errorType === 'artist_in_title_caps') {
-        warningMessage = `FELAKTIG PLACERING: "<strong>${ruleBasedArtist.detectedArtist}</strong>" ska flyttas till konstnärsfältet. Föreslagen titel: "${ruleBasedArtist.suggestedTitle}"`;
-        severity = 'high';
-      } else {
-        warningMessage = `Möjlig konstnär upptäckt: "<strong>${ruleBasedArtist.detectedArtist}</strong>" - kontrollera om den ska flyttas till konstnärsfält`;
-      }
-      
-      warnings.push({ 
-        field: 'Titel', 
-        issue: warningMessage, 
-        severity: severity,
-        detectedArtist: ruleBasedArtist.detectedArtist // Add for click-to-copy
-      });
-      score -= (severity === 'high' ? 20 : 10);
-    }
-
     // Description quality checks (aggressively softened: 50 → 35)
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
     if (descLength < 35) {
@@ -763,6 +741,31 @@ export class QualityAnalyzer {
         if (this.immediateAnalysisStarted) {
           console.log('⚠️ Immediate analysis already started - skipping error fallback duplicate analysis');
           return;
+        }
+        
+        // FALLBACK: If AI detection fails, try rule-based detection for quality warnings
+        const ruleBasedArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
+        if (ruleBasedArtist) {
+          console.log('⚖️ AI failed, using rule-based artist detection for warning:', ruleBasedArtist.detectedArtist);
+          
+          let warningMessage;
+          let severity = 'medium';
+          
+          if (ruleBasedArtist.errorType === 'artist_in_title_caps') {
+            warningMessage = `FELAKTIG PLACERING: "<strong>${ruleBasedArtist.detectedArtist}</strong>" ska flyttas till konstnärsfältet. Föreslagen titel: "${ruleBasedArtist.suggestedTitle}"`;
+            severity = 'high';
+          } else {
+            warningMessage = `Möjlig konstnär upptäckt: "<strong>${ruleBasedArtist.detectedArtist}</strong>" - kontrollera om den ska flyttas till konstnärsfält`;
+          }
+          
+          currentWarnings.unshift({
+            field: 'Titel', 
+            issue: warningMessage, 
+            severity: severity,
+            detectedArtist: ruleBasedArtist.detectedArtist
+          });
+          
+          this.updateQualityIndicator(currentScore - (severity === 'high' ? 20 : 10), currentWarnings);
         }
         
         // Even if AI detection fails, try market analysis with immediate artist
