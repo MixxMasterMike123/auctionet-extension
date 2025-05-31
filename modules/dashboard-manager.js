@@ -275,17 +275,55 @@ export class DashboardManager {
       const totalMatches = salesData.historical.totalMatches || 0;
       const liveSales = salesData.live ? salesData.live.analyzedLiveItems : 0;
       
+      // Get auctionet.com URLs from SearchQueryManager SSoT
+      let auctionetUrls = null;
+      if (this.searchQueryManager) {
+        auctionetUrls = this.searchQueryManager.getSearchUrls();
+      }
+      
       let dataDescription = '';
       if (historicalSales > 0 && liveSales > 0) {
-        dataDescription = `${historicalSales} historiska försäljningar • ${liveSales} pågående auktioner`;
+        if (auctionetUrls) {
+          dataDescription = `
+            <div class="data-link-row">
+              <span class="data-link-icon">📊</span>
+              <a href="${auctionetUrls.historical}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
+              <span class="data-link-meta">bekräftade</span>
+            </div>
+            <div class="data-link-row">
+              <span class="data-link-icon">🔴</span>
+              <a href="${auctionetUrls.live}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
+              <span class="data-link-meta">live</span>
+            </div>`;
+        } else {
+          dataDescription = `${historicalSales} historiska försäljningar • ${liveSales} pågående auktioner`;
+        }
       } else if (historicalSales > 0) {
-        dataDescription = `${historicalSales} historiska försäljningar`;
+        if (auctionetUrls) {
+          dataDescription = `
+            <div class="data-link-row">
+              <span class="data-link-icon">📊</span>
+              <a href="${auctionetUrls.historical}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
+              <span class="data-link-meta">bekräftade</span>
+            </div>`;
+        } else {
+          dataDescription = `${historicalSales} historiska försäljningar`;
+        }
       } else if (liveSales > 0) {
-        dataDescription = `${liveSales} pågående auktioner`;
+        if (auctionetUrls) {
+          dataDescription = `
+            <div class="data-link-row">
+              <span class="data-link-icon">🔴</span>
+              <a href="${auctionetUrls.live}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
+              <span class="data-link-meta">live</span>
+            </div>`;
+        } else {
+          dataDescription = `${liveSales} pågående auktioner`;
+        }
       }
       
       if (totalMatches > historicalSales + liveSales) {
-        dataDescription += `\n${totalMatches} träffar analyserade`;
+        dataDescription += `<div class="data-link-row"><span class="data-link-icon">🔍</span>${totalMatches} träffar analyserade</div>`;
       }
       
       dashboardContent += `
