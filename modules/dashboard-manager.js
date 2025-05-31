@@ -280,6 +280,10 @@ export class DashboardManager {
         this.searchQueryManager.getSearchUrls() : 
         { historical: '#', live: '#', all: '#' };
       
+      // Initialize description and links variables
+      let dataDescription = '';
+      let dataLinks = '';
+      
       // Main heading text (preserve original format)
       if (historicalSales > 0 && liveSales > 0) {
         dataDescription = `${historicalSales} historiska försäljningar • ${liveSales} pågående auktioner`;
