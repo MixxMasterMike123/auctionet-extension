@@ -211,50 +211,55 @@ export class SearchFilterManager {
   
   // Helper: Build what the current algorithm would query
   buildCurrentAlgorithmQuery(title, description, artistInfo) {
-    // ENHANCED: Smart pre-selection that includes critical terms beyond just artist + object type
+    // ENHANCED BUT CONSERVATIVE: Smart pre-selection with only 3-4 CORE terms for broad market coverage
     const queryTerms = [];
     
     if (artistInfo && artistInfo.artist) {
-      // Always include the artist/brand
+      // ALWAYS include the artist/brand (Priority #1)
       queryTerms.push(artistInfo.artist);
       
-      // Always include object type
+      // ALWAYS include object type (Priority #2)
       const objectType = this.qualityAnalyzer.extractObjectType(title);
       if (objectType) {
         queryTerms.push(objectType);
       }
       
-      // CRITICAL FIX: Include important watch/jewelry models for better market relevance
+      // SELECTIVE: Include ONE most important watch/jewelry model for market relevance (Priority #3)
       const watchModels = this.extractWatchModels(title + ' ' + description);
       if (watchModels.length > 0) {
-        // For watches, model is extremely important - include the most significant one
-        queryTerms.push(watchModels[0]); // "Seamaster", "Speedmaster", etc.
-        console.log(`🎯 ENHANCED: Including critical watch model "${watchModels[0]}" in base query`);
+        // Only include the MOST SIGNIFICANT model (not all of them)
+        const primaryModel = watchModels[0]; // First detected is usually most prominent
+        queryTerms.push(primaryModel);
+        console.log(`🎯 CONSERVATIVE: Including ONE primary model "${primaryModel}" for broad market coverage`);
       }
       
-      // Include reference numbers if present (critical for watch identification)
-      const references = this.extractReferenceNumbers(title + ' ' + description);
-      if (references.length > 0) {
-        queryTerms.push(references[0]); // Most relevant reference
-        console.log(`🎯 ENHANCED: Including reference "${references[0]}" in base query`);
-      }
-      
-      // Include most significant period if clearly specified
+      // VERY SELECTIVE: Only include period if it's a DECADE (not specific years)
       const periods = this.extractAllPeriods(title + ' ' + description);
-      const significantPeriod = periods.find(p => p.includes('-tal') || /^\d{4}$/.test(p));
-      if (significantPeriod) {
-        queryTerms.push(significantPeriod);
-        console.log(`🎯 ENHANCED: Including significant period "${significantPeriod}" in base query`);
+      const decadePeriod = periods.find(p => p.includes('-tal')); // Prefer "1970-tal" over "1970"
+      if (decadePeriod) {
+        queryTerms.push(decadePeriod);
+        console.log(`🎯 CONSERVATIVE: Including decade period "${decadePeriod}" for broad market coverage`);
       }
       
-      const enhancedQuery = queryTerms.join(' ').trim();
-      console.log(`🎯 ENHANCED ALGORITHM: "${enhancedQuery}" (vs old simple: "${artistInfo.artist} ${objectType || ''}")`);
-      return enhancedQuery;
+      // STOP HERE: Reference numbers, materials, specific years are NOT pre-selected
+      // They remain available as refinement options
+      
+      const conservativeQuery = queryTerms.join(' ').trim();
+      console.log(`🎯 CONSERVATIVE ALGORITHM: "${conservativeQuery}" (3-4 core terms only)`);
+      console.log(`📋 Available for refinement: Reference numbers, materials, specific years, etc.`);
+      return conservativeQuery;
     }
     
-    // For freetext (no artist), use the enhanced search logic
+    // For freetext (no artist), also be conservative
     const enhancedTerms = this.qualityAnalyzer.extractEnhancedSearchTerms(title, description);
-    return enhancedTerms.searchTerms || title;
+    const basicQuery = enhancedTerms.searchTerms || title;
+    
+    // Limit freetext to 3-4 most important words
+    const words = basicQuery.split(' ').filter(w => w.length > 2);
+    const conservativeFreetext = words.slice(0, 4).join(' ');
+    
+    console.log(`🎯 CONSERVATIVE FREETEXT: "${conservativeFreetext}" (limited to 4 words)`);
+    return conservativeFreetext;
   }
   
   // Extract watch/jewelry models like "Seamaster", "Speedmaster", etc.
