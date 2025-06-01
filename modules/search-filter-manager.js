@@ -81,9 +81,9 @@ export class SearchFilterManager {
       if (aiSelectedTerms.length > 0) {
         // Check if this term is in the AI Rules PRE-SELECTED terms (EXACT MATCH ONLY)
         const isAIPreSelected = aiSelectedTerms.some(aiTerm => {
-          const normalizedAI = aiTerm.toLowerCase().trim();
-          const normalizedTerm = term.toLowerCase().trim();
-          // STRICT MATCHING: Only exact matches, no partial matches
+          const normalizedAI = aiTerm.toLowerCase().trim().replace(/"/g, ''); // Remove quotes
+          const normalizedTerm = term.toLowerCase().trim().replace(/"/g, ''); // Remove quotes
+          // STRICT MATCHING: Only exact matches after quote normalization
           return normalizedAI === normalizedTerm;
         });
         
