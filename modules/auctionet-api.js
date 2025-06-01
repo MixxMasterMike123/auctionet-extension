@@ -1244,16 +1244,54 @@ export class AuctionetAPI {
       const consistentItems = soldItems.filter(item => {
         const titleLower = item.title.toLowerCase();
         const descLower = (item.description || '').toLowerCase();
-        const fullText = `${titleLower} ${descLower}`;
         
-        // Item must contain at least one key search term
-        const hasKeyTerm = keyTerms.some(term => fullText.includes(term));
+        // IMPROVED: For artist searches, require stricter matching to prevent irrelevant results
+        // Check if this appears to be an artist search (person names)
+        const hasPersonName = keyTerms.some(term => 
+          term.length > 3 && /^[a-zåäöü]+$/.test(term) && 
+          (keyTerms.includes(term + 's') || keyTerms.some(other => other !== term && other.length > 3))
+        );
         
-        if (!hasKeyTerm) {
-          console.log(`🚫 Title mismatch: ${item.title.substring(0, 50)}... (missing: ${keyTerms.join(', ')})`);
+        if (hasPersonName) {
+          // For artist searches: require ALL person name terms to be in the title
+          const personNameTerms = keyTerms.filter(term => 
+            term.length > 3 && /^[a-zåäöü]+$/.test(term)
+          );
+          
+          const hasAllNameTermsInTitle = personNameTerms.every(term => titleLower.includes(term));
+          
+          if (!hasAllNameTermsInTitle) {
+            console.log(`🚫 Artist name mismatch: ${item.title.substring(0, 50)}... (missing artist terms: ${personNameTerms.filter(term => !titleLower.includes(term)).join(', ')})`);
+            return false;
+          }
+          
+          // Also check for object-type terms in title or description
+          const objectTerms = keyTerms.filter(term => 
+            !personNameTerms.includes(term) && term.length > 2
+          );
+          
+          if (objectTerms.length > 0) {
+            const fullText = `${titleLower} ${descLower}`;
+            const hasObjectTerm = objectTerms.some(term => fullText.includes(term));
+            
+            if (!hasObjectTerm) {
+              console.log(`🚫 Object type mismatch: ${item.title.substring(0, 50)}... (missing object terms: ${objectTerms.join(', ')})`);
+              return false;
+            }
+          }
+          
+          return true;
+        } else {
+          // For non-artist searches: use the existing logic (at least one term anywhere)
+          const fullText = `${titleLower} ${descLower}`;
+          const hasKeyTerm = keyTerms.some(term => fullText.includes(term));
+          
+          if (!hasKeyTerm) {
+            console.log(`🚫 Title mismatch: ${item.title.substring(0, 50)}... (missing: ${keyTerms.join(', ')})`);
+          }
+          
+          return hasKeyTerm;
         }
-        
-        return hasKeyTerm;
       });
       
       console.log(`✅ Title filtering: Kept ${consistentItems.length} of ${soldItems.length} items`);
