@@ -171,10 +171,25 @@ export function applySearchRules(inputData) {
   
   // RULE 1: Artist field (HIGHEST PRIORITY) - Treat as ONE search word
   if (artist && artist.trim()) {
-    // NORMALIZE artist name to match AI search query generation
-    const artistName = artist.trim().replace(/,\s*$/, ''); // Remove trailing comma and spaces
+    // NORMALIZE and FORMAT artist name to match AI search query generation
+    const cleanArtist = artist.trim().replace(/,\s*$/, ''); // Remove trailing comma and spaces
+    
+    // Format artist name for search queries (wrap multi-word names in quotes)
+    const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
+    let formattedArtist;
+    
+    if (words.length > 1) {
+      // Multiple words - wrap in quotes to treat as single entity
+      formattedArtist = `"${cleanArtist}"`;
+      console.log(`👤 AI RULES: "${cleanArtist}" → ${formattedArtist} (multi-word name, quoted for exact matching)`);
+    } else {
+      // Single word - no quotes needed
+      formattedArtist = cleanArtist;
+      console.log(`👤 AI RULES: "${cleanArtist}" → ${formattedArtist} (single word, no quotes needed)`);
+    }
+    
     extractedTerms.push({
-      term: artistName,
+      term: formattedArtist,
       type: 'artist',
       priority: AI_SEARCH_RULES.artistField.priority,
       source: 'artist_field',
@@ -182,8 +197,8 @@ export function applySearchRules(inputData) {
       isAtomic: true, // NEW: Mark artist names as atomic (counts as 1 term regardless of word count)
       wordCount: 1 // NEW: Always count artist name as 1 search term
     });
-    reasoning.push(`Artist field "${artistName}" included as ONE search term (highest priority)`);
-    console.log(`🎯 AI RULES: Artist field found - "${artistName}" (priority: 100, atomic: true, normalized)`);
+    reasoning.push(`Artist field "${formattedArtist}" included as ONE search term (highest priority)`);
+    console.log(`🎯 AI RULES: Artist field found - "${formattedArtist}" (priority: 100, atomic: true, formatted)`);
   }
   
   // RULE 2: Brand recognition (90 priority)

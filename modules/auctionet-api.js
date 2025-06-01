@@ -36,6 +36,30 @@ export class AuctionetAPI {
     console.log('🔄 Exclude company setting refreshed, cache cleared');
   }
 
+  // NEW: Format artist name for search queries to ensure it's treated as one entity
+  formatArtistForSearch(artistName) {
+    if (!artistName || typeof artistName !== 'string') {
+      return '';
+    }
+    
+    // Trim and normalize the artist name
+    const cleanArtist = artistName.trim().replace(/,\s*$/, ''); // Remove trailing commas
+    
+    // Check if artist name contains multiple words (indicates full name)
+    const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
+    
+    if (words.length > 1) {
+      // Multiple words - wrap in quotes to treat as single entity
+      const quotedArtist = `"${cleanArtist}"`;
+      console.log(`👤 ARTIST FORMATTING: "${cleanArtist}" → ${quotedArtist} (multi-word name, quoted for exact matching)`);
+      return quotedArtist;
+    } else {
+      // Single word - no quotes needed
+      console.log(`👤 ARTIST FORMATTING: "${cleanArtist}" → ${cleanArtist} (single word, no quotes needed)`);
+      return cleanArtist;
+    }
+  }
+
   // Main method to analyze comparable sales for an item
   async analyzeComparableSales(artistName, objectType, period, technique, currentValuation = null, searchQueryManager = null) {
     console.log('🔍 Starting Auctionet market analysis...');
@@ -126,7 +150,8 @@ export class AuctionetAPI {
         console.log(`🎯 Using fallback search strategies (no SSoT user selection)`);
         
         // PRIORITY 1: Try the canonical query first (from centralized SearchQueryBuilder)
-        const basicQuery = [artistName, objectType, period, technique].filter(Boolean).join(' ');
+        const formattedArtist = this.formatArtistForSearch(artistName);
+        const basicQuery = [formattedArtist, objectType, period, technique].filter(Boolean).join(' ');
         console.log(`🎯 Trying basic query first: "${basicQuery}"`);
         const canonicalResult = await this.searchAuctionResults(basicQuery, "Basic combined query");
         
@@ -574,6 +599,9 @@ export class AuctionetAPI {
     
     const strategies = [];
     
+    // Format artist name for consistent search behavior
+    const formattedArtist = this.formatArtistForSearch(artistName);
+    
     // NEW: Check if this is a jewelry-specific search that might need fallbacks
     const isJewelrySearch = this.isJewelrySpecificSearch(artistName);
     
@@ -599,45 +627,45 @@ export class AuctionetAPI {
     }
     
     // Strategy 1: Artist + Object Type (most specific)
-    if (artistName && objectType) {
-      const query = `${artistName} ${objectType}`;
+    if (formattedArtist && objectType) {
+      const query = `${formattedArtist} ${objectType}`;
       console.log(`🎯 Strategy 1 query: "${query}" (length: ${query.length})`);
       strategies.push({
         query: query,
-        description: `Artist + Object Type: "${artistName} ${objectType}"`,
+        description: `Artist + Object Type: "${formattedArtist} ${objectType}"`,
         weight: 1.0
       });
     }
     
     // Strategy 2: Artist + Technique
-    if (artistName && technique) {
-      const query = `${artistName} ${technique}`;
+    if (formattedArtist && technique) {
+      const query = `${formattedArtist} ${technique}`;
       console.log(`🎯 Strategy 2 query: "${query}" (length: ${query.length})`);
       strategies.push({
         query: query,
-        description: `Artist + Technique: "${artistName} ${technique}"`,
+        description: `Artist + Technique: "${formattedArtist} ${technique}"`,
         weight: 0.9
       });
     }
     
     // Strategy 3: Artist + Period
-    if (artistName && period) {
-      const query = `${artistName} ${period}`;
+    if (formattedArtist && period) {
+      const query = `${formattedArtist} ${period}`;
       console.log(`🎯 Strategy 3 query: "${query}" (length: ${query.length})`);
       strategies.push({
         query: query,
-        description: `Artist + Period: "${artistName} ${period}"`,
+        description: `Artist + Period: "${formattedArtist} ${period}"`,
         weight: 0.8
       });
     }
     
     // Strategy 4: Artist only (broader search)
-    if (artistName) {
-      const query = artistName;
+    if (formattedArtist) {
+      const query = formattedArtist;
       console.log(`🎯 Strategy 4 query: "${query}" (length: ${query.length})`);
       strategies.push({
         query: query,
-        description: `Artist only: "${artistName}"`,
+        description: `Artist only: "${formattedArtist}"`,
         weight: 0.7
       });
     }

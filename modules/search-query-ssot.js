@@ -267,10 +267,24 @@ export class SearchQuerySSoT {
     
     // PRIORITY 1: Artist field (HIGHEST PRIORITY - same as AI Rules)
     if (artist && artist.trim()) {
-      const artistName = artist.trim();
-      fallbackTerms.push(artistName);
-      reasoning += `Artist field "${artistName}" included as primary term. `;
-      console.log(`✅ EMERGENCY: Using artist field "${artistName}" as primary search term`);
+      // Format artist name for search (same logic as AuctionetAPI)
+      const cleanArtist = artist.trim().replace(/,\s*$/, ''); // Remove trailing commas
+      const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
+      
+      let formattedArtist;
+      if (words.length > 1) {
+        // Multiple words - wrap in quotes to treat as single entity
+        formattedArtist = `"${cleanArtist}"`;
+        console.log(`👤 SSoT EMERGENCY: "${cleanArtist}" → ${formattedArtist} (multi-word name, quoted for exact matching)`);
+      } else {
+        // Single word - no quotes needed
+        formattedArtist = cleanArtist;
+        console.log(`👤 SSoT EMERGENCY: "${cleanArtist}" → ${formattedArtist} (single word, no quotes needed)`);
+      }
+      
+      fallbackTerms.push(formattedArtist);
+      reasoning += `Artist field "${formattedArtist}" included as primary term. `;
+      console.log(`✅ EMERGENCY: Using formatted artist "${formattedArtist}" as primary search term`);
     }
     
     // PRIORITY 2: Extract object type from title (if not enough terms yet)
