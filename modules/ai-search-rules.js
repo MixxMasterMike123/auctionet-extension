@@ -171,7 +171,8 @@ export function applySearchRules(inputData) {
   
   // RULE 1: Artist field (HIGHEST PRIORITY) - Treat as ONE search word
   if (artist && artist.trim()) {
-    const artistName = artist.trim();
+    // NORMALIZE artist name to match AI search query generation
+    const artistName = artist.trim().replace(/,\s*$/, ''); // Remove trailing comma and spaces
     extractedTerms.push({
       term: artistName,
       type: 'artist',
@@ -182,7 +183,7 @@ export function applySearchRules(inputData) {
       wordCount: 1 // NEW: Always count artist name as 1 search term
     });
     reasoning.push(`Artist field "${artistName}" included as ONE search term (highest priority)`);
-    console.log(`🎯 AI RULES: Artist field found - "${artistName}" (priority: 100, atomic: true)`);
+    console.log(`🎯 AI RULES: Artist field found - "${artistName}" (priority: 100, atomic: true, normalized)`);
   }
   
   // RULE 2: Brand recognition (90 priority)

@@ -214,9 +214,11 @@ export class SearchFilterManager {
     
     // 1. ARTIST/BRAND (if available)
     if (artistInfo && artistInfo.artist) {
-      const preSelected = shouldBePreSelected(artistInfo.artist);
+      // NORMALIZE artist name to match AI Rules processing (remove trailing comma/spaces)
+      const normalizedArtist = artistInfo.artist.trim().replace(/,\s*$/, '');
+      const preSelected = shouldBePreSelected(normalizedArtist);
       candidates.push({
-        term: artistInfo.artist,
+        term: normalizedArtist,
         type: 'artist',
         priority: 1,
         description: 'Konstnär/Märke',
@@ -328,7 +330,9 @@ export class SearchFilterManager {
     // CRITICAL FIX: If artist field is provided, remove artist name words from text before extracting significant words
     // This prevents "Niels Thorsson" from creating separate "Niels" and "Thorsson" checkboxes
     if (artistInfo && artistInfo.artist) {
-      const artistWords = artistInfo.artist.toLowerCase().split(/\s+/);
+      // Use normalized artist name for deduplication
+      const normalizedArtist = artistInfo.artist.trim().replace(/,\s*$/, '');
+      const artistWords = normalizedArtist.toLowerCase().split(/\s+/);
       console.log(`🔧 ARTIST DEDUPLICATION: Removing artist words from significant word extraction:`, artistWords);
       
       // Remove artist words from the text to prevent duplication
