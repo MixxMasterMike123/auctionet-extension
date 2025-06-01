@@ -276,7 +276,7 @@ export class DashboardManager {
       
       // Generate ALL URLs using the SSoT query for consistency
       const baseUrl = 'https://auctionet.com/sv/search';
-      
+          
       if (ssotQuery) {
         historicalUrl = `${baseUrl}?event_id=&is=ended&q=${encodeURIComponent(ssotQuery)}`;
         liveUrl = `${baseUrl}?event_id=&is=&q=${encodeURIComponent(ssotQuery)}`;
@@ -287,7 +287,7 @@ export class DashboardManager {
       console.log('  Historical:', historicalUrl);
       console.log('  Live:', liveUrl);
       console.log('  All:', allUrl);
-      
+        
       // Initialize description and links variables
       let dataDescription = '';
       let dataLinks = '';
@@ -308,32 +308,32 @@ export class DashboardManager {
             <span class="data-link-icon">📊</span>
             <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
             <span class="data-link-meta">bekräftade</span>
-      </div>
-          <div class="data-link-row">
+        </div>
+            <div class="data-link-row">
             <span class="data-link-icon">🔴</span>
             <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
             <span class="data-link-meta">live</span>
-          </div>`;
+            </div>`;
       } else if (historicalSales > 0) {
         dataLinks = `
-          <div class="data-link-row">
+            <div class="data-link-row">
             <span class="data-link-icon">📊</span>
             <a href="${historicalUrl}" target="_blank" class="data-link-prominent" title="Visa alla historiska försäljningar på Auctionet">${historicalSales} historiska försäljningar</a>
             <span class="data-link-meta">bekräftade</span>
-          </div>`;
+            </div>`;
       } else if (liveSales > 0) {
         dataLinks = `
-          <div class="data-link-row">
+            <div class="data-link-row">
             <span class="data-link-icon">🔴</span>
             <a href="${liveUrl}" target="_blank" class="data-link-prominent" title="Visa alla pågående auktioner på Auctionet">${liveSales} pågående auktioner</a>
             <span class="data-link-meta">live</span>
-          </div>`;
+            </div>`;
       }
       
       if (totalMatches > historicalSales + liveSales) {
         if (dataLinks) {
           dataLinks += `<div class="data-link-row"><span class="data-link-icon">🔍</span>${totalMatches} träffar analyserade</div>`;
-        } else {
+          } else {
           dataDescription += `\n${totalMatches} träffar analyserade`;
         }
       }
@@ -727,14 +727,14 @@ export class DashboardManager {
           statusIndicator.style.color = '#e74c3c';
         }
     }
-  }
-  
+        }
+        
   // NEW: Sync all checkbox instances with SSoT state
   syncAllCheckboxesWithSSoT() {
     if (!this.searchQuerySSoT) {
       console.log('⚠️ Cannot sync checkboxes - SearchQueryManager not available');
-      return;
-    }
+        return;
+      }
     
     console.log('🔄 Syncing ALL checkbox instances with SSoT state...');
     
@@ -747,7 +747,7 @@ export class DashboardManager {
       const allCheckboxes = document.querySelectorAll(
         '.smart-checkbox, .search-filter-checkbox, input[type="checkbox"][data-search-term], input[type="checkbox"][value]'
       );
-      
+    
       console.log(`🔍 Found ${allCheckboxes.length} checkboxes to potentially sync`);
       
       let syncedCount = 0;
@@ -760,14 +760,14 @@ export class DashboardManager {
         
         if (!termValue || termValue === '0' || termValue === '1') {
           // Skip checkboxes with generic values or empty values
-          return;
-        }
-        
+      return;
+    }
+    
         console.log(`🔍 Checking checkbox with value: "${termValue}"`);
         
         // ENHANCED MATCHING: Check if this term should be selected based on SSoT
         const shouldBeChecked = this.shouldCheckboxBeSelected(termValue, ssotSelectedTerms);
-        
+      
         // Update checkbox state if it doesn't match SSoT (user has full control)
         if (checkbox.checked !== shouldBeChecked) {
           checkbox.checked = shouldBeChecked;
@@ -808,8 +808,8 @@ export class DashboardManager {
     
     console.log(`❌ NO match: "${checkboxValue}" not found in SSoT selected terms`);
     return false;
-  }
-
+      }
+      
   // Helper: Calculate term similarity for fuzzy matching
   calculateTermSimilarity(term1, term2) {
     if (term1 === term2) return 1.0;
@@ -1238,17 +1238,17 @@ export class DashboardManager {
       return; // Styles already added
     }
 
-    const style = document.createElement('style');
-    style.id = 'market-dashboard-styles';
-    style.textContent = `
-      .market-data-dashboard {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        margin: 15px 20px;
-        padding: 12px 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      const style = document.createElement('style');
+      style.id = 'market-dashboard-styles';
+      style.textContent = `
+        .market-data-dashboard {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          margin: 15px 20px;
+          padding: 12px 16px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         position: relative;
         transition: filter 0.3s ease, opacity 0.3s ease;
       }
@@ -1302,490 +1302,490 @@ export class DashboardManager {
       @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
-      }
-      
-      .market-dashboard-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-        padding-bottom: 6px;
-        border-bottom: 1px solid #dee2e6;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      
-      .market-dashboard-title {
-        font-weight: 600;
-        font-size: 13px;
-        color: #2c3e50;
-      }
-      
-      .market-dashboard-query {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        flex: 1;
-        justify-content: center;
-        background: #f8f9fa;
-        padding: 4px 8px;
-        border-radius: 4px;
-        border: 1px solid #e9ecef;
-        min-width: 200px;
-      }
-      
-      .query-label {
-        font-size: 10px;
-        color: #6c757d;
-        font-weight: 500;
-      }
-      
-      .query-text {
-        font-size: 11px;
-        color: #2c3e50;
-        font-weight: 600;
-        font-family: Monaco, 'Courier New', monospace;
-        background: #ffffff;
-        padding: 2px 6px;
-        border-radius: 3px;
-        border: 1px solid #dee2e6;
-      }
-      
-      .query-source {
-        font-size: 9px;
-        color: #6c757d;
-        font-style: italic;
-      }
-      
-      .market-dashboard-source {
-        font-size: 10px;
-        color: #6c757d;
-        opacity: 0.8;
-      }
-      
-      .market-dashboard-content {
-        display: flex;
-        flex-wrap: nowrap;
-        gap: 16px;
-        align-items: flex-start;
-        overflow-x: auto;
-        justify-content: center;
-      }
-      
-      .market-item {
-        display: flex;
-        flex-direction: column;
-        min-width: 140px;
-        max-width: 180px;
-        flex-shrink: 0;
-        border-right: 0.5px solid #e0e0e0;
-        padding-right: 16px;
-      }
-      
-      .market-item.market-exceptional {
-        max-width: 220px;
-      }
-      
-      .market-item:last-child {
-        border-right: none;
-        padding-right: 0;
-      }
-      
-      .market-label {
-        font-size: 9px;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 2px;
-        font-weight: 500;
-      }
-      
-      .market-value {
-        font-size: 12px;
-        font-weight: 600;
-        color: #1a252f;
-        line-height: 1.2;
-      }
-      
-      .market-confidence {
-        font-size: 10px;
-        margin-top: 1px;
-        font-weight: 500;
-      }
-      
-      .market-help {
-        font-size: 9px;
-        color: #495057;
-        margin-top: 1px;
-        font-style: italic;
-      }
-      
-      .market-help a {
-        color: #007cba;
-        text-decoration: none;
-        font-weight: 500;
-      }
-      
-      .market-help a:hover {
-        text-decoration: underline;
-        color: #005c87;
-      }
-      
-      .market-value a {
-        text-decoration: none;
-        font-weight: inherit;
-      }
-      
-      .market-value a:hover {
-        text-decoration: underline;
-        opacity: 0.8;
-      }
-      
-      .market-label[title] {
-        cursor: help;
-        border-bottom: 1px dotted #6c757d;
-      }
-      
-      /* Header search filter styles */
-      .header-search-filter {
-        display: block;
-        margin: 8px 0;
-        padding: 6px 0;
-      }
-      
-      .header-search-checkbox {
-        display: inline-block;
-        margin: 0 4px 4px 0;
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 12px;
-        padding: 3px 8px;
-        font-size: 10px;
+        }
+        
+        .market-dashboard-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 10px;
+          padding-bottom: 6px;
+          border-bottom: 1px solid #dee2e6;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        
+        .market-dashboard-title {
+          font-weight: 600;
+          font-size: 13px;
+          color: #2c3e50;
+        }
+        
+        .market-dashboard-query {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex: 1;
+          justify-content: center;
+          background: #f8f9fa;
+          padding: 4px 8px;
+          border-radius: 4px;
+          border: 1px solid #e9ecef;
+          min-width: 200px;
+        }
+        
+        .query-label {
+          font-size: 10px;
+          color: #6c757d;
+          font-weight: 500;
+        }
+        
+        .query-text {
+          font-size: 11px;
+          color: #2c3e50;
+          font-weight: 600;
+          font-family: Monaco, 'Courier New', monospace;
+          background: #ffffff;
+          padding: 2px 6px;
+          border-radius: 3px;
+          border: 1px solid #dee2e6;
+        }
+        
+        .query-source {
+          font-size: 9px;
+          color: #6c757d;
+          font-style: italic;
+        }
+        
+        .market-dashboard-source {
+          font-size: 10px;
+          color: #6c757d;
+          opacity: 0.8;
+        }
+        
+        .market-dashboard-content {
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 16px;
+          align-items: flex-start;
+          overflow-x: auto;
+          justify-content: center;
+        }
+        
+        .market-item {
+          display: flex;
+          flex-direction: column;
+          min-width: 140px;
+          max-width: 180px;
+          flex-shrink: 0;
+          border-right: 0.5px solid #e0e0e0;
+          padding-right: 16px;
+        }
+        
+        .market-item.market-exceptional {
+          max-width: 220px;
+        }
+        
+        .market-item:last-child {
+          border-right: none;
+          padding-right: 0;
+        }
+        
+        .market-label {
+          font-size: 9px;
+          color: #6c757d;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+          font-weight: 500;
+        }
+        
+        .market-value {
+          font-size: 12px;
+          font-weight: 600;
+          color: #1a252f;
+          line-height: 1.2;
+        }
+        
+        .market-confidence {
+          font-size: 10px;
+          margin-top: 1px;
+          font-weight: 500;
+        }
+        
+        .market-help {
+          font-size: 9px;
+          color: #495057;
+          margin-top: 1px;
+          font-style: italic;
+        }
+        
+        .market-help a {
+          color: #007cba;
+          text-decoration: none;
+          font-weight: 500;
+        }
+        
+        .market-help a:hover {
+          text-decoration: underline;
+          color: #005c87;
+        }
+        
+        .market-value a {
+          text-decoration: none;
+          font-weight: inherit;
+        }
+        
+        .market-value a:hover {
+          text-decoration: underline;
+          opacity: 0.8;
+        }
+        
+        .market-label[title] {
+          cursor: help;
+          border-bottom: 1px dotted #6c757d;
+        }
+        
+        /* Header search filter styles */
+        .header-search-filter {
+          display: block;
+          margin: 8px 0;
+          padding: 6px 0;
+        }
+        
+        .header-search-checkbox {
+          display: inline-block;
+          margin: 0 4px 4px 0;
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 12px;
+          padding: 3px 8px;
+          font-size: 10px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .header-search-checkbox:has(input[type="checkbox"]:checked) {
+          background: #d4edda;
+          border-color: #c3e6cb;
+          color: #155724;
+          font-weight: 500;
+        }
+        
+        .header-search-checkbox:hover {
+          background: #e9ecef;
+          border-color: #adb5bd;
+        }
+        
+        .header-search-checkbox:has(input[type="checkbox"]:checked):hover {
+          background: #218c54;
+          border-color: #218c54;
+        }
+        
+        /* Search filter section styles */
+        .search-filter-section {
+          background: #fff;
+          border: 1px solid #e9ecef;
+          border-radius: 6px;
+          margin: 0 0 12px 0;
+          padding: 10px 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .filter-header {
+          margin-bottom: 8px;
+        }
+        
+        .filter-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: #2c3e50;
+          margin: 0 0 2px 0;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .filter-description {
+          font-size: 10px;
+          color: #6c757d;
+          margin-bottom: 6px;
+        }
+        
+        .filter-content {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-bottom: 8px;
+        }
+        
+        .filter-group {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+          margin-bottom: 4px;
+        }
+        
+        .filter-group-label {
+          font-size: 10px;
+          font-weight: 600;
+          color: #495057;
+          margin-right: 6px;
+          min-width: 70px;
+        }
+        
+        .filter-actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 8px;
+          padding-top: 6px;
+          border-top: 1px solid #f0f0f0;
+        }
+        
+        .current-search-info {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .current-search-label {
+          font-size: 10px;
+          color: #6c757d;
+          font-weight: 500;
+        }
+        
+        .current-search-query {
+          font-size: 10px;
+          color: #2c3e50;
+          font-weight: 600;
+          background: #f8f9fa;
+          padding: 2px 6px;
+          border-radius: 4px;
+          border: 1px solid #dee2e6;
+        }
+        
+        /* Smart Suggestion Styles */
+        .smart-suggestions {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .current-query-display {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 8px;
+          background: #f8f9fa;
+          border-radius: 4px;
+          border: 1px solid #e9ecef;
+        }
+        
+        .current-label {
+          font-size: 10px;
+          color: #6c757d;
+          font-weight: 600;
+        }
+        
+        .current-query {
+          font-size: 11px;
+          color: #2c3e50;
+          font-weight: 600;
+          font-family: Monaco, 'Courier New', monospace;
+          background: #ffffff;
+          padding: 2px 6px;
+          border-radius: 3px;
+          border: 1px solid #dee2e6;
+        }
+        
+        .suggestion-controls {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        
+        .smart-suggestion-checkbox {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 8px;
+          border-radius: 16px;
+          border: 1px solid #dee2e6;
+          background: #ffffff;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 10px;
+          line-height: 1;
+        }
+        
+        .smart-suggestion-checkbox input[type="checkbox"] {
+          display: none;
+        }
+        
+        .suggestion-text {
+          font-weight: 500;
+          color: #495057;
+        }
+        
+        .suggestion-type {
+          font-size: 9px;
+          opacity: 0.7;
+        }
+        
+        /* Priority-based styling */
+        .smart-suggestion-checkbox.priority-core {
+          background: #fff3e0;
+          border-color: #ff9800;
+          color: #e65100;
+          font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      
-      .header-search-checkbox:has(input[type="checkbox"]:checked) {
-        background: #d4edda;
-        border-color: #c3e6cb;
-        color: #155724;
-        font-weight: 500;
-      }
-      
-      .header-search-checkbox:hover {
-        background: #e9ecef;
-        border-color: #adb5bd;
-      }
-      
-      .header-search-checkbox:has(input[type="checkbox"]:checked):hover {
-        background: #218c54;
-        border-color: #218c54;
-      }
-      
-      /* Search filter section styles */
-      .search-filter-section {
-        background: #fff;
-        border: 1px solid #e9ecef;
-        border-radius: 6px;
-        margin: 0 0 12px 0;
-        padding: 10px 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      }
-      
-      .filter-header {
-        margin-bottom: 8px;
-      }
-      
-      .filter-title {
-        font-size: 12px;
-        font-weight: 600;
-        color: #2c3e50;
-        margin: 0 0 2px 0;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      
-      .filter-description {
-        font-size: 10px;
-        color: #6c757d;
-        margin-bottom: 6px;
-      }
-      
-      .filter-content {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 8px;
-      }
-      
-      .filter-group {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 4px;
-        margin-bottom: 4px;
-      }
-      
-      .filter-group-label {
-        font-size: 10px;
-        font-weight: 600;
-        color: #495057;
-        margin-right: 6px;
-        min-width: 70px;
-      }
-      
-      .filter-actions {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 8px;
-        padding-top: 6px;
-        border-top: 1px solid #f0f0f0;
-      }
-      
-      .current-search-info {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      
-      .current-search-label {
-        font-size: 10px;
-        color: #6c757d;
-        font-weight: 500;
-      }
-      
-      .current-search-query {
-        font-size: 10px;
-        color: #2c3e50;
-        font-weight: 600;
-        background: #f8f9fa;
-        padding: 2px 6px;
-        border-radius: 4px;
-        border: 1px solid #dee2e6;
-      }
-      
-      /* Smart Suggestion Styles */
-      .smart-suggestions {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      
-      .current-query-display {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 8px;
-        background: #f8f9fa;
-        border-radius: 4px;
-        border: 1px solid #e9ecef;
-      }
-      
-      .current-label {
-        font-size: 10px;
-        color: #6c757d;
-        font-weight: 600;
-      }
-      
-      .current-query {
-        font-size: 11px;
-        color: #2c3e50;
-        font-weight: 600;
-        font-family: Monaco, 'Courier New', monospace;
-        background: #ffffff;
-        padding: 2px 6px;
-        border-radius: 3px;
-        border: 1px solid #dee2e6;
-      }
-      
-      .suggestion-controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      
-      .smart-suggestion-checkbox {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 4px 8px;
-        border-radius: 16px;
-        border: 1px solid #dee2e6;
-        background: #ffffff;
+        }
+        
+        .smart-suggestion-checkbox.priority-core .suggestion-text {
+          color: #e65100;
+          font-weight: 700;
+        }
+        
+        .smart-suggestion-checkbox.priority-core:hover {
+          background: #ffcc02;
+          border-color: #f57c00;
+          color: #bf360c;
         cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 10px;
-        line-height: 1;
-      }
-      
-      .smart-suggestion-checkbox input[type="checkbox"] {
-        display: none;
-      }
-      
-      .suggestion-text {
-        font-weight: 500;
-        color: #495057;
-      }
-      
-      .suggestion-type {
-        font-size: 9px;
-        opacity: 0.7;
-      }
-      
-      /* Priority-based styling */
-      .smart-suggestion-checkbox.priority-core {
-        background: #fff3e0;
-        border-color: #ff9800;
-        color: #e65100;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      
-      .smart-suggestion-checkbox.priority-core .suggestion-text {
-        color: #e65100;
-        font-weight: 700;
-      }
-      
-      .smart-suggestion-checkbox.priority-core:hover {
-        background: #ffcc02;
-        border-color: #f57c00;
-        color: #bf360c;
-        cursor: pointer;
-      }
-      
-      .smart-suggestion-checkbox.priority-selected {
-        background: #d4edda;
-        border-color: #c3e6cb;
-        color: #155724;
-      }
-      
-      .smart-suggestion-checkbox.priority-selected .suggestion-text {
-        color: #155724;
-        font-weight: 600;
-      }
-      
-      .smart-suggestion-checkbox.priority-high {
-        border-color: #28a745;
-        background: #f8fff9;
-      }
-      
-      .smart-suggestion-checkbox.priority-high:hover {
-        background: #d4edda;
-        border-color: #28a745;
-      }
-      
-      .smart-suggestion-checkbox.priority-medium {
-        border-color: #ffc107;
-        background: #fffef5;
-      }
-      
-      .smart-suggestion-checkbox.priority-medium:hover {
-        background: #fff3cd;
-        border-color: #ffc107;
-      }
-      
-      .smart-suggestion-checkbox.priority-low {
-        border-color: #6c757d;
-        background: #f8f9fa;
-      }
-      
-      .smart-suggestion-checkbox.priority-low:hover {
-        background: #e9ecef;
-        border-color: #6c757d;
-      }
-      
-      /* Checked states */
-      .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) {
-        background: #007cba;
-        border-color: #007cba;
-        color: #ffffff;
-        transform: scale(1.05);
-      }
-      
-      .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) .suggestion-text {
-        color: #ffffff;
-        font-weight: 600;
-      }
-      
-      .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) .suggestion-type {
-        color: #ffffff;
-        opacity: 0.9;
-      }
-      
-      /* Filter status styles */
-      .filter-status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 8px;
-        padding-top: 6px;
-        border-top: 1px solid #f0f0f0;
-      }
-      
-      .loading-indicator {
-        font-size: 10px;
-        color: #007cba;
-        font-weight: 600;
-      }
-      
-      .update-status {
-        font-size: 10px;
-        color: #6c757d;
-        font-style: italic;
-      }
-      
-      /* Market dashboard disclaimer */
-      .market-dashboard-disclaimer {
-        margin-top: 12px;
-        padding: 8px 12px;
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 6px;
-        font-size: 10px;
-        color: #6c757d;
-        text-align: center;
-        font-style: italic;
-        line-height: 1.4;
-      }
-      
-      /* Data Foundation Link Styles */
-      .data-link-row {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin: 2px 0;
-        padding: 1px 0;
-      }
-      
-      .data-link-icon {
-        font-size: 10px;
-        width: 14px;
-        text-align: center;
-      }
-      
-      .data-link-prominent {
-        color: #007cba !important;
-        text-decoration: underline !important;
-        font-weight: 500 !important;
-        font-size: 9px !important;
-        transition: color 0.2s ease;
-      }
-      
-      .data-link-prominent:hover {
-        color: #005c87 !important;
-        text-decoration: underline !important;
-      }
-      
-      .data-link-meta {
-        font-size: 8px;
-        color: #6c757d;
-        font-style: italic;
-        margin-left: 4px;
-      }
-    `;
-    document.head.appendChild(style);
+        }
+        
+        .smart-suggestion-checkbox.priority-selected {
+          background: #d4edda;
+          border-color: #c3e6cb;
+          color: #155724;
+        }
+        
+        .smart-suggestion-checkbox.priority-selected .suggestion-text {
+          color: #155724;
+          font-weight: 600;
+        }
+        
+        .smart-suggestion-checkbox.priority-high {
+          border-color: #28a745;
+          background: #f8fff9;
+        }
+        
+        .smart-suggestion-checkbox.priority-high:hover {
+          background: #d4edda;
+          border-color: #28a745;
+        }
+        
+        .smart-suggestion-checkbox.priority-medium {
+          border-color: #ffc107;
+          background: #fffef5;
+        }
+        
+        .smart-suggestion-checkbox.priority-medium:hover {
+          background: #fff3cd;
+          border-color: #ffc107;
+        }
+        
+        .smart-suggestion-checkbox.priority-low {
+          border-color: #6c757d;
+          background: #f8f9fa;
+        }
+        
+        .smart-suggestion-checkbox.priority-low:hover {
+          background: #e9ecef;
+          border-color: #6c757d;
+        }
+        
+        /* Checked states */
+        .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) {
+          background: #007cba;
+          border-color: #007cba;
+          color: #ffffff;
+          transform: scale(1.05);
+        }
+        
+        .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) .suggestion-text {
+          color: #ffffff;
+          font-weight: 600;
+        }
+        
+        .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) .suggestion-type {
+          color: #ffffff;
+          opacity: 0.9;
+        }
+        
+        /* Filter status styles */
+        .filter-status {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 8px;
+          padding-top: 6px;
+          border-top: 1px solid #f0f0f0;
+        }
+        
+        .loading-indicator {
+          font-size: 10px;
+          color: #007cba;
+          font-weight: 600;
+        }
+        
+        .update-status {
+          font-size: 10px;
+          color: #6c757d;
+          font-style: italic;
+        }
+        
+        /* Market dashboard disclaimer */
+        .market-dashboard-disclaimer {
+          margin-top: 12px;
+          padding: 8px 12px;
+          background: #f8f9fa;
+          border: 1px solid #e9ecef;
+          border-radius: 6px;
+          font-size: 10px;
+          color: #6c757d;
+          text-align: center;
+          font-style: italic;
+          line-height: 1.4;
+        }
+        
+        /* Data Foundation Link Styles */
+        .data-link-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin: 2px 0;
+          padding: 1px 0;
+        }
+        
+        .data-link-icon {
+          font-size: 10px;
+          width: 14px;
+          text-align: center;
+        }
+        
+        .data-link-prominent {
+          color: #007cba !important;
+          text-decoration: underline !important;
+          font-weight: 500 !important;
+          font-size: 9px !important;
+          transition: color 0.2s ease;
+        }
+        
+        .data-link-prominent:hover {
+          color: #005c87 !important;
+          text-decoration: underline !important;
+        }
+        
+        .data-link-meta {
+          font-size: 8px;
+          color: #6c757d;
+          font-style: italic;
+          margin-left: 4px;
+        }
+      `;
+      document.head.appendChild(style);
   }
 
   // NEW: Show loading state with blur and spinner
@@ -1811,7 +1811,7 @@ export class DashboardManager {
     dashboard.appendChild(overlay);
     console.log('🔄 Dashboard loading state enabled');
   }
-  
+
   // NEW: Hide loading state with smooth transition
   hideDashboardLoading() {
     const dashboard = document.querySelector('.market-data-dashboard');
@@ -1830,7 +1830,7 @@ export class DashboardManager {
         setTimeout(() => {
           if (overlay.parentNode) {
             overlay.remove();
-          }
+    }
         }, 300);
       }, 150);
     } else {
@@ -2183,11 +2183,11 @@ export class DashboardManager {
       
       console.log('⚠️ SearchQuerySSoT reference missing - attempting recovery...');
       await this.restoreSearchQuerySSoTReference();
-      
+    
       if (this.searchQuerySSoT) {
         console.log('✅ SearchQuerySSoT recovery successful');
         return true;
-      } else {
+    } else {
         console.log('🚨 Recovery: SearchQuerySSoT import removed - using AI-only SearchQuerySSoT');
         console.error('❌ CRITICAL: No SearchQuerySSoT available - please refresh page');
         return false;

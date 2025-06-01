@@ -14,7 +14,10 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://auctionet.com/admin/*/items/*/edit"],
+      "matches": [
+        "https://auctionet.com/admin/*/items/*/edit",
+        "https://auctionet.com/admin/*/items/new"
+      ],
       "js": ["content-script.js"],
       "css": ["styles.css"]
     },
@@ -25,7 +28,8 @@
       ],
       "exclude_matches": [
         "https://auctionet.com/admin/*/items/*/edit",
-        "https://auctionet.com/admin/sas/sellers/*/contracts/*/items/*/edit"
+        "https://auctionet.com/admin/sas/sellers/*/contracts/*/items/*/edit",
+        "https://auctionet.com/admin/*/items/new"
       ],
       "js": ["admin-item-banner.js"],
       "css": ["styles.css"]

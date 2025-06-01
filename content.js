@@ -1,10 +1,19 @@
 // content.js - Main content script
 console.log('🚀 Auctionet AI Assistant: Content script loaded!');
 
+// Import the new tooltip manager for add items pages
+import('./modules/add-items-tooltip-manager.js').then(module => {
+  window.AddItemsTooltipManager = module.AddItemsTooltipManager;
+}).catch(error => {
+  console.error('❌ Failed to load AddItemsTooltipManager:', error);
+});
+
 class AuctionetCatalogingAssistant {
   constructor() {
     console.log('🏗️ AuctionetCatalogingAssistant: Constructor called');
     this.apiKey = null;
+    this.currentPage = null; // 'edit' or 'add'
+    this.tooltipManager = null; // For add items pages
     this.init();
     
     // Listen for API key changes
@@ -42,36 +51,207 @@ class AuctionetCatalogingAssistant {
     console.log('⏳ Waiting for dynamic content...');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Check if we're on the right page
-    console.log('🔍 Checking if on correct page...');
-    const isCorrect = this.isCorrectPage();
-    console.log('✅ Is correct page:', isCorrect);
+    // Check if we're on the right page and determine page type
+    console.log('🔍 Checking page type...');
+    const pageInfo = this.detectPageType();
+    console.log('✅ Page info:', pageInfo);
     
-    if (!isCorrect) {
-      console.log('❌ Auctionet AI Assistant: Not on an item edit page');
+    if (!pageInfo.isSupported) {
+      console.log('❌ Auctionet AI Assistant: Not on a supported page');
       return;
     }
 
-    console.log('✅ Auctionet AI Assistant: On correct page, proceeding with initialization');
+    this.currentPage = pageInfo.type;
+    console.log('✅ Auctionet AI Assistant: On supported page, type:', this.currentPage);
     
     await this.loadApiKey();
     console.log('🔑 API key loaded:', this.apiKey ? 'Yes' : 'No');
     
-    console.log('🎨 Injecting UI...');
-    this.injectUI();
-    
-    console.log('🔗 Attaching event listeners...');
-    this.attachEventListeners();
+    if (this.currentPage === 'edit') {
+      console.log('🎨 Initializing edit page UI...');
+      this.injectUI();
+      this.attachEventListeners();
+    } else if (this.currentPage === 'add') {
+      console.log('🎯 Initializing add items tooltip system...');
+      await this.initializeAddItemsTooltips();
+    }
     
     console.log('🎉 Auctionet AI Assistant: Initialization complete');
   }
 
-  isCorrectPage() {
+  detectPageType() {
     const url = window.location.href;
-    return url.includes('auctionet.com/admin/') && 
-           url.includes('/items/') && 
-           url.includes('/edit') &&
-           document.querySelector('#item_title_sv');
+    
+    // Check for edit page
+    if (url.includes('auctionet.com/admin/') && 
+        url.includes('/items/') && 
+        url.includes('/edit') &&
+        document.querySelector('#item_title_sv')) {
+      return { isSupported: true, type: 'edit' };
+    }
+    
+    // Check for add items page
+    if (url.includes('auctionet.com/admin/') && 
+        url.includes('/items/new') &&
+        document.querySelector('#item_title_sv')) {
+      return { isSupported: true, type: 'add' };
+    }
+    
+    return { isSupported: false, type: null };
+  }
+
+  async initializeAddItemsTooltips() {
+    try {
+      // Wait for the tooltip manager class to be loaded
+      if (!window.AddItemsTooltipManager) {
+        console.log('⏳ Waiting for AddItemsTooltipManager to load...');
+        await new Promise(resolve => {
+          const checkForClass = () => {
+            if (window.AddItemsTooltipManager) {
+              resolve();
+            } else {
+              setTimeout(checkForClass, 100);
+            }
+          };
+          checkForClass();
+        });
+      }
+
+      // We need to create simplified versions of required dependencies
+      const apiManager = this.createSimpleAPIManager();
+      const qualityAnalyzer = this.createSimpleQualityAnalyzer();
+
+      // Initialize the tooltip manager
+      this.tooltipManager = new window.AddItemsTooltipManager(apiManager, qualityAnalyzer);
+      await this.tooltipManager.init();
+      
+      console.log('✅ Add items tooltip system initialized');
+      
+    } catch (error) {
+      console.error('❌ Failed to initialize add items tooltips:', error);
+    }
+  }
+
+  createSimpleAPIManager() {
+    // Create a simplified API manager that provides just what the tooltip system needs
+    return {
+      apiKey: this.apiKey,
+      
+      async callClaudeAPI(prompt, type = 'live_enhancement') {
+        if (!this.apiKey) {
+          throw new Error('No API key available');
+        }
+        
+        try {
+          const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': this.apiKey,
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+              model: 'claude-3-haiku-20240307',
+              max_tokens: 2000,
+              messages: [{ role: 'user', content: prompt }]
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`API call failed: ${response.status}`);
+          }
+
+          const data = await response.json();
+          return data.content[0].text;
+        } catch (error) {
+          console.error('❌ API call failed:', error);
+          throw error;
+        }
+      }
+    };
+  }
+
+  createSimpleQualityAnalyzer() {
+    // Create a simplified quality analyzer that provides artist detection
+    return {
+      async detectMisplacedArtist(title, artistField) {
+        // Use rule-based detection as a fallback for now
+        return this.detectMisplacedArtistRuleBased(title, artistField);
+      },
+
+      detectMisplacedArtistRuleBased(title, artistField) {
+        // Only suggest if artist field is empty or very short
+        if (artistField && artistField.trim().length > 2) {
+          return null;
+        }
+
+        if (!title || title.length < 10) {
+          return null;
+        }
+
+        // PRIORITY CHECK: Artist name incorrectly placed at beginning of title in ALL CAPS
+        const allCapsArtistPattern = /^([A-ZÅÄÖÜ\s]{4,40})\.\s+(.+)/;
+        const allCapsMatch = title.match(allCapsArtistPattern);
+        
+        if (allCapsMatch) {
+          const [, potentialArtist, restOfTitle] = allCapsMatch;
+          const cleanArtist = potentialArtist.trim();
+          
+          // Check if it looks like a person's name
+          if (this.looksLikePersonName(cleanArtist)) {
+            return {
+              detectedArtist: cleanArtist,
+              suggestedTitle: restOfTitle.trim(),
+              confidence: 0.9,
+              errorType: 'artist_in_title_caps',
+              message: `Konstnärens namn "${cleanArtist}" bör flyttas från titeln till konstnärsfältet`
+            };
+          }
+        }
+
+        // Simple pattern for common cases like "LISA LARSON. Skulptur..."
+        const simplePattern = /^([A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+\s+[A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+)[\.,]\s+(.+)/;
+        const simpleMatch = title.match(simplePattern);
+        
+        if (simpleMatch) {
+          const [, potentialArtist, restOfTitle] = simpleMatch;
+          
+          if (this.looksLikePersonName(potentialArtist)) {
+            return {
+              detectedArtist: potentialArtist,
+              suggestedTitle: restOfTitle.trim(),
+              confidence: 0.8
+            };
+          }
+        }
+
+        return null;
+      },
+
+      looksLikePersonName(name) {
+        if (!name || name.length < 4) return false;
+        
+        // Basic checks for person names
+        const words = name.trim().split(/\s+/);
+        if (words.length < 2) return false;
+        
+        // Each word should start with capital letter
+        const allProperCase = words.every(word => 
+          word.length > 0 && /^[A-ZÅÄÖÜ]/.test(word)
+        );
+        
+        // Should not contain numbers or special characters
+        const noSpecialChars = !/[0-9@#$%^&*()_+=\[\]{}|\\:";'<>?,./]/.test(name);
+        
+        return allProperCase && noSpecialChars;
+      }
+    };
+  }
+
+  // Legacy method for backward compatibility (edit pages)
+  isCorrectPage() {
+    const pageInfo = this.detectPageType();
+    return pageInfo.isSupported && pageInfo.type === 'edit';
   }
 
   async loadApiKey() {
