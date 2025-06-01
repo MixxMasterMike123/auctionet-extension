@@ -38,17 +38,26 @@ export class AISearchQueryGenerator {
       console.log('✅ AI RULES: Generated sufficient search terms, using rules-based approach');
       console.log('🎯 Rules-based query:', rulesResult.searchTerms.join(' '));
       console.log('👤 Artist field priority mode:', hasArtistField && artistTermFound ? 'ACTIVE' : 'inactive');
+      console.log('📊 Enhanced pre-selection info:');
+      console.log('   Pre-selected terms:', rulesResult.preSelectedTerms?.length || 0);
+      console.log('   Candidate terms:', rulesResult.candidateTerms?.length || 0);
+      console.log('   Total available terms:', rulesResult.totalTerms || 0);
+      
       return {
         success: true,
-        searchTerms: rulesResult.searchTerms,
+        searchTerms: rulesResult.searchTerms, // Pre-selected terms for query
+        allTerms: rulesResult.allTerms, // All terms (pre-selected + candidates)
+        preSelectedTerms: rulesResult.preSelectedTerms, // Terms to be checked
+        candidateTerms: rulesResult.candidateTerms, // Terms available as candidates
         query: rulesResult.searchTerms.join(' '),
         reasoning: rulesResult.reasoning,
         confidence: rulesResult.confidence,
-        source: 'ai_rules',
+        source: 'ai_rules_enhanced',
         originalTitle: title,
         originalDescription: description,
         artist: artist,
-        appliedRules: rulesResult.appliedRules
+        appliedRules: rulesResult.appliedRules,
+        selectionStrategy: rulesResult.selectionStrategy
       };
     } else {
       console.log('⚠️ AI RULES: Insufficient terms from rules, falling back to Claude AI generation');

@@ -77,10 +77,10 @@ export class SearchFilterManager {
     }
     
     const shouldBePreSelected = (term) => {
-      // NEW: PRIORITY 1 - Respect AI Rules selection if available
+      // NEW: PRIORITY 1 - Respect AI Rules enhanced pre-selection if available
       if (aiSelectedTerms.length > 0) {
-        // Check if this term is in the AI Rules selection
-        const isAISelected = aiSelectedTerms.some(aiTerm => {
+        // Check if this term is in the AI Rules PRE-SELECTED terms (not just candidates)
+        const isAIPreSelected = aiSelectedTerms.some(aiTerm => {
           const normalizedAI = aiTerm.toLowerCase().trim();
           const normalizedTerm = term.toLowerCase().trim();
           return normalizedAI === normalizedTerm || 
@@ -88,11 +88,11 @@ export class SearchFilterManager {
                  normalizedTerm.includes(normalizedAI);
         });
         
-        if (isAISelected) {
-          console.log(`🤖 AI RULES: "${term}" is AI-selected - CRITICAL for market data ✅`);
+        if (isAIPreSelected) {
+          console.log(`🤖 AI RULES: "${term}" is AI PRE-SELECTED - will be checked by default ✅`);
           return true;
         } else {
-          console.log(`🤖 AI RULES: "${term}" not in AI selection - available as refinement ⚪`);
+          console.log(`🤖 AI RULES: "${term}" is candidate only - available as unchecked option ⚪`);
           return false;
         }
       }

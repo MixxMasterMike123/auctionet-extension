@@ -91,9 +91,19 @@ export const AI_SEARCH_RULES = {
 
   // QUERY CONSTRUCTION RULES
   queryConstruction: {
-    maxTerms: 3, // REDUCED: Keep queries focused - max 3 terms to avoid narrow results
+    maxTerms: 4, // ENHANCED: Allow max 4 terms but with smart selection
+    maxPreSelectedTerms: 4, // NEW: Maximum terms that can be pre-selected
     preferredOrder: ["artist", "brand", "objectType", "model", "material"],
     joinWith: " ", // Space-separated terms
+    
+    // NEW: Smart pre-selection strategy
+    preSelectionStrategy: {
+      brandAlwaysSelected: true, // Brand terms always get pre-selected if found
+      maxCoreTerms: 2, // Maximum core terms (brand/artist) to pre-select
+      maxSecondaryTerms: 2, // Maximum secondary terms (object/model) to pre-select
+      restAsCandidate: true, // Put remaining terms as unselected candidates
+      reasoning: "Avoid overly narrow searches by limiting pre-selection"
+    },
     
     // NEW: Artist name handling rules
     artistNameHandling: {
@@ -113,6 +123,7 @@ export const AI_SEARCH_RULES = {
     // NEW: Term selection strategy to avoid overly narrow queries
     selectionStrategy: {
       prioritizeArtist: true, // Always include artist if available
+      prioritizeBrand: true, // NEW: Always include brand if available
       avoidRedundancy: true, // Don't include both "Royal Copenhagen" and "Copenhagen" 
       balanceSpecificity: true, // Balance specific terms with broader appeal
       reasoning: "Focus on most important terms to avoid zero results from over-specification"
@@ -251,37 +262,98 @@ export function applySearchRules(inputData) {
   }
   extractedTerms.push(...modelTerms);
   
-  // NEW: Smart term selection with word count awareness
+  // NEW: Smart term selection with enhanced pre-selection strategy
   extractedTerms.sort((a, b) => b.priority - a.priority);
   
   const maxTerms = AI_SEARCH_RULES.queryConstruction.maxTerms;
-  const selectedTerms = [];
-  let currentTermCount = 0;
+  const maxPreSelected = AI_SEARCH_RULES.queryConstruction.maxPreSelectedTerms;
+  const preSelectionRules = AI_SEARCH_RULES.queryConstruction.preSelectionStrategy;
   
-  console.log(`🧮 AI RULES: Selecting max ${maxTerms} terms from ${extractedTerms.length} candidates...`);
+  const selectedTerms = [];
+  const preSelectedTerms = [];
+  const candidateTerms = [];
+  
+  let currentTermCount = 0;
+  let preSelectedCount = 0;
+  let coreTermsSelected = 0;
+  let secondaryTermsSelected = 0;
+  
+  console.log(`🧮 AI RULES: Enhanced selection - max ${maxTerms} total terms, max ${maxPreSelected} pre-selected...`);
   
   for (const termData of extractedTerms) {
     const termWordCount = termData.wordCount || 1;
+    const isCoreType = ['artist', 'brand'].includes(termData.type);
+    const isSecondaryType = ['object_type', 'model'].includes(termData.type);
     
-    // Check if adding this term would exceed the limit
+    // Check if we can add this term to the final selection
     if (currentTermCount + termWordCount <= maxTerms) {
       selectedTerms.push(termData.term);
       currentTermCount += termWordCount;
-      console.log(`✅ AI RULES: Selected "${termData.term}" (type: ${termData.type}, words: ${termWordCount}, total: ${currentTermCount}/${maxTerms})`);
+      
+      // Decide if this term should be pre-selected
+      let shouldPreSelect = false;
+      
+      // RULE 1: Brand always gets pre-selected (if under limits)
+      if (termData.type === 'brand' && preSelectionRules.brandAlwaysSelected && preSelectedCount < maxPreSelected) {
+        shouldPreSelect = true;
+        console.log(`🏷️ AI RULES: Brand "${termData.term}" auto-selected (brand priority)`);
+      }
+      // RULE 2: Artist gets pre-selected if under core limit
+      else if (termData.type === 'artist' && coreTermsSelected < preSelectionRules.maxCoreTerms && preSelectedCount < maxPreSelected) {
+        shouldPreSelect = true;
+        console.log(`👤 AI RULES: Artist "${termData.term}" auto-selected (core priority)`);
+      }
+      // RULE 3: Secondary terms (object/model) get pre-selected if under secondary limit
+      else if (isSecondaryType && secondaryTermsSelected < preSelectionRules.maxSecondaryTerms && preSelectedCount < maxPreSelected) {
+        shouldPreSelect = true;
+        console.log(`📦 AI RULES: Secondary "${termData.term}" auto-selected (${termData.type})`);
+      }
+      // RULE 4: Any remaining high-priority terms if under total pre-selection limit
+      else if (termData.priority >= 80 && preSelectedCount < maxPreSelected) {
+        shouldPreSelect = true;
+        console.log(`⭐ AI RULES: High-priority "${termData.term}" auto-selected (priority: ${termData.priority})`);
+      }
+      
+      if (shouldPreSelect) {
+        preSelectedTerms.push(termData.term);
+        preSelectedCount++;
+        
+        if (isCoreType) coreTermsSelected++;
+        if (isSecondaryType) secondaryTermsSelected++;
+        
+        console.log(`✅ PRE-SELECTED: "${termData.term}" (type: ${termData.type}, pre-selected: ${preSelectedCount}/${maxPreSelected})`);
+      } else {
+        candidateTerms.push(termData.term);
+        console.log(`⚪ CANDIDATE: "${termData.term}" (type: ${termData.type}, available for user selection)`);
+      }
+      
     } else {
-      console.log(`🚫 AI RULES: Skipped "${termData.term}" (would exceed limit: ${currentTermCount + termWordCount} > ${maxTerms})`);
-      reasoning.push(`Skipped "${termData.term}" to avoid exceeding ${maxTerms}-term limit`);
+      // Term exceeds total limit - add as candidate only (no word count limit for candidates)
+      candidateTerms.push(termData.term);
+      console.log(`🔄 CANDIDATE ONLY: "${termData.term}" (exceeds ${maxTerms}-term limit, available for refinement)`);
+      reasoning.push(`"${termData.term}" available as candidate (exceeds ${maxTerms}-term selection limit)`);
     }
     
-    // Stop if we've reached the limit
+    // Stop adding to selected terms if we've reached the main limit
     if (currentTermCount >= maxTerms) {
-      console.log(`🏁 AI RULES: Reached maximum term limit (${maxTerms}), stopping selection`);
+      console.log(`🏁 AI RULES: Reached maximum selected term limit (${maxTerms}), adding remaining as candidates only`);
+      
+      // Add remaining terms as candidates only
+      const remainingTerms = extractedTerms.slice(extractedTerms.indexOf(termData) + 1);
+      remainingTerms.forEach(remaining => {
+        candidateTerms.push(remaining.term);
+        console.log(`⚪ REMAINING CANDIDATE: "${remaining.term}" (${remaining.type})`);
+      });
       break;
     }
   }
   
-  console.log('🤖 AI RULES: Final selected terms:', selectedTerms);
-  console.log('🤖 AI RULES: Selection reasoning:', reasoning);
+  console.log('🤖 AI RULES: ENHANCED SELECTION COMPLETE');
+  console.log(`  📌 Pre-selected (${preSelectedCount}/${maxPreSelected}):`, preSelectedTerms);
+  console.log(`  ⚪ Candidates (${candidateTerms.length}):`, candidateTerms);
+  console.log(`  🎯 Final query (${selectedTerms.length} terms):`, selectedTerms.join(' '));
+  console.log(`  🔧 Core terms selected: ${coreTermsSelected}/${preSelectionRules.maxCoreTerms}`);
+  console.log(`  📦 Secondary terms selected: ${secondaryTermsSelected}/${preSelectionRules.maxSecondaryTerms}`);
   
   // Calculate confidence based on quality of selected terms
   let confidence = 0.75; // Base confidence
@@ -302,17 +374,29 @@ export function applySearchRules(inputData) {
   else if (selectedTerms.length >= 2) confidence = 0.80;
   
   return {
-    searchTerms: selectedTerms,
+    searchTerms: preSelectedTerms, // Only pre-selected terms for the actual search query
+    allTerms: selectedTerms, // All terms (pre-selected + candidates) for display
+    preSelectedTerms: preSelectedTerms, // Terms that should be checked by default
+    candidateTerms: candidateTerms, // Terms available as unchecked candidates
     reasoning: reasoning.join('. '),
     confidence: confidence,
     appliedRules: extractedTerms.slice(0, selectedTerms.length).map(t => ({ 
       term: t.term, 
       type: t.type, 
       priority: t.priority,
-      wordCount: t.wordCount
+      wordCount: t.wordCount,
+      isPreSelected: preSelectedTerms.includes(t.term)
     })),
-    termCount: currentTermCount,
-    maxTermsAllowed: maxTerms
+    termCount: preSelectedTerms.length, // Count of pre-selected terms only
+    totalTerms: selectedTerms.length, // Count of all available terms
+    maxTermsAllowed: maxTerms,
+    maxPreSelectedAllowed: maxPreSelected,
+    selectionStrategy: {
+      coreTermsSelected: coreTermsSelected,
+      secondaryTermsSelected: secondaryTermsSelected,
+      totalPreSelected: preSelectedCount,
+      totalCandidates: candidateTerms.length
+    }
   };
 }
 
