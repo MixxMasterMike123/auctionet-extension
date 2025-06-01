@@ -958,7 +958,7 @@ export class QualityAnalyzer {
     
     // Create properly formatted warning for the existing display system
     const artistMessage = aiArtist.verification ? 
-      `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) ✓ Verifierad konstnär (${aiArtist.verification.biography.substring(0, 80)}...) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
+      `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) ✓ Verifierad konstnär (${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'}) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
       `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
 
     // Insert artist warning at the beginning since it's important info

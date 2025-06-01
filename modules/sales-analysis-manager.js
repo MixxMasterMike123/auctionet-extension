@@ -191,6 +191,11 @@ export class SalesAnalysisManager {
           searchContext.confidence = ssotMetadata.confidence;
           searchContext.source = ssotMetadata.source;
           searchContext.reasoning = ssotMetadata.reasoning;
+        } else {
+          console.log('⚠️ No SSoT metadata available - using default values');
+          searchContext.confidence = 0.75; // Default confidence
+          searchContext.source = 'ssot';
+          searchContext.reasoning = 'Generated from SSoT';
         }
         
       } else {
@@ -425,13 +430,23 @@ export class SalesAnalysisManager {
   analyzeValuationSuggestions(salesData) {
     const suggestions = [];
     
-    if (!salesData.priceRange) {
+    if (!salesData || !salesData.priceRange) {
       console.log('💰 No price range in sales data');
       return suggestions;
     }
     
-    // Get current valuation data
+    // Get current valuation data with null checks
+    if (!this.dataExtractor) {
+      console.log('💰 No data extractor available for valuation analysis');
+      return suggestions;
+    }
+    
     const data = this.dataExtractor.extractItemData();
+    if (!data) {
+      console.log('💰 No item data available for valuation analysis');
+      return suggestions;
+    }
+    
     const currentEstimate = parseInt(data.estimate) || 0;
     const currentUpperEstimate = parseInt(data.upperEstimate) || 0;
     const currentAcceptedReserve = parseInt(data.acceptedReserve) || 0;
