@@ -1275,10 +1275,10 @@ export class DashboardManager {
       .market-data-dashboard {
         background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
         border: 1px solid #dee2e6;
-        border-radius: 12px;
-        padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        margin: 15px 20px;
+        padding: 12px 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         position: relative;
         transition: filter 0.3s ease, opacity 0.3s ease;
@@ -1335,278 +1335,484 @@ export class DashboardManager {
         100% { transform: rotate(360deg); }
       }
       
-      .market-data-dashboard h3 {
-        font-size: 18px;
-        font-weight: 600;
-        margin-bottom: 15px;
-        color: #2c3e50;
-      }
-      
-      .dashboard-header {
+      .market-dashboard-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
-        padding-bottom: 12px;
-        border-bottom: 2px solid #e9ecef;
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #dee2e6;
+        flex-wrap: wrap;
+        gap: 8px;
       }
       
-      .dashboard-title {
-        font-size: 20px;
-        font-weight: 700;
+      .market-dashboard-title {
+        font-weight: 600;
+        font-size: 13px;
         color: #2c3e50;
-        margin: 0;
       }
       
-      .dashboard-source {
-        font-size: 12px;
-        color: #6c757d;
+      .market-dashboard-query {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1;
+        justify-content: center;
         background: #f8f9fa;
         padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #e9ecef;
+        min-width: 200px;
+      }
+      
+      .query-label {
+        font-size: 10px;
+        color: #6c757d;
+        font-weight: 500;
+      }
+      
+      .query-text {
+        font-size: 11px;
+        color: #2c3e50;
+        font-weight: 600;
+        font-family: Monaco, 'Courier New', monospace;
+        background: #ffffff;
+        padding: 2px 6px;
+        border-radius: 3px;
+        border: 1px solid #dee2e6;
+      }
+      
+      .query-source {
+        font-size: 9px;
+        color: #6c757d;
+        font-style: italic;
+      }
+      
+      .market-dashboard-source {
+        font-size: 10px;
+        color: #6c757d;
+        opacity: 0.8;
+      }
+      
+      .market-dashboard-content {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 16px;
+        align-items: flex-start;
+        overflow-x: auto;
+        justify-content: center;
+      }
+      
+      .market-item {
+        display: flex;
+        flex-direction: column;
+        min-width: 140px;
+        max-width: 180px;
+        flex-shrink: 0;
+        border-right: 0.5px solid #e0e0e0;
+        padding-right: 16px;
+      }
+      
+      .market-item.market-exceptional {
+        max-width: 220px;
+      }
+      
+      .market-item:last-child {
+        border-right: none;
+        padding-right: 0;
+      }
+      
+      .market-label {
+        font-size: 9px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+        font-weight: 500;
+      }
+      
+      .market-value {
+        font-size: 12px;
+        font-weight: 600;
+        color: #1a252f;
+        line-height: 1.2;
+      }
+      
+      .market-confidence {
+        font-size: 10px;
+        margin-top: 1px;
+        font-weight: 500;
+      }
+      
+      .market-help {
+        font-size: 9px;
+        color: #495057;
+        margin-top: 1px;
+        font-style: italic;
+      }
+      
+      .market-help a {
+        color: #007cba;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      
+      .market-help a:hover {
+        text-decoration: underline;
+        color: #005c87;
+      }
+      
+      .market-value a {
+        text-decoration: none;
+        font-weight: inherit;
+      }
+      
+      .market-value a:hover {
+        text-decoration: underline;
+        opacity: 0.8;
+      }
+      
+      .market-label[title] {
+        cursor: help;
+        border-bottom: 1px dotted #6c757d;
+      }
+      
+      /* Header search filter styles */
+      .header-search-filter {
+        display: block;
+        margin: 8px 0;
+        padding: 6px 0;
+      }
+      
+      .header-search-checkbox {
+        display: inline-block;
+        margin: 0 4px 4px 0;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 3px 8px;
+        font-size: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      
+      .header-search-checkbox:has(input[type="checkbox"]:checked) {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+        font-weight: 500;
+      }
+      
+      .header-search-checkbox:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+      }
+      
+      .header-search-checkbox:has(input[type="checkbox"]:checked):hover {
+        background: #218c54;
+        border-color: #218c54;
+      }
+      
+      /* Search filter section styles */
+      .search-filter-section {
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        margin: 0 0 12px 0;
+        padding: 10px 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      
+      .filter-header {
+        margin-bottom: 8px;
+      }
+      
+      .filter-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0 0 2px 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      
+      .filter-description {
+        font-size: 10px;
+        color: #6c757d;
+        margin-bottom: 6px;
+      }
+      
+      .filter-content {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      
+      .filter-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 4px;
+      }
+      
+      .filter-group-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #495057;
+        margin-right: 6px;
+        min-width: 70px;
+      }
+      
+      .filter-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid #f0f0f0;
+      }
+      
+      .current-search-info {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      
+      .current-search-label {
+        font-size: 10px;
+        color: #6c757d;
+        font-weight: 500;
+      }
+      
+      .current-search-query {
+        font-size: 10px;
+        color: #2c3e50;
+        font-weight: 600;
+        background: #f8f9fa;
+        padding: 2px 6px;
         border-radius: 4px;
         border: 1px solid #dee2e6;
       }
       
-      .market-sections {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 20px;
-        margin-bottom: 20px;
-      }
-      
-      @media (max-width: 1200px) {
-        .market-sections {
-          grid-template-columns: 1fr 1fr;
-        }
-      }
-      
-      @media (max-width: 768px) {
-        .market-sections {
-          grid-template-columns: 1fr;
-        }
-      }
-      
-      .market-section {
-        background: white;
-        border-radius: 8px;
-        padding: 16px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      }
-      
-      .section-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-      
-      .section-value {
-        font-size: 24px;
-        font-weight: 700;
-        color: #2c3e50;
-        margin-bottom: 4px;
-      }
-      
-      .section-subtitle {
-        font-size: 12px;
-        color: #6c757d;
-        margin: 0;
-      }
-      
-      .trend-positive { color: #28a745; }
-      .trend-negative { color: #dc3545; }
-      .trend-neutral { color: #6c757d; }
-      
+      /* Smart Suggestion Styles */
       .smart-suggestions {
-        margin-top: 20px;
-        padding-top: 20px;
-        border-top: 1px solid #e9ecef;
-      }
-      
-      .suggestions-title {
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 12px;
-        color: #2c3e50;
-      }
-      
-      .suggestions-description {
-        font-size: 13px;
-        color: #6c757d;
-        margin-bottom: 15px;
-        font-style: italic;
-      }
-      
-      .suggestion-item {
-        display: inline-flex;
-        align-items: center;
-        margin: 4px 6px 4px 0;
-        padding: 6px 12px;
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 20px;
-        font-size: 13px;
-        transition: all 0.2s ease;
-        cursor: pointer;
-        user-select: none;
-      }
-      
-      .suggestion-item:hover {
-        border-color: #1976d2;
-        background: #f0f7ff;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-      
-      .suggestion-item.selected {
-        background: #1976d2;
-        color: white;
-        border-color: #1976d2;
-      }
-      
-      .suggestion-item input[type="checkbox"] {
-        margin-right: 6px;
-        cursor: pointer;
-      }
-      
-      .suggestion-priority {
-        display: inline-block;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        margin-right: 6px;
-      }
-      
-      .priority-1 { background: #dc3545; }
-      .priority-2 { background: #fd7e14; }
-      .priority-3 { background: #ffc107; }
-      .priority-4 { background: #28a745; }
-      .priority-5 { background: #6c757d; }
-      
-      .term-icon {
-        margin-right: 4px;
-        font-size: 12px;
-      }
-      
-      .data-links {
-        margin-top: 20px;
-        padding-top: 15px;
-        border-top: 1px solid #e9ecef;
         display: flex;
-        gap: 15px;
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: 8px;
       }
       
-      .data-link {
-        display: inline-flex;
+      .current-query-display {
+        display: flex;
         align-items: center;
-        padding: 8px 12px;
+        gap: 8px;
+        padding: 6px 8px;
         background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 6px;
-        text-decoration: none;
-        color: #495057;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.2s ease;
-      }
-      
-      .data-link:hover {
-        background: #e9ecef;
-        border-color: #adb5bd;
-        text-decoration: none;
-        color: #212529;
-      }
-      
-      .data-link .icon {
-        margin-right: 6px;
-        font-size: 14px;
-      }
-      
-      .insights-section {
-        margin-top: 20px;
-        padding: 15px;
-        background: #f8f9fa;
-        border-radius: 8px;
-        border-left: 4px solid #1976d2;
-      }
-      
-      .insights-title {
-        font-size: 15px;
-        font-weight: 600;
-        margin-bottom: 10px;
-        color: #2c3e50;
-      }
-      
-      .insight-item {
-        margin-bottom: 8px;
-        padding: 8px 0;
-        border-bottom: 1px solid #e9ecef;
-        font-size: 14px;
-        line-height: 1.4;
-        color: #495057;
-      }
-      
-      .insight-item:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-      }
-      
-      .insight-value {
-        font-weight: 600;
-        color: #2c3e50;
-      }
-      
-      .search-current {
-        font-size: 14px;
-        color: #6c757d;
-        margin-top: 10px;
-        padding: 8px 12px;
-        background: #f8f9fa;
-        border-radius: 6px;
+        border-radius: 4px;
         border: 1px solid #e9ecef;
       }
       
       .current-label {
+        font-size: 10px;
+        color: #6c757d;
         font-weight: 600;
+      }
+      
+      .current-query {
+        font-size: 11px;
+        color: #2c3e50;
+        font-weight: 600;
+        font-family: Monaco, 'Courier New', monospace;
+        background: #ffffff;
+        padding: 2px 6px;
+        border-radius: 3px;
+        border: 1px solid #dee2e6;
+      }
+      
+      .suggestion-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      
+      .smart-suggestion-checkbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-radius: 16px;
+        border: 1px solid #dee2e6;
+        background: #ffffff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 10px;
+        line-height: 1;
+      }
+      
+      .smart-suggestion-checkbox input[type="checkbox"] {
+        display: none;
+      }
+      
+      .suggestion-text {
+        font-weight: 500;
         color: #495057;
       }
       
-      .limitation-text {
-        font-size: 11px;
-        color: #868e96;
-        margin-top: 12px;
+      .suggestion-type {
+        font-size: 9px;
+        opacity: 0.7;
+      }
+      
+      /* Priority-based styling */
+      .smart-suggestion-checkbox.priority-core {
+        background: #fff3e0;
+        border-color: #ff9800;
+        color: #e65100;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      
+      .smart-suggestion-checkbox.priority-core .suggestion-text {
+        color: #e65100;
+        font-weight: 700;
+      }
+      
+      .smart-suggestion-checkbox.priority-core:hover {
+        background: #ffcc02;
+        border-color: #f57c00;
+        color: #bf360c;
+        cursor: pointer;
+      }
+      
+      .smart-suggestion-checkbox.priority-selected {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+      }
+      
+      .smart-suggestion-checkbox.priority-selected .suggestion-text {
+        color: #155724;
+        font-weight: 600;
+      }
+      
+      .smart-suggestion-checkbox.priority-high {
+        border-color: #28a745;
+        background: #f8fff9;
+      }
+      
+      .smart-suggestion-checkbox.priority-high:hover {
+        background: #d4edda;
+        border-color: #28a745;
+      }
+      
+      .smart-suggestion-checkbox.priority-medium {
+        border-color: #ffc107;
+        background: #fffef5;
+      }
+      
+      .smart-suggestion-checkbox.priority-medium:hover {
+        background: #fff3cd;
+        border-color: #ffc107;
+      }
+      
+      .smart-suggestion-checkbox.priority-low {
+        border-color: #6c757d;
+        background: #f8f9fa;
+      }
+      
+      .smart-suggestion-checkbox.priority-low:hover {
+        background: #e9ecef;
+        border-color: #6c757d;
+      }
+      
+      /* Checked states */
+      .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) {
+        background: #007cba;
+        border-color: #007cba;
+        color: #ffffff;
+        transform: scale(1.05);
+      }
+      
+      .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) .suggestion-text {
+        color: #ffffff;
+        font-weight: 600;
+      }
+      
+      .smart-suggestion-checkbox:has(input[type="checkbox"]:checked) .suggestion-type {
+        color: #ffffff;
+        opacity: 0.9;
+      }
+      
+      /* Filter status styles */
+      .filter-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid #f0f0f0;
+      }
+      
+      .loading-indicator {
+        font-size: 10px;
+        color: #007cba;
+        font-weight: 600;
+      }
+      
+      .update-status {
+        font-size: 10px;
+        color: #6c757d;
         font-style: italic;
+      }
+      
+      /* Market dashboard disclaimer */
+      .market-dashboard-disclaimer {
+        margin-top: 12px;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        font-size: 10px;
+        color: #6c757d;
+        text-align: center;
+        font-style: italic;
+        line-height: 1.4;
+      }
+      
+      /* Data Foundation Link Styles */
+      .data-link-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 2px 0;
+        padding: 1px 0;
+      }
+      
+      .data-link-icon {
+        font-size: 10px;
+        width: 14px;
         text-align: center;
       }
       
-      .checkbox-container {
-        position: relative;
-        display: inline-block;
-        min-width: 200px;
+      .data-link-prominent {
+        color: #007cba !important;
+        text-decoration: underline !important;
+        font-weight: 500 !important;
+        font-size: 9px !important;
+        transition: color 0.2s ease;
       }
       
-      .suggestion-checkbox {
-        margin-right: 8px;
-        cursor: pointer;
-        accent-color: #1976d2;
+      .data-link-prominent:hover {
+        color: #005c87 !important;
+        text-decoration: underline !important;
       }
       
-      .suggestion-label {
-        cursor: pointer;
-        user-select: none;
-        display: flex;
-        align-items: center;
-      }
-      
-      .term-type {
-        font-size: 10px;
-        background: #e9ecef;
+      .data-link-meta {
+        font-size: 8px;
         color: #6c757d;
-        padding: 2px 6px;
-        border-radius: 3px;
+        font-style: italic;
         margin-left: 4px;
       }
     `;
