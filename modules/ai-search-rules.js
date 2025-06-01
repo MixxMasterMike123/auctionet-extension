@@ -382,6 +382,26 @@ export function applySearchRules(inputData) {
   console.log(`  🔧 Core terms selected: ${coreTermsSelected}/${preSelectionRules.maxCoreTerms}`);
   console.log(`  📦 Secondary terms selected: ${secondaryTermsSelected}/${preSelectionRules.maxSecondaryTerms}`);
   
+  // 🔧 DEBUG: Track artist field specifically
+  if (artist && artist.trim()) {
+    const artistInPreSelected = preSelectedTerms.find(term => 
+      term.toLowerCase().includes(artist.toLowerCase()) || 
+      term.replace(/"/g, '').toLowerCase() === artist.toLowerCase()
+    );
+    const artistInCandidates = candidateTerms.find(term => 
+      term.toLowerCase().includes(artist.toLowerCase()) || 
+      term.replace(/"/g, '').toLowerCase() === artist.toLowerCase()
+    );
+    
+    console.log(`🔧 ARTIST FIELD DEBUG: "${artist}"`);
+    console.log(`   📌 In pre-selected: ${artistInPreSelected ? '✅ ' + artistInPreSelected : '❌ NOT FOUND'}`);
+    console.log(`   ⚪ In candidates: ${artistInCandidates ? '✅ ' + artistInCandidates : '❌ NOT FOUND'}`);
+    
+    if (!artistInPreSelected && !artistInCandidates) {
+      console.error(`🚨 CRITICAL: Artist field "${artist}" missing from both pre-selected AND candidates!`);
+    }
+  }
+  
   // Calculate confidence based on quality of selected terms
   let confidence = 0.75; // Base confidence
   const hasArtist = selectedTerms.some(term => 
