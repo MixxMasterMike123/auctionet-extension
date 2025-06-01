@@ -799,40 +799,9 @@ export class DashboardManager {
     for (const selectedTerm of ssotSelectedTerms) {
       const normalizedSelectedTerm = selectedTerm.toLowerCase().trim();
       
-      // EXACT MATCH (case-insensitive)
+      // EXACT MATCH ONLY (case-insensitive) - NO MORE COMPOSITE MATCHING
       if (normalizedSelectedTerm === normalizedCheckboxValue) {
         console.log(`✅ EXACT match: "${checkboxValue}" = "${selectedTerm}"`);
-        return true;
-      }
-      
-      // COMPOSITE TERM MATCHING: "brons skulptur" should match "brons" checkbox
-      if (normalizedSelectedTerm.includes(' ')) {
-        const words = normalizedSelectedTerm.split(' ');
-        if (words.includes(normalizedCheckboxValue)) {
-          console.log(`✅ COMPOSITE match: "${checkboxValue}" found in "${selectedTerm}"`);
-          return true;
-        }
-      }
-      
-      // REVERSE COMPOSITE: "Lisa Larson" checkbox should match "Lisa" or "Larson" in SSoT
-      if (normalizedCheckboxValue.includes(' ')) {
-        const checkboxWords = normalizedCheckboxValue.split(' ');
-        if (checkboxWords.includes(normalizedSelectedTerm)) {
-          console.log(`✅ REVERSE COMPOSITE match: "${selectedTerm}" found in "${checkboxValue}"`);
-          return true;
-        }
-      }
-      
-      // CASE VARIATIONS: "SKULPTUR" vs "skulptur"
-      if (normalizedSelectedTerm === normalizedCheckboxValue) {
-        console.log(`✅ CASE match: "${checkboxValue}" = "${selectedTerm}" (case insensitive)`);
-        return true;
-      }
-      
-      // PARTIAL MATCH for similar terms: "skulptur" vs "SKULPTUR"
-      const similarity = this.calculateTermSimilarity(normalizedCheckboxValue, normalizedSelectedTerm);
-      if (similarity > 0.8) {
-        console.log(`✅ SIMILARITY match: "${checkboxValue}" ≈ "${selectedTerm}" (${Math.round(similarity * 100)}%)`);
         return true;
       }
     }
