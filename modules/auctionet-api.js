@@ -325,7 +325,7 @@ export class AuctionetAPI {
   }
 
   // NEW: Search live auctions (without is=ended parameter)
-  async searchLiveAuctions(query, description, maxResults = 500) {
+  async searchLiveAuctions(query, description, maxResults = 200) {
     // Check cache first (shorter cache for live data)
     // Include excludeCompanyId in cache key to ensure exclusion settings are respected
     const cacheKey = `live_${query}_${maxResults}_exclude_${this.excludeCompanyId || 'none'}`;
@@ -995,7 +995,7 @@ export class AuctionetAPI {
   }
 
   // Search Auctionet API for auction results
-  async searchAuctionResults(query, description, maxResults = 500) {
+  async searchAuctionResults(query, description, maxResults = 200) {
     // Check cache first
     const cacheKey = `search_${query}_${maxResults}`;
     const cached = this.getCachedResult(cacheKey);
