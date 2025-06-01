@@ -15,16 +15,15 @@
   "content_scripts": [
     {
       "matches": [
-        "https://auctionet.com/admin/*/items/*/edit",
-        "https://auctionet.com/admin/sas/sellers/*/contracts/*"
+        "https://auctionet.com/admin/*/items/*/edit"
       ],
       "js": ["content-script.js"],
       "css": ["styles.css"]
     },
     {
       "matches": [
-        "https://auctionet.com/admin/*/items/*",
-        "https://auctionet.com/admin/sas/sellers/*/contracts/*/items/*"
+        "https://auctionet.com/admin/sas/sellers/*/contracts/*",
+        "https://auctionet.com/admin/*/items/*"
       ],
       "exclude_matches": [
         "https://auctionet.com/admin/*/items/*/edit"
