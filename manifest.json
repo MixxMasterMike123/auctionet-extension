@@ -16,7 +16,7 @@
     {
       "matches": [
         "https://auctionet.com/admin/*/items/*/edit",
-        "https://auctionet.com/admin/*/items/new"
+        "https://auctionet.com/admin/sas/sellers/*/contracts/*"
       ],
       "js": ["content-script.js"],
       "css": ["styles.css"]
@@ -27,24 +27,30 @@
         "https://auctionet.com/admin/sas/sellers/*/contracts/*/items/*"
       ],
       "exclude_matches": [
-        "https://auctionet.com/admin/*/items/*/edit",
-        "https://auctionet.com/admin/sas/sellers/*/contracts/*/items/*/edit",
-        "https://auctionet.com/admin/*/items/new"
+        "https://auctionet.com/admin/*/items/*/edit"
       ],
-      "js": ["admin-item-banner.js"],
-      "css": ["styles.css"]
+      "js": ["content.js"],
+      "run_at": "document_end"
     }
   ],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_title": "Auctionet AI Assistant"
   },
   "web_accessible_resources": [
     {
-      "resources": ["modules/*.js"],
+      "resources": [
+        "modules/*.js"
+      ],
       "matches": ["https://auctionet.com/*"]
     }
-  ]
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
 }

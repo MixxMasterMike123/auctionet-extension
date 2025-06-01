@@ -81,22 +81,40 @@ class AuctionetCatalogingAssistant {
 
   detectPageType() {
     const url = window.location.href;
+    const hash = window.location.hash;
+    
+    console.log('🔍 Page detection debug:');
+    console.log('📍 URL:', url);
+    console.log('🔗 Hash:', hash);
+    console.log('🎯 Title field exists:', !!document.querySelector('#item_title_sv'));
     
     // Check for edit page
     if (url.includes('auctionet.com/admin/') && 
         url.includes('/items/') && 
         url.includes('/edit') &&
         document.querySelector('#item_title_sv')) {
+      console.log('✅ Detected: EDIT page');
       return { isSupported: true, type: 'edit' };
     }
     
-    // Check for add items page
-    if (url.includes('auctionet.com/admin/') && 
-        url.includes('/items/new') &&
+    // Check for add items page - NEW URL PATTERN
+    if (url.includes('auctionet.com/admin/sas/sellers/') && 
+        url.includes('/contracts/') &&
+        hash === '#new_item' &&
         document.querySelector('#item_title_sv')) {
+      console.log('✅ Detected: ADD page (new URL pattern)');
       return { isSupported: true, type: 'add' };
     }
     
+    // Legacy check for old add items URL pattern (fallback)
+    if (url.includes('auctionet.com/admin/') && 
+        url.includes('/items/new') &&
+        document.querySelector('#item_title_sv')) {
+      console.log('✅ Detected: ADD page (legacy URL pattern)');
+      return { isSupported: true, type: 'add' };
+    }
+    
+    console.log('❌ No supported page detected');
     return { isSupported: false, type: null };
   }
 
