@@ -1167,14 +1167,9 @@ export class QualityAnalyzer {
           if (currentValue && currentValue !== artistName) {
             console.log(`⚠️ Artist field already contains: "${currentValue}"`);
             
-            // Ask user if they want to replace or append
-            const shouldReplace = confirm(`Konstnärsfältet innehåller redan "${currentValue}". Vill du ersätta det med "${artistName}"?\n\nKlicka OK för att ersätta, eller Avbryt för att lägga till.`);
-            
-            if (shouldReplace) {
-              artistField.value = artistName;
-            } else {
-              artistField.value = `${currentValue}, ${artistName}`;
-            }
+            // Instantly replace field content (no confirmation popup)
+            console.log(`🎯 Replacing "${currentValue}" with "${artistName}"`);
+            artistField.value = artistName;
           } else {
             // Field is empty or contains the same artist
             artistField.value = artistName;
@@ -1192,20 +1187,12 @@ export class QualityAnalyzer {
             this.analyzeQuality();
           }, 200);
           
-          // ENHANCED: Visual feedback - success with animation
+          // Simple visual feedback - success
           const originalText = element.textContent;
-          const originalStyle = {
-            background: element.style.background,
-            color: element.style.color,
-            transform: element.style.transform,
-            border: element.style.border
-          };
+          const originalColor = element.style.color;
           
-          // Success animation
-          element.style.background = 'linear-gradient(120deg, #4caf50 0%, #388e3c 100%)';
-          element.style.color = 'white';
-          element.style.transform = 'scale(1.1)';
-          element.style.border = '2px solid #2e7d32';
+          // Simple success indication
+          element.style.color = '#4caf50';
           element.textContent = '✓ Tillagd!';
           
           // Briefly highlight the artist field to show where it was added
@@ -1221,10 +1208,7 @@ export class QualityAnalyzer {
           // Reset after 2 seconds with smooth transition
           setTimeout(() => {
             element.style.transition = 'all 0.3s ease';
-            element.style.background = originalStyle.background;
-            element.style.color = originalStyle.color;
-            element.style.transform = originalStyle.transform;
-            element.style.border = originalStyle.border;
+            element.style.color = originalColor;
             element.textContent = originalText;
             
             // Reset field highlight
@@ -1524,46 +1508,36 @@ export class QualityAnalyzer {
             console.log(`🎯 Making artist name clickable: "${w.detectedArtist}"`);
             console.log(`📝 Original issue text: "${issue}"`);
             
-            // SUPER AGGRESSIVE: Try every possible variation to find and replace the artist name
-            const artistName = w.detectedArtist;
-            
-            // Create clickable replacement with enhanced styling
+            // Create clickable replacement with simple styling
             const clickableReplacement = `<span class="clickable-artist" 
               style="
                 color: #1976d2; 
                 cursor: pointer; 
                 text-decoration: underline; 
                 font-weight: 700; 
-                background: linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%);
-                padding: 4px 8px;
-                border-radius: 6px;
-                border: 2px solid #1976d2;
-                transition: all 0.2s ease;
-                display: inline-block;
-                margin: 0 2px;
-                box-shadow: 0 2px 4px rgba(25, 118, 210, 0.3);
+                transition: color 0.2s ease;
               " 
-              title="🖱️ KLICKA för att lägga till '${artistName}' i konstnärsfältet!"
-              data-artist="${artistName}">${artistName}</span>`;
+              title="Klicka för att lägga till '${w.detectedArtist}' i konstnärsfältet"
+              data-artist="${w.detectedArtist}">${w.detectedArtist}</span>`;
             
             // COMPREHENSIVE pattern matching - try EVERYTHING
             let patternMatched = false;
             const allPatterns = [
               // Pattern 1: "Artist Name" with <strong> tags
-              { pattern: new RegExp(`"<strong>${this.escapeRegex(artistName)}</strong>"`, 'gi'), replacement: `"${clickableReplacement}"` },
+              { pattern: new RegExp(`"<strong>${this.escapeRegex(w.detectedArtist)}</strong>"`, 'gi'), replacement: `"${clickableReplacement}"` },
               // Pattern 2: "Artist Name" without tags  
-              { pattern: new RegExp(`"${this.escapeRegex(artistName)}"`, 'gi'), replacement: `"${clickableReplacement}"` },
+              { pattern: new RegExp(`"${this.escapeRegex(w.detectedArtist)}"`, 'gi'), replacement: `"${clickableReplacement}"` },
               // Pattern 3: Artist Name with <strong> tags (no quotes)
-              { pattern: new RegExp(`<strong>${this.escapeRegex(artistName)}</strong>`, 'gi'), replacement: clickableReplacement },
+              { pattern: new RegExp(`<strong>${this.escapeRegex(w.detectedArtist)}</strong>`, 'gi'), replacement: clickableReplacement },
               // Pattern 4: Artist Name without any formatting
-              { pattern: new RegExp(`\\b${this.escapeRegex(artistName)}\\b`, 'gi'), replacement: clickableReplacement },
+              { pattern: new RegExp(`\\b${this.escapeRegex(w.detectedArtist)}\\b`, 'gi'), replacement: clickableReplacement },
               // Pattern 5: Artist Name at start of parentheses (like in verification text)
-              { pattern: new RegExp(`\\(${this.escapeRegex(artistName)}\\s`, 'gi'), replacement: `(${clickableReplacement} ` },
+              { pattern: new RegExp(`\\(${this.escapeRegex(w.detectedArtist)}\\s`, 'gi'), replacement: `(${clickableReplacement} ` },
               // Pattern 6: Case insensitive exact match anywhere
-              { pattern: new RegExp(this.escapeRegex(artistName), 'gi'), replacement: clickableReplacement }
+              { pattern: new RegExp(this.escapeRegex(w.detectedArtist), 'gi'), replacement: clickableReplacement }
             ];
             
-            console.log(`🔍 Testing ${allPatterns.length} patterns for artist: ${artistName}`);
+            console.log(`🔍 Testing ${allPatterns.length} patterns for artist: ${w.detectedArtist}`);
             
             for (let i = 0; i < allPatterns.length; i++) {
               const { pattern, replacement } = allPatterns[i];
@@ -1638,17 +1612,11 @@ export class QualityAnalyzer {
                 console.log(`🧪 Testing click functionality for element:`, element);
                 
                 element.addEventListener('mouseenter', () => {
-                  console.log(`🖱️ Mouse enter on clickable artist: ${element.textContent}`);
-                  element.style.background = 'linear-gradient(120deg, #1976d2 0%, #1565c0 100%)';
-                  element.style.color = 'white';
-                  element.style.transform = 'scale(1.05)';
+                  element.style.color = '#0d47a1';
                 });
                 
                 element.addEventListener('mouseleave', () => {
-                  console.log(`🖱️ Mouse leave on clickable artist: ${element.textContent}`);
-                  element.style.background = 'linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%)';
                   element.style.color = '#1976d2';
-                  element.style.transform = 'scale(1)';
                 });
               });
             } else {
