@@ -325,7 +325,7 @@ export class AuctionetAPI {
   }
 
   // NEW: Search live auctions (without is=ended parameter)
-  async searchLiveAuctions(query, description, maxResults = 200) {
+  async searchLiveAuctions(query, description, maxResults = 500) {
     // Check cache first (shorter cache for live data)
     // Include excludeCompanyId in cache key to ensure exclusion settings are respected
     const cacheKey = `live_${query}_${maxResults}_exclude_${this.excludeCompanyId || 'none'}`;
@@ -995,7 +995,7 @@ export class AuctionetAPI {
   }
 
   // Search Auctionet API for auction results
-  async searchAuctionResults(query, description, maxResults = 200) {
+  async searchAuctionResults(query, description, maxResults = 500) {
     // Check cache first
     const cacheKey = `search_${query}_${maxResults}`;
     const cached = this.getCachedResult(cacheKey);
@@ -1326,7 +1326,7 @@ export class AuctionetAPI {
     const confidence = this.calculateConfidence(actualSales, artistName, objectType, totalMatches);
     
     // Analyze trends over time (only from actual sales)
-    const trendAnalysis = this.analyzeTrends(actualSales);
+    const trendAnalysis = this.analyzeTrends(actualSales, totalMatches);
     
     // Calculate statistics for market context
     const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
@@ -1502,7 +1502,7 @@ export class AuctionetAPI {
   }
 
   // Analyze price trends over time
-  analyzeTrends(soldItems) {
+  analyzeTrends(soldItems, totalMatches = 0) {
     if (soldItems.length < 3) {
       return { trend: 'insufficient_data', description: 'Otillräckligt data för trendanalys' };
     }
@@ -1515,14 +1515,22 @@ export class AuctionetAPI {
     const newestSale = sortedSales[sortedSales.length - 1];
     const timeSpanYears = (newestSale.bidDate - oldestSale.bidDate) / (1000 * 60 * 60 * 24 * 365.25);
     
-    // Generate time span text for descriptions
+    // Generate time span text for descriptions with both total found and analyzed
     let timeSpanText = '';
     if (timeSpanYears >= 1) {
       const years = Math.round(timeSpanYears);
-      timeSpanText = ` (baserat på ${soldItems.length} analyserade objekt från Auctionet, ${years} år tillbaka)`;
+      if (totalMatches > soldItems.length) {
+        timeSpanText = ` (baserat på ${soldItems.length} analyserade av ${totalMatches} hittade objekt från Auctionet, ${years} år tillbaka)`;
+      } else {
+        timeSpanText = ` (baserat på ${soldItems.length} analyserade objekt från Auctionet, ${years} år tillbaka)`;
+      }
     } else {
       const months = Math.round(timeSpanYears * 12);
-      timeSpanText = ` (baserat på ${soldItems.length} analyserade objekt från Auctionet, ${months} månader tillbaka)`;
+      if (totalMatches > soldItems.length) {
+        timeSpanText = ` (baserat på ${soldItems.length} analyserade av ${totalMatches} hittade objekt från Auctionet, ${months} månader tillbaka)`;
+      } else {
+        timeSpanText = ` (baserat på ${soldItems.length} analyserade objekt från Auctionet, ${months} månader tillbaka)`;
+      }
     }
     
     // Split into older and newer halves
