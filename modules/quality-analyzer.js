@@ -974,12 +974,21 @@ export class QualityAnalyzer {
       detectedArtist: aiArtist.detectedArtist, // For click-to-copy functionality
       suggestedTitle: aiArtist.suggestedTitle,
       suggestedDescription: aiArtist.suggestedDescription,
-      foundIn: aiArtist.foundIn
+      foundIn: aiArtist.foundIn,
+      isArtistWarning: true // NEW: Mark this as an artist warning to preserve it
     };
 
     console.log('🔧 Artist warning object:', artistWarning);
     
-    currentWarnings.unshift(artistWarning);
+    // CRITICAL FIX: Don't add duplicate artist warnings
+    const existingArtistWarningIndex = currentWarnings.findIndex(w => w.isArtistWarning);
+    if (existingArtistWarningIndex >= 0) {
+      console.log('🔄 Replacing existing artist warning at index:', existingArtistWarningIndex);
+      currentWarnings[existingArtistWarningIndex] = artistWarning;
+    } else {
+      console.log('➕ Adding new artist warning at beginning');
+      currentWarnings.unshift(artistWarning);
+    }
 
     // Update quality display immediately and ensure it's visible
     console.log('🔄 Updating quality indicator with artist warning...');
@@ -1502,7 +1511,13 @@ export class QualityAnalyzer {
         const warningItems = warnings.map((w, warningIndex) => {
           let issue = w.issue;
           
-          console.log(`🔍 Processing warning ${warningIndex + 1}:`, { field: w.field, detectedArtist: w.detectedArtist, issue: issue.substring(0, 100) + '...' });
+          console.log(`🔍 Processing warning ${warningIndex + 1}:`, { field: w.field, detectedArtist: w.detectedArtist, issue: issue ? issue.substring(0, 100) + '...' : 'NO ISSUE TEXT' });
+          
+          // SAFETY CHECK: Ensure issue exists
+          if (!issue) {
+            console.warn(`⚠️ Warning ${warningIndex + 1} has no issue text:`, w);
+            issue = w.message || 'Ingen information tillgänglig';
+          }
           
           // ENHANCED: Make artist names clickable for copy functionality
           if (w.detectedArtist) {
@@ -1584,9 +1599,23 @@ export class QualityAnalyzer {
           
           return `<li class="warning-${w.severity}" data-artist="${w.detectedArtist || ''}"><strong>${w.field}:</strong> ${issue}</li>`;
         }).join('');
+        
+        // DEBUG: Log the actual HTML being generated
+        console.log(`🔧 Generated HTML content (first 500 chars):`, warningItems.substring(0, 500));
+        console.log(`🔧 Full HTML contains "clickable-artist":`, warningItems.includes('clickable-artist'));
          
         console.log(`🔧 Setting innerHTML for warnings element...`);
+        
+        // DEBUG: Check if clickable elements exist before setting innerHTML
+        const existingClickableElements = document.querySelectorAll('.clickable-artist');
+        console.log(`🔍 PRE-innerHTML: Found ${existingClickableElements.length} existing clickable elements`);
+        
         warningsElement.innerHTML = `<ul>${warningItems}</ul>`;
+        
+        // DEBUG: Check if clickable elements exist after setting innerHTML
+        const newClickableElements = document.querySelectorAll('.clickable-artist');
+        console.log(`🔍 POST-innerHTML: Found ${newClickableElements.length} clickable elements`);
+        
         console.log(`✅ Warnings HTML set, now adding click handlers...`);
          
         // ENHANCED: Add click-to-copy handlers for any artist names
