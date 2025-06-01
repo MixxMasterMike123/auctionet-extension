@@ -161,14 +161,38 @@ export class SearchQuerySSoT {
 
   // Build search context for API calls (ensures all components use same query)
   buildSearchContext() {
-    if (!this.currentQuery) {
-      console.warn('⚠️ SSoT: No current query set - cannot build search context');
-      return null;
-    }
-    
     console.log('🔄 SSoT: Building search context for API call');
-    console.log('🔄 Using query:', this.currentQuery);
+    console.log('🔄 Current query:', this.currentQuery);
+    console.log('🔄 Has metadata:', !!this.currentMetadata);
     console.log('🔄 Source:', this.currentMetadata?.source);
+    
+    if (!this.currentQuery) {
+      console.warn('⚠️ SSoT: No current query set - returning default search context');
+      
+      // CRITICAL FIX: Never return null, always return a valid context object
+      return {
+        // Primary search query (empty but valid)
+        primarySearch: '',
+        searchTerms: '',
+        finalSearch: '',
+        
+        // Default metadata
+        source: 'ssot_no_query',
+        confidence: 0.1,
+        reasoning: 'No query available from SSoT',
+        generatedAt: Date.now(),
+        
+        // For backward compatibility
+        artistName: '',
+        objectType: '',
+        period: '',
+        technique: '',
+        
+        // Status flags
+        isEmpty: true,
+        hasValidQuery: false
+      };
+    }
     
     const context = {
       // Primary search query (what gets sent to Auctionet)
@@ -178,15 +202,19 @@ export class SearchQuerySSoT {
       
       // Metadata for transparency
       source: 'ai_ssot',
-      confidence: this.currentMetadata.confidence,
-      reasoning: this.currentMetadata.reasoning,
-      generatedAt: this.currentMetadata.timestamp,
+      confidence: this.currentMetadata.confidence || 0.5,
+      reasoning: this.currentMetadata.reasoning || 'Generated from SSoT',
+      generatedAt: this.currentMetadata.timestamp || Date.now(),
       
       // For backward compatibility (all empty since we don't use these anymore)
       artistName: '',
       objectType: '',
       period: '',
-      technique: ''
+      technique: '',
+      
+      // Status flags
+      isEmpty: false,
+      hasValidQuery: true
     };
     
     console.log('📋 SSoT: Generated search context:', context);

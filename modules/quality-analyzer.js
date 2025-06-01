@@ -956,13 +956,18 @@ export class QualityAnalyzer {
       };
     }
     
+    console.log('✅ Valid artist detected, creating warning with clickable name');
+    
     // Create properly formatted warning for the existing display system
     const artistMessage = aiArtist.verification ? 
       `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) ✓ Verifierad konstnär (${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'}) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
       `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
 
+    console.log('📝 Artist warning message created:', artistMessage);
+    console.log('🎯 Detected artist for clickability:', aiArtist.detectedArtist);
+
     // Insert artist warning at the beginning since it's important info
-    currentWarnings.unshift({
+    const artistWarning = {
         field: 'Titel', 
       issue: artistMessage,
       severity: 'medium',
@@ -970,11 +975,16 @@ export class QualityAnalyzer {
       suggestedTitle: aiArtist.suggestedTitle,
       suggestedDescription: aiArtist.suggestedDescription,
       foundIn: aiArtist.foundIn
-    });
+    };
+
+    console.log('🔧 Artist warning object:', artistWarning);
+    
+    currentWarnings.unshift(artistWarning);
 
     // Update quality display immediately and ensure it's visible
+    console.log('🔄 Updating quality indicator with artist warning...');
     this.updateQualityIndicator(currentScore, currentWarnings);
-      console.log('✅ Artist detection results displayed');
+    console.log('✅ Artist detection results displayed');
     
     // Add small delay to ensure the warning is visible before market analysis continues
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -1465,6 +1475,9 @@ export class QualityAnalyzer {
   }
 
   updateQualityIndicator(score, warnings) {
+    console.log('🔄 updateQualityIndicator called with:', { score, warningsCount: warnings.length });
+    console.log('📋 Warnings received:', warnings.map(w => ({ field: w.field, hasDetectedArtist: !!w.detectedArtist, detectedArtist: w.detectedArtist })));
+    
     const scoreElement = document.querySelector('.quality-score');
     const warningsElement = document.querySelector('.quality-warnings');
     
@@ -1486,8 +1499,10 @@ export class QualityAnalyzer {
     
     if (warningsElement) {
       if (warnings.length > 0) {
-        const warningItems = warnings.map(w => {
+        const warningItems = warnings.map((w, warningIndex) => {
           let issue = w.issue;
+          
+          console.log(`🔍 Processing warning ${warningIndex + 1}:`, { field: w.field, detectedArtist: w.detectedArtist, issue: issue.substring(0, 100) + '...' });
           
           // ENHANCED: Make artist names clickable for copy functionality
           if (w.detectedArtist) {
@@ -1531,23 +1546,31 @@ export class QualityAnalyzer {
             let patternMatched = false;
             for (let i = 0; i < patterns.length; i++) {
               const pattern = patterns[i];
+              console.log(`🔍 Testing pattern ${i + 1}: ${pattern.source}`);
+              
               if (pattern.test(issue)) {
                 console.log(`✅ Pattern ${i + 1} matched for artist: ${w.detectedArtist}`);
+                
+                // Reset the pattern (global flag causes issues with multiple tests)
+                const freshPattern = new RegExp(pattern.source, pattern.flags);
                 
                 // Replace based on pattern type
                 if (i === 0) {
                   // Pattern 1: Replace "Artist Name" with clickable (preserve quotes)
-                  issue = issue.replace(pattern, `"${clickableReplacement}"`);
+                  issue = issue.replace(freshPattern, `"${clickableReplacement}"`);
                 } else if (i === 1) {
                   // Pattern 2: Replace "Artist Name" with clickable (preserve quotes)
-                  issue = issue.replace(pattern, `"${clickableReplacement}"`);
+                  issue = issue.replace(freshPattern, `"${clickableReplacement}"`);
                 } else {
                   // Pattern 3 & 4: Direct replacement
-                  issue = issue.replace(pattern, clickableReplacement);
+                  issue = issue.replace(freshPattern, clickableReplacement);
                 }
                 
                 patternMatched = true;
+                console.log(`✅ Pattern replacement successful`);
                 break;
+              } else {
+                console.log(`❌ Pattern ${i + 1} did not match`);
               }
             }
             
@@ -1563,34 +1586,47 @@ export class QualityAnalyzer {
           return `<li class="warning-${w.severity}" data-artist="${w.detectedArtist || ''}"><strong>${w.field}:</strong> ${issue}</li>`;
         }).join('');
          
+        console.log(`🔧 Setting innerHTML for warnings element...`);
         warningsElement.innerHTML = `<ul>${warningItems}</ul>`;
+        console.log(`✅ Warnings HTML set, now adding click handlers...`);
          
         // ENHANCED: Add click-to-copy handlers for any artist names
         warnings.forEach((warning, index) => {
           if (warning.detectedArtist) {
+            console.log(`🔗 Adding click handler for warning ${index + 1}, artist: ${warning.detectedArtist}`);
             const warningItem = warningsElement.querySelectorAll('li')[index];
             if (warningItem) {
-              console.log(`🔗 Adding click handler for artist: ${warning.detectedArtist}`);
+              console.log(`✅ Found warning item element, setting up click handler`);
               this.addClickToCopyHandler(warningItem, warning.detectedArtist);
               
               // ENHANCED: Add hover effects for better UX
               const clickableElements = warningItem.querySelectorAll('.clickable-artist');
-              clickableElements.forEach(element => {
+              console.log(`🎨 Found ${clickableElements.length} clickable elements, adding hover effects`);
+              
+              clickableElements.forEach((element, elementIndex) => {
+                console.log(`🎨 Setting up hover for clickable element ${elementIndex + 1}`);
+                
                 element.addEventListener('mouseenter', () => {
+                  console.log(`🖱️ Mouse enter on clickable artist: ${element.textContent}`);
                   element.style.background = 'linear-gradient(120deg, #1976d2 0%, #1565c0 100%)';
                   element.style.color = 'white';
                   element.style.transform = 'scale(1.05)';
                 });
                 
                 element.addEventListener('mouseleave', () => {
+                  console.log(`🖱️ Mouse leave on clickable artist: ${element.textContent}`);
                   element.style.background = 'linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%)';
                   element.style.color = '#1976d2';
                   element.style.transform = 'scale(1)';
                 });
               });
+            } else {
+              console.error(`❌ Could not find warning item element for index ${index}`);
             }
           }
         });
+        
+        console.log(`✅ All click handlers and hover effects added`);
          
       } else {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';

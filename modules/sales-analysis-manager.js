@@ -185,12 +185,22 @@ export class SalesAnalysisManager {
         console.log('✅ STRICT SSoT: Using SearchQuerySSoT as ONLY source for market analysis');
         console.log('🔒 SSoT Search Context:', searchContext);
         
+        // CRITICAL FIX: Check if search context is valid and has a query
+        if (!searchContext || searchContext.isEmpty || !searchContext.hasValidQuery) {
+          console.warn('⚠️ SSoT returned empty/invalid search context - cannot perform analysis');
+          
+          // Provide user-friendly error without crashing
+          this.showNoSalesDataMessage(currentWarnings, currentScore, 'ssot_empty', 'Tom sökning', qualityAnalyzer);
+          this.pendingAnalyses.delete('sales');
+          return;
+        }
+        
         // Override any additional context with SSoT metadata
         const ssotMetadata = this.searchQuerySSoT.getCurrentMetadata();
         if (ssotMetadata) {
-          searchContext.confidence = ssotMetadata.confidence;
-          searchContext.source = ssotMetadata.source;
-          searchContext.reasoning = ssotMetadata.reasoning;
+          searchContext.confidence = ssotMetadata.confidence || 0.5;
+          searchContext.source = ssotMetadata.source || 'ssot';
+          searchContext.reasoning = ssotMetadata.reasoning || 'Generated from SSoT';
         } else {
           console.log('⚠️ No SSoT metadata available - using default values');
           searchContext.confidence = 0.75; // Default confidence
@@ -204,7 +214,12 @@ export class SalesAnalysisManager {
         console.error('🔧 DETAILED DEBUG: this reference type:', typeof this);
         console.error('🔧 DETAILED DEBUG: this.searchQuerySSoT value:', this.searchQuerySSoT);
         console.error('🔧 DETAILED DEBUG: All this properties:', Object.keys(this));
-        throw new Error('SearchQuerySSoT required for market analysis - SSoT-only mode enforced');
+        
+        // Provide graceful fallback instead of throwing error
+        console.log('🔄 Providing graceful fallback instead of crashing...');
+        this.showNoSalesDataMessage(currentWarnings, currentScore, 'ssot_unavailable', 'System otillgängligt', qualityAnalyzer);
+        this.pendingAnalyses.delete('sales');
+        return;
       }
       
       // STRICT SSoT: analysisType must come from SSoT, not legacy detection
