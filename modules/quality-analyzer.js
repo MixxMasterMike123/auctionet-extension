@@ -1509,20 +1509,8 @@ export class QualityAnalyzer {
             console.log(`🎯 Making artist name clickable: "${w.detectedArtist}"`);
             console.log(`📝 Original issue text: "${issue}"`);
             
-            // Escape special regex characters for safe pattern matching
-            const escapedArtist = w.detectedArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            
-            // ENHANCED: More comprehensive pattern matching for artist names
-            const patterns = [
-              // Pattern 1: "Artist Name" with <strong> tags
-              new RegExp(`"<strong>${escapedArtist}</strong>"`, 'gi'),
-              // Pattern 2: "Artist Name" without tags
-              new RegExp(`"${escapedArtist}"`, 'gi'),
-              // Pattern 3: Artist Name with <strong> tags (no quotes)
-              new RegExp(`<strong>${escapedArtist}</strong>`, 'gi'),
-              // Pattern 4: Artist Name without tags or quotes
-              new RegExp(`\\b${escapedArtist}\\b`, 'gi')
-            ];
+            // SUPER AGGRESSIVE: Try every possible variation to find and replace the artist name
+            const artistName = w.detectedArtist;
             
             // Create clickable replacement with enhanced styling
             const clickableReplacement = `<span class="clickable-artist" 
@@ -1532,55 +1520,66 @@ export class QualityAnalyzer {
                 text-decoration: underline; 
                 font-weight: 700; 
                 background: linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%);
-                padding: 2px 6px;
-                border-radius: 4px;
-                border: 1px solid #1976d2;
+                padding: 4px 8px;
+                border-radius: 6px;
+                border: 2px solid #1976d2;
                 transition: all 0.2s ease;
                 display: inline-block;
                 margin: 0 2px;
+                box-shadow: 0 2px 4px rgba(25, 118, 210, 0.3);
               " 
-              title="🖱️ KLICKA för att lägga till '${w.detectedArtist}' i konstnärsfältet!"
-              data-artist="${w.detectedArtist}">${w.detectedArtist}</span>`;
+              title="🖱️ KLICKA för att lägga till '${artistName}' i konstnärsfältet!"
+              data-artist="${artistName}">${artistName}</span>`;
             
-            // Try each pattern until we find a match
+            // COMPREHENSIVE pattern matching - try EVERYTHING
             let patternMatched = false;
-            for (let i = 0; i < patterns.length; i++) {
-              const pattern = patterns[i];
+            const allPatterns = [
+              // Pattern 1: "Artist Name" with <strong> tags
+              { pattern: new RegExp(`"<strong>${this.escapeRegex(artistName)}</strong>"`, 'gi'), replacement: `"${clickableReplacement}"` },
+              // Pattern 2: "Artist Name" without tags  
+              { pattern: new RegExp(`"${this.escapeRegex(artistName)}"`, 'gi'), replacement: `"${clickableReplacement}"` },
+              // Pattern 3: Artist Name with <strong> tags (no quotes)
+              { pattern: new RegExp(`<strong>${this.escapeRegex(artistName)}</strong>`, 'gi'), replacement: clickableReplacement },
+              // Pattern 4: Artist Name without any formatting
+              { pattern: new RegExp(`\\b${this.escapeRegex(artistName)}\\b`, 'gi'), replacement: clickableReplacement },
+              // Pattern 5: Artist Name at start of parentheses (like in verification text)
+              { pattern: new RegExp(`\\(${this.escapeRegex(artistName)}\\s`, 'gi'), replacement: `(${clickableReplacement} ` },
+              // Pattern 6: Case insensitive exact match anywhere
+              { pattern: new RegExp(this.escapeRegex(artistName), 'gi'), replacement: clickableReplacement }
+            ];
+            
+            console.log(`🔍 Testing ${allPatterns.length} patterns for artist: ${artistName}`);
+            
+            for (let i = 0; i < allPatterns.length; i++) {
+              const { pattern, replacement } = allPatterns[i];
               console.log(`🔍 Testing pattern ${i + 1}: ${pattern.source}`);
               
               if (pattern.test(issue)) {
-                console.log(`✅ Pattern ${i + 1} matched for artist: ${w.detectedArtist}`);
+                console.log(`✅ Pattern ${i + 1} matched! Applying replacement...`);
                 
-                // Reset the pattern (global flag causes issues with multiple tests)
+                // Create fresh pattern to avoid global flag issues
                 const freshPattern = new RegExp(pattern.source, pattern.flags);
+                const originalIssue = issue;
+                issue = issue.replace(freshPattern, replacement);
                 
-                // Replace based on pattern type
-                if (i === 0) {
-                  // Pattern 1: Replace "Artist Name" with clickable (preserve quotes)
-                  issue = issue.replace(freshPattern, `"${clickableReplacement}"`);
-                } else if (i === 1) {
-                  // Pattern 2: Replace "Artist Name" with clickable (preserve quotes)
-                  issue = issue.replace(freshPattern, `"${clickableReplacement}"`);
-                } else {
-                  // Pattern 3 & 4: Direct replacement
-                  issue = issue.replace(freshPattern, clickableReplacement);
-                }
+                console.log(`📝 Before: "${originalIssue.substring(0, 100)}..."`);
+                console.log(`📝 After: "${issue.substring(0, 100)}..."`);
                 
                 patternMatched = true;
-                console.log(`✅ Pattern replacement successful`);
                 break;
               } else {
                 console.log(`❌ Pattern ${i + 1} did not match`);
               }
             }
             
-            // FALLBACK: If no pattern matched, add clickable artist at the end
+            // ULTIMATE FALLBACK: If nothing worked, force add clickable element at the end
             if (!patternMatched) {
-              console.log(`⚠️ No pattern matched, adding clickable artist at end`);
-              issue += ` → <strong>Klicka här:</strong> ${clickableReplacement}`;
+              console.log(`⚠️ NO PATTERNS MATCHED! Force adding clickable artist at end`);
+              issue += ` → <strong style="color: red;">KLICKA HÄR:</strong> ${clickableReplacement}`;
+              console.log(`🔧 Force-added clickable element: "${issue.substring(issue.length - 100)}"`);
             }
             
-            console.log(`📝 Enhanced issue text: "${issue}"`);
+            console.log(`📝 Final enhanced issue text: "${issue}"`);
           }
           
           return `<li class="warning-${w.severity}" data-artist="${w.detectedArtist || ''}"><strong>${w.field}:</strong> ${issue}</li>`;
@@ -1604,7 +1603,10 @@ export class QualityAnalyzer {
               console.log(`🎨 Found ${clickableElements.length} clickable elements, adding hover effects`);
               
               clickableElements.forEach((element, elementIndex) => {
-                console.log(`🎨 Setting up hover for clickable element ${elementIndex + 1}`);
+                console.log(`🎨 Setting up hover for clickable element ${elementIndex + 1}: "${element.textContent}"`);
+                
+                // Test click functionality immediately
+                console.log(`🧪 Testing click functionality for element:`, element);
                 
                 element.addEventListener('mouseenter', () => {
                   console.log(`🖱️ Mouse enter on clickable artist: ${element.textContent}`);
@@ -1627,11 +1629,38 @@ export class QualityAnalyzer {
         });
         
         console.log(`✅ All click handlers and hover effects added`);
+        
+        // IMMEDIATE TESTING: Test artist field detection and clickable elements
+        setTimeout(() => {
+          console.log('🧪 POST-DISPLAY TESTING...');
+          this.testArtistFieldDetection();
+          
+          // Test if clickable elements are actually in the DOM
+          const allClickableElements = document.querySelectorAll('.clickable-artist');
+          console.log(`🔍 Found ${allClickableElements.length} clickable artist elements in DOM`);
+          
+          allClickableElements.forEach((element, index) => {
+            console.log(`   ${index + 1}. Text: "${element.textContent}", Data-artist: "${element.getAttribute('data-artist')}"`);
+            console.log(`   ${index + 1}. Style: background=${element.style.background}, cursor=${element.style.cursor}`);
+            
+            // Force test a click
+            console.log(`🧪 Force testing click on element ${index + 1}...`);
+            element.addEventListener('click', (e) => {
+              console.log(`🖱️ CLICK DETECTED on element ${index + 1}!`, e);
+              alert(`Click detected on: ${element.textContent}`);
+            });
+          });
+        }, 500);
          
       } else {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
       }
     }
+  }
+
+  // Helper method to escape regex special characters
+  escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   checkAndHideLoadingIndicator() {
@@ -2178,5 +2207,40 @@ export class QualityAnalyzer {
     }
     
     console.log('✅ QualityAnalyzer: SearchFilterManager connected');
+  }
+
+  // NEW: Test artist field detection for debugging
+  testArtistFieldDetection() {
+    console.log('🧪 TESTING artist field detection...');
+    
+    const artistFieldSelectors = [
+      '#item_artist_name_sv',
+      'input[name*="artist"]',
+      'input[id*="artist"]',
+      'input[placeholder*="konstnär"]',
+      'input[placeholder*="artist"]'
+    ];
+    
+    artistFieldSelectors.forEach((selector, index) => {
+      const field = document.querySelector(selector);
+      if (field) {
+        console.log(`✅ Found artist field with selector ${index + 1}: ${selector}`);
+        console.log(`   ID: ${field.id}`);
+        console.log(`   Name: ${field.name}`);
+        console.log(`   Value: "${field.value}"`);
+        console.log(`   Element:`, field);
+      } else {
+        console.log(`❌ No field found with selector ${index + 1}: ${selector}`);
+      }
+    });
+    
+    // Also check all input fields on page
+    const allInputs = document.querySelectorAll('input[type="text"]');
+    console.log(`🔍 Found ${allInputs.length} text input fields on page:`);
+    allInputs.forEach((input, index) => {
+      if (input.id && (input.id.includes('artist') || input.name.includes('artist'))) {
+        console.log(`   ${index + 1}. ID: ${input.id}, Name: ${input.name}, Value: "${input.value}"`);
+      }
+    });
   }
 }
