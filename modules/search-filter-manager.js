@@ -114,6 +114,14 @@ export class SearchFilterManager {
         return true;
       }
       
+      // 🔧 ARTIST CONSISTENCY FALLBACK: Artist field content should ALWAYS be pre-selected
+      // This ensures that moved artists remain checked in the dashboard
+      const artistField = document.querySelector('#item_artist_name_sv')?.value?.trim();
+      if (artistField && termLower === artistField.toLowerCase()) {
+        console.log(`🎯 ARTIST CONSISTENCY: "${term}" matches artist field - ALWAYS pre-selected ✅`);
+        return true;
+      }
+      
       // PRIORITY 1.5: Standalone brand detection (even without artistInfo)
       // Check if this term is a known jewelry/watch brand
       const jewelryBrands = [

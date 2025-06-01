@@ -315,9 +315,16 @@ export function applySearchRules(inputData) {
         console.log(`🏷️ AI RULES: Brand "${termData.term}" auto-selected (brand priority)`);
       }
       // RULE 2: Artist gets pre-selected if under core limit
-      else if (termData.type === 'artist' && coreTermsSelected < preSelectionRules.maxCoreTerms && preSelectedCount < maxPreSelected) {
-        shouldPreSelect = true;
-        console.log(`👤 AI RULES: Artist "${termData.term}" auto-selected (core priority)`);
+      else if (termData.type === 'artist') {
+        if (termData.source === 'artist_field') {
+          // Artist from artist field ALWAYS gets pre-selected regardless of limits
+          shouldPreSelect = true;
+          console.log(`👤 AI RULES: Artist "${termData.term}" auto-selected (artist field priority - always included)`);
+        } else if (coreTermsSelected < preSelectionRules.maxCoreTerms && preSelectedCount < maxPreSelected) {
+          // AI-detected artists still follow normal core limits
+          shouldPreSelect = true;
+          console.log(`👤 AI RULES: Artist "${termData.term}" auto-selected (core priority)`);
+        }
       }
       // RULE 3: Secondary terms (object/model) get pre-selected if under secondary limit
       else if (isSecondaryType && secondaryTermsSelected < preSelectionRules.maxSecondaryTerms && preSelectedCount < maxPreSelected) {
@@ -334,7 +341,11 @@ export function applySearchRules(inputData) {
         preSelectedTerms.push(termData.term);
         preSelectedCount++;
         
-        if (isCoreType) coreTermsSelected++;
+        // 🔧 ARTIST CONSISTENCY FIX: Only count AI-detected artists against core limits
+        // Artist field artists don't count against limits since they must always be included
+        if (isCoreType && !(termData.type === 'artist' && termData.source === 'artist_field')) {
+          coreTermsSelected++;
+        }
         if (isSecondaryType) secondaryTermsSelected++;
         
         console.log(`✅ PRE-SELECTED: "${termData.term}" (type: ${termData.type}, pre-selected: ${preSelectedCount}/${maxPreSelected})`);
