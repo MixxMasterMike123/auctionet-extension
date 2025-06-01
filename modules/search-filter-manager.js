@@ -79,13 +79,12 @@ export class SearchFilterManager {
     const shouldBePreSelected = (term) => {
       // NEW: PRIORITY 1 - Respect AI Rules enhanced pre-selection if available
       if (aiSelectedTerms.length > 0) {
-        // Check if this term is in the AI Rules PRE-SELECTED terms (not just candidates)
+        // Check if this term is in the AI Rules PRE-SELECTED terms (EXACT MATCH ONLY)
         const isAIPreSelected = aiSelectedTerms.some(aiTerm => {
           const normalizedAI = aiTerm.toLowerCase().trim();
           const normalizedTerm = term.toLowerCase().trim();
-          return normalizedAI === normalizedTerm || 
-                 normalizedAI.includes(normalizedTerm) || 
-                 normalizedTerm.includes(normalizedAI);
+          // STRICT MATCHING: Only exact matches, no partial matches
+          return normalizedAI === normalizedTerm;
         });
         
         if (isAIPreSelected) {
@@ -225,17 +224,26 @@ export class SearchFilterManager {
       });
     }
     
-    // 2. OBJECT TYPE
+    // 2. OBJECT TYPE (with deduplication check)
     const objectType = this.qualityAnalyzer.extractObjectType(title);
     if (objectType) {
-      const preSelected = shouldBePreSelected(objectType);
-      candidates.push({
-        term: objectType,
-        type: 'object_type',
-        priority: 2,
-        description: 'Objekttyp',
-        preSelected: preSelected
-      });
+      // Check if we already have this term (case-insensitive)
+      const alreadyExists = candidates.some(c => 
+        c.term.toLowerCase() === objectType.toLowerCase()
+      );
+      
+      if (!alreadyExists) {
+        const preSelected = shouldBePreSelected(objectType);
+        candidates.push({
+          term: objectType,
+          type: 'object_type',
+          priority: 2,
+          description: 'Objekttyp',
+          preSelected: preSelected
+        });
+      } else {
+        console.log(`🔧 DEDUPLICATION: Skipping duplicate object type "${objectType}" (already exists in candidates)`);
+      }
     }
     
     // 3. WATCH/JEWELRY MODELS AND SERIES
