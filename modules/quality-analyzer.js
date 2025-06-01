@@ -1638,14 +1638,6 @@ export class QualityAnalyzer {
           
           allClickableElements.forEach((element, index) => {
             console.log(`   ${index + 1}. Text: "${element.textContent}", Data-artist: "${element.getAttribute('data-artist')}"`);
-            console.log(`   ${index + 1}. Style: background=${element.style.background}, cursor=${element.style.cursor}`);
-            
-            // Force test a click
-            console.log(`🧪 Force testing click on element ${index + 1}...`);
-            element.addEventListener('click', (e) => {
-              console.log(`🖱️ CLICK DETECTED on element ${index + 1}!`, e);
-              alert(`Click detected on: ${element.textContent}`);
-            });
           });
         }, 500);
          
