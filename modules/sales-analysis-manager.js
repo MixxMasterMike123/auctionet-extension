@@ -762,14 +762,13 @@ export class SalesAnalysisManager {
   }
 
   showNoSalesDataMessage(currentWarnings, currentScore, analysisType = 'artist', entityName = '', qualityAnalyzer) {
-    // Get current warnings (might have been updated by artist detection)
-    const currentWarningsElement = document.querySelector('.quality-warnings ul');
-    let updatedWarnings = [...currentWarnings];
+    // CRITICAL FIX: Don't extract current warnings from DOM as they lose detectedArtist properties
+    // Use the currentWarnings parameter directly which preserves all properties
+    console.log('📋 PRESERVING artist warnings with detectedArtist properties');
+    console.log('📋 Current warnings count:', currentWarnings.length);
+    console.log('📋 Artist warnings in current warnings:', currentWarnings.filter(w => w.detectedArtist).length);
     
-    // If artist detection already updated the warnings, get the current state
-    if (currentWarningsElement) {
-      updatedWarnings = qualityAnalyzer.extractCurrentWarnings();
-    }
+    let updatedWarnings = [...currentWarnings]; // Use the parameter, not DOM extraction
     
     // Add informational message about no sales data with appropriate context
     let message;
@@ -782,10 +781,13 @@ export class SalesAnalysisManager {
     }
     
     updatedWarnings.push({
-      type: 'info',
-      message: message,
+      field: 'Marknadsvärde', // Fix: Add proper field
+      issue: message, // Fix: Use issue instead of message
       severity: 'info'
     });
+    
+    console.log('📋 Updated warnings with preserved artist data:', updatedWarnings.length);
+    console.log('📋 Artist warnings after update:', updatedWarnings.filter(w => w.detectedArtist).length);
     
     // Update the display
     qualityAnalyzer.updateQualityIndicator(currentScore, updatedWarnings);
