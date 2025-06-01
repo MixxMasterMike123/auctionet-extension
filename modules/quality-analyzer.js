@@ -1106,66 +1106,133 @@ export class QualityAnalyzer {
   addClickToCopyHandler(warningElement, artistName) {
     const clickableElements = warningElement.querySelectorAll('.clickable-artist');
     
-    clickableElements.forEach(element => {
+    console.log(`🔗 Setting up click handlers for ${clickableElements.length} clickable elements`);
+    
+    clickableElements.forEach((element, index) => {
+      console.log(`🎯 Adding click handler to element ${index + 1}: "${element.textContent}"`);
+      
       element.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
         
+        console.log(`🖱️ Click detected on artist: "${artistName}"`);
+        
         try {
-          // Find the artist field
-          const artistField = document.querySelector('#item_artist_name_sv');
+          // Find the artist field - try multiple selectors
+          const artistFieldSelectors = [
+            '#item_artist_name_sv',
+            'input[name*="artist"]',
+            'input[id*="artist"]',
+            'input[placeholder*="konstnär"]',
+            'input[placeholder*="artist"]'
+          ];
+          
+          let artistField = null;
+          for (const selector of artistFieldSelectors) {
+            artistField = document.querySelector(selector);
+            if (artistField) {
+              console.log(`✅ Found artist field with selector: ${selector}`);
+              break;
+            }
+          }
           
           if (!artistField) {
-            console.error('❌ Artist field not found');
+            console.error('❌ Artist field not found with any selector');
+            console.log('🔍 Available input fields:', document.querySelectorAll('input[type="text"]'));
             this.showErrorFeedback(element, 'Konstnärsfält hittades inte');
             return;
           }
           
-          // Add artist name to the field
-          artistField.value = artistName;
+          // Check if field already has content
+          const currentValue = artistField.value.trim();
+          if (currentValue && currentValue !== artistName) {
+            console.log(`⚠️ Artist field already contains: "${currentValue}"`);
+            
+            // Ask user if they want to replace or append
+            const shouldReplace = confirm(`Konstnärsfältet innehåller redan "${currentValue}". Vill du ersätta det med "${artistName}"?\n\nKlicka OK för att ersätta, eller Avbryt för att lägga till.`);
+            
+            if (shouldReplace) {
+              artistField.value = artistName;
+            } else {
+              artistField.value = `${currentValue}, ${artistName}`;
+            }
+          } else {
+            // Field is empty or contains the same artist
+            artistField.value = artistName;
+          }
           
-          // Trigger any necessary events for form validation/autocomplete
-          artistField.dispatchEvent(new Event('input', { bubbles: true }));
-          artistField.dispatchEvent(new Event('change', { bubbles: true }));
+          // Trigger form events to ensure proper validation and saving
+          const events = ['input', 'change', 'blur'];
+          events.forEach(eventType => {
+            artistField.dispatchEvent(new Event(eventType, { bubbles: true }));
+          });
           
           // Trigger quality re-analysis since adding an artist likely improves the score
           setTimeout(() => {
+            console.log('🔄 Triggering quality re-analysis after artist addition');
             this.analyzeQuality();
-          }, 100);
+          }, 200);
           
-          // Visual feedback - success
+          // ENHANCED: Visual feedback - success with animation
           const originalText = element.textContent;
-          const originalBackground = element.style.background;
-          const originalColor = element.style.color;
+          const originalStyle = {
+            background: element.style.background,
+            color: element.style.color,
+            transform: element.style.transform,
+            border: element.style.border
+          };
           
-          element.style.background = '#4caf50';
+          // Success animation
+          element.style.background = 'linear-gradient(120deg, #4caf50 0%, #388e3c 100%)';
           element.style.color = 'white';
+          element.style.transform = 'scale(1.1)';
+          element.style.border = '2px solid #2e7d32';
           element.textContent = '✓ Tillagd!';
-          element.style.transform = 'scale(1.05)';
           
           // Briefly highlight the artist field to show where it was added
           const originalFieldBackground = artistField.style.backgroundColor;
+          const originalFieldBorder = artistField.style.border;
           artistField.style.backgroundColor = '#e8f5e8';
-          artistField.style.transition = 'background-color 0.3s ease';
+          artistField.style.border = '2px solid #4caf50';
+          artistField.style.transition = 'all 0.3s ease';
           
-          // Reset after 1.5 seconds
+          // Scroll to artist field if it's not visible
+          artistField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Reset after 2 seconds with smooth transition
           setTimeout(() => {
-            element.style.background = originalBackground;
-            element.style.color = originalColor;
+            element.style.transition = 'all 0.3s ease';
+            element.style.background = originalStyle.background;
+            element.style.color = originalStyle.color;
+            element.style.transform = originalStyle.transform;
+            element.style.border = originalStyle.border;
             element.textContent = originalText;
-            element.style.transform = 'scale(1)';
             
             // Reset field highlight
             artistField.style.backgroundColor = originalFieldBackground;
-          }, 1500);
+            artistField.style.border = originalFieldBorder;
+          }, 2000);
           
-          console.log(`✅ Artist name added to field: ${artistName}`);
+          console.log(`✅ Artist name "${artistName}" successfully added to field`);
           
         } catch (error) {
-          console.error('Failed to add artist name to field:', error);
+          console.error('❌ Failed to add artist name to field:', error);
           this.showErrorFeedback(element, 'Misslyckades att lägga till');
         }
       });
+      
+      // Add keyboard accessibility
+      element.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          element.click();
+        }
+      });
+      
+      // Make element focusable for keyboard navigation
+      element.setAttribute('tabindex', '0');
+      element.setAttribute('role', 'button');
+      element.setAttribute('aria-label', `Klicka för att lägga till ${artistName} i konstnärsfältet`);
     });
   }
 
@@ -1424,23 +1491,73 @@ export class QualityAnalyzer {
           
           // ENHANCED: Make artist names clickable for copy functionality
           if (w.detectedArtist) {
-            // Replace the artist name in quotes with a clickable version (handle both with and without <strong> tags)
+            console.log(`🎯 Making artist name clickable: "${w.detectedArtist}"`);
+            console.log(`📝 Original issue text: "${issue}"`);
+            
+            // Escape special regex characters for safe pattern matching
             const escapedArtist = w.detectedArtist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             
-            // Try both patterns: with <strong> tags and without
-            const strongPattern = new RegExp(`"<strong>${escapedArtist}</strong>"`, 'g');
-            const plainPattern = new RegExp(`"${escapedArtist}"`, 'g');
+            // ENHANCED: More comprehensive pattern matching for artist names
+            const patterns = [
+              // Pattern 1: "Artist Name" with <strong> tags
+              new RegExp(`"<strong>${escapedArtist}</strong>"`, 'gi'),
+              // Pattern 2: "Artist Name" without tags
+              new RegExp(`"${escapedArtist}"`, 'gi'),
+              // Pattern 3: Artist Name with <strong> tags (no quotes)
+              new RegExp(`<strong>${escapedArtist}</strong>`, 'gi'),
+              // Pattern 4: Artist Name without tags or quotes
+              new RegExp(`\\b${escapedArtist}\\b`, 'gi')
+            ];
             
-            // Replace with clickable version
-            const clickableReplacement = `"<span class="clickable-artist" style="color: #2196f3; cursor: pointer; text-decoration: underline; font-weight: 600; transition: all 0.2s ease;" title="Klicka för att lägga till i konstnärsfältet">${w.detectedArtist}</span>"`;
+            // Create clickable replacement with enhanced styling
+            const clickableReplacement = `<span class="clickable-artist" 
+              style="
+                color: #1976d2; 
+                cursor: pointer; 
+                text-decoration: underline; 
+                font-weight: 700; 
+                background: linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%);
+                padding: 2px 6px;
+                border-radius: 4px;
+                border: 1px solid #1976d2;
+                transition: all 0.2s ease;
+                display: inline-block;
+                margin: 0 2px;
+              " 
+              title="🖱️ KLICKA för att lägga till '${w.detectedArtist}' i konstnärsfältet!"
+              data-artist="${w.detectedArtist}">${w.detectedArtist}</span>`;
             
-            // First try to replace the pattern with <strong> tags
-            if (strongPattern.test(issue)) {
-              issue = issue.replace(strongPattern, clickableReplacement);
-            } else {
-              // Fallback to pattern without <strong> tags
-              issue = issue.replace(plainPattern, clickableReplacement);
+            // Try each pattern until we find a match
+            let patternMatched = false;
+            for (let i = 0; i < patterns.length; i++) {
+              const pattern = patterns[i];
+              if (pattern.test(issue)) {
+                console.log(`✅ Pattern ${i + 1} matched for artist: ${w.detectedArtist}`);
+                
+                // Replace based on pattern type
+                if (i === 0) {
+                  // Pattern 1: Replace "Artist Name" with clickable (preserve quotes)
+                  issue = issue.replace(pattern, `"${clickableReplacement}"`);
+                } else if (i === 1) {
+                  // Pattern 2: Replace "Artist Name" with clickable (preserve quotes)
+                  issue = issue.replace(pattern, `"${clickableReplacement}"`);
+                } else {
+                  // Pattern 3 & 4: Direct replacement
+                  issue = issue.replace(pattern, clickableReplacement);
+                }
+                
+                patternMatched = true;
+                break;
+              }
             }
+            
+            // FALLBACK: If no pattern matched, add clickable artist at the end
+            if (!patternMatched) {
+              console.log(`⚠️ No pattern matched, adding clickable artist at end`);
+              issue += ` → <strong>Klicka här:</strong> ${clickableReplacement}`;
+            }
+            
+            console.log(`📝 Enhanced issue text: "${issue}"`);
           }
           
           return `<li class="warning-${w.severity}" data-artist="${w.detectedArtist || ''}"><strong>${w.field}:</strong> ${issue}</li>`;
@@ -1448,12 +1565,29 @@ export class QualityAnalyzer {
          
         warningsElement.innerHTML = `<ul>${warningItems}</ul>`;
          
-        // Add click-to-copy handlers for any artist names
+        // ENHANCED: Add click-to-copy handlers for any artist names
         warnings.forEach((warning, index) => {
           if (warning.detectedArtist) {
             const warningItem = warningsElement.querySelectorAll('li')[index];
             if (warningItem) {
+              console.log(`🔗 Adding click handler for artist: ${warning.detectedArtist}`);
               this.addClickToCopyHandler(warningItem, warning.detectedArtist);
+              
+              // ENHANCED: Add hover effects for better UX
+              const clickableElements = warningItem.querySelectorAll('.clickable-artist');
+              clickableElements.forEach(element => {
+                element.addEventListener('mouseenter', () => {
+                  element.style.background = 'linear-gradient(120deg, #1976d2 0%, #1565c0 100%)';
+                  element.style.color = 'white';
+                  element.style.transform = 'scale(1.05)';
+                });
+                
+                element.addEventListener('mouseleave', () => {
+                  element.style.background = 'linear-gradient(120deg, #e3f2fd 0%, #bbdefb 100%)';
+                  element.style.color = '#1976d2';
+                  element.style.transform = 'scale(1)';
+                });
+              });
             }
           }
         });
