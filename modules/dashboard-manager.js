@@ -531,19 +531,23 @@ export class DashboardManager {
     // Add the content and finalize dashboard
     dashboard.innerHTML = `
       <div class="market-dashboard-header">
-        <div class="market-dashboard-title">
-          Marknadsanalys
+        <div class="header-left-section">
+          <div class="market-dashboard-title">
+            Marknadsanalys
+          </div>
+          <div class="market-dashboard-query">
+            <span class="query-label">Sökning:</span>
+            <span class="query-text">"${actualSearchQuery}"</span>
+            <span class="query-source">(${querySource})</span>
+          </div>
         </div>
-        <div class="market-dashboard-query">
-          <span class="query-label">Sökning:</span>
-          <span class="query-text">"${actualSearchQuery}"</span>
-          <span class="query-source">(${querySource})</span>
+        <div class="header-right-section">
+          ${this.generateHeaderIntegratedPills()}
         </div>
         <div class="market-dashboard-source">
           ${salesData.dataSource || 'Auctionet API'}
         </div>
       </div>
-      ${searchFilterHTML}
       <div class="market-dashboard-content">
         ${dashboardContent}
       </div>
@@ -583,8 +587,8 @@ export class DashboardManager {
   setupSmartSuggestionHotReload() {
     console.log('🔥 Setting up smart suggestion hot reload...');
     
-    // Add event listeners to all smart suggestion checkboxes
-    const smartCheckboxes = document.querySelectorAll('.smart-checkbox');
+    // Add event listeners to all smart suggestion checkboxes (including header pills)
+    const smartCheckboxes = document.querySelectorAll('.smart-checkbox, .header-checkbox');
     
     smartCheckboxes.forEach(checkbox => {
       checkbox.addEventListener('change', (event) => {
@@ -593,15 +597,198 @@ export class DashboardManager {
       });
     });
     
-    console.log(`✅ Hot reload setup complete for ${smartCheckboxes.length} smart suggestions`);
+    console.log(`✅ Hot reload setup complete for ${smartCheckboxes.length} smart suggestions (including header pills)`);
     
     // CRITICAL: Sync all checkboxes with SSoT state after setup
     setTimeout(() => {
       this.syncAllCheckboxesWithSSoT();
       console.log('🔄 Initial checkbox sync with SSoT complete');
     }, 50);
+    
+    // Setup expand functionality for header expand button if present
+    this.setupHeaderExpandInteraction();
   }
   
+  // NEW: Setup header expand interaction
+  setupHeaderExpandInteraction() {
+    console.log('🖥️ Setting up header expand interaction...');
+    
+    const headerExpandBtn = document.querySelector('.header-expand-btn');
+    if (!headerExpandBtn) {
+      console.log('ℹ️ No header expand button found');
+      return;
+    }
+    
+    // Store initial state
+    let isExpanded = false;
+    const pillsContainer = document.querySelector('.header-pills-container');
+    const originalHTML = pillsContainer ? pillsContainer.innerHTML : '';
+    
+    headerExpandBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      console.log('🎯 Header expand clicked - toggling expansion...');
+      
+      if (!isExpanded) {
+        // EXPAND: Show all available terms
+        this.expandHeaderPills(pillsContainer, headerExpandBtn);
+        isExpanded = true;
+      } else {
+        // COLLAPSE: Return to compact view
+        this.collapseHeaderPills(pillsContainer, originalHTML);
+        isExpanded = false;
+      }
+    });
+    
+    console.log('✅ Header expand interaction ready');
+  }
+  
+  // NEW: Expand header pills to show all terms
+  expandHeaderPills(container, expandBtn) {
+    console.log('🎨 Expanding header pills to show all terms...');
+    
+    if (!this.searchQuerySSoT || !container) {
+      console.log('⚠️ Cannot expand header pills - missing dependencies');
+      return;
+    }
+    
+    const allTerms = this.searchQuerySSoT.getAvailableTerms();
+    const validTerms = allTerms.filter(term => 
+      term && typeof term.term === 'string' && term.term.trim() !== ''
+    );
+    
+    // Get SSoT selected terms for accurate state
+    const ssotSelectedTerms = this.searchQuerySSoT.getSelectedTerms() || [];
+    
+    // Mark terms as selected based on SSoT state
+    validTerms.forEach(term => {
+      term.isSelected = ssotSelectedTerms.some(selectedTerm => 
+        selectedTerm && typeof selectedTerm === 'string' &&
+        selectedTerm.toLowerCase() === term.term.toLowerCase()
+      );
+    });
+    
+    // Split terms
+    const selectedTerms = validTerms.filter(term => term.isSelected);
+    const unselectedTerms = validTerms.filter(term => !term.isSelected);
+    
+    // Generate expanded HTML with ALL terms
+    let expandedHTML = '';
+    
+    // Add ALL selected terms (blue pills)
+    selectedTerms.forEach((term, index) => {
+      const checkboxId = `header-pill-expanded-selected-${index}`;
+      expandedHTML += `
+        <label class="header-pill selected" title="${term.description || 'Klicka för att ta bort'}: ${term.term}">
+          <input type="checkbox" 
+                 class="smart-checkbox header-checkbox" 
+                 value="${term.term}" 
+                 data-type="${term.type}"
+                 data-core="${term.isCore || false}"
+                 id="${checkboxId}"
+                 checked>
+          <span class="pill-text">${term.term}</span>
+        </label>`;
+    });
+    
+    // Add ALL unselected terms (gray pills)
+    unselectedTerms.forEach((term, index) => {
+      const checkboxId = `header-pill-expanded-unselected-${index}`;
+      expandedHTML += `
+        <label class="header-pill unselected" title="${term.description || 'Klicka för att lägga till'}: ${term.term}">
+          <input type="checkbox" 
+                 class="smart-checkbox header-checkbox" 
+                 value="${term.term}" 
+                 data-type="${term.type}"
+                 data-core="${term.isCore || false}"
+                 id="${checkboxId}">
+          <span class="pill-text">${term.term}</span>
+        </label>`;
+    });
+    
+    // Add collapse button
+    expandedHTML += `
+      <button class="header-collapse-btn" type="button" title="Visa färre söktermer">
+        ← Färre
+      </button>`;
+    
+    // Smooth expansion animation
+    container.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    container.style.opacity = '0.7';
+    
+    setTimeout(() => {
+      container.innerHTML = expandedHTML;
+      container.style.opacity = '1';
+      
+      // Re-attach event listeners to new checkboxes
+      this.reattachHeaderCheckboxListeners();
+      
+      // Setup collapse functionality
+      this.setupHeaderCollapseButton(container);
+      
+      console.log('✨ Header pills expanded - showing all available terms');
+    }, 150);
+  }
+  
+  // NEW: Collapse header pills back to compact view
+  collapseHeaderPills(container, originalHTML) {
+    console.log('🎨 Collapsing header pills to compact view...');
+    
+    if (!container) return;
+    
+    // Smooth collapse animation
+    container.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    container.style.opacity = '0.7';
+    
+    setTimeout(() => {
+      container.innerHTML = originalHTML;
+      container.style.opacity = '1';
+      
+      // Re-attach event listeners
+      this.reattachHeaderCheckboxListeners();
+      
+      // Re-setup expand functionality
+      setTimeout(() => {
+        this.setupHeaderExpandInteraction();
+      }, 100);
+      
+      console.log('✨ Header pills collapsed to compact view');
+    }, 150);
+  }
+  
+  // NEW: Setup collapse button functionality
+  setupHeaderCollapseButton(container) {
+    const collapseBtn = container.querySelector('.header-collapse-btn');
+    if (!collapseBtn) return;
+    
+    collapseBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      console.log('🔄 Header collapse clicked...');
+      
+      // Re-generate original HTML with current state
+      const originalHTML = this.generateHeaderIntegratedPills();
+      this.collapseHeaderPills(container, originalHTML);
+    });
+  }
+  
+  // NEW: Re-attach checkbox event listeners after DOM changes
+  reattachHeaderCheckboxListeners() {
+    console.log('🔗 Re-attaching header checkbox listeners...');
+    
+    const headerCheckboxes = document.querySelectorAll('.header-checkbox');
+    headerCheckboxes.forEach(checkbox => {
+      // Remove any existing listeners to avoid duplicates
+      checkbox.removeEventListener('change', this.handleSmartSuggestionChange);
+      
+      // Add fresh listener
+      checkbox.addEventListener('change', (event) => {
+        console.log('🔄 Header pill changed:', event.target.value, 'checked:', event.target.checked);
+        this.handleSmartSuggestionChange();
+      });
+    });
+    
+    console.log(`✅ Re-attached listeners to ${headerCheckboxes.length} header checkboxes`);
+  }
+
   // CORE: Handle smart suggestion changes with immediate SSoT sync and hot reload
   async handleSmartSuggestionChange() {
     if (!this.searchQuerySSoT) {
@@ -959,50 +1146,68 @@ export class DashboardManager {
     // Show current query and smart suggestions prominently
     let filterHTML = `
       <div class="search-filter-section">
-        <div class="filter-header">
-          <h4 class="filter-title">🧠 AI-smarta sökförslag</h4>
-          <div class="filter-description">Anpassa alla termer efter behov - du har full kontroll över sökningen</div>
-        </div>
-        <div class="smart-suggestions">
-          <div class="current-query-display">
-            <span class="current-label">Nuvarande:</span>
-            <span class="current-query" id="current-search-display">"${currentQuery || 'Ingen sökning'}"</span>
-          </div>
-          <div class="suggestion-controls">`;
+        <div class="ultra-compact-floating-header">
+          <div class="floating-search-bar">
+            <span class="search-icon">🔍</span>
+            <div class="compact-terms-container">
+              <div class="selected-terms">`;
     
-    // Generate smart suggestion checkboxes using SSoT selection state
-    smartSuggestions.forEach((suggestion, index) => {
-      const checkboxId = `smart-suggestion-${index}`;
-      // Check selection state from SearchQueryManager SSoT
-      const isChecked = suggestion.isSelected ? 'checked' : '';
-      
-      // CRITICAL FIX: Use isCore flag to determine if this should be an orange core term
-      const priority = suggestion.isCore ? 'priority-core' : this.getSuggestionPriorityFromSSoT(suggestion);
-      
-      // User-friendly styling and messaging - all terms are user-controllable
-      const coreClass = suggestion.isCore ? 'core-term' : '';
-      const coreTitle = suggestion.isCore ? ' (AI-rekommenderad som viktig - du kan kryssa ur den)' : '';
-      
+    // First pass: Add selected (checked) terms with blue styling
+    const selectedTerms = smartSuggestions.filter(suggestion => suggestion.isSelected);
+    const unselectedTerms = smartSuggestions.filter(suggestion => !suggestion.isSelected);
+    
+    selectedTerms.forEach((suggestion, index) => {
+      const checkboxId = `smart-suggestion-selected-${index}`;
       filterHTML += `
-        <label class="smart-suggestion-checkbox ${priority} ${coreClass}" title="${suggestion.description}: ${suggestion.term}${coreTitle}">
+        <label class="compact-term-pill selected" title="${suggestion.description}: ${suggestion.term}">
           <input type="checkbox" 
                  class="smart-checkbox" 
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
                  data-core="${suggestion.isCore || false}"
                  id="${checkboxId}"
-                 ${isChecked}>
-          <span class="suggestion-text">${suggestion.term}</span>
-          <span class="suggestion-type">${this.getTypeIcon(suggestion.type)}</span>
+                 checked>
+          <span class="term-text">${suggestion.term}</span>
         </label>`;
     });
     
     filterHTML += `
+              </div>
+              <div class="term-separator">|</div>
+              <div class="unselected-terms">`;
+    
+    // Second pass: Add unselected terms (max 3 to save space)
+    const maxUnselected = 3;
+    unselectedTerms.slice(0, maxUnselected).forEach((suggestion, index) => {
+      const checkboxId = `smart-suggestion-unselected-${index}`;
+      filterHTML += `
+        <label class="compact-term-pill unselected" title="${suggestion.description}: ${suggestion.term}">
+          <input type="checkbox" 
+                 class="smart-checkbox" 
+                 value="${suggestion.term}" 
+                 data-type="${suggestion.type}"
+                 data-core="${suggestion.isCore || false}"
+                 id="${checkboxId}">
+          <span class="term-text">${suggestion.term}</span>
+        </label>`;
+    });
+    
+    // Add "+X fler" indicator if there are more terms
+    const remainingCount = unselectedTerms.length - maxUnselected;
+    if (remainingCount > 0) {
+      filterHTML += `
+        <button class="more-terms-btn" type="button" title="Visa ${remainingCount} fler söktermer">
+          +${remainingCount} fler →
+        </button>`;
+    }
+    
+    filterHTML += `
+              </div>
+            </div>
+            <div class="search-status-mini">
+              <span class="loading-indicator" id="filter-loading" style="display: none;">🔄</span>
+            </div>
           </div>
-        </div>
-        <div class="filter-status">
-          <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Du har full kontroll - kryssa ur ALLA termer (även AI-förslag) om du vill</span>
         </div>
       </div>`;
     
@@ -1221,53 +1426,68 @@ export class DashboardManager {
     
     let filterHTML = `
       <div class="search-filter-section">
-        <div class="filter-header">
-          <h4 class="filter-title">🧠 AI-smarta sökförslag</h4>
-          <div class="filter-description">Anpassa alla termer efter behov - du har full kontroll över sökningen</div>
-        </div>
-        <div class="smart-suggestions">
-          <div class="current-query-display">
-            <span class="current-label">Nuvarande:</span>
-            <span class="current-query" id="current-search-display">"${currentQuery}"</span>
-          </div>
-          <div class="suggestion-controls">`;
+        <div class="ultra-compact-floating-header">
+          <div class="floating-search-bar">
+            <span class="search-icon">🔍</span>
+            <div class="compact-terms-container">
+              <div class="selected-terms">`;
     
-    smartSuggestions.forEach(suggestion => {
-      const priority = this.getSuggestionPriority(suggestion);
-      const icon = this.getTypeIcon(suggestion.type);
-      
-      // CRITICAL FIX: Check if this is a core term even in legacy mode
-      const isCore = this.isWatchBrand(suggestion.term) || 
-                     suggestion.type === 'artist' || 
-                     suggestion.type === 'brand' ||
-                     (suggestion.term.toLowerCase() === 'omega'); // Explicit check for Omega
-      
-      // CRITICAL FIX: Override priority for core terms
-      const finalPriority = isCore ? 'priority-core' : priority;
-      const coreClass = isCore ? 'core-term' : '';
-      // REMOVED: No more disabled attributes - users have full control
-      const coreTitle = isCore ? ' (AI-rekommenderad som viktig - du kan ändra)' : '';
-      
+    // First pass: Add selected (checked) terms with blue styling
+    const selectedTerms = smartSuggestions.filter(suggestion => suggestion.isSelected);
+    const unselectedTerms = smartSuggestions.filter(suggestion => !suggestion.isSelected);
+    
+    selectedTerms.forEach((suggestion, index) => {
+      const checkboxId = `smart-suggestion-selected-${index}`;
       filterHTML += `
-        <label class="smart-suggestion-checkbox ${finalPriority} ${coreClass}" 
-               title="${suggestion.description || suggestion.term}${coreTitle}">
+        <label class="compact-term-pill selected" title="${suggestion.description}: ${suggestion.term}">
           <input type="checkbox" 
                  class="smart-checkbox" 
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
-                 data-core="${isCore}"
-                 ${suggestion.preSelected ? 'checked' : ''}>
-          <span class="suggestion-text">${suggestion.term}</span>
-          <span class="suggestion-type">${icon}</span>
+                 data-core="${suggestion.isCore || false}"
+                 id="${checkboxId}"
+                 checked>
+          <span class="term-text">${suggestion.term}</span>
         </label>`;
     });
     
     filterHTML += `
+              </div>
+              <div class="term-separator">|</div>
+              <div class="unselected-terms">`;
+    
+    // Second pass: Add unselected terms (max 3 to save space)
+    const maxUnselected = 3;
+    unselectedTerms.slice(0, maxUnselected).forEach((suggestion, index) => {
+      const checkboxId = `smart-suggestion-unselected-${index}`;
+      filterHTML += `
+        <label class="compact-term-pill unselected" title="${suggestion.description}: ${suggestion.term}">
+          <input type="checkbox" 
+                 class="smart-checkbox" 
+                 value="${suggestion.term}" 
+                 data-type="${suggestion.type}"
+                 data-core="${suggestion.isCore || false}"
+                 id="${checkboxId}">
+          <span class="term-text">${suggestion.term}</span>
+        </label>`;
+    });
+    
+    // Add "+X fler" indicator if there are more terms
+    const remainingCount = unselectedTerms.length - maxUnselected;
+    if (remainingCount > 0) {
+      filterHTML += `
+        <button class="more-terms-btn" type="button" title="Visa ${remainingCount} fler söktermer">
+          +${remainingCount} fler →
+        </button>`;
+    }
+    
+    filterHTML += `
+              </div>
+            </div>
+            <div class="search-status-mini">
+              <span class="loading-indicator" id="filter-loading" style="display: none;">🔄</span>
+            </div>
           </div>
-        </div>
-        <div class="filter-status">
-          <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Du har full kontroll - kryssa ur ALLA termer (även AI-förslag) om du vill</span>
         </div>
       </div>`;
     
@@ -1413,6 +1633,176 @@ export class DashboardManager {
           gap: 8px;
         }
         
+        /* 🖥️ NEW: Desktop-Optimized Header Layout */
+        .header-left-section {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex: 1;
+          min-width: 300px;
+        }
+        
+        .header-right-section {
+          display: flex;
+          align-items: center;
+          flex-shrink: 0;
+        }
+        
+        /* 💊 NEW: Header-Integrated Pills - Desktop Optimized */
+        .header-pills-container {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        
+        .header-pill {
+          display: inline-flex;
+          align-items: center;
+          height: 24px;
+          padding: 0 10px;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          font-size: 11px;
+          font-weight: 500;
+          line-height: 1;
+          white-space: nowrap;
+          border: none;
+          text-decoration: none;
+        }
+        
+        .header-pill input[type="checkbox"] {
+          display: none;
+        }
+        
+        .pill-text {
+          font-weight: inherit;
+          letter-spacing: -0.01em;
+        }
+        
+        /* ✅ Selected Header Pills - Premium Blue */
+        .header-pill.selected {
+          background: linear-gradient(135deg, #007cba 0%, #0099e6 100%);
+          color: white;
+          font-weight: 600;
+          box-shadow: 0 1px 3px rgba(0, 124, 186, 0.25);
+        }
+        
+        .header-pill.selected:hover {
+          background: linear-gradient(135deg, #006ba6 0%, #0088cc 100%);
+          box-shadow: 0 2px 6px rgba(0, 124, 186, 0.35);
+          transform: translateY(-1px);
+        }
+        
+        .header-pill.selected .pill-text {
+          color: white;
+          text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* ⚪ Unselected Header Pills - Elegant Gray */
+        .header-pill.unselected {
+          background: rgba(248, 250, 252, 0.9);
+          color: #64748b;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+        
+        .header-pill.unselected:hover {
+          background: rgba(241, 245, 249, 1);
+          color: #475569;
+          border-color: rgba(203, 213, 225, 1);
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* 🔢 Header Expand Button */
+        .header-expand-btn {
+          display: inline-flex;
+          align-items: center;
+          height: 24px;
+          padding: 0 8px;
+          background: rgba(249, 250, 251, 0.9);
+          border: 1px solid rgba(229, 231, 235, 0.8);
+          border-radius: 12px;
+          color: #6b7280;
+          font-size: 10px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          white-space: nowrap;
+        }
+        
+        .header-expand-btn:hover {
+          background: rgba(243, 244, 246, 1);
+          border-color: rgba(209, 213, 219, 1);
+          color: #374151;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* 🔙 Header Collapse Button */
+        .header-collapse-btn {
+          display: inline-flex;
+          align-items: center;
+          height: 24px;
+          padding: 0 8px;
+          background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+          border: 1px solid rgba(156, 163, 175, 0.8);
+          border-radius: 12px;
+          color: #374151;
+          font-size: 10px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          white-space: nowrap;
+          margin-left: 8px;
+        }
+        
+        .header-collapse-btn:hover {
+          background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+          border-color: rgba(107, 114, 128, 0.9);
+          color: #1f2937;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 📱 Responsive: Stack on smaller screens */
+        @media (max-width: 1200px) {
+          .market-dashboard-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          
+          .header-left-section {
+            width: 100%;
+          }
+          
+          .header-right-section {
+            width: 100%;
+            justify-content: flex-start;
+          }
+          
+          .header-pills-container {
+            width: 100%;
+          }
+        }
+        
+        /* 📱 Mobile: Further adjustments */
+        @media (max-width: 768px) {
+          .header-pill {
+            height: 22px;
+            padding: 0 8px;
+            font-size: 10px;
+          }
+          
+          .header-expand-btn {
+            height: 22px;
+            padding: 0 6px;
+            font-size: 9px;
+          }
+        }
+        
         .market-dashboard-title {
           font-weight: 600;
           font-size: 13px;
@@ -1423,13 +1813,10 @@ export class DashboardManager {
           display: flex;
           align-items: center;
           gap: 4px;
-          flex: 1;
-          justify-content: center;
           background: #f8f9fa;
           padding: 4px 8px;
           border-radius: 4px;
           border: 1px solid #e9ecef;
-          min-width: 200px;
         }
         
         .query-label {
@@ -1459,6 +1846,9 @@ export class DashboardManager {
           font-size: 10px;
           color: #6c757d;
           opacity: 0.8;
+          position: absolute;
+          top: 4px;
+          right: 12px;
         }
         
         .market-dashboard-content {
@@ -1882,6 +2272,248 @@ export class DashboardManager {
           font-style: italic;
           margin-left: 4px;
         }
+        
+        /* ✨ ULTRA-COMPACT FLOATING HEADER BAR - 2025 Scandinavian Design ✨ */
+        .ultra-compact-floating-header {
+          position: relative;
+          margin: 0 0 16px 0;
+          z-index: 100;
+        }
+        
+        .floating-search-bar {
+          display: flex;
+          align-items: center;
+          height: 32px;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(229, 231, 235, 0.8);
+          border-radius: 16px;
+          padding: 0 12px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.05);
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        }
+        
+        .floating-search-bar:hover {
+          background: rgba(255, 255, 255, 0.98);
+          border-color: rgba(0, 124, 186, 0.3);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.1);
+          transform: translateY(-0.5px);
+        }
+        
+        .search-icon {
+          font-size: 12px;
+          margin-right: 8px;
+          opacity: 0.7;
+          transition: opacity 0.2s ease;
+        }
+        
+        .floating-search-bar:hover .search-icon {
+          opacity: 1;
+        }
+        
+        .compact-terms-container {
+          display: flex;
+          align-items: center;
+          flex: 1;
+          gap: 8px;
+          overflow: hidden;
+          min-width: 0;
+        }
+        
+        .selected-terms, .unselected-terms {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+        }
+        
+        .selected-terms {
+          flex-shrink: 0;
+        }
+        
+        .unselected-terms {
+          overflow-x: auto;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        
+        .unselected-terms::-webkit-scrollbar {
+          display: none;
+        }
+        
+        .term-separator {
+          color: rgba(156, 163, 175, 0.6);
+          font-size: 12px;
+          font-weight: 300;
+          margin: 0 4px;
+          flex-shrink: 0;
+        }
+        
+        /* 🎯 Compact Term Pills - Pure Scandinavian Minimalism */
+        .compact-term-pill {
+          display: inline-flex;
+          align-items: center;
+          height: 20px;
+          padding: 0 8px;
+          background: transparent;
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          text-decoration: none;
+          font-size: 11px;
+          font-weight: 500;
+          line-height: 1;
+          white-space: nowrap;
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .compact-term-pill input[type="checkbox"] {
+          display: none;
+        }
+        
+        .term-text {
+          transition: all 0.2s ease;
+          font-weight: inherit;
+          letter-spacing: -0.01em;
+        }
+        
+        /* ✅ Selected Terms - Beautiful Blue Scandinavian Styling */
+        .compact-term-pill.selected {
+          background: linear-gradient(135deg, #007cba 0%, #0099e6 100%);
+          color: white;
+          font-weight: 600;
+          box-shadow: 0 1px 2px rgba(0, 124, 186, 0.2);
+        }
+        
+        .compact-term-pill.selected:hover {
+          background: linear-gradient(135deg, #006ba6 0%, #0088cc 100%);
+          box-shadow: 0 2px 4px rgba(0, 124, 186, 0.3);
+          transform: translateY(-0.5px);
+        }
+        
+        .compact-term-pill.selected .term-text {
+          color: white;
+          text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* ⚪ Unselected Terms - Subtle Gray Scandinavian Styling */
+        .compact-term-pill.unselected {
+          background: rgba(248, 250, 252, 0.8);
+          color: #64748b;
+          border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        
+        .compact-term-pill.unselected:hover {
+          background: rgba(241, 245, 249, 0.9);
+          color: #475569;
+          border-color: rgba(203, 213, 225, 0.9);
+          transform: translateY(-0.5px);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        
+        .compact-term-pill.unselected .term-text {
+          color: inherit;
+        }
+        
+        /* 🔗 More Terms Button - Clean Expansion Trigger */
+        .more-terms-btn {
+          display: inline-flex;
+          align-items: center;
+          height: 20px;
+          padding: 0 8px;
+          background: rgba(249, 250, 251, 0.8);
+          border: 1px solid rgba(229, 231, 235, 0.6);
+          border-radius: 10px;
+          color: #6b7280;
+          font-size: 10px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          white-space: nowrap;
+          letter-spacing: -0.01em;
+        }
+        
+        .more-terms-btn:hover {
+          background: rgba(243, 244, 246, 0.9);
+          border-color: rgba(209, 213, 219, 0.8);
+          color: #374151;
+          transform: translateY(-0.5px);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        
+        /* 🔄 Minimal Loading Indicator */
+        .search-status-mini {
+          display: flex;
+          align-items: center;
+          margin-left: 8px;
+          flex-shrink: 0;
+        }
+        
+        .search-status-mini .loading-indicator {
+          font-size: 11px;
+          color: #007cba;
+          opacity: 0.8;
+          animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 1; }
+        }
+        
+        /* 📱 Responsive Behavior - Mobile Optimization */
+        @media (max-width: 768px) {
+          .floating-search-bar {
+            padding: 0 8px;
+          }
+          
+          .compact-terms-container {
+            gap: 6px;
+          }
+          
+          .selected-terms, .unselected-terms {
+            gap: 3px;
+          }
+          
+          .compact-term-pill {
+            height: 18px;
+            padding: 0 6px;
+            font-size: 10px;
+          }
+          
+          .more-terms-btn {
+            height: 18px;
+            padding: 0 6px;
+            font-size: 9px;
+          }
+        }
+        
+        /* ✨ Micro-Interactions - Scandinavian Polish */
+        .compact-term-pill::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
+          opacity: 0;
+          transition: opacity 0.2s ease;
+          border-radius: inherit;
+        }
+        
+        .compact-term-pill:hover::before {
+          opacity: 1;
+        }
+        
+        /* Remove old smart suggestion styles */
+        .smart-suggestions, .current-query-display, .suggestion-controls, 
+        .smart-suggestion-checkbox, .filter-status, .filter-header {
+          display: none !important;
+        }
       `;
       document.head.appendChild(style);
   }
@@ -2122,53 +2754,68 @@ export class DashboardManager {
     
     let filterHTML = `
       <div class="search-filter-section">
-        <div class="filter-header">
-          <h4 class="filter-title">🧠 AI-smarta sökförslag</h4>
-          <div class="filter-description">Anpassa alla termer efter behov - du har full kontroll över sökningen</div>
-        </div>
-        <div class="smart-suggestions">
-          <div class="current-query-display">
-            <span class="current-label">Nuvarande:</span>
-            <span class="current-query" id="current-search-display">"${currentQuery}"</span>
-          </div>
-          <div class="suggestion-controls">`;
-
-    smartSuggestions.forEach(suggestion => {
-      const priority = this.getSuggestionPriority(suggestion);
-      const icon = this.getTypeIcon(suggestion.type);
-      
-      // CRITICAL FIX: Check if this is a core term even in legacy mode
-      const isCore = this.isWatchBrand(suggestion.term) || 
-                     suggestion.type === 'artist' || 
-                     suggestion.type === 'brand' ||
-                     (suggestion.term.toLowerCase() === 'omega'); // Explicit check for Omega
-      
-      // CRITICAL FIX: Override priority for core terms
-      const finalPriority = isCore ? 'priority-core' : priority;
-      const coreClass = isCore ? 'core-term' : '';
-      // REMOVED: No more disabled attributes - users have full control
-      const coreTitle = isCore ? ' (AI-rekommenderad som viktig - du kan ändra)' : '';
-      
+        <div class="ultra-compact-floating-header">
+          <div class="floating-search-bar">
+            <span class="search-icon">🔍</span>
+            <div class="compact-terms-container">
+              <div class="selected-terms">`;
+    
+    // First pass: Add selected (checked) terms with blue styling
+    const selectedTerms = smartSuggestions.filter(suggestion => suggestion.isSelected);
+    const unselectedTerms = smartSuggestions.filter(suggestion => !suggestion.isSelected);
+    
+    selectedTerms.forEach((suggestion, index) => {
+      const checkboxId = `smart-suggestion-selected-${index}`;
       filterHTML += `
-        <label class="smart-suggestion-checkbox ${finalPriority} ${coreClass}" 
-               title="${suggestion.description || suggestion.term}${coreTitle}">
+        <label class="compact-term-pill selected" title="${suggestion.description}: ${suggestion.term}">
           <input type="checkbox" 
                  class="smart-checkbox" 
                  value="${suggestion.term}" 
                  data-type="${suggestion.type}"
-                 data-core="${isCore}"
-                 ${suggestion.preSelected ? 'checked' : ''}>
-          <span class="suggestion-text">${suggestion.term}</span>
-          <span class="suggestion-type">${icon}</span>
+                 data-core="${suggestion.isCore || false}"
+                 id="${checkboxId}"
+                 checked>
+          <span class="term-text">${suggestion.term}</span>
         </label>`;
     });
     
     filterHTML += `
+              </div>
+              <div class="term-separator">|</div>
+              <div class="unselected-terms">`;
+    
+    // Second pass: Add unselected terms (max 3 to save space)
+    const maxUnselected = 3;
+    unselectedTerms.slice(0, maxUnselected).forEach((suggestion, index) => {
+      const checkboxId = `smart-suggestion-unselected-${index}`;
+      filterHTML += `
+        <label class="compact-term-pill unselected" title="${suggestion.description}: ${suggestion.term}">
+          <input type="checkbox" 
+                 class="smart-checkbox" 
+                 value="${suggestion.term}" 
+                 data-type="${suggestion.type}"
+                 data-core="${suggestion.isCore || false}"
+                 id="${checkboxId}">
+          <span class="term-text">${suggestion.term}</span>
+        </label>`;
+    });
+    
+    // Add "+X fler" indicator if there are more terms
+    const remainingCount = unselectedTerms.length - maxUnselected;
+    if (remainingCount > 0) {
+      filterHTML += `
+        <button class="more-terms-btn" type="button" title="Visa ${remainingCount} fler söktermer">
+          +${remainingCount} fler →
+        </button>`;
+    }
+    
+    filterHTML += `
+              </div>
+            </div>
+            <div class="search-status-mini">
+              <span class="loading-indicator" id="filter-loading" style="display: none;">🔄</span>
+            </div>
           </div>
-        </div>
-        <div class="filter-status">
-          <span class="loading-indicator" id="filter-loading" style="display: none;">🔄 Uppdaterar analys...</span>
-          <span class="update-status" id="filter-status">Du har full kontroll - kryssa ur ALLA termer (även AI-förslag) om du vill</span>
         </div>
       </div>`;
     
@@ -2315,5 +2962,134 @@ export class DashboardManager {
     }
     
     console.log('⚠️ No SearchQuerySSoT reference found - please refresh page');
+  }
+
+  // NEW: Generate header-integrated pills for desktop optimization
+  generateHeaderIntegratedPills() {
+    console.log('🖥️ Generating desktop-optimized header pills...');
+    
+    // Check if we have SearchQueryManager available
+    if (!this.searchQuerySSoT) {
+      console.log('⚠️ SearchQuerySSoT not available for header pills');
+      return '<div class="header-pills-placeholder">Söktermer ej tillgängliga</div>';
+    }
+    
+    const availableTerms = this.searchQuerySSoT.getAvailableTerms();
+    
+    if (availableTerms.length === 0) {
+      console.log('⚠️ No available terms for header pills');
+      return '<div class="header-pills-placeholder">Inga söktermer tillgängliga</div>';
+    }
+    
+    console.log('🎯 Creating desktop header pills with', availableTerms.length, 'terms');
+    
+    // AI-POWERED SMART SUGGESTIONS: Select top terms for header
+    const headerSuggestions = this.selectHeaderSuggestions(availableTerms);
+    
+    let headerPillsHTML = '<div class="header-pills-container">';
+    
+    // Split into selected and unselected for proper visual hierarchy
+    const selectedTerms = headerSuggestions.filter(term => term.isSelected);
+    const unselectedTerms = headerSuggestions.filter(term => !term.isSelected);
+    
+    // Add selected terms first (blue pills)
+    selectedTerms.forEach((term, index) => {
+      const checkboxId = `header-pill-selected-${index}`;
+      headerPillsHTML += `
+        <label class="header-pill selected" title="${term.description || 'Klicka för att ta bort'}: ${term.term}">
+          <input type="checkbox" 
+                 class="smart-checkbox header-checkbox" 
+                 value="${term.term}" 
+                 data-type="${term.type}"
+                 data-core="${term.isCore || false}"
+                 id="${checkboxId}"
+                 checked>
+          <span class="pill-text">${term.term}</span>
+        </label>`;
+    });
+    
+    // Add unselected terms (max 4 for header space)
+    const maxUnselectedInHeader = 4;
+    unselectedTerms.slice(0, maxUnselectedInHeader).forEach((term, index) => {
+      const checkboxId = `header-pill-unselected-${index}`;
+      headerPillsHTML += `
+        <label class="header-pill unselected" title="${term.description || 'Klicka för att lägga till'}: ${term.term}">
+          <input type="checkbox" 
+                 class="smart-checkbox header-checkbox" 
+                 value="${term.term}" 
+                 data-type="${term.type}"
+                 data-core="${term.isCore || false}"
+                 id="${checkboxId}">
+          <span class="pill-text">${term.term}</span>
+        </label>`;
+    });
+    
+    // Add expand indicator if there are more terms
+    const remainingCount = unselectedTerms.length - maxUnselectedInHeader;
+    if (remainingCount > 0) {
+      headerPillsHTML += `
+        <button class="header-expand-btn" type="button" title="Visa ${remainingCount} fler söktermer">
+          +${remainingCount}
+        </button>`;
+    }
+    
+    headerPillsHTML += '</div>';
+    
+    console.log('✅ Desktop header pills generated successfully');
+    return headerPillsHTML;
+  }
+  
+  // NEW: Select optimal terms for header display
+  selectHeaderSuggestions(availableTerms) {
+    console.log('🎯 Selecting optimal terms for desktop header display...');
+    
+    // CRITICAL FIX: Filter out invalid terms before processing
+    const validTerms = availableTerms.filter(term => {
+      if (!term || typeof term.term !== 'string' || term.term.trim() === '') {
+        console.warn('🚨 FILTERING OUT INVALID HEADER TERM:', term);
+        return false;
+      }
+      return true;
+    });
+    
+    // Get selected terms from SSoT
+    const ssotSelectedTerms = this.searchQuerySSoT.getSelectedTerms() || [];
+    
+    // Mark terms as selected based on SSoT state
+    validTerms.forEach(term => {
+      term.isSelected = ssotSelectedTerms.some(selectedTerm => 
+        selectedTerm && typeof selectedTerm === 'string' &&
+        selectedTerm.toLowerCase() === term.term.toLowerCase()
+      );
+      
+      // Check if it's a core term
+      if (this.searchQuerySSoT.isCoreSearchTerm(term.term)) {
+        term.isCore = true;
+      }
+    });
+    
+    // Split into selected and unselected
+    const selectedTerms = validTerms.filter(term => term.isSelected);
+    const unselectedTerms = validTerms.filter(term => !term.isSelected);
+    
+    // Sort unselected by priority for best desktop experience
+    const sortedUnselected = unselectedTerms
+      .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    
+    // Combine with smart limits for header display (max 8 total for desktop)
+    const maxTotalInHeader = 8;
+    const maxUnselectedInHeader = Math.max(1, maxTotalInHeader - selectedTerms.length);
+    
+    const headerSuggestions = [
+      ...selectedTerms,
+      ...sortedUnselected.slice(0, maxUnselectedInHeader)
+    ];
+    
+    console.log('🖥️ Header suggestions selected:');
+    console.log(`   Selected: ${selectedTerms.length}`);
+    console.log(`   Unselected: ${Math.min(maxUnselectedInHeader, sortedUnselected.length)}`);
+    console.log(`   Total in header: ${headerSuggestions.length}`);
+    
+    return headerSuggestions;
   }
 } 
