@@ -19,6 +19,7 @@ export class AddItemsTooltipManager {
     // NEW: Permanent tooltip state management
     this.permanentlyDisabledTooltips = new Set(); // Never rerun until page reload
     this.lastFieldValues = new Map(); // Track field changes for artist detection exception
+    this.isProgrammaticUpdate = false; // Track when we're updating fields programmatically
     
     this.analysisTimeout = null;
     this.artistDetectionTimeout = null;
@@ -680,6 +681,9 @@ export class AddItemsTooltipManager {
     console.log('🔍 Suggested title:', suggestedTitle);
     
     try {
+      // NEW: Set programmatic update flag to prevent re-enabling artist detection
+      this.isProgrammaticUpdate = true;
+      
       // Find artist field using same selectors as quality analyzer
       const artistFieldSelectors = [
         '#item_artist_name_sv',
@@ -813,6 +817,10 @@ export class AddItemsTooltipManager {
         fieldMappings: this.fieldMappings
       });
       this.showErrorFeedback(`Fel vid flytt av konstnär: ${error.message}`);
+    } finally {
+      // NEW: Always clear programmatic update flag
+      this.isProgrammaticUpdate = false;
+      console.log('🔓 Cleared programmatic update flag');
     }
   }
 
@@ -1462,19 +1470,30 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     
     const field = document.querySelector(fieldMap[fieldType]);
     if (field && value) {
-      field.value = value;
-      field.dispatchEvent(new Event('change', { bubbles: true }));
-      field.classList.add('ai-updated');
+      // NEW: Set programmatic update flag for AI improvements
+      this.isProgrammaticUpdate = true;
       
-      // Auto-resize textarea if needed (especially for description)
-      if (field.tagName.toLowerCase() === 'textarea') {
-        // Use setTimeout to ensure the value is fully applied before resizing
+      try {
+        field.value = value;
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        field.classList.add('ai-updated');
+        
+        // Auto-resize textarea if needed (especially for description)
+        if (field.tagName.toLowerCase() === 'textarea') {
+          // Use setTimeout to ensure the value is fully applied before resizing
+          setTimeout(() => {
+            this.autoResizeTextarea(field);
+          }, 50);
+        }
+        
+        console.log(`✅ Applied improvement to ${fieldType}`);
+      } finally {
+        // Clear flag after a short delay to ensure all events have processed
         setTimeout(() => {
-          this.autoResizeTextarea(field);
-        }, 50);
+          this.isProgrammaticUpdate = false;
+          console.log('🔓 Cleared programmatic update flag after AI improvement');
+        }, 100);
       }
-      
-      console.log(`✅ Applied improvement to ${fieldType}`);
     }
   }
 
@@ -4275,10 +4294,16 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
     
     if (lastArtist !== currentArtist) {
       console.log(`🎯 Artist field changed: "${lastArtist}" → "${currentArtist}"`);
-      // Allow artist detection to run again if artist field changed
-      if (this.permanentlyDisabledTooltips.has('artist-detection')) {
-        this.permanentlyDisabledTooltips.delete('artist-detection');
-        console.log('🔓 Re-enabled artist detection due to artist field change');
+      
+      // FIXED: Only re-enable if this is NOT a programmatic update from our system
+      if (!this.isProgrammaticUpdate) {
+        // Allow artist detection to run again if artist field changed manually
+        if (this.permanentlyDisabledTooltips.has('artist-detection')) {
+          this.permanentlyDisabledTooltips.delete('artist-detection');
+          console.log('🔓 Re-enabled artist detection due to manual artist field change');
+        }
+      } else {
+        console.log('🔒 Ignoring programmatic artist field change - keeping tooltip disabled');
       }
     }
     
