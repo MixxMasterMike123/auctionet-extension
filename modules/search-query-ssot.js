@@ -584,82 +584,105 @@ export class SearchQuerySSoT {
   updateUserSelections(selectedTerms) {
     console.log('🔄 SSoT: Updating user selections:', selectedTerms);
     
-    // ABSOLUTE ARTIST PRIORITY RULE: Always preserve artist terms
+    // NEW: Respect user deselection of artist terms
     const currentAvailableTerms = this.availableTerms || [];
-    console.log('🔍 DEBUG: Available terms for artist detection:', currentAvailableTerms.map(t => `"${t.term}" (type: ${t.type}, category: ${t.category || 'none'}, source: ${t.source || 'none'})`));
+    console.log('🔍 DEBUG: Available terms for processing:', currentAvailableTerms.map(t => `"${t.term}" (type: ${t.type}, category: ${t.category || 'none'}, source: ${t.source || 'none'})`));
     
-    // ENHANCED ARTIST DETECTION: Multiple criteria for maximum coverage
-    const artistTerms = currentAvailableTerms.filter(term => {
+    // Identify ALL potential artist terms from available terms
+    const potentialArtistTerms = currentAvailableTerms.filter(term => {
       // Method 1: Explicit type or category
       if (term.type === 'artist' || term.category === 'artist') {
-        console.log(`🎯 ARTIST DETECTED (type/category): "${term.term}"`);
         return true;
       }
       
       // Method 2: Source indicates AI-detected artist
       if (term.source === 'ai_detected' || term.source === 'artist_field') {
-        console.log(`🎯 ARTIST DETECTED (source): "${term.term}"`);
         return true;
       }
       
       // Method 3: Quoted terms are likely artist names
       if (term.term && term.term.includes('"')) {
-        console.log(`🎯 ARTIST DETECTED (quoted): "${term.term}"`);
         return true;
       }
       
       // Method 4: High priority terms that are likely artists
       if (term.priority && term.priority >= 95) {
-        console.log(`🎯 ARTIST DETECTED (high priority): "${term.term}"`);
         return true;
       }
       
       // Method 5: Check if term looks like a person's name (has capital letters in middle)
       if (term.term && /^[A-Z][a-z]+ [A-Z][a-z]+/.test(term.term)) {
-        console.log(`🎯 ARTIST DETECTED (name pattern): "${term.term}"`);
         return true;
       }
       
       return false;
     });
     
-    console.log('🎯 ABSOLUTE PRIORITY: Found artist terms to preserve:', artistTerms.map(t => t.term));
+    console.log('🎯 IDENTIFIED: Potential artist terms:', potentialArtistTerms.map(t => t.term));
     
-    // FALLBACK: If no artists found in availableTerms, check current terms for quoted ones
-    if (artistTerms.length === 0 && this.currentTerms) {
+    // NEW: Check which artist terms the USER explicitly selected
+    const userSelectedArtistTerms = potentialArtistTerms.filter(artistTerm => 
+      selectedTerms.includes(artistTerm.term)
+    );
+    
+    const userDeselectedArtistTerms = potentialArtistTerms.filter(artistTerm => 
+      !selectedTerms.includes(artistTerm.term)
+    );
+    
+    console.log('👤 USER SELECTED artist terms:', userSelectedArtistTerms.map(t => t.term));
+    console.log('👤 USER DESELECTED artist terms:', userDeselectedArtistTerms.map(t => t.term));
+    
+    // FALLBACK: If no potential artists found in availableTerms, check current terms for quoted ones
+    if (potentialArtistTerms.length === 0 && this.currentTerms) {
       const quotedCurrentTerms = this.currentTerms.filter(term => term.includes('"'));
       if (quotedCurrentTerms.length > 0) {
-        console.log('🎯 FALLBACK: Found quoted terms in current terms to preserve:', quotedCurrentTerms);
+        console.log('🎯 FALLBACK: Found quoted terms in current terms:', quotedCurrentTerms);
         quotedCurrentTerms.forEach(quotedTerm => {
-          artistTerms.push({
-            term: quotedTerm,
-            type: 'artist',
-            source: 'fallback_quoted'
-          });
+          // Only preserve quoted terms that user explicitly selected
+          if (selectedTerms.includes(quotedTerm)) {
+            userSelectedArtistTerms.push({
+              term: quotedTerm,
+              type: 'artist',
+              source: 'fallback_quoted'
+            });
+            console.log(`🎯 FALLBACK PRESERVED: "${quotedTerm}" (user selected)`);
+          } else {
+            console.log(`👤 FALLBACK DESELECTED: "${quotedTerm}" (user choice respected)`);
+          }
         });
       }
     }
     
-    // Create final selected terms with artists always included
+    // Create final selected terms respecting user choices
     const finalSelectedTerms = [];
     
-    // STEP 1: Add all artist terms first (ABSOLUTE PRIORITY)
-    artistTerms.forEach(artistTerm => {
+    // STEP 1: Add user-selected artist terms (respects user control)
+    userSelectedArtistTerms.forEach(artistTerm => {
       if (!finalSelectedTerms.includes(artistTerm.term)) {
         finalSelectedTerms.push(artistTerm.term);
-        console.log(`🎯 PRESERVED: Artist "${artistTerm.term}" (absolute priority - cannot be deselected)`);
+        console.log(`🎯 USER KEPT: Artist "${artistTerm.term}" (user explicitly selected)`);
       }
+    });
+    
+    // Log deselected artists for transparency
+    userDeselectedArtistTerms.forEach(artistTerm => {
+      console.log(`👤 USER REMOVED: Artist "${artistTerm.term}" (user choice respected for market analysis)`);
     });
     
     // STEP 2: Add user-selected non-artist terms
     selectedTerms.forEach(term => {
+      // Skip if already added as artist term
       if (!finalSelectedTerms.includes(term)) {
-        finalSelectedTerms.push(term);
-        console.log(`👤 USER SELECTED: "${term}"`);
+        // Check if this is a non-artist term
+        const isArtistTerm = potentialArtistTerms.some(artistTerm => artistTerm.term === term);
+        if (!isArtistTerm) {
+          finalSelectedTerms.push(term);
+          console.log(`👤 USER SELECTED: Non-artist term "${term}"`);
+        }
       }
     });
     
-    console.log('🔒 FINAL TERMS (artists + user selections):', finalSelectedTerms);
+    console.log('✅ FINAL TERMS (respecting user control):', finalSelectedTerms);
     
     if (!finalSelectedTerms || finalSelectedTerms.length === 0) {
       console.log('⚠️ SSoT: No terms selected - clearing query');
@@ -671,7 +694,7 @@ export class SearchQuerySSoT {
         termObj.isSelected = false;
       });
     } else {
-      console.log('✅ SSoT: Setting query from final terms (artists preserved)');
+      console.log('✅ SSoT: Setting query from user-controlled terms');
       this.currentQuery = finalSelectedTerms.join(' ');
       this.currentTerms = [...finalSelectedTerms];
       
@@ -681,22 +704,54 @@ export class SearchQuerySSoT {
       });
     }
     
-    // Update metadata
+    // Update metadata with better reasoning
     this.currentMetadata.source = 'user_selection';
     this.currentMetadata.timestamp = Date.now();
-    this.currentMetadata.reasoning = `User selected: ${selectedTerms.join(', ') || 'none'} + preserved artists: ${artistTerms.map(t => t.term).join(', ') || 'none'}`;
     
-    console.log('🔄 SSoT: Updated selection state (WITH ARTIST PRESERVATION)');
+    const selectedArtists = userSelectedArtistTerms.map(t => t.term);
+    const deselectedArtists = userDeselectedArtistTerms.map(t => t.term);
+    const nonArtistTerms = selectedTerms.filter(term => 
+      !potentialArtistTerms.some(artistTerm => artistTerm.term === term)
+    );
+    
+    let reasoningParts = [];
+    if (selectedArtists.length > 0) reasoningParts.push(`kept artists: ${selectedArtists.join(', ')}`);
+    if (deselectedArtists.length > 0) reasoningParts.push(`removed artists: ${deselectedArtists.join(', ')}`);
+    if (nonArtistTerms.length > 0) reasoningParts.push(`other terms: ${nonArtistTerms.join(', ')}`);
+    
+    this.currentMetadata.reasoning = reasoningParts.length > 0 ? 
+      `User selections - ${reasoningParts.join(' | ')}` : 
+      'User cleared all selections';
+    
+    console.log('🔄 SSoT: Updated selection state (RESPECTING USER CONTROL)');
     console.log('   Current query:', this.currentQuery);
     console.log('   Selected terms:', this.currentTerms.length);
     console.log('   Available terms state:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
+    console.log('   User reasoning:', this.currentMetadata.reasoning);
     
     // Notify listeners of the change
     this.notifyListeners('user_selection_updated', {
       query: this.currentQuery,
       selectedTerms: this.currentTerms,
-      allTerms: this.availableTerms
+      allTerms: this.availableTerms,
+      deselectedArtists: deselectedArtists.map(t => t.term),
+      selectedArtists: selectedArtists.map(t => t.term)
     });
+    
+    // NEW: Trigger pill synchronization after SSoT updates
+    // This ensures pills always reflect the current SSoT state
+    setTimeout(() => {
+      console.log('🔄 SSoT: Triggering pill synchronization after user selection update...');
+      // Access search filter manager through any available reference
+      if (window.auctionetAssistant && window.auctionetAssistant.searchFilterManager) {
+        const syncResult = window.auctionetAssistant.searchFilterManager.synchronizePillsWithSSoT();
+        if (syncResult && syncResult.mismatchCount > 0) {
+          console.log(`🎯 SSoT: Corrected ${syncResult.mismatchCount} pill states after update`);
+        }
+      } else {
+        console.log('⚠️ SSoT: Search filter manager not accessible for pill synchronization');
+      }
+    }, 100); // Small delay to ensure DOM updates are complete
   }
 
   // NEW: Legacy compatibility methods for dashboard manager

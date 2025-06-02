@@ -98,6 +98,10 @@
         
         this.init();
         this.setupEventListeners();
+        
+        // Make assistant globally accessible for component communication
+        window.auctionetAssistant = this;
+        console.log('✅ Assistant made globally accessible for component communication');
       }
 
       // Inject EXACT CSS from Add Items page for field animations

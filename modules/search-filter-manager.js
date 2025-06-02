@@ -1030,4 +1030,90 @@ export class SearchFilterManager {
       this.dashboardManager.hideDashboardLoading();
     }
   }
+
+  // NEW: Synchronize pill checkbox states with current SSoT selection state
+  synchronizePillsWithSSoT() {
+    console.log('🔄 Synchronizing pill checkboxes with SSoT selection state...');
+    
+    if (!this.searchQuerySSoT) {
+      console.log('❌ SearchQuerySSoT not available for synchronization');
+      return;
+    }
+    
+    // Get current SSoT state
+    const currentTerms = this.searchQuerySSoT.getCurrentTerms() || [];
+    const availableTerms = this.searchQuerySSoT.getAvailableTerms() || [];
+    
+    console.log('🎯 SSoT current terms:', currentTerms);
+    console.log('🎯 SSoT available terms:', availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
+    
+    // Find all pill checkboxes (both regular and header)
+    const allCheckboxes = [
+      ...document.querySelectorAll('.candidate-checkbox'),
+      ...document.querySelectorAll('.candidate-checkbox-header')
+    ];
+    
+    console.log(`🔍 Found ${allCheckboxes.length} pill checkboxes to synchronize`);
+    
+    let syncCount = 0;
+    let mismatchCount = 0;
+    
+    // Synchronize each checkbox with SSoT state
+    allCheckboxes.forEach(checkbox => {
+      const checkboxValue = checkbox.value;
+      const checkboxCurrentState = checkbox.checked;
+      
+      // Check if this term should be selected according to SSoT
+      const shouldBeSelected = availableTerms.some(term => {
+        // Handle quoted terms - compare with and without quotes
+        const termWithoutQuotes = term.term.replace(/"/g, '');
+        const valueWithoutQuotes = checkboxValue.replace(/"/g, '');
+        
+        return (term.term === checkboxValue || 
+                termWithoutQuotes === valueWithoutQuotes ||
+                term.term === valueWithoutQuotes ||
+                termWithoutQuotes === checkboxValue) && 
+               term.isSelected;
+      }) || currentTerms.includes(checkboxValue);
+      
+      // Update checkbox if it doesn't match SSoT state
+      if (checkboxCurrentState !== shouldBeSelected) {
+        console.log(`🔄 SYNC: "${checkboxValue}" ${checkboxCurrentState ? '✓' : '○'} → ${shouldBeSelected ? '✓' : '○'} (SSoT correction)`);
+        checkbox.checked = shouldBeSelected;
+        mismatchCount++;
+      } else {
+        console.log(`✅ SYNC: "${checkboxValue}" ${checkboxCurrentState ? '✓' : '○'} (already correct)`);
+      }
+      
+      syncCount++;
+    });
+    
+    console.log(`✅ Pill synchronization complete: ${syncCount} checkboxes processed, ${mismatchCount} corrections made`);
+    
+    // Trigger display update if there were changes
+    if (mismatchCount > 0) {
+      console.log('🔄 Triggering UI updates after synchronization...');
+      
+      // Update current search display in filter sections
+      const updateCurrentSearchDisplay = () => {
+        const candidateCheckboxes = document.querySelectorAll('.candidate-checkbox');
+        const selectedTerms = [];
+        candidateCheckboxes.forEach(checkbox => {
+          if (checkbox.checked) {
+            selectedTerms.push(checkbox.value);
+          }
+        });
+        
+        const currentSearchDisplay = document.getElementById('current-search-display');
+        if (currentSearchDisplay) {
+          const newQuery = selectedTerms.join(' ');
+          currentSearchDisplay.textContent = `"${newQuery}"`;
+        }
+      };
+      
+      updateCurrentSearchDisplay();
+    }
+    
+    return { syncCount, mismatchCount };
+  }
 } 
