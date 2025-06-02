@@ -357,11 +357,45 @@ export class DashboardManager {
         `${Math.round(exceptional.threshold).toLocaleString()} SEK` : 
         'market threshold';
       
+      // NEW: Generate numbered links to top 4 highest-priced exceptional sales
+      let exceptionalLinksHTML = '';
+      if (exceptional.sales && exceptional.sales.length > 0) {
+        // Sort by price (highest first) and take top 4
+        const topSales = exceptional.sales
+          .filter(sale => sale.url) // Only include sales with valid URLs
+          .sort((a, b) => (b.finalPrice || b.price || 0) - (a.finalPrice || a.price || 0))
+          .slice(0, 4);
+        
+        if (topSales.length > 0) {
+          const linkNumbers = topSales.map((sale, index) => {
+            const price = sale.finalPrice || sale.price || 0;
+            const title = `${price.toLocaleString()} SEK - ${sale.title ? sale.title.substring(0, 60) : 'Auction item'}...`;
+            return `<a href="${sale.url}" target="_blank" title="${title}" style="
+              color: #1976d2; 
+              text-decoration: none; 
+              font-weight: bold; 
+              margin-right: 8px;
+              padding: 2px 6px;
+              border: 1px solid #1976d2;
+              border-radius: 3px;
+              transition: all 0.2s ease;
+            " onmouseover="this.style.backgroundColor='#1976d2'; this.style.color='white';" 
+               onmouseout="this.style.backgroundColor='transparent'; this.style.color='#1976d2';">${index + 1}</a>`;
+          }).join('');
+          
+          exceptionalLinksHTML = `<div style="margin-top: 8px; font-size: 0.9em;">
+            <span style="color: #666; margin-right: 8px;">Se högsta:</span>
+            ${linkNumbers}
+          </div>`;
+        }
+      }
+      
         dashboardContent += `
         <div class="market-item market-exceptional">
           <div class="market-label" title="Särskilt höga bekräftade försäljningar som överträffar normal marknadsnivå">Exceptionella</div>
           <div class="market-value">${exceptionellaCount} exceptionella bekräftade försäljningar över ${thresholdText}</div>
           <div class="market-help">${exceptional.description || 'Bekräftade höga försäljningar'}</div>
+          ${exceptionalLinksHTML}
           </div>
         `;
     }
