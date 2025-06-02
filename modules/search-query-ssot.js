@@ -34,16 +34,24 @@ export class SearchQuerySSoT {
     if (currentQuery) {
       this.currentQuery = currentQuery;
       
-      // CRITICAL FIX: Get original search terms from AI Rules (preserves "Niels Thorsson" as one term)
+      // CRITICAL ENHANCEMENT: Preserve AI-detected quoted artist terms
       const selectedCandidates = candidateTerms.candidates.filter(c => c.preSelected);
       if (selectedCandidates.length > 0) {
-        // Use the original terms from AI Rules selection (preserves artist names)
+        // PRECISION FIX: Use the original terms from AI Rules selection (preserves quoted artist names)
         this.currentTerms = selectedCandidates.map(c => c.term);
-        console.log('✅ SSoT: Using original AI Rules terms (preserves artist names):', this.currentTerms);
+        console.log('✅ SSoT: Using original AI Rules terms (preserves quoted artist names):', this.currentTerms);
+        
+        // LOG AI-detected quoted artists specifically
+        const quotedArtists = this.currentTerms.filter(term => 
+          term.includes('"') && selectedCandidates.find(c => c.term === term && c.source === 'ai_detected')
+        );
+        if (quotedArtists.length > 0) {
+          console.log('🎯 SSoT: AI-detected quoted artists preserved:', quotedArtists);
+        }
       } else {
-        // Fallback: Extract terms from the query by splitting (old behavior)
-        this.currentTerms = currentQuery.split(' ').filter(term => term.trim().length > 0);
-        console.log('⚠️ SSoT: Fallback to splitting query by spaces:', this.currentTerms);
+        // ENHANCED FALLBACK: Smart query parsing that preserves quoted terms
+        this.currentTerms = this.parseQueryPreservingQuotes(currentQuery);
+        console.log('⚠️ SSoT: Fallback to smart query parsing (preserves quotes):', this.currentTerms);
       }
     }
     
@@ -56,12 +64,14 @@ export class SearchQuerySSoT {
       isSelected: candidate.preSelected || false,
       isCore: this.isCoreSearchTerm(candidate.term),
       score: candidate.score || (candidate.preSelected ? 100 : 50),
-      source: candidate.source // CRITICAL FIX: Preserve source for AI artist preservation logic
+      source: candidate.source, // CRITICAL FIX: Preserve source for AI artist preservation logic
+      isPrecisionQuoted: candidate.isPrecisionQuoted || false // NEW: Track precision-quoted terms
     }));
     
     console.log('✅ SSoT: Populated availableTerms with', this.availableTerms.length, 'candidates');
     console.log('📊 Selected terms:', this.availableTerms.filter(t => t.isSelected).length);
     console.log('📊 Unselected terms:', this.availableTerms.filter(t => !t.isSelected).length);
+    console.log('🎯 AI-quoted artists:', this.availableTerms.filter(t => t.isPrecisionQuoted && t.source === 'ai_detected').map(t => t.term));
     
     // Update metadata
     this.currentMetadata = {
@@ -73,12 +83,59 @@ export class SearchQuerySSoT {
       candidateCount: candidateTerms.candidates.length
     };
     
-    console.log('✅ SSoT: Initialization complete with extended candidate terms');
+    console.log('✅ SSoT: Initialization complete with quoted artist preservation');
     this.notifyListeners('initialized', {
       query: this.currentQuery,
       availableTerms: this.availableTerms.length,
       selectedTerms: this.currentTerms.length
     });
+  }
+
+  // NEW: Smart query parsing that preserves quoted terms
+  parseQueryPreservingQuotes(query) {
+    if (!query || typeof query !== 'string') {
+      return [];
+    }
+    
+    console.log('🔧 Parsing query while preserving quoted terms:', query);
+    
+    const terms = [];
+    let currentTerm = '';
+    let insideQuotes = false;
+    let quoteChar = null;
+    
+    for (let i = 0; i < query.length; i++) {
+      const char = query[i];
+      
+      if ((char === '"' || char === "'") && !insideQuotes) {
+        // Starting a quoted term
+        insideQuotes = true;
+        quoteChar = char;
+        currentTerm += char;
+      } else if (char === quoteChar && insideQuotes) {
+        // Ending a quoted term
+        insideQuotes = false;
+        currentTerm += char;
+        quoteChar = null;
+      } else if (char === ' ' && !insideQuotes) {
+        // Space outside quotes - end current term
+        if (currentTerm.trim()) {
+          terms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+      } else {
+        // Regular character
+        currentTerm += char;
+      }
+    }
+    
+    // Add final term if any
+    if (currentTerm.trim()) {
+      terms.push(currentTerm.trim());
+    }
+    
+    console.log('✅ Parsed terms preserving quotes:', terms);
+    return terms;
   }
 
   // MAIN METHOD: Generate and set the authoritative search query
@@ -125,6 +182,65 @@ export class SearchQuerySSoT {
       this.currentTerms = this.currentQuery.split(' ').filter(term => term.trim().length > 0);
       console.log('⚠️ SSoT: Fallback to splitting query by spaces:', this.currentTerms);
     }
+    
+    // CRITICAL ENHANCEMENT: Populate availableTerms from AI rules data for dashboard pills
+    if (queryData.allTerms && Array.isArray(queryData.allTerms)) {
+      // AI rules provides both selected and unselected terms
+      console.log('🎯 SSoT: Populating availableTerms from AI rules allTerms:', queryData.allTerms);
+      
+      this.availableTerms = queryData.allTerms.map(term => ({
+        term: term,
+        type: this.detectTermType(term),
+        description: this.getTermDescription(this.detectTermType(term)),
+        priority: this.getTermPriority(this.detectTermType(term)),
+        isSelected: queryData.searchTerms ? queryData.searchTerms.includes(term) : false,
+        isCore: queryData.searchTerms ? queryData.searchTerms.slice(0, 2).includes(term) : false,
+        score: queryData.searchTerms && queryData.searchTerms.includes(term) ? 100 : 50,
+        source: 'ai_rules',
+        isPrecisionQuoted: term.includes('"')
+      }));
+      
+      console.log('✅ SSoT: AI rules availableTerms populated:', this.availableTerms.length, 'terms');
+    } else if (queryData.preSelectedTerms && queryData.candidateTerms) {
+      // Alternative AI rules format with pre-selected and candidate terms
+      console.log('🎯 SSoT: Populating availableTerms from preSelected + candidates');
+      
+      const allAITerms = [...(queryData.preSelectedTerms || []), ...(queryData.candidateTerms || [])];
+      this.availableTerms = allAITerms.map(term => ({
+        term: term,
+        type: this.detectTermType(term),
+        description: this.getTermDescription(this.detectTermType(term)),
+        priority: this.getTermPriority(this.detectTermType(term)),
+        isSelected: queryData.preSelectedTerms ? queryData.preSelectedTerms.includes(term) : false,
+        isCore: queryData.preSelectedTerms ? queryData.preSelectedTerms.slice(0, 2).includes(term) : false,
+        score: queryData.preSelectedTerms && queryData.preSelectedTerms.includes(term) ? 100 : 50,
+        source: 'ai_rules',
+        isPrecisionQuoted: term.includes('"')
+      }));
+      
+      console.log('✅ SSoT: AI rules availableTerms from preSelected+candidates:', this.availableTerms.length, 'terms');
+    } else {
+      // Fallback: create availableTerms from current terms only
+      console.log('⚠️ SSoT: Fallback - creating availableTerms from currentTerms only');
+      
+      this.availableTerms = this.currentTerms.map(term => ({
+        term: term,
+        type: this.detectTermType(term),
+        description: this.getTermDescription(this.detectTermType(term)),
+        priority: this.getTermPriority(this.detectTermType(term)),
+        isSelected: true,
+        isCore: this.currentTerms.slice(0, 2).includes(term),
+        score: 100,
+        source: 'fallback',
+        isPrecisionQuoted: term.includes('"')
+      }));
+    }
+    
+    console.log('📊 SSoT: Final availableTerms state:');
+    console.log('   Total terms:', this.availableTerms.length);
+    console.log('   Selected terms:', this.availableTerms.filter(t => t.isSelected).length);
+    console.log('   Unselected terms:', this.availableTerms.filter(t => !t.isSelected).length);
+    console.log('   Terms list:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
     
     this.currentMetadata = {
       reasoning: queryData.reasoning || '',
