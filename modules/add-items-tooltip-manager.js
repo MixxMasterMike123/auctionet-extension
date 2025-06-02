@@ -15,6 +15,11 @@ export class AddItemsTooltipManager {
     this.dismissedTooltips = new Set();
     this.lastDismissalTime = new Map();
     this.pendingTooltips = new Set();
+    
+    // NEW: Permanent tooltip state management
+    this.permanentlyDisabledTooltips = new Set(); // Never rerun until page reload
+    this.lastFieldValues = new Map(); // Track field changes for artist detection exception
+    
     this.analysisTimeout = null;
     this.artistDetectionTimeout = null;
     this.lastArtistDetection = null;
@@ -29,7 +34,7 @@ export class AddItemsTooltipManager {
       keywords: '#item_hidden_keywords'
     };
     
-    console.log('✅ AddItemsTooltipManager initialized with ArtistDetectionManager SSoT');
+    console.log('✅ AddItemsTooltipManager initialized with permanent state management');
   }
 
   // Utility function for debouncing function calls
@@ -55,6 +60,10 @@ export class AddItemsTooltipManager {
     }
     
     console.log('🚀 Add Items Tooltips: Starting initialization...');
+    
+    // NEW: Initialize field value tracking
+    this.initializeFieldTracking();
+    
     this.setupEventListeners();
     this.injectStyles();
     
@@ -64,7 +73,20 @@ export class AddItemsTooltipManager {
     // NEW: Setup auto-resize for textareas (same as EDIT page)
     this.setupAutoResizeForAllTextareas();
     
-    console.log('✅ Add Items Tooltips: Initialized successfully');
+    console.log('✅ Add Items Tooltips: Initialized successfully with permanent state management');
+  }
+
+  // NEW: Initialize field value tracking
+  initializeFieldTracking() {
+    // Get initial form data to establish baseline
+    const formData = this.extractFormData();
+    this.updateFieldValues(formData);
+    console.log('📊 Initialized field value tracking:', {
+      title: formData.title?.substring(0, 30) + '...',
+      artist: formData.artist,
+      description: formData.description?.substring(0, 30) + '...',
+      condition: formData.condition?.substring(0, 30) + '...'
+    });
   }
 
   async loadSettings() {
@@ -372,13 +394,10 @@ export class AddItemsTooltipManager {
       return;
     }
     
-    // Skip if this tooltip was recently dismissed (reduce to 5 seconds for better UX)
+    // NEW: Use enhanced eligibility check
     const tooltipId = 'artist-detection';
-    const now = Date.now();
-    const lastDismissed = this.lastDismissalTime?.get?.(tooltipId);
-    if (lastDismissed && (now - lastDismissed) < 5000) {
-      console.log('🚫 Artist tooltip recently dismissed, waiting 5 seconds before retry...');
-      return;
+    if (!this.isTooltipEligible(tooltipId, formData)) {
+      return; // Eligibility check handles all logging
     }
     
     console.log('🎯 Analyzing artist detection with full SSoT system for:', formData.title);
@@ -617,7 +636,11 @@ export class AddItemsTooltipManager {
       const buttons = [{
         text: 'Flytta',
         className: 'btn-primary',
-        onclick: () => this.moveArtistFromTitle(artistDetection.detectedArtist, artistDetection.suggestedTitle || '', options)
+        onclick: () => {
+          // NEW: Permanently disable this tooltip after user interaction
+          this.permanentlyDisableTooltip('artist-detection', 'user_moved_artist');
+          this.moveArtistFromTitle(artistDetection.detectedArtist, artistDetection.suggestedTitle || '', options);
+        }
       }];
 
       // Add biography popup button if we have biography
@@ -811,23 +834,14 @@ export class AddItemsTooltipManager {
     
     console.log('🔍 Analyzing description quality for:', formData.description.substring(0, 50) + '...');
     
-    // Skip if this tooltip was recently dismissed (reduce from 30s to 5s for better UX)
+    // NEW: Use enhanced eligibility check
     const tooltipId = 'description-quality';
-    const now = Date.now();
-    const lastDismissed = this.lastDismissalTime?.get?.(tooltipId);
-    if (lastDismissed && (now - lastDismissed) < 5000) {
-      console.log('🚫 Description tooltip recently dismissed, waiting 5 seconds');
-      return;
+    if (!this.isTooltipEligible(tooltipId, formData)) {
+      return; // Eligibility check handles all logging
     }
     
     // Check if already dismissed in session
     if (this.dismissedTooltips.has(tooltipId)) return;
-    
-    // NEW: Check if tooltip is already active to prevent duplicates
-    if (this.activeTooltips.has(tooltipId)) {
-      console.log('🚫 Description tooltip already active, skipping duplicate');
-      return;
-    }
     
     const issues = this.detectDescriptionIssues(formData);
     
@@ -1151,6 +1165,8 @@ Om INGET saknas, returnera: {"missingElements": []}`;
           text: 'AI-förbättra',
           className: 'btn-primary',
           onclick: () => {
+            // NEW: Permanently disable this tooltip after user interaction
+            this.permanentlyDisableTooltip('description-quality', 'user_improved_description');
             this.dismissTooltip(tooltipId);
             this.improveField('description');
           }
@@ -1159,6 +1175,8 @@ Om INGET saknas, returnera: {"missingElements": []}`;
           text: 'Ignorera',
           className: 'btn-secondary',
           onclick: () => {
+            // NEW: Permanently disable this tooltip after user interaction
+            this.permanentlyDisableTooltip('description-quality', 'user_ignored');
             this.dismissTooltip(tooltipId);
             this.dismissedTooltips.add(tooltipId);
           }
@@ -2350,6 +2368,8 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
     const dismissBtn = tooltip.querySelector('.tooltip-dismiss');
     if (dismissBtn) {
       dismissBtn.addEventListener('click', () => {
+        // NEW: Permanently disable tooltip when user clicks X button
+        this.permanentlyDisableTooltip(tooltipId, 'user_dismissed');
         this.dismissTooltip(tooltipId);
         this.dismissedTooltips.add(tooltipId); // Remember dismissal for session
       });
@@ -3603,12 +3623,10 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
       return;
     }
     
-    // Skip if this tooltip was recently dismissed (reduce from 30s to 5s for better UX)
+    // NEW: Use enhanced eligibility check
     const tooltipId = 'condition-quality';
-    const now = Date.now();
-    const lastDismissed = this.lastDismissalTime?.get?.(tooltipId);
-    if (lastDismissed && (now - lastDismissed) < 5000) {
-      return; // Silent return to reduce spam
+    if (!this.isTooltipEligible(tooltipId, formData)) {
+      return; // Eligibility check handles all logging
     }
     
     // Check if already dismissed in session
@@ -3739,6 +3757,8 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
           text: 'AI-förbättra',
           className: 'btn-primary',
           onclick: () => {
+            // NEW: Permanently disable this tooltip after user interaction
+            this.permanentlyDisableTooltip('condition-quality', 'user_improved_condition');
             this.dismissTooltip(tooltipId);
             this.improveField('condition');
           }
@@ -3747,6 +3767,8 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
           text: 'Guidning',
           className: 'btn-info',
           onclick: () => {
+            // Guidning button shows popup but doesn't disable tooltip permanently
+            // This way users can still see the tooltip if they need more help later
             this.showConditionGuidePopup(formData);
           }
         },
@@ -3754,6 +3776,8 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
           text: 'Ignorera',
           className: 'btn-secondary',
           onclick: () => {
+            // NEW: Permanently disable this tooltip after user interaction
+            this.permanentlyDisableTooltip('condition-quality', 'user_ignored');
             this.dismissTooltip(tooltipId);
             this.dismissedTooltips.add(tooltipId);
           }
@@ -4093,19 +4117,14 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
       return; // Too short to enhance
     }
 
-    // Skip if this tooltip was recently dismissed
+    // NEW: Use enhanced eligibility check
     const tooltipId = 'artist-enhancement';
-    const now = Date.now();
-    const lastDismissed = this.lastDismissalTime?.get?.(tooltipId);
-    if (lastDismissed && (now - lastDismissed) < 10000) { // 10 second cooldown
-      return;
+    if (!this.isTooltipEligible(tooltipId, formData)) {
+      return; // Eligibility check handles all logging
     }
 
     // Check if already dismissed in session
     if (this.dismissedTooltips.has(tooltipId)) return;
-
-    // Skip if tooltip is already active
-    if (this.activeTooltips.has(tooltipId)) return;
 
     // Skip if artist detection tooltip is currently active (avoid conflicts)
     if (this.activeTooltips.has('artist-detection')) return;
@@ -4198,6 +4217,8 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
           text: 'Förbättra beskrivning',
           className: 'btn-primary',
           onclick: () => {
+            // NEW: Permanently disable this tooltip after user interaction
+            this.permanentlyDisableTooltip('artist-enhancement', 'user_improved_description');
             this.dismissTooltip(tooltipId);
             this.improveField('description'); // Uses AI knowledge approach
           }
@@ -4206,6 +4227,8 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
           text: 'Hoppa över',
           className: 'btn-secondary',
           onclick: () => {
+            // NEW: Permanently disable this tooltip after user interaction
+            this.permanentlyDisableTooltip('artist-enhancement', 'user_skipped');
             this.dismissTooltip(tooltipId);
             this.dismissedTooltips.add(tooltipId);
           }
@@ -4223,5 +4246,73 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
       
       console.log('✨ Artist enhancement tooltip shown for:', formData.artist);
     }, 1200);
+  }
+
+  // NEW: Permanently disable a tooltip after user interaction
+  permanentlyDisableTooltip(tooltipId, reason = 'user_interaction') {
+    this.permanentlyDisabledTooltips.add(tooltipId);
+    console.log(`🔒 Permanently disabled tooltip: ${tooltipId} (${reason})`);
+  }
+
+  // NEW: Check if tooltip is permanently disabled
+  isPermanentlyDisabled(tooltipId) {
+    return this.permanentlyDisabledTooltips.has(tooltipId);
+  }
+
+  // NEW: Track field changes for artist detection exception
+  updateFieldValues(formData) {
+    // Store current field values to detect changes
+    const currentValues = {
+      title: formData.title || '',
+      artist: formData.artist || '',
+      description: formData.description || '',
+      condition: formData.condition || ''
+    };
+    
+    // Check if artist field actually changed (for artist detection exception)
+    const lastArtist = this.lastFieldValues.get('artist') || '';
+    const currentArtist = currentValues.artist;
+    
+    if (lastArtist !== currentArtist) {
+      console.log(`🎯 Artist field changed: "${lastArtist}" → "${currentArtist}"`);
+      // Allow artist detection to run again if artist field changed
+      if (this.permanentlyDisabledTooltips.has('artist-detection')) {
+        this.permanentlyDisabledTooltips.delete('artist-detection');
+        console.log('🔓 Re-enabled artist detection due to artist field change');
+      }
+    }
+    
+    // Update stored values
+    Object.keys(currentValues).forEach(key => {
+      this.lastFieldValues.set(key, currentValues[key]);
+    });
+  }
+
+  // NEW: Enhanced tooltip eligibility check
+  isTooltipEligible(tooltipId, formData) {
+    // Always check permanent disabling first
+    if (this.isPermanentlyDisabled(tooltipId)) {
+      console.log(`🚫 Tooltip ${tooltipId} permanently disabled, skipping`);
+      return false;
+    }
+
+    // Update field tracking for artist detection exception
+    this.updateFieldValues(formData);
+
+    // Check if recently dismissed (temporary)
+    const now = Date.now();
+    const lastDismissed = this.lastDismissalTime?.get?.(tooltipId);
+    if (lastDismissed && (now - lastDismissed) < 5000) {
+      console.log(`🚫 Tooltip ${tooltipId} recently dismissed, waiting`);
+      return false;
+    }
+
+    // Check if already active
+    if (this.activeTooltips.has(tooltipId)) {
+      console.log(`🚫 Tooltip ${tooltipId} already active`);
+      return false;
+    }
+
+    return true;
   }
 } 
