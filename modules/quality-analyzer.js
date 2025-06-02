@@ -571,7 +571,7 @@ export class QualityAnalyzer {
           const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
           enhancedData.title,
           enhancedData.description,
-            aiArtist.detectedArtist, // Pass AI artist as artistInfo
+            { artist: aiArtist.detectedArtist }, // CRITICAL FIX: Pass AI artist as object with artist property
             formattedAIArtist // Pass formatted artist as actualSearchQuery for AI Rules
           );
           

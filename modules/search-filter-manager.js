@@ -173,9 +173,21 @@ export class SearchFilterManager {
       const termLower = term.toLowerCase();
       
       // PRIORITY 1: Brand/Artist is ALWAYS pre-selected (most important for market data)
-      if (artistInfo && artistInfo.artist && termLower.includes(artistInfo.artist.toLowerCase())) {
-        console.log(`🤖 AI DECISION: "${term}" is BRAND - CRITICAL for market data ✅`);
-        return true;
+      if (artistInfo && artistInfo.artist) {
+        const artistLower = artistInfo.artist.toLowerCase().trim();
+        const termLowerClean = termLower.replace(/"/g, '').trim(); // Remove quotes for comparison
+        
+        // EXACT MATCH: When the term IS the artist (AI-detected artists)
+        if (termLowerClean === artistLower || termLower === artistLower) {
+          console.log(`🤖 AI DECISION: "${term}" is EXACT ARTIST MATCH - CRITICAL for market data ✅`);
+          return true;
+        }
+        
+        // CONTAINS MATCH: When the term contains the artist name (for composite terms)
+        if (termLower.includes(artistLower)) {
+          console.log(`🤖 AI DECISION: "${term}" contains BRAND - CRITICAL for market data ✅`);
+          return true;
+        }
       }
       
       // 🔧 ARTIST CONSISTENCY FALLBACK: Artist field content should ALWAYS be pre-selected

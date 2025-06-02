@@ -790,21 +790,68 @@ export class SearchQuerySSoT {
   
   // Check if a term is selected (legacy compatibility)
   isTermSelected(term) {
-    const isSelected = this.currentTerms.some(t => 
-      this.normalizeTermForMatching(t) === this.normalizeTermForMatching(term)
-    );
-    console.log(`🔧 SSoT: isTermSelected("${term}"):`, isSelected);
+    if (!term || !this.currentTerms) {
+      return false;
+    }
+    
+    // CRITICAL FIX: Smart quote matching for artist names
+    // Direct match first
+    if (this.currentTerms.includes(term)) {
+      console.log(`🔧 SSoT: isTermSelected("${term}"): true (direct match)`);
+      return true;
+    }
+    
+    // Handle quoted vs unquoted artist names  
+    const termWithoutQuotes = term.replace(/['"]/g, '');
+    const termWithQuotes = `"${termWithoutQuotes}"`;
+    
+    // Check if either version is in currentTerms
+    const foundUnquoted = this.currentTerms.includes(termWithoutQuotes);
+    const foundQuoted = this.currentTerms.includes(termWithQuotes);
+    const foundVariant = this.currentTerms.some(currentTerm => {
+      const currentWithoutQuotes = currentTerm.replace(/['"]/g, '');
+      return currentWithoutQuotes === termWithoutQuotes;
+    });
+    
+    const isSelected = foundUnquoted || foundQuoted || foundVariant;
+    console.log(`🔧 SSoT: isTermSelected("${term}"): ${isSelected} (smart quote matching)`);
+    if (isSelected) {
+      console.log(`   💡 Matched via: unquoted=${foundUnquoted}, quoted=${foundQuoted}, variant=${foundVariant}`);
+    }
+    
     return isSelected;
   }
   
   // Check if a term is a core search term (legacy compatibility)
   isCoreSearchTerm(term) {
-    // In SSoT, we consider the first 2 terms as "core"
-    const normalizedTerm = this.normalizeTermForMatching(term);
-    const isCore = this.currentTerms.slice(0, 2).some(t => 
-      this.normalizeTermForMatching(t) === normalizedTerm
-    );
-    console.log(`🔧 SSoT: isCoreSearchTerm("${term}"):`, isCore);
+    if (!term || !this.currentTerms) {
+      return false;
+    }
+    
+    // CRITICAL FIX: Smart quote matching for core terms too
+    const firstTwoTerms = this.currentTerms.slice(0, 2);
+    
+    // Direct match first
+    if (firstTwoTerms.includes(term)) {
+      console.log(`🔧 SSoT: isCoreSearchTerm("${term}"): true (direct match)`);
+      return true;
+    }
+    
+    // Handle quoted vs unquoted artist names
+    const termWithoutQuotes = term.replace(/['"]/g, '');
+    const termWithQuotes = `"${termWithoutQuotes}"`;
+    
+    // Check if either version is in first two terms
+    const foundUnquoted = firstTwoTerms.includes(termWithoutQuotes);
+    const foundQuoted = firstTwoTerms.includes(termWithQuotes);
+    const foundVariant = firstTwoTerms.some(currentTerm => {
+      const currentWithoutQuotes = currentTerm.replace(/['"]/g, '');
+      return currentWithoutQuotes === termWithoutQuotes;
+    });
+    
+    const isCore = foundUnquoted || foundQuoted || foundVariant;
+    console.log(`🔧 SSoT: isCoreSearchTerm("${term}"): ${isCore} (smart quote matching)`);
+    
     return isCore;
   }
   
