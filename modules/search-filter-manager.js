@@ -62,6 +62,41 @@ export class SearchFilterManager {
   extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null) {
     console.log('🔍 Extracting ALL candidate search terms for:', title);
     
+    // CRITICAL FIX: Check if we already have AI Rules data in SearchQuerySSoT to preserve source information
+    if (this.searchQuerySSoT) {
+      const existingTerms = this.searchQuerySSoT.getAvailableTerms();
+      if (existingTerms && existingTerms.length > 0) {
+        console.log('✅ PRESERVING AI RULES DATA: Using existing SearchQuerySSoT terms instead of rebuilding');
+        console.log('📋 Existing terms with source info:', existingTerms.map(t => `${t.term}(${t.source || 'none'})`));
+        
+        // Convert existing terms to candidates format for consistency
+        const candidates = existingTerms.map(term => ({
+          term: term.term,
+          type: term.type,
+          priority: term.priority,
+          description: term.description,
+          preSelected: term.isSelected,
+          source: term.source // CRITICAL: Preserve source for AI artist preservation logic
+        }));
+        
+        // Build current query from pre-selected terms
+        const preSelectedTerms = candidates.filter(c => c.preSelected).map(c => c.term);
+        const currentQuery = preSelectedTerms.join(' ');
+        
+        console.log('✅ PRESERVED AI RULES: Using existing candidates with source info preserved');
+        console.log('📋 AI-detected artists found:', candidates.filter(c => c.source === 'ai_detected').map(c => c.term));
+        
+        return {
+          candidates: candidates,
+          currentQuery: currentQuery,
+          analysisType: artistInfo ? 'artist' : 'freetext'
+        };
+      }
+    }
+    
+    // FALLBACK: If no existing AI Rules data, proceed with original extraction logic
+    console.log('⚠️ No existing AI Rules data found, using original extraction logic');
+    
     const text = `${title} ${description}`.toLowerCase();
     const candidates = [];
     

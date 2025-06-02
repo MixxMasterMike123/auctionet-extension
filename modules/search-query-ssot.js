@@ -55,7 +55,8 @@ export class SearchQuerySSoT {
       priority: candidate.priority || this.getTermPriority(candidate.type || this.detectTermType(candidate.term)),
       isSelected: candidate.preSelected || false,
       isCore: this.isCoreSearchTerm(candidate.term),
-      score: candidate.score || (candidate.preSelected ? 100 : 50)
+      score: candidate.score || (candidate.preSelected ? 100 : 50),
+      source: candidate.source // CRITICAL FIX: Preserve source for AI artist preservation logic
     }));
     
     console.log('✅ SSoT: Populated availableTerms with', this.availableTerms.length, 'candidates');

@@ -484,7 +484,8 @@ export class DashboardManager {
             type: term.type,
             description: term.description,
             priority: term.priority,
-            preSelected: term.isSelected
+            preSelected: term.isSelected,
+            source: term.source // CRITICAL FIX: Preserve source for AI artist preservation logic
           })),
           currentQuery: this.searchQuerySSoT.getCurrentQuery(),
           analysisType: 'ssot_direct'
@@ -907,7 +908,8 @@ export class DashboardManager {
             type: term.type,
             description: term.description,
             priority: term.priority,
-            preSelected: term.isSelected
+            preSelected: term.isSelected,
+            source: term.source // CRITICAL FIX: Preserve source for AI artist preservation logic
           })),
           currentQuery: currentQuery,
           analysisType: 'custom_user_filter'
@@ -919,6 +921,7 @@ export class DashboardManager {
         console.log('✅ HOT RELOAD: Preserved candidate terms from SSoT');
         console.log('🔧 Available terms:', availableTerms.length);
         console.log('🔧 Selected terms:', availableTerms.filter(t => t.isSelected).length);
+        console.log('📋 AI-detected artists preserved:', candidateTerms.candidates.filter(c => c.source === 'ai_detected').map(c => c.term));
       } else {
         console.log('⚠️ HOT RELOAD: No candidate terms available in SSoT');
       }
