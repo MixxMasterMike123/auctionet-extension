@@ -1604,9 +1604,16 @@
         // Setup live monitoring of condition field
         const conditionField = document.querySelector('#item_condition_sv');
         if (conditionField) {
+          console.log('✅ Edit page: Condition field found, setting up monitoring...');
+          
           // Debounced condition analysis
           const debouncedAnalysis = this.debounce(() => {
+            console.log('🔄 Edit page: Running debounced condition analysis...');
             const formData = this.dataExtractor.extractItemData();
+            console.log('📊 Edit page: Extracted condition data:', { 
+              conditionLength: formData.condition?.length || 0, 
+              condition: formData.condition?.substring(0, 100) || 'EMPTY'
+            });
             this.analyzeConditionQuality(formData);
           }, 2000);
           
@@ -1616,10 +1623,37 @@
           // NEW: IMMEDIATE condition analysis on edit pages since listing already exists
           console.log('🚀 Edit page detected - triggering immediate condition analysis...');
           setTimeout(() => {
+            console.log('⏰ Edit page: Running initial condition analysis...');
+            
+            // Debug: Check if dataExtractor is working
+            if (!this.dataExtractor) {
+              console.error('❌ Edit page: dataExtractor is not available!');
+              return;
+            }
+            
             const formData = this.dataExtractor.extractItemData();
-            console.log('🩺 Initial condition analysis on edit page - condition length:', formData.condition?.length || 0);
+            console.log('🩺 Edit page: Initial condition analysis data:', {
+              hasCondition: !!formData.condition,
+              conditionLength: formData.condition?.length || 0,
+              condition: formData.condition?.substring(0, 100) || 'EMPTY',
+              title: formData.title?.substring(0, 50) || 'EMPTY'
+            });
+            
+            // Force immediate analysis even if dismissed before
+            const tooltipId = 'condition-quality';
+            this.dismissedTooltips.delete(tooltipId); // Clear any previous dismissal
+            
             this.analyzeConditionQuality(formData);
-          }, 1000); // Quick 1s delay to ensure page is fully loaded
+            console.log('✅ Edit page: Initial condition analysis completed');
+          }, 2000); // Increased delay to ensure page is fully loaded
+        } else {
+          console.warn('⚠️ Edit page: Condition field not found! Available fields:');
+          const allFields = document.querySelectorAll('input, textarea');
+          allFields.forEach((field, index) => {
+            if (field.id.includes('condition') || field.name.includes('condition')) {
+              console.log(`   ${index + 1}. ID: ${field.id}, Name: ${field.name}`);
+            }
+          });
         }
       }
 
@@ -1638,29 +1672,43 @@
 
       // Analyze condition quality - EXACT copy from Add Items page
       async analyzeConditionQuality(formData) {
+        console.log('🩺 Edit page: analyzeConditionQuality called with:', {
+          hasCondition: !!formData.condition,
+          conditionLength: formData.condition?.length || 0,
+          condition: formData.condition?.substring(0, 50) || 'EMPTY'
+        });
+        
         // Skip if "Inga anmärkningar" (No remarks) is checked
         const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
                                  document.querySelector('input[type="checkbox"]#item_no_remarks') ||
                                  document.querySelector('input[type="checkbox"][name*="no_remarks"]');
         
         if (noRemarksCheckbox && noRemarksCheckbox.checked) {
+          console.log('⏭️ Edit page: Skipping condition analysis - "Inga anmärkningar" is checked');
           return; // Silent return - no need to log this every time
         }
         
         if (!formData.condition || formData.condition.length < 5) {
+          console.log('📝 Edit page: Condition is empty or too short, showing empty tooltip');
           this.showConditionGuidanceTooltip(formData, 'empty');
           return;
         }
         
         // Check if already dismissed in session
         const tooltipId = 'condition-quality';
-        if (this.dismissedTooltips.has(tooltipId)) return;
+        if (this.dismissedTooltips.has(tooltipId)) {
+          console.log('🚫 Edit page: Tooltip already dismissed in this session');
+          return;
+        }
         
         const conditionIssues = this.detectConditionIssues(formData);
+        console.log('🔍 Edit page: Detected condition issues:', conditionIssues.length, conditionIssues.map(i => i.type));
         
         if (conditionIssues.length > 0) {
-          console.log('⚠️ Condition issues detected - showing guidance');
+          console.log('⚠️ Edit page: Condition issues detected - showing guidance');
           this.showConditionGuidanceTooltip(formData, 'improve', conditionIssues);
+        } else {
+          console.log('✅ Edit page: No condition issues found - no tooltip needed');
         }
       }
 
