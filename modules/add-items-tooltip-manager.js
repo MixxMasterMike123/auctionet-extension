@@ -1127,36 +1127,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       const primaryIssue = issues[0];
       const secondaryIssue = issues[1];
       
-      // Check if we have artist information available to offer
-      let artistInfo = null;
-      const artistName = formData.artist;
-      console.log('🔍 Checking for artist info. Artist name:', artistName);
-      
-      if (artistName && artistName.trim().length > 2) {
-        try {
-          // Try to get artist biography from quality analyzer
-          artistInfo = await this.getArtistInformation(artistName);
-          console.log('🎯 Artist info result:', artistInfo);
-        } catch (error) {
-          console.log('ℹ️ No artist information available for:', artistName, error);
-        }
-      } else {
-        console.log('❌ No artist name found or too short:', artistName);
-      }
-      
-      const artistCheckbox = artistInfo ? `
-        <div class="issue-item artist-option">
-          <label class="checkbox-label">
-            <input type="checkbox" id="add-artist-info-checkbox" class="artist-info-checkbox">
-            <span class="checkmark">✓</span>
-            <span class="checkbox-text">Lägg till konstnärsinformation i beskrivningen</span>
-          </label>
-        </div>
-      ` : '';
-      
-      console.log('🎨 Artist checkbox HTML will be included:', !!artistInfo);
-      console.log('🎨 Checkbox HTML length:', artistCheckbox.length);
-      
       const content = `
         <div class="tooltip-header">
           BESKRIVNINGSFÖRBÄTTRINGAR
@@ -1170,7 +1140,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
               <strong>Även:</strong> ${secondaryIssue.message}
             </div>
           ` : ''}
-          ${artistCheckbox}
         </div>
       `;
 
@@ -1179,12 +1148,8 @@ Om INGET saknas, returnera: {"missingElements": []}`;
           text: 'AI-förbättra',
           className: 'btn-primary',
           onclick: () => {
-            // Check if artist info checkbox is checked
-            const checkbox = document.getElementById('add-artist-info-checkbox');
-            const includeArtistInfo = checkbox && checkbox.checked;
-            
             this.dismissTooltip(tooltipId);
-            this.improveField('description', { includeArtistInfo, artistInfo });
+            this.improveField('description');
           }
         },
         {
@@ -1206,7 +1171,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
         type: 'description-quality'
       });
       
-      console.log('✨ Description quality tooltip shown with artist option:', !!artistInfo);
+      console.log('✨ Description quality tooltip shown');
     }, 800);
   }
 
@@ -1242,16 +1207,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
         }
       } else {
         console.log('❌ No quality analyzer getArtistBiography method available');
-      }
-      
-      // For testing purposes, let's create some mock data if we have any artist
-      if (artistName && artistName.trim().length > 2) {
-        console.log('🧪 Creating mock artist info for testing');
-        return {
-          name: artistName,
-          biography: `${artistName} är en konstnär med omfattande verksamhet inom konst och design. Verken kännetecknas av teknisk skicklighet och kreativ vision.`,
-          source: 'mock'
-        };
       }
       
       console.log('❌ No artist information found');
@@ -1743,12 +1698,6 @@ KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
 ${formData.artist && this.apiManager.enableArtistInfo ? 
   'Konstnär/formgivare: ' + formData.artist + ' - Använd din kunskap om denna konstnärs verk för att lägga till KORT, RELEVANT kontext. Fokusera på specifika detaljer om denna modell/serie om du känner till dem (tillverkningsår, karakteristiska drag). Håll det koncist - max 1-2 meningar extra kontext. Om du inte är säker om specifika fakta, använd "troligen" eller "anses vara".' : 
   'Lägg INTE till konstnärlig eller historisk kontext som inte redan finns i källdata.'}
-
-${options.includeArtistInfo && options.artistInfo ? `
-ARTIST BIOGRAPHY INTEGRATION:
-Lägg till följande konstnärsinformation i beskrivningen (SEPARAT paragraf med dubbla radbrytningar):
-${options.artistInfo.biography}
-` : ''}
 
 KRITISKT - BEHÅLL OSÄKERHETSMARKÖRER I TITEL:
 Om nuvarande titel innehåller ord som "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ" - BEHÅLL dessa exakt. De anger juridisk osäkerhet och får ALDRIG tas bort eller ändras.
@@ -2922,56 +2871,60 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
           background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
           border-left: 3px solid #007bff;
           border-radius: 6px;
-          padding: 8px 12px;
-          margin: 8px 0;
+          padding: 12px 16px;
+          margin: 12px 0;
+          box-shadow: 0 1px 3px rgba(0, 123, 255, 0.1);
         }
         
         .checkbox-label {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           cursor: pointer;
           font-size: 12px;
           color: #495057;
           margin: 0;
-          gap: 8px;
+          gap: 10px;
           width: 100%;
+          line-height: 1.4;
         }
         
         .checkbox-text {
           flex: 1;
           font-weight: 500;
+          margin-top: 1px;
         }
         
         .artist-info-checkbox {
-          position: relative;
-          width: 16px;
-          height: 16px;
+          position: absolute;
+          width: 18px;
+          height: 18px;
           margin: 0;
           opacity: 0;
           cursor: pointer;
+          z-index: 1;
         }
         
         .checkmark {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 16px;
-          height: 16px;
+          position: relative;
+          width: 18px;
+          height: 18px;
           background: white;
           border: 2px solid #007bff;
-          border-radius: 3px;
+          border-radius: 4px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 10px;
+          font-size: 11px;
           color: white;
           transition: all 0.2s ease;
           flex-shrink: 0;
+          margin-top: 0;
         }
         
         .artist-info-checkbox:checked + .checkmark {
           background: #007bff;
           border-color: #007bff;
+          box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
         }
         
         .artist-info-checkbox:not(:checked) + .checkmark {
@@ -2980,13 +2933,16 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
         
         .checkbox-label:hover .checkmark {
           border-color: #0056b3;
-          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+          box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+          transform: scale(1.05);
         }
         
         .issue-item.artist-option:hover {
           background: linear-gradient(135deg, #e1f5fe 0%, #f3e5f5 100%);
+          border-left-color: #0056b3;
           transform: translateX(2px);
           transition: all 0.2s ease;
+          box-shadow: 0 2px 6px rgba(0, 123, 255, 0.15);
         }
         
         /* Artist Biography Popup Styles */

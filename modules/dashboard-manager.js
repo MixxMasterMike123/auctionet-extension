@@ -374,17 +374,18 @@ export class DashboardManager {
               color: #1976d2; 
               text-decoration: none; 
               font-weight: bold; 
-              margin-right: 8px;
-              padding: 2px 6px;
+              font-size: 0.8em;
+              margin-right: 6px;
+              padding: 1px 4px;
               border: 1px solid #1976d2;
-              border-radius: 3px;
+              border-radius: 2px;
               transition: all 0.2s ease;
             " onmouseover="this.style.backgroundColor='#1976d2'; this.style.color='white';" 
                onmouseout="this.style.backgroundColor='transparent'; this.style.color='#1976d2';">${index + 1}</a>`;
           }).join('');
           
-          exceptionalLinksHTML = `<div style="margin-top: 8px; font-size: 0.9em;">
-            <span style="color: #666; margin-right: 8px;">Se högsta:</span>
+          exceptionalLinksHTML = `<div style="margin-top: 6px; font-size: 0.75em;">
+            <span style="color: #666; margin-right: 6px;">Se högsta:</span>
             ${linkNumbers}
           </div>`;
         }
