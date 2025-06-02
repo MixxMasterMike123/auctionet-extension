@@ -1047,47 +1047,30 @@ Return JSON only:
       const prompt = `Analysera denna svenska auktionspost för konstnärsnamn:
 
 TITEL: "${title}"
-BESKRIVNING: "${description ? description.substring(0, 500) : 'Ingen beskrivning'}"
 OBJEKTTYP: ${objectType || 'Okänd'}
 
-UPPGIFT:
-Innehåller denna titel eller beskrivning ett konstnärs- eller designernamn som borde vara i ett separat konstnärsfält?
+UPPGIFT: Hitta konstnärs-/designernamn som borde vara i konstnärsfält.
 
-VIKTIGA REGLER:
-- INFORMAL INMATNING: Katalogiserare skriver ofta snabbt och informellt, t.ex. "rolf lidberg pappaer litografi 1947 signerad"
-- SÖK I BÖRJAN AV TITEL: Konstnärsnamn är ofta slarvigt placerade först i titeln
-- IGNORERA KAPITALISERING: "rolf lidberg" och "Rolf Lidberg" är samma person
-- Sök både i titel OCH beskrivning efter verkliga konstnärsnamn
-- "Signerad [Namn]" i beskrivning indikerar ofta konstnärsnamn
-- Japanska/asiatiska namn som "Fujiwara Toyoyuki" är ofta konstnärsnamn
-- Skolnamn som "Takada" är INTE konstnärsnamn - det är regioner/skolor
-- Beskrivande fraser som "Kvinna med hundar" är INTE konstnärsnamn
-- Företagsnamn som "IKEA", "Axeco" är INTE konstnärsnamn
-- Ortnamn som "Stockholm", "Göteborg" är INTE konstnärsnamn
+REGLER:
+- INFORMAL INMATNING: "rolf lidberg pappaer litografi" → "Rolf Lidberg"
+- Konstnärsnamn ofta först i titel
+- Ignorera kapitalisering
+- "Signerad [Namn]" = konstnärsnamn
+- INTE konstnärsnamn: företag, orter, skolor
 
-TYPISKA INFORMELLA MÖNSTER:
-- "carl malmsten stol ek 1950-tal" → KONSTNÄR: "Carl Malmsten"
-- "rolf lidberg pappaer litografi 1947 signerad" → KONSTNÄR: "Rolf Lidberg"  
-- "lisa larson figurin keramik gustavsberg" → KONSTNÄR: "Lisa Larson"
-- "picasso målning olja duk" → KONSTNÄR: "Picasso"
+EXEMPEL:
+- "carl malmsten stol ek" → "Carl Malmsten"
+- "lisa larson figurin" → "Lisa Larson"
+- "IKEA lampa" → INGET (företag)
 
-FORMELLA EXEMPEL:
-- "Signerad Fujiwara Toyoyuki" → KONSTNÄR: "Fujiwara Toyoyuki"
-- "Svärdsskola Takada" → INTE konstnär (skola/region)
-- "Signerad Lars Larsson" → KONSTNÄR: "Lars Larsson"
-
-SVARA MED JSON:
+JSON:
 {
   "hasArtist": boolean,
-  "artistName": "namn eller null (använd korrekt kapitalisering)",
-  "foundIn": "title/description/both",
-  "suggestedTitle": "föreslagen titel utan konstnärsnamn eller null",
-  "suggestedDescription": "föreslagen beskrivning utan konstnärsnamn eller null",
+  "artistName": "namn eller null",
+  "suggestedTitle": "titel utan konstnär eller null",
   "confidence": 0.0-1.0,
-  "reasoning": "kort förklaring om vad som hittades och var"
-}
-
-VIKTIGT: Var mer generös med confidence för uppenbara konstnärsnamn i informell formatering. Om namnet ser ut som en person och är placerat logiskt, ge minst 0.7 confidence.`;
+  "reasoning": "kort förklaring"
+}`;
 
       console.log('📤 Sending AI request with prompt length:', prompt.length);
 
@@ -1096,7 +1079,7 @@ VIKTIGT: Var mer generös med confidence för uppenbara konstnärsnamn i informe
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: this.getCurrentModel().id,
+            model: 'claude-3-haiku-20240307', // Use fast Haiku model for artist detection
             max_tokens: 300,
             temperature: 0.1, // Low temperature for consistent analysis
             messages: [{
@@ -1162,7 +1145,7 @@ SVARA MED JSON:
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: this.getCurrentModel().id,
+            model: 'claude-3-haiku-20240307', // Use fast Haiku model for artist verification
             max_tokens: 400,
             temperature: 0.1,
             messages: [{
