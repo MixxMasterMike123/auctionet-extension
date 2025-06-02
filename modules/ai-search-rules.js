@@ -182,6 +182,7 @@ Analyze this auction item and extract meaningful search terms for market analysi
 Title: "${title}"
 Description: "${description || 'No description'}"
 Artist Field: "${artist || 'Empty'}"
+AI-Detected Artist: "${aiArtist || 'None detected'}"
 
 Extract 8-12 search terms and categorize each as:
 - artist: Person who created the item
@@ -192,8 +193,12 @@ Extract 8-12 search terms and categorize each as:
 
 Determine which 2-3 terms should be PRE-SELECTED (most important for initial search) and which should be CANDIDATES (for user refinement).
 
-Rules:
-1. Artist field content always pre-selected if present
+ABSOLUTE RULE - HIGHEST PRIORITY:
+- Artist field content MUST ALWAYS be pre-selected if present
+- AI-detected artist MUST ALWAYS be pre-selected if found
+- Artists have absolute priority over everything else (brands, models, objects)
+
+Other Rules:
 2. Premium brands/models often pre-selected  
 3. Aim for 2-3 pre-selected, 5+ candidates
 4. Focus on terms that help find comparable sales
@@ -209,6 +214,14 @@ Return JSON format:
     
     if (aiResult && aiResult.terms && Array.isArray(aiResult.terms)) {
       console.log('✅ AI RULES: AI successfully extracted', aiResult.terms.length, 'terms');
+      
+      // CRITICAL: Ensure any artist terms (from field or AI-detected) are ALWAYS pre-selected
+      aiResult.terms.forEach(term => {
+        if (term.category === 'artist') {
+          term.preSelected = true;
+          console.log(`🎯 PRIORITY OVERRIDE: Artist "${term.term}" forced to pre-selected (absolute priority rule)`);
+        }
+      });
       
       const preSelectedTerms = aiResult.terms.filter(t => t.preSelected).map(t => t.term);
       const candidateTerms = aiResult.terms.filter(t => !t.preSelected).map(t => t.term);
@@ -229,7 +242,7 @@ Return JSON format:
         appliedRules: aiResult.terms.map(t => ({
           term: t.term,
           type: t.category,
-          priority: t.preSelected ? 90 : 70,
+          priority: t.category === 'artist' ? 100 : (t.preSelected ? 90 : 70), // Artists always get priority 100
           isPreSelected: t.preSelected,
           reasoning: t.reasoning
         })),
@@ -264,7 +277,7 @@ function generateBasicSearchTerms(inputData) {
   const extractedTerms = [];
   const reasoning = [];
   
-  // Always include artist field if present
+  // ABSOLUTE PRIORITY: Always include artist field if present
   if (artist && artist.trim()) {
     const formattedArtist = artist.trim().includes(' ') ? `"${artist.trim()}"` : artist.trim();
     extractedTerms.push({
@@ -274,7 +287,20 @@ function generateBasicSearchTerms(inputData) {
       source: 'artist_field',
       isPreSelected: true
     });
-    console.log(`👤 AI RULES: Artist field found - "${formattedArtist}" (auto-selected)`);
+    console.log(`👤 AI RULES: Artist field found - "${formattedArtist}" (auto-selected - absolute priority)`);
+  }
+  
+  // ABSOLUTE PRIORITY: Always include AI-detected artist if present and different from field
+  if (aiArtist && aiArtist.trim() && aiArtist.trim() !== artist) {
+    const formattedAiArtist = aiArtist.trim().includes(' ') ? `"${aiArtist.trim()}"` : aiArtist.trim();
+    extractedTerms.push({
+      term: formattedAiArtist,
+      type: 'artist',
+      priority: 100,
+      source: 'ai_detected',
+      isPreSelected: true
+    });
+    console.log(`🤖 AI RULES: AI-detected artist found - "${formattedAiArtist}" (auto-selected - absolute priority)`);
   }
   
   // Basic brand detection for common cases
