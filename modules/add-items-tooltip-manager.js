@@ -800,7 +800,10 @@ export class AddItemsTooltipManager {
     // NEW: Analyze condition quality issues
     await this.analyzeConditionQuality(formData);
     
-    console.log('📝 Field enhancement analysis - description and condition quality checked');
+    // NEW: Analyze artist information enhancement opportunities
+    await this.analyzeArtistEnhancement(formData);
+    
+    console.log('📝 Field enhancement analysis - description, condition quality, and artist enhancement checked');
   }
 
   async analyzeDescriptionQuality(formData) {
@@ -3505,6 +3508,36 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
             border-color: initial;
           }
         }
+
+        /* Artist Enhancement Tooltip Styles */
+        .add-items-tooltip.artist-enhancement {
+          border-left: 3px solid #6f42c1;
+        }
+        
+        .enhancement-main {
+          margin-bottom: 10px;
+          font-size: 12px;
+          line-height: 1.4;
+          color: #374151;
+        }
+        
+        .enhancement-main strong {
+          color: #6f42c1;
+          font-weight: 600;
+        }
+        
+        .enhancement-note {
+          background: #f8f9fa;
+          border-left: 3px solid #6f42c1;
+          padding: 8px 10px;
+          margin: 8px 0;
+          font-size: 11px;
+          color: #6c757d;
+          border-radius: 0 4px 4px 0;
+          font-style: italic;
+        }
+        
+        /* Artist Biography Popup Styles */
       </style>
     `;
 
@@ -4046,5 +4079,149 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
       `;
       document.head.appendChild(style);
     }
+  }
+
+  // NEW: Analyze if description could benefit from artist information enhancement
+  async analyzeArtistEnhancement(formData) {
+    // Only analyze if we have an artist but no existing artist detection in progress
+    if (!formData.artist || formData.artist.trim().length < 3) {
+      return; // No artist to enhance with
+    }
+
+    // Skip if description is too short to meaningfully enhance
+    if (!formData.description || formData.description.length < 30) {
+      return; // Too short to enhance
+    }
+
+    // Skip if this tooltip was recently dismissed
+    const tooltipId = 'artist-enhancement';
+    const now = Date.now();
+    const lastDismissed = this.lastDismissalTime?.get?.(tooltipId);
+    if (lastDismissed && (now - lastDismissed) < 10000) { // 10 second cooldown
+      return;
+    }
+
+    // Check if already dismissed in session
+    if (this.dismissedTooltips.has(tooltipId)) return;
+
+    // Skip if tooltip is already active
+    if (this.activeTooltips.has(tooltipId)) return;
+
+    // Skip if artist detection tooltip is currently active (avoid conflicts)
+    if (this.activeTooltips.has('artist-detection')) return;
+
+    // Check if description already contains substantial artist context
+    if (this.hasSubstantialArtistContext(formData.description, formData.artist)) {
+      return; // Already has good artist context
+    }
+
+    // Only show if artist info setting is enabled
+    if (!this.apiManager.enableArtistInfo) {
+      return; // Artist info enhancement disabled
+    }
+
+    console.log('🎨 Artist enhancement opportunity detected for:', formData.artist);
+    this.showArtistEnhancementTooltip(formData);
+  }
+
+  // NEW: Check if description already has substantial artist context
+  hasSubstantialArtistContext(description, artistName) {
+    const descLower = description.toLowerCase();
+    const artistLower = artistName.toLowerCase();
+    
+    // Check for artist-specific terms that indicate contextual information
+    const contextIndicators = [
+      'karakteristisk', 'stil', 'period', 'verksamhet', 'känd för',
+      'expressionistisk', 'impressionistisk', 'modernistisk', 'klassicistisk',
+      'skolan', 'tradition', 'generationen', 'aktiv', 'verksam',
+      'tillhör', 'dokumenterad', 'forskning visar', 'anses vara'
+    ];
+    
+    // If description contains multiple context indicators, it likely has good artist context
+    const contextCount = contextIndicators.filter(indicator => 
+      descLower.includes(indicator)
+    ).length;
+    
+    if (contextCount >= 2) {
+      console.log('✅ Description already has substantial artist context:', contextCount, 'indicators');
+      return true;
+    }
+
+    // Check if description length suggests it already has detailed information
+    const cleanDescription = description.replace(/<[^>]*>/g, '').trim();
+    if (cleanDescription.length > 200) {
+      // Long descriptions likely already have good context
+      console.log('✅ Description is substantial (>200 chars), likely has context');
+      return true;
+    }
+
+    return false;
+  }
+
+  // NEW: Show artist enhancement tooltip
+  async showArtistEnhancementTooltip(formData) {
+    const descriptionField = document.querySelector(this.fieldMappings.description);
+    if (!descriptionField) return;
+
+    const tooltipId = 'artist-enhancement';
+    
+    console.log('⏳ Scheduling artist enhancement tooltip to show in 1200ms...');
+    
+    // Longer delay to not conflict with other tooltips
+    setTimeout(() => {
+      // Double-check tooltip wasn't dismissed during delay
+      if (this.dismissedTooltips.has(tooltipId)) return;
+      
+      // Double-check tooltip isn't already active
+      if (this.activeTooltips.has(tooltipId)) return;
+
+      // Final check that we still don't have artist detection active
+      if (this.activeTooltips.has('artist-detection')) return;
+      
+      const content = `
+        <div class="tooltip-header">
+          🎨 FÖRBÄTTRA MED KONSTNÄRSINFO
+        </div>
+        <div class="tooltip-body">
+          <div class="enhancement-main">
+            <strong>${formData.artist}</strong> är angiven som konstnär/formgivare.<br>
+            Beskrivningen kan förbättras med kontextuell information.
+          </div>
+          <div class="enhancement-note">
+            AI kan lägga till professionell kontext om konstnärens stil, period och betydelse.
+          </div>
+        </div>
+      `;
+
+      const buttons = [
+        {
+          text: 'Förbättra beskrivning',
+          className: 'btn-primary',
+          onclick: () => {
+            this.dismissTooltip(tooltipId);
+            this.improveField('description'); // Uses AI knowledge approach
+          }
+        },
+        {
+          text: 'Hoppa över',
+          className: 'btn-secondary',
+          onclick: () => {
+            this.dismissTooltip(tooltipId);
+            this.dismissedTooltips.add(tooltipId);
+          }
+        }
+      ];
+
+      this.createTooltip({
+        id: tooltipId,
+        targetElement: descriptionField,
+        content,
+        buttons,
+        side: 'left',
+        type: 'artist-enhancement'
+      });
+      
+      console.log('✨ Artist enhancement tooltip shown for:', formData.artist);
+    }, 1200);
   }
 } 
