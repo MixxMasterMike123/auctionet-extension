@@ -13,27 +13,20 @@ export const AI_SEARCH_RULES = {
   // CRITICAL RULE 2: Brand identification
   brandRecognition: {
     priority: 90,
-    rule: "Identify and prioritize known brands/manufacturers",
+    rule: "Prioritize known luxury and design brands",
     knownBrands: [
-      // Ceramics & Porcelain
-      "Royal Copenhagen", "Rörstrand", "Gustavsberg", "Arabia", "Bing & Grøndahl",
-      "Meissen", "Wedgwood", "Limoges", "Sèvres", "KPM",
-      
-      // Watches
-      "Rolex", "Omega", "Patek Philippe", "Cartier", "Breitling", "Tag Heuer",
-      "Longines", "Tissot", "Seiko", "Citizen", "Lings", "Halda",
-      
-      // Musical Instruments & Synthesizers  
-      "Yamaha", "Roland", "Korg", "Moog", "Sequential", "Oberheim", "ARP",
-      "Steinway", "Kawai", "Grotrian", "Bechstein", "Petrof",
-      
-      // Glass & Crystal
-      "Orrefors", "Kosta Boda", "Baccarat", "Lalique", "Waterford",
-      
-      // Silver & Jewelry
-      "Georg Jensen", "Tiffany", "Cartier", "Bulgari"
+      // Design furniture brands
+      "Dux", "Källemo", "Lammhults", "Norrlands", "Svenskt Tenn", "Ikea",
+      // Royal Copenhagen and ceramics
+      "Royal Copenhagen", "Copenhagen", "Bing & Grøndahl", "Arabia", "Rörstrand", "Gustavsberg",
+      // Watch brands
+      "Omega", "Rolex", "Breitling", "TAG Heuer", "Seiko", "Citizen",
+      // Electronics
+      "Yamaha", "Roland", "Korg", "Moog", "Sequential", "Oberheim",
+      // Art and glassworks
+      "Orrefors", "Kosta Boda", "Målerås", "Bergdala"
     ],
-    implementation: "When brand detected, include brand name in search query"
+    implementation: "Scan title and description for known luxury brands"
   },
 
   // RULE 3: Object type specificity
@@ -41,18 +34,17 @@ export const AI_SEARCH_RULES = {
     priority: 80,
     rule: "Include specific object type for targeted results",
     translations: {
-      // Swedish to search-optimized terms
-      "armbandsur": "armbandsur",
-      "fickur": "fickur", 
-      "klocka": "klocka",
-      "fat": "fat",
-      "skål": "skål",
-      "vas": "vas",
-      "tallrik": "tallrik",
-      "kopp": "kopp",
-      "synthesizer": "synthesizer",
-      "piano": "piano",
-      "flygel": "flygel"
+      // Furniture types
+      "sängbord": "sängbord", "nattduksbord": "nattduksbord", "bord": "bord", "stol": "stol", 
+      "fåtölj": "fåtölj", "soffa": "soffa", "skrivbord": "skrivbord", "byrå": "byrå",
+      "skåp": "skåp", "hylla": "hylla", "lampa": "lampa", "ljuskrona": "ljuskrona",
+      // Traditional categories  
+      "armbandsur": "armbandsur", "fickur": "fickur", "klocka": "klocka",
+      "fat": "fat", "skål": "skål", "vas": "vas", "tallrik": "tallrik", "kopp": "kopp",
+      // Electronics
+      "synthesizer": "synthesizer", "piano": "piano", "flygel": "flygel",
+      // Art objects
+      "skulptur": "skulptur", "målning": "målning", "lithografi": "lithografi", "etsning": "etsning"
     },
     implementation: "Include specific object type for market categorization"
   },
@@ -91,18 +83,19 @@ export const AI_SEARCH_RULES = {
 
   // QUERY CONSTRUCTION RULES
   queryConstruction: {
-    maxTerms: 4, // ENHANCED: Allow max 4 terms but with smart selection
-    maxPreSelectedTerms: 3, // REDUCED: Maximum terms that can be pre-selected (was 4, now 3)
+    maxTerms: 12, // ENHANCED: Allow max 12 terms for rich candidate selection (was 4)
+    maxPreSelectedTerms: 3, // Keep pre-selected terms conservative for clean initial search
     preferredOrder: ["artist", "brand", "objectType", "model", "material"],
     joinWith: " ", // Space-separated terms
     
-    // NEW: Smart pre-selection strategy (MORE CONSERVATIVE)
+    // NEW: Smart pre-selection strategy (BALANCED FOR SCANDINAVIAN DESIGN)
     preSelectionStrategy: {
       brandAlwaysSelected: true, // Brand terms always get pre-selected if found
       maxCoreTerms: 2, // Maximum core terms (brand/artist) to pre-select
-      maxSecondaryTerms: 1, // REDUCED: Maximum secondary terms (object/model) to pre-select (was 2, now 1)
-      restAsCandidate: true, // Put remaining terms as unselected candidates
-      reasoning: "Conservative pre-selection for better user control and broader initial searches"
+      maxSecondaryTerms: 1, // RESTORED: Allow 1 secondary term to be pre-selected (for premium terms like "Manilla")
+      minCandidateTerms: 5, // ENHANCED: Ensure minimum 5 candidate terms for rich selection
+      targetTotalTerms: 8, // TARGET: Aim for 8+ total terms for optimal user experience
+      allowHighPriorityOverride: false // Conservative: don't auto-select based on priority alone
     },
     
     // NEW: Artist name handling rules
@@ -264,7 +257,7 @@ export function applySearchRules(inputData) {
   extractedTerms.push(...brandTerms);
   
   // RULE 3: Object type specificity (80 priority) - ENHANCED for artist fields
-  const objectTypes = ['fat', 'skulptur', 'armbandsur', 'vas', 'skål', 'tallrik', 'keramik', 'porslin'];
+  const objectTypes = Object.keys(AI_SEARCH_RULES.objectType.translations); // Use enhanced object types list
   const objectTerms = [];
   for (const objType of objectTypes) {
     if (title.toLowerCase().includes(objType.toLowerCase())) {
@@ -274,7 +267,7 @@ export function applySearchRules(inputData) {
         AI_SEARCH_RULES.objectType.priority;
       
       objectTerms.push({
-        term: objType.toUpperCase(), // Normalize to uppercase
+        term: objType, // Keep original case for better readability
         type: 'object_type',
         priority: enhancedPriority,
         source: 'object_type_detection',
@@ -320,6 +313,38 @@ export function applySearchRules(inputData) {
     }
   }
   extractedTerms.push(...modelTerms);
+  
+  // NEW RULE 5: Extract additional descriptive terms to reach target count (60 priority)
+  const targetTerms = AI_SEARCH_RULES.queryConstruction.preSelectionStrategy.targetTotalTerms || 8;
+  const initialTermCount = extractedTerms.length;
+  
+  if (initialTermCount < targetTerms) {
+    console.log(`🎯 AI RULES: Only ${initialTermCount} terms found, targeting ${targetTerms} - extracting additional descriptive terms...`);
+    
+    // Extract meaningful words from title (excluding already found terms)
+    const existingTerms = extractedTerms.map(t => t.term.toLowerCase().replace(/"/g, ''));
+    const titleWords = title.split(/[\s.,]+/).filter(word => 
+      word.length >= 3 && // Minimum 3 characters
+      !existingTerms.some(existing => existing.includes(word.toLowerCase())) && // Not already found
+      !/^\d+$/.test(word) && // Not just numbers
+      !['ett', 'par', 'för', 'och', 'med', 'från', 'till', 'som', 'den', 'det', 'att', 'är', 'var'].includes(word.toLowerCase()) // Not common Swedish words
+    );
+    
+    const descriptiveTerms = [];
+    for (let i = 0; i < Math.min(titleWords.length, targetTerms - initialTermCount); i++) {
+      const word = titleWords[i];
+      descriptiveTerms.push({
+        term: word,
+        type: 'descriptive',
+        priority: 60 - i, // Decrease priority for later words
+        source: 'descriptive_extraction',
+        reasoning: `Descriptive term "${word}" extracted for completeness`,
+        isAtomic: true
+      });
+      console.log(`📝 AI RULES: Descriptive term extracted - "${word}" (priority: ${60 - i})`);
+    }
+    extractedTerms.push(...descriptiveTerms);
+  }
   
   // NEW: Smart term selection with enhanced pre-selection strategy
   extractedTerms.sort((a, b) => b.priority - a.priority);
