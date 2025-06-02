@@ -4126,39 +4126,35 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
 
   // NEW: Analyze if description could benefit from artist information enhancement
   async analyzeArtistEnhancement(formData) {
-    // Only analyze if we have an artist but no existing artist detection in progress
+    // AUCTIONET COMPLIANCE: ONLY trigger enhanced artist information IF artist field is filled
+    // This ensures listing compliance with Auctionet standards
     if (!formData.artist || formData.artist.trim().length < 3) {
+      console.log('🚫 Artist enhancement skipped - artist field not filled (Auctionet compliance)');
       return; // No artist to enhance with
     }
 
-    // Skip if description is too short to meaningfully enhance
-    if (!formData.description || formData.description.length < 30) {
-      return; // Too short to enhance
-    }
+    console.log('✅ Artist field filled, checking enhancement eligibility for Auctionet compliance...');
 
-    // NEW: Use enhanced eligibility check
+    // Core safety checks for tooltip system
     const tooltipId = 'artist-enhancement';
     if (!this.isTooltipEligible(tooltipId, formData)) {
       return; // Eligibility check handles all logging
     }
 
-    // Check if already dismissed in session
-    if (this.dismissedTooltips.has(tooltipId)) return;
-
-    // Skip if artist detection tooltip is currently active (avoid conflicts)
-    if (this.activeTooltips.has('artist-detection')) return;
-
-    // Check if description already contains substantial artist context
-    if (this.hasSubstantialArtistContext(formData.description, formData.artist)) {
-      return; // Already has good artist context
+    // Avoid conflicts with active artist detection
+    if (this.activeTooltips.has('artist-detection')) {
+      console.log('🚫 Artist detection tooltip active, waiting to avoid conflicts');
+      return;
     }
 
     // Only show if artist info setting is enabled
     if (!this.apiManager.enableArtistInfo) {
-      return; // Artist info enhancement disabled
+      console.log('🚫 Artist info enhancement disabled in settings');
+      return;
     }
 
-    console.log('🎨 Artist enhancement opportunity detected for:', formData.artist);
+    // AUCTIONET STANDARDS: Artist field is filled, offer enhancement
+    console.log('🎨 AUCTIONET COMPLIANCE: Artist enhancement eligible for:', formData.artist);
     this.showArtistEnhancementTooltip(formData);
   }
 
