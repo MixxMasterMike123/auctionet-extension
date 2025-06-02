@@ -88,8 +88,597 @@
         this.dashboardManager.setApiManager(this.apiManager);
         console.log('✅ DashboardManager: Direct ApiManager reference set for hot reload');
         
+        // Inject the EXACT CSS from Add Items page for field animations
+        this.injectFieldAnimationCSS();
+        
+        // Initialize condition guidance system
+        this.dismissedTooltips = new Set();
+        this.activeTooltips = new Map();
+        this.setupConditionGuidanceSystem();
+        
         this.init();
         this.setupEventListeners();
+      }
+
+      // Inject EXACT CSS from Add Items page for field animations
+      injectFieldAnimationCSS() {
+        if (document.getElementById('edit-page-field-animations')) return;
+
+        const styles = `
+          <style id="edit-page-field-animations">
+            /* AI Field Enhancement Loading States - EXACT copy from Add Items page */
+            .field-loading {
+              position: relative;
+            }
+            
+            .field-loading input,
+            .field-loading textarea {
+              filter: blur(2px);
+              transition: filter 0.3s ease;
+              pointer-events: none;
+            }
+            
+            .field-spinner-overlay {
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              background: rgba(255, 255, 255, 0.8);
+              backdrop-filter: blur(1px);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              z-index: 1000;
+              border-radius: 6px;
+              animation: overlayFadeIn 0.3s ease;
+            }
+            
+            .ai-spinner {
+              width: 24px;
+              height: 24px;
+              border: 2px solid #e5e7eb;
+              border-top: 2px solid #007bff;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+            }
+            
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            
+            @keyframes overlayFadeIn {
+              from {
+                opacity: 0;
+              }
+              to {
+                opacity: 1;
+              }
+            }
+            
+            .ai-processing-text {
+              margin-left: 12px;
+              font-size: 13px;
+              color: #374151;
+              font-weight: 500;
+              letter-spacing: 0.025em;
+            }
+            
+            /* Success flash animation - EXACT copy from Add Items page */
+            .field-success {
+              animation: successFlash 0.6s ease;
+            }
+            
+            @keyframes successFlash {
+              0% { 
+                background-color: rgba(34, 197, 94, 0.1);
+                border-color: #22c55e;
+              }
+              50% { 
+                background-color: rgba(34, 197, 94, 0.2);
+                border-color: #16a34a;
+              }
+              100% { 
+                background-color: transparent;
+                border-color: initial;
+              }
+            }
+          </style>
+        `;
+
+        document.head.insertAdjacentHTML('beforeend', styles);
+      }
+
+      // Inject condition guidance CSS - EXACT copy from Add Items page
+      injectConditionGuidanceCSS() {
+        if (document.getElementById('edit-page-condition-guidance-styles')) return;
+
+        const styles = `
+          <style id="edit-page-condition-guidance-styles">
+            /* Tooltip Styles - EXACT copy from Add Items page */
+            .add-items-tooltip {
+              position: fixed;
+              z-index: 10000;
+              background: white;
+              border: 1px solid #e1e5e9;
+              border-radius: 8px;
+              padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              font-size: 12px;
+              line-height: 1.4;
+              color: #374151;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+              max-width: 280px;
+              min-width: 200px;
+            }
+            
+            .tooltip-arrow {
+              position: absolute;
+              width: 0;
+              height: 0;
+              border-style: solid;
+              z-index: 10001;
+              right: -8px;
+              top: 50%;
+              transform: translateY(-50%);
+              border-width: 8px 0 8px 8px;
+              border-color: transparent transparent transparent white;
+              filter: drop-shadow(1px 0 1px rgba(0, 0, 0, 0.04));
+            }
+            
+            .tooltip-content {
+              padding: 12px 14px;
+              position: relative;
+            }
+            
+            .tooltip-header {
+              font-weight: 600;
+              margin-bottom: 6px;
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 0.6px;
+              color: #6b7280;
+              line-height: 1.2;
+              padding-right: 20px;
+            }
+            
+            .tooltip-header.condition-critical {
+              color: #dc2626;
+            }
+            
+            .tooltip-header.condition-high {
+              color: #ea580c;
+            }
+            
+            .tooltip-header.condition-medium {
+              color: #ca8a04;
+            }
+            
+            .tooltip-body {
+              margin-bottom: 12px;
+              color: #374151;
+              font-size: 12px;
+              line-height: 1.3;
+            }
+            
+            .tooltip-body strong {
+              color: #111827;
+              font-weight: 600;
+            }
+            
+            .guidance-main {
+              margin-bottom: 8px;
+            }
+            
+            .guidance-impact {
+              font-size: 11px;
+              color: #6b7280;
+              font-style: italic;
+              margin-bottom: 8px;
+            }
+            
+            .category-hint {
+              background: #f0f9ff;
+              border: 1px solid #e0f2fe;
+              border-radius: 4px;
+              padding: 8px;
+              font-size: 11px;
+              color: #0c4a6e;
+            }
+            
+            .additional-issues {
+              background: #fef3c7;
+              border: 1px solid #fbbf24;
+              border-radius: 4px;
+              padding: 6px;
+              font-size: 11px;
+              color: #92400e;
+              margin-top: 8px;
+            }
+            
+            .tooltip-buttons {
+              display: flex;
+              gap: 8px;
+              align-items: center;
+              justify-content: flex-end;
+            }
+            
+            .tooltip-button {
+              background: #111827;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              padding: 6px 12px;
+              font-size: 11px;
+              font-weight: 500;
+              cursor: pointer;
+              transition: all 0.15s ease;
+              line-height: 1;
+            }
+            
+            .tooltip-button:hover {
+              background: #1f2937;
+              transform: translateY(-0.5px);
+            }
+            
+            .tooltip-button:active {
+              transform: translateY(0);
+            }
+            
+            .tooltip-button.btn-primary {
+              background: #2563eb;
+            }
+            
+            .tooltip-button.btn-primary:hover {
+              background: #1d4ed8;
+            }
+            
+            .tooltip-button.btn-info {
+              background: #0891b2;
+            }
+            
+            .tooltip-button.btn-info:hover {
+              background: #0e7490;
+            }
+            
+            .tooltip-button.btn-secondary {
+              background: #6b7280;
+            }
+            
+            .tooltip-button.btn-secondary:hover {
+              background: #4b5563;
+            }
+            
+            .tooltip-dismiss {
+              position: absolute;
+              top: 8px;
+              right: 8px;
+              background: none !important;
+              border: none;
+              color: #9ca3af;
+              opacity: 0.8;
+              cursor: pointer;
+              font-size: 14px;
+              padding: 4px;
+              margin: 0;
+              transition: all 0.15s ease;
+              border-radius: 3px;
+              line-height: 1;
+              font-weight: 400;
+              z-index: 10002;
+            }
+            
+            .tooltip-dismiss:hover {
+              opacity: 1;
+              background: #f9fafb !important;
+              color: #374151;
+            }
+            
+            /* Enhanced 2025 animation */
+            .add-items-tooltip {
+              opacity: 0;
+              transform: translateX(-8px) scale(0.95);
+              transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+              transform-origin: left center;
+            }
+            
+            .add-items-tooltip.show {
+              opacity: 1;
+              transform: translateX(0) scale(1);
+            }
+
+            /* Condition Guide Popup Styles - EXACT copy from Add Items page */
+            .condition-guide-popup-overlay {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: rgba(0, 0, 0, 0.4);
+              backdrop-filter: blur(2px);
+              z-index: 50000;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              animation: overlayFadeIn 0.3s ease-out;
+              padding: 20px;
+              box-sizing: border-box;
+            }
+            
+            .condition-guide-popup {
+              background: #ffffff;
+              border-radius: 8px;
+              max-width: 900px;
+              max-height: calc(100vh - 40px);
+              width: 100%;
+              box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+              animation: popupSlideIn 0.4s cubic-bezier(0.2, 0, 0.2, 1);
+              overflow: hidden;
+              display: flex;
+              flex-direction: column;
+              border: 1px solid #e5e7eb;
+            }
+            
+            .condition-guide-popup .popup-header {
+              background: #f9fafb;
+              color: #111827;
+              padding: 24px 32px;
+              border-bottom: 1px solid #e5e7eb;
+              position: relative;
+              flex-shrink: 0;
+            }
+            
+            .condition-guide-popup .popup-header h3 {
+              margin: 0;
+              font-size: 20px;
+              font-weight: 600;
+              color: #111827;
+              letter-spacing: -0.025em;
+            }
+            
+            .condition-guide-popup .popup-close {
+              position: absolute;
+              top: 20px;
+              right: 24px;
+              color: #6b7280;
+              font-size: 20px;
+              padding: 8px;
+              border-radius: 4px;
+              transition: all 0.2s ease;
+              background: none;
+              border: none;
+              cursor: pointer;
+            }
+            
+            .condition-guide-popup .popup-close:hover {
+              background: #e5e7eb;
+              color: #374151;
+            }
+            
+            .condition-guide-popup .popup-content {
+              flex: 1;
+              overflow-y: auto;
+              padding: 32px;
+              scroll-behavior: smooth;
+              line-height: 1.6;
+            }
+            
+            /* Fix scrolling cutoff */
+            .condition-guide-popup .popup-content::after {
+              content: '';
+              display: block;
+              height: 24px;
+              flex-shrink: 0;
+            }
+            
+            @keyframes popupSlideIn {
+              from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.98);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+              }
+            }
+            
+            /* Clean Content Sections */
+            .guide-section {
+              margin-bottom: 48px;
+            }
+            
+            .guide-section:last-child {
+              margin-bottom: 0;
+            }
+            
+            .guide-section-title {
+              font-size: 18px;
+              font-weight: 600;
+              color: #111827;
+              margin: 0 0 20px 0;
+              letter-spacing: -0.025em;
+              border-bottom: 2px solid #f3f4f6;
+              padding-bottom: 8px;
+            }
+            
+            .guide-subsection {
+              margin-bottom: 32px;
+            }
+            
+            .guide-subsection:last-child {
+              margin-bottom: 0;
+            }
+            
+            .guide-subsection-title {
+              font-size: 16px;
+              font-weight: 600;
+              color: #374151;
+              margin: 0 0 16px 0;
+              letter-spacing: -0.025em;
+            }
+            
+            .guide-text {
+              font-size: 15px;
+              color: #4b5563;
+              line-height: 1.6;
+              margin-bottom: 16px;
+            }
+            
+            .guide-list {
+              list-style: none;
+              padding: 0;
+              margin: 0;
+            }
+            
+            .guide-list-item {
+              font-size: 14px;
+              color: #4b5563;
+              padding: 8px 0;
+              border-bottom: 1px solid #f3f4f6;
+              position: relative;
+              padding-left: 20px;
+            }
+            
+            .guide-list-item:last-child {
+              border-bottom: none;
+            }
+            
+            .guide-list-item::before {
+              content: '•';
+              position: absolute;
+              left: 0;
+              color: #9ca3af;
+              font-weight: 600;
+            }
+
+            /* Stats Grid */
+            .stats-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 16px;
+              margin-top: 20px;
+            }
+            
+            .stat-card {
+              background: #f9fafb;
+              border: 1px solid #e5e7eb;
+              border-radius: 6px;
+              padding: 20px;
+              text-align: center;
+            }
+            
+            .stat-number {
+              font-size: 24px;
+              font-weight: 700;
+              color: #111827;
+              margin-bottom: 4px;
+            }
+            
+            .stat-label {
+              font-size: 13px;
+              color: #6b7280;
+              font-weight: 500;
+            }
+
+            /* Category Grid */
+            .category-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 32px;
+              margin-top: 20px;
+            }
+            
+            @media (max-width: 768px) {
+              .category-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+              }
+              
+              .condition-guide-popup .popup-content {
+                padding: 24px 20px;
+              }
+              
+              .condition-guide-popup .popup-header {
+                padding: 20px 24px;
+              }
+            }
+            
+            /* Example Cards */
+            .example-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 24px;
+              margin-top: 20px;
+            }
+            
+            @media (max-width: 768px) {
+              .example-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+              }
+            }
+            
+            .example-card {
+              background: #f9fafb;
+              border: 1px solid #e5e7eb;
+              border-radius: 6px;
+              padding: 20px;
+              position: relative;
+            }
+            
+            .example-card.bad {
+              border-left: 4px solid #dc2626;
+            }
+            
+            .example-card.good {
+              border-left: 4px solid #059669;
+            }
+            
+            .example-header {
+              font-size: 14px;
+              font-weight: 600;
+              margin-bottom: 12px;
+              text-transform: uppercase;
+              letter-spacing: 0.025em;
+            }
+            
+            .example-card.bad .example-header {
+              color: #dc2626;
+            }
+            
+            .example-card.good .example-header {
+              color: #059669;
+            }
+            
+            .example-text {
+              font-size: 14px;
+              line-height: 1.5;
+              color: #374151;
+              font-style: italic;
+              background: white;
+              padding: 16px;
+              border-radius: 4px;
+              border: 1px solid #e5e7eb;
+              margin-bottom: 12px;
+            }
+            
+            .example-note {
+              font-size: 13px;
+              font-weight: 500;
+            }
+            
+            .example-card.bad .example-note {
+              color: #dc2626;
+            }
+            
+            .example-card.good .example-note {
+              color: #059669;
+            }
+          </style>
+        `;
+
+        document.head.insertAdjacentHTML('beforeend', styles);
       }
 
       async init() {
@@ -285,7 +874,7 @@
       async improveField(fieldType) {
         // Check if trying to improve condition when "Inga anmärkningar" is checked
         if (fieldType === 'condition' && this.isNoRemarksChecked()) {
-          this.showErrorIndicator(fieldType, 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat. Avmarkera checkboxen först.');
+          this.showFieldErrorIndicator(fieldType, 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat. Avmarkera checkboxen först.');
           return;
         }
         
@@ -296,7 +885,7 @@
         
         // Check if API key is still missing
         if (!this.apiManager.apiKey) {
-          this.showErrorIndicator(fieldType, 'API key not configured. Please set your Anthropic API key in the extension popup.');
+          this.showFieldErrorIndicator(fieldType, 'API key not configured. Please set your Anthropic API key in the extension popup.');
           return;
         }
         
@@ -310,7 +899,7 @@
           return;
         }
         
-        this.showLoadingIndicator(fieldType);
+        this.showFieldLoadingIndicator(fieldType);
         
         try {
           console.log('🎯 Individual field - Artist info enabled:', this.apiManager.enableArtistInfo);
@@ -321,7 +910,7 @@
           const value = improved[fieldType];
           if (value) {
             this.uiManager.applyImprovement(fieldType, value);
-            this.showSuccessIndicator(fieldType);
+            this.showFieldSuccessIndicator(fieldType);
             
             // Re-analyze quality after improvement
             setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
@@ -330,7 +919,7 @@
           }
         } catch (error) {
           console.error('Error improving field:', error);
-          this.showErrorIndicator(fieldType, error.message);
+          this.showFieldErrorIndicator(fieldType, error.message);
         }
       }
 
@@ -342,7 +931,7 @@
         
         // Check if API key is still missing
         if (!this.apiManager.apiKey) {
-          this.showErrorIndicator('all', 'API key not configured. Please set your Anthropic API key in the extension popup.');
+          this.showFieldErrorIndicator('all', 'API key not configured. Please set your Anthropic API key in the extension popup.');
           return;
         }
         
@@ -524,7 +1113,7 @@
       }
 
       async proceedWithAIImprovement(fieldType) {
-        this.showLoadingIndicator(fieldType);
+        this.showFieldLoadingIndicator(fieldType);
         
         // Don't reload settings here - they were just set by the dialog
         console.log('⚡ Proceed with AI - Artist info enabled:', this.apiManager.enableArtistInfo);
@@ -567,13 +1156,13 @@
             }
           }
           
-          this.showSuccessIndicator(fieldType);
+          this.showFieldSuccessIndicator(fieldType);
           
           // Re-analyze quality after improvements
           setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
         } catch (error) {
           console.error('Error improving field:', error);
-          this.showErrorIndicator(fieldType, error.message);
+          this.showFieldErrorIndicator(fieldType, error.message);
         }
       }
 
@@ -641,19 +1230,19 @@
         const itemData = this.dataExtractor.extractItemData();
         
         if (fieldType === 'all') {
-          this.showLoadingIndicator('all');
+          this.showFieldLoadingIndicator('all');
           
           try {
             const improvements = await this.apiManager.callClaudeAPI(itemData, 'all');
             this.applyAllImprovements(improvements);
           } catch (error) {
-            this.showErrorIndicator('all', error.message);
+            this.showFieldErrorIndicator('all', error.message);
           }
           return;
         }
         
         // For individual fields
-        this.showLoadingIndicator(fieldType);
+        this.showFieldLoadingIndicator(fieldType);
         
         try {
           const improved = await this.apiManager.callClaudeAPI(itemData, fieldType);
@@ -662,7 +1251,7 @@
           const value = improved[fieldType];
           if (value) {
             this.uiManager.applyImprovement(fieldType, value);
-            this.showSuccessIndicator(fieldType);
+            this.showFieldSuccessIndicator(fieldType);
             
             // Re-analyze quality after improvement
             setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
@@ -671,7 +1260,7 @@
           }
         } catch (error) {
           console.error('Error improving field:', error);
-          this.showErrorIndicator(fieldType, error.message);
+          this.showFieldErrorIndicator(fieldType, error.message);
         }
       }
 
@@ -689,170 +1278,263 @@
           this.uiManager.applyImprovement('keywords', improvements.keywords);
         }
         
-        this.showSuccessIndicator('all');
+        this.showFieldSuccessIndicator('all');
         setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
       }
 
-      // Status indicator methods with encouraging messages
-      showLoadingIndicator(fieldType) {
-        const indicators = document.querySelectorAll('.ai-status-indicator');
-        indicators.forEach(ind => ind.remove());
+      // Field-specific loading indicator methods - delegate to main content.js implementation
+      showFieldLoadingIndicator(fieldType) {
+        console.log(`🔄 Attempting to show field loading indicator for: ${fieldType}`);
+        console.log('🔍 Checking window.auctionetAssistant:', !!window.auctionetAssistant);
         
-        // Field-specific loading messages
-        const fieldSpecificLoadingMessages = {
-          'title': [
-            '🤖 AI förbättrar titeln...',
-            '✨ Optimerar titel enligt auktionsstandarder...',
-            '📝 Skapar professionell titel...'
+        // Check if the main assistant is available
+        if (window.auctionetAssistant && window.auctionetAssistant.showFieldLoadingIndicator) {
+          console.log('✅ Delegating to main assistant field loading indicator');
+          window.auctionetAssistant.showFieldLoadingIndicator(fieldType);
+        } else {
+          console.warn('Main assistant not available for field loading indicator, using fallback');
+          this.fallbackShowFieldLoadingIndicator(fieldType);
+        }
+      }
+
+      showFieldSuccessIndicator(fieldType) {
+        console.log(`✅ Attempting to show field success indicator for: ${fieldType}`);
+        console.log('🔍 Checking window.auctionetAssistant:', !!window.auctionetAssistant);
+        
+        // Check if the main assistant is available
+        if (window.auctionetAssistant && window.auctionetAssistant.showFieldSuccessIndicator) {
+          console.log('✅ Delegating to main assistant field success indicator');
+          window.auctionetAssistant.showFieldSuccessIndicator(fieldType);
+        } else {
+          console.warn('Main assistant not available for field success indicator, using fallback');
+          this.fallbackShowFieldSuccessIndicator(fieldType);
+        }
+      }
+
+      showFieldErrorIndicator(fieldType, message) {
+        console.log(`❌ Attempting to show field error indicator for: ${fieldType}`, message);
+        console.log('🔍 Checking window.auctionetAssistant:', !!window.auctionetAssistant);
+        
+        // Check if the main assistant is available
+        if (window.auctionetAssistant && window.auctionetAssistant.showFieldErrorIndicator) {
+          console.log('✅ Delegating to main assistant field error indicator');
+          window.auctionetAssistant.showFieldErrorIndicator(fieldType, message);
+        } else {
+          console.warn('Main assistant not available for field error indicator, using fallback');
+          this.fallbackShowFieldErrorIndicator(fieldType, message);
+        }
+      }
+
+      // Fallback implementations with actual animations - EXACT copy from Add Items page
+      fallbackShowFieldLoadingIndicator(fieldType) {
+        console.log(`🔄 Fallback loading indicator for ${fieldType}`);
+        
+        // Remove any existing loading states first
+        this.fallbackRemoveFieldLoadingIndicator(fieldType);
+        
+        let targetField;
+        if (fieldType === 'all') {
+          // For "all" - show loading on master button AND all individual fields
+          const masterButton = document.querySelector('.ai-master-button');
+          if (masterButton) {
+            masterButton.textContent = '🧠 AI arbetar...';
+            masterButton.disabled = true;
+            masterButton.style.opacity = '0.7';
+          }
+          
+          // Show loading animation on all fields simultaneously
+          const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
+          allFieldTypes.forEach(type => {
+            this.fallbackShowFieldLoadingIndicator(type);
+          });
+          return;
+        }
+
+        // Get the specific field - EXACT same as Add Items page
+        const fieldMap = {
+          'title': '#item_title_sv',
+          'description': '#item_description_sv', 
+          'condition': '#item_condition_sv',
+          'keywords': '#item_hidden_keywords'
+        };
+        
+        targetField = document.querySelector(fieldMap[fieldType]);
+        
+        if (!targetField) return;
+        
+        // Find the field container (parent element that will hold the overlay) - EXACT same logic
+        let fieldContainer = targetField.parentElement;
+        
+        // For textareas and inputs, we might need to go up one more level if it's in a wrapper
+        if (fieldContainer.classList.contains('ai-button-wrapper') || fieldContainer.tagName === 'LABEL') {
+          fieldContainer = fieldContainer.parentElement;
+        }
+        
+        // Add loading class to container - EXACT same as Add Items page
+        fieldContainer.classList.add('field-loading');
+        
+        // Create spinner overlay - EXACT same HTML structure
+        const overlay = document.createElement('div');
+        overlay.className = 'field-spinner-overlay';
+        overlay.dataset.fieldType = fieldType;
+        overlay.innerHTML = `
+          <div class="ai-spinner"></div>
+          <div class="ai-processing-text">AI förbättrar...</div>
+        `;
+        
+        // Position overlay over the field - EXACT same positioning logic
+        const fieldRect = targetField.getBoundingClientRect();
+        const containerRect = fieldContainer.getBoundingClientRect();
+        
+        // Calculate relative position - EXACT same calculation
+        overlay.style.position = 'absolute';
+        overlay.style.top = `${fieldRect.top - containerRect.top}px`;
+        overlay.style.left = `${fieldRect.left - containerRect.left}px`;
+        overlay.style.width = `${fieldRect.width}px`;
+        overlay.style.height = `${fieldRect.height}px`;
+        
+        // Ensure the container has relative positioning
+        if (!fieldContainer.style.position || fieldContainer.style.position === 'static') {
+          fieldContainer.style.position = 'relative';
+        }
+        
+        // Add overlay to container - EXACT same as Add Items page
+        fieldContainer.appendChild(overlay);
+        
+        console.log(`✅ Loading animation applied to ${fieldType} field`);
+      }
+
+      fallbackShowFieldSuccessIndicator(fieldType) {
+        console.log(`✅ Fallback success indicator for ${fieldType}`);
+        
+        // Remove loading state - EXACT same as Add Items page
+        this.fallbackRemoveFieldLoadingIndicator(fieldType);
+        
+        if (fieldType === 'all') {
+          // Reset master button - EXACT same as Add Items page
+          const masterButton = document.querySelector('.ai-master-button');
+          if (masterButton) {
+            masterButton.textContent = '✅ Klart!';
+            setTimeout(() => {
+              masterButton.textContent = '🧠 Förbättra alla fält';
+              masterButton.disabled = false;
+              masterButton.style.opacity = '1';
+            }, 2000);
+          }
+          
+          // Show success on all individual fields
+          const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
+          allFieldTypes.forEach(type => {
+            this.fallbackShowFieldSuccessIndicator(type);
+          });
+          return;
+        }
+        
+        // Get the specific field and apply success flash - EXACT same as Add Items page
+        const fieldMap = {
+          'title': '#item_title_sv',
+          'description': '#item_description_sv',
+          'condition': '#item_condition_sv', 
+          'keywords': '#item_hidden_keywords'
+        };
+        
+        const targetField = document.querySelector(fieldMap[fieldType]);
+        if (targetField) {
+          targetField.classList.add('field-success');
+          
+          // Remove success class after animation - EXACT same timing
+          setTimeout(() => {
+            targetField.classList.remove('field-success');
+          }, 600);
+        }
+      }
+
+      fallbackShowFieldErrorIndicator(fieldType, message) {
+        console.log(`❌ Fallback error indicator for ${fieldType}:`, message);
+        
+        // Remove loading state - EXACT same as Add Items page
+        this.fallbackRemoveFieldLoadingIndicator(fieldType);
+        
+        if (fieldType === 'all') {
+          // Reset master button - EXACT same as Add Items page
+          const masterButton = document.querySelector('.ai-master-button');
+          if (masterButton) {
+            masterButton.textContent = '❌ Fel uppstod';
+            masterButton.disabled = false;
+            masterButton.style.opacity = '1';
+            setTimeout(() => {
+              masterButton.textContent = '🧠 Förbättra alla fält';
+            }, 3000);
+          }
+        }
+        
+        // Show error message - EXACT same as Add Items page
+        alert(`Fel vid AI-förbättring av ${fieldType}: ${message}`);
+      }
+
+      fallbackRemoveFieldLoadingIndicator(fieldType) {
+        if (fieldType === 'all') {
+          // Remove loading from all individual fields - EXACT same logic
+          const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
+          allFieldTypes.forEach(type => {
+            this.fallbackRemoveFieldLoadingIndicator(type);
+          });
+          return;
+        }
+        
+        // Remove loading states for specific field type - EXACT same as Add Items page
+        const overlay = document.querySelector(`.field-spinner-overlay[data-field-type="${fieldType}"]`);
+        if (overlay) {
+          const container = overlay.parentElement;
+          container.classList.remove('field-loading');
+          overlay.remove();
+        }
+        
+        // Also remove any general loading classes - EXACT same cleanup
+        document.querySelectorAll('.field-loading').forEach(container => {
+          const overlays = container.querySelectorAll('.field-spinner-overlay');
+          if (overlays.length === 0) {
+            container.classList.remove('field-loading');
+          }
+        });
+      }
+
+      getEncouragingMessage(fieldType) {
+        const messages = {
+          all: [
+            "🧠 AI analyserar alla fält för optimal kvalitet...",
+            "✨ Skapar professionell katalogisering för alla fält...",
+            "🎯 Optimerar hela katalogiseringen för bästa resultat...",
+            "🚀 Förbättrar alla fält med AI-precision..."
           ],
-          'description': [
-            '🤖 AI förbättrar beskrivningen...',
-            '✨ Skapar professionell beskrivning...',
-            '📝 Optimerar beskrivningstext...'
+          title: [
+            "🎯 Skapar perfekt titel med AI-precision...",
+            "📝 Optimerar titel för sökbarhet...",
+            "✨ Genererar professionell titel...",
+            "🏷️ Förbättrar titel enligt auktionsstandard..."
           ],
-          'condition': [
-            '🤖 AI förbättrar konditionsrapporten...',
-            '✨ Optimerar skickbeskrivning...',
-            '🔍 Skapar tydlig konditionsrapport...'
+          description: [
+            "📖 Skapar detaljerad beskrivning...",
+            "🔍 Analyserar alla detaljer för beskrivning...",
+            "✨ Optimerar beskrivning för kvalitet...",
+            "📝 Genererar professionell beskrivning..."
           ],
-          'keywords': [
-            '🤖 AI genererar nyckelord...',
-            '✨ Optimerar sökord för bättre sökbarhet...',
-            '🎯 Skapar relevanta nyckelord...'
+          condition: [
+            "🔍 Analyserar kondition med expertis...",
+            "📊 Bedömer skick enligt branschstandard...",
+            "✨ Skapar professionell konditionsbeskrivning...",
+            "🎯 Optimerar konditionsrapport..."
           ],
-          'all': [
-            '🤖 AI förbättrar alla fält...',
-            '✨ Skapar komplett professionell katalogisering...',
-            '🎯 Optimerar hela auktionsposten...',
-            '📝 Följer svenska auktionsstandarder...'
+          keywords: [
+            "🔍 Analyserar för optimala sökord...",
+            "🎯 Genererar relevanta nyckelord...",
+            "📊 Optimerar för sökbarhet...",
+            "✨ Skapar strategiska sökord..."
           ]
         };
         
-        const messages = fieldSpecificLoadingMessages[fieldType] || [
-          '🤖 AI arbetar...',
-          '✨ Förbättrar innehållet...'
-        ];
-        
-        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-        
-        const indicator = document.createElement('div');
-        indicator.className = 'ai-status-indicator loading';
-        indicator.innerHTML = `
-          <div class="loading-content">
-            <div class="loading-pulse"></div>
-            <span class="loading-text">${randomMessage}</span>
-          </div>
-        `;
-        
-        let targetElement = null;
-        
-        if (fieldType === 'all') {
-          const masterButton = document.querySelector('.ai-master-button');
-          if (masterButton && masterButton.parentElement) {
-            targetElement = masterButton.parentElement;
-          }
-        } else {
-          const button = document.querySelector(`[data-field-type="${fieldType}"]`);
-          if (button && button.parentElement) {
-            targetElement = button.parentElement;
-          }
-        }
-        
-        if (targetElement) {
-          targetElement.appendChild(indicator);
-        }
-      }
-
-      showSuccessIndicator(fieldType) {
-        const indicator = document.querySelector('.ai-status-indicator');
-        if (indicator) {
-          // Field-specific success messages
-          const fieldSpecificMessages = {
-            'title': [
-              '🎉 Perfekt! Titeln är nu förbättrad!',
-              '✨ Utmärkt! Titeln följer svenska auktionsstandarder!',
-              '🏆 Bra jobbat! Titeln är nu optimerad!'
-            ],
-            'description': [
-              '🎉 Fantastiskt! Beskrivningen är nu förbättrad!',
-              '✨ Perfekt! Beskrivningen är professionellt skriven!',
-              '📝 Utmärkt! Beskrivningen följer auktionsstandarder!'
-            ],
-            'condition': [
-              '🎉 Toppen! Konditionsrapporten är nu förbättrad!',
-              '✨ Perfekt! Skickbeskrivningen är nu tydligare!',
-              '🔍 Utmärkt! Konditionsrapporten är professionell!'
-            ],
-            'keywords': [
-              '🎉 Fantastiskt! Nyckelorden är nu förbättrade!',
-              '✨ Perfekt! Sökorden är optimerade för bättre sökbarhet!',
-              '🎯 Utmärkt! Nyckelorden följer auktionsstandarder!'
-            ],
-            'all': [
-              '🎉 Fantastiskt! Alla fält är nu förbättrade!',
-              '✨ Perfekt! Hela katalogiseringen följer svenska standarder!',
-              '🚀 Utmärkt! Komplett förbättring genomförd!',
-              '🏆 Toppen! All information är nu optimerad!'
-            ]
-          };
-          
-          const messages = fieldSpecificMessages[fieldType] || [
-            '🎉 Fantastiskt! Förbättringen är klar!',
-            '✨ Perfekt! AI-förbättringen genomförd!'
-          ];
-          
-          const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-          
-          indicator.className = 'ai-status-indicator success';
-          indicator.innerHTML = `
-            <div class="success-content">
-              <span class="success-icon">✓</span>
-              <span class="success-text">${randomMessage}</span>
-            </div>
-          `;
-          
-          setTimeout(() => indicator.remove(), 4000);
-        }
-      }
-
-      showErrorIndicator(fieldType, error) {
-        let indicator = document.querySelector('.ai-status-indicator');
-        
-        if (!indicator) {
-          indicator = document.createElement('div');
-          indicator.className = 'ai-status-indicator error';
-          indicator.textContent = `✗ Fel: ${error}`;
-          
-          let targetElement = null;
-          
-          if (fieldType === 'all') {
-            const masterButton = document.querySelector('.ai-master-button');
-            if (masterButton && masterButton.parentElement) {
-              targetElement = masterButton.parentElement;
-            }
-          } else {
-            const button = document.querySelector(`[data-field-type="${fieldType}"]`);
-            if (button && button.parentElement) {
-              targetElement = button.parentElement;
-            }
-          }
-          
-          if (targetElement) {
-            targetElement.appendChild(indicator);
-          } else {
-            alert(`Error: ${error}`);
-            return;
-          }
-        } else {
-          indicator.className = 'ai-status-indicator error';
-          indicator.textContent = `✗ Fel: ${error}`;
-        }
-        
-        setTimeout(() => {
-          if (indicator && indicator.parentElement) {
-            indicator.remove();
-          }
-        }, 5000);
+        const fieldMessages = messages[fieldType] || messages.all;
+        return fieldMessages[Math.floor(Math.random() * fieldMessages.length)];
       }
 
       isNoRemarksChecked() {
@@ -912,6 +1594,645 @@
         
         console.log('✅ "Inga anmärkningar" is NOT checked - condition button should be enabled');
         return false;
+      }
+
+      // Setup condition guidance system - EXACT copy from Add Items page
+      setupConditionGuidanceSystem() {
+        // Add CSS for tooltips and popup
+        this.injectConditionGuidanceCSS();
+        
+        // Setup live monitoring of condition field
+        const conditionField = document.querySelector('#item_condition_sv');
+        if (conditionField) {
+          // Debounced condition analysis
+          const debouncedAnalysis = this.debounce(() => {
+            const formData = this.dataExtractor.extractItemData();
+            this.analyzeConditionQuality(formData);
+          }, 2000);
+          
+          conditionField.addEventListener('input', debouncedAnalysis);
+          conditionField.addEventListener('blur', debouncedAnalysis);
+        }
+      }
+
+      // Debounce utility - EXACT copy from Add Items page
+      debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      }
+
+      // Analyze condition quality - EXACT copy from Add Items page
+      async analyzeConditionQuality(formData) {
+        // Skip if "Inga anmärkningar" (No remarks) is checked
+        const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
+                                 document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+                                 document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+        
+        if (noRemarksCheckbox && noRemarksCheckbox.checked) {
+          return; // Silent return - no need to log this every time
+        }
+        
+        if (!formData.condition || formData.condition.length < 5) {
+          this.showConditionGuidanceTooltip(formData, 'empty');
+          return;
+        }
+        
+        // Check if already dismissed in session
+        const tooltipId = 'condition-quality';
+        if (this.dismissedTooltips.has(tooltipId)) return;
+        
+        const conditionIssues = this.detectConditionIssues(formData);
+        
+        if (conditionIssues.length > 0) {
+          console.log('⚠️ Condition issues detected - showing guidance');
+          this.showConditionGuidanceTooltip(formData, 'improve', conditionIssues);
+        }
+      }
+
+      // Detect condition issues - EXACT copy from Add Items page
+      detectConditionIssues(formData) {
+        const issues = [];
+        const condition = formData.condition || '';
+        const cleanCondition = condition.replace(/<[^>]*>/g, '').trim(); // Remove HTML tags
+        const conditionLower = cleanCondition.toLowerCase();
+        
+        // CRITICAL: Detect the dreaded "Bruksslitage" alone
+        if (conditionLower === 'bruksslitage' || conditionLower === 'bruksslitage.') {
+          issues.push({
+            type: 'lazy_bruksslitage',
+            severity: 'critical',
+            title: 'Endast "Bruksslitage" är otillräckligt!',
+            message: 'Specificera typ av slitage - var finns repor, nagg, fläckar? Våra kunder förtjänar bättre beskrivningar.',
+            impact: 'Leder till missnöjda kunder och fler reklamationer!'
+          });
+          return issues; // This is the worst case, return immediately
+        }
+        
+        // Detect other vague phrases used alone
+        const vagueOnlyPhrases = [
+          'normalt slitage',
+          'vanligt slitage', 
+          'åldersslitage',
+          'slitage förekommer',
+          'mindre skador',
+          'normal wear'
+        ];
+        
+        const hasVagueOnly = vagueOnlyPhrases.some(phrase => {
+          const conditionWithoutPhrase = conditionLower.replace(phrase, '').trim();
+          return conditionLower.includes(phrase) && conditionWithoutPhrase.length < 10;
+        });
+        
+        if (hasVagueOnly) {
+          issues.push({
+            type: 'vague_only',
+            severity: 'high',
+            title: 'Vag konditionsbeskrivning',
+            message: 'Beskriv specifikt VAR och VILKEN typ av slitage. Kunden vill veta exakt vad de kan förvänta sig.',
+            impact: 'Tydligare beskrivningar = nöjdare kunder = färre reklamationer'
+          });
+        }
+        
+        // Check length - too short for detailed items
+        if (cleanCondition.length < 20) {
+          issues.push({
+            type: 'too_short',
+            severity: 'high', 
+            title: 'För kort konditionsrapport',
+            message: 'Lägg till mer specifika detaljer om föremålets skick.',
+            impact: 'Detaljerade beskrivningar minskar kundservice-samtal'
+          });
+        }
+        
+        // Check for missing location specifics
+        if (conditionLower.includes('repor') && !this.hasLocationSpecifics(conditionLower)) {
+          issues.push({
+            type: 'missing_location',
+            severity: 'medium',
+            title: 'Specificera var skadorna finns',
+            message: 'Ange VAR repor/skador finns - på ytan, kanter, baksidan, etc.',
+            impact: 'Kunder vill veta exakt var skadorna är placerade'
+          });
+        }
+        
+        return issues.slice(0, 2); // Max 2 issues to avoid overwhelming
+      }
+
+      // Check for location specifics - EXACT copy from Add Items page
+      hasLocationSpecifics(conditionText) {
+        const locationWords = [
+          'ytan', 'kanter', 'kant', 'baksidan', 'framsidan', 'ovansidan', 'undersidan',
+          'handtag', 'fot', 'ben', 'arm', 'sits', 'rygg', 'ram', 'glas', 'urtavla',
+          'boett', 'länk', 'hörn', 'mittpartiet', 'botten', 'topp', 'sida', 'insida'
+        ];
+        return locationWords.some(word => conditionText.includes(word));
+      }
+
+      // Show condition guidance tooltip - EXACT copy from Add Items page
+      async showConditionGuidanceTooltip(formData, type, issues = []) {
+        const conditionField = document.querySelector('#item_condition_sv');
+        if (!conditionField) return;
+
+        const tooltipId = 'condition-quality';
+        
+        console.log('⏳ Scheduling condition guidance tooltip to show in 800ms...');
+        
+        // Add delay for smooth UX
+        setTimeout(() => {
+          // Double-check tooltip wasn't dismissed during delay
+          if (this.dismissedTooltips.has(tooltipId)) return;
+          
+          let content, title, severity;
+          
+          if (type === 'empty') {
+            title = 'Konditionsrapport saknas';
+            severity = 'high';
+            content = this.getConditionGuidanceContent(formData, type);
+          } else {
+            const primaryIssue = issues[0];
+            title = primaryIssue.title;
+            severity = primaryIssue.severity;
+            content = this.getConditionGuidanceContent(formData, type, issues);
+          }
+          
+          const tooltipContent = `
+            <div class="tooltip-header condition-${severity}">
+              ${title.toUpperCase()}
+            </div>
+            <div class="tooltip-body">
+              ${content}
+            </div>
+          `;
+
+          const buttons = [
+            {
+              text: 'AI-förbättra',
+              className: 'btn-primary',
+              onclick: () => {
+                this.dismissTooltip(tooltipId);
+                this.dismissedTooltips.add(tooltipId);
+                this.improveField('condition');
+              }
+            },
+            {
+              text: 'Guidning',
+              className: 'btn-info',
+              onclick: () => {
+                this.showConditionGuidePopup(formData);
+              }
+            },
+            {
+              text: 'Ignorera',
+              className: 'btn-secondary',
+              onclick: () => {
+                this.dismissTooltip(tooltipId);
+                this.dismissedTooltips.add(tooltipId);
+              }
+            }
+          ];
+
+          this.createTooltip({
+            id: tooltipId,
+            targetElement: conditionField,
+            content: tooltipContent,
+            buttons,
+            side: 'left',
+            type: 'condition-guidance'
+          });
+          
+          console.log('✨ Condition guidance tooltip shown');
+        }, 800);
+      }
+
+      // Get condition guidance content - EXACT copy from Add Items page
+      getConditionGuidanceContent(formData, type, issues = []) {
+        if (type === 'empty') {
+          const category = this.determineItemCategory(formData);
+          return `
+            <div class="guidance-main">
+              <strong>Konditionsrapport krävs för professionell katalogisering</strong><br>
+              Kunder förväntar sig detaljerade beskrivningar av föremålets skick.
+            </div>
+            <div class="category-hint">
+              <strong>För ${category.name}:</strong> Kontrollera ${category.checkPoints.join(', ')}
+            </div>
+          `;
+        }
+        
+        // For issues
+        const primaryIssue = issues[0];
+        let content = `
+          <div class="guidance-main">
+            <strong>${primaryIssue.message}</strong>
+          </div>
+          <div class="guidance-impact">
+            💡 ${primaryIssue.impact}
+          </div>
+        `;
+        
+        if (issues.length > 1) {
+          content += `
+            <div class="additional-issues">
+              <strong>Ytterligare förbättringar:</strong> ${issues.slice(1).map(issue => issue.message).join(' ')}
+            </div>
+          `;
+        }
+        
+        return content;
+      }
+
+      // Determine item category - EXACT copy from Add Items page
+      determineItemCategory(formData) {
+        const title = (formData.title || '').toLowerCase();
+        const description = (formData.description || '').toLowerCase();
+        const category = (formData.category || '').toLowerCase();
+        const combined = title + ' ' + description + ' ' + category;
+        
+        // Watch/Clock category
+        if (combined.match(/\b(ur|klocka|rolex|omega|patek|cartier|automatisk|quartz)\b/)) {
+          return {
+            name: 'armbandsur',
+            checkPoints: ['urtavla', 'boett', 'länk/armband', 'glas', 'funktion'],
+            conditionFocus: ['repor på boett', 'slitage på länk', 'märken på urtavla', 'funktionsstatus']
+          };
+        }
+        
+        // Jewelry category  
+        if (combined.match(/\b(ring|halsband|armband|brosch|örhängen|smycke|guld|silver|diamant)\b/)) {
+          return {
+            name: 'smycken',
+            checkPoints: ['stenar', 'fattningar', 'lås', 'kedja/band', 'ytbehandling'],
+            conditionFocus: ['lösa stenar', 'slitage på fattning', 'lås funktion', 'repor på metall']
+          };
+        }
+        
+        // Art category
+        if (combined.match(/\b(målning|tavla|konst|konstnär|signerad|duk|pannå|ram)\b/)) {
+          return {
+            name: 'konstverk',
+            checkPoints: ['duk/papper', 'färger', 'ram', 'signatur', 'baksida'],
+            conditionFocus: ['sprickor i färg', 'fläckar', 'ramens skick', 'dukens spänning']
+          };
+        }
+        
+        // Furniture category
+        if (combined.match(/\b(stol|bord|skåp|möbel|sits|rygg|ben|låda)\b/)) {
+          return {
+            name: 'möbler',
+            checkPoints: ['finish', 'fogar', 'klädsel', 'beslag', 'stabilitet'],
+            conditionFocus: ['repor i finish', 'lossnade fogar', 'fläckar på klädsel', 'skador på beslag']
+          };
+        }
+        
+        // Ceramics/Glass category
+        if (combined.match(/\b(vas|skål|tallrik|porslin|keramik|glas|kristall)\b/)) {
+          return {
+            name: 'keramik/glas',
+            checkPoints: ['nagg', 'sprickor', 'glasyr', 'märkningar', 'reparationer'],
+            conditionFocus: ['nagg på kant', 'hårsprickor', 'krakelering', 'limmarker']
+          };
+        }
+        
+        // Default/General category
+        return {
+          name: 'föremål',
+          checkPoints: ['ytor', 'kanter', 'funktionalitet', 'märkningar'],
+          conditionFocus: ['synliga skador', 'slitage platser', 'funktionsstatus', 'reparationer']
+        };
+      }
+
+      // Show condition guide popup - EXACT copy from Add Items page
+      async showConditionGuidePopup(formData) {
+        const category = this.determineItemCategory(formData);
+        
+        // Create comprehensive condition guide popup
+        const popup = document.createElement('div');
+        popup.className = 'condition-guide-popup-overlay';
+        popup.innerHTML = `
+          <div class="condition-guide-popup">
+            <div class="popup-header">
+              <h3>🎯 Professionell Konditionsrapportering</h3>
+              <button class="popup-close" type="button">✕</button>
+            </div>
+            <div class="popup-content">
+              ${this.getConditionGuideContent(category)}
+            </div>
+          </div>
+        `;
+        
+        // Add to page
+        document.body.appendChild(popup);
+        
+        // Add event listeners
+        const closeBtn = popup.querySelector('.popup-close');
+        closeBtn.addEventListener('click', () => {
+          popup.remove();
+        });
+        
+        // Close on overlay click
+        popup.addEventListener('click', (e) => {
+          if (e.target === popup) {
+            popup.remove();
+          }
+        });
+        
+        // Close on escape key
+        const handleEscape = (e) => {
+          if (e.key === 'Escape') {
+            popup.remove();
+            document.removeEventListener('keydown', handleEscape);
+          }
+        };
+        document.addEventListener('keydown', handleEscape);
+        
+        console.log('✨ Condition guide popup displayed for category:', category.name);
+      }
+
+      // Get condition guide content - EXACT copy from Add Items page
+      getConditionGuideContent(category) {
+        return `
+          <div class="guide-section">
+            <h2 class="guide-section-title">Varför detaljerade konditionsrapporter?</h2>
+            <div class="guide-text">
+              Professionella konditionsrapporter är grunden för framgångsrik auktionsverksamhet. De skapar förtroende, minskar reklamationer och förbättrar kundupplevelsen.
+            </div>
+            
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-number">40%</div>
+                <div class="stat-label">Färre kundservice-samtal</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number">25%</div>
+                <div class="stat-label">Fler positiva recensioner</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number">60%</div>
+                <div class="stat-label">Färre returer</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-section">
+            <h2 class="guide-section-title">Specifik guide för ${category.name}</h2>
+            
+            <div class="category-grid">
+              <div class="guide-subsection">
+                <h3 class="guide-subsection-title">Kontrollpunkter att alltid granska</h3>
+                <ul class="guide-list">
+                  ${category.checkPoints.map(point => `<li class="guide-list-item">${point}</li>`).join('')}
+                </ul>
+              </div>
+              
+              <div class="guide-subsection">
+                <h3 class="guide-subsection-title">Beskriv specifikt</h3>
+                <ul class="guide-list">
+                  ${category.conditionFocus.map(focus => `<li class="guide-list-item">${focus}</li>`).join('')}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-section">
+            <h2 class="guide-section-title">Exempel på konditionsrapporter</h2>
+            
+            <div class="example-grid">
+              <div class="example-card bad">
+                <div class="example-header">Undvik detta</div>
+                <div class="example-text">"Bruksslitage"</div>
+                <div class="example-note">Problem: Kunden vet inte vad de kan förvänta sig</div>
+              </div>
+              
+              <div class="example-card good">
+                <div class="example-header">Gör så här istället</div>
+                <div class="example-text">${this.getGoodExample(category)}</div>
+                <div class="example-note">Resultat: Kunden känner förtroende och vet exakt vad de får</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-section">
+            <h2 class="guide-section-title">Professionella riktlinjer</h2>
+            
+            <div class="guide-subsection">
+              <h3 class="guide-subsection-title">Skrivsätt</h3>
+              <ul class="guide-list">
+                <li class="guide-list-item">Var specifik om placering: "repor på ovansidan", "nagg vid kanten"</li>
+                <li class="guide-list-item">Ange storlek på skador: "små repor", "större fläck ca 2 cm"</li>
+                <li class="guide-list-item">Beskriv omfattning: "spridda repor", "enstaka nagg"</li>
+                <li class="guide-list-item">Vara ärlig: Bättre att överdriva än underdriva skador</li>
+              </ul>
+            </div>
+            
+            <div class="guide-subsection">
+              <h3 class="guide-subsection-title">Kvalitetskontroll</h3>
+              <div class="guide-text">
+                Läs igenom din konditionsrapport och fråga dig: "Skulle jag kunna föreställa mig föremålets skick baserat på denna beskrivning?" Om svaret är nej, lägg till mer specifika detaljer.
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // Get good example - EXACT copy from Add Items page
+      getGoodExample(category) {
+        const examples = {
+          'armbandsur': '"Repor på boettets ovansida och mindre märken på urtavlan vid 3-positionen. Länkarna visar normalt slitage utan djupare skråmor. Fungerar vid katalogisering."',
+          'smycken': '"Små repor på metallbandet och mindre slitage på lås-mekanismen. Stenarna sitter fast utan lösa fattningar. Lätt matthet på ytbehandlingen."',
+          'konstverk': '"Mindre fläckar i nedre högra hörnet och två små hål från tidigare upphängning. Ramens guldbeläggning något nött vid kanter. Inga sprickor i duken."',
+          'möbler': '"Repor och märken på skivans ovansida samt mindre nagg vid främre kanten. Benen visar normalt slitage men är stabila. Lådan går lätt att öppna."',
+          'keramik/glas': '"Små nagg vid mynningen och hårfina sprickor i glasyr på utsidan. Botten har mindre repor från användning. Inga större skador eller reparationer."',
+          'föremål': '"Repor på främre ytan och mindre märken vid handtagen. Funktionen fungerar som den ska men visar tecken på regelbunden användning."'
+        };
+        
+        return examples[category.name] || examples['föremål'];
+      }
+
+      // Create tooltip - EXACT copy from Add Items page
+      createTooltip(config) {
+        const tooltip = document.createElement('div');
+        tooltip.id = `ai-tooltip-${config.id}`;
+        tooltip.className = `ai-tooltip add-items-tooltip ${config.type}`;
+        
+        // Build the complete tooltip structure
+        let tooltipHTML = '<div class="tooltip-arrow"></div>';
+        
+        // Add the content
+        tooltipHTML += `<div class="tooltip-content">`;
+        tooltipHTML += config.html || config.content;
+        
+        // Add buttons if provided
+        if (config.buttons && config.buttons.length > 0) {
+          tooltipHTML += '<div class="tooltip-buttons">';
+          config.buttons.forEach((button, index) => {
+            tooltipHTML += `<button class="tooltip-button ${button.className || ''}" data-button-index="${index}">${button.text}</button>`;
+          });
+          tooltipHTML += '</div>';
+        }
+        
+        // Add dismiss button if dismissible
+        if (config.dismissible !== false) {
+          tooltipHTML += '<button class="tooltip-dismiss" type="button">×</button>';
+        }
+        
+        tooltipHTML += '</div>';
+        
+        tooltip.innerHTML = tooltipHTML;
+        
+        // Get target element - support both direct element and CSS selector
+        let targetElement;
+        if (config.targetElement) {
+          targetElement = config.targetElement;
+        } else if (config.targetSelector) {
+          targetElement = document.querySelector(config.targetSelector);
+        }
+        
+        if (targetElement) {
+          // Add to body first so positioning calculations work
+          document.body.appendChild(tooltip);
+          
+          // Position the tooltip
+          this.positionTooltip(tooltip, targetElement, config.side);
+          
+          // Setup button event listeners if buttons are provided
+          if (config.buttons && config.buttons.length > 0) {
+            this.setupTooltipEventListeners(tooltip, config.id, config.buttons, targetElement, config.side);
+          }
+          
+          // Store in active tooltips
+          this.activeTooltips.set(config.id, tooltip);
+          
+          // Add animation class after a small delay for smooth animation
+          setTimeout(() => {
+            tooltip.classList.add('show');
+          }, 50);
+          
+          return tooltip;
+        } else {
+          console.warn(`❌ Could not find target element: ${config.targetSelector || 'targetElement not provided'}`);
+          return null;
+        }
+      }
+
+      // Position tooltip - EXACT copy from Add Items page
+      positionTooltip(tooltip, targetElement, side) {
+        const targetRect = targetElement.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        
+        let left, top;
+        const margin = 20;
+        
+        // Calculate position based on side, allowing off-screen movement
+        if (side === 'left') {
+          left = targetRect.left - tooltipRect.width - margin;
+        } else {
+          left = targetRect.right + margin;
+        }
+        
+        // Special positioning for condition tooltips - push down by 1/3 height for better attachment
+        if (tooltip.classList.contains('add-items-tooltip--condition-guidance')) {
+          top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 3);
+        } else {
+          // Center vertically relative to target for other tooltips
+          top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
+        }
+        
+        // Apply minimal constraints only when target is visible to prevent extreme positioning
+        if (targetRect.left >= 0 && targetRect.right <= window.innerWidth) {
+          // Target is visible, apply gentle constraints
+          if (side === 'left') {
+            left = Math.max(-tooltipRect.width + 50, left); // Keep some tooltip visible
+          } else {
+            left = Math.min(window.innerWidth - 50, left); // Keep some tooltip visible
+          }
+        }
+        
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+        
+        // Position arrow to point at target center
+        const arrow = tooltip.querySelector('.tooltip-arrow');
+        if (arrow) {
+          const targetCenterY = targetRect.top + (targetRect.height / 2);
+          const tooltipY = parseFloat(tooltip.style.top);
+          
+          // Adjust arrow position for condition tooltips
+          let arrowY;
+          if (tooltip.classList.contains('add-items-tooltip--condition-guidance')) {
+            // Position arrow higher for condition tooltips since they're pushed down
+            arrowY = Math.max(15, Math.min(tooltipRect.height - 15, (targetCenterY - tooltipY) - (tooltipRect.height / 6)));
+          } else {
+            arrowY = Math.max(15, Math.min(tooltipRect.height - 15, targetCenterY - tooltipY));
+          }
+          
+          arrow.style.top = `${arrowY - 8}px`;
+        }
+      }
+
+      // Setup tooltip event listeners - EXACT copy from Add Items page
+      setupTooltipEventListeners(tooltip, tooltipId, buttons, targetElement, side) {
+        // Dismiss button
+        const dismissBtn = tooltip.querySelector('.tooltip-dismiss');
+        if (dismissBtn) {
+          dismissBtn.addEventListener('click', () => {
+            this.dismissTooltip(tooltipId);
+            this.dismissedTooltips.add(tooltipId);
+          });
+        }
+        
+        // Action buttons using data-button-index
+        const actionButtons = tooltip.querySelectorAll('.tooltip-button[data-button-index]');
+        actionButtons.forEach((btn) => {
+          const index = parseInt(btn.getAttribute('data-button-index'));
+          if (buttons[index] && buttons[index].onclick) {
+            btn.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              buttons[index].onclick();
+            });
+          }
+        });
+        
+        if (targetElement) {
+          const handleScroll = () => {
+            // Check if tooltip still exists
+            if (document.getElementById(`ai-tooltip-${tooltipId}`)) {
+              this.positionTooltip(tooltip, targetElement, side);
+            } else {
+              // Clean up scroll listener if tooltip is gone
+              window.removeEventListener('scroll', handleScroll);
+            }
+          };
+          
+          // Add scroll listener
+          window.addEventListener('scroll', handleScroll, { passive: true });
+          
+          // Store cleanup function for tooltip removal
+          tooltip._scrollCleanup = () => {
+            window.removeEventListener('scroll', handleScroll);
+          };
+        }
+      }
+
+      // Dismiss tooltip - EXACT copy from Add Items page
+      dismissTooltip(tooltipId) {
+        const tooltip = document.getElementById(`ai-tooltip-${tooltipId}`);
+        if (tooltip) {
+          // Clean up scroll event listener if it exists
+          if (tooltip._scrollCleanup) {
+            tooltip._scrollCleanup();
+          }
+          
+          tooltip.remove();
+          this.activeTooltips.delete(tooltipId);
+        }
       }
     }
 

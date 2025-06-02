@@ -661,15 +661,15 @@ export class QualityAnalyzer {
         if (ssotResult && ssotResult.success) {
           console.log('✅ SearchQuerySSoT initialized with AI-detected artist:', ssotResult.query);
           
-          // Clear any existing dashboard to replace with new one
-          const existingDashboard = document.querySelector('.market-data-dashboard');
-          if (existingDashboard) {
-            console.log('🗑️ Removing existing dashboard to replace with AI artist dashboard');
-            existingDashboard.remove();
-          }
-          
           // CRITICAL FIX: Now that query is generated, start market analysis
           if (!this.pendingAnalyses.has('sales')) {
+            // Clear any existing dashboard to replace with new one - ONLY if we're actually creating a replacement
+            const existingDashboard = document.querySelector('.market-data-dashboard');
+            if (existingDashboard) {
+              console.log('🗑️ Removing existing dashboard to replace with AI artist dashboard');
+              existingDashboard.remove();
+            }
+            
             console.log('💰 Starting IMMEDIATE market analysis with AI-detected artist (query ready)');
             this.pendingAnalyses.add('sales');
             this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
@@ -694,7 +694,7 @@ export class QualityAnalyzer {
               this
             );
           } else {
-            console.log('⚠️ Sales analysis already running - skipping duplicate AI analysis');
+            console.log('⚠️ Sales analysis already running - preserving existing dashboard (no duplicate AI analysis)');
           }
         } else {
           console.log('⚠️ SearchQuerySSoT generation failed, using fallback artist info');

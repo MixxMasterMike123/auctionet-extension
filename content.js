@@ -43,6 +43,7 @@ class AuctionetCatalogingAssistant {
     this.apiKey = null;
     this.currentPage = null;
     this.tooltipManager = null;
+    this.isProgrammaticUpdate = false; // Track when we're updating fields programmatically
     this.init();
     
     // Listen for API key changes
@@ -2343,37 +2344,30 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
     
     const field = document.querySelector(fieldMap[fieldType]);
     if (field && value) {
-      // Store original value
-      field.dataset.originalValue = field.value;
+      // Set programmatic update flag for AI improvements
+      this.isProgrammaticUpdate = true;
       
-      // Validate and limit keywords if necessary
-      let finalValue = value;
-      if (fieldType === 'keywords') {
-        finalValue = this.validateAndLimitKeywords(value);
-      }
-      
-      // Apply new value with animation
-      field.classList.add('ai-updated');
-      field.value = finalValue;
-      
-      // Auto-resize textarea if needed (especially for description)
-      if (field.tagName.toLowerCase() === 'textarea') {
-        // Use setTimeout to ensure the value is fully applied before resizing
+      try {
+        field.value = value;
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        field.classList.add('ai-updated');
+        
+        // Auto-resize textarea if needed (especially for description)
+        if (field.tagName.toLowerCase() === 'textarea') {
+          // Use setTimeout to ensure the value is fully applied before resizing
+          setTimeout(() => {
+            this.autoResizeTextarea(field);
+          }, 50);
+        }
+        
+        console.log(`✅ Applied improvement to ${fieldType}`);
+      } finally {
+        // Clear flag after a short delay to ensure all events have processed
         setTimeout(() => {
-          this.autoResizeTextarea(field);
-        }, 50);
+          this.isProgrammaticUpdate = false;
+          console.log('🔓 Cleared programmatic update flag after AI improvement');
+        }, 100);
       }
-      
-      // Trigger change event
-      field.dispatchEvent(new Event('change', { bubbles: true }));
-      
-      // Add undo button
-      this.addUndoButton(field);
-      
-      // Track AI enhancement in internal comments
-      this.addAIEnhancementNote(fieldType);
-    } else {
-      console.warn(`Could not apply improvement for ${fieldType}:`, { field: !!field, value });
     }
   }
 
@@ -2483,36 +2477,34 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
   getEncouragingMessage(fieldType) {
     const messages = {
       all: [
-        "🤖 AI förbättrar alla fält - snart är katalogiseringen perfekt!",
-        "✨ Magisk AI-förbättring pågår - detta blir fantastiskt!",
-        "🚀 AI arbetar hårt för att göra din katalogisering professionell!",
-        "🎯 Snart har du en katalogisering i världsklass!",
-        "💫 AI polerar texterna till perfektion - nästan klart!",
-        "🔥 Kraftfull AI-analys pågår - resultatet blir imponerande!"
+        "🧠 AI analyserar alla fält för optimal kvalitet...",
+        "✨ Skapar professionell katalogisering för alla fält...",
+        "🎯 Optimerar hela katalogiseringen för bästa resultat...",
+        "🚀 Förbättrar alla fält med AI-precision..."
       ],
       title: [
-        "🎨 AI skapar en perfekt titel...",
-        "✍️ Formulerar en professionell titel...",
-        "🏷️ AI optimerar titeln för bästa resultat...",
-        "📝 Skapar en titel som säljare kommer älska..."
+        "🎯 Skapar perfekt titel med AI-precision...",
+        "📝 Optimerar titel för sökbarhet...",
+        "✨ Genererar professionell titel...",
+        "🏷️ Förbättrar titel enligt auktionsstandard..."
       ],
       description: [
-        "📖 AI skriver en detaljerad beskrivning...",
-        "🔍 Analyserar och förbättrar beskrivningen...",
-        "📋 AI skapar en professionell beskrivning...",
-        "✨ Polerar beskrivningen till perfektion..."
+        "📖 Skapar detaljerad beskrivning...",
+        "🔍 Analyserar alla detaljer för beskrivning...",
+        "✨ Optimerar beskrivning för kvalitet...",
+        "📋 Genererar professionell beskrivning..."
       ],
       condition: [
-        "🔧 AI analyserar konditionsrapporten...",
-        "🔍 Förbättrar konditionsbeskrivningen...",
-        "📊 AI skapar en noggrann konditionsrapport...",
-        "✅ Optimerar konditionstexten..."
+        "🔧 Analyserar kondition professionellt...",
+        "📊 Skapar detaljerad konditionsrapport...",
+        "✅ Optimerar konditionsbeskrivning...",
+        "🔍 Genererar noggrann konditionsanalys..."
       ],
       keywords: [
-        "🔍 AI genererar smarta sökord...",
-        "🏷️ Skapar relevanta nyckelord...",
-        "📈 AI optimerar sökbarheten...",
-        "🎯 Genererar träffsäkra sökord..."
+        "🔍 Genererar optimala sökord...",
+        "🏷️ Skapar träffsäkra keywords...",
+        "📈 Optimerar sökbarhet...",
+        "🎯 Förbättrar söktrafik med smarta ord..."
       ]
     };
     
@@ -2521,619 +2513,7 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
   }
 
   showLoadingIndicator(fieldType) {
-    // Add loading spinner with encouraging message
-    const indicators = document.querySelectorAll('.ai-status-indicator');
-    indicators.forEach(ind => ind.remove());
-    
-    const indicator = document.createElement('div');
-    indicator.className = 'ai-status-indicator loading';
-    
-    const message = this.getEncouragingMessage(fieldType);
-    indicator.innerHTML = `
-      <div class="loading-content">
-        <div class="spinner"></div>
-        <span class="loading-text">${message}</span>
-      </div>
-    `;
-    
-    // Add CSS for spinner and loading animation
-    if (!document.getElementById('loading-indicator-styles')) {
-      const style = document.createElement('style');
-      style.id = 'loading-indicator-styles';
-      style.textContent = `
-        .ai-status-indicator.loading {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 12px 16px;
-          border-radius: 8px;
-          margin: 8px 0;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          animation: pulse 2s infinite;
-        }
-        
-        .loading-content {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        
-        .spinner {
-          width: 20px;
-          height: 20px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top: 2px solid white;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-        
-        .loading-text {
-          font-weight: 500;
-          font-size: 14px;
-          flex: 1;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.8; }
-        }
-        
-        .ai-status-indicator.success {
-          background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-          color: white;
-          padding: 12px 16px;
-          border-radius: 8px;
-          margin: 8px 0;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          animation: successPulse 0.6s ease-out;
-        }
-        
-        .ai-status-indicator.error {
-          background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-          color: white;
-          padding: 12px 16px;
-          border-radius: 8px;
-          margin: 8px 0;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        @keyframes successPulse {
-          0% { transform: scale(0.95); opacity: 0.8; }
-          50% { transform: scale(1.02); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-    
-    let targetElement = null;
-    
-    if (fieldType === 'all') {
-      const masterButton = document.querySelector('.ai-master-button');
-      if (masterButton && masterButton.parentElement) {
-        targetElement = masterButton.parentElement;
-      }
-    } else {
-      const button = document.querySelector(`[data-field-type="${fieldType}"]`);
-      if (button && button.parentElement) {
-        targetElement = button.parentElement;
-      }
-    }
-    
-    if (targetElement) {
-      targetElement.appendChild(indicator);
-    } else {
-      console.warn('Could not find target element for loading indicator:', fieldType);
-    }
-  }
-
-  getSuccessMessage(fieldType) {
-    const messages = {
-      all: [
-        "🎉 Fantastiskt! Alla fält är nu professionellt förbättrade!",
-        "✨ Perfekt! Din katalogisering är nu i toppklass!",
-        "🚀 Utmärkt! AI har gjort din katalogisering helt professionell!",
-        "🏆 Bravo! Nu har du en katalogisering som imponerar!",
-        "💫 Magnifikt! Alla texter är nu optimerade för bästa resultat!"
-      ],
-      title: [
-        "🎯 Perfekt titel skapad!",
-        "✨ Titeln är nu professionell!",
-        "🏷️ Fantastisk titel genererad!",
-        "📝 Titeln förbättrad till perfektion!"
-      ],
-      description: [
-        "📖 Beskrivningen är nu detaljerad och professionell!",
-        "✨ Fantastisk beskrivning skapad!",
-        "📋 Beskrivningen förbättrad till perfektion!",
-        "🔍 Utmärkt beskrivning genererad!"
-      ],
-      condition: [
-        "🔧 Konditionsrapporten är nu professionell!",
-        "✅ Perfekt konditionsbeskrivning skapad!",
-        "📊 Konditionsrapporten förbättrad!",
-        "🔍 Utmärkt konditionsanalys genererad!"
-      ],
-      keywords: [
-        "🔍 Smarta sökord genererade!",
-        "🏷️ Perfekta nyckelord skapade!",
-        "📈 Sökbarheten optimerad!",
-        "🎯 Träffsäkra sökord genererade!"
-      ]
-    };
-    
-    const messageArray = messages[fieldType] || messages.all;
-    return messageArray[Math.floor(Math.random() * messageArray.length)];
-  }
-
-  showSuccessIndicator(fieldType) {
-    const indicator = document.querySelector('.ai-status-indicator');
-    if (indicator) {
-      indicator.className = 'ai-status-indicator success';
-      indicator.innerHTML = `
-        <div class="success-content">
-          <span class="success-icon">✓</span>
-          <span class="success-text">${this.getSuccessMessage(fieldType)}</span>
-        </div>
-      `;
-      
-      // Add CSS for success indicator if not already added
-      if (!document.getElementById('success-indicator-styles')) {
-        const style = document.createElement('style');
-        style.id = 'success-indicator-styles';
-        style.textContent = `
-          .success-content {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          
-          .success-icon {
-            font-size: 18px;
-            font-weight: bold;
-          }
-          
-          .success-text {
-            font-weight: 500;
-            font-size: 14px;
-            flex: 1;
-          }
-        `;
-        document.head.appendChild(style);
-      }
-      
-      setTimeout(() => indicator.remove(), 4000); // Show success message a bit longer
-    }
-  }
-
-  showErrorIndicator(fieldType, error) {
-    let indicator = document.querySelector('.ai-status-indicator');
-    
-    if (!indicator) {
-      // Create indicator if it doesn't exist
-      indicator = document.createElement('div');
-      indicator.className = 'ai-status-indicator error';
-      indicator.textContent = `✗ Fel: ${error}`;
-      
-      let targetElement = null;
-      
-      if (fieldType === 'all') {
-        const masterButton = document.querySelector('.ai-master-button');
-        if (masterButton && masterButton.parentElement) {
-          targetElement = masterButton.parentElement;
-        }
-      } else {
-        const button = document.querySelector(`[data-field-type="${fieldType}"]`);
-        if (button && button.parentElement) {
-          targetElement = button.parentElement;
-        }
-      }
-      
-      if (targetElement) {
-        targetElement.appendChild(indicator);
-      } else {
-        console.warn('Could not find target element for error indicator:', fieldType);
-        // Fallback: show alert
-        alert(`Error: ${error}`);
-        return;
-      }
-    } else {
-      indicator.className = 'ai-status-indicator error';
-      indicator.textContent = `✗ Fel: ${error}`;
-    }
-    
-    // Auto-remove error after 5 seconds
-    setTimeout(() => {
-      if (indicator && indicator.parentElement) {
-        indicator.remove();
-      }
-    }, 5000);
-  }
-
-  // Add validation logic from quality_control.js
-  validateSwedishAuctionStandards(cataloging) {
-    const errors = [];
-    const warnings = [];
-    
-    // 1. Title validation
-    const titleValidation = this.validateTitle(cataloging.title);
-    errors.push(...titleValidation.errors);
-    warnings.push(...titleValidation.warnings);
-    
-    // 2. Description validation
-    const descValidation = this.validateDescription(cataloging.description);
-    errors.push(...descValidation.errors);
-    warnings.push(...descValidation.warnings);
-    
-    // 3. Condition validation
-    const conditionValidation = this.validateCondition(cataloging.condition);
-    errors.push(...conditionValidation.errors);
-    warnings.push(...conditionValidation.warnings);
-    
-    return {
-      isValid: errors.length === 0,
-      errors,
-      warnings,
-      score: this.calculateQualityScore(errors.length, warnings.length)
-    };
-  }
-
-  validateTitle(title) {
-    const errors = [];
-    const warnings = [];
-    
-    // Validate input
-    if (!title || typeof title !== 'string') {
-      errors.push('Titel saknas eller är ogiltig');
-      return { errors, warnings };
-    }
-    
-    // Length check
-    if (title.length > 60) {
-      errors.push(`Titel för lång: ${title.length}/60 tecken`);
-    }
-    
-    // Structure check
-    if (!title.match(/^[A-ZÅÄÖÜ]/)) {
-      warnings.push('Titel bör börja med stor bokstav');
-    }
-    
-    // Check for uncertainty markers preservation
-    const originalTitle = document.querySelector('#item_title_sv')?.value || '';
-    const uncertaintyMarkers = ['troligen', 'tillskriven', 'efter', 'stil av', 'möjligen', 'typ', 'skola av', 'krets kring'];
-    
-    uncertaintyMarkers.forEach(marker => {
-      if (originalTitle.toLowerCase().includes(marker) && !title.toLowerCase().includes(marker)) {
-        errors.push(`Osäkerhetsmarkör "${marker}" får inte tas bort från titel`);
-      }
-    });
-    
-    // Forbidden marketing terms
-    const marketingTerms = [
-      'fantastisk', 'vacker', 'underbar', 'magnifik', 'exceptional', 'stunning',
-      'rare', 'unique', 'sällsynt', 'unik', 'perfekt', 'pristine'
-    ];
-    
-    marketingTerms.forEach(term => {
-      if (title.toLowerCase().includes(term)) {
-        errors.push(`Förbjuden marknadsföringsterm i titel: "${term}"`);
-      }
-    });
-    
-    // Check for proper format
-    if (title.includes(',')) {
-      const parts = title.split(',').map(p => p.trim());
-      if (parts.length < 2) {
-        warnings.push('Titel bör följa format: KONSTNÄR, Föremål, Material, Period');
-      }
-    }
-    
-    return { errors, warnings };
-  }
-
-  validateDescription(description) {
-    const errors = [];
-    const warnings = [];
-    
-    if (!description || typeof description !== 'string' || description.length < 20) {
-      errors.push('Beskrivning för kort - minst 20 tecken krävs');
-      return { errors, warnings };
-    }
-    
-    // CRITICAL: Check for condition information contamination in description
-    const conditionTerms = [
-      'slitage', 'repor', 'märken', 'skador', 'nagg', 'sprickor', 'fläckar',
-      'bruksslitage', 'åldersslitage', 'normalt slitage', 'mindre skador',
-      'synligt slitage', 'välbevarat', 'skick', 'kondition'
-    ];
-    
-    conditionTerms.forEach(term => {
-      if (description.toLowerCase().includes(term)) {
-        errors.push(`FÄLTFEL: Konditionsinformation "${term}" hör hemma i konditionsfältet, inte i beskrivningen`);
-      }
-    });
-    
-    // Check for measurements
-    const hasMeasurements = /\d+[,.]?\d*\s*(cm|centimeter)/i.test(description);
-    if (!hasMeasurements) {
-      warnings.push('Mått saknas i beskrivningen');
-    }
-    
-    // Check measurement format
-    const measurementPattern = /(höjd|bredd|djup|diameter)\s+\d+/gi;
-    const measurements = description.match(measurementPattern);
-    if (measurements && !description.includes(' cm')) {
-      warnings.push('Mått bör avslutas med "cm"');
-    }
-    
-    // Forbidden subjective terms
-    const subjectiveTerms = [
-      'tror', 'anser', 'känns', 'verkar', 'skulle kunna', 'möjligen värd',
-      'fantastisk', 'vacker', 'underbar', 'exceptional', 'stunning', 'gorgeous'
-    ];
-    
-    subjectiveTerms.forEach(term => {
-      if (description.toLowerCase().includes(term)) {
-        errors.push(`Subjektivt språk i beskrivning: "${term}"`);
-      }
-    });
-    
-    // Check for value speculation
-    const valueSpeculation = [
-      'värd mycket', 'dyr', 'värdefull', 'investering', 'prisstegring'
-    ];
-    
-    valueSpeculation.forEach(term => {
-      if (description.toLowerCase().includes(term)) {
-        errors.push(`Värdespekulation förbjuden: "${term}"`);
-      }
-    });
-    
-    return { errors, warnings };
-  }
-
-  validateCondition(condition) {
-    const errors = [];
-    const warnings = [];
-    
-    if (!condition || typeof condition !== 'string' || condition.length < 10) {
-      errors.push('Konditionsrapport för kort');
-      return { errors, warnings };
-    }
-    
-    // CRITICAL: Check for hallucinated details by comparing with original
-    const originalCondition = document.querySelector('#item_condition_sv')?.value || '';
-    const hallucinationCheck = this.detectConditionHallucinations(originalCondition, condition);
-    
-    if (hallucinationCheck.hasHallucinations) {
-      hallucinationCheck.hallucinations.forEach(hallucination => {
-        errors.push(`HALLUCINATION: "${hallucination}" - denna detalj finns inte i originalet`);
-      });
-    }
-    
-    // Approved condition terms
-    const approvedTerms = [
-      'välbevarat', 'normalt åldersslitage', 'mindre repor', 'synligt slitage',
-      'skador förekommer', 'restaurerat', 'lagningar', 'sprickor', 'nagg',
-      'fläckar', 'missfärgningar', 'intakt', 'komplett', 'saknas'
-    ];
-    
-    // Check if condition uses professional terminology
-    const hasApprovedTerms = approvedTerms.some(term => 
-      condition.toLowerCase().includes(term)
-    );
-    
-    if (!hasApprovedTerms) {
-      warnings.push('Använd standardtermer för konditionsrapport');
-    }
-    
-    // Forbidden overly positive terms
-    const forbiddenPositive = [
-      'perfekt', 'fläckfritt', 'som nytt', 'pristine', 'mint condition',
-      'flawless', 'immaculate'
-    ];
-    
-    forbiddenPositive.forEach(term => {
-      if (condition.toLowerCase().includes(term)) {
-        errors.push(`Överoptimistisk konditionsbedömning: "${term}"`);
-      }
-    });
-    
-    return { errors, warnings };
-  }
-
-  detectConditionHallucinations(original, improved) {
-    const hallucinations = [];
-    
-    if (!original || !improved) {
-      return { hasHallucinations: false, hallucinations: [] };
-    }
-    
-    const originalLower = original.toLowerCase();
-    const improvedLower = improved.toLowerCase();
-    
-    // Common hallucinated location/material details
-    const locationPatterns = [
-      /i metallramen?/gi,
-      /på ovansidan/gi,
-      /vid foten/gi,
-      /vid kanten/gi,
-      /på undersidan/gi,
-      /i hörnen/gi,
-      /längs kanten/gi,
-      /på ytan/gi,
-      /i botten/gi,
-      /vid handtaget/gi,
-      /på locket/gi,
-      /i glaset/gi,
-      /i keramiken/gi,
-      /i träet/gi,
-      /i metallen/gi
-    ];
-    
-    // Check for added location details
-    locationPatterns.forEach(pattern => {
-      const matches = improved.match(pattern);
-      if (matches) {
-        matches.forEach(match => {
-          if (!originalLower.includes(match.toLowerCase())) {
-            hallucinations.push(match);
-          }
-        });
-      }
-    });
-    
-    // Check for specific measurements that weren't in original
-    const measurementPattern = /\d+\s*(cm|mm|centimeter|millimeter)/gi;
-    const improvedMeasurements = improved.match(measurementPattern) || [];
-    
-    improvedMeasurements.forEach(measurement => {
-      if (!originalLower.includes(measurement.toLowerCase())) {
-        hallucinations.push(measurement);
-      }
-    });
-    
-    // Check for specific damage types not in original
-    const damageTypes = [
-      'repor', 'märken', 'nagg', 'sprickor', 'fläckar', 'skador',
-      'bucklor', 'intryck', 'missfärgningar', 'rostfläckar'
-    ];
-    
-    damageTypes.forEach(damageType => {
-      if (improvedLower.includes(damageType) && !originalLower.includes(damageType)) {
-        // Only flag if it's a specific addition, not a general improvement
-        const specificPattern = new RegExp(`${damageType}\\s+(i|på|vid|längs)\\s+\\w+`, 'gi');
-        const specificMatches = improved.match(specificPattern);
-        if (specificMatches) {
-          specificMatches.forEach(match => {
-            if (!originalLower.includes(match.toLowerCase())) {
-              hallucinations.push(match);
-            }
-          });
-        }
-      }
-    });
-    
-    return {
-      hasHallucinations: hallucinations.length > 0,
-      hallucinations: [...new Set(hallucinations)] // Remove duplicates
-    };
-  }
-
-  calculateQualityScore(errorCount, warningCount) {
-    let score = 100;
-    score -= errorCount * 20; // Major deduction for errors
-    score -= warningCount * 5; // Minor deduction for warnings
-    return Math.max(0, Math.min(100, score));
-  }
-
-  // NEW: Advanced field loading indicators (same as Add Items page)
-  showFieldLoadingIndicator(fieldType) {
-    console.log(`🔄 Advanced loading indicator for ${fieldType}`);
-    
-    // Add CSS for field spinner overlays if not already added
-    if (!document.getElementById('field-spinner-overlay-styles')) {
-      const style = document.createElement('style');
-      style.id = 'field-spinner-overlay-styles';
-      style.textContent = `
-        /* Field loading animation styles */
-        .field-loading {
-          position: relative;
-          filter: blur(2px);
-          opacity: 0.6;
-          pointer-events: none;
-          transition: filter 0.3s ease, opacity 0.3s ease;
-        }
-        
-        .field-spinner-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(1px);
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-          border-radius: 6px;
-          transition: opacity 0.3s ease;
-        }
-        
-        .ai-spinner {
-          width: 32px;
-          height: 32px;
-          border: 3px solid #e3f2fd;
-          border-top: 3px solid #1976d2;
-          border-radius: 50%;
-          animation: fieldSpin 1s linear infinite;
-          margin-bottom: 8px;
-        }
-        
-        .ai-processing-text {
-          color: #1976d2;
-          font-size: 12px;
-          font-weight: 600;
-          text-align: center;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        
-        @keyframes fieldSpin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        /* Field success flash animation */
-        .field-success {
-          background-color: #d4edda !important;
-          border: 2px solid #28a745 !important;
-          animation: fieldSuccessFlash 0.6s ease-out;
-          transition: all 0.3s ease;
-        }
-        
-        @keyframes fieldSuccessFlash {
-          0% { 
-            background-color: #d4edda;
-            border-color: #28a745;
-            transform: scale(1);
-          }
-          50% { 
-            background-color: #c3e6cb;
-            border-color: #20c997;
-            transform: scale(1.02);
-          }
-          100% { 
-            background-color: #d4edda;
-            border-color: #28a745;
-            transform: scale(1);
-          }
-        }
-        
-        /* Auto-resize textarea styling with smooth transitions */
-        textarea.auto-resize {
-          resize: vertical;
-          min-height: 60px;
-          max-height: 400px;
-          transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          overflow-y: auto;
-        }
-        
-        textarea.auto-resize:not(:focus) {
-          overflow-y: hidden;
-        }
-        
-        .auto-resize.resizing {
-          transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-      `;
-      document.head.appendChild(style);
-    }
+    console.log(`🔄 Loading indicator for ${fieldType}`);
     
     // Remove any existing loading states
     this.removeFieldLoadingIndicator(fieldType);
@@ -3164,20 +2544,155 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
       };
       
       targetField = document.querySelector(fieldMap[fieldType]);
+      console.log(`🎯 Target field for ${fieldType}:`, targetField);
+      console.log(`📋 Field element details:`, {
+        id: targetField?.id,
+        tagName: targetField?.tagName,
+        className: targetField?.className,
+        parentElement: targetField?.parentElement?.className
+      });
     }
     
-    if (!targetField) return;
+    if (!targetField) {
+      console.error(`❌ Target field not found for ${fieldType}`);
+      return;
+    }
+    
+    // Add CSS for field spinner overlays if not already added
+    if (!document.getElementById('field-spinner-overlay-styles')) {
+      const style = document.createElement('style');
+      style.id = 'field-spinner-overlay-styles';
+      style.textContent = `
+        /* AI Field Enhancement Loading States - EXACT COPY FROM ADD ITEMS PAGE */
+        .field-loading {
+          position: relative;
+        }
+        
+        .field-loading input,
+        .field-loading textarea {
+          filter: blur(2px);
+          transition: filter 0.3s ease;
+          pointer-events: none;
+        }
+        
+        .field-spinner-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(1px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          border-radius: 6px;
+          animation: overlayFadeIn 0.3s ease;
+        }
+        
+        .ai-spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid #e5e7eb;
+          border-top: 2px solid #007bff;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .ai-processing-text {
+          margin-left: 12px;
+          font-size: 13px;
+          color: #374151;
+          font-weight: 500;
+          letter-spacing: 0.025em;
+        }
+        
+        @keyframes overlayFadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        /* Success flash animation - EXACT COPY FROM ADD ITEMS PAGE */
+        .field-success {
+          animation: successFlash 0.6s ease;
+        }
+        
+        @keyframes successFlash {
+          0% { 
+            background-color: rgba(34, 197, 94, 0.1);
+            border-color: #22c55e;
+          }
+          50% { 
+            background-color: rgba(34, 197, 94, 0.2);
+            border-color: #16a34a;
+          }
+          100% { 
+            background-color: transparent;
+            border-color: initial;
+          }
+        }
+        
+        /* Auto-resize textarea styling with smooth transitions */
+        textarea.auto-resize {
+          resize: vertical;
+          min-height: 60px;
+          max-height: 400px;
+          transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          overflow-y: auto;
+        }
+        
+        textarea.auto-resize:not(:focus) {
+          overflow-y: hidden;
+        }
+        
+        .auto-resize.resizing {
+          transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+      `;
+      document.head.appendChild(style);
+      console.log('✅ Field spinner overlay styles added');
+    }
     
     // Find the field container (parent element that will hold the overlay)
     let fieldContainer = targetField.parentElement;
+    console.log(`🏠 Initial field container:`, {
+      element: fieldContainer,
+      className: fieldContainer?.className,
+      tagName: fieldContainer?.tagName
+    });
     
     // For textareas and inputs, we might need to go up one more level if it's in a wrapper
     if (fieldContainer.classList.contains('ai-button-wrapper') || fieldContainer.tagName === 'LABEL') {
       fieldContainer = fieldContainer.parentElement;
+      console.log(`🏠 Adjusted field container:`, {
+        element: fieldContainer,
+        className: fieldContainer?.className,
+        tagName: fieldContainer?.tagName
+      });
+    }
+    
+    // Check if container has position: relative or set it
+    const containerStyle = window.getComputedStyle(fieldContainer);
+    if (containerStyle.position === 'static') {
+      fieldContainer.style.position = 'relative';
+      console.log('🔧 Set field container position to relative');
     }
     
     // Add loading class to container
     fieldContainer.classList.add('field-loading');
+    console.log(`✅ Added field-loading class to container`);
     
     // Create spinner overlay
     const overlay = document.createElement('div');
@@ -3192,21 +2707,49 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
     const fieldRect = targetField.getBoundingClientRect();
     const containerRect = fieldContainer.getBoundingClientRect();
     
+    console.log(`📐 Field positioning:`, {
+      fieldRect: {
+        top: fieldRect.top,
+        left: fieldRect.left,
+        width: fieldRect.width,
+        height: fieldRect.height
+      },
+      containerRect: {
+        top: containerRect.top,
+        left: containerRect.left,
+        width: containerRect.width,
+        height: containerRect.height
+      }
+    });
+    
     // Calculate relative position
+    const relativeTop = fieldRect.top - containerRect.top;
+    const relativeLeft = fieldRect.left - containerRect.left;
+    
     overlay.style.position = 'absolute';
-    overlay.style.top = `${fieldRect.top - containerRect.top}px`;
-    overlay.style.left = `${fieldRect.left - containerRect.left}px`;
+    overlay.style.top = `${relativeTop}px`;
+    overlay.style.left = `${relativeLeft}px`;
     overlay.style.width = `${fieldRect.width}px`;
     overlay.style.height = `${fieldRect.height}px`;
+    
+    console.log(`📐 Overlay positioning:`, {
+      position: 'absolute',
+      top: `${relativeTop}px`,
+      left: `${relativeLeft}px`,
+      width: `${fieldRect.width}px`,
+      height: `${fieldRect.height}px`
+    });
     
     // Add overlay to container
     fieldContainer.appendChild(overlay);
     
-    console.log(`✅ Advanced loading animation applied to ${fieldType} field`);
+    console.log(`✅ Loading animation overlay added to ${fieldType} field`);
+    console.log(`🔍 Overlay element:`, overlay);
+    console.log(`🏠 Container with overlay:`, fieldContainer);
   }
 
   showFieldSuccessIndicator(fieldType) {
-    console.log(`✅ Field success indicator for ${fieldType}`);
+    console.log(`✅ Success indicator for ${fieldType}`);
     
     // Remove loading state
     this.removeFieldLoadingIndicator(fieldType);
@@ -3245,7 +2788,7 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
   }
 
   showFieldErrorIndicator(fieldType, message) {
-    console.error(`❌ Field error for ${fieldType}: ${message}`);
+    console.error(`❌ Error for ${fieldType}: ${message}`);
     
     // Remove loading state
     this.removeFieldLoadingIndicator(fieldType);
@@ -3302,9 +2845,9 @@ if (document.readyState === 'loading') {
   console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
   document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ DOMContentLoaded fired, creating AuctionetCatalogingAssistant');
-    new AuctionetCatalogingAssistant();
+    window.auctionetAssistant = new AuctionetCatalogingAssistant();
   });
 } else {
   console.log('✅ Document already loaded, creating AuctionetCatalogingAssistant immediately');
-  new AuctionetCatalogingAssistant();
+  window.auctionetAssistant = new AuctionetCatalogingAssistant();
 }
