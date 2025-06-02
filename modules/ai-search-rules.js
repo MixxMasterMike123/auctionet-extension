@@ -92,17 +92,17 @@ export const AI_SEARCH_RULES = {
   // QUERY CONSTRUCTION RULES
   queryConstruction: {
     maxTerms: 4, // ENHANCED: Allow max 4 terms but with smart selection
-    maxPreSelectedTerms: 4, // NEW: Maximum terms that can be pre-selected
+    maxPreSelectedTerms: 3, // REDUCED: Maximum terms that can be pre-selected (was 4, now 3)
     preferredOrder: ["artist", "brand", "objectType", "model", "material"],
     joinWith: " ", // Space-separated terms
     
-    // NEW: Smart pre-selection strategy
+    // NEW: Smart pre-selection strategy (MORE CONSERVATIVE)
     preSelectionStrategy: {
       brandAlwaysSelected: true, // Brand terms always get pre-selected if found
       maxCoreTerms: 2, // Maximum core terms (brand/artist) to pre-select
-      maxSecondaryTerms: 2, // Maximum secondary terms (object/model) to pre-select
+      maxSecondaryTerms: 1, // REDUCED: Maximum secondary terms (object/model) to pre-select (was 2, now 1)
       restAsCandidate: true, // Put remaining terms as unselected candidates
-      reasoning: "Avoid overly narrow searches by limiting pre-selection"
+      reasoning: "Conservative pre-selection for better user control and broader initial searches"
     },
     
     // NEW: Artist name handling rules
@@ -206,18 +206,28 @@ export function applySearchRules(inputData) {
     // NORMALIZE and FORMAT AI-detected artist name
     const cleanAIArtist = aiArtist.trim().replace(/,\s*$/, ''); // Remove trailing comma and spaces
     
-    // Format AI artist name for search queries (wrap multi-word names in quotes)
-    const words = cleanAIArtist.split(/\s+/).filter(word => word.length > 0);
+    // CRITICAL ENHANCEMENT: ALWAYS wrap AI-detected artists in quotes for maximum precision
+    // This ensures API search treats "Kenneth Bergenblad" as ONE exact entity, not separate words
     let formattedAIArtist;
     
+    // Remove any existing quotes first to avoid double-quoting
+    const dequotedArtist = cleanAIArtist.replace(/^["']|["']$/g, '');
+    
+    // Check if this is a multi-word artist name (most cases)
+    const words = dequotedArtist.split(/\s+/).filter(word => word.length > 0);
+    
     if (words.length > 1) {
-      // Multiple words - wrap in quotes to treat as single entity
-      formattedAIArtist = `"${cleanAIArtist}"`;
-      console.log(`🤖 AI RULES: AI detected "${cleanAIArtist}" → ${formattedAIArtist} (multi-word name, quoted for exact matching)`);
+      // ALWAYS wrap multi-word AI-detected artists in quotes for precision
+      formattedAIArtist = `"${dequotedArtist}"`;
+      console.log(`🤖 AI RULES: AI detected "${dequotedArtist}" → ${formattedAIArtist} (QUOTED for 100% precision)`);
+    } else if (words.length === 1) {
+      // Single word artist names also benefit from quoting for exact matching
+      formattedAIArtist = `"${dequotedArtist}"`;
+      console.log(`🤖 AI RULES: AI detected "${dequotedArtist}" → ${formattedAIArtist} (QUOTED single name for precision)`);
     } else {
-      // Single word - no quotes needed
+      // Fallback for edge cases
       formattedAIArtist = cleanAIArtist;
-      console.log(`🤖 AI RULES: AI detected "${cleanAIArtist}" → ${formattedAIArtist} (single word, no quotes needed)`);
+      console.log(`🤖 AI RULES: AI detected "${cleanAIArtist}" → ${formattedAIArtist} (no formatting needed)`);
     }
     
     extractedTerms.push({
@@ -225,12 +235,13 @@ export function applySearchRules(inputData) {
       type: 'artist',
       priority: 95, // Very high priority, just below manual artist field
       source: 'ai_detected',
-      reasoning: 'AI-detected artist from title - very high priority',
+      reasoning: 'AI-detected artist from title - quoted for maximum precision',
       isAtomic: true, // Mark AI artist names as atomic (counts as 1 term regardless of word count)
-      wordCount: 1 // Always count AI artist name as 1 search term
+      wordCount: 1, // Always count AI artist name as 1 search term
+      isPrecisionQuoted: true // NEW: Flag to indicate this term uses precision quoting
     });
-    reasoning.push(`AI-detected artist "${formattedAIArtist}" included as ONE search term (very high priority)`);
-    console.log(`🎯 AI RULES: AI-detected artist found - "${formattedAIArtist}" (priority: 95, atomic: true, formatted)`);
+    reasoning.push(`AI-detected artist "${formattedAIArtist}" included as ONE precise search term (very high priority)`);
+    console.log(`🎯 AI RULES: AI-detected artist found - "${formattedAIArtist}" (priority: 95, quoted for precision)`);
   }
   
   // RULE 2: Brand recognition (90 priority)
@@ -367,8 +378,8 @@ export function applySearchRules(inputData) {
         shouldPreSelect = true;
         console.log(`📦 AI RULES: Secondary "${termData.term}" auto-selected (${termData.type})`);
       }
-      // RULE 4: Any remaining high-priority terms if under total pre-selection limit
-      else if (termData.priority >= 80 && preSelectedCount < maxPreSelected) {
+      // RULE 4: Any remaining high-priority terms if under total pre-selection limit (MORE CONSERVATIVE)
+      else if (termData.priority >= 90 && preSelectedCount < maxPreSelected) {
         shouldPreSelect = true;
         console.log(`⭐ AI RULES: High-priority "${termData.term}" auto-selected (priority: ${termData.priority})`);
       }
