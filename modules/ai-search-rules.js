@@ -201,6 +201,38 @@ export function applySearchRules(inputData) {
     console.log(`🎯 AI RULES: Artist field found - "${formattedArtist}" (priority: 100, atomic: true, formatted)`);
   }
   
+  // RULE 1B: AI-detected artist (VERY HIGH PRIORITY) - Treat as ONE search word
+  if (aiArtist && aiArtist.trim() && (!artist || artist.trim() !== aiArtist.trim())) {
+    // NORMALIZE and FORMAT AI-detected artist name
+    const cleanAIArtist = aiArtist.trim().replace(/,\s*$/, ''); // Remove trailing comma and spaces
+    
+    // Format AI artist name for search queries (wrap multi-word names in quotes)
+    const words = cleanAIArtist.split(/\s+/).filter(word => word.length > 0);
+    let formattedAIArtist;
+    
+    if (words.length > 1) {
+      // Multiple words - wrap in quotes to treat as single entity
+      formattedAIArtist = `"${cleanAIArtist}"`;
+      console.log(`🤖 AI RULES: AI detected "${cleanAIArtist}" → ${formattedAIArtist} (multi-word name, quoted for exact matching)`);
+    } else {
+      // Single word - no quotes needed
+      formattedAIArtist = cleanAIArtist;
+      console.log(`🤖 AI RULES: AI detected "${cleanAIArtist}" → ${formattedAIArtist} (single word, no quotes needed)`);
+    }
+    
+    extractedTerms.push({
+      term: formattedAIArtist,
+      type: 'artist',
+      priority: 95, // Very high priority, just below manual artist field
+      source: 'ai_detected',
+      reasoning: 'AI-detected artist from title - very high priority',
+      isAtomic: true, // Mark AI artist names as atomic (counts as 1 term regardless of word count)
+      wordCount: 1 // Always count AI artist name as 1 search term
+    });
+    reasoning.push(`AI-detected artist "${formattedAIArtist}" included as ONE search term (very high priority)`);
+    console.log(`🎯 AI RULES: AI-detected artist found - "${formattedAIArtist}" (priority: 95, atomic: true, formatted)`);
+  }
+  
   // RULE 2: Brand recognition (90 priority)
   const brandTerms = [];
   const knownBrands = AI_SEARCH_RULES.brandRecognition.knownBrands;
@@ -320,8 +352,12 @@ export function applySearchRules(inputData) {
           // Artist from artist field ALWAYS gets pre-selected regardless of limits
           shouldPreSelect = true;
           console.log(`👤 AI RULES: Artist "${termData.term}" auto-selected (artist field priority - always included)`);
+        } else if (termData.source === 'ai_detected') {
+          // AI-detected artists ALSO always get pre-selected (very high priority)
+          shouldPreSelect = true;
+          console.log(`🤖 AI RULES: AI-detected artist "${termData.term}" auto-selected (AI detection priority - always included)`);
         } else if (coreTermsSelected < preSelectionRules.maxCoreTerms && preSelectedCount < maxPreSelected) {
-          // AI-detected artists still follow normal core limits
+          // Other artists still follow normal core limits
           shouldPreSelect = true;
           console.log(`👤 AI RULES: Artist "${termData.term}" auto-selected (core priority)`);
         }
@@ -341,9 +377,9 @@ export function applySearchRules(inputData) {
         preSelectedTerms.push(termData.term);
         preSelectedCount++;
         
-        // 🔧 ARTIST CONSISTENCY FIX: Only count AI-detected artists against core limits
-        // Artist field artists don't count against limits since they must always be included
-        if (isCoreType && !(termData.type === 'artist' && termData.source === 'artist_field')) {
+        // 🔧 ARTIST CONSISTENCY FIX: Only count certain artists against core limits
+        // Artist field artists and AI-detected artists don't count against limits since they must always be included
+        if (isCoreType && !(termData.type === 'artist' && (termData.source === 'artist_field' || termData.source === 'ai_detected'))) {
           coreTermsSelected++;
         }
         if (isSecondaryType) secondaryTermsSelected++;
