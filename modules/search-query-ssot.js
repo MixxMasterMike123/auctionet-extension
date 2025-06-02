@@ -586,13 +586,59 @@ export class SearchQuerySSoT {
     
     // ABSOLUTE ARTIST PRIORITY RULE: Always preserve artist terms
     const currentAvailableTerms = this.availableTerms || [];
-    const artistTerms = currentAvailableTerms.filter(term => 
-      term.type === 'artist' || 
-      term.category === 'artist' ||
-      (term.term && term.term.includes('"') && (term.type === 'artist' || term.category === 'artist'))
-    );
+    console.log('🔍 DEBUG: Available terms for artist detection:', currentAvailableTerms.map(t => `"${t.term}" (type: ${t.type}, category: ${t.category || 'none'}, source: ${t.source || 'none'})`));
+    
+    // ENHANCED ARTIST DETECTION: Multiple criteria for maximum coverage
+    const artistTerms = currentAvailableTerms.filter(term => {
+      // Method 1: Explicit type or category
+      if (term.type === 'artist' || term.category === 'artist') {
+        console.log(`🎯 ARTIST DETECTED (type/category): "${term.term}"`);
+        return true;
+      }
+      
+      // Method 2: Source indicates AI-detected artist
+      if (term.source === 'ai_detected' || term.source === 'artist_field') {
+        console.log(`🎯 ARTIST DETECTED (source): "${term.term}"`);
+        return true;
+      }
+      
+      // Method 3: Quoted terms are likely artist names
+      if (term.term && term.term.includes('"')) {
+        console.log(`🎯 ARTIST DETECTED (quoted): "${term.term}"`);
+        return true;
+      }
+      
+      // Method 4: High priority terms that are likely artists
+      if (term.priority && term.priority >= 95) {
+        console.log(`🎯 ARTIST DETECTED (high priority): "${term.term}"`);
+        return true;
+      }
+      
+      // Method 5: Check if term looks like a person's name (has capital letters in middle)
+      if (term.term && /^[A-Z][a-z]+ [A-Z][a-z]+/.test(term.term)) {
+        console.log(`🎯 ARTIST DETECTED (name pattern): "${term.term}"`);
+        return true;
+      }
+      
+      return false;
+    });
     
     console.log('🎯 ABSOLUTE PRIORITY: Found artist terms to preserve:', artistTerms.map(t => t.term));
+    
+    // FALLBACK: If no artists found in availableTerms, check current terms for quoted ones
+    if (artistTerms.length === 0 && this.currentTerms) {
+      const quotedCurrentTerms = this.currentTerms.filter(term => term.includes('"'));
+      if (quotedCurrentTerms.length > 0) {
+        console.log('🎯 FALLBACK: Found quoted terms in current terms to preserve:', quotedCurrentTerms);
+        quotedCurrentTerms.forEach(quotedTerm => {
+          artistTerms.push({
+            term: quotedTerm,
+            type: 'artist',
+            source: 'fallback_quoted'
+          });
+        });
+      }
+    }
     
     // Create final selected terms with artists always included
     const finalSelectedTerms = [];
