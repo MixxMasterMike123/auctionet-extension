@@ -18,7 +18,8 @@ export class ArtistDetectionManager {
     // Only suggest if artist field is empty or very short, OR if force re-detection is enabled
     if (!forceReDetection && artistField && artistField.trim().length > 2) {
       console.log('🚫 Artist detection skipped - artist field already has content:', artistField);
-      return null; // Artist field already has content
+      console.log('📝 Artist field will be used directly for search query generation (no detection needed)');
+      return null; // Artist field already has content - will be picked up by search query generation
     }
 
     if (!title || title.length < 10) {

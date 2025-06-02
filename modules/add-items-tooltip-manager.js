@@ -3742,9 +3742,9 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
 
     const tooltipId = 'condition-quality';
     
-    console.log('⏳ Scheduling condition guidance tooltip to show in 800ms...');
+    console.log('⏳ Scheduling condition guidance tooltip to show in 200ms...');
     
-    // Add delay for smooth UX
+    // Add delay for smooth UX - faster response for better user experience
     setTimeout(() => {
       // Double-check tooltip wasn't dismissed during delay
       if (this.dismissedTooltips.has(tooltipId)) return;
@@ -3813,7 +3813,7 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
       });
       
       console.log('✨ Condition guidance tooltip shown');
-    }, 800);
+    }, 200);
   }
 
   getConditionGuidanceContent(formData, type, issues = []) {

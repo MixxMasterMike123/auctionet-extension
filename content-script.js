@@ -1612,6 +1612,14 @@
           
           conditionField.addEventListener('input', debouncedAnalysis);
           conditionField.addEventListener('blur', debouncedAnalysis);
+          
+          // NEW: IMMEDIATE condition analysis on edit pages since listing already exists
+          console.log('🚀 Edit page detected - triggering immediate condition analysis...');
+          setTimeout(() => {
+            const formData = this.dataExtractor.extractItemData();
+            console.log('🩺 Initial condition analysis on edit page - condition length:', formData.condition?.length || 0);
+            this.analyzeConditionQuality(formData);
+          }, 1000); // Quick 1s delay to ensure page is fully loaded
         }
       }
 
@@ -1742,9 +1750,9 @@
 
         const tooltipId = 'condition-quality';
         
-        console.log('⏳ Scheduling condition guidance tooltip to show in 800ms...');
+        console.log('⏳ Scheduling condition guidance tooltip to show in 200ms (fast edit page mode)...');
         
-        // Add delay for smooth UX
+        // Add delay for smooth UX - MUCH FASTER on edit pages
         setTimeout(() => {
           // Double-check tooltip wasn't dismissed during delay
           if (this.dismissedTooltips.has(tooltipId)) return;
@@ -1808,7 +1816,7 @@
           });
           
           console.log('✨ Condition guidance tooltip shown');
-        }, 800);
+        }, 200);
       }
 
       // Get condition guidance content - EXACT copy from Add Items page

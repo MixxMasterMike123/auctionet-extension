@@ -61,6 +61,15 @@ export class SearchFilterManager {
   // NEW: Extract candidate search terms for interactive user selection
   extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null) {
     console.log('🔍 Extracting ALL candidate search terms for:', title);
+    console.log('📋 Input parameters:', { 
+      hasArtistInfo: !!artistInfo, 
+      artistInfoContent: artistInfo?.artist || 'none',
+      hasActualSearchQuery: !!actualSearchQuery 
+    });
+    
+    // DEBUGGING: Check artist field in DOM regardless of parameters
+    const artistFieldFromDOM = document.querySelector('#item_artist_name_sv')?.value?.trim();
+    console.log('🎯 ARTIST FIELD DEBUG: DOM artist field content:', artistFieldFromDOM || 'empty');
     
     // CRITICAL FIX: Check if we already have AI Rules data in SearchQuerySSoT to preserve source information
     if (this.searchQuerySSoT) {
@@ -290,8 +299,43 @@ export class SearchFilterManager {
         type: 'artist',
         priority: 1,
         description: 'Konstnär/Märke',
-        preSelected: preSelected
+        preSelected: preSelected,
+        source: 'artist_info_param'
       });
+    } else {
+      // CRITICAL FIX: Always check artist field directly when not passed as parameter
+      // This ensures artist field content is included even when detection is skipped
+      const artistField = document.querySelector('#item_artist_name_sv')?.value?.trim();
+      if (artistField) {
+        console.log('🎯 DIRECT ARTIST FIELD: Found artist field content not passed as parameter:', artistField);
+        
+        // Format artist name for search (same logic as emergency fallback)
+        const cleanArtist = artistField.trim().replace(/,\s*$/, ''); // Remove trailing commas
+        const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
+        
+        let formattedArtist;
+        if (words.length > 1) {
+          // Multiple words - wrap in quotes to treat as single entity
+          formattedArtist = `"${cleanArtist}"`;
+          console.log(`👤 DIRECT ARTIST FIELD: "${cleanArtist}" → ${formattedArtist} (multi-word name, quoted for exact matching)`);
+        } else {
+          // Single word - no quotes needed
+          formattedArtist = cleanArtist;
+          console.log(`👤 DIRECT ARTIST FIELD: "${cleanArtist}" → ${formattedArtist} (single word, no quotes needed)`);
+        }
+        
+        const preSelected = shouldBePreSelected(formattedArtist);
+        candidates.push({
+          term: formattedArtist,
+          type: 'artist',
+          priority: 1,
+          description: 'Konstnär/Märke',
+          preSelected: preSelected, // This will be true due to artist field logic in shouldBePreSelected
+          source: 'artist_field_direct'
+        });
+        
+        console.log(`✅ DIRECT ARTIST FIELD: Added "${formattedArtist}" as ${preSelected ? 'pre-selected' : 'candidate'} term`);
+      }
     }
     
     // 2. OBJECT TYPE (with deduplication check)
