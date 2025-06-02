@@ -650,46 +650,95 @@ export class QualityAnalyzer {
     this.updateQualityIndicator(currentScore, currentWarnings);
     console.log('✅ Artist detection results displayed');
     
-    // CRITICAL FIX: Initiate market analysis immediately when AI detects artist
-    if (aiArtist.detectedArtist && this.salesAnalysisManager) {
-      console.log('🎯 AI detected artist - prioritizing market analysis:', aiArtist.detectedArtist);
+    // CRITICAL FIX: Initialize SearchQuerySSoT with AI-detected artist for immediate dashboard
+    if (aiArtist.detectedArtist && this.searchQuerySSoT) {
+      console.log('🎯 AI detected artist - initializing SearchQuerySSoT for immediate dashboard');
       
-      // Clear any existing market data dashboard immediately
-      const existingDashboard = document.querySelector('.market-data-dashboard');
-      if (existingDashboard) {
-        console.log('🗑️ Removing existing dashboard to replace with AI artist analysis');
-        existingDashboard.remove();
-      }
-      
-      // Create artist info object for market analysis
-      const aiArtistInfo = {
-        artist: aiArtist.detectedArtist,
-        source: aiArtist.source || 'ai',
-        confidence: aiArtist.confidence || 0.8
-      };
-      
-      // Check if sales analysis is already running to avoid duplicates
-      if (!this.pendingAnalyses.has('sales')) {
-        console.log('💰 Starting PRIORITY sales analysis with AI-detected artist:', aiArtistInfo);
-        this.pendingAnalyses.add('sales');
-        this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
+      try {
+        // Create enhanced data object that includes the AI-detected artist
+        const enhancedData = {
+          ...data,
+          aiArtist: aiArtist.detectedArtist  // Add AI artist to data
+        };
         
-        try {
-          await this.salesAnalysisManager.startSalesAnalysis(
-            aiArtistInfo, 
-            data, 
-            currentWarnings, 
-            currentScore, 
-            this.searchFilterManager, 
-            this
-          );
-        } catch (error) {
-          console.error('Error starting sales analysis for AI artist:', error);
-          this.pendingAnalyses.delete('sales');
-          this.checkAndHideLoadingIndicator();
+        // Generate search query with AI-detected artist
+        const ssotResult = await this.searchQuerySSoT.generateAndSetQuery(
+          enhancedData.title,
+          enhancedData.description,
+          enhancedData.artist || '',  // Current artist field (might be empty)
+          aiArtist.detectedArtist     // AI-detected artist from title
+        );
+        
+        if (ssotResult && ssotResult.success) {
+          console.log('✅ SearchQuerySSoT initialized with AI-detected artist:', ssotResult.query);
+          
+          // Clear any existing dashboard to replace with new one
+          const existingDashboard = document.querySelector('.market-data-dashboard');
+          if (existingDashboard) {
+            console.log('🗑️ Removing existing dashboard to replace with AI artist dashboard');
+            existingDashboard.remove();
+          }
+          
+          // Start market analysis with the enhanced search query
+          if (!this.pendingAnalyses.has('sales')) {
+            console.log('💰 Starting IMMEDIATE market analysis with AI-detected artist');
+            this.pendingAnalyses.add('sales');
+            this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
+            
+            // Create search query object for sales analysis
+            const aiSearchQuery = {
+              searchQuery: ssotResult.query,
+              searchTerms: ssotResult.searchTerms,
+              source: 'ai_detected',
+              confidence: aiArtist.confidence || 0.8,
+              reasoning: `AI detected artist "${aiArtist.detectedArtist}" in title`
+            };
+            
+            await this.salesAnalysisManager.startSalesAnalysis(
+              aiSearchQuery,
+              enhancedData,
+              currentWarnings,
+              currentScore,
+              this.searchFilterManager,
+              this
+            );
+          } else {
+            console.log('⚠️ Sales analysis already running - skipping duplicate AI analysis');
+          }
+        } else {
+          console.log('⚠️ SearchQuerySSoT generation failed, using fallback artist info');
+          throw new Error('SSoT generation failed');
         }
-      } else {
-        console.log('⚠️ Sales analysis already running - skipping duplicate AI artist analysis');
+      } catch (error) {
+        console.error('Error initializing SearchQuerySSoT with AI artist:', error);
+        
+        // Fallback: Use simple artist info approach
+        const aiArtistInfo = {
+          artist: aiArtist.detectedArtist,
+          source: 'ai',
+          confidence: aiArtist.confidence || 0.8
+        };
+        
+        if (!this.pendingAnalyses.has('sales')) {
+          console.log('💰 Starting FALLBACK market analysis with AI-detected artist:', aiArtistInfo);
+          this.pendingAnalyses.add('sales');
+          this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
+          
+          try {
+            await this.salesAnalysisManager.startSalesAnalysis(
+              aiArtistInfo,
+              data,
+              currentWarnings,
+              currentScore,
+              this.searchFilterManager,
+              this
+            );
+          } catch (fallbackError) {
+            console.error('Error in fallback sales analysis:', fallbackError);
+            this.pendingAnalyses.delete('sales');
+            this.checkAndHideLoadingIndicator();
+          }
+        }
       }
     }
     
@@ -885,6 +934,64 @@ export class QualityAnalyzer {
             console.log('🔄 Triggering quality re-analysis after artist addition');
             this.analyzeQuality();
           }, 200);
+          
+          // CRITICAL FIX: Re-trigger market analysis when artist is moved to field
+          if (this.searchQuerySSoT && this.salesAnalysisManager) {
+            setTimeout(async () => {
+              console.log('🔄 Re-triggering market analysis after artist moved to field');
+              
+              try {
+                // Get updated form data with artist now in field
+                const updatedData = this.dataExtractor.extractItemData();
+                console.log('📊 Updated data after artist move:', { artist: updatedData.artist, title: updatedData.title.substring(0, 50) });
+                
+                // Clear existing dashboard
+                const existingDashboard = document.querySelector('.market-data-dashboard');
+                if (existingDashboard) {
+                  console.log('🗑️ Removing existing dashboard for re-analysis');
+                  existingDashboard.remove();
+                }
+                
+                // Generate new search query with artist now in field
+                const ssotResult = await this.searchQuerySSoT.generateAndSetQuery(
+                  updatedData.title,
+                  updatedData.description,
+                  updatedData.artist,  // Now contains the moved artist
+                  ''  // No AI artist since it's been moved
+                );
+                
+                if (ssotResult && ssotResult.success) {
+                  console.log('✅ Re-generated search query with artist in field:', ssotResult.query);
+                  
+                  // Start new market analysis
+                  const artistFieldQuery = {
+                    searchQuery: ssotResult.query,
+                    searchTerms: ssotResult.searchTerms,
+                    source: 'artist_field',
+                    confidence: 0.9,  // High confidence when artist is in proper field
+                    reasoning: `Artist "${updatedData.artist}" moved to artist field`
+                  };
+                  
+                  // Get current warnings and score
+                  const currentWarnings = this.extractCurrentWarnings();
+                  const currentScore = this.calculateCurrentQualityScore(updatedData);
+                  
+                  this.salesAnalysisManager.startSalesAnalysis(
+                    artistFieldQuery,
+                    updatedData,
+                    currentWarnings,
+                    currentScore,
+                    this.searchFilterManager,
+                    this
+                  );
+                } else {
+                  console.log('⚠️ Failed to generate new search query after artist move');
+                }
+              } catch (error) {
+                console.error('Error re-triggering market analysis after artist move:', error);
+              }
+            }, 500);  // Wait a bit longer to ensure field update is complete
+          }
           
           // Simple visual feedback - success
           const originalText = element.textContent;
