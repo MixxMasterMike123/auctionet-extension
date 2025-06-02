@@ -403,23 +403,9 @@ export class QualityAnalyzer {
           // Clear any cached freetext data that might interfere
           this.previousFreetextData = null;
           
-          // Create artist info object for market analysis
-          const aiArtistInfo = {
-            artist: aiArtist.detectedArtist,
-            source: aiArtist.source || 'ai_detected',
-            confidence: aiArtist.confidence || 0.8
-          };
-          
-          // CRITICAL FIX: Check if sales analysis is already running
-          if (this.pendingAnalyses.has('sales')) {
-            console.log('⚠️ Sales analysis already running - skipping AI duplicate analysis');
-            return;
-          }
-          
-          console.log('💰 Starting PRIORITY sales analysis with AI-detected artist:', aiArtistInfo);
-          this.pendingAnalyses.add('sales');
-          this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
-          this.salesAnalysisManager.startSalesAnalysis(aiArtistInfo, data, currentWarnings, currentScore, this.searchFilterManager, this);
+          // NOTE: Market analysis is now handled in handleArtistDetectionResult
+          // No need to start duplicate analysis here
+          console.log('✅ AI artist detected - market analysis handled in handleArtistDetectionResult');
         } else {
           // No AI artist found, use AI-generated search query
           const bestSearchQuery = await this.determineBestSearchQueryForMarketAnalysis(data, aiArtist);
@@ -661,13 +647,16 @@ export class QualityAnalyzer {
           aiArtist: aiArtist.detectedArtist  // Add AI artist to data
         };
         
-        // Generate search query with AI-detected artist
+        // Generate search query with AI-detected artist - WAIT for completion
+        console.log('⏳ Starting AI query generation for immediate dashboard...');
         const ssotResult = await this.searchQuerySSoT.generateAndSetQuery(
           enhancedData.title,
           enhancedData.description,
           enhancedData.artist || '',  // Current artist field (might be empty)
           aiArtist.detectedArtist     // AI-detected artist from title
         );
+        
+        console.log('🔍 AI query generation result:', ssotResult);
         
         if (ssotResult && ssotResult.success) {
           console.log('✅ SearchQuerySSoT initialized with AI-detected artist:', ssotResult.query);
@@ -679,13 +668,13 @@ export class QualityAnalyzer {
             existingDashboard.remove();
           }
           
-          // Start market analysis with the enhanced search query
+          // CRITICAL FIX: Now that query is generated, start market analysis
           if (!this.pendingAnalyses.has('sales')) {
-            console.log('💰 Starting IMMEDIATE market analysis with AI-detected artist');
+            console.log('💰 Starting IMMEDIATE market analysis with AI-detected artist (query ready)');
             this.pendingAnalyses.add('sales');
             this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
             
-            // Create search query object for sales analysis
+            // Create search query object for sales analysis - use SSoT query
             const aiSearchQuery = {
               searchQuery: ssotResult.query,
               searchTerms: ssotResult.searchTerms,
@@ -693,6 +682,8 @@ export class QualityAnalyzer {
               confidence: aiArtist.confidence || 0.8,
               reasoning: `AI detected artist "${aiArtist.detectedArtist}" in title`
             };
+            
+            console.log('🎯 Starting sales analysis with complete AI query:', aiSearchQuery);
             
             await this.salesAnalysisManager.startSalesAnalysis(
               aiSearchQuery,
