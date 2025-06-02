@@ -715,6 +715,10 @@ ${this.getCategorySpecificRules(itemData)}
         return baseInfo + `
 UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder. Skriv naturligt och autentiskt - använd reglerna som riktlinjer, inte som strikta begränsningar.
 
+VIKTIGT - ARBETSORDNING:
+1. Först förbättra titel, beskrivning och kondition
+2. Sedan generera sökord baserat på de FÖRBÄTTRADE fälten (inte originalfälten)
+
 ${itemData.artist && this.enableArtistInfo ? 
   'EXPERTKUNSKAP - KONSTNÄR KÄND: Eftersom konstnär/formgivare är angiven (' + itemData.artist + ') och konstnärsinformation är aktiverad, lägg till KORT, RELEVANT kontext om denna specifika modell/serie. Max 1-2 extra meningar. Fokusera på konkreta fakta, inte allmän konstnärsbiografi.' : 
   'BEGRÄNSAD INFORMATION: Håll dig till befintlig information utan att lägga till konstnärlig kontext.'}
@@ -723,6 +727,19 @@ FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
 • KONDITION: Endast fysiskt skick och skador - ALDRIG beskrivande information
 • Håll fälten strikt separerade - konditionsdetaljer som "slitage", "repor", "märken" hör ENDAST i konditionsfältet
+
+KRITISKT FÖR SÖKORD - KOMPLETTERANDE TERMER:
+• Generera sökord som kompletterar de FÖRBÄTTRADE titel/beskrivning du skapar
+• Läs noggrant igenom dina FÖRBÄTTRADE titel/beskrivning INNAN du skapar sökord
+• Generera ENDAST ord som INTE redan finns i dina förbättrade fält
+• Fokusera på HELT NYA alternativa söktermer som köpare kan använda
+• Kontrollera även PARTIELLA matchningar: "litografi" matchar "färglitografi"
+• Inkludera: stilperioder, tekniker, användningsområden, alternativa namn
+• Exempel: Om din förbättrade titel säger "vas" - lägg till "dekoration inredning samlarobjekt"
+• KONKRETA EXEMPEL: Om beskrivning säger "blomstermotiv" → använd INTE "blomstermotiv", använd "växtmotiv" istället
+• KONKRETA EXEMPEL: Om beskrivning säger "orkidén" → använd INTE "orkidé", använd "flora" istället
+• För perioder: Använd decennier istället för exakta år: "1970-tal" istället av "1974"
+• MAX 10-12 relevanta termer
 
 KRITISKT - BEVARA ALLA MÅTT OCH LISTOR I BESKRIVNINGEN:
 • BEHÅLL ALLTID detaljerade måttlistor: "4 snapsglas, höjd 15,5 cm", "2 vinglas, höjd 19,5 cm", etc.
@@ -750,7 +767,7 @@ Returnera EXAKT i detta format (en rad per fält):
 TITEL: [förbättrad titel]
 BESKRIVNING: [förbättrad beskrivning utan konditionsinformation]
 KONDITION: [förbättrad konditionsrapport]
-SÖKORD: [relevanta sökord separerade med mellanslag, använd "-" för flerordsfraser]
+SÖKORD: [kompletterande sökord baserade på FÖRBÄTTRADE fält ovan, separerade med mellanslag, använd "-" för flerordsfraser]
 
 VIKTIGT FÖR SÖKORD: Använd Auctionets format med mellanslag mellan sökord och "-" för flerordsfraser.
 EXEMPEL: "konstglas mundblåst svensk-design 1960-tal samlarobjekt"
@@ -835,30 +852,40 @@ Returnera ENDAST den förbättrade konditionsrapporten utan extra formatering el
 
       case 'keywords':
         return baseInfo + `
-UPPGIFT: Generera HÖGKVALITATIVA dolda sökord enligt Auctionets format. MAX 10-12 sökord totalt.
+UPPGIFT: Generera HÖGKVALITATIVA dolda sökord som kompletterar titel och beskrivning enligt Auctionets format.
 
-KRITISKT - AUCTIONET SÖKORD FORMAT:
-• Separera sökord med MELLANSLAG (inte kommatecken)
-• Använd "-" för flerordsfraser: "konstglas" blir "konstglas", "svensk design" blir "svensk-design"
-• EXEMPEL PÅ KORREKT FORMAT: "konstglas mundblåst svensk-design 1960-tal samlarobjekt skandinavisk-form"
-• EXEMPEL PÅ FEL FORMAT: "konstglas, mundblåst, svensk design, 1960-tal" (kommatecken och mellanslag i fraser)
+KRITISKT - UNDVIK ALLA UPPREPNINGAR:
+• Generera ENDAST sökord som INTE redan finns i nuvarande titel/beskrivning
+• Läs noggrant igenom titel och beskrivning INNAN du skapar sökord
+• Om ordet redan finns någonstans - använd det INTE
+• Fokusera på HELT NYA alternativa söktermer som köpare kan använda
+• Kontrollera även PARTIELLA matchningar: "litografi" matchar "färglitografi"
+• Exempel: Om titel säger "färglitografi" - använd INTE "litografi" eller "färglitografi"
+• KONKRETA EXEMPEL: Om beskrivning säger "blomstermotiv" → använd INTE "blomstermotiv", använd "växtmotiv" istället
+• KONKRETA EXEMPEL: Om beskrivning säger "orkidén" → använd INTE "orkidé", använd "flora" istället
 
-SÖKORD KVALITET:
-• Prioritera termer som INTE redan finns i titel/beskrivning
-• Inkludera: alternativa namn, tekniska termer, stilperioder, användningsområden
-• Undvik upprepningar och synonymer som är för lika
-• Fokusera på vad köpare faktiskt söker efter
 
-STRIKT FORMAT - KRITISKT:
+KOMPLETTERANDE SÖKORD - EXEMPEL:
+• För konsttryck: "grafik reproduktion konstprint limited-edition"
+• För målningar: "oljemålning akvarell konstverk originalverk"  
+• För skulptur: "skulptur plastik konstföremål tredimensionell"
+• För möbler: "vintage retro funktionalism dansk-design"
+• För perioder: Använd decennier istället för exakta år: "1970-tal" istället av "1974"
+
+OBLIGATORISK AUCTIONET FORMAT:
+• Separera sökord med MELLANSLAG (ALDRIG kommatecken)
+• Använd "-" för flerordsfraser: "svensk-design", "1970-tal", "limited-edition"
+• EXEMPEL KORREKT: "grafik reproduktion svensk-design 1970-tal konstprint"
+• EXEMPEL FEL: "grafik, reproduktion, svensk design, 1970-tal" (kommatecken och mellanslag i fraser)
+
+KRITISKT - RETURFORMAT:
 • Returnera ENDAST sökorden separerade med mellanslag
-• INGEN text före eller efter sökorden
-• INGA förklaringar, kommentarer eller noteringar
-• INGA etiketter som "SÖKORD:" eller "Keywords:"
-• INGA meningar eller beskrivningar
-• EXEMPEL PÅ KORREKT SVAR: "konstglas mundblåst svensk-design 1960-tal"
-• EXEMPEL PÅ FEL SVAR: "SÖKORD: konstglas mundblåst" eller "Här är sökorden: konstglas"
+• INGA kommatecken mellan sökord
+• INGA förklaringar, kommentarer eller etiketter
+• MAX 10-12 relevanta termer
+• EXEMPEL: "grafik reproduktion svensk-design 1970-tal dekor inredning"
 
-Returnera ENDAST sökorden separerade med mellanslag enligt Auctionets format, utan extra formatering eller etiketter.`;
+STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där (även delvis), använd det ALDRIG i sökorden.`;
 
       case 'search_query':
         return `You are an expert auction search optimizer. Generate 2-3 optimal search terms for finding comparable items.
@@ -1027,6 +1054,9 @@ UPPGIFT:
 Innehåller denna titel eller beskrivning ett konstnärs- eller designernamn som borde vara i ett separat konstnärsfält?
 
 VIKTIGA REGLER:
+- INFORMAL INMATNING: Katalogiserare skriver ofta snabbt och informellt, t.ex. "rolf lidberg pappaer litografi 1947 signerad"
+- SÖK I BÖRJAN AV TITEL: Konstnärsnamn är ofta slarvigt placerade först i titeln
+- IGNORERA KAPITALISERING: "rolf lidberg" och "Rolf Lidberg" är samma person
 - Sök både i titel OCH beskrivning efter verkliga konstnärsnamn
 - "Signerad [Namn]" i beskrivning indikerar ofta konstnärsnamn
 - Japanska/asiatiska namn som "Fujiwara Toyoyuki" är ofta konstnärsnamn
@@ -1035,7 +1065,13 @@ VIKTIGA REGLER:
 - Företagsnamn som "IKEA", "Axeco" är INTE konstnärsnamn
 - Ortnamn som "Stockholm", "Göteborg" är INTE konstnärsnamn
 
-EXEMPEL:
+TYPISKA INFORMELLA MÖNSTER:
+- "carl malmsten stol ek 1950-tal" → KONSTNÄR: "Carl Malmsten"
+- "rolf lidberg pappaer litografi 1947 signerad" → KONSTNÄR: "Rolf Lidberg"  
+- "lisa larson figurin keramik gustavsberg" → KONSTNÄR: "Lisa Larson"
+- "picasso målning olja duk" → KONSTNÄR: "Picasso"
+
+FORMELLA EXEMPEL:
 - "Signerad Fujiwara Toyoyuki" → KONSTNÄR: "Fujiwara Toyoyuki"
 - "Svärdsskola Takada" → INTE konstnär (skola/region)
 - "Signerad Lars Larsson" → KONSTNÄR: "Lars Larsson"
@@ -1043,7 +1079,7 @@ EXEMPEL:
 SVARA MED JSON:
 {
   "hasArtist": boolean,
-  "artistName": "namn eller null",
+  "artistName": "namn eller null (använd korrekt kapitalisering)",
   "foundIn": "title/description/both",
   "suggestedTitle": "föreslagen titel utan konstnärsnamn eller null",
   "suggestedDescription": "föreslagen beskrivning utan konstnärsnamn eller null",
@@ -1051,7 +1087,7 @@ SVARA MED JSON:
   "reasoning": "kort förklaring om vad som hittades och var"
 }
 
-Endast om du är mycket säker (confidence > 0.8) på att det finns ett verkligt konstnärsnamn.`;
+VIKTIGT: Var mer generös med confidence för uppenbara konstnärsnamn i informell formatering. Om namnet ser ut som en person och är placerat logiskt, ge minst 0.7 confidence.`;
 
       console.log('📤 Sending AI request with prompt length:', prompt.length);
 

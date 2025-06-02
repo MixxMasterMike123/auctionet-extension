@@ -1,4 +1,11 @@
-// content.js - Main content script
+// content.js - Universal Content Script for Auctionet Extension
+// Handles both edit and add pages
+//
+// LANGUAGE REQUIREMENTS:
+// - All user-facing text (tooltips, messages, AI responses) must be in Swedish
+// - Code comments and console logs should be in English
+// - Technical field names and JSON keys remain in English for parsing
+
 console.log('🚀 Auctionet AI Assistant: Content script loaded!');
 
 // Import the new tooltip manager for add items pages
@@ -8,18 +15,39 @@ import('./modules/add-items-tooltip-manager.js').then(module => {
   console.error('❌ Failed to load AddItemsTooltipManager:', error);
 });
 
+// Import the ArtistDetectionManager SSoT
+import('./modules/artist-detection-manager.js').then(module => {
+  window.ArtistDetectionManager = module.ArtistDetectionManager;
+}).catch(error => {
+  console.error('❌ Failed to load ArtistDetectionManager:', error);
+});
+
+// Monitor for DOM changes to detect page transitions
+const observer = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+      // Check if we're now on a supported page
+      setTimeout(() => {
+        if (!window.auctionetAssistantInitialized) {
+          window.auctionetAssistant?.tryInitialize?.();
+        }
+      }, 500);
+    }
+  });
+});
+
+observer.observe(document.body, { childList: true, subtree: true });
+
 class AuctionetCatalogingAssistant {
   constructor() {
-    console.log('🏗️ AuctionetCatalogingAssistant: Constructor called');
     this.apiKey = null;
-    this.currentPage = null; // 'edit' or 'add'
-    this.tooltipManager = null; // For add items pages
+    this.currentPage = null;
+    this.tooltipManager = null;
     this.init();
     
     // Listen for API key changes
     chrome.storage.onChanged.addListener((changes, namespace) => {
       if (namespace === 'sync' && changes.anthropicApiKey) {
-        console.log('API key updated in storage');
         this.apiKey = changes.anthropicApiKey.newValue;
       }
     });
@@ -27,7 +55,6 @@ class AuctionetCatalogingAssistant {
     // Listen for messages from popup
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.type === 'refresh-api-key') {
-        console.log('Refreshing API key from popup request');
         this.loadApiKey();
         sendResponse({ success: true });
       }
@@ -35,29 +62,20 @@ class AuctionetCatalogingAssistant {
   }
 
   async init() {
-    console.log('🔧 Auctionet AI Assistant: Initializing...');
-    console.log('📍 Current URL:', window.location.href);
-    console.log('📄 Document ready state:', document.readyState);
-    
     // Wait for page to be fully loaded
     if (document.readyState === 'loading') {
-      console.log('⏳ Waiting for DOM to load...');
       await new Promise(resolve => {
         document.addEventListener('DOMContentLoaded', resolve);
       });
     }
 
     // Additional wait to ensure dynamic content is loaded
-    console.log('⏳ Waiting for dynamic content...');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Check if we're on the right page and determine page type
-    console.log('🔍 Checking page type...');
     const pageInfo = this.detectPageType();
-    console.log('✅ Page info:', pageInfo);
     
     if (!pageInfo.isSupported) {
-      console.log('❌ Auctionet AI Assistant: Not on a supported page');
       return;
     }
 
@@ -65,35 +83,24 @@ class AuctionetCatalogingAssistant {
     console.log('✅ Auctionet AI Assistant: On supported page, type:', this.currentPage);
     
     await this.loadApiKey();
-    console.log('🔑 API key loaded:', this.apiKey ? 'Yes' : 'No');
     
     if (this.currentPage === 'edit') {
-      console.log('🎨 Initializing edit page UI...');
       this.injectUI();
       this.attachEventListeners();
     } else if (this.currentPage === 'add') {
-      console.log('🎯 Initializing add items tooltip system...');
       await this.initializeAddItemsTooltips();
     }
-    
-    console.log('🎉 Auctionet AI Assistant: Initialization complete');
   }
 
   detectPageType() {
     const url = window.location.href;
     const hash = window.location.hash;
     
-    console.log('🔍 Page detection debug:');
-    console.log('📍 URL:', url);
-    console.log('🔗 Hash:', hash);
-    console.log('🎯 Title field exists:', !!document.querySelector('#item_title_sv'));
-    
     // Check for edit page
     if (url.includes('auctionet.com/admin/') && 
         url.includes('/items/') && 
         url.includes('/edit') &&
         document.querySelector('#item_title_sv')) {
-      console.log('✅ Detected: EDIT page');
       return { isSupported: true, type: 'edit' };
     }
     
@@ -102,7 +109,6 @@ class AuctionetCatalogingAssistant {
         url.includes('/contracts/') &&
         hash === '#new_item' &&
         document.querySelector('#item_title_sv')) {
-      console.log('✅ Detected: ADD page (new URL pattern)');
       return { isSupported: true, type: 'add' };
     }
     
@@ -110,40 +116,42 @@ class AuctionetCatalogingAssistant {
     if (url.includes('auctionet.com/admin/') && 
         url.includes('/items/new') &&
         document.querySelector('#item_title_sv')) {
-      console.log('✅ Detected: ADD page (legacy URL pattern)');
       return { isSupported: true, type: 'add' };
     }
     
-    console.log('❌ No supported page detected');
     return { isSupported: false, type: null };
   }
 
   async initializeAddItemsTooltips() {
     try {
-      // Wait for the tooltip manager class to be loaded
-      if (!window.AddItemsTooltipManager) {
-        console.log('⏳ Waiting for AddItemsTooltipManager to load...');
+      console.log('🎯 Initializing Add Items Tooltips, waiting for dynamic imports...');
+      
+      // Wait for both classes to be loaded via dynamic imports
+      if (!window.AddItemsTooltipManager || !window.ArtistDetectionManager) {
         await new Promise(resolve => {
-          const checkForClass = () => {
-            if (window.AddItemsTooltipManager) {
+          const checkForClasses = () => {
+            if (window.AddItemsTooltipManager && window.ArtistDetectionManager) {
+              console.log('✅ Dynamic imports loaded successfully');
               resolve();
             } else {
-              setTimeout(checkForClass, 100);
+              setTimeout(checkForClasses, 100);
             }
           };
-          checkForClass();
+          checkForClasses();
         });
       }
 
-      // We need to create simplified versions of required dependencies
+      // Create simplified API manager for the tooltip system
       const apiManager = this.createSimpleAPIManager();
-      const qualityAnalyzer = this.createSimpleQualityAnalyzer();
 
-      // Initialize the tooltip manager
+      // NEW: Create simplified quality analyzer with ArtistDetectionManager SSoT
+      const qualityAnalyzer = this.createSimpleQualityAnalyzer(apiManager);
+
+      // Initialize the tooltip manager using dynamically loaded class
       this.tooltipManager = new window.AddItemsTooltipManager(apiManager, qualityAnalyzer);
       await this.tooltipManager.init();
       
-      console.log('✅ Add items tooltip system initialized');
+      console.log('✅ Add items tooltip system initialized with ArtistDetectionManager SSoT');
       
     } catch (error) {
       console.error('❌ Failed to initialize add items tooltips:', error);
@@ -151,117 +159,336 @@ class AuctionetCatalogingAssistant {
   }
 
   createSimpleAPIManager() {
+    // Capture reference to parent class for method calls
+    const parentClass = this;
+    
     // Create a simplified API manager that provides just what the tooltip system needs
     return {
       apiKey: this.apiKey,
       
-      async callClaudeAPI(prompt, type = 'live_enhancement') {
-        if (!this.apiKey) {
+      async callClaudeAPI(itemData, fieldType) {
+        if (!parentClass.apiKey) {
           throw new Error('No API key available');
         }
         
+        // Generate the prompt based on the field type and item data
+        const prompt = parentClass.generatePromptForAddItems(itemData, fieldType);
+        
         try {
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': this.apiKey,
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-              model: 'claude-3-haiku-20240307',
-              max_tokens: 2000,
-              messages: [{ role: 'user', content: prompt }]
-            })
+          // Use background script communication (same as edit page)
+          const response = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({
+              type: 'anthropic-fetch',
+              apiKey: parentClass.apiKey,
+              body: {
+                model: 'claude-3-haiku-20240307',
+                max_tokens: 2000,
+                temperature: 0.7,
+                system: 'You are an expert Swedish auction cataloger. Follow Swedish auction standards.',
+                messages: [{
+                  role: 'user',
+                  content: [{ type: 'text', text: prompt }]
+                }]
+              }
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else if (response.success) {
+                resolve(response);
+              } else {
+                reject(new Error(response.error || 'API request failed'));
+              }
+            });
           });
 
-          if (!response.ok) {
-            throw new Error(`API call failed: ${response.status}`);
+          if (!response.data || !response.data.content || !Array.isArray(response.data.content) || response.data.content.length === 0) {
+            throw new Error('Invalid response format from API');
+          }
+          
+          if (!response.data.content[0] || !response.data.content[0].text) {
+            throw new Error('No text content in API response');
           }
 
-          const data = await response.json();
-          return data.content[0].text;
+          // Parse the response similar to how the edit page does it
+          return parentClass.parseClaudeResponseForAddItems(response.data.content[0].text, fieldType);
         } catch (error) {
           console.error('❌ API call failed:', error);
           throw error;
+        }
+      },
+
+      // NEW: Add the analyzeForArtist method for AI artist detection
+      async analyzeForArtist(title, objectType, artistField, description = '') {
+        console.log('🤖 Simple API: Analyzing for artist in title:', title);
+        
+        if (!parentClass.apiKey) {
+          console.error('🤖 Simple API: No API key available');
+          return { hasArtist: false };
+        }
+        
+        const prompt = `Analyze this Swedish auction title for potential artist names that should be moved to the artist field.
+
+IMPORTANT: If you detect a misspelled artist name, correct it and explain the correction. Do NOT reject misspellings - instead provide the correct spelling with reasoning.
+
+LANGUAGE REQUIREMENT: All user-facing text (reasoning, explanations) must be in Swedish. Only field names in JSON should remain in English.
+
+CRITICAL JSON FORMATTING:
+- ALWAYS escape quotes in JSON string values using backslashes
+- If title contains "quotes", write them as \"quotes\" in JSON
+- Example: "suggestedTitle": "\"Nornan\" färglitografi signerad numrerad 55/150"
+- NEVER use unescaped quotes inside JSON string values
+
+Title: "${title}"
+Current artist field: "${artistField}"
+Object type: "${objectType || 'unknown'}"
+Description: "${description}"
+
+GUIDELINES:
+- Detect and CORRECT misspelled Swedish artist names (e.g., "Rolf Lidbergg" → "Rolf Lidberg")
+- If name appears misspelled, research the correct spelling and provide it
+- Use confidence 0.7-0.9 for corrections (high confidence in correction)
+- Use confidence 0.4-0.6 for uncertain detections
+- Move artist name to artist field, provide clean title without artist name
+- Respond in Swedish for all user-facing text (reasoning)
+
+CRITICAL: Escape ALL quotes in JSON string values with backslashes!
+
+RESPOND WITH VALID JSON:
+{
+  "hasArtist": boolean,
+  "artistName": "corrected name or null",
+  "confidence": 0.0-1.0,
+  "suggestedTitle": "title without artist, quotes properly escaped",
+  "reasoning": "explanation in Swedish"
+}`;
+
+        try {
+          // Make direct API call using background script communication
+          const response = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage({
+              type: 'anthropic-fetch',
+              apiKey: parentClass.apiKey,
+              body: {
+                model: 'claude-3-haiku-20240307',
+                max_tokens: 1000,
+                temperature: 0.3,
+                system: 'You are an expert Swedish auction cataloger specializing in artist detection. Respond only with valid JSON.',
+                messages: [{
+                  role: 'user',
+                  content: [{ type: 'text', text: prompt }]
+                }]
+              }
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else if (response.success) {
+                resolve(response);
+              } else {
+                reject(new Error(response.error || 'API request failed'));
+              }
+            });
+          });
+          
+          // Validate response structure
+          if (!response.data || !response.data.content || !Array.isArray(response.data.content) || response.data.content.length === 0) {
+            console.error('🤖 Simple API: Invalid response format from API');
+            return { hasArtist: false };
+          }
+          
+          if (!response.data.content[0] || !response.data.content[0].text) {
+            console.error('🤖 Simple API: No text content in API response');
+            return { hasArtist: false };
+          }
+          
+          const rawResponse = response.data.content[0].text;
+          console.log('🤖 Simple API: Raw artist analysis response:', rawResponse);
+          
+          // SAFETY CHECK: Ensure response is a string before processing
+          if (typeof rawResponse !== 'string') {
+            console.error('🤖 Simple API: Response is not a string:', typeof rawResponse, rawResponse);
+            return { hasArtist: false };
+          }
+          
+          // Check for empty response
+          if (!rawResponse || rawResponse.trim() === '') {
+            console.error('🤖 Simple API: Empty response received');
+            return { hasArtist: false };
+          }
+          
+          // Parse the response
+          if (rawResponse.toLowerCase().includes('no_artist')) {
+            return { hasArtist: false };
+          }
+          
+          // Try to parse JSON response
+          let result;
+          try {
+            result = JSON.parse(rawResponse);
+          } catch (parseError) {
+            console.error('🤖 Simple API: Failed to parse artist analysis JSON:', parseError);
+            console.error('🤖 Simple API: Raw response that failed to parse:', rawResponse);
+            
+            // ENHANCED: Try to fix common JSON issues and re-parse
+            let fixedResponseText = rawResponse;
+            
+            // Fix 1: Escape unescaped quotes in JSON string values
+            // Look for patterns like "field": "value with "quotes" inside"
+            fixedResponseText = fixedResponseText.replace(
+              /"([^"]+)"\s*:\s*"([^"]*)"([^"]*)"([^"]*)"/g, 
+              '"$1": "$2\\"$3\\"$4"'
+            );
+            
+            // Fix 2: Handle more complex quote escaping in suggestedTitle and reasoning
+            fixedResponseText = fixedResponseText.replace(
+              /"(suggestedTitle|reasoning)"\s*:\s*"([^"]*""[^"]*"[^"]*)"/g,
+              (match, field, value) => {
+                const escapedValue = value.replace(/"/g, '\\"');
+                return `"${field}": "${escapedValue}"`;
+              }
+            );
+            
+            // Fix 3: Handle trailing commas
+            fixedResponseText = fixedResponseText.replace(/,(\s*[}\]])/g, '$1');
+            
+            // Fix 4: Ensure proper boolean formatting
+            fixedResponseText = fixedResponseText.replace(/:\s*(true|false)([,\s}])/g, ': $1$2');
+            
+            console.log('🔧 Simple API: Attempting to fix JSON:', fixedResponseText);
+            
+            try {
+              result = JSON.parse(fixedResponseText);
+              console.log('✅ Simple API: Successfully parsed fixed JSON');
+            } catch (secondParseError) {
+              console.log('🤖 Simple API: Failed to parse fixed JSON:', secondParseError);
+              
+              // FALLBACK: Try to extract JSON from response if it's wrapped in text
+              const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                try {
+                  // Apply the same fixes to the extracted JSON
+                  let extractedJson = jsonMatch[0];
+                  extractedJson = extractedJson.replace(
+                    /"([^"]+)"\s*:\s*"([^"]*)"([^"]*)"([^"]*)"/g, 
+                    '"$1": "$2\\"$3\\"$4"'
+                  );
+                  extractedJson = extractedJson.replace(
+                    /"(suggestedTitle|reasoning)"\s*:\s*"([^"]*""[^"]*"[^"]*)"/g,
+                    (match, field, value) => {
+                      const escapedValue = value.replace(/"/g, '\\"');
+                      return `"${field}": "${escapedValue}"`;
+                    }
+                  );
+                  
+                  result = JSON.parse(extractedJson);
+                  console.log('✅ Simple API: Successfully extracted and fixed JSON from wrapped response');
+                } catch (thirdParseError) {
+                  console.log('🤖 Simple API: Failed to parse extracted JSON:', thirdParseError);
+                  
+                  // FINAL FALLBACK: Extract data using regex
+                  try {
+                    const hasArtistMatch = rawResponse.match(/"hasArtist"\s*:\s*(true|false)/i);
+                    const artistNameMatch = rawResponse.match(/"artistName"\s*:\s*"([^"]+)"/);
+                    const confidenceMatch = rawResponse.match(/"confidence"\s*:\s*([\d.]+)/);
+                    const suggestedTitleMatch = rawResponse.match(/"suggestedTitle"\s*:\s*"([^"]*(?:\\"[^"]*)*[^"]*)"/);
+                    const reasoningMatch = rawResponse.match(/"reasoning"\s*:\s*"([^"]*(?:\\"[^"]*)*[^"]*)"/);
+                    
+                    if (hasArtistMatch) {
+                      result = {
+                        hasArtist: hasArtistMatch[1].toLowerCase() === 'true',
+                        artistName: artistNameMatch ? artistNameMatch[1] : null,
+                        confidence: confidenceMatch ? parseFloat(confidenceMatch[1]) : 0,
+                        suggestedTitle: suggestedTitleMatch ? suggestedTitleMatch[1].replace(/\\"/g, '"') : null,
+                        reasoning: reasoningMatch ? reasoningMatch[1].replace(/\\"/g, '"') : 'Automatisk korrigering'
+                      };
+                      console.log('🔧 Simple API: Extracted data using regex fallback:', result);
+                    } else {
+                      console.error('❌ Simple API: All parsing attempts failed');
+                      return { hasArtist: false };
+                    }
+                  } catch (regexError) {
+                    console.error('❌ Simple API: Regex extraction failed:', regexError);
+                    return { hasArtist: false };
+                  }
+                }
+              } else {
+                return { hasArtist: false };
+              }
+            }
+          }
+          
+          // Validate the parsed result has expected structure
+          if (typeof result !== 'object' || result === null) {
+            console.error('🤖 Simple API: Parsed result is not an object:', result);
+            return { hasArtist: false };
+          }
+          
+          // Ensure required fields exist with default values
+          const validatedResult = {
+            hasArtist: Boolean(result.hasArtist),
+            artistName: result.artistName || null,
+            confidence: typeof result.confidence === 'number' ? result.confidence : 0.5,
+            suggestedTitle: result.suggestedTitle || null,
+            reasoning: result.reasoning || 'No reasoning provided'
+          };
+          
+          console.log('🤖 Simple API: Validated artist analysis result:', validatedResult);
+          return validatedResult;
+          
+        } catch (error) {
+          console.error('🤖 Simple API: Artist analysis failed:', error);
+          return { hasArtist: false };
         }
       }
     };
   }
 
-  createSimpleQualityAnalyzer() {
-    // Create a simplified quality analyzer that provides artist detection
+  generatePromptForAddItems(itemData, fieldType) {
+    const baseInfo = `
+FÖREMÅLSINFORMATION:
+Kategori: ${itemData.category || ''}
+Nuvarande titel: ${itemData.title || ''}
+Nuvarande beskrivning: ${itemData.description || ''}
+Kondition: ${itemData.condition || ''}
+Konstnär/Formgivare: ${itemData.artist || ''}
+Sökord: ${itemData.keywords || ''}
+`;
+
+    if (fieldType === 'all') {
+      return baseInfo + `
+UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
+`;
+    }
+    
+    return baseInfo + `
+UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
+`;
+  }
+
+  parseClaudeResponseForAddItems(response, fieldType) {
+    // Simple parsing for add items improvements
+    const improvements = {};
+    
+    if (fieldType === 'all') {
+      improvements.title = response.match(/Titel:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
+      improvements.description = response.match(/Beskrivning:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
+      improvements.condition = response.match(/Kondition:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
+      improvements.keywords = response.match(/Sökord:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
+    } else {
+      improvements[fieldType] = response.trim();
+    }
+    
+    return improvements;
+  }
+
+  createSimpleQualityAnalyzer(apiManager) {
+    // NEW: Create quality analyzer with ArtistDetectionManager SSoT instead of simplified detection
     return {
-      async detectMisplacedArtist(title, artistField) {
-        // Use rule-based detection as a fallback for now
-        return this.detectMisplacedArtistRuleBased(title, artistField);
-      },
-
-      detectMisplacedArtistRuleBased(title, artistField) {
-        // Only suggest if artist field is empty or very short
-        if (artistField && artistField.trim().length > 2) {
-          return null;
-        }
-
-        if (!title || title.length < 10) {
-          return null;
-        }
-
-        // PRIORITY CHECK: Artist name incorrectly placed at beginning of title in ALL CAPS
-        const allCapsArtistPattern = /^([A-ZÅÄÖÜ\s]{4,40})\.\s+(.+)/;
-        const allCapsMatch = title.match(allCapsArtistPattern);
-        
-        if (allCapsMatch) {
-          const [, potentialArtist, restOfTitle] = allCapsMatch;
-          const cleanArtist = potentialArtist.trim();
-          
-          // Check if it looks like a person's name
-          if (this.looksLikePersonName(cleanArtist)) {
-            return {
-              detectedArtist: cleanArtist,
-              suggestedTitle: restOfTitle.trim(),
-              confidence: 0.9,
-              errorType: 'artist_in_title_caps',
-              message: `Konstnärens namn "${cleanArtist}" bör flyttas från titeln till konstnärsfältet`
-            };
-          }
-        }
-
-        // Simple pattern for common cases like "LISA LARSON. Skulptur..."
-        const simplePattern = /^([A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+\s+[A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+)[\.,]\s+(.+)/;
-        const simpleMatch = title.match(simplePattern);
-        
-        if (simpleMatch) {
-          const [, potentialArtist, restOfTitle] = simpleMatch;
-          
-          if (this.looksLikePersonName(potentialArtist)) {
-            return {
-              detectedArtist: potentialArtist,
-              suggestedTitle: restOfTitle.trim(),
-              confidence: 0.8
-            };
-          }
-        }
-
-        return null;
-      },
-
-      looksLikePersonName(name) {
-        if (!name || name.length < 4) return false;
-        
-        // Basic checks for person names
-        const words = name.trim().split(/\s+/);
-        if (words.length < 2) return false;
-        
-        // Each word should start with capital letter
-        const allProperCase = words.every(word => 
-          word.length > 0 && /^[A-ZÅÄÖÜ]/.test(word)
-        );
-        
-        // Should not contain numbers or special characters
-        const noSpecialChars = !/[0-9@#$%^&*()_+=\[\]{}|\\:";'<>?,./]/.test(name);
-        
-        return allProperCase && noSpecialChars;
+      // Use ArtistDetectionManager SSoT for robust detection
+      artistDetectionManager: new window.ArtistDetectionManager(apiManager),
+      
+      async detectMisplacedArtist(title, artistField, forceReDetection = false) {
+        console.log('🎯 Simple quality analyzer: Using ArtistDetectionManager SSoT for detection');
+        return await this.artistDetectionManager.detectMisplacedArtist(title, artistField, forceReDetection);
       }
     };
   }
@@ -1016,9 +1243,9 @@ class AuctionetCatalogingAssistant {
           warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, färg, märkningar', severity: 'high' });
           score -= 25;
         }
-        if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i) && descLength < 40) {
-          issues.push('measurements');
-          needsMoreInfo = true;
+        if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i)) {
+          warnings.push({ field: 'Beskrivning', issue: 'Saknar fullständiga mått', severity: 'high' });
+          score -= 20;
         }
         break;
         
@@ -1631,13 +1858,13 @@ class AuctionetCatalogingAssistant {
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-3-5-sonnet-20241022', // Fixed from invalid model name
             max_tokens: 1500,
             temperature: 0.1,
             system: systemPrompt,
             messages: [{
               role: 'user',
-              content: userPrompt
+              content: [{ type: 'text', text: userPrompt }] // Fixed: content should be array of content blocks
             }]
           }
         }, (response) => {
@@ -1708,7 +1935,7 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-3-5-sonnet-20241022', // Fixed from invalid model name
             max_tokens: 1500,
             temperature: 0.1,
             system: systemPrompt,
@@ -1960,25 +2187,36 @@ UNDVIK: Långa beskrivningar, förklaringar av tillverkningstekniker, värderand
 Returnera ENDAST den förbättrade konditionsrapporten utan extra formatering eller etiketter.`;
     } else if (fieldType === 'keywords') {
       return baseInfo + `
-UPPGIFT: Generera HÖGKVALITATIVA dolda sökord som hjälper köpare hitta föremålet.
+UPPGIFT: Generera HÖGKVALITATIVA dolda sökord som kompletterar titel och beskrivning enligt Auctionets format.
 
-KRITISKT - SÖKORD FORMAT:
-• Separera sökord med KOMMATECKEN
-• EXEMPEL PÅ KORREKT FORMAT: "glaskonst, mundblåst, svensk design, 1960-tal, samlarobjekt, skandinavisk form"
+KRITISKT - UNDVIK ALLA UPPREPNINGAR:
+• Generera ENDAST sökord som INTE redan finns i nuvarande titel/beskrivning
+• Läs noggrant igenom titel och beskrivning INNAN du skapar sökord
+• Om ordet redan finns någonstans - använd det INTE
+• Fokusera på HELT NYA alternativa söktermer som köpare kan använda
+• Exempel: Om titel säger "färglitografi" - använd INTE "färglitografi" igen
 
-REGLER FÖR SÖKORD:
-• MAX 10-12 sökord totalt
-• Prioritera termer som INTE redan finns i titel/beskrivning
-• Inkludera: alternativa namn, tekniska termer, stilperioder, användningsområden
-• Undvik upprepningar och synonymer som är för lika
-• Fokusera på vad köpare faktiskt söker efter
+KOMPLETTERANDE SÖKORD - EXEMPEL:
+• För konsttryck: "grafik reproduktion konstprint limited-edition"
+• För målningar: "oljemålning akvarell konstverk originalverk"  
+• För skulptur: "skulptur plastik konstföremål tredimensionell"
+• För möbler: "vintage retro funktionalism dansk-design"
+• För perioder: Använd decennier istället för exakta år: "1970-tal" istället av "1974"
 
-EXEMPEL PÅ BRA SÖKORD (för en vas):
-"glaskonst, mundblåst, konstglas, dekorativ, skandinavisk design, 1960-tal, samlarobjekt"
+OBLIGATORISK AUCTIONET FORMAT:
+• Separera sökord med MELLANSLAG (ALDRIG kommatecken)
+• Använd "-" för flerordsfraser: "svensk-design", "1970-tal", "limited-edition"
+• EXEMPEL KORREKT: "grafik reproduktion svensk-design 1970-tal konstprint"
+• EXEMPEL FEL: "grafik, reproduktion, svensk design, 1970-tal" (kommatecken och mellanslag i fraser)
 
-UNDVIK: Långa listor, upprepningar, för allmänna termer som "vacker", "fin", "kvalitet"
+KRITISKT - RETURFORMAT:
+• Returnera ENDAST sökorden separerade med mellanslag
+• INGA kommatecken mellan sökord
+• INGA förklaringar, kommentarer eller etiketter
+• MAX 10-12 relevanta termer
+• EXEMPEL: "grafik reproduktion svensk-design 1970-tal dekor inredning"
 
-Returnera ENDAST sökorden separerade med kommatecken, utan extra formatering eller etiketter.`;
+STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där, använd det ALDRIG i sökorden.`;
     }
   }
 

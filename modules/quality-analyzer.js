@@ -5,6 +5,7 @@ import { DashboardManager } from './dashboard-manager.js';
 import { SearchFilterManager } from './search-filter-manager.js';
 import { DataExtractor } from './data-extractor.js';
 import { SearchQuerySSoT } from './search-query-ssot.js';
+import { ArtistDetectionManager } from './artist-detection-manager.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
   constructor() {
@@ -19,6 +20,9 @@ export class QualityAnalyzer {
     this.searchTermExtractor = new SearchTermExtractor(); // Fix: create instance of class
     this.itemTypeHandlers = new ItemTypeHandlers();
     
+    // NEW: Initialize ArtistDetectionManager SSoT
+    this.artistDetectionManager = new ArtistDetectionManager();
+    
     // Initialize manager instances
     this.salesAnalysisManager = new SalesAnalysisManager();
     this.searchFilterManager = new SearchFilterManager();
@@ -30,7 +34,7 @@ export class QualityAnalyzer {
     // Inject dependencies
     this.itemTypeHandlers.setSearchTermExtractor(this.searchTermExtractor);
     
-    console.log('✅ QualityAnalyzer initialized');
+    console.log('✅ QualityAnalyzer initialized with ArtistDetectionManager SSoT');
   }
 
   setDataExtractor(extractor) {
@@ -46,6 +50,9 @@ export class QualityAnalyzer {
 
   setApiManager(apiManager) {
     this.apiManager = apiManager;
+    
+    // NEW: Connect ArtistDetectionManager to API manager for AI detection
+    this.artistDetectionManager.setApiManager(apiManager);
     
     // Connect SearchQuerySSoT to apiManager for SSoT-consistent queries
     if (this.searchQuerySSoT) {
@@ -105,7 +112,40 @@ export class QualityAnalyzer {
     console.log('✅ QualityAnalyzer: AI-only SearchQuerySSoT connected to all components');
   }
 
-  // Helper method to check for measurements in Swedish format
+  // NEW: Delegate artist detection to ArtistDetectionManager SSoT
+  async detectMisplacedArtist(title, artistField, forceReDetection = false) {
+    console.log('🎯 QualityAnalyzer: Delegating artist detection to ArtistDetectionManager SSoT');
+    return await this.artistDetectionManager.detectMisplacedArtist(title, artistField, forceReDetection);
+  }
+
+  // NEW: Delegate rule-based detection to ArtistDetectionManager SSoT  
+  detectMisplacedArtistRuleBased(title, artistField) {
+    console.log('🔧 QualityAnalyzer: Delegating rule-based artist detection to ArtistDetectionManager SSoT');
+    return this.artistDetectionManager.detectMisplacedArtistRuleBased(title, artistField);
+  }
+
+  // NEW: Delegate helper methods to ArtistDetectionManager SSoT
+  extractObjectType(title) {
+    return this.artistDetectionManager.extractObjectType(title);
+  }
+
+  extractPeriod(title) {
+    return this.artistDetectionManager.extractPeriod(title);
+  }
+
+  generateSuggestedTitle(originalTitle, artistName) {
+    return this.artistDetectionManager.generateSuggestedTitle(originalTitle, artistName);
+  }
+
+  looksLikePersonName(name) {
+    return this.artistDetectionManager.looksLikePersonName(name);
+  }
+
+  calculateArtistConfidence(artistName, objectType) {
+    return this.artistDetectionManager.calculateArtistConfidence(artistName, objectType);
+  }
+
+  // Helper method for measurements in Swedish format
   hasMeasurements(text) {
     const measurementPatterns = [
       // 2D measurements with common prefixes (ca, cirka, ungefär, etc.)
@@ -144,391 +184,6 @@ export class QualityAnalyzer {
     ];
     
     return measurementPatterns.some(pattern => text.match(pattern));
-  }
-
-  // Helper method to detect potential misplaced artist in title
-  async detectMisplacedArtist(title, artistField) {
-    // Only suggest if artist field is empty or very short
-    if (artistField && artistField.trim().length > 2) {
-      console.log('🚫 Artist detection skipped - artist field already has content:', artistField);
-      return null; // Artist field already has content
-    }
-
-    if (!title || title.length < 10) {
-      console.log('🚫 Artist detection skipped - title too short:', title);
-      return null; // Title too short to contain artist
-    }
-
-    // Try AI-powered detection first (if API key available)
-    if (this.apiManager) {
-      console.log('🤖 Attempting AI artist detection for title:', title);
-      try {
-        const objectType = this.extractObjectType(title);
-        console.log('📝 Extracted object type:', objectType);
-        
-        // Get description from current form data for AI analysis
-        const descriptionField = document.querySelector('#item_description_sv');
-        const description = descriptionField ? descriptionField.value : '';
-        
-        const aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistField, description);
-        console.log('🤖 AI artist analysis raw result:', aiResult);
-        
-        if (aiResult && aiResult.hasArtist && aiResult.confidence > 0.8) {
-          console.log('✅ AI detected artist with high confidence:', aiResult);
-          
-          // Optionally verify the artist if artist info is enabled
-          let verification = null;
-          if (this.apiManager.enableArtistInfo && aiResult.artistName) {
-            console.log('🔍 Verifying artist:', aiResult.artistName);
-            const period = this.extractPeriod(title);
-            verification = await this.apiManager.verifyArtist(aiResult.artistName, objectType, period);
-            console.log('🔍 Artist verification result:', verification);
-          }
-          
-          return {
-            detectedArtist: aiResult.artistName,
-            suggestedTitle: aiResult.suggestedTitle || this.generateSuggestedTitle(title, aiResult.artistName),
-            confidence: aiResult.confidence,
-            reasoning: aiResult.reasoning,
-            verification: verification,
-            source: 'ai'
-          };
-        } else if (aiResult) {
-          console.log('⚠️ AI detected artist but confidence too low:', aiResult.confidence, 'for artist:', aiResult.artistName);
-        } else {
-          console.log('❌ AI artist analysis returned null');
-        }
-      } catch (error) {
-        console.error('AI artist detection failed, falling back to rules:', error);
-      }
-    } else {
-      console.log('❌ No API manager available for AI detection');
-    }
-
-    // Fallback to rule-based detection
-    console.log('🔧 Using rule-based artist detection');
-    return this.detectMisplacedArtistRuleBased(title, artistField);
-  }
-
-  // Helper method to extract object type from title
-  extractObjectType(title) {
-    // First try to match all caps object type (traditional format)
-    let match = title.match(/^([A-ZÅÄÖÜ]+)/);
-    if (match && match[1].length > 1) {
-      console.log(`🔍 Found all-caps object type: "${match[1]}"`);
-      return match[1];
-    }
-    
-    // If no all-caps match, try to match capitalized word at start (like "Figurin")
-    match = title.match(/^([A-ZÅÄÖÜ][a-zåäöü]+)/);
-    if (match && match[1].length > 1) {
-      console.log(`🔍 Found capitalized object type: "${match[1]}" -> converting to: "${match[1].toUpperCase()}"`);
-      return match[1].toUpperCase(); // Convert to uppercase for consistency
-    }
-    
-    console.log(`❌ No object type found in title: "${title}"`);
-    return null;
-  }
-
-  // Helper method to extract period information from title
-  extractPeriod(title) {
-    const periodPatterns = [
-      /(\d{4})/,                    // 1950
-      /(\d{2,4}-tal)/,              // 1900-tal
-      /(\d{2}\/\d{4}-tal)/,         // 17/1800-tal
-      /(1[6-9]\d{2})/,              // 1600-1999
-      /(20[0-2]\d)/                 // 2000-2029
-    ];
-    
-    for (const pattern of periodPatterns) {
-      const match = title.match(pattern);
-      if (match) {
-        return match[1];
-      }
-    }
-    
-    return null;
-  }
-
-  // Helper method to generate suggested title when AI doesn't provide one
-  generateSuggestedTitle(originalTitle, artistName) {
-    // Remove the artist name from the title
-    const cleanedTitle = originalTitle
-      .replace(new RegExp(`^${artistName.replace(/\s+/g, '\\s+')},?\\s*`, 'i'), '')
-      .replace(new RegExp(`${artistName.replace(/\s+/g, '\\s+')}`, 'i'), '')
-      .trim();
-    
-    return cleanedTitle || 'Titel utan konstnärsnamn';
-  }
-
-  // Rule-based artist detection (fallback method)
-  detectMisplacedArtistRuleBased(title, artistField) {
-    // PRIORITY CHECK: Artist name incorrectly placed at beginning of title in ALL CAPS
-    // Pattern: "FIRSTNAME LASTNAME. Rest of title..." or "FIRSTNAME MIDDLE LASTNAME. Rest of title..."
-    const allCapsArtistPattern = /^([A-ZÅÄÖÜ\s]{4,40})\.\s+(.+)/;
-    const allCapsMatch = title.match(allCapsArtistPattern);
-    
-    if (allCapsMatch) {
-      const [, potentialArtist, restOfTitle] = allCapsMatch;
-      const cleanArtist = potentialArtist.trim();
-      
-      // Check if it looks like a person's name
-      if (this.looksLikePersonName(cleanArtist)) {
-        return {
-          detectedArtist: cleanArtist,
-          suggestedTitle: restOfTitle.trim(),
-          confidence: 0.9, // High confidence for this clear pattern
-          errorType: 'artist_in_title_caps',
-          message: `Konstnärens namn "${cleanArtist}" bör flyttas från titeln till konstnärsfältet`
-        };
-      }
-    }
-
-    // Common Swedish auction title patterns where artist might be misplaced
-    const patterns = [
-      // NEW: OBJEKT, quantity, material, "design name" Artist Name, Manufacturer, Country (handles "SEJDLAR, 8 st, glas, "Droppring" Timo Sarpaneva, Iittala, Finland.")
-      /^([A-ZÅÄÖÜ]+),\s*\d+\s*st,\s*[a-zåäöü]+,\s*"[^"]+"\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // NEW: OBJEKT, quantity, material, "design name" Firstname Middle Lastname, Manufacturer, Country (3-word artist version)
-      /^([A-ZÅÄÖÜ]+),\s*\d+\s*st,\s*[a-zåäöü]+,\s*"[^"]+"\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // General malformed pattern: OBJEKT, details, "Title, Firstname Lastname (no closing quote) - MOVED UP for priority
-      /^([A-ZÅÄÖÜ]+),\s*[^,]+,\s*"[^,]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[a-zåäöü]+)(?:\s+[A-ZÅÄÖÜ][a-zåäöü]+)?/i,
-      
-      // NEW: OBJEKT, material, technique, Firstname Lastname, style (handles "TAVLA, olja på duk, Pablo Picasso, kubistisk stil")
-      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü\s]+,\s*[a-zåäöü\s]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // NEW: OBJEKT, material, technique, Firstname Middle Lastname, style (3-word version)
-      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü\s]+,\s*[a-zåäöü\s]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // NEW: OBJEKT, technique, Firstname Middle Lastname Company.measurements (handles "MATTA, rölakan, Anna Johanna Ångström Axeco.192 x 138 cm.")
-      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s+[A-ZÅÄÖÜ][a-zåäöü]+\.\d+/i,
-      
-      // NEW: OBJEKT, technique, Firstname Lastname Company.measurements (2-word version)
-      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s+[A-ZÅÄÖÜ][a-zåäöü]+\.\d+/i,
-      
-      // COMPOUND OBJEKT och OBJEKT, quantity description with embedded artist (NEW - handles "BÖCKER och LITOGRAFI, 3 st böcker Lennart Sand")
-      /^([A-ZÅÄÖÜ]+\s+och\s+[A-ZÅÄÖÜ]+),\s*\d+\s+st\s+[a-zåäöü]+\s+([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // COMPOUND OBJEKT och OBJEKT, quantity description with embedded 3-word artist (NEW - handles 3-word names in compound objects)
-      /^([A-ZÅÄÖÜ]+\s+och\s+[A-ZÅÄÖÜ]+),\s*\d+\s+st\s+[a-zåäöü]+\s+([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // OBJEKT, Firstname Lastname, "Title", details
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*"([^"]+)"/i,
-      
-      // OBJEKT, Firstname Middle Lastname, "Title", details (NEW - 3 words)
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*"([^"]+)"/i,
-      
-      // OBJEKT material, Firstname Lastname (dates), location. period (common format: POKAL silver, Lars Löfgren (1797-1853), Hudiksvall. 17/1800-tal.)
-      /^([A-ZÅÄÖÜ]+)\s+[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
-      
-      // OBJEKT material, Firstname Middle Lastname (dates), location. period (NEW - 3 words)
-      /^([A-ZÅÄÖÜ]+)\s+[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
-      
-      // OBJEKT, Firstname Lastname (dates), details
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
-      
-      // OBJEKT, Firstname Middle Lastname (dates), details (NEW - 3 words)
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+)\s*(?:\([^)]+\))?,\s*(.+)/i,
-      
-      // OBJEKT, material, Firstname Lastname, location, period (handles Eva Englund case)
-      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // OBJEKT, material, Firstname Middle Lastname, location, period (NEW - handles Nils Petter Lindeberg case)
-      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // OBJEKT, description, material, Firstname Lastname, location (NEW - handles "ett par" cases)
-      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü\s]+,\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // OBJEKT, description, material, Firstname Middle Lastname, location (NEW - handles "ett par" + 3-word names)
-      /^([A-ZÅÄÖÜ]+),\s*[a-zåäöü\s]+,\s*[a-zåäöü]+,\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i,
-      
-      // OBJEKT, Firstname Lastname, details (no quotes, no dates)
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*([^,]+)/i,
-      
-      // OBJEKT, Firstname Middle Lastname, details (NEW - 3 words, no quotes, no dates)
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*([^,]+)/i,
-      
-      // OBJEKT, Lastname Firstname, details
-      /^([A-ZÅÄÖÜ]+),\s*([A-ZÅÄÖÜ][a-zåäöü]+\s+[A-ZÅÄÖÜ][a-zåäöü]+),\s*(.+)/i
-    ];
-
-    for (const pattern of patterns) {
-      const match = title.match(pattern);
-      if (match) {
-        let objectType, potentialArtist, rest;
-        
-        // Special handling for Axeco patterns (company attached to artist name)
-        if (pattern.source.includes('Axeco') || pattern.source.includes('\\.\\d+')) {
-          [, objectType, potentialArtist] = match;
-          // Extract the rest by removing the matched part and extracting measurements
-          const measurementMatch = title.match(/(\d+\s*[×x]\s*\d+\s*cm)/i);
-          const technique = title.match(/,\s*([a-zåäöü]+),/i);
-          
-          if (measurementMatch && technique) {
-            rest = `${technique[1]}, ${measurementMatch[1]}`;
-          } else if (measurementMatch) {
-            rest = measurementMatch[1];
-          } else {
-            rest = 'detaljer';
-          }
-        }
-        // Handle different pattern structures
-        else if (match.length === 4 && match[3]) {
-          // Standard patterns: [full, objectType, artist, rest]
-          [, objectType, potentialArtist, rest] = match;
-        } else if (match.length === 4 && match[2] && match[3]) {
-          // Malformed quote patterns: [full, objectType, firstName, lastName]
-          [, objectType, , ] = match;
-          potentialArtist = `${match[2]} ${match[3]}`;
-          rest = title.replace(new RegExp(`^${objectType},\\s*[^,]+,\\s*"[^,]+,\\s*${potentialArtist.replace(/\s+/g, '\\s+')}.*`), '').trim();
-          if (!rest) rest = 'detaljer'; // fallback
-        } else if (match.length === 3) {
-          // Alternative malformed pattern: [full, objectType, artist]
-          [, objectType, potentialArtist] = match;
-          rest = title.replace(new RegExp(`^${objectType},\\s*[^"]*,\\s*"[^,]*,\\s*${potentialArtist.replace(/\s+/g, '\\s+')}.*`), '').trim();
-          if (!rest) rest = 'detaljer'; // fallback
-        } else {
-          continue; // Skip if pattern structure is unexpected
-        }
-        
-        // Check if it looks like a person's name (not place/concept)
-        if (this.looksLikePersonName(potentialArtist)) {
-          return {
-            detectedArtist: potentialArtist.trim(),
-            suggestedTitle: `${objectType}, ${rest}`.trim(),
-            confidence: this.calculateArtistConfidence(potentialArtist, objectType)
-          };
-        }
-      }
-    }
-
-    return null;
-  }
-
-  // Helper method to determine if a string looks like a person's name
-  looksLikePersonName(name) {
-    if (!name || typeof name !== 'string') {
-      return false;
-    }
-
-    const trimmedName = name.trim();
-    
-    // Standard name validation (existing logic)
-    // Must be two or three words (firstname lastname OR firstname middle lastname)
-    const words = trimmedName.split(/\s+/);
-    if (words.length < 2 || words.length > 3) {
-      return false;
-    }
-
-    // All words should be reasonable length
-    if (words.some(word => word.length < 2)) {
-      return false;
-    }
-
-    // All words should start with capital letter (first name and last name must start with capital, middle name can start with capital or lowercase for Swedish naming)
-    const [first, middle, last] = words;
-    
-    if (words.length === 2) {
-      // Two words: first name must start with capital, last name can start with capital or lowercase (Swedish naming)
-      if (!/^[A-ZÅÄÖÜ]/.test(first) || !/^[A-ZÅÄÖÜa-zåäöü]/.test(last)) {
-        return false;
-      }
-    } else if (words.length === 3) {
-      // Three words: first and last must start with capital, middle can be capital or lowercase
-      if (!/^[A-ZÅÄÖÜ]/.test(first) || !/^[A-ZÅÄÖÜa-zåäöü]/.test(middle) || !/^[A-ZÅÄÖÜa-zåäöü]/.test(last)) {
-        return false;
-      }
-    }
-
-    // Exclude common non-person terms that might appear in titles
-    const excludeTerms = [
-      // Places
-      'Stockholm', 'Göteborg', 'Malmö', 'Uppsala', 'Västerås', 'Örebro', 'Linköping',
-      'Helsingborg', 'Jönköping', 'Norrköping', 'Lund', 'Umeå', 'Gävle', 'Borås',
-      
-      // Historical figures (subjects, not artists)
-      'Napoleon Bonaparte', 'Gustav Vasa', 'Carl Gustaf', 'Victoria Bernadotte',
-      
-      // Companies/Manufacturers
-      'Gustavsberg Porslin', 'Rörstrand Porcelain', 'Orrefors Glasbruk', 'Kosta Boda',
-      'Arabia Finland', 'Royal Copenhagen', 'Bing Grondahl',
-      
-      // Common object descriptions that might look like names
-      'Art Deco', 'Art Nouveau', 'Louis Philippe', 'Carl Johan', 'Gustav III',
-      
-      // Design periods/styles
-      'Jugend Stil', 'Empire Stil', 'Rokoko Stil', 'Barock Stil'
-    ];
-
-    // Check if the full name matches any exclude terms
-    if (excludeTerms.some(term => term.toLowerCase() === trimmedName.toLowerCase())) {
-      return false;
-    }
-
-    // Check individual words against common non-name terms
-    const nonNameWords = [
-      'Stockholm', 'Göteborg', 'Malmö', 'Gustavsberg', 'Rörstrand', 'Orrefors', 
-      'Kosta', 'Arabia', 'Royal', 'Napoleon', 'Gustav', 'Carl', 'Louis', 'Empire',
-      // Company/Manufacturer names that might appear after artist names
-      'Ikea', 'IKEA', 'Tenn', 'Lammhults', 'Källemo', 'Mathsson', 'Malmsten', 
-      'Boda', 'Artek', 'Iittala', 'Grondahl', 'Axeco',
-      // Common descriptive terms that appear in figurine/sculpture titles
-      'Kvinna', 'Man', 'Flicka', 'Pojke', 'Barn', 'Dame', 'Herre', 'Fru', 'Herr',
-      'Kvinna', 'Kvinnor', 'Män', 'Flickor', 'Pojkar', 'Damer', 'Herrar',
-      // Common prepositions and descriptive words
-      'med', 'och', 'vid', 'på', 'under', 'över', 'utan', 'för', 'till', 'från',
-      'som', 'av', 'i', 'ur', 'mot', 'genom', 'mellan', 'bland', 'hos', 'åt',
-      // Common object/animal terms in figurine descriptions
-      'hundar', 'katter', 'hästar', 'fåglar', 'blommor', 'träd', 'hus', 'båt',
-      'bil', 'cykel', 'stol', 'bord', 'vas', 'skål', 'fat', 'kopp', 'glas'
-    ];
-
-    if (words.some(word => 
-      nonNameWords.some(term => word.toLowerCase() === term.toLowerCase())
-    )) {
-      return false;
-    }
-
-    // Additional check: reject phrases that contain common descriptive patterns
-    const descriptivePatterns = [
-      /kvinna\s+med/i,     // "Kvinna med" (Woman with)
-      /man\s+med/i,        // "Man med" (Man with)
-      /flicka\s+med/i,     // "Flicka med" (Girl with)
-      /pojke\s+med/i,      // "Pojke med" (Boy with)
-      /barn\s+med/i,       // "Barn med" (Child with)
-      /dame\s+med/i,       // "Dame med" (Lady with)
-      /herre\s+med/i,      // "Herre med" (Gentleman with)
-      /\w+\s+och\s+\w+/i,  // "Something och Something" (Something and Something)
-      /\w+\s+vid\s+\w+/i,  // "Something vid Something" (Something at Something)
-      /\w+\s+på\s+\w+/i,   // "Something på Something" (Something on Something)
-      /\w+\s+under\s+\w+/i // "Something under Something" (Something under Something)
-    ];
-
-    if (descriptivePatterns.some(pattern => trimmedName.match(pattern))) {
-      return false;
-    }
-
-    return true;
-  }
-
-  // Helper method to calculate confidence in artist detection
-  calculateArtistConfidence(artistName, objectType) {
-    let confidence = 0.7; // Base confidence
-
-    // Higher confidence for certain object types commonly associated with artists
-    const artistObjectTypes = ['TAVLA', 'MÅLNING', 'AKVARELL', 'LITOGRAFI', 'ETSNING', 'SKULPTUR', 'TECKNING'];
-    if (artistObjectTypes.some(type => objectType.toUpperCase().includes(type))) {
-      confidence += 0.2;
-    }
-
-    // Lower confidence for object types that might have designer names legitimately in title
-    const designerObjectTypes = ['STOL', 'BORD', 'LAMPA', 'VAS', 'SKÅL', 'FAT'];
-    if (designerObjectTypes.some(type => objectType.toUpperCase().includes(type))) {
-      confidence -= 0.3;
-    }
-
-    return Math.max(0.1, Math.min(0.9, confidence));
   }
 
   async analyzeQuality() {
