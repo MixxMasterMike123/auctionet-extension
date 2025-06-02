@@ -178,9 +178,9 @@ export class SearchQuerySSoT {
       this.currentTerms = [...queryData.searchTerms];
       console.log('✅ SSoT: Using provided searchTerms array (preserves artist names):', this.currentTerms);
     } else {
-      // Fallback: split query by spaces (old behavior)
-      this.currentTerms = this.currentQuery.split(' ').filter(term => term.trim().length > 0);
-      console.log('⚠️ SSoT: Fallback to splitting query by spaces:', this.currentTerms);
+      // CRITICAL FIX: Use quote-preserving parsing instead of destructive split by spaces
+      this.currentTerms = this.parseQueryPreservingQuotes(this.currentQuery);
+      console.log('✅ SSoT: Fallback to quote-preserving parsing (preserves quoted artists):', this.currentTerms);
     }
     
     // CRITICAL ENHANCEMENT: Populate availableTerms from AI rules data for dashboard pills
