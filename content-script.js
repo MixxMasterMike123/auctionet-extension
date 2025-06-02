@@ -1688,7 +1688,7 @@
           return; // Silent return - no need to log this every time
         }
         
-        if (!formData.condition || formData.condition.length < 5) {
+        if (!formData.condition || formData.condition.length < 3) {
           console.log('📝 Edit page: Condition is empty or too short, showing empty tooltip');
           this.showConditionGuidanceTooltip(formData, 'empty');
           return;
@@ -1719,6 +1719,12 @@
         const cleanCondition = condition.replace(/<[^>]*>/g, '').trim(); // Remove HTML tags
         const conditionLower = cleanCondition.toLowerCase();
         
+        console.log('🔍 Edit page: Analyzing condition text:', {
+          original: condition.substring(0, 50),
+          clean: cleanCondition.substring(0, 50),
+          length: cleanCondition.length
+        });
+        
         // CRITICAL: Detect the dreaded "Bruksslitage" alone
         if (conditionLower === 'bruksslitage' || conditionLower === 'bruksslitage.') {
           issues.push({
@@ -1738,7 +1744,14 @@
           'åldersslitage',
           'slitage förekommer',
           'mindre skador',
-          'normal wear'
+          'normal wear',
+          'gott skick',
+          'bra skick',
+          'fint skick',
+          'mycket gott skick',
+          'i gott skick',
+          'inga större skador',
+          'inga anmärkningar'
         ];
         
         const hasVagueOnly = vagueOnlyPhrases.some(phrase => {
@@ -1747,6 +1760,7 @@
         });
         
         if (hasVagueOnly) {
+          console.log('⚠️ Edit page: Detected vague-only condition description');
           issues.push({
             type: 'vague_only',
             severity: 'high',
@@ -1756,8 +1770,9 @@
           });
         }
         
-        // Check length - too short for detailed items
-        if (cleanCondition.length < 20) {
+        // Check length - LOWERED threshold from 20 to 15 characters
+        if (cleanCondition.length < 15) {
+          console.log('⚠️ Edit page: Condition text too short:', cleanCondition.length, 'characters');
           issues.push({
             type: 'too_short',
             severity: 'high', 
@@ -1769,6 +1784,7 @@
         
         // Check for missing location specifics
         if (conditionLower.includes('repor') && !this.hasLocationSpecifics(conditionLower)) {
+          console.log('⚠️ Edit page: Found "repor" but missing location specifics');
           issues.push({
             type: 'missing_location',
             severity: 'medium',
@@ -1778,6 +1794,24 @@
           });
         }
         
+        // NEW: Check for generic condition terms without details
+        const genericTerms = ['slitage', 'skador', 'märken', 'defekter'];
+        const hasGenericWithoutDetails = genericTerms.some(term => {
+          return conditionLower.includes(term) && !this.hasSpecificDetails(conditionLower);
+        });
+        
+        if (hasGenericWithoutDetails && cleanCondition.length < 25) {
+          console.log('⚠️ Edit page: Found generic terms without specific details');
+          issues.push({
+            type: 'generic_without_details',
+            severity: 'medium',
+            title: 'Generiska termer utan detaljer',
+            message: 'Specificera typ av slitage/skador och var de finns.',
+            impact: 'Specifika beskrivningar hjälper kunder att förstå föremålets skick'
+          });
+        }
+        
+        console.log('🔍 Edit page: Final issues found:', issues.length, issues.map(i => i.type));
         return issues.slice(0, 2); // Max 2 issues to avoid overwhelming
       }
 
@@ -1789,6 +1823,17 @@
           'boett', 'länk', 'hörn', 'mittpartiet', 'botten', 'topp', 'sida', 'insida'
         ];
         return locationWords.some(word => conditionText.includes(word));
+      }
+      
+      // NEW: Check for specific details in condition text
+      hasSpecificDetails(conditionText) {
+        const specificWords = [
+          'repor', 'nagg', 'sprickor', 'fläckar', 'missfärgning', 'rostfläckar',
+          'djupa', 'ytliga', 'små', 'stora', 'mindre', 'större', 'synliga',
+          'tydliga', 'svåra att upptäcka', 'genomgående', 'hårfina',
+          'ca', 'ungefär', 'mm', 'cm', 'flera', 'enstaka', 'spridda'
+        ];
+        return specificWords.some(word => conditionText.includes(word));
       }
 
       // Show condition guidance tooltip - EXACT copy from Add Items page
