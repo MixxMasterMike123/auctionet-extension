@@ -1102,7 +1102,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     
     // Check if API key is still missing
     if (!this.apiKey) {
-      this.showErrorIndicator(fieldType, 'API key not configured. Please set your Anthropic API key in the extension popup.');
+      this.showFieldErrorIndicator(fieldType, 'API key not configured. Please set your Anthropic API key in the extension popup.');
       return;
     }
     
@@ -1116,7 +1116,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       return;
     }
     
-    this.showLoadingIndicator(fieldType);
+    this.showFieldLoadingIndicator(fieldType);
     
     try {
       const improved = await this.callClaudeAPI(itemData, fieldType);
@@ -1126,7 +1126,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       const value = improved[fieldType];
       if (value) {
         this.applyImprovement(fieldType, value);
-        this.showSuccessIndicator(fieldType);
+        this.showFieldSuccessIndicator(fieldType);
         
         // Re-analyze quality after improvement (with delay to ensure DOM is updated)
         console.log('Re-analyzing quality after single field improvement...');
@@ -1139,7 +1139,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       }
     } catch (error) {
       console.error('Error improving field:', error);
-      this.showErrorIndicator(fieldType, error.message);
+      this.showFieldErrorIndicator(fieldType, error.message);
     }
   }
 
@@ -1151,7 +1151,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     
     // Check if API key is still missing
     if (!this.apiKey) {
-      this.showErrorIndicator('all', 'API key not configured. Please set your Anthropic API key in the extension popup.');
+      this.showFieldErrorIndicator('all', 'API key not configured. Please set your Anthropic API key in the extension popup.');
       return;
     }
     
@@ -1165,34 +1165,54 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       return;
     }
     
-    this.showLoadingIndicator('all');
+    this.showFieldLoadingIndicator('all');
     
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all');
       
+      // Apply improvements and show individual success indicators with slight delays for cascade effect
+      let delay = 0;
+      
       if (improvements.title) {
-        this.applyImprovement('title', improvements.title);
+        setTimeout(() => {
+          this.applyImprovement('title', improvements.title);
+          this.showFieldSuccessIndicator('title');
+        }, delay);
+        delay += 300;
       }
+      
       if (improvements.description) {
-        this.applyImprovement('description', improvements.description);
+        setTimeout(() => {
+          this.applyImprovement('description', improvements.description);
+          this.showFieldSuccessIndicator('description');
+        }, delay);
+        delay += 300;
       }
+      
       if (improvements.condition) {
-        this.applyImprovement('condition', improvements.condition);
+        setTimeout(() => {
+          this.applyImprovement('condition', improvements.condition);
+          this.showFieldSuccessIndicator('condition');
+        }, delay);
+        delay += 300;
       }
+      
       if (improvements.keywords) {
-        this.applyImprovement('keywords', improvements.keywords);
+        setTimeout(() => {
+          this.applyImprovement('keywords', improvements.keywords);
+          this.showFieldSuccessIndicator('keywords');
+        }, delay);
+        delay += 300;
       }
       
-      this.showSuccessIndicator('all');
-      
-      // Re-analyze quality after improvements (delay to ensure DOM is updated)
-      console.log('Re-analyzing quality after improvements...');
+      // Show final success on master button after all fields are done
       setTimeout(() => {
-        console.log('DOM should be updated now, calling analyzeQuality...');
-        this.analyzeQuality();
-      }, 500);
+        this.showFieldSuccessIndicator('all');
+        setTimeout(() => this.analyzeQuality(), 500);
+      }, delay);
+      
     } catch (error) {
-      this.showErrorIndicator('all', error.message);
+      this.showFieldErrorIndicator('all', error.message);
     }
   }
 
@@ -2336,6 +2356,14 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
       field.classList.add('ai-updated');
       field.value = finalValue;
       
+      // Auto-resize textarea if needed (especially for description)
+      if (field.tagName.toLowerCase() === 'textarea') {
+        // Use setTimeout to ensure the value is fully applied before resizing
+        setTimeout(() => {
+          this.autoResizeTextarea(field);
+        }, 50);
+      }
+      
       // Trigger change event
       field.dispatchEvent(new Event('change', { bubbles: true }));
       
@@ -2347,6 +2375,29 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
     } else {
       console.warn(`Could not apply improvement for ${fieldType}:`, { field: !!field, value });
     }
+  }
+
+  // NEW: Auto-resize textarea functionality (from Add Items page)
+  autoResizeTextarea(textarea) {
+    if (!textarea || textarea.tagName.toLowerCase() !== 'textarea') return;
+    
+    // Reset height to auto to get the scroll height
+    textarea.style.height = 'auto';
+    
+    // Calculate the height needed
+    const scrollHeight = textarea.scrollHeight;
+    const minHeight = 60; // Minimum height
+    const maxHeight = 400; // Maximum height
+    
+    // Set the new height within bounds
+    const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+    textarea.style.height = newHeight + 'px';
+    
+    // Add resizing class for smooth animation
+    textarea.classList.add('resizing');
+    setTimeout(() => {
+      textarea.classList.remove('resizing');
+    }, 300);
   }
 
   validateAndLimitKeywords(keywords) {
@@ -2978,6 +3029,269 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
     score -= errorCount * 20; // Major deduction for errors
     score -= warningCount * 5; // Minor deduction for warnings
     return Math.max(0, Math.min(100, score));
+  }
+
+  // NEW: Advanced field loading indicators (same as Add Items page)
+  showFieldLoadingIndicator(fieldType) {
+    console.log(`🔄 Advanced loading indicator for ${fieldType}`);
+    
+    // Add CSS for field spinner overlays if not already added
+    if (!document.getElementById('field-spinner-overlay-styles')) {
+      const style = document.createElement('style');
+      style.id = 'field-spinner-overlay-styles';
+      style.textContent = `
+        /* Field loading animation styles */
+        .field-loading {
+          position: relative;
+          filter: blur(2px);
+          opacity: 0.6;
+          pointer-events: none;
+          transition: filter 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .field-spinner-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(1px);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+          border-radius: 6px;
+          transition: opacity 0.3s ease;
+        }
+        
+        .ai-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid #e3f2fd;
+          border-top: 3px solid #1976d2;
+          border-radius: 50%;
+          animation: fieldSpin 1s linear infinite;
+          margin-bottom: 8px;
+        }
+        
+        .ai-processing-text {
+          color: #1976d2;
+          font-size: 12px;
+          font-weight: 600;
+          text-align: center;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        @keyframes fieldSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        /* Field success flash animation */
+        .field-success {
+          background-color: #d4edda !important;
+          border: 2px solid #28a745 !important;
+          animation: fieldSuccessFlash 0.6s ease-out;
+          transition: all 0.3s ease;
+        }
+        
+        @keyframes fieldSuccessFlash {
+          0% { 
+            background-color: #d4edda;
+            border-color: #28a745;
+            transform: scale(1);
+          }
+          50% { 
+            background-color: #c3e6cb;
+            border-color: #20c997;
+            transform: scale(1.02);
+          }
+          100% { 
+            background-color: #d4edda;
+            border-color: #28a745;
+            transform: scale(1);
+          }
+        }
+        
+        /* Auto-resize textarea styling with smooth transitions */
+        textarea.auto-resize {
+          resize: vertical;
+          min-height: 60px;
+          max-height: 400px;
+          transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          overflow-y: auto;
+        }
+        
+        textarea.auto-resize:not(:focus) {
+          overflow-y: hidden;
+        }
+        
+        .auto-resize.resizing {
+          transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Remove any existing loading states
+    this.removeFieldLoadingIndicator(fieldType);
+    
+    let targetField;
+    if (fieldType === 'all') {
+      // For "all" - show loading on master button AND all individual fields
+      const masterButton = document.querySelector('.ai-master-button');
+      if (masterButton) {
+        masterButton.textContent = '🧠 AI arbetar...';
+        masterButton.disabled = true;
+        masterButton.style.opacity = '0.7';
+      }
+      
+      // Show loading animation on all fields simultaneously
+      const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
+      allFieldTypes.forEach(type => {
+        this.showFieldLoadingIndicator(type);
+      });
+      return;
+    } else {
+      // Get the specific field
+      const fieldMap = {
+        'title': '#item_title_sv',
+        'description': '#item_description_sv', 
+        'condition': '#item_condition_sv',
+        'keywords': '#item_hidden_keywords'
+      };
+      
+      targetField = document.querySelector(fieldMap[fieldType]);
+    }
+    
+    if (!targetField) return;
+    
+    // Find the field container (parent element that will hold the overlay)
+    let fieldContainer = targetField.parentElement;
+    
+    // For textareas and inputs, we might need to go up one more level if it's in a wrapper
+    if (fieldContainer.classList.contains('ai-button-wrapper') || fieldContainer.tagName === 'LABEL') {
+      fieldContainer = fieldContainer.parentElement;
+    }
+    
+    // Add loading class to container
+    fieldContainer.classList.add('field-loading');
+    
+    // Create spinner overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'field-spinner-overlay';
+    overlay.dataset.fieldType = fieldType;
+    overlay.innerHTML = `
+      <div class="ai-spinner"></div>
+      <div class="ai-processing-text">AI förbättrar...</div>
+    `;
+    
+    // Position overlay over the field
+    const fieldRect = targetField.getBoundingClientRect();
+    const containerRect = fieldContainer.getBoundingClientRect();
+    
+    // Calculate relative position
+    overlay.style.position = 'absolute';
+    overlay.style.top = `${fieldRect.top - containerRect.top}px`;
+    overlay.style.left = `${fieldRect.left - containerRect.left}px`;
+    overlay.style.width = `${fieldRect.width}px`;
+    overlay.style.height = `${fieldRect.height}px`;
+    
+    // Add overlay to container
+    fieldContainer.appendChild(overlay);
+    
+    console.log(`✅ Advanced loading animation applied to ${fieldType} field`);
+  }
+
+  showFieldSuccessIndicator(fieldType) {
+    console.log(`✅ Field success indicator for ${fieldType}`);
+    
+    // Remove loading state
+    this.removeFieldLoadingIndicator(fieldType);
+    
+    if (fieldType === 'all') {
+      // Reset master button
+      const masterButton = document.querySelector('.ai-master-button');
+      if (masterButton) {
+        masterButton.textContent = '✅ Klart!';
+        setTimeout(() => {
+          masterButton.textContent = '⚡ Förbättra alla';
+          masterButton.disabled = false;
+          masterButton.style.opacity = '1';
+        }, 2000);
+      }
+      return;
+    }
+    
+    // Get the specific field and apply success flash
+    const fieldMap = {
+      'title': '#item_title_sv',
+      'description': '#item_description_sv',
+      'condition': '#item_condition_sv', 
+      'keywords': '#item_hidden_keywords'
+    };
+    
+    const targetField = document.querySelector(fieldMap[fieldType]);
+    if (targetField) {
+      targetField.classList.add('field-success');
+      
+      // Remove success class after animation
+      setTimeout(() => {
+        targetField.classList.remove('field-success');
+      }, 600);
+    }
+  }
+
+  showFieldErrorIndicator(fieldType, message) {
+    console.error(`❌ Field error for ${fieldType}: ${message}`);
+    
+    // Remove loading state
+    this.removeFieldLoadingIndicator(fieldType);
+    
+    if (fieldType === 'all') {
+      // Reset master button
+      const masterButton = document.querySelector('.ai-master-button');
+      if (masterButton) {
+        masterButton.textContent = '❌ Fel uppstod';
+        masterButton.disabled = false;
+        masterButton.style.opacity = '1';
+        setTimeout(() => {
+          masterButton.textContent = '⚡ Förbättra alla';
+        }, 3000);
+      }
+    }
+    
+    // Show error message
+    alert(`Fel vid AI-förbättring av ${fieldType}: ${message}`);
+  }
+  
+  removeFieldLoadingIndicator(fieldType) {
+    if (fieldType === 'all') {
+      // Remove loading from all individual fields
+      const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
+      allFieldTypes.forEach(type => {
+        this.removeFieldLoadingIndicator(type);
+      });
+      return;
+    }
+    
+    // Remove loading states for specific field type
+    const overlay = document.querySelector(`.field-spinner-overlay[data-field-type="${fieldType}"]`);
+    if (overlay) {
+      const container = overlay.parentElement;
+      container.classList.remove('field-loading');
+      overlay.remove();
+    }
+    
+    // Also remove any general loading classes
+    document.querySelectorAll('.field-loading').forEach(container => {
+      const overlays = container.querySelectorAll('.field-spinner-overlay');
+      if (overlays.length === 0) {
+        container.classList.remove('field-loading');
+      }
+    });
   }
 }
 
