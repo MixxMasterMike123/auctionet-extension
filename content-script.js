@@ -1949,12 +1949,25 @@
         return content;
       }
 
-      // Determine item category - Enhanced with more comprehensive Swedish terms
+      // Determine item category - Enhanced to use actual form category selection
       determineItemCategory(formData) {
         const title = (formData.title || '').toLowerCase();
         const description = (formData.description || '').toLowerCase();
         const category = (formData.category || '').toLowerCase();
         const combined = title + ' ' + description + ' ' + category;
+        
+        // PRIORITY 1: Check actual selected category from dropdown
+        const selectedCategory = this.getSelectedCategoryFromDropdown();
+        if (selectedCategory) {
+          console.log('🏷️ Using selected category from dropdown:', selectedCategory);
+          const categoryGuide = this.mapAuctionetCategoryToGuide(selectedCategory);
+          if (categoryGuide) {
+            return categoryGuide;
+          }
+        }
+        
+        // PRIORITY 2: Fall back to text-based detection if no dropdown category or unmapped
+        console.log('🔍 Using text-based category detection as fallback');
         
         // Watch/Clock category - Enhanced detection
         if (combined.match(/\b(ur|klocka|armbandsur|fickur|väckarklocka|rolex|omega|patek|cartier|tissot|longines|seiko|automatisk|manuell|quartz|kronograf|datum|helium|vattentät)\b/)) {
@@ -2025,6 +2038,149 @@
           checkPoints: ['ytor', 'kanter', 'funktionalitet', 'märkningar', 'material', 'konstruktion'],
           conditionFocus: ['synliga skador', 'slitage platser', 'funktionsstatus', 'reparationer', 'materialdefekter', 'konstruktionsfel']
         };
+      }
+
+      // NEW: Get selected category from the actual dropdown
+      getSelectedCategoryFromDropdown() {
+        // Try multiple methods to get the selected category
+        
+        // Method 1: Check the original select element
+        const selectElement = document.querySelector('#item_category_id');
+        if (selectElement && selectElement.value) {
+          const selectedOption = selectElement.querySelector(`option[value="${selectElement.value}"]`);
+          if (selectedOption && selectedOption.textContent.trim()) {
+            console.log('✅ Found category from select element:', selectedOption.textContent.trim());
+            return selectedOption.textContent.trim();
+          }
+        }
+        
+        // Method 2: Check Chosen.js implementation
+        const chosenElement = document.querySelector('#item_category_id_chosen .chosen-single span');
+        if (chosenElement && chosenElement.textContent.trim()) {
+          console.log('✅ Found category from Chosen.js:', chosenElement.textContent.trim());
+          return chosenElement.textContent.trim();
+        }
+        
+        // Method 3: Check any visible category text in the form
+        const chosenContainer = document.querySelector('.chosen-container .chosen-single span');
+        if (chosenContainer && chosenContainer.textContent.trim()) {
+          console.log('✅ Found category from Chosen container:', chosenContainer.textContent.trim());
+          return chosenContainer.textContent.trim();
+        }
+        
+        console.log('❌ No category found in dropdown');
+        return null;
+      }
+
+      // NEW: Map Auctionet category names to our condition guidance categories
+      mapAuctionetCategoryToGuide(categoryText) {
+        const categoryLower = categoryText.toLowerCase();
+        console.log('🗺️ Mapping category:', categoryText);
+        
+        // Glass categories
+        if (categoryLower.includes('glas')) {
+          console.log('→ Mapped to: keramik/glas');
+          return {
+            name: 'keramik/glas',
+            checkPoints: ['nagg', 'sprickor', 'glasyr', 'märkningar', 'reparationer', 'dekor', 'form'],
+            conditionFocus: ['nagg på kant', 'hårsprickor', 'krakelering', 'limmarker', 'dekorskador', 'formfel', 'tillverkningsdefekter']
+          };
+        }
+        
+        // Ceramics and Porcelain categories
+        if (categoryLower.includes('keramik') || categoryLower.includes('porslin')) {
+          console.log('→ Mapped to: keramik/glas');
+          return {
+            name: 'keramik/glas',
+            checkPoints: ['nagg', 'sprickor', 'glasyr', 'märkningar', 'reparationer', 'dekor', 'form'],
+            conditionFocus: ['nagg på kant', 'hårsprickor', 'krakelering', 'limmarker', 'dekorskador', 'formfel', 'tillverkningsdefekter']
+          };
+        }
+        
+        // Watch categories
+        if (categoryLower.includes('klockor') || categoryLower.includes('ur') || categoryLower.includes('armbandsur')) {
+          console.log('→ Mapped to: armbandsur');
+          return {
+            name: 'armbandsur',
+            checkPoints: ['urtavla', 'boett', 'länk/armband', 'glas', 'funktion', 'krona', 'tryckare'],
+            conditionFocus: ['repor på boett', 'slitage på länk', 'märken på urtavla', 'funktionsstatus', 'glas skador', 'krona funktion']
+          };
+        }
+        
+        // Jewelry categories
+        if (categoryLower.includes('smycken') || categoryLower.includes('ädelstenar') || 
+            categoryLower.includes('ringar') || categoryLower.includes('armband') || 
+            categoryLower.includes('collier') || categoryLower.includes('örhängen') ||
+            categoryLower.includes('broscher')) {
+          console.log('→ Mapped to: smycken');
+          return {
+            name: 'smycken',
+            checkPoints: ['stenar', 'fattningar', 'lås', 'kedja/band', 'ytbehandling', 'stämplar', 'infattning'],
+            conditionFocus: ['lösa stenar', 'slitage på fattning', 'lås funktion', 'repor på metall', 'matthet på ytan', 'kedjans flexibilitet']
+          };
+        }
+        
+        // Art categories
+        if (categoryLower.includes('konst') || categoryLower.includes('måleri') || 
+            categoryLower.includes('grafik') || categoryLower.includes('skulptur') ||
+            categoryLower.includes('teckningar') || categoryLower.includes('fotografi')) {
+          console.log('→ Mapped to: konstverk');
+          return {
+            name: 'konstverk',
+            checkPoints: ['duk/papper', 'färger', 'ram', 'signatur', 'baksida', 'upphängning', 'tryckyta'],
+            conditionFocus: ['sprickor i färg', 'fläckar', 'ramens skick', 'dukens spänning', 'färgförändring', 'pappersqualitet', 'inramning']
+          };
+        }
+        
+        // Furniture categories
+        if (categoryLower.includes('möbler') || categoryLower.includes('bord') || 
+            categoryLower.includes('stolar') || categoryLower.includes('fåtöljer') ||
+            categoryLower.includes('soffor') || categoryLower.includes('skåp') ||
+            categoryLower.includes('byråar') || categoryLower.includes('matsalsmöbler')) {
+          console.log('→ Mapped to: möbler');
+          return {
+            name: 'möbler',
+            checkPoints: ['finish', 'fogar', 'klädsel', 'beslag', 'stabilitet', 'funktion', 'material'],
+            conditionFocus: ['repor i finish', 'lossnade fogar', 'fläckar på klädsel', 'skador på beslag', 'instabilitet', 'funktionsfel', 'materialskador']
+          };
+        }
+        
+        // Textiles categories
+        if (categoryLower.includes('mattor') || categoryLower.includes('textil') || 
+            categoryLower.includes('vintagekläder') || categoryLower.includes('accessoarer')) {
+          console.log('→ Mapped to: textilier');
+          return {
+            name: 'textilier',
+            checkPoints: ['tyg', 'sömmar', 'dragkedjor', 'knappar', 'foder', 'form', 'färg'],
+            conditionFocus: ['fläckar', 'hål', 'slitage på tyg', 'trasiga sömmar', 'saknade knappar', 'formförändringar', 'missfärgningar']
+          };
+        }
+        
+        // Books categories
+        if (categoryLower.includes('böcker') || categoryLower.includes('kartor') || 
+            categoryLower.includes('handskrifter') || categoryLower.includes('autografer')) {
+          console.log('→ Mapped to: böcker/dokument');
+          return {
+            name: 'böcker/dokument',
+            checkPoints: ['papper', 'band', 'ryggrad', 'text', 'illustrationer', 'bindning'],
+            conditionFocus: ['papperskvalitet', 'fläckar', 'veck', 'trasiga sidor', 'bandskador', 'ryggrad slitage', 'fukskador']
+          };
+        }
+        
+        // Silver & Metal categories
+        if (categoryLower.includes('silver') || categoryLower.includes('metall') || 
+            categoryLower.includes('tenn') || categoryLower.includes('mässing') ||
+            categoryLower.includes('koppar') || categoryLower.includes('nysilver')) {
+          console.log('→ Mapped to: silver/metall');
+          return {
+            name: 'silver/metall',
+            checkPoints: ['yta', 'stämplar', 'fogar', 'handtag', 'funktion', 'patina'],
+            conditionFocus: ['oxidering', 'repor på yta', 'bucklor', 'lösa delar', 'stämplarnas läsbarhet', 'polering slitage']
+          };
+        }
+        
+        console.log('❌ No mapping found for category:', categoryText);
+        return null; // No mapping found, will fall back to text analysis
       }
 
       // Show condition guide popup - EXACT copy from Add Items page
@@ -2176,6 +2332,8 @@
           'textilier': '"Allmänt gott skick med enstaka små fläckar på framstycket (ca 5 mm). Sömmar intakta, alla knappar på plats. Lätt missfärgning vid kragen från användning. Tyget behåller sin form, inget hål eller större slitage."',
           
           'böcker/dokument': '"Mindre fläckar på frampärmen och lätt slitage vid rygggradens kanter. Alla sidor kompletta utan veck eller hål. Text och illustrationer tydliga och välbevarade. Bindningen fast, endast mindre lösgöring vid första sidan."',
+          
+          'silver/metall': '"Repor och märken på ytan från normal användning. Stämplar tydligt läsbara på undersidan. Handtag fast monterat utan vacklan. Lätt oxidering i fördjupningar, normal patina på ytan. Inga bucklor eller strukturella skador."',
           
           'föremål': '"Repor på främre ytan och mindre märken vid handtagen. Funktionen fungerar som den ska men visar tecken på regelbunden användning. Material i gott skick utan sprickor eller andra strukturella skador."'
         };
