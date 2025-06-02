@@ -65,8 +65,19 @@ export class SearchFilterManager {
     // CRITICAL FIX: Check if we already have AI Rules data in SearchQuerySSoT to preserve source information
     if (this.searchQuerySSoT) {
       const existingTerms = this.searchQuerySSoT.getAvailableTerms();
-      if (existingTerms && existingTerms.length > 0) {
-        console.log('✅ PRESERVING AI RULES DATA: Using existing SearchQuerySSoT terms instead of rebuilding');
+      const queryMetadata = this.searchQuerySSoT.getCurrentMetadata();
+      
+      // ENHANCED FIX: Only preserve if we have HIGH-QUALITY AI Rules data, not emergency fallback
+      const isHighQualityData = existingTerms && existingTerms.length > 0 && 
+        queryMetadata && 
+        queryMetadata.source && 
+        queryMetadata.source !== 'emergency_fallback' &&
+        queryMetadata.confidence > 0.5 &&
+        existingTerms.some(term => term.source && term.source !== 'none');
+      
+      if (isHighQualityData) {
+        console.log('✅ PRESERVING HIGH-QUALITY AI RULES DATA: Using existing SearchQuerySSoT terms');
+        console.log('📋 Query metadata:', queryMetadata);
         console.log('📋 Existing terms with source info:', existingTerms.map(t => `${t.term}(${t.source || 'none'})`));
         
         // Convert existing terms to candidates format for consistency
@@ -83,7 +94,7 @@ export class SearchFilterManager {
         const preSelectedTerms = candidates.filter(c => c.preSelected).map(c => c.term);
         const currentQuery = preSelectedTerms.join(' ');
         
-        console.log('✅ PRESERVED AI RULES: Using existing candidates with source info preserved');
+        console.log('✅ PRESERVED HIGH-QUALITY AI RULES: Using existing candidates with source info preserved');
         console.log('📋 AI-detected artists found:', candidates.filter(c => c.source === 'ai_detected').map(c => c.term));
         
         return {
@@ -91,6 +102,15 @@ export class SearchFilterManager {
           currentQuery: currentQuery,
           analysisType: artistInfo ? 'artist' : 'freetext'
         };
+      } else {
+        console.log('⚠️ SearchQuerySSoT has LOW-QUALITY data - rebuilding with fresh extraction');
+        console.log('📋 Data quality check:', {
+          hasTerms: existingTerms && existingTerms.length > 0,
+          hasMetadata: !!queryMetadata,
+          source: queryMetadata?.source,
+          confidence: queryMetadata?.confidence,
+          hasSourceInfo: existingTerms?.some(term => term.source && term.source !== 'none')
+        });
       }
     }
     

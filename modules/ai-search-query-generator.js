@@ -178,7 +178,20 @@ Return JSON format:
       // Parse the JSON response (API returns raw text for search_query field type)
       let parsedResponse;
       try {
-        parsedResponse = JSON.parse(response);
+        // CRITICAL FIX: Handle markdown code blocks that AI sometimes returns
+        let cleanResponse = response;
+        
+        // Remove markdown code block wrappers if present
+        if (response.includes('```json')) {
+          console.log('🔧 Cleaning markdown code blocks from AI response');
+          cleanResponse = response
+            .replace(/```json\s*/g, '')
+            .replace(/```\s*/g, '')
+            .trim();
+          console.log('🔧 Cleaned response:', cleanResponse);
+        }
+        
+        parsedResponse = JSON.parse(cleanResponse);
         console.log('✅ Successfully parsed AI JSON response:', parsedResponse);
       } catch (parseError) {
         console.error('💥 Failed to parse AI JSON response:', parseError);
