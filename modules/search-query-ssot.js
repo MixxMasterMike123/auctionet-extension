@@ -702,7 +702,27 @@ export class SearchQuerySSoT {
       
       // Update selection state in available terms
       this.availableTerms.forEach(termObj => {
-        termObj.isSelected = finalSelectedTerms.includes(termObj.term);
+        // CRITICAL FIX: Use smart quote matching instead of exact string matching
+        // This ensures quoted terms like "Droppring" match unquoted terms like "Droppring"
+        const isTermSelected = finalSelectedTerms.some(selectedTerm => {
+          // Direct match first
+          if (selectedTerm === termObj.term) {
+            return true;
+          }
+          
+          // Smart quote matching - handle quoted vs unquoted variants
+          const selectedWithoutQuotes = selectedTerm.replace(/['"]/g, '');
+          const termWithoutQuotes = termObj.term.replace(/['"]/g, '');
+          
+          // Match if the unquoted versions are the same
+          return selectedWithoutQuotes === termWithoutQuotes;
+        });
+        
+        termObj.isSelected = isTermSelected;
+        
+        if (isTermSelected) {
+          console.log(`✅ TERM MATCHED: "${termObj.term}" matched with finalSelectedTerms via smart quote matching`);
+        }
       });
     }
     
