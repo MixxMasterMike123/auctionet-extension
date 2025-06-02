@@ -1052,22 +1052,38 @@ export class DashboardManager {
 
   // NEW: Enhanced matching logic for SSoT terms vs checkbox values
   shouldCheckboxBeSelected(checkboxValue, ssotSelectedTerms) {
+    // CRITICAL FIX: Use SSoT's smart quote matching instead of manual comparison
+    if (this.searchQuerySSoT) {
+      return this.searchQuerySSoT.isTermSelected(checkboxValue);
+    }
+    
+    // Fallback logic if SSoT not available
     const normalizedCheckboxValue = checkboxValue.toLowerCase().trim();
     
     for (const selectedTerm of ssotSelectedTerms) {
       const normalizedSelectedTerm = selectedTerm.toLowerCase().trim();
       
-      // EXACT MATCH ONLY (case-insensitive) - NO MORE COMPOSITE MATCHING
+      // Direct match first
       if (normalizedSelectedTerm === normalizedCheckboxValue) {
         console.log(`✅ EXACT match: "${checkboxValue}" = "${selectedTerm}"`);
+        return true;
+      }
+      
+      // Smart quote matching - handle quoted vs unquoted variants
+      const selectedWithoutQuotes = selectedTerm.replace(/['"]/g, '').toLowerCase().trim();
+      const checkboxWithoutQuotes = checkboxValue.replace(/['"]/g, '').toLowerCase().trim();
+      
+      // Match if the unquoted versions are the same
+      if (selectedWithoutQuotes === checkboxWithoutQuotes) {
+        console.log(`✅ QUOTE match: "${checkboxValue}" ≈ "${selectedTerm}" (via quote matching)`);
         return true;
       }
     }
     
     console.log(`❌ NO match: "${checkboxValue}" not found in SSoT selected terms`);
     return false;
-      }
-      
+  }
+
   // Helper: Calculate term similarity for fuzzy matching
   calculateTermSimilarity(term1, term2) {
     if (term1 === term2) return 1.0;

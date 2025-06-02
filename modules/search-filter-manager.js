@@ -1099,18 +1099,8 @@ export class SearchFilterManager {
       const checkboxValue = checkbox.value;
       const checkboxCurrentState = checkbox.checked;
       
-      // Check if this term should be selected according to SSoT
-      const shouldBeSelected = availableTerms.some(term => {
-        // Handle quoted terms - compare with and without quotes
-        const termWithoutQuotes = term.term.replace(/"/g, '');
-        const valueWithoutQuotes = checkboxValue.replace(/"/g, '');
-        
-        return (term.term === checkboxValue || 
-                termWithoutQuotes === valueWithoutQuotes ||
-                term.term === valueWithoutQuotes ||
-                termWithoutQuotes === checkboxValue) && 
-               term.isSelected;
-      }) || currentTerms.includes(checkboxValue);
+      // CRITICAL FIX: Use SSoT's smart quote matching logic instead of manual comparison
+      const shouldBeSelected = this.searchQuerySSoT.isTermSelected(checkboxValue);
       
       // Update checkbox if it doesn't match SSoT state
       if (checkboxCurrentState !== shouldBeSelected) {
