@@ -588,6 +588,22 @@ export class SearchQuerySSoT {
     const currentAvailableTerms = this.availableTerms || [];
     console.log('🔍 DEBUG: Available terms for processing:', currentAvailableTerms.map(t => `"${t.term}" (type: ${t.type}, category: ${t.category || 'none'}, source: ${t.source || 'none'})`));
     
+    // CRITICAL DEBUG: Find and inspect the Timo Sarpaneva term specifically
+    const timoTerm = currentAvailableTerms.find(t => t.term && t.term.includes('Timo'));
+    if (timoTerm) {
+      console.log('🔍 CRITICAL DEBUG: Timo Sarpaneva term properties:', {
+        term: timoTerm.term,
+        type: timoTerm.type,
+        category: timoTerm.category,
+        source: timoTerm.source,
+        priority: timoTerm.priority,
+        isSelected: timoTerm.isSelected,
+        preSelected: timoTerm.preSelected
+      });
+    } else {
+      console.log('🚨 CRITICAL DEBUG: Timo Sarpaneva term NOT FOUND in availableTerms!');
+    }
+    
     // CRITICAL FIX: Identify AI-detected artists that should be preserved
     const aiDetectedArtists = currentAvailableTerms.filter(term => {
       // Method 1: Explicit source indicates AI-detected artist
@@ -605,10 +621,17 @@ export class SearchQuerySSoT {
         return true;
       }
       
+      // Method 4: ENHANCED DETECTION: Quoted terms that look like artist names
+      if (term.term && term.term.includes('"') && /^"[A-Z][a-z]+ [A-Z][a-z]+"$/.test(term.term)) {
+        console.log('🔍 ENHANCED AI DETECTION: Found quoted artist-like term:', term.term);
+        return true;
+      }
+      
       return false;
     });
     
     console.log('🤖 AI-DETECTED ARTISTS to preserve:', aiDetectedArtists.map(t => t.term));
+    console.log('🤖 AI-DETECTED ARTISTS full details:', aiDetectedArtists.map(t => ({ term: t.term, source: t.source, type: t.type })));
     
     // Identify ALL potential artist terms from available terms
     const potentialArtistTerms = currentAvailableTerms.filter(term => {
@@ -938,4 +961,4 @@ export class SearchQuerySSoT {
     
     return typePriorities[type] || 50;
   }
-} 
+}
