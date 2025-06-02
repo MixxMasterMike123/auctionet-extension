@@ -636,6 +636,12 @@ export class QualityAnalyzer {
     this.updateQualityIndicator(currentScore, currentWarnings);
     console.log('✅ Artist detection results displayed');
     
+    // NEW: Add brief delay and completion feedback for Edit page UX
+    if (aiArtist.detectedArtist) {
+      this.updateAILoadingMessage(`✅ Konstnär hittad: ${aiArtist.detectedArtist}`);
+      await new Promise(resolve => setTimeout(resolve, 800)); // 800ms delay to show completion
+    }
+    
     // CRITICAL FIX: Initialize SearchQuerySSoT with AI-detected artist for immediate dashboard
     if (aiArtist.detectedArtist && this.searchQuerySSoT) {
       console.log('🎯 AI detected artist - initializing SearchQuerySSoT for immediate dashboard');
