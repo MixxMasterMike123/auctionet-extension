@@ -157,363 +157,204 @@ export const AI_SEARCH_RULES = {
 export function applySearchRules(inputData) {
   const { title, description, artist, aiArtist } = inputData;
   
-  console.log('🤖 AI RULES: Applying search rules to input data:', inputData);
+  console.log('🤖 AI RULES: Starting AI-powered term extraction for:', inputData);
+  
+  // Check if we have AI capability for intelligent term extraction
+  if (window.apiManager && typeof window.apiManager.generateAISearchTerms === 'function') {
+    console.log('🧠 AI RULES: Using AI-powered intelligent term extraction...');
+    return generateAISearchTerms(inputData);
+  }
+  
+  // Fallback to basic extraction if AI not available
+  console.log('⚠️ AI RULES: AI not available, using basic extraction fallback...');
+  return generateBasicSearchTerms(inputData);
+}
+
+// NEW: AI-Powered intelligent term extraction
+async function generateAISearchTerms(inputData) {
+  const { title, description, artist, aiArtist } = inputData;
+  
+  try {
+    // Prepare prompt for AI term extraction
+    const prompt = `
+Analyze this auction item and extract meaningful search terms for market analysis.
+
+Title: "${title}"
+Description: "${description || 'No description'}"
+Artist Field: "${artist || 'Empty'}"
+
+Extract 8-12 search terms and categorize each as:
+- artist: Person who created the item
+- brand: Manufacturer or design house  
+- object: What type of item this is
+- model: Specific model/pattern name
+- descriptive: Other valuable search terms
+
+Determine which 2-3 terms should be PRE-SELECTED (most important for initial search) and which should be CANDIDATES (for user refinement).
+
+Rules:
+1. Artist field content always pre-selected if present
+2. Premium brands/models often pre-selected  
+3. Aim for 2-3 pre-selected, 5+ candidates
+4. Focus on terms that help find comparable sales
+
+Return JSON format:
+{
+  "terms": [
+    {"term": "exact_term", "category": "artist|brand|object|model|descriptive", "preSelected": true|false, "reasoning": "why this term matters"}
+  ]
+}`;
+
+    const aiResult = await window.apiManager.generateAISearchTerms(prompt);
+    
+    if (aiResult && aiResult.terms && Array.isArray(aiResult.terms)) {
+      console.log('✅ AI RULES: AI successfully extracted', aiResult.terms.length, 'terms');
+      
+      const preSelectedTerms = aiResult.terms.filter(t => t.preSelected).map(t => t.term);
+      const candidateTerms = aiResult.terms.filter(t => !t.preSelected).map(t => t.term);
+      const allTerms = aiResult.terms.map(t => t.term);
+      
+      console.log('🎯 AI RULES: AI-POWERED EXTRACTION COMPLETE');
+      console.log(`  📌 Pre-selected (${preSelectedTerms.length}):`, preSelectedTerms);
+      console.log(`  ⚪ Candidates (${candidateTerms.length}):`, candidateTerms);
+      console.log(`  🎯 Total terms: ${allTerms.length}`);
+      
+      return {
+        searchTerms: preSelectedTerms,
+        allTerms: allTerms,
+        preSelectedTerms: preSelectedTerms,
+        candidateTerms: candidateTerms,
+        reasoning: 'AI-powered intelligent term extraction',
+        confidence: 0.9,
+        appliedRules: aiResult.terms.map(t => ({
+          term: t.term,
+          type: t.category,
+          priority: t.preSelected ? 90 : 70,
+          isPreSelected: t.preSelected,
+          reasoning: t.reasoning
+        })),
+        termCount: preSelectedTerms.length,
+        totalTerms: allTerms.length,
+        maxTermsAllowed: 12,
+        maxPreSelectedAllowed: 3,
+        selectionStrategy: {
+          coreTermsSelected: preSelectedTerms.filter(t => 
+            aiResult.terms.find(ai => ai.term === t && ['artist', 'brand'].includes(ai.category))
+          ).length,
+          secondaryTermsSelected: preSelectedTerms.filter(t => 
+            aiResult.terms.find(ai => ai.term === t && ['object', 'model'].includes(ai.category))
+          ).length,
+          totalPreSelected: preSelectedTerms.length,
+          totalCandidates: candidateTerms.length
+        }
+      };
+    }
+  } catch (error) {
+    console.error('❌ AI RULES: AI term extraction failed:', error);
+  }
+  
+  // Fallback to basic extraction
+  return generateBasicSearchTerms(inputData);
+}
+
+// Fallback: Basic term extraction (simplified version of old rules)
+function generateBasicSearchTerms(inputData) {
+  const { title, description, artist, aiArtist } = inputData;
   
   const extractedTerms = [];
   const reasoning = [];
   
-  // RULE 1: Artist field (HIGHEST PRIORITY) - Treat as ONE search word
+  // Always include artist field if present
   if (artist && artist.trim()) {
-    // NORMALIZE and FORMAT artist name to match AI search query generation
-    const cleanArtist = artist.trim().replace(/,\s*$/, ''); // Remove trailing comma and spaces
-    
-    // Format artist name for search queries (wrap multi-word names in quotes)
-    const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
-    let formattedArtist;
-    
-    if (words.length > 1) {
-      // Multiple words - wrap in quotes to treat as single entity
-      formattedArtist = `"${cleanArtist}"`;
-      console.log(`👤 AI RULES: "${cleanArtist}" → ${formattedArtist} (multi-word name, quoted for exact matching)`);
-    } else {
-      // Single word - no quotes needed
-      formattedArtist = cleanArtist;
-      console.log(`👤 AI RULES: "${cleanArtist}" → ${formattedArtist} (single word, no quotes needed)`);
-    }
-    
+    const formattedArtist = artist.trim().includes(' ') ? `"${artist.trim()}"` : artist.trim();
     extractedTerms.push({
       term: formattedArtist,
       type: 'artist',
-      priority: AI_SEARCH_RULES.artistField.priority,
+      priority: 100,
       source: 'artist_field',
-      reasoning: 'Manual artist field - highest priority',
-      isAtomic: true, // NEW: Mark artist names as atomic (counts as 1 term regardless of word count)
-      wordCount: 1 // NEW: Always count artist name as 1 search term
+      isPreSelected: true
     });
-    reasoning.push(`Artist field "${formattedArtist}" included as ONE search term (highest priority)`);
-    console.log(`🎯 AI RULES: Artist field found - "${formattedArtist}" (priority: 100, atomic: true, formatted)`);
+    console.log(`👤 AI RULES: Artist field found - "${formattedArtist}" (auto-selected)`);
   }
   
-  // RULE 1B: AI-detected artist (VERY HIGH PRIORITY) - Treat as ONE search word
-  if (aiArtist && aiArtist.trim() && (!artist || artist.trim() !== aiArtist.trim())) {
-    // NORMALIZE and FORMAT AI-detected artist name
-    const cleanAIArtist = aiArtist.trim().replace(/,\s*$/, ''); // Remove trailing comma and spaces
-    
-    // CRITICAL ENHANCEMENT: ALWAYS wrap AI-detected artists in quotes for maximum precision
-    // This ensures API search treats "Kenneth Bergenblad" as ONE exact entity, not separate words
-    let formattedAIArtist;
-    
-    // Remove any existing quotes first to avoid double-quoting
-    const dequotedArtist = cleanAIArtist.replace(/^["']|["']$/g, '');
-    
-    // Check if this is a multi-word artist name (most cases)
-    const words = dequotedArtist.split(/\s+/).filter(word => word.length > 0);
-    
-    if (words.length > 1) {
-      // ALWAYS wrap multi-word AI-detected artists in quotes for precision
-      formattedAIArtist = `"${dequotedArtist}"`;
-      console.log(`🤖 AI RULES: AI detected "${dequotedArtist}" → ${formattedAIArtist} (QUOTED for 100% precision)`);
-    } else if (words.length === 1) {
-      // Single word artist names also benefit from quoting for exact matching
-      formattedAIArtist = `"${dequotedArtist}"`;
-      console.log(`🤖 AI RULES: AI detected "${dequotedArtist}" → ${formattedAIArtist} (QUOTED single name for precision)`);
-    } else {
-      // Fallback for edge cases
-      formattedAIArtist = cleanAIArtist;
-      console.log(`🤖 AI RULES: AI detected "${cleanAIArtist}" → ${formattedAIArtist} (no formatting needed)`);
-    }
-    
-    extractedTerms.push({
-      term: formattedAIArtist,
-      type: 'artist',
-      priority: 95, // Very high priority, just below manual artist field
-      source: 'ai_detected',
-      reasoning: 'AI-detected artist from title - quoted for maximum precision',
-      isAtomic: true, // Mark AI artist names as atomic (counts as 1 term regardless of word count)
-      wordCount: 1, // Always count AI artist name as 1 search term
-      isPrecisionQuoted: true // NEW: Flag to indicate this term uses precision quoting
-    });
-    reasoning.push(`AI-detected artist "${formattedAIArtist}" included as ONE precise search term (very high priority)`);
-    console.log(`🎯 AI RULES: AI-detected artist found - "${formattedAIArtist}" (priority: 95, quoted for precision)`);
-  }
-  
-  // RULE 2: Brand recognition (90 priority)
-  const brandTerms = [];
-  const knownBrands = AI_SEARCH_RULES.brandRecognition.knownBrands;
-  for (const brand of knownBrands) {
+  // Basic brand detection for common cases
+  const commonBrands = ['Dux', 'Royal Copenhagen', 'Omega', 'Yamaha', 'Orrefors'];
+  for (const brand of commonBrands) {
     if (title.toLowerCase().includes(brand.toLowerCase())) {
-      brandTerms.push({
+      extractedTerms.push({
         term: brand,
-        type: 'brand',
-        priority: AI_SEARCH_RULES.brandRecognition.priority,
-        source: 'brand_recognition',
-        reasoning: `Brand "${brand}" detected`,
-        isAtomic: true
+        type: 'brand', 
+        priority: 90,
+        source: 'brand_detection',
+        isPreSelected: extractedTerms.filter(t => t.isPreSelected).length < 2
       });
-      reasoning.push(`Brand "${brand}" detected in title`);
-      console.log(`🏷️ AI RULES: Brand detected - "${brand}" (priority: 90)`);
-    }
-  }
-  extractedTerms.push(...brandTerms);
-  
-  // RULE 3: Object type specificity (80 priority) - ENHANCED for artist fields
-  const objectTypes = Object.keys(AI_SEARCH_RULES.objectType.translations); // Use enhanced object types list
-  const objectTerms = [];
-  for (const objType of objectTypes) {
-    if (title.toLowerCase().includes(objType.toLowerCase())) {
-      // ARTIST FIELD ENHANCEMENT: Boost priority when artist is present
-      const enhancedPriority = artist && artist.trim() ? 
-        AI_SEARCH_RULES.objectType.priority + 5 : // Boost to 85 when artist present
-        AI_SEARCH_RULES.objectType.priority;
-      
-      objectTerms.push({
-        term: objType, // Keep original case for better readability
-        type: 'object_type',
-        priority: enhancedPriority,
-        source: 'object_type_detection',
-        reasoning: `Object type "${objType}" detected${artist ? ' (boosted priority due to artist field)' : ''}`,
-        isAtomic: true
-      });
-      reasoning.push(`Object type "${objType}" detected (enhanced priority due to artist field)`);
-      console.log(`📦 AI RULES: Object type detected - "${objType}" (priority: ${enhancedPriority})`);
-    }
-  }
-  extractedTerms.push(...objectTerms);
-  
-  // RULE 4: Model numbers/identifiers (75 priority) - ENHANCED for artist fields  
-  const modelPatterns = [
-    /dx[0-9]+/i, /speedmaster/i, /musselmalet/i, /blue fluted/i,
-    /"([^"]+)"/g, // Quoted model names like "Storseglaren"
-  ];
-  
-  const modelTerms = [];
-  for (const pattern of modelPatterns) {
-    const matches = title.match(pattern) || description.match(pattern);
-    if (matches) {
-      matches.forEach(match => {
-        const cleanMatch = match.replace(/"/g, ''); // Remove quotes
-        if (cleanMatch.length > 2) {
-          // ARTIST FIELD ENHANCEMENT: Boost priority when artist is present
-          const enhancedPriority = artist && artist.trim() ? 
-            AI_SEARCH_RULES.modelNumbers.priority + 5 : // Boost to 80 when artist present
-            AI_SEARCH_RULES.modelNumbers.priority;
-            
-          modelTerms.push({
-            term: cleanMatch,
-            type: 'model',
-            priority: enhancedPriority,
-            source: 'model_detection',
-            reasoning: `Model identifier "${cleanMatch}" detected${artist ? ' (boosted priority due to artist field)' : ''}`,
-            isAtomic: true
-          });
-          reasoning.push(`Model identifier "${cleanMatch}" detected (enhanced priority due to artist field)`);
-          console.log(`🔢 AI RULES: Model detected - "${cleanMatch}" (priority: ${enhancedPriority})`);
-        }
-      });
-    }
-  }
-  extractedTerms.push(...modelTerms);
-  
-  // NEW RULE 5: Extract additional descriptive terms to reach target count (60 priority)
-  const targetTerms = AI_SEARCH_RULES.queryConstruction.preSelectionStrategy.targetTotalTerms || 8;
-  const initialTermCount = extractedTerms.length;
-  
-  if (initialTermCount < targetTerms) {
-    console.log(`🎯 AI RULES: Only ${initialTermCount} terms found, targeting ${targetTerms} - extracting additional descriptive terms...`);
-    
-    // Extract meaningful words from title (excluding already found terms)
-    const existingTerms = extractedTerms.map(t => t.term.toLowerCase().replace(/"/g, ''));
-    const titleWords = title.split(/[\s.,]+/).filter(word => 
-      word.length >= 3 && // Minimum 3 characters
-      !existingTerms.some(existing => existing.includes(word.toLowerCase())) && // Not already found
-      !/^\d+$/.test(word) && // Not just numbers
-      !['ett', 'par', 'för', 'och', 'med', 'från', 'till', 'som', 'den', 'det', 'att', 'är', 'var'].includes(word.toLowerCase()) // Not common Swedish words
-    );
-    
-    const descriptiveTerms = [];
-    for (let i = 0; i < Math.min(titleWords.length, targetTerms - initialTermCount); i++) {
-      const word = titleWords[i];
-      descriptiveTerms.push({
-        term: word,
-        type: 'descriptive',
-        priority: 60 - i, // Decrease priority for later words
-        source: 'descriptive_extraction',
-        reasoning: `Descriptive term "${word}" extracted for completeness`,
-        isAtomic: true
-      });
-      console.log(`📝 AI RULES: Descriptive term extracted - "${word}" (priority: ${60 - i})`);
-    }
-    extractedTerms.push(...descriptiveTerms);
-  }
-  
-  // NEW: Smart term selection with enhanced pre-selection strategy
-  extractedTerms.sort((a, b) => b.priority - a.priority);
-  
-  const maxTerms = AI_SEARCH_RULES.queryConstruction.maxTerms;
-  const maxPreSelected = AI_SEARCH_RULES.queryConstruction.maxPreSelectedTerms;
-  const preSelectionRules = AI_SEARCH_RULES.queryConstruction.preSelectionStrategy;
-  
-  const selectedTerms = [];
-  const preSelectedTerms = [];
-  const candidateTerms = [];
-  
-  let currentTermCount = 0;
-  let preSelectedCount = 0;
-  let coreTermsSelected = 0;
-  let secondaryTermsSelected = 0;
-  
-  console.log(`🧮 AI RULES: Enhanced selection - max ${maxTerms} total terms, max ${maxPreSelected} pre-selected...`);
-  
-  for (const termData of extractedTerms) {
-    const termWordCount = termData.wordCount || 1;
-    const isCoreType = ['artist', 'brand'].includes(termData.type);
-    const isSecondaryType = ['object_type', 'model'].includes(termData.type);
-    
-    // Check if we can add this term to the final selection
-    if (currentTermCount + termWordCount <= maxTerms) {
-      selectedTerms.push(termData.term);
-      currentTermCount += termWordCount;
-      
-      // Decide if this term should be pre-selected
-      let shouldPreSelect = false;
-      
-      // RULE 1: Brand always gets pre-selected (if under limits)
-      if (termData.type === 'brand' && preSelectionRules.brandAlwaysSelected && preSelectedCount < maxPreSelected) {
-        shouldPreSelect = true;
-        console.log(`🏷️ AI RULES: Brand "${termData.term}" auto-selected (brand priority)`);
-      }
-      // RULE 2: Artist gets pre-selected if under core limit
-      else if (termData.type === 'artist') {
-        if (termData.source === 'artist_field') {
-          // Artist from artist field ALWAYS gets pre-selected regardless of limits
-          shouldPreSelect = true;
-          console.log(`👤 AI RULES: Artist "${termData.term}" auto-selected (artist field priority - always included)`);
-        } else if (termData.source === 'ai_detected') {
-          // AI-detected artists ALSO always get pre-selected (very high priority)
-          shouldPreSelect = true;
-          console.log(`🤖 AI RULES: AI-detected artist "${termData.term}" auto-selected (AI detection priority - always included)`);
-        } else if (coreTermsSelected < preSelectionRules.maxCoreTerms && preSelectedCount < maxPreSelected) {
-          // Other artists still follow normal core limits
-          shouldPreSelect = true;
-          console.log(`👤 AI RULES: Artist "${termData.term}" auto-selected (core priority)`);
-        }
-      }
-      // RULE 3: Secondary terms (object/model) get pre-selected if under secondary limit
-      else if (isSecondaryType && secondaryTermsSelected < preSelectionRules.maxSecondaryTerms && preSelectedCount < maxPreSelected) {
-        shouldPreSelect = true;
-        console.log(`📦 AI RULES: Secondary "${termData.term}" auto-selected (${termData.type})`);
-      }
-      // RULE 4: Any remaining high-priority terms if under total pre-selection limit (MORE CONSERVATIVE)
-      else if (termData.priority >= 90 && preSelectedCount < maxPreSelected) {
-        shouldPreSelect = true;
-        console.log(`⭐ AI RULES: High-priority "${termData.term}" auto-selected (priority: ${termData.priority})`);
-      }
-      
-      if (shouldPreSelect) {
-        preSelectedTerms.push(termData.term);
-        preSelectedCount++;
-        
-        // 🔧 ARTIST CONSISTENCY FIX: Only count certain artists against core limits
-        // Artist field artists and AI-detected artists don't count against limits since they must always be included
-        if (isCoreType && !(termData.type === 'artist' && (termData.source === 'artist_field' || termData.source === 'ai_detected'))) {
-          coreTermsSelected++;
-        }
-        if (isSecondaryType) secondaryTermsSelected++;
-        
-        console.log(`✅ PRE-SELECTED: "${termData.term}" (type: ${termData.type}, pre-selected: ${preSelectedCount}/${maxPreSelected})`);
-      } else {
-        candidateTerms.push(termData.term);
-        console.log(`⚪ CANDIDATE: "${termData.term}" (type: ${termData.type}, available for user selection)`);
-      }
-      
-    } else {
-      // Term exceeds total limit - add as candidate only (no word count limit for candidates)
-      candidateTerms.push(termData.term);
-      console.log(`🔄 CANDIDATE ONLY: "${termData.term}" (exceeds ${maxTerms}-term limit, available for refinement)`);
-      reasoning.push(`"${termData.term}" available as candidate (exceeds ${maxTerms}-term selection limit)`);
-    }
-    
-    // Stop adding to selected terms if we've reached the main limit
-    if (currentTermCount >= maxTerms) {
-      console.log(`🏁 AI RULES: Reached maximum selected term limit (${maxTerms}), adding remaining as candidates only`);
-      
-      // Add remaining terms as candidates only
-      const remainingTerms = extractedTerms.slice(extractedTerms.indexOf(termData) + 1);
-      remainingTerms.forEach(remaining => {
-        candidateTerms.push(remaining.term);
-        console.log(`⚪ REMAINING CANDIDATE: "${remaining.term}" (${remaining.type})`);
-      });
-      break;
+      console.log(`🏷️ AI RULES: Brand detected - "${brand}"`);
     }
   }
   
-  console.log('🤖 AI RULES: ENHANCED SELECTION COMPLETE');
-  console.log(`  📌 Pre-selected (${preSelectedCount}/${maxPreSelected}):`, preSelectedTerms);
+  // Extract quoted model names
+  const quotedModels = title.match(/"([^"]+)"/g);
+  if (quotedModels) {
+    quotedModels.forEach(match => {
+      const cleanMatch = match.replace(/"/g, '');
+      if (cleanMatch.length > 2) {
+        extractedTerms.push({
+          term: cleanMatch,
+          type: 'model',
+          priority: 80,
+          source: 'quoted_model',
+          isPreSelected: extractedTerms.filter(t => t.isPreSelected).length < 3
+        });
+        console.log(`🔢 AI RULES: Model detected - "${cleanMatch}"`);
+      }
+    });
+  }
+  
+  // Extract descriptive terms to reach target
+  const titleWords = title.split(/[\s.,]+/).filter(word => 
+    word.length >= 3 &&
+    !extractedTerms.some(t => t.term.toLowerCase().includes(word.toLowerCase())) &&
+    !/^\d+$/.test(word)
+  );
+  
+  for (let i = 0; i < Math.min(titleWords.length, 8 - extractedTerms.length); i++) {
+    extractedTerms.push({
+      term: titleWords[i],
+      type: 'descriptive',
+      priority: 60 - i,
+      source: 'title_extraction',
+      isPreSelected: false
+    });
+    console.log(`📝 AI RULES: Descriptive term - "${titleWords[i]}"`);
+  }
+  
+  const preSelectedTerms = extractedTerms.filter(t => t.isPreSelected).map(t => t.term);
+  const candidateTerms = extractedTerms.filter(t => !t.isPreSelected).map(t => t.term);
+  const allTerms = extractedTerms.map(t => t.term);
+  
+  console.log('🔧 AI RULES: BASIC EXTRACTION COMPLETE');
+  console.log(`  📌 Pre-selected (${preSelectedTerms.length}):`, preSelectedTerms);
   console.log(`  ⚪ Candidates (${candidateTerms.length}):`, candidateTerms);
-  console.log(`  🎯 Final query (${selectedTerms.length} terms):`, selectedTerms.join(' '));
-  console.log(`  🔧 Core terms selected: ${coreTermsSelected}/${preSelectionRules.maxCoreTerms}`);
-  console.log(`  📦 Secondary terms selected: ${secondaryTermsSelected}/${preSelectionRules.maxSecondaryTerms}`);
-  
-  // 🔧 DEBUG: Track artist field specifically
-  if (artist && artist.trim()) {
-    const artistInPreSelected = preSelectedTerms.find(term => 
-      term.toLowerCase().includes(artist.toLowerCase()) || 
-      term.replace(/"/g, '').toLowerCase() === artist.toLowerCase()
-    );
-    const artistInCandidates = candidateTerms.find(term => 
-      term.toLowerCase().includes(artist.toLowerCase()) || 
-      term.replace(/"/g, '').toLowerCase() === artist.toLowerCase()
-    );
-    
-    console.log(`🔧 ARTIST FIELD DEBUG: "${artist}"`);
-    console.log(`   📌 In pre-selected: ${artistInPreSelected ? '✅ ' + artistInPreSelected : '❌ NOT FOUND'}`);
-    console.log(`   ⚪ In candidates: ${artistInCandidates ? '✅ ' + artistInCandidates : '❌ NOT FOUND'}`);
-    
-    if (!artistInPreSelected && !artistInCandidates) {
-      console.error(`🚨 CRITICAL: Artist field "${artist}" missing from both pre-selected AND candidates!`);
-    }
-  }
-  
-  // Calculate confidence based on quality of selected terms
-  let confidence = 0.75; // Base confidence
-  const hasArtist = selectedTerms.some(term => 
-    extractedTerms.find(t => t.term === term && t.type === 'artist')
-  );
-  const hasBrand = selectedTerms.some(term => 
-    extractedTerms.find(t => t.term === term && t.type === 'brand')
-  );
-  const hasObjectType = selectedTerms.some(term => 
-    extractedTerms.find(t => t.term === term && t.type === 'object_type')
-  );
-  
-  // Boost confidence for high-quality combinations
-  if (hasArtist && (hasBrand || hasObjectType)) confidence = 0.95;
-  else if (hasArtist) confidence = 0.90;
-  else if (hasBrand && hasObjectType) confidence = 0.85;
-  else if (selectedTerms.length >= 2) confidence = 0.80;
   
   return {
-    searchTerms: preSelectedTerms, // Only pre-selected terms for the actual search query
-    allTerms: selectedTerms, // All terms (pre-selected + candidates) for display
-    preSelectedTerms: preSelectedTerms, // Terms that should be checked by default
-    candidateTerms: candidateTerms, // Terms available as unchecked candidates
-    reasoning: reasoning.join('. '),
-    confidence: confidence,
-    appliedRules: extractedTerms.slice(0, selectedTerms.length).map(t => ({ 
-      term: t.term, 
-      type: t.type, 
+    searchTerms: preSelectedTerms,
+    allTerms: allTerms,
+    preSelectedTerms: preSelectedTerms,
+    candidateTerms: candidateTerms,
+    reasoning: 'Basic rule-based extraction (AI fallback)',
+    confidence: 0.7,
+    appliedRules: extractedTerms.map(t => ({
+      term: t.term,
+      type: t.type,
       priority: t.priority,
-      wordCount: t.wordCount,
-      isPreSelected: preSelectedTerms.includes(t.term)
+      isPreSelected: t.isPreSelected
     })),
-    termCount: preSelectedTerms.length, // Count of pre-selected terms only
-    totalTerms: selectedTerms.length, // Count of all available terms
-    maxTermsAllowed: maxTerms,
-    maxPreSelectedAllowed: maxPreSelected,
+    termCount: preSelectedTerms.length,
+    totalTerms: allTerms.length,
+    maxTermsAllowed: 12,
+    maxPreSelectedAllowed: 3,
     selectionStrategy: {
-      coreTermsSelected: coreTermsSelected,
-      secondaryTermsSelected: secondaryTermsSelected,
-      totalPreSelected: preSelectedCount,
+      totalPreSelected: preSelectedTerms.length,
       totalCandidates: candidateTerms.length
     }
   };

@@ -1895,4 +1895,41 @@ Svara ENDAST med giltig JSON:
     this.searchQuerySSoT = searchQuerySSoT;
     console.log('✅ APIManager: SearchQuerySSoT connected');
   }
+
+  // NEW: AI-powered search term extraction
+  async generateAISearchTerms(prompt) {
+    try {
+      console.log('🧠 AI Manager: Generating AI search terms...');
+      
+      const response = await this.callClaudeAPI({
+        title: 'AI Search Term Extraction',
+        description: prompt
+      }, 'search_query');
+      
+      // Parse the JSON response
+      let parsedResponse;
+      try {
+        // Handle markdown code blocks
+        let cleanResponse = response;
+        if (response.includes('```json')) {
+          cleanResponse = response
+            .replace(/```json\s*/g, '')
+            .replace(/```\s*/g, '')
+            .trim();
+        }
+        
+        parsedResponse = JSON.parse(cleanResponse);
+        console.log('✅ AI Manager: Successfully parsed AI response:', parsedResponse);
+        
+        return parsedResponse;
+      } catch (parseError) {
+        console.error('❌ AI Manager: Failed to parse JSON:', parseError);
+        throw new Error('Invalid JSON in AI response');
+      }
+      
+    } catch (error) {
+      console.error('❌ AI Manager: AI search term generation failed:', error);
+      throw error;
+    }
+  }
 } 
