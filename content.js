@@ -1635,26 +1635,26 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     const itemData = this.extractItemData();
     itemData.additionalInfo = additionalInfo;
     
-    this.showLoadingIndicator('all');
+    this.showFieldLoadingIndicator('all');
     
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all-enhanced');
       this.applyAllImprovements(improvements);
     } catch (error) {
-      this.showErrorIndicator('all', error.message);
+      this.showFieldErrorIndicator('all', error.message);
     }
   }
 
   async processWithoutAdditionalInfo() {
     document.querySelector('.ai-info-request-dialog').remove();
     const itemData = this.extractItemData();
-    this.showLoadingIndicator('all');
+    this.showFieldLoadingIndicator('all');
     
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
       this.applyAllImprovements(improvements);
     } catch (error) {
-      this.showErrorIndicator('all', error.message);
+      this.showFieldErrorIndicator('all', error.message);
     }
   }
 
@@ -1780,19 +1780,19 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     
     if (fieldType === 'all') {
       // For "Förbättra alla" - use existing logic
-      this.showLoadingIndicator('all');
+      this.showFieldLoadingIndicator('all');
       
       try {
         const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
         this.applyAllImprovements(improvements);
       } catch (error) {
-        this.showErrorIndicator('all', error.message);
+        this.showFieldErrorIndicator('all', error.message);
       }
       return;
     }
     
     // For individual fields
-    this.showLoadingIndicator(fieldType);
+    this.showFieldLoadingIndicator(fieldType);
     
     try {
       const improved = await this.callClaudeAPI(itemData, fieldType);
@@ -1801,7 +1801,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       const value = improved[fieldType];
       if (value) {
         this.applyImprovement(fieldType, value);
-        this.showSuccessIndicator(fieldType);
+        this.showFieldSuccessIndicator(fieldType);
         
         // Re-analyze quality after improvement (with delay to ensure DOM is updated)
         console.log('Re-analyzing quality after force field improvement...');
@@ -1814,7 +1814,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       }
     } catch (error) {
       console.error('Error improving field:', error);
-      this.showErrorIndicator(fieldType, error.message);
+      this.showFieldErrorIndicator(fieldType, error.message);
     }
   }
 
@@ -1832,7 +1832,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       this.applyImprovement('keywords', improvements.keywords);
     }
     
-    this.showSuccessIndicator('all');
+    this.showFieldSuccessIndicator('all');
     setTimeout(() => {
       console.log('Delayed quality analysis after applyAllImprovements...');
       this.analyzeQuality();
