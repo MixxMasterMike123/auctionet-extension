@@ -1025,6 +1025,239 @@ export class QualityAnalyzer {
     });
   }
 
+  // NEW: Add click-to-move functionality for artist names (copy to artist field + remove from title)
+  addClickToCopyHandler(warningElement, artistName, artistWarning = null) {
+    const clickableElements = warningElement.querySelectorAll('.clickable-artist');
+    
+    console.log(`🔗 Setting up click handlers for ${clickableElements.length} clickable elements`);
+    
+    clickableElements.forEach((element, index) => {
+      console.log(`🎯 Adding click handler to element ${index + 1}: "${element.textContent}"`);
+      
+      element.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log(`🖱️ Click detected on artist: "${artistName}"`);
+        
+        try {
+          // Find the artist field - try multiple selectors
+          const artistFieldSelectors = [
+            '#item_artist_name_sv',
+            'input[name*="artist"]',
+            'input[id*="artist"]',
+            'input[placeholder*="konstnär"]',
+            'input[placeholder*="artist"]'
+          ];
+          
+          let artistField = null;
+          for (const selector of artistFieldSelectors) {
+            artistField = document.querySelector(selector);
+            if (artistField) {
+              console.log(`✅ Found artist field with selector: ${selector}`);
+              break;
+            }
+          }
+          
+          if (!artistField) {
+            console.error('❌ Artist field not found with any selector');
+            console.log('🔍 Available input fields:', document.querySelectorAll('input[type="text"]'));
+            this.showErrorFeedback(element, 'Konstnärsfält hittades inte');
+            return;
+          }
+
+          // NEW: Also find the title field for removing the artist
+          const titleFieldSelectors = [
+            '#item_title_sv',
+            'input[name*="title"]',
+            'input[id*="title"]',
+            'textarea[name*="title"]',
+            'textarea[id*="title"]'
+          ];
+          
+          let titleField = null;
+          for (const selector of titleFieldSelectors) {
+            titleField = document.querySelector(selector);
+            if (titleField) {
+              console.log(`✅ Found title field with selector: ${selector}`);
+              break;
+            }
+          }
+          
+          // Check if field already has content
+          const currentValue = artistField.value.trim();
+          if (currentValue && currentValue !== artistName) {
+            console.log(`⚠️ Artist field already contains: "${currentValue}"`);
+            
+            // Instantly replace field content (no confirmation popup)
+            console.log(`🎯 Replacing "${currentValue}" with "${artistName}"`);
+            artistField.value = artistName;
+          } else {
+            // Field is empty or contains the same artist
+            artistField.value = artistName;
+          }
+
+          // NEW: Update title field if we have a suggested title (remove artist from title)
+          if (titleField && artistWarning && artistWarning.suggestedTitle) {
+            const currentTitle = titleField.value.trim();
+            const suggestedTitle = artistWarning.suggestedTitle.trim();
+            
+            console.log(`🎯 MOVING artist from title: "${currentTitle}" → "${suggestedTitle}"`);
+            
+            // Update title field with cleaned title
+            titleField.value = suggestedTitle;
+            
+            // Trigger events for title field
+            const titleEvents = ['input', 'change', 'blur'];
+            titleEvents.forEach(eventType => {
+              titleField.dispatchEvent(new Event(eventType, { bubbles: true }));
+            });
+            
+            console.log(`✅ Title updated to remove artist: "${suggestedTitle}"`);
+          } else if (titleField && !artistWarning?.suggestedTitle) {
+            console.log(`⚠️ No suggested title available - artist copied but not removed from title`);
+          } else if (!titleField) {
+            console.log(`⚠️ Title field not found - artist copied but title not updated`);
+          }
+          
+          // Trigger form events to ensure proper validation and saving
+          const events = ['input', 'change', 'blur'];
+          events.forEach(eventType => {
+            artistField.dispatchEvent(new Event(eventType, { bubbles: true }));
+          });
+          
+          // Trigger quality re-analysis since adding an artist likely improves the score
+          setTimeout(() => {
+            console.log('🔄 Triggering quality re-analysis after artist move');
+            this.analyzeQuality();
+          }, 200);
+          
+          // CRITICAL FIX: Re-trigger market analysis when artist is moved to field
+          if (this.searchQuerySSoT && this.salesAnalysisManager) {
+            setTimeout(async () => {
+              console.log('🔄 Re-triggering market analysis after artist moved to field');
+              
+              try {
+                // Get updated form data with artist now in field
+                const updatedData = this.dataExtractor.extractItemData();
+                console.log('📊 Updated data after artist move:', { artist: updatedData.artist, title: updatedData.title.substring(0, 50) });
+                
+                // Clear existing dashboard
+                const existingDashboard = document.querySelector('.market-data-dashboard');
+                if (existingDashboard) {
+                  console.log('🗑️ Removing existing dashboard for re-analysis');
+                  existingDashboard.remove();
+                }
+                
+                // Generate new search query with artist now in field
+                const ssotResult = await this.searchQuerySSoT.generateAndSetQuery(
+                  updatedData.title,
+                  updatedData.description,
+                  updatedData.artist,  // Now contains the moved artist
+                  ''  // No AI artist since it's been moved
+                );
+                
+                if (ssotResult && ssotResult.success) {
+                  console.log('✅ Re-generated search query with artist in field:', ssotResult.query);
+                  
+                  // Start new market analysis
+                  const artistFieldQuery = {
+                    searchQuery: ssotResult.query,
+                    searchTerms: ssotResult.searchTerms,
+                    source: 'artist_field',
+                    confidence: 0.9,  // High confidence when artist is in proper field
+                    reasoning: `Artist "${updatedData.artist}" moved to artist field`
+                  };
+                  
+                  // Get current warnings and score
+                  const currentWarnings = this.extractCurrentWarnings();
+                  const currentScore = this.calculateCurrentQualityScore(updatedData);
+                  
+                  this.salesAnalysisManager.startSalesAnalysis(
+                    artistFieldQuery,
+                    updatedData,
+                    currentWarnings,
+                    currentScore,
+                    this.searchFilterManager,
+                    this
+                  );
+                } else {
+                  console.log('⚠️ Failed to generate new search query after artist move');
+                }
+              } catch (error) {
+                console.error('Error re-triggering market analysis after artist move:', error);
+              }
+            }, 500);  // Wait a bit longer to ensure field update is complete
+          }
+          
+          // Enhanced visual feedback - success
+          const originalText = element.textContent;
+          const originalColor = element.style.color;
+          
+          // Success indication shows MOVED not just added
+          element.style.color = '#4caf50';
+          element.textContent = titleField && artistWarning?.suggestedTitle ? '✓ Flyttad!' : '✓ Tillagd!';
+          
+          // Briefly highlight the artist field to show where it was added
+          const originalFieldBackground = artistField.style.backgroundColor;
+          const originalFieldBorder = artistField.style.border;
+          artistField.style.backgroundColor = '#e8f5e8';
+          artistField.style.border = '2px solid #4caf50';
+          artistField.style.transition = 'all 0.3s ease';
+
+          // Also highlight title field if it was updated
+          if (titleField && artistWarning?.suggestedTitle) {
+            const originalTitleBackground = titleField.style.backgroundColor;
+            const originalTitleBorder = titleField.style.border;
+            titleField.style.backgroundColor = '#fff3e0';
+            titleField.style.border = '2px solid #ff9800';
+            titleField.style.transition = 'all 0.3s ease';
+            
+            // Reset title field highlight
+            setTimeout(() => {
+              titleField.style.backgroundColor = originalTitleBackground;
+              titleField.style.border = originalTitleBorder;
+            }, 2000);
+          }
+          
+          // Scroll to artist field if it's not visible
+          artistField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Reset after 2 seconds with smooth transition
+          setTimeout(() => {
+            element.style.transition = 'all 0.3s ease';
+            element.style.color = originalColor;
+            element.textContent = originalText;
+            
+            // Reset field highlight
+            artistField.style.backgroundColor = originalFieldBackground;
+            artistField.style.border = originalFieldBorder;
+          }, 2000);
+          
+          const actionText = titleField && artistWarning?.suggestedTitle ? 'moved to field and removed from title' : 'added to field';
+          console.log(`✅ Artist name "${artistName}" successfully ${actionText}`);
+          
+        } catch (error) {
+          console.error('❌ Failed to move artist name:', error);
+          this.showErrorFeedback(element, 'Misslyckades att flytta');
+        }
+      });
+      
+      // Add keyboard accessibility
+      element.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          element.click();
+        }
+      });
+      
+      // Make element focusable for keyboard navigation
+      element.setAttribute('tabindex', '0');
+      element.setAttribute('role', 'button');
+      element.setAttribute('aria-label', `Klicka för att flytta ${artistName} till konstnärsfältet`);
+    });
+  }
+
   // Helper method to show error feedback
   showErrorFeedback(element, message) {
     const originalBackground = element.style.background;
@@ -1385,7 +1618,7 @@ export class QualityAnalyzer {
             const warningItem = warningsElement.querySelectorAll('li')[index];
             if (warningItem) {
               console.log(`✅ Found warning item element, setting up click handler`);
-              this.addClickToCopyHandler(warningItem, warning.detectedArtist);
+              this.addClickToCopyHandler(warningItem, warning.detectedArtist, warning);
               
               // ENHANCED: Add hover effects for better UX
               const clickableElements = warningItem.querySelectorAll('.clickable-artist');
