@@ -568,7 +568,6 @@ export class DashboardManager {
       return;
     }
     
-    console.log('🔥 Smart suggestion changed: KOMPOSITION checked: false');
     console.log('🔄 Processing smart suggestion change with immediate SSoT sync...');
     
     // Show smooth loading state
@@ -580,23 +579,54 @@ export class DashboardManager {
     console.log('🔍 CHECKBOX DEBUG: Processing checkbox changes...');
     console.log(`🔍 Total checkboxes found: ${allCheckboxes.length}`);
     
+    // CRITICAL FIX: Get current SSoT state to preserve AI-detected artists
+    const currentSSoTTerms = this.searchQuerySSoT.getCurrentTerms() || [];
+    const availableTerms = this.searchQuerySSoT.getAvailableTerms() || [];
+    
+    console.log('🔍 BEFORE CHANGE - Current SSoT terms:', currentSSoTTerms);
+    console.log('🔍 BEFORE CHANGE - Available terms:', availableTerms.map(t => `${t.term}(${t.type})`));
+    
+    // Identify AI-detected artists and other special terms to preserve
+    const aiDetectedArtists = availableTerms.filter(term => 
+      term.type === 'artist' && 
+      (term.source === 'ai_detected' || term.term.includes('"') || term.priority >= 95)
+    );
+    
+    console.log('🤖 AI-detected artists to potentially preserve:', aiDetectedArtists.map(t => t.term));
+    
     const selectedTerms = [];
+    const uncheckedArtists = [];
+    
     allCheckboxes.forEach((checkbox, index) => {
       const termValue = checkbox.value || checkbox.getAttribute('data-search-term') || checkbox.dataset.term;
       const isChecked = checkbox.checked;
       
       console.log(`🔍 Checkbox ${index + 1}: "${termValue}" - checked: ${isChecked}`);
       
-      if (isChecked && termValue && termValue !== '0' && termValue !== '1') {
+      // Track if user explicitly unchecked an AI-detected artist
+      if (!isChecked && aiDetectedArtists.some(artist => artist.term === termValue)) {
+        uncheckedArtists.push(termValue);
+        console.log(`🚫 User explicitly unchecked AI-detected artist: ${termValue}`);
+      }
+      
+      if (isChecked && termValue && termValue !== '0' && termValue !== '1' && termValue !== 'undefined') {
         selectedTerms.push(termValue);
       }
     });
     
-    console.log('👤 User selected terms from checkboxes:', selectedTerms);
+    // CRITICAL FIX: Add back AI-detected artists unless explicitly unchecked
+    aiDetectedArtists.forEach(artist => {
+      if (!uncheckedArtists.includes(artist.term) && !selectedTerms.includes(artist.term)) {
+        selectedTerms.unshift(artist.term); // Add at beginning to maintain priority
+        console.log(`🤖 Preserving AI-detected artist: ${artist.term} (not explicitly unchecked)`);
+      }
+    });
+    
+    console.log('👤 Final user selected terms (including preserved AI artists):', selectedTerms);
     console.log('🔍 BEFORE UPDATE - Current SSoT query:', this.searchQuerySSoT.getCurrentQuery());
     console.log('🔍 BEFORE UPDATE - Current SSoT terms:', this.searchQuerySSoT.getCurrentTerms());
     
-    // Update SSoT with user selections
+    // Update SSoT with user selections (now includes preserved AI artists)
     this.searchQuerySSoT.updateUserSelections(selectedTerms);
     
     console.log('🔍 AFTER UPDATE - New SSoT query:', this.searchQuerySSoT.getCurrentQuery());
