@@ -584,7 +584,38 @@ export class SearchQuerySSoT {
   updateUserSelections(selectedTerms) {
     console.log('🔄 SSoT: Updating user selections:', selectedTerms);
     
-    if (!selectedTerms || selectedTerms.length === 0) {
+    // ABSOLUTE ARTIST PRIORITY RULE: Always preserve artist terms
+    const currentAvailableTerms = this.availableTerms || [];
+    const artistTerms = currentAvailableTerms.filter(term => 
+      term.type === 'artist' || 
+      term.category === 'artist' ||
+      (term.term && term.term.includes('"') && (term.type === 'artist' || term.category === 'artist'))
+    );
+    
+    console.log('🎯 ABSOLUTE PRIORITY: Found artist terms to preserve:', artistTerms.map(t => t.term));
+    
+    // Create final selected terms with artists always included
+    const finalSelectedTerms = [];
+    
+    // STEP 1: Add all artist terms first (ABSOLUTE PRIORITY)
+    artistTerms.forEach(artistTerm => {
+      if (!finalSelectedTerms.includes(artistTerm.term)) {
+        finalSelectedTerms.push(artistTerm.term);
+        console.log(`🎯 PRESERVED: Artist "${artistTerm.term}" (absolute priority - cannot be deselected)`);
+      }
+    });
+    
+    // STEP 2: Add user-selected non-artist terms
+    selectedTerms.forEach(term => {
+      if (!finalSelectedTerms.includes(term)) {
+        finalSelectedTerms.push(term);
+        console.log(`👤 USER SELECTED: "${term}"`);
+      }
+    });
+    
+    console.log('🔒 FINAL TERMS (artists + user selections):', finalSelectedTerms);
+    
+    if (!finalSelectedTerms || finalSelectedTerms.length === 0) {
       console.log('⚠️ SSoT: No terms selected - clearing query');
       this.currentQuery = '';
       this.currentTerms = [];
@@ -594,22 +625,22 @@ export class SearchQuerySSoT {
         termObj.isSelected = false;
       });
     } else {
-      console.log('✅ SSoT: Setting query from user selections');
-      this.currentQuery = selectedTerms.join(' ');
-      this.currentTerms = [...selectedTerms];
+      console.log('✅ SSoT: Setting query from final terms (artists preserved)');
+      this.currentQuery = finalSelectedTerms.join(' ');
+      this.currentTerms = [...finalSelectedTerms];
       
       // Update selection state in available terms
       this.availableTerms.forEach(termObj => {
-        termObj.isSelected = selectedTerms.includes(termObj.term);
+        termObj.isSelected = finalSelectedTerms.includes(termObj.term);
       });
     }
     
     // Update metadata
     this.currentMetadata.source = 'user_selection';
     this.currentMetadata.timestamp = Date.now();
-    this.currentMetadata.reasoning = `User selected: ${selectedTerms.join(', ') || 'none'}`;
+    this.currentMetadata.reasoning = `User selected: ${selectedTerms.join(', ') || 'none'} + preserved artists: ${artistTerms.map(t => t.term).join(', ') || 'none'}`;
     
-    console.log('🔄 SSoT: Updated selection state');
+    console.log('🔄 SSoT: Updated selection state (WITH ARTIST PRESERVATION)');
     console.log('   Current query:', this.currentQuery);
     console.log('   Selected terms:', this.currentTerms.length);
     console.log('   Available terms state:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
