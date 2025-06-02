@@ -306,14 +306,38 @@ export class SearchFilterManager {
       // NORMALIZE artist name to match AI Rules processing (remove trailing comma/spaces)
       const normalizedArtist = artistInfo.artist.trim().replace(/,\s*$/, '');
       const preSelected = shouldBePreSelected(normalizedArtist);
+      
+      // CRITICAL FIX: Detect if this is an AI-detected artist
+      // If the artistInfo is passed with a quoted name and it's not in the DOM artist field, it's likely AI-detected
+      const isDOMFieldEmpty = !artistFieldFromDOM || artistFieldFromDOM.trim() === '';
+      const isQuotedArtist = normalizedArtist.includes('"');
+      const isLikelyAIDetected = isDOMFieldEmpty && isQuotedArtist;
+      
+      // ENHANCED DETECTION: Also check if this artist was recently set by AI by comparing against known AI patterns
+      const looksLikeArtistName = /^"?[A-Z][a-z]+ [A-Z][a-z]+"?$/.test(normalizedArtist);
+      const isAICandidate = (isDOMFieldEmpty || isQuotedArtist) && looksLikeArtistName;
+      
+      console.log('🔍 AI ARTIST DETECTION:', {
+        normalizedArtist,
+        isDOMFieldEmpty,
+        isQuotedArtist,
+        looksLikeArtistName,
+        isLikelyAIDetected,
+        isAICandidate
+      });
+      
       candidates.push({
         term: normalizedArtist,
         type: 'artist',
         priority: 1,
         description: 'Konstnär/Märke',
         preSelected: preSelected,
-        source: 'artist_info_param'
+        source: isAICandidate ? 'ai_detected' : 'artist_info_param' // CRITICAL FIX: Use ai_detected source when appropriate
       });
+      
+      if (isAICandidate) {
+        console.log(`🤖 AI ARTIST DETECTED: "${normalizedArtist}" marked with source: 'ai_detected'`);
+      }
     } else {
       // CRITICAL FIX: Always check artist field directly when not passed as parameter
       // This ensures artist field content is included even when detection is skipped
