@@ -588,6 +588,28 @@ export class SearchQuerySSoT {
     const currentAvailableTerms = this.availableTerms || [];
     console.log('🔍 DEBUG: Available terms for processing:', currentAvailableTerms.map(t => `"${t.term}" (type: ${t.type}, category: ${t.category || 'none'}, source: ${t.source || 'none'})`));
     
+    // CRITICAL FIX: Identify AI-detected artists that should be preserved
+    const aiDetectedArtists = currentAvailableTerms.filter(term => {
+      // Method 1: Explicit source indicates AI-detected artist
+      if (term.source === 'ai_detected') {
+        return true;
+      }
+      
+      // Method 2: High priority (95+) with artist-like characteristics
+      if (term.priority && term.priority >= 95 && (term.type === 'artist' || term.category === 'artist')) {
+        return true;
+      }
+      
+      // Method 3: Terms that were marked as preSelected during initial processing (likely AI artists)
+      if (term.preSelected && term.type === 'artist') {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    console.log('🤖 AI-DETECTED ARTISTS to preserve:', aiDetectedArtists.map(t => t.term));
+    
     // Identify ALL potential artist terms from available terms
     const potentialArtistTerms = currentAvailableTerms.filter(term => {
       // Method 1: Explicit type or category
@@ -595,8 +617,8 @@ export class SearchQuerySSoT {
         return true;
       }
       
-      // Method 2: Source indicates AI-detected artist
-      if (term.source === 'ai_detected' || term.source === 'artist_field') {
+      // Method 2: Source indicates artist
+      if (term.source === 'ai_detected' || term.source === 'artist_field' || term.source === 'artist_info_param') {
         return true;
       }
       
@@ -620,69 +642,49 @@ export class SearchQuerySSoT {
     
     console.log('🎯 IDENTIFIED: Potential artist terms:', potentialArtistTerms.map(t => t.term));
     
-    // NEW: Check which artist terms the USER explicitly selected
-    const userSelectedArtistTerms = potentialArtistTerms.filter(artistTerm => 
-      selectedTerms.includes(artistTerm.term)
-    );
-    
-    const userDeselectedArtistTerms = potentialArtistTerms.filter(artistTerm => 
-      !selectedTerms.includes(artistTerm.term)
-    );
-    
-    console.log('👤 USER SELECTED artist terms:', userSelectedArtistTerms.map(t => t.term));
-    console.log('👤 USER DESELECTED artist terms:', userDeselectedArtistTerms.map(t => t.term));
-    
-    // FALLBACK: If no potential artists found in availableTerms, check current terms for quoted ones
-    if (potentialArtistTerms.length === 0 && this.currentTerms) {
-      const quotedCurrentTerms = this.currentTerms.filter(term => term.includes('"'));
-      if (quotedCurrentTerms.length > 0) {
-        console.log('🎯 FALLBACK: Found quoted terms in current terms:', quotedCurrentTerms);
-        quotedCurrentTerms.forEach(quotedTerm => {
-          // Only preserve quoted terms that user explicitly selected
-          if (selectedTerms.includes(quotedTerm)) {
-            userSelectedArtistTerms.push({
-              term: quotedTerm,
-              type: 'artist',
-              source: 'fallback_quoted'
-            });
-            console.log(`🎯 FALLBACK PRESERVED: "${quotedTerm}" (user selected)`);
-          } else {
-            console.log(`👤 FALLBACK DESELECTED: "${quotedTerm}" (user choice respected)`);
-          }
-        });
-      }
-    }
-    
-    // Create final selected terms respecting user choices
+    // CRITICAL FIX: Preserve AI-detected artists unless explicitly in user selection (meaning user clicked them to toggle)
+    const currentlySelectedInSSoT = this.currentTerms || [];
     const finalSelectedTerms = [];
     
-    // STEP 1: Add user-selected artist terms (respects user control)
-    userSelectedArtistTerms.forEach(artistTerm => {
-      if (!finalSelectedTerms.includes(artistTerm.term)) {
-        finalSelectedTerms.push(artistTerm.term);
-        console.log(`🎯 USER KEPT: Artist "${artistTerm.term}" (user explicitly selected)`);
+    // STEP 1: Preserve AI-detected artists (unless user explicitly deselected them by clicking)
+    aiDetectedArtists.forEach(aiArtist => {
+      const wasCurrentlySelected = currentlySelectedInSSoT.includes(aiArtist.term);
+      const isInUserSelection = selectedTerms.includes(aiArtist.term);
+      
+      // If AI artist was selected and user didn't explicitly click it (meaning it's not in selectedTerms), preserve it
+      // If AI artist was selected and user DID click it (meaning it's in selectedTerms), it's a toggle - respect user choice
+      if (wasCurrentlySelected && !isInUserSelection) {
+        // User didn't click this AI artist pill, so preserve its selected state
+        finalSelectedTerms.push(aiArtist.term);
+        console.log(`🤖 AI ARTIST PRESERVED: "${aiArtist.term}" (not clicked by user, maintaining selection)`);
+      } else if (wasCurrentlySelected && isInUserSelection) {
+        // User clicked this AI artist pill, so it's intentionally selected
+        finalSelectedTerms.push(aiArtist.term);
+        console.log(`🤖 AI ARTIST KEPT: "${aiArtist.term}" (user explicitly selected)`);
+      } else if (!wasCurrentlySelected && isInUserSelection) {
+        // User selected a previously unselected AI artist
+        finalSelectedTerms.push(aiArtist.term);
+        console.log(`🤖 AI ARTIST SELECTED: "${aiArtist.term}" (user activated)`);
+      } else {
+        // AI artist was not selected and user didn't select it
+        console.log(`🤖 AI ARTIST UNSELECTED: "${aiArtist.term}" (remains unselected)`);
       }
     });
     
-    // Log deselected artists for transparency
-    userDeselectedArtistTerms.forEach(artistTerm => {
-      console.log(`👤 USER REMOVED: Artist "${artistTerm.term}" (user choice respected for market analysis)`);
-    });
-    
-    // STEP 2: Add user-selected non-artist terms
+    // STEP 2: Add user-selected non-AI-artist terms
     selectedTerms.forEach(term => {
-      // Skip if already added as artist term
+      // Skip if already added as AI artist
       if (!finalSelectedTerms.includes(term)) {
-        // Check if this is a non-artist term
-        const isArtistTerm = potentialArtistTerms.some(artistTerm => artistTerm.term === term);
-        if (!isArtistTerm) {
+        // Check if this is an AI-detected artist (already handled above)
+        const isAIArtist = aiDetectedArtists.some(aiArtist => aiArtist.term === term);
+        if (!isAIArtist) {
           finalSelectedTerms.push(term);
-          console.log(`👤 USER SELECTED: Non-artist term "${term}"`);
+          console.log(`👤 USER SELECTED: Non-AI term "${term}"`);
         }
       }
     });
     
-    console.log('✅ FINAL TERMS (respecting user control):', finalSelectedTerms);
+    console.log('✅ FINAL TERMS (with AI artists preserved):', finalSelectedTerms);
     
     if (!finalSelectedTerms || finalSelectedTerms.length === 0) {
       console.log('⚠️ SSoT: No terms selected - clearing query');
@@ -694,7 +696,7 @@ export class SearchQuerySSoT {
         termObj.isSelected = false;
       });
     } else {
-      console.log('✅ SSoT: Setting query from user-controlled terms');
+      console.log('✅ SSoT: Setting query from AI-preserved terms');
       this.currentQuery = finalSelectedTerms.join(' ');
       this.currentTerms = [...finalSelectedTerms];
       
@@ -708,34 +710,32 @@ export class SearchQuerySSoT {
     this.currentMetadata.source = 'user_selection';
     this.currentMetadata.timestamp = Date.now();
     
-    const selectedArtists = userSelectedArtistTerms.map(t => t.term);
-    const deselectedArtists = userDeselectedArtistTerms.map(t => t.term);
-    const nonArtistTerms = selectedTerms.filter(term => 
-      !potentialArtistTerms.some(artistTerm => artistTerm.term === term)
+    const preservedAIArtists = aiDetectedArtists.filter(ai => finalSelectedTerms.includes(ai.term)).map(ai => ai.term);
+    const userSelectedTerms = selectedTerms.filter(term => 
+      !aiDetectedArtists.some(ai => ai.term === term)
     );
     
     let reasoningParts = [];
-    if (selectedArtists.length > 0) reasoningParts.push(`kept artists: ${selectedArtists.join(', ')}`);
-    if (deselectedArtists.length > 0) reasoningParts.push(`removed artists: ${deselectedArtists.join(', ')}`);
-    if (nonArtistTerms.length > 0) reasoningParts.push(`other terms: ${nonArtistTerms.join(', ')}`);
+    if (preservedAIArtists.length > 0) reasoningParts.push(`AI artists preserved: ${preservedAIArtists.join(', ')}`);
+    if (userSelectedTerms.length > 0) reasoningParts.push(`user selections: ${userSelectedTerms.join(', ')}`);
     
     this.currentMetadata.reasoning = reasoningParts.length > 0 ? 
-      `User selections - ${reasoningParts.join(' | ')}` : 
+      `${reasoningParts.join(' | ')}` : 
       'User cleared all selections';
     
-    console.log('🔄 SSoT: Updated selection state (RESPECTING USER CONTROL)');
+    console.log('🔄 SSoT: Updated selection state (AI ARTISTS PRESERVED)');
     console.log('   Current query:', this.currentQuery);
     console.log('   Selected terms:', this.currentTerms.length);
     console.log('   Available terms state:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
-    console.log('   User reasoning:', this.currentMetadata.reasoning);
+    console.log('   Preservation reasoning:', this.currentMetadata.reasoning);
     
     // Notify listeners of the change
     this.notifyListeners('user_selection_updated', {
       query: this.currentQuery,
       selectedTerms: this.currentTerms,
       allTerms: this.availableTerms,
-      deselectedArtists: deselectedArtists.map(t => t.term),
-      selectedArtists: selectedArtists.map(t => t.term)
+      preservedAIArtists: preservedAIArtists,
+      userSelectedTerms: userSelectedTerms
     });
     
     // NEW: Trigger pill synchronization after SSoT updates
