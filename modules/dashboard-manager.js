@@ -352,10 +352,15 @@ export class DashboardManager {
       const exceptional = salesData.historical.exceptionalSales;
       const exceptionellaCount = exceptional.count || 0;
       
+      // CRITICAL FIX: Use actual dynamic threshold instead of hardcoded "30 000 SEK"
+      const thresholdText = exceptional.threshold ? 
+        `${Math.round(exceptional.threshold).toLocaleString()} SEK` : 
+        'market threshold';
+      
         dashboardContent += `
         <div class="market-item market-exceptional">
           <div class="market-label" title="Särskilt höga bekräftade försäljningar som överträffar normal marknadsnivå">Exceptionella</div>
-          <div class="market-value">${exceptionellaCount} exceptionella bekräftade försäljningar över 30 000 SEK</div>
+          <div class="market-value">${exceptionellaCount} exceptionella bekräftade försäljningar över ${thresholdText}</div>
           <div class="market-help">${exceptional.description || 'Bekräftade höga försäljningar'}</div>
           </div>
         `;
