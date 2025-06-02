@@ -940,6 +940,25 @@ export class DashboardManager {
   selectSmartSuggestionsFromSSoT(availableTerms) {
     console.log('🧠 AI-selecting smart suggestions from SSoT with', availableTerms.length, 'available terms');
     
+    // CRITICAL FIX: Filter out any terms with undefined or invalid values before processing
+    const validTerms = availableTerms.filter(term => {
+      if (!term || typeof term.term !== 'string' || term.term.trim() === '') {
+        console.warn('🚨 FILTERING OUT INVALID TERM:', term);
+        return false;
+      }
+      return true;
+    });
+    
+    if (validTerms.length !== availableTerms.length) {
+      console.log(`🔧 Filtered out ${availableTerms.length - validTerms.length} invalid terms, ${validTerms.length} valid terms remain`);
+    }
+    
+    // DEBUG: Log all valid terms to identify the issue
+    console.log('🔍 Valid terms after filtering:');
+    validTerms.forEach((term, index) => {
+      console.log(`   ${index + 1}. Term: "${term.term}", Type: ${term.type}, Selected: ${term.isSelected}`);
+    });
+    
     // CRITICAL: Get the actual selected terms from SSoT - not just query string
     const ssotSelectedTerms = this.searchQuerySSoT.getSelectedTerms() || [];
     const currentQuery = this.searchQuerySSoT.getCurrentQuery();
@@ -947,15 +966,20 @@ export class DashboardManager {
     console.log('🔍 SSoT selected terms:', ssotSelectedTerms);
     console.log('🔍 Current query string:', currentQuery);
     
-    // CRITICAL FIX: First, ensure all SSoT selected terms are in availableTerms
+    // CRITICAL FIX: First, ensure all SSoT selected terms are in validTerms
     ssotSelectedTerms.forEach(selectedTerm => {
-      const matchingTerm = availableTerms.find(t => 
+      if (!selectedTerm || typeof selectedTerm !== 'string' || selectedTerm.trim() === '') {
+        console.warn('🚨 SKIPPING INVALID SSoT SELECTED TERM:', selectedTerm);
+        return;
+      }
+      
+      const matchingTerm = validTerms.find(t => 
         t.term.toLowerCase() === selectedTerm.toLowerCase() || 
         this.searchQuerySSoT.normalizeTermForMatching(t.term) === this.searchQuerySSoT.normalizeTermForMatching(selectedTerm)
       );
       
       if (!matchingTerm) {
-        console.log('🔧 Adding missing SSoT selected term to availableTerms:', selectedTerm);
+        console.log('🔧 Adding missing SSoT selected term to validTerms:', selectedTerm);
         
         // Detect if this is a core term
         const isCore = this.searchQuerySSoT.isCoreSearchTerm(selectedTerm);
@@ -964,7 +988,7 @@ export class DashboardManager {
           this.detectTermTypeForMissing(selectedTerm);
         
         // Add the missing term with appropriate priority
-        availableTerms.push({
+        validTerms.push({
           term: selectedTerm,
           type: termType,
           description: isCore ? 'Konstnär/Märke' : this.getTermDescription(termType),
@@ -986,11 +1010,12 @@ export class DashboardManager {
     });
     
     // CRITICAL FIX: Now mark all terms based on actual SSoT selection state
-    availableTerms.forEach(term => {
+    validTerms.forEach(term => {
       // Check if this term is actually selected in SSoT
       const isSelectedInSSoT = ssotSelectedTerms.some(selectedTerm => 
-        selectedTerm.toLowerCase() === term.term.toLowerCase() ||
-        this.searchQuerySSoT.normalizeTermForMatching(selectedTerm) === this.searchQuerySSoT.normalizeTermForMatching(term.term)
+        selectedTerm && typeof selectedTerm === 'string' &&
+        (selectedTerm.toLowerCase() === term.term.toLowerCase() ||
+        this.searchQuerySSoT.normalizeTermForMatching(selectedTerm) === this.searchQuerySSoT.normalizeTermForMatching(term.term))
       );
       
       // Override the isSelected based on actual SSoT state
@@ -1005,14 +1030,14 @@ export class DashboardManager {
     });
     
     // CRITICAL FIX: Remove redundant name parts if full name exists
-    let finalAvailableTerms = availableTerms; // Use let instead of trying to reassign const
-    const hasFullName = availableTerms.some(term => 
+    let finalAvailableTerms = validTerms; // Use validTerms instead of availableTerms
+    const hasFullName = validTerms.some(term => 
       term.term === 'Lisa Larson' && term.isSelected
     );
     
     if (hasFullName) {
       // Filter out individual name parts to avoid redundancy
-      const filteredTerms = availableTerms.filter(term => {
+      const filteredTerms = validTerms.filter(term => {
         const isRedundantNamePart = (term.term === 'Lisa' || term.term === 'Larson') && 
                                    term.type === 'keyword' && 
                                    term.description === 'Nuvarande sökterm';
