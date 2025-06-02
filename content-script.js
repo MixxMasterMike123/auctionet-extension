@@ -1949,63 +1949,81 @@
         return content;
       }
 
-      // Determine item category - EXACT copy from Add Items page
+      // Determine item category - Enhanced with more comprehensive Swedish terms
       determineItemCategory(formData) {
         const title = (formData.title || '').toLowerCase();
         const description = (formData.description || '').toLowerCase();
         const category = (formData.category || '').toLowerCase();
         const combined = title + ' ' + description + ' ' + category;
         
-        // Watch/Clock category
-        if (combined.match(/\b(ur|klocka|rolex|omega|patek|cartier|automatisk|quartz)\b/)) {
+        // Watch/Clock category - Enhanced detection
+        if (combined.match(/\b(ur|klocka|armbandsur|fickur|väckarklocka|rolex|omega|patek|cartier|tissot|longines|seiko|automatisk|manuell|quartz|kronograf|datum|helium|vattentät)\b/)) {
           return {
             name: 'armbandsur',
-            checkPoints: ['urtavla', 'boett', 'länk/armband', 'glas', 'funktion'],
-            conditionFocus: ['repor på boett', 'slitage på länk', 'märken på urtavla', 'funktionsstatus']
+            checkPoints: ['urtavla', 'boett', 'länk/armband', 'glas', 'funktion', 'krona', 'tryckare'],
+            conditionFocus: ['repor på boett', 'slitage på länk', 'märken på urtavla', 'funktionsstatus', 'glas skador', 'krona funktion']
           };
         }
         
-        // Jewelry category  
-        if (combined.match(/\b(ring|halsband|armband|brosch|örhängen|smycke|guld|silver|diamant)\b/)) {
+        // Jewelry category - Enhanced detection
+        if (combined.match(/\b(ring|halsband|armband|brosch|örhängen|smycke|smycken|berlock|kedja|hänge|manschettknappar|tiara|diadem|guld|silver|platina|diamant|ruby|rubin|safir|smaragd|pärla|pärlan|brilliant|karat|stempel|hallstämpel)\b/)) {
           return {
             name: 'smycken',
-            checkPoints: ['stenar', 'fattningar', 'lås', 'kedja/band', 'ytbehandling'],
-            conditionFocus: ['lösa stenar', 'slitage på fattning', 'lås funktion', 'repor på metall']
+            checkPoints: ['stenar', 'fattningar', 'lås', 'kedja/band', 'ytbehandling', 'stämplar', 'infattning'],
+            conditionFocus: ['lösa stenar', 'slitage på fattning', 'lås funktion', 'repor på metall', 'matthet på ytan', 'kedjans flexibilitet']
           };
         }
         
-        // Art category
-        if (combined.match(/\b(målning|tavla|konst|konstnär|signerad|duk|pannå|ram)\b/)) {
+        // Art category - Enhanced detection for all art forms
+        if (combined.match(/\b(målning|tavla|konst|konstnär|signerad|signatur|duk|pannå|ram|akvarell|oljemålning|tempera|litografi|grafik|tryck|etsning|träsnitt|linoleumsnitt|serigrafik|affisch|poster|teckning|skiss|blyerts|kol|krita|pastell|akryl|gouache|mixed media|collage|montage)\b/)) {
           return {
             name: 'konstverk',
-            checkPoints: ['duk/papper', 'färger', 'ram', 'signatur', 'baksida'],
-            conditionFocus: ['sprickor i färg', 'fläckar', 'ramens skick', 'dukens spänning']
+            checkPoints: ['duk/papper', 'färger', 'ram', 'signatur', 'baksida', 'upphängning', 'tryckyta'],
+            conditionFocus: ['sprickor i färg', 'fläckar', 'ramens skick', 'dukens spänning', 'färgförändring', 'pappersqualitet', 'inramning']
           };
         }
         
-        // Furniture category
-        if (combined.match(/\b(stol|bord|skåp|möbel|sits|rygg|ben|låda)\b/)) {
+        // Furniture category - Enhanced detection
+        if (combined.match(/\b(stol|bord|skåp|möbel|möbler|soffa|fåtölj|säng|sängbord|byrå|kommod|sekretär|bokhylla|vitrinskåp|matsalsbord|soffbord|köksbord|pinnstol|karmstol|sits|rygg|ben|låda|dörr|handtag|beslag|faner|massiv|ek|bok|björk|teak|jakaranda|mahogny|valnöt)\b/)) {
           return {
             name: 'möbler',
-            checkPoints: ['finish', 'fogar', 'klädsel', 'beslag', 'stabilitet'],
-            conditionFocus: ['repor i finish', 'lossnade fogar', 'fläckar på klädsel', 'skador på beslag']
+            checkPoints: ['finish', 'fogar', 'klädsel', 'beslag', 'stabilitet', 'funktion', 'material'],
+            conditionFocus: ['repor i finish', 'lossnade fogar', 'fläckar på klädsel', 'skador på beslag', 'instabilitet', 'funktionsfel', 'materialskador']
           };
         }
         
-        // Ceramics/Glass category
-        if (combined.match(/\b(vas|skål|tallrik|porslin|keramik|glas|kristall)\b/)) {
+        // Ceramics/Glass category - Enhanced detection
+        if (combined.match(/\b(vas|skål|tallrik|kopp|mugg|fat|serveringsskål|porslin|keramik|glas|kristall|flintglas|blyglas|glaskonst|stengods|fajans|terracotta|raku|glasyr|oglaserad|handmålad|dekor|märke|stämpel|signatur|orrefors|kosta|boda|gustavsberg|rörstrand|arabia)\b/)) {
           return {
             name: 'keramik/glas',
-            checkPoints: ['nagg', 'sprickor', 'glasyr', 'märkningar', 'reparationer'],
-            conditionFocus: ['nagg på kant', 'hårsprickor', 'krakelering', 'limmarker']
+            checkPoints: ['nagg', 'sprickor', 'glasyr', 'märkningar', 'reparationer', 'dekor', 'form'],
+            conditionFocus: ['nagg på kant', 'hårsprickor', 'krakelering', 'limmarker', 'dekorskador', 'formfel', 'tillverkningsdefekter']
+          };
+        }
+        
+        // Textiles category - NEW category for textiles and clothing
+        if (combined.match(/\b(matta|tekstil|tyg|kläder|klänning|kostym|jacka|väska|handväska|necessär|sjal|halsduk|handskar|hatt|mössa|skor|textilkonst|gobelänger|broderi|spets|siden|sammet|linne|bomull|ull|kashmir|mohair|vintage|couture|designer)\b/)) {
+          return {
+            name: 'textilier',
+            checkPoints: ['tyg', 'sömmar', 'dragkedjor', 'knappar', 'foder', 'form', 'färg'],
+            conditionFocus: ['fläckar', 'hål', 'slitage på tyg', 'trasiga sömmar', 'saknade knappar', 'formförändringar', 'missfärgningar']
+          };
+        }
+        
+        // Books/Documents category - NEW category
+        if (combined.match(/\b(bok|böcker|manuskript|dokument|karta|affisch|tidning|tidskrift|album|fotografi|vykort|brevkort|autograf|dedikation|förstaupplaga|inkunabel|antikvarisk|pergament|papper|tryck|band|skinn|klotband|häftad|inbunden)\b/)) {
+          return {
+            name: 'böcker/dokument',
+            checkPoints: ['papper', 'band', 'ryggrad', 'text', 'illustrationer', 'bindning'],
+            conditionFocus: ['papperskvalitet', 'fläckar', 'veck', 'trasiga sidor', 'bandskador', 'ryggrad slitage', 'fukskador']
           };
         }
         
         // Default/General category
         return {
           name: 'föremål',
-          checkPoints: ['ytor', 'kanter', 'funktionalitet', 'märkningar'],
-          conditionFocus: ['synliga skador', 'slitage platser', 'funktionsstatus', 'reparationer']
+          checkPoints: ['ytor', 'kanter', 'funktionalitet', 'märkningar', 'material', 'konstruktion'],
+          conditionFocus: ['synliga skador', 'slitage platser', 'funktionsstatus', 'reparationer', 'materialdefekter', 'konstruktionsfel']
         };
       }
 
@@ -2142,15 +2160,24 @@
         `;
       }
 
-      // Get good example - EXACT copy from Add Items page
+      // Get good example - Enhanced with more comprehensive and realistic examples
       getGoodExample(category) {
         const examples = {
-          'armbandsur': '"Repor på boettets ovansida och mindre märken på urtavlan vid 3-positionen. Länkarna visar normalt slitage utan djupare skråmor. Fungerar vid katalogisering."',
-          'smycken': '"Små repor på metallbandet och mindre slitage på lås-mekanismen. Stenarna sitter fast utan lösa fattningar. Lätt matthet på ytbehandlingen."',
-          'konstverk': '"Mindre fläckar i nedre högra hörnet och två små hål från tidigare upphängning. Ramens guldbeläggning något nött vid kanter. Inga sprickor i duken."',
-          'möbler': '"Repor och märken på skivans ovansida samt mindre nagg vid främre kanten. Benen visar normalt slitage men är stabila. Lådan går lätt att öppna."',
-          'keramik/glas': '"Små nagg vid mynningen och hårfina sprickor i glasyr på utsidan. Botten har mindre repor från användning. Inga större skador eller reparationer."',
-          'föremål': '"Repor på främre ytan och mindre märken vid handtagen. Funktionen fungerar som den ska men visar tecken på regelbunden användning."'
+          'armbandsur': '"Repor på boettets ovansida och mindre märken på urtavlan vid 3-positionen. Länkarna visar normalt slitage utan djupare skråmor. Krona och tryckare fungerar som de ska. Går vid katalogisering men rekommenderas service."',
+          
+          'smycken': '"Små repor på metallbandet och mindre slitage på lås-mekanismen. Stenarna sitter fast utan lösa fattningar, en mindre diamant visar lätt matthet. Stämplar tydligt synliga på insidan. Kedjans flexibilitet är normal."',
+          
+          'konstverk': '"Mindre fläckar i nedre högra hörnet (ca 1x2 cm) och två små hål från tidigare upphängning i övre kanten. Ramens guldbeläggning något nött vid kanter men fast. Inga sprickor i duken, färgerna väl bevarade utan blekningar."',
+          
+          'möbler': '"Repor och märken på skivans ovansida samt mindre nagg vid främre kanten (ca 5 mm). Benen visar normalt slitage men är stabila utan vacklan. Lådan går lätt att öppna, handtag fast monterat. Faneret intakt utan lösa partier."',
+          
+          'keramik/glas': '"Små nagg vid mynningen (3-4 st, under 1 mm) och hårfina sprickor i glasyr på utsidan. Botten har mindre repor från användning. Dekor välbevarad, tillverkarmärke tydligt på undersidan. Inga större skador eller reparationer."',
+          
+          'textilier': '"Allmänt gott skick med enstaka små fläckar på framstycket (ca 5 mm). Sömmar intakta, alla knappar på plats. Lätt missfärgning vid kragen från användning. Tyget behåller sin form, inget hål eller större slitage."',
+          
+          'böcker/dokument': '"Mindre fläckar på frampärmen och lätt slitage vid rygggradens kanter. Alla sidor kompletta utan veck eller hål. Text och illustrationer tydliga och välbevarade. Bindningen fast, endast mindre lösgöring vid första sidan."',
+          
+          'föremål': '"Repor på främre ytan och mindre märken vid handtagen. Funktionen fungerar som den ska men visar tecken på regelbunden användning. Material i gott skick utan sprickor eller andra strukturella skador."'
         };
         
         return examples[category.name] || examples['föremål'];
