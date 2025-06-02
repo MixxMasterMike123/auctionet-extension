@@ -1145,11 +1145,11 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       }
       
       const artistCheckbox = artistInfo ? `
-        <div class="artist-info-option">
+        <div class="issue-item artist-option">
           <label class="checkbox-label">
             <input type="checkbox" id="add-artist-info-checkbox" class="artist-info-checkbox">
             <span class="checkmark">✓</span>
-            Lägg till konstnärsinformation i beskrivningen
+            <span class="checkbox-text">Lägg till konstnärsinformation i beskrivningen</span>
           </label>
         </div>
       ` : '';
@@ -2918,12 +2918,12 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
         }
         
         /* Artist Information Checkbox Styles */
-        .artist-info-option {
-          margin: 12px 0 8px 0;
-          padding: 8px 10px;
-          background: #f8f9fa;
+        .issue-item.artist-option {
+          background: linear-gradient(135deg, #e3f2fd 0%, #f1f8e9 100%);
+          border-left: 3px solid #007bff;
           border-radius: 6px;
-          border: 1px solid #e9ecef;
+          padding: 8px 12px;
+          margin: 8px 0;
         }
         
         .checkbox-label {
@@ -2934,6 +2934,12 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
           color: #495057;
           margin: 0;
           gap: 8px;
+          width: 100%;
+        }
+        
+        .checkbox-text {
+          flex: 1;
+          font-weight: 500;
         }
         
         .artist-info-checkbox {
@@ -2960,6 +2966,7 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
           font-size: 10px;
           color: white;
           transition: all 0.2s ease;
+          flex-shrink: 0;
         }
         
         .artist-info-checkbox:checked + .checkmark {
@@ -2974,6 +2981,12 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
         .checkbox-label:hover .checkmark {
           border-color: #0056b3;
           box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+        }
+        
+        .issue-item.artist-option:hover {
+          background: linear-gradient(135deg, #e1f5fe 0%, #f3e5f5 100%);
+          transform: translateX(2px);
+          transition: all 0.2s ease;
         }
         
         /* Artist Biography Popup Styles */
