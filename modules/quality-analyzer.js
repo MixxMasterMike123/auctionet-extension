@@ -650,8 +650,51 @@ export class QualityAnalyzer {
     this.updateQualityIndicator(currentScore, currentWarnings);
     console.log('✅ Artist detection results displayed');
     
-    // Add small delay to ensure the warning is visible before market analysis continues
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // CRITICAL FIX: Initiate market analysis immediately when AI detects artist
+    if (aiArtist.detectedArtist && this.salesAnalysisManager) {
+      console.log('🎯 AI detected artist - prioritizing market analysis:', aiArtist.detectedArtist);
+      
+      // Clear any existing market data dashboard immediately
+      const existingDashboard = document.querySelector('.market-data-dashboard');
+      if (existingDashboard) {
+        console.log('🗑️ Removing existing dashboard to replace with AI artist analysis');
+        existingDashboard.remove();
+      }
+      
+      // Create artist info object for market analysis
+      const aiArtistInfo = {
+        artist: aiArtist.detectedArtist,
+        source: aiArtist.source || 'ai',
+        confidence: aiArtist.confidence || 0.8
+      };
+      
+      // Check if sales analysis is already running to avoid duplicates
+      if (!this.pendingAnalyses.has('sales')) {
+        console.log('💰 Starting PRIORITY sales analysis with AI-detected artist:', aiArtistInfo);
+        this.pendingAnalyses.add('sales');
+        this.updateAILoadingMessage(`💰 Analyserar marknadsvärde för ${aiArtist.detectedArtist}...`);
+        
+        try {
+          await this.salesAnalysisManager.startSalesAnalysis(
+            aiArtistInfo, 
+            data, 
+            currentWarnings, 
+            currentScore, 
+            this.searchFilterManager, 
+            this
+          );
+        } catch (error) {
+          console.error('Error starting sales analysis for AI artist:', error);
+          this.pendingAnalyses.delete('sales');
+          this.checkAndHideLoadingIndicator();
+        }
+      } else {
+        console.log('⚠️ Sales analysis already running - skipping duplicate AI artist analysis');
+      }
+    }
+    
+    // Add small delay to ensure the warning is visible before continuing
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     return {
       detectedArtist: aiArtist.detectedArtist,
@@ -659,6 +702,7 @@ export class QualityAnalyzer {
       score: currentScore
     };
   }
+
   addMarketDataWarnings(salesData, warnings) {
     const dataSource = salesData.dataSource || 'unknown';
     

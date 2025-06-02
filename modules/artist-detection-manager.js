@@ -97,6 +97,7 @@ export class ArtistDetectionManager {
           if (this.apiManager.enableArtistInfo && aiResult.artistName) {
             console.log('🔍 Verifying artist:', aiResult.artistName);
             const period = this.extractPeriod(title);
+            const objectType = this.extractObjectType(title);
             verification = await this.apiManager.verifyArtist(aiResult.artistName, objectType, period);
             console.log('🔍 Artist verification result:', verification);
           }
