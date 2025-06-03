@@ -264,6 +264,9 @@ export class DashboardManager {
       // Get SSoT query as the authoritative source
       const ssotQuery = this.searchQuerySSoT?.getCurrentQuery();
       
+      console.log('  Using SSoT query for ALL URLs:', ssotQuery);
+      console.log('  Historical query that found data (IGNORED):', salesData.historical?.actualSearchQuery);
+      console.log('  Live query that found data (IGNORED):', salesData.live?.actualSearchQuery);
       
       // Generate ALL URLs using the SSoT query for consistency
       const baseUrl = 'https://auctionet.com/sv/search';
@@ -274,6 +277,9 @@ export class DashboardManager {
         allUrl = `${baseUrl}?event_id=&is=&q=${encodeURIComponent(ssotQuery)}`;
       }
       
+      console.log('  Historical:', historicalUrl);
+      console.log('  Live:', liveUrl);
+      console.log('  All:', allUrl);
         
       // Initialize description and links variables
       let dataDescription = '';
@@ -929,6 +935,7 @@ export class DashboardManager {
       // 4. Try to create a new instance with current data as last resort
       else {
         console.log('⚠️ SearchQueryManager import removed - using AI-only SearchQuerySSoT instead');
+        console.log('⚠️ Hot reload functionality deprecated - please refresh page');
       }
       
       if (!restored) {
@@ -1185,6 +1192,7 @@ export class DashboardManager {
     
     // DEBUG: Log all valid terms to identify the issue
     validTerms.forEach((term, index) => {
+      console.log(`   ${index + 1}. Term: "${term.term}", Type: ${term.type}, Selected: ${term.isSelected}`);
     });
     
     // CRITICAL: Get the actual selected terms from SSoT - not just query string
@@ -1297,9 +1305,11 @@ export class DashboardManager {
     // Add ALL unselected terms up to the limit
     smartSuggestions.push(...sortedUnselectedTerms.slice(0, remainingSlots));
     
+    console.log(`   📌 Selected (pre-checked): ${selectedTermObjects.length}`);
     
     smartSuggestions.forEach((term, index) => {
       const checkboxState = term.isSelected ? '✓' : '○';
+      console.log(`   ${index + 1}. "${term.term}" (${term.type}) - Priority: ${term.priority}, Selected: ${checkboxState}, Core: ${term.isCore || false}`);
     });
     
     return smartSuggestions;
@@ -2840,6 +2850,7 @@ export class DashboardManager {
         return true;
       }
       
+      console.log('⚠️ SearchQuerySSoT reference missing - attempting recovery...');
       await this.restoreSearchQuerySSoTReference();
     
       if (this.searchQuerySSoT) {
@@ -2869,6 +2880,7 @@ export class DashboardManager {
       return;
     }
     
+    console.log('⚠️ No SearchQuerySSoT reference found - please refresh page');
   }
 
   // NEW: Generate header-integrated pills for desktop optimization
@@ -2988,6 +3000,10 @@ export class DashboardManager {
       ...sortedUnselected.slice(0, maxUnselectedInHeader)
     ];
     
+    console.log('🖥️ Header suggestions selected:');
+    console.log(`   Selected: ${selectedTerms.length}`);
+    console.log(`   Unselected: ${Math.min(maxUnselectedInHeader, sortedUnselected.length)}`);
+    console.log(`   Total in header: ${headerSuggestions.length}`);
     
     return headerSuggestions;
   }

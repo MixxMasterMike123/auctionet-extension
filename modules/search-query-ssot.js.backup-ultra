@@ -15,6 +15,7 @@ export class SearchQuerySSoT {
     this.currentMetadata = {};
     this.listeners = [];
     
+    console.log('🏛️ SearchQuerySSoT: Single Source of Truth initialized');
   }
 
   // Initialize with existing candidate terms (called by SalesAnalysisManager)
@@ -213,6 +214,7 @@ export class SearchQuerySSoT {
     }
     
     console.log('   Total terms:', this.availableTerms.length);
+    console.log('   Selected terms:', this.availableTerms.filter(t => t.isSelected).length);
     console.log('   Unselected terms:', this.availableTerms.filter(t => !t.isSelected).length);
     console.log('   Terms list:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
     
@@ -519,6 +521,10 @@ export class SearchQuerySSoT {
 
   // Debug information
   debug() {
+    console.log('  Current Query:', this.currentQuery);
+    console.log('  Current Terms:', this.currentTerms);
+    console.log('  Metadata:', this.currentMetadata);
+    console.log('  Listeners:', this.listeners.length);
     console.log('  AI Cache Stats:', this.aiGenerator.getCacheStats());
   }
 
@@ -717,6 +723,7 @@ export class SearchQuerySSoT {
       `${reasoningParts.join(' | ')}` : 
       'User cleared all selections';
     
+    console.log('   Selected terms:', this.currentTerms.length);
     console.log('   Preservation reasoning:', this.currentMetadata.reasoning);
     
     // CRITICAL FIX: Update the actual search keywords field in the DOM
@@ -749,6 +756,7 @@ export class SearchQuerySSoT {
   
   // Get all available terms for dashboard checkboxes (both selected and unselected)
   getAvailableTerms() {
+    console.log('   Selected terms:', this.currentTerms.length);
     
     // CRITICAL FIX: Use the stored availableTerms from initialization
     if (this.availableTerms && this.availableTerms.length > 0) {

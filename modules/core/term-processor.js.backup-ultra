@@ -257,6 +257,7 @@ export class TermProcessor {
     console.log('  Terms by type:', typeGroups);
     
     const selectedCount = terms.filter(t => t.isSelected).length;
+    console.log('  Selected terms:', selectedCount);
     
     const conflictGroups = this.findPotentialConflicts(terms);
     console.log('  Potential conflicts:', conflictGroups.size);
