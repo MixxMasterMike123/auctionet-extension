@@ -22,6 +22,13 @@ import('./modules/artist-detection-manager.js').then(module => {
   console.error('❌ Failed to load ArtistDetectionManager:', error);
 });
 
+// NEW: Import the API Bridge that connects add page to edit page API manager
+import('./modules/add-items-api-bridge.js').then(module => {
+  window.AddItemsAPIBridge = module.AddItemsAPIBridge;
+}).catch(error => {
+  console.error('❌ Failed to load AddItemsAPIBridge:', error);
+});
+
 // Monitor for DOM changes to detect page transitions
 const observer = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
@@ -129,13 +136,13 @@ class AuctionetCatalogingAssistant {
 
   async initializeAddItemsTooltips() {
     try {
-      console.log('🎯 Initializing Add Items Tooltips, waiting for dynamic imports...');
+      console.log('🎯 Initializing Add Items with API Bridge, waiting for dynamic imports...');
       
-      // Wait for both classes to be loaded via dynamic imports
-      if (!window.AddItemsTooltipManager || !window.ArtistDetectionManager) {
+      // Wait for all required classes to be loaded via dynamic imports
+      if (!window.AddItemsTooltipManager || !window.ArtistDetectionManager || !window.AddItemsAPIBridge) {
         await new Promise(resolve => {
           const checkForClasses = () => {
-            if (window.AddItemsTooltipManager && window.ArtistDetectionManager) {
+            if (window.AddItemsTooltipManager && window.ArtistDetectionManager && window.AddItemsAPIBridge) {
               console.log('✅ Dynamic imports loaded successfully');
               resolve();
             } else {
@@ -146,20 +153,28 @@ class AuctionetCatalogingAssistant {
         });
       }
 
-      // Create simplified API manager for the tooltip system
-      const apiManager = this.createSimpleAPIManager();
+      // 🎯 NEW: Use API Bridge that connects to edit page API manager
+      console.log('🚀 Creating API Bridge with edit page integration...');
+      const apiBridge = new window.AddItemsAPIBridge();
+      await apiBridge.init();
 
-      // NEW: Create simplified quality analyzer with ArtistDetectionManager SSoT
-      const qualityAnalyzer = this.createSimpleQualityAnalyzer(apiManager);
+      // Get the edit page API manager from the bridge
+      const apiManager = apiBridge.getAPIManager();
+      
+      // Create quality analyzer using the bridge
+      const qualityAnalyzer = apiBridge.createSimpleQualityAnalyzer();
 
-      // Initialize the tooltip manager using dynamically loaded class
+      // Initialize the tooltip manager using the bridge's API manager
       this.tooltipManager = new window.AddItemsTooltipManager(apiManager, qualityAnalyzer);
       await this.tooltipManager.init();
       
-      console.log('✅ Add items tooltip system initialized with ArtistDetectionManager SSoT');
+      // Store the bridge for potential future use
+      this.apiBridge = apiBridge;
+      
+      console.log('✅ Add items system initialized with edit page API bridge');
       
     } catch (error) {
-      console.error('❌ Failed to initialize add items tooltips:', error);
+      console.error('❌ Failed to initialize add items with API bridge:', error);
     }
   }
 

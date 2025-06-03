@@ -44,8 +44,8 @@ export class AIEnhancementEngine {
   /**
    * Improve all fields at once
    * @param {Object} formData - Current form data
-   * @param {Object} options - Enhancement options
-   * @returns {Promise<Object>} All enhanced fields
+   * @param {Object} options - Additional options for AI enhancement
+   * @returns {Promise<Object>} Enhanced data for all fields
    */
   async improveAllFields(formData, options = {}) {
     console.log('🚀 AI Enhancement: Improving all fields...');
@@ -66,7 +66,13 @@ export class AIEnhancementEngine {
    */
   async performEnhancement(formData, fieldType, options = {}) {
     try {
-      // Use existing API manager's Claude API call
+      // 🎯 REUSE EDIT PAGE API MANAGER - No duplicate API logic!
+      // The API manager already has:
+      // - Retry logic for rate limiting
+      // - Proper system prompts
+      // - Response validation
+      // - Model configuration
+      // - Error handling
       const improvements = await this.apiManager.callClaudeAPI(formData, fieldType, options);
       
       if (!improvements) {
@@ -80,6 +86,79 @@ export class AIEnhancementEngine {
       console.error(`❌ AI Enhancement: Failed to improve ${fieldType}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Assess data quality to determine if enhancement is safe
+   * @param {Object} formData - Form data to assess
+   * @param {string} fieldType - Field type being enhanced
+   * @returns {Object} Quality assessment with recommendations
+   */
+  assessDataQuality(formData, fieldType) {
+    const descLength = formData.description ? formData.description.replace(/<[^>]*>/g, '').length : 0;
+    const condLength = formData.condition ? formData.condition.replace(/<[^>]*>/g, '').length : 0;
+    const titleLength = formData.title ? formData.title.length : 0;
+    
+    const issues = [];
+    let needsMoreInfo = false;
+    let qualityScore = 100;
+    
+    // Basic quality scoring
+    if (titleLength < 20) qualityScore -= 20;
+    if (descLength < 50) qualityScore -= 25;
+    if (condLength < 20) qualityScore -= 20;
+    if (!formData.keywords || formData.keywords.length === 0) qualityScore -= 30;
+    
+    // Field-specific quality checks
+    switch(fieldType) {
+      case 'title':
+        if (!formData.description?.match(/\d{4}|\d{2,4}-tal|1[6-9]\d{2}|20[0-2]\d/i) && !formData.artist && descLength < 30) {
+          issues.push('period');
+          needsMoreInfo = true;
+        }
+        if (titleLength < 15 && descLength < 25) {
+          issues.push('basic_info');
+          needsMoreInfo = true;
+        }
+        break;
+        
+      case 'description':
+        if (descLength < 25) {
+          issues.push('material', 'technique');
+          needsMoreInfo = true;
+        }
+        break;
+        
+      case 'condition':
+        if (formData.condition?.match(/^<p>bruksslitage\.?<\/p>$/i)) {
+          issues.push('specific_damage', 'wear_details');
+          needsMoreInfo = true;
+        }
+        break;
+        
+      case 'all':
+        if (qualityScore < 40) {
+          needsMoreInfo = true;
+          issues.push('critical_quality');
+        }
+        break;
+    }
+    
+    return { 
+      needsMoreInfo, 
+      missingInfo: issues, 
+      qualityScore,
+      canEnhance: !needsMoreInfo || qualityScore > 30
+    };
+  }
+
+  /**
+   * Get readiness score for AI enhancement
+   * @param {Object} formData - Form data to score
+   * @returns {number} Score from 0-100
+   */
+  getDataReadinessScore(formData) {
+    return this.assessDataQuality(formData, 'all').qualityScore;
   }
 
   /**
