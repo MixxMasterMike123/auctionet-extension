@@ -1,0 +1,445 @@
+// modules/add-items-integration-manager.js
+// Integration manager that connects our new modular components
+// and handles remaining UI features (AI buttons, quality indicator, auto-resize)
+
+export class AddItemsIntegrationManager {
+  constructor() {
+    this.apiBridge = null;
+    this.tooltipSystemManager = null;
+    this.fieldQualityAnalyzer = null;
+    this.fieldMonitorManager = null;
+    
+    console.log('✅ AddItemsIntegrationManager: Initialized');
+  }
+
+  /**
+   * Initialize with all dependencies
+   * @param {Object} dependencies - Required dependencies
+   */
+  init(dependencies = {}) {
+    const {
+      apiBridge,
+      tooltipSystemManager,
+      fieldQualityAnalyzer,
+      fieldMonitorManager
+    } = dependencies;
+
+    this.apiBridge = apiBridge;
+    this.tooltipSystemManager = tooltipSystemManager;
+    this.fieldQualityAnalyzer = fieldQualityAnalyzer;
+    this.fieldMonitorManager = fieldMonitorManager;
+
+    // Initialize UI features
+    this.injectAIButtons();
+    this.setupAutoResizeForAllTextareas();
+    
+    console.log('✅ AddItemsIntegrationManager: Full initialization complete');
+  }
+
+  /**
+   * Inject AI improvement buttons for all fields
+   */
+  injectAIButtons() {
+    console.log('🎨 Injecting AI improvement buttons...');
+    
+    const titleField = document.querySelector('#item_title_sv');
+    const descriptionField = document.querySelector('#item_description_sv');
+    const conditionField = document.querySelector('#item_condition_sv');
+    const keywordsField = document.querySelector('#item_hidden_keywords');
+
+    console.log('🔍 Found fields:', {
+      title: !!titleField,
+      description: !!descriptionField,
+      condition: !!conditionField,
+      keywords: !!keywordsField
+    });
+
+    if (titleField) {
+      this.addAIButton(titleField, 'title', 'AI-förbättra titel');
+    }
+    if (descriptionField) {
+      this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
+    }
+    if (conditionField) {
+      this.addAIButton(conditionField, 'condition', 'AI-förbättra kondition');
+    }
+    if (keywordsField) {
+      this.addAIButton(keywordsField, 'keywords', 'AI-generera sökord');
+    }
+
+    // Add quality indicator with master button
+    this.addQualityIndicator();
+    
+    // Attach event listeners
+    this.attachAIButtonEventListeners();
+  }
+
+  /**
+   * Add individual AI button to a field
+   * @param {HTMLElement} field - Field element
+   * @param {string} type - Field type
+   * @param {string} buttonText - Button text
+   */
+  addAIButton(field, type, buttonText) {
+    const button = document.createElement('button');
+    button.className = 'ai-assist-button';
+    button.textContent = buttonText;
+    button.type = 'button';
+    button.dataset.fieldType = type;
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'ai-button-wrapper';
+    wrapper.appendChild(button);
+    
+    field.parentElement.appendChild(wrapper);
+  }
+
+  /**
+   * Add quality indicator with master button
+   */
+  addQualityIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'quality-indicator';
+    indicator.innerHTML = `
+      <div class="quality-header">
+        <h4 class="quality-title">Katalogiseringskvalitet</h4>
+        <div class="quality-score-container">
+          <span class="quality-score">Analyserar...</span>
+          <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
+        </div>
+        <button class="ai-assist-button ai-master-button" type="button">⚡ Förbättra alla</button>
+      </div>
+    `;
+    
+    // Find suitable location for quality indicator
+    let targetElement = document.querySelector('.grid-col4') || 
+                       document.querySelector('.sidebar') ||
+                       document.querySelector('form');
+    
+    if (targetElement) {
+      console.log('✅ Adding quality indicator to page');
+      if (targetElement.tagName === 'FORM') {
+        targetElement.insertBefore(indicator, targetElement.firstChild);
+      } else {
+        targetElement.insertBefore(indicator, targetElement.firstChild);
+      }
+      
+      // Trigger initial quality analysis
+      this.analyzeQuality();
+    } else {
+      console.log('❌ No suitable location found for quality indicator');
+    }
+  }
+
+  /**
+   * Attach event listeners to AI buttons
+   */
+  attachAIButtonEventListeners() {
+    // Individual field buttons
+    const buttons = document.querySelectorAll('.ai-assist-button:not(.ai-master-button)');
+    console.log('Found AI assist buttons:', buttons.length);
+    
+    buttons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const fieldType = e.target.dataset.fieldType;
+        console.log('Button clicked for field type:', fieldType);
+        if (fieldType) {
+          this.improveField(fieldType);
+        }
+      });
+    });
+
+    // Master button
+    const masterButton = document.querySelector('.ai-master-button');
+    if (masterButton) {
+      console.log('Master button found and event listener attached');
+      masterButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log('Master button clicked');
+        this.improveAllFields();
+      });
+    }
+
+    // Quality refresh button
+    const refreshButton = document.querySelector('.refresh-quality-btn');
+    if (refreshButton) {
+      refreshButton.addEventListener('click', () => {
+        console.log('🔄 Manual quality refresh triggered');
+        this.analyzeQuality();
+      });
+    }
+  }
+
+  /**
+   * Improve individual field using API bridge
+   * @param {string} fieldType - Field type to improve
+   * @param {Object} options - Additional options
+   */
+  async improveField(fieldType, options = {}) {
+    if (!this.apiBridge) {
+      this.showErrorIndicator(fieldType, 'API bridge not available');
+      return;
+    }
+    
+    this.showLoadingIndicator(fieldType);
+    
+    try {
+      await this.apiBridge.improveField(fieldType, options);
+      this.showSuccessIndicator(fieldType);
+      
+      // Trigger quality analysis after improvement
+      setTimeout(() => this.analyzeQuality(), 500);
+      
+    } catch (error) {
+      console.error('Error improving field:', error);
+      this.showErrorIndicator(fieldType, error.message);
+    }
+  }
+
+  /**
+   * Improve all fields
+   */
+  async improveAllFields() {
+    if (!this.apiBridge) {
+      this.showErrorIndicator('all', 'API bridge not available');
+      return;
+    }
+
+    this.showLoadingIndicator('all');
+    
+    try {
+      await this.apiBridge.improveAllFields();
+      
+      // Show success with cascade effect
+      let delay = 0;
+      const fields = ['title', 'description', 'condition', 'keywords'];
+      
+      fields.forEach(fieldType => {
+        setTimeout(() => {
+          this.showSuccessIndicator(fieldType);
+        }, delay);
+        delay += 300;
+      });
+      
+      // Trigger quality analysis after all improvements
+      setTimeout(() => this.analyzeQuality(), delay + 500);
+      
+    } catch (error) {
+      console.error('Error improving all fields:', error);
+      this.showErrorIndicator('all', error.message);
+    }
+  }
+
+  /**
+   * Analyze current form quality using our new components
+   */
+  analyzeQuality() {
+    if (!this.fieldQualityAnalyzer) {
+      console.warn('⚠️ FieldQualityAnalyzer not available for quality analysis');
+      return;
+    }
+
+    try {
+      const formData = this.extractFormData();
+      
+      // Use our new field quality analyzer
+      const descriptionAnalysis = this.fieldQualityAnalyzer.analyzeDescriptionQuality(formData);
+      const conditionAnalysis = this.fieldQualityAnalyzer.analyzeConditionQuality(formData);
+      
+      // Calculate overall score
+      const overallScore = Math.round((descriptionAnalysis.score + conditionAnalysis.score) / 2);
+      
+      // Collect issues
+      const allIssues = [
+        ...descriptionAnalysis.issues,
+        ...conditionAnalysis.issues
+      ];
+      
+      // Update quality indicator
+      this.updateQualityIndicator(overallScore, allIssues);
+      
+    } catch (error) {
+      console.error('❌ Quality analysis failed:', error);
+      this.updateQualityIndicator(0, [{ message: 'Analys misslyckades' }]);
+    }
+  }
+
+  /**
+   * Update quality indicator display
+   * @param {number} score - Quality score (0-100)
+   * @param {Array} issues - List of issues
+   */
+  updateQualityIndicator(score, issues = []) {
+    const scoreElement = document.querySelector('.quality-score');
+    if (!scoreElement) return;
+
+    // Update score display
+    scoreElement.textContent = `${score}/100`;
+    
+    // Set color based on score
+    let color = '#e74c3c'; // Red for poor
+    if (score >= 80) color = '#27ae60'; // Green for excellent
+    else if (score >= 60) color = '#f39c12'; // Orange for good
+    else if (score >= 40) color = '#e67e22'; // Dark orange for fair
+    
+    scoreElement.style.color = color;
+    scoreElement.style.fontWeight = 'bold';
+    
+    console.log(`📊 Quality score updated: ${score}/100`);
+  }
+
+  /**
+   * Extract current form data
+   * @returns {Object} Form data object
+   */
+  extractFormData() {
+    return {
+      category: document.querySelector('#item_category_id option:checked')?.textContent || '',
+      title: document.querySelector('#item_title_sv')?.value || '',
+      description: document.querySelector('#item_description_sv')?.value || '',
+      condition: document.querySelector('#item_condition_sv')?.value || '',
+      artist: document.querySelector('#item_artist_name_sv')?.value || '',
+      keywords: document.querySelector('#item_hidden_keywords')?.value || ''
+    };
+  }
+
+  /**
+   * Setup auto-resize for all textareas
+   */
+  setupAutoResizeForAllTextareas() {
+    console.log('🔧 Setting up auto-resize for all textareas...');
+    
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach(textarea => {
+      // Initial resize
+      this.autoResizeTextarea(textarea);
+      
+      // Setup event listeners for auto-resize
+      const autoResizeHandler = () => {
+        this.autoResizeTextarea(textarea);
+      };
+      
+      textarea.addEventListener('input', autoResizeHandler);
+      textarea.addEventListener('paste', () => {
+        setTimeout(autoResizeHandler, 0);
+      });
+      
+      console.log(`✅ Auto-resize setup for textarea: ${textarea.name || textarea.id || 'unnamed'}`);
+    });
+    
+    console.log(`🎯 Auto-resize setup complete for ${textareas.length} textareas`);
+  }
+
+  /**
+   * Auto-resize a textarea to fit content
+   * @param {HTMLElement} textarea - Textarea element
+   */
+  autoResizeTextarea(textarea) {
+    if (!textarea) return;
+    
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Set height to scrollHeight plus some padding
+    const newHeight = Math.max(textarea.scrollHeight + 4, 60);
+    textarea.style.height = newHeight + 'px';
+    
+    console.log(`📏 Textarea ${textarea.name || textarea.id} resized to ${newHeight}px`);
+  }
+
+  /**
+   * Show loading indicator for field
+   * @param {string} fieldType - Field type
+   */
+  showLoadingIndicator(fieldType) {
+    const button = document.querySelector(`.ai-assist-button[data-field-type="${fieldType}"]`) ||
+                  document.querySelector('.ai-master-button');
+    
+    if (button) {
+      button.disabled = true;
+      button.textContent = fieldType === 'all' ? '⏳ Förbättrar alla...' : '⏳ Förbättrar...';
+      button.classList.add('loading');
+    }
+  }
+
+  /**
+   * Show success indicator for field
+   * @param {string} fieldType - Field type
+   */
+  showSuccessIndicator(fieldType) {
+    const button = document.querySelector(`.ai-assist-button[data-field-type="${fieldType}"]`);
+    
+    if (button) {
+      button.disabled = false;
+      button.textContent = '✅ Förbättrad!';
+      button.classList.remove('loading');
+      button.classList.add('success');
+      
+      // Reset after 2 seconds
+      setTimeout(() => {
+        this.resetButtonState(button, fieldType);
+      }, 2000);
+    }
+  }
+
+  /**
+   * Show error indicator for field
+   * @param {string} fieldType - Field type
+   * @param {string} message - Error message
+   */
+  showErrorIndicator(fieldType, message) {
+    const button = document.querySelector(`.ai-assist-button[data-field-type="${fieldType}"]`) ||
+                  document.querySelector('.ai-master-button');
+    
+    if (button) {
+      button.disabled = false;
+      button.textContent = '❌ Fel';
+      button.classList.remove('loading');
+      button.classList.add('error');
+      button.title = message;
+      
+      // Reset after 3 seconds
+      setTimeout(() => {
+        this.resetButtonState(button, fieldType);
+      }, 3000);
+    }
+  }
+
+  /**
+   * Reset button to original state
+   * @param {HTMLElement} button - Button element
+   * @param {string} fieldType - Field type
+   */
+  resetButtonState(button, fieldType) {
+    button.classList.remove('success', 'error', 'loading');
+    button.removeAttribute('title');
+    
+    // Reset to original text
+    const originalTexts = {
+      title: 'AI-förbättra titel',
+      description: 'AI-förbättra beskrivning',
+      condition: 'AI-förbättra kondition',
+      keywords: 'AI-generera sökord',
+      all: '⚡ Förbättra alla'
+    };
+    
+    button.textContent = originalTexts[fieldType] || 'AI-förbättra';
+  }
+
+  /**
+   * Destroy and cleanup
+   */
+  destroy() {
+    // Remove any added UI elements
+    const qualityIndicator = document.querySelector('.quality-indicator');
+    if (qualityIndicator) {
+      qualityIndicator.remove();
+    }
+    
+    const aiButtons = document.querySelectorAll('.ai-button-wrapper');
+    aiButtons.forEach(wrapper => wrapper.remove());
+    
+    console.log('🧹 AddItemsIntegrationManager: Cleaned up');
+  }
+} 

@@ -8,25 +8,36 @@
 
 console.log('🚀 Auctionet AI Assistant: Content script loaded!');
 
-// Import the new tooltip manager for add items pages
-import('./modules/add-items-tooltip-manager.js').then(module => {
-  window.AddItemsTooltipManager = module.AddItemsTooltipManager;
-}).catch(error => {
-  console.error('❌ Failed to load AddItemsTooltipManager:', error);
-});
-
-// Import the ArtistDetectionManager SSoT
-import('./modules/artist-detection-manager.js').then(module => {
-  window.ArtistDetectionManager = module.ArtistDetectionManager;
-}).catch(error => {
-  console.error('❌ Failed to load ArtistDetectionManager:', error);
-});
-
-// NEW: Import the API Bridge that connects add page to edit page API manager
+// Import the API Bridge that connects add page to edit page API manager
 import('./modules/add-items-api-bridge.js').then(module => {
   window.AddItemsAPIBridge = module.AddItemsAPIBridge;
 }).catch(error => {
   console.error('❌ Failed to load AddItemsAPIBridge:', error);
+});
+
+// Import the new modular tooltip system components
+import('./modules/ui/tooltip-system-manager.js').then(module => {
+  window.TooltipSystemManager = module.TooltipSystemManager;
+}).catch(error => {
+  console.error('❌ Failed to load TooltipSystemManager:', error);
+});
+
+import('./modules/core/field-quality-analyzer.js').then(module => {
+  window.FieldQualityAnalyzer = module.FieldQualityAnalyzer;
+}).catch(error => {
+  console.error('❌ Failed to load FieldQualityAnalyzer:', error);
+});
+
+import('./modules/ui/field-monitor-manager.js').then(module => {
+  window.FieldMonitorManager = module.FieldMonitorManager;
+}).catch(error => {
+  console.error('❌ Failed to load FieldMonitorManager:', error);
+});
+
+import('./modules/add-items-integration-manager.js').then(module => {
+  window.AddItemsIntegrationManager = module.AddItemsIntegrationManager;
+}).catch(error => {
+  console.error('❌ Failed to load AddItemsIntegrationManager:', error);
 });
 
 // Monitor for DOM changes to detect page transitions
@@ -136,13 +147,13 @@ class AuctionetCatalogingAssistant {
 
   async initializeAddItemsTooltips() {
     try {
-      console.log('🎯 Initializing Add Items with API Bridge, waiting for dynamic imports...');
+      console.log('🎯 Initializing Add Items with new modular components...');
       
       // Wait for all required classes to be loaded via dynamic imports
-      if (!window.AddItemsTooltipManager || !window.ArtistDetectionManager || !window.AddItemsAPIBridge) {
+      if (!window.AddItemsAPIBridge || !window.TooltipSystemManager || !window.FieldQualityAnalyzer || !window.FieldMonitorManager || !window.AddItemsIntegrationManager) {
         await new Promise(resolve => {
           const checkForClasses = () => {
-            if (window.AddItemsTooltipManager && window.ArtistDetectionManager && window.AddItemsAPIBridge) {
+            if (window.AddItemsAPIBridge && window.TooltipSystemManager && window.FieldQualityAnalyzer && window.FieldMonitorManager && window.AddItemsIntegrationManager) {
               console.log('✅ Dynamic imports loaded successfully');
               resolve();
             } else {
@@ -158,23 +169,41 @@ class AuctionetCatalogingAssistant {
       const apiBridge = new window.AddItemsAPIBridge();
       await apiBridge.init();
 
-      // Get the edit page API manager from the bridge
-      const apiManager = apiBridge.getAPIManager();
+      // Initialize new modular components
+      console.log('🎯 Initializing modular tooltip system components...');
       
-      // Create quality analyzer using the bridge
-      const qualityAnalyzer = apiBridge.createSimpleQualityAnalyzer();
-
-      // Initialize the tooltip manager using the bridge's API manager
-      this.tooltipManager = new window.AddItemsTooltipManager(apiManager, qualityAnalyzer);
-      await this.tooltipManager.init();
+      // Create the tooltip system manager
+      this.tooltipSystemManager = new window.TooltipSystemManager();
+      this.tooltipSystemManager.init();
+      
+      // Create the field quality analyzer
+      this.fieldQualityAnalyzer = new window.FieldQualityAnalyzer();
+      this.fieldQualityAnalyzer.setApiManager(apiBridge.getAPIManager());
+      
+      // Create the field monitor manager
+      this.fieldMonitorManager = new window.FieldMonitorManager();
+      this.fieldMonitorManager.init({
+        tooltipSystemManager: this.tooltipSystemManager,
+        fieldQualityAnalyzer: this.fieldQualityAnalyzer,
+        apiBridge: apiBridge
+      });
+      
+      // Create the integration manager to handle UI features
+      this.integrationManager = new window.AddItemsIntegrationManager();
+      this.integrationManager.init({
+        apiBridge: apiBridge,
+        tooltipSystemManager: this.tooltipSystemManager,
+        fieldQualityAnalyzer: this.fieldQualityAnalyzer,
+        fieldMonitorManager: this.fieldMonitorManager
+      });
       
       // Store the bridge for potential future use
       this.apiBridge = apiBridge;
       
-      console.log('✅ Add items system initialized with edit page API bridge');
+      console.log('✅ Add items system initialized with new modular components');
       
     } catch (error) {
-      console.error('❌ Failed to initialize add items with API bridge:', error);
+      console.error('❌ Failed to initialize add items with modular components:', error);
     }
   }
 
