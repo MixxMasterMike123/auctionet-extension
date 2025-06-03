@@ -15,6 +15,16 @@ export class DashboardManager {
     this.dashboardCreated = false; // NEW: Prevent duplicate creation
   }
 
+  // NEW: Properly escape HTML attribute values (especially for quoted artist names)
+  escapeHTMLAttribute(value) {
+    if (!value) return '';
+    // CRITICAL FIX: Don't double-escape - only escape if not already escaped
+    if (value.includes('&quot;') || value.includes('&#39;') || value.includes('&amp;')) {
+      return value; // Already escaped
+    }
+    return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   // Set dependencies
   setApiManager(apiManager) {
     this.apiManager = apiManager;
@@ -678,10 +688,10 @@ export class DashboardManager {
     selectedTerms.forEach((term, index) => {
       const checkboxId = `header-pill-expanded-selected-${index}`;
       expandedHTML += `
-        <label class="header-pill selected" title="${term.description || 'Klicka för att ta bort'}: ${term.term}">
+        <label class="header-pill selected" title="${this.escapeHTMLAttribute((term.description || 'Klicka för att ta bort') + ": " + term.term)}">
           <input type="checkbox" 
                  class="smart-checkbox header-checkbox" 
-                 value="${term.term}" 
+                 value="${this.escapeHTMLAttribute(term.term)}" 
                  data-type="${term.type}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}"
@@ -694,10 +704,10 @@ export class DashboardManager {
     unselectedTerms.forEach((term, index) => {
       const checkboxId = `header-pill-expanded-unselected-${index}`;
       expandedHTML += `
-        <label class="header-pill unselected" title="${term.description || 'Klicka för att lägga till'}: ${term.term}">
+        <label class="header-pill unselected" title="${this.escapeHTMLAttribute((term.description || 'Klicka för att lägga till') + ": " + term.term)}">
           <input type="checkbox" 
                  class="smart-checkbox header-checkbox" 
-                 value="${term.term}" 
+                 value="${this.escapeHTMLAttribute(term.term)}" 
                  data-type="${term.type}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}">
@@ -826,7 +836,9 @@ export class DashboardManager {
     const uncheckedArtists = [];
     
     allCheckboxes.forEach((checkbox, index) => {
-      const termValue = checkbox.value || checkbox.getAttribute('data-search-term') || checkbox.dataset.term;
+      const rawTermValue = checkbox.value || checkbox.getAttribute('data-search-term') || checkbox.dataset.term;
+      // CRITICAL FIX: Decode HTML entities from checkbox values
+      const termValue = rawTermValue ? rawTermValue.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&') : rawTermValue;
       const isChecked = checkbox.checked;
       
       console.log(`🔍 Checkbox ${index + 1}: "${termValue}" - checked: ${isChecked}`);
@@ -1202,10 +1214,10 @@ export class DashboardManager {
     selectedTerms.forEach((suggestion, index) => {
       const checkboxId = `smart-suggestion-selected-${index}`;
       filterHTML += `
-        <label class="compact-term-pill selected" title="${suggestion.description}: ${suggestion.term}">
+        <label class="compact-term-pill selected" title="${this.escapeHTMLAttribute(suggestion.description + ": " + suggestion.term)}">
           <input type="checkbox" 
                  class="smart-checkbox" 
-                 value="${suggestion.term}" 
+                 value="${this.escapeHTMLAttribute(suggestion.term)}" 
                  data-type="${suggestion.type}"
                  data-core="${suggestion.isCore || false}"
                  id="${checkboxId}"
@@ -1224,10 +1236,10 @@ export class DashboardManager {
     unselectedTerms.slice(0, maxUnselected).forEach((suggestion, index) => {
       const checkboxId = `smart-suggestion-unselected-${index}`;
       filterHTML += `
-        <label class="compact-term-pill unselected" title="${suggestion.description}: ${suggestion.term}">
+        <label class="compact-term-pill unselected" title="${this.escapeHTMLAttribute(suggestion.description + ": " + suggestion.term)}">
           <input type="checkbox" 
                  class="smart-checkbox" 
-                 value="${suggestion.term}" 
+                 value="${this.escapeHTMLAttribute(suggestion.term)}" 
                  data-type="${suggestion.type}"
                  data-core="${suggestion.isCore || false}"
                  id="${checkboxId}">
@@ -1482,10 +1494,10 @@ export class DashboardManager {
     selectedTerms.forEach((suggestion, index) => {
       const checkboxId = `smart-suggestion-selected-${index}`;
       filterHTML += `
-        <label class="compact-term-pill selected" title="${suggestion.description}: ${suggestion.term}">
+        <label class="compact-term-pill selected" title="${this.escapeHTMLAttribute(suggestion.description + ": " + suggestion.term)}">
           <input type="checkbox" 
                  class="smart-checkbox" 
-                 value="${suggestion.term}" 
+                 value="${this.escapeHTMLAttribute(suggestion.term)}" 
                  data-type="${suggestion.type}"
                  data-core="${suggestion.isCore || false}"
                  id="${checkboxId}"
@@ -1504,10 +1516,10 @@ export class DashboardManager {
     unselectedTerms.slice(0, maxUnselected).forEach((suggestion, index) => {
       const checkboxId = `smart-suggestion-unselected-${index}`;
       filterHTML += `
-        <label class="compact-term-pill unselected" title="${suggestion.description}: ${suggestion.term}">
+        <label class="compact-term-pill unselected" title="${this.escapeHTMLAttribute(suggestion.description + ": " + suggestion.term)}">
           <input type="checkbox" 
                  class="smart-checkbox" 
-                 value="${suggestion.term}" 
+                 value="${this.escapeHTMLAttribute(suggestion.term)}" 
                  data-type="${suggestion.type}"
                  data-core="${suggestion.isCore || false}"
                  id="${checkboxId}">
@@ -2810,10 +2822,10 @@ export class DashboardManager {
     selectedTerms.forEach((suggestion, index) => {
       const checkboxId = `smart-suggestion-selected-${index}`;
       filterHTML += `
-        <label class="compact-term-pill selected" title="${suggestion.description}: ${suggestion.term}">
+        <label class="compact-term-pill selected" title="${this.escapeHTMLAttribute(suggestion.description + ": " + suggestion.term)}">
           <input type="checkbox" 
                  class="smart-checkbox" 
-                 value="${suggestion.term}" 
+                 value="${this.escapeHTMLAttribute(suggestion.term)}" 
                  data-type="${suggestion.type}"
                  data-core="${suggestion.isCore || false}"
                  id="${checkboxId}"
@@ -2832,10 +2844,10 @@ export class DashboardManager {
     unselectedTerms.slice(0, maxUnselected).forEach((suggestion, index) => {
       const checkboxId = `smart-suggestion-unselected-${index}`;
       filterHTML += `
-        <label class="compact-term-pill unselected" title="${suggestion.description}: ${suggestion.term}">
+        <label class="compact-term-pill unselected" title="${this.escapeHTMLAttribute(suggestion.description + ": " + suggestion.term)}">
           <input type="checkbox" 
                  class="smart-checkbox" 
-                 value="${suggestion.term}" 
+                 value="${this.escapeHTMLAttribute(suggestion.term)}" 
                  data-type="${suggestion.type}"
                  data-core="${suggestion.isCore || false}"
                  id="${checkboxId}">
@@ -3039,10 +3051,10 @@ export class DashboardManager {
     selectedTerms.forEach((term, index) => {
       const checkboxId = `header-pill-selected-${index}`;
       headerPillsHTML += `
-        <label class="header-pill selected" title="${term.description || 'Klicka för att ta bort'}: ${term.term}">
+        <label class="header-pill selected" title="${this.escapeHTMLAttribute((term.description || 'Klicka för att ta bort') + ": " + term.term)}">
           <input type="checkbox" 
                  class="smart-checkbox header-checkbox" 
-                 value="${term.term}" 
+                 value="${this.escapeHTMLAttribute(term.term)}" 
                  data-type="${term.type}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}"
@@ -3056,10 +3068,10 @@ export class DashboardManager {
     unselectedTerms.slice(0, maxUnselectedInHeader).forEach((term, index) => {
       const checkboxId = `header-pill-unselected-${index}`;
       headerPillsHTML += `
-        <label class="header-pill unselected" title="${term.description || 'Klicka för att lägga till'}: ${term.term}">
+        <label class="header-pill unselected" title="${this.escapeHTMLAttribute((term.description || 'Klicka för att lägga till') + ": " + term.term)}">
           <input type="checkbox" 
                  class="smart-checkbox header-checkbox" 
-                 value="${term.term}" 
+                 value="${this.escapeHTMLAttribute(term.term)}" 
                  data-type="${term.type}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}">

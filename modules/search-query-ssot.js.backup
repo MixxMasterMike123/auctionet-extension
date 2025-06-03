@@ -20,6 +20,10 @@ export class SearchQuerySSoT {
 
   // Initialize with existing candidate terms (called by SalesAnalysisManager)
   initialize(currentQuery, candidateTerms, analysisType) {
+    console.log('🔧 SSoT: Initialize called with candidate terms');
+    console.log('📋 Current query:', currentQuery);
+    console.log('📋 Candidate terms:', candidateTerms?.candidates?.length || 0);
+    console.log('📋 Analysis type:', analysisType);
     
     if (!candidateTerms || !candidateTerms.candidates || candidateTerms.candidates.length === 0) {
       console.log('⚠️ SSoT: No candidate terms provided, cannot initialize properly');
@@ -35,12 +39,14 @@ export class SearchQuerySSoT {
       if (selectedCandidates.length > 0) {
         // PRECISION FIX: Use the original terms from AI Rules selection (preserves quoted artist names)
         this.currentTerms = selectedCandidates.map(c => c.term);
+        console.log('✅ SSoT: Using original AI Rules terms (preserves quoted artist names):', this.currentTerms);
         
         // LOG AI-detected quoted artists specifically
         const quotedArtists = this.currentTerms.filter(term => 
           term.includes('"') && selectedCandidates.find(c => c.term === term && c.source === 'ai_detected')
         );
         if (quotedArtists.length > 0) {
+          console.log('🎯 SSoT: AI-detected quoted artists preserved:', quotedArtists);
         }
       } else {
         // ENHANCED FALLBACK: Smart query parsing that preserves quoted terms
@@ -62,6 +68,10 @@ export class SearchQuerySSoT {
       isPrecisionQuoted: candidate.isPrecisionQuoted || false // NEW: Track precision-quoted terms
     }));
     
+    console.log('✅ SSoT: Populated availableTerms with', this.availableTerms.length, 'candidates');
+    console.log('📊 Selected terms:', this.availableTerms.filter(t => t.isSelected).length);
+    console.log('📊 Unselected terms:', this.availableTerms.filter(t => !t.isSelected).length);
+    console.log('🎯 AI-quoted artists:', this.availableTerms.filter(t => t.isPrecisionQuoted && t.source === 'ai_detected').map(t => t.term));
     
     // Update metadata
     this.currentMetadata = {
@@ -73,6 +83,7 @@ export class SearchQuerySSoT {
       candidateCount: candidateTerms.candidates.length
     };
     
+    console.log('✅ SSoT: Initialization complete with quoted artist preservation');
     this.notifyListeners('initialized', {
       query: this.currentQuery,
       availableTerms: this.availableTerms.length,
@@ -86,6 +97,7 @@ export class SearchQuerySSoT {
       return [];
     }
     
+    console.log('🔧 Parsing query while preserving quoted terms:', query);
     
     const terms = [];
     let currentTerm = '';
@@ -122,11 +134,15 @@ export class SearchQuerySSoT {
       terms.push(currentTerm.trim());
     }
     
+    console.log('✅ Parsed terms preserving quotes:', terms);
     return terms;
   }
 
   // MAIN METHOD: Generate and set the authoritative search query
   async generateAndSetQuery(title, description = '', artist = '', aiArtist = '') {
+    console.log('🎯 SSoT: Generating authoritative search query...');
+    console.log(`📝 Input: "${title}"`);
+    console.log(`👤 Artist field: "${artist}"`);
     
     try {
       // Use AI to generate optimal search query (with artist field support)
@@ -134,6 +150,7 @@ export class SearchQuerySSoT {
       
       if (aiResult && aiResult.success) {
         this.setCurrentQuery(aiResult);
+        console.log('✅ SSoT: AI-generated query set as authoritative source');
         return aiResult;
       } else {
         throw new Error('AI search generation failed');
@@ -159,14 +176,17 @@ export class SearchQuerySSoT {
     if (queryData.searchTerms && Array.isArray(queryData.searchTerms)) {
       // Use provided searchTerms array (preserves "Niels Thorsson" as one term)
       this.currentTerms = [...queryData.searchTerms];
+      console.log('✅ SSoT: Using provided searchTerms array (preserves artist names):', this.currentTerms);
     } else {
       // CRITICAL FIX: Use quote-preserving parsing instead of destructive split by spaces
       this.currentTerms = this.parseQueryPreservingQuotes(this.currentQuery);
+      console.log('✅ SSoT: Fallback to quote-preserving parsing (preserves quoted artists):', this.currentTerms);
     }
     
     // CRITICAL ENHANCEMENT: Populate availableTerms from AI rules data for dashboard pills
     if (queryData.allTerms && Array.isArray(queryData.allTerms)) {
       // AI rules provides both selected and unselected terms
+      console.log('🎯 SSoT: Populating availableTerms from AI rules allTerms:', queryData.allTerms);
       
       this.availableTerms = queryData.allTerms.map(term => ({
         term: term,
@@ -180,8 +200,10 @@ export class SearchQuerySSoT {
         isPrecisionQuoted: term.includes('"')
       }));
       
+      console.log('✅ SSoT: AI rules availableTerms populated:', this.availableTerms.length, 'terms');
     } else if (queryData.preSelectedTerms && queryData.candidateTerms) {
       // Alternative AI rules format with pre-selected and candidate terms
+      console.log('🎯 SSoT: Populating availableTerms from preSelected + candidates');
       
       const allAITerms = [...(queryData.preSelectedTerms || []), ...(queryData.candidateTerms || [])];
       this.availableTerms = allAITerms.map(term => ({
@@ -196,6 +218,7 @@ export class SearchQuerySSoT {
         isPrecisionQuoted: term.includes('"')
       }));
       
+      console.log('✅ SSoT: AI rules availableTerms from preSelected+candidates:', this.availableTerms.length, 'terms');
     } else {
       // Fallback: create availableTerms from current terms only
       console.log('⚠️ SSoT: Fallback - creating availableTerms from currentTerms only');
@@ -213,6 +236,7 @@ export class SearchQuerySSoT {
       }));
     }
     
+    console.log('📊 SSoT: Final availableTerms state:');
     console.log('   Total terms:', this.availableTerms.length);
     console.log('   Selected terms:', this.availableTerms.filter(t => t.isSelected).length);
     console.log('   Unselected terms:', this.availableTerms.filter(t => !t.isSelected).length);
@@ -257,6 +281,10 @@ export class SearchQuerySSoT {
 
   // Build search context for API calls (ensures all components use same query)
   buildSearchContext() {
+    console.log('🔄 SSoT: Building search context for API call');
+    console.log('🔄 Current query:', this.currentQuery);
+    console.log('🔄 Has metadata:', !!this.currentMetadata);
+    console.log('🔄 Source:', this.currentMetadata?.source);
     
     if (!this.currentQuery) {
       console.warn('⚠️ SSoT: No current query set - returning default search context');
@@ -309,6 +337,7 @@ export class SearchQuerySSoT {
       hasValidQuery: true
     };
     
+    console.log('📋 SSoT: Generated search context:', context);
     return context;
   }
 
@@ -319,6 +348,7 @@ export class SearchQuerySSoT {
     }
     
     try {
+      console.log(`🔍 SSoT: Validating query "${this.currentQuery}" on Auctionet...`);
       
       // Test query on Auctionet API (minimal call)
       const testUrl = `https://auctionet.com/api/v2/items.json?is=ended&q=${encodeURIComponent(this.currentQuery)}&per_page=1`;
@@ -331,6 +361,7 @@ export class SearchQuerySSoT {
       const data = await response.json();
       const hasResults = data.pagination && data.pagination.total_entries > 0;
       
+      console.log(`✅ SSoT: Query validation result: ${hasResults ? 'VALID' : 'NO RESULTS'} (${data.pagination?.total_entries || 0} total matches)`);
       
       return {
         valid: true,
@@ -348,6 +379,8 @@ export class SearchQuerySSoT {
   // Emergency fallback (ARTIST FIELD PRIORITY)
   getEmergencyFallback(title, artist, description) {
     console.log('🚨 SSoT: Generating emergency fallback query with artist field priority');
+    console.log(`👤 Artist field: "${artist}"`);
+    console.log(`📝 Title: "${title}"`);
     
     let fallbackTerms = [];
     let reasoning = 'Emergency fallback: ';
@@ -362,13 +395,16 @@ export class SearchQuerySSoT {
       if (words.length > 1) {
         // Multiple words - wrap in quotes to treat as single entity
         formattedArtist = `"${cleanArtist}"`;
+        console.log(`👤 SSoT EMERGENCY: "${cleanArtist}" → ${formattedArtist} (multi-word name, quoted for exact matching)`);
       } else {
         // Single word - no quotes needed
         formattedArtist = cleanArtist;
+        console.log(`👤 SSoT EMERGENCY: "${cleanArtist}" → ${formattedArtist} (single word, no quotes needed)`);
       }
       
       fallbackTerms.push(formattedArtist);
       reasoning += `Artist field "${formattedArtist}" included as primary term. `;
+      console.log(`✅ EMERGENCY: Using formatted artist "${formattedArtist}" as primary search term`);
     }
     
     // PRIORITY 2: Extract object type from title (if not enough terms yet)
@@ -381,6 +417,7 @@ export class SearchQuerySSoT {
         if (titleLower.includes(objType) && !fallbackTerms.some(term => term.toLowerCase().includes(objType))) {
           fallbackTerms.push(objType);
           reasoning += `Object type "${objType}" detected. `;
+          console.log(`✅ EMERGENCY: Added object type "${objType}"`);
           break;
         }
       }
@@ -401,6 +438,7 @@ export class SearchQuerySSoT {
       fallbackTerms.push(...words);
       if (words.length > 0) {
         reasoning += `Added significant words: ${words.join(', ')}. `;
+        console.log(`✅ EMERGENCY: Added significant words: ${words.join(', ')}`);
       }
     }
     
@@ -420,6 +458,8 @@ export class SearchQuerySSoT {
     const query = fallbackTerms.join(' ');
     const confidence = artist && artist.trim() ? 0.7 : 0.2; // Higher confidence if artist field used
     
+    console.log(`✅ EMERGENCY FALLBACK: Generated query "${query}" with confidence ${confidence}`);
+    console.log(`📋 Emergency terms: ${fallbackTerms.join(', ')}`);
     console.log(`🧠 Emergency reasoning: ${reasoning}`);
     
     return {
@@ -485,6 +525,7 @@ export class SearchQuerySSoT {
       all: `${baseUrl}?event_id=&is=&q=${encodedQuery}`
     };
 
+    console.log('🔗 SSoT: Generated search URLs for query:', this.currentQuery);
     return urls;
   }
 
@@ -501,11 +542,13 @@ export class SearchQuerySSoT {
       const oldValue = keywordsField.value;
       keywordsField.value = this.currentQuery;
       
+      console.log(`🔧 SSoT: Updated keywords field: "${oldValue}" → "${this.currentQuery}"`);
       
       // Trigger change event to notify other components
       const changeEvent = new Event('change', { bubbles: true });
       keywordsField.dispatchEvent(changeEvent);
       
+      console.log('✅ SSoT: Keywords field updated and change event dispatched');
     } else {
       console.log('⚠️ SSoT: Keywords field (#item_hidden_keywords) not found in DOM');
     }
@@ -523,6 +566,7 @@ export class SearchQuerySSoT {
 
   // Debug information
   debug() {
+    console.log('🔍 SSoT Debug Information:');
     console.log('  Current Query:', this.currentQuery);
     console.log('  Current Terms:', this.currentTerms);
     console.log('  Metadata:', this.currentMetadata);
@@ -542,6 +586,7 @@ export class SearchQuerySSoT {
       searchTerm.toLowerCase().trim() === normalizedTerm
     );
     
+    console.log(`🔍 SSoT: Term "${term}" selected: ${isSelected}`);
     return isSelected;
   }
 
@@ -565,9 +610,11 @@ export class SearchQuerySSoT {
 
   // Update user selections and regenerate query
   updateUserSelections(selectedTerms) {
+    console.log('🔄 SSoT: Updating user selections:', selectedTerms);
     
     // NEW: Respect user deselection of artist terms
     const currentAvailableTerms = this.availableTerms || [];
+    console.log('🔍 DEBUG: Available terms for processing:', currentAvailableTerms.map(t => `"${t.term}" (type: ${t.type}, category: ${t.category || 'none'}, source: ${t.source || 'none'})`));
     
     // CRITICAL DEBUG: Find and inspect the Timo Sarpaneva term specifically
     const timoTerm = currentAvailableTerms.find(t => t.term && t.term.includes('Timo'));
@@ -595,12 +642,15 @@ export class SearchQuerySSoT {
       
       // Method 4: ENHANCED DETECTION: Quoted terms that look like artist names
       if (term.term && term.term.includes('"') && /^"[A-Z][a-z]+ [A-Z][a-z]+"$/.test(term.term)) {
+        console.log('🔍 ENHANCED AI DETECTION: Found quoted artist-like term:', term.term);
         return true;
       }
       
       return false;
     });
     
+    console.log('🤖 AI-DETECTED ARTISTS to preserve:', aiDetectedArtists.map(t => t.term));
+    console.log('🤖 AI-DETECTED ARTISTS full details:', aiDetectedArtists.map(t => ({ term: t.term, source: t.source, type: t.type })));
     
     // Identify ALL potential artist terms from available terms
     const potentialArtistTerms = currentAvailableTerms.filter(term => {
@@ -632,6 +682,7 @@ export class SearchQuerySSoT {
       return false;
     });
     
+    console.log('🎯 IDENTIFIED: Potential artist terms:', potentialArtistTerms.map(t => t.term));
     
     // CRITICAL FIX: Preserve AI-detected artists unless explicitly in user selection (meaning user clicked them to toggle)
     const currentlySelectedInSSoT = this.currentTerms || [];
@@ -647,14 +698,18 @@ export class SearchQuerySSoT {
       if (wasCurrentlySelected && !isInUserSelection) {
         // User didn't click this AI artist pill, so preserve its selected state
         finalSelectedTerms.push(aiArtist.term);
+        console.log(`🤖 AI ARTIST PRESERVED: "${aiArtist.term}" (not clicked by user, maintaining selection)`);
       } else if (wasCurrentlySelected && isInUserSelection) {
         // User clicked this AI artist pill, so it's intentionally selected
         finalSelectedTerms.push(aiArtist.term);
+        console.log(`🤖 AI ARTIST KEPT: "${aiArtist.term}" (user explicitly selected)`);
       } else if (!wasCurrentlySelected && isInUserSelection) {
         // User selected a previously unselected AI artist
         finalSelectedTerms.push(aiArtist.term);
+        console.log(`🤖 AI ARTIST SELECTED: "${aiArtist.term}" (user activated)`);
       } else {
         // AI artist was not selected and user didn't select it
+        console.log(`🤖 AI ARTIST UNSELECTED: "${aiArtist.term}" (remains unselected)`);
       }
     });
     
@@ -666,10 +721,12 @@ export class SearchQuerySSoT {
         const isAIArtist = aiDetectedArtists.some(aiArtist => aiArtist.term === term);
         if (!isAIArtist) {
           finalSelectedTerms.push(term);
+          console.log(`👤 USER SELECTED: Non-AI term "${term}"`);
         }
       }
     });
     
+    console.log('✅ FINAL TERMS (with AI artists preserved):', finalSelectedTerms);
     
     if (!finalSelectedTerms || finalSelectedTerms.length === 0) {
       console.log('⚠️ SSoT: No terms selected - clearing query');
@@ -681,6 +738,7 @@ export class SearchQuerySSoT {
         termObj.isSelected = false;
       });
     } else {
+      console.log('✅ SSoT: Setting query from AI-preserved terms');
       this.currentQuery = finalSelectedTerms.join(' ');
       this.currentTerms = [...finalSelectedTerms];
       
@@ -705,6 +763,7 @@ export class SearchQuerySSoT {
         termObj.isSelected = isTermSelected;
         
         if (isTermSelected) {
+          console.log(`✅ TERM MATCHED: "${termObj.term}" matched with finalSelectedTerms via smart quote matching`);
         }
       });
     }
@@ -726,6 +785,7 @@ export class SearchQuerySSoT {
       `${reasoningParts.join(' | ')}` : 
       'User cleared all selections';
     
+    console.log('🔄 SSoT: Updated selection state (AI ARTISTS PRESERVED)');
     console.log('   Current query:', this.currentQuery);
     console.log('   Selected terms:', this.currentTerms.length);
     console.log('   Available terms state:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
@@ -746,10 +806,12 @@ export class SearchQuerySSoT {
     // NEW: Trigger pill synchronization after SSoT updates
     // This ensures pills always reflect the current SSoT state
     setTimeout(() => {
+      console.log('🔄 SSoT: Triggering pill synchronization after user selection update...');
       // Access search filter manager through any available reference
       if (window.auctionetAssistant && window.auctionetAssistant.searchFilterManager) {
         const syncResult = window.auctionetAssistant.searchFilterManager.synchronizePillsWithSSoT();
         if (syncResult && syncResult.mismatchCount > 0) {
+          console.log(`🎯 SSoT: Corrected ${syncResult.mismatchCount} pill states after update`);
         }
       } else {
         console.log('⚠️ SSoT: Search filter manager not accessible for pill synchronization');
@@ -761,11 +823,14 @@ export class SearchQuerySSoT {
   
   // Get all available terms for dashboard checkboxes (both selected and unselected)
   getAvailableTerms() {
+    console.log('📋 SSoT: Getting ALL available terms for dashboard');
     console.log('   Available terms stored:', this.availableTerms.length);
     console.log('   Selected terms:', this.currentTerms.length);
     
     // CRITICAL FIX: Use the stored availableTerms from initialization
     if (this.availableTerms && this.availableTerms.length > 0) {
+      console.log('✅ SSoT: Returning stored available terms (includes extended terms)');
+      console.log('📋 Extended terms available:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
       return this.availableTerms;
     }
     
@@ -784,6 +849,7 @@ export class SearchQuerySSoT {
   
   // Get currently selected terms (legacy compatibility)
   getSelectedTerms() {
+    console.log('🔧 SSoT: getSelectedTerms called (legacy compatibility)');
     return [...this.currentTerms];
   }
   
@@ -799,6 +865,7 @@ export class SearchQuerySSoT {
     // CRITICAL FIX: Smart quote matching for artist names
     // Direct match first
     if (this.currentTerms.includes(decodedTerm)) {
+      console.log(`🔧 SSoT: isTermSelected("${term}"): true (direct match)`);
       return true;
     }
     
@@ -815,7 +882,9 @@ export class SearchQuerySSoT {
     });
     
     const isSelected = foundUnquoted || foundQuoted || foundVariant;
+    console.log(`🔧 SSoT: isTermSelected("${term}"): ${isSelected} (smart quote matching)`);
     if (isSelected) {
+      console.log(`   💡 Matched via: unquoted=${foundUnquoted}, quoted=${foundQuoted}, variant=${foundVariant}`);
     }
     
     return isSelected;
@@ -835,6 +904,7 @@ export class SearchQuerySSoT {
     
     // Direct match first
     if (firstTwoTerms.includes(decodedTerm)) {
+      console.log(`🔧 SSoT: isCoreSearchTerm("${term}"): true (direct match)`);
       return true;
     }
     
@@ -851,6 +921,7 @@ export class SearchQuerySSoT {
     });
     
     const isCore = foundUnquoted || foundQuoted || foundVariant;
+    console.log(`🔧 SSoT: isCoreSearchTerm("${term}"): ${isCore} (smart quote matching)`);
     
     return isCore;
   }

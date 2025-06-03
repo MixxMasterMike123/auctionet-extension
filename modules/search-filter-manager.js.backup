@@ -29,11 +29,13 @@ export class SearchFilterManager {
   // NEW: Set SearchTermExtractor for extended term extraction
   setSearchTermExtractor(searchTermExtractor) {
     this.searchTermExtractor = searchTermExtractor;
+    console.log('✅ SearchFilterManager: SearchTermExtractor connected for extended terms');
   }
 
   // NEW: Set AI-only SearchQuerySSoT
   setSearchQuerySSoT(searchQuerySSoT) {
     this.searchQuerySSoT = searchQuerySSoT;
+    console.log('✅ SearchFilterManager: AI-only SearchQuerySSoT connected');
   }
 
   // USE SSoT: Build search query from selected candidates
@@ -58,6 +60,8 @@ export class SearchFilterManager {
 
   // NEW: Extract candidate search terms for interactive user selection
   extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null) {
+    console.log('🔍 Extracting ALL candidate search terms for:', title);
+    console.log('📋 Input parameters:', { 
       hasArtistInfo: !!artistInfo, 
       artistInfoContent: artistInfo?.artist || 'none',
       hasActualSearchQuery: !!actualSearchQuery 
@@ -65,6 +69,7 @@ export class SearchFilterManager {
     
     // DEBUGGING: Check artist field in DOM regardless of parameters
     const artistFieldFromDOM = document.querySelector('#item_artist_name_sv')?.value?.trim();
+    console.log('🎯 ARTIST FIELD DEBUG: DOM artist field content:', artistFieldFromDOM || 'empty');
     
     // CRITICAL FIX: Check if we already have AI Rules data in SearchQuerySSoT to preserve source information
     if (this.searchQuerySSoT) {
@@ -80,6 +85,9 @@ export class SearchFilterManager {
         existingTerms.some(term => term.source && term.source !== 'none');
       
       if (isHighQualityData) {
+        console.log('✅ PRESERVING HIGH-QUALITY AI RULES DATA: Using existing SearchQuerySSoT terms');
+        console.log('📋 Query metadata:', queryMetadata);
+        console.log('📋 Existing terms with source info:', existingTerms.map(t => `${t.term}(${t.source || 'none'})`));
         
         // Convert existing terms to candidates format for consistency
         const candidates = existingTerms.map(term => ({
@@ -95,6 +103,8 @@ export class SearchFilterManager {
         const preSelectedTerms = candidates.filter(c => c.preSelected).map(c => c.term);
         const currentQuery = preSelectedTerms.join(' ');
         
+        console.log('✅ PRESERVED HIGH-QUALITY AI RULES: Using existing candidates with source info preserved');
+        console.log('📋 AI-detected artists found:', candidates.filter(c => c.source === 'ai_detected').map(c => c.term));
         
         return {
           candidates: candidates,
@@ -119,6 +129,7 @@ export class SearchFilterManager {
       const currentTerms = this.searchQuerySSoT.getCurrentTerms();
       if (currentTerms && currentTerms.length > 0) {
         aiSelectedTerms = currentTerms;
+        console.log('🤖 AI RULES: Respecting AI-selected terms for preSelection:', aiSelectedTerms);
       }
     }
     
@@ -134,8 +145,10 @@ export class SearchFilterManager {
         });
         
         if (isAIPreSelected) {
+          console.log(`🤖 AI RULES: "${term}" is AI PRE-SELECTED - will be checked by default ✅`);
           return true;
         } else {
+          console.log(`🤖 AI RULES: "${term}" is candidate only - available as unchecked option ⚪`);
           return false;
         }
       }
@@ -159,11 +172,13 @@ export class SearchFilterManager {
         
         // EXACT MATCH: When the term IS the artist (AI-detected artists)
         if (termLowerClean === artistLower || termLower === artistLower) {
+          console.log(`🤖 AI DECISION: "${term}" is EXACT ARTIST MATCH - CRITICAL for market data ✅`);
           return true;
         }
         
         // CONTAINS MATCH: When the term contains the artist name (for composite terms)
         if (termLower.includes(artistLower)) {
+          console.log(`🤖 AI DECISION: "${term}" contains BRAND - CRITICAL for market data ✅`);
           return true;
         }
       }
@@ -176,6 +191,7 @@ export class SearchFilterManager {
         const termWithoutQuotes = term.replace(/"/g, '').toLowerCase(); // Remove quotes for comparison
         
         if (termLower === artistFieldLower || termWithoutQuotes === artistFieldLower) {
+          console.log(`🎯 ARTIST CONSISTENCY: "${term}" matches artist field - ALWAYS pre-selected ✅`);
           return true;
         }
       }
@@ -203,12 +219,14 @@ export class SearchFilterManager {
       ];
       
       if (jewelryBrands.includes(termLower) || watchBrands.includes(termLower) || synthesizerBrands.includes(termLower)) {
+        console.log(`🤖 AI DECISION: "${term}" is RECOGNIZED BRAND - CRITICAL for market data ✅`);
         return true;
       }
       
       // PRIORITY 2: Object type is ALWAYS pre-selected (second most important)
       const objectType = this.qualityAnalyzer.extractObjectType(title);
       if (term.toLowerCase() === 'rolex' || (objectType && objectType.toLowerCase() === termLower)) {
+        console.log(`🤖 AI DECISION: "${term}" is OBJECT TYPE - CRITICAL for market categorization ✅`);
         return true;
       }
       
@@ -225,45 +243,54 @@ export class SearchFilterManager {
       
       // Check if it's a known model name (case insensitive)
       if (knownModels.some(model => termLower.includes(model) || model.includes(termLower))) {
+        console.log(`🤖 AI DECISION: "${term}" is KNOWN MODEL - CRITICAL for targeted market data ✅`);
         return true;
       }
       
       // Check for synthesizer/electronic instrument pattern (letters + numbers, like DX7, SH101)
       if (/^[A-Z]{1,4}\d{1,4}[A-Z]*$/i.test(term) && term.length >= 3 && term.length <= 8) {
+        console.log(`🤖 AI DECISION: "${term}" is ELECTRONIC INSTRUMENT MODEL - CRITICAL for market data ✅`);
         return true;
       }
       
       // CONSERVATIVE CHANGE: Complete models are valuable but should be OPTIONAL for broader coverage
       // Make them available as refinements rather than pre-selected to avoid overly narrow searches
       if (term.length > 10 && (term.includes(' ') || term.includes('-'))) {
+        console.log(`🤖 AI DECISION: "${term}" is COMPLETE MODEL - Available as optional refinement for narrower search ⚪`);
         return false; // Changed from true to false - make available but not pre-selected
       }
       
       // 🤖 AI REJECTS individual model words - they fragment the search and reduce market data
       if (['oyster', 'perpetual', 'air', 'king', 'precision'].includes(termLower)) {
+        console.log(`🤖 AI DECISION: "${term}" is MODEL FRAGMENT - Better as complete model name ❌`);
         return false;
       }
       
       // 🤖 AI REJECTS materials for initial broad search
       if (['stål', 'guld', 'silver', 'titan', 'steel', 'gold'].includes(termLower)) {
+        console.log(`🤖 AI DECISION: "${term}" is MATERIAL - Too narrow for initial market search ❌`);
         return false;
       }
       
       // 🤖 AI ENHANCED: Reject generic reference numbers but allow important models through
       if (/^\d{4}$/.test(term)) {
         // Reject standalone years (like 1983, 1987)
+        console.log(`🤖 AI DECISION: "${term}" is YEAR - Too specific for initial market search ❌`);
         return false;
       } else if (term.toLowerCase().includes('ref')) {
         // Reject explicit reference patterns
+        console.log(`🤖 AI DECISION: "${term}" is REFERENCE - Too specific for initial market search ❌`);
         return false;
       }
       
       // 🤖 AI REJECTS technical specifications for initial broad search
       if (['automatic', 'manuell', 'cal', 'caliber', 'diameter', 'mm', 'programmable', 'algorithm'].some(tech => termLower.includes(tech))) {
+        console.log(`🤖 AI DECISION: "${term}" is TECHNICAL SPEC - Too narrow for initial market search ❌`);
         return false;
       }
       
       // Default: reject unless specifically identified as strategically important
+      console.log(`🤖 AI DECISION: "${term}" not strategically important for initial market search ❌`);
       return false;
     };
     
@@ -294,12 +321,14 @@ export class SearchFilterManager {
       });
       
       if (isAICandidate) {
+        console.log(`🤖 AI ARTIST DETECTED: "${normalizedArtist}" marked with source: 'ai_detected'`);
       }
     } else {
       // CRITICAL FIX: Always check artist field directly when not passed as parameter
       // This ensures artist field content is included even when detection is skipped
       const artistField = document.querySelector('#item_artist_name_sv')?.value?.trim();
       if (artistField) {
+        console.log('🎯 DIRECT ARTIST FIELD: Found artist field content not passed as parameter:', artistField);
         
         // Format artist name for search (same logic as emergency fallback)
         const cleanArtist = artistField.trim().replace(/,\s*$/, ''); // Remove trailing commas
@@ -309,9 +338,11 @@ export class SearchFilterManager {
         if (words.length > 1) {
           // Multiple words - wrap in quotes to treat as single entity
           formattedArtist = `"${cleanArtist}"`;
+          console.log(`👤 DIRECT ARTIST FIELD: "${cleanArtist}" → ${formattedArtist} (multi-word name, quoted for exact matching)`);
         } else {
           // Single word - no quotes needed
           formattedArtist = cleanArtist;
+          console.log(`👤 DIRECT ARTIST FIELD: "${cleanArtist}" → ${formattedArtist} (single word, no quotes needed)`);
         }
         
         const preSelected = shouldBePreSelected(formattedArtist);
@@ -324,6 +355,7 @@ export class SearchFilterManager {
           source: 'artist_field_direct'
         });
         
+        console.log(`✅ DIRECT ARTIST FIELD: Added "${formattedArtist}" as ${preSelected ? 'pre-selected' : 'candidate'} term`);
       }
     }
     
@@ -345,6 +377,7 @@ export class SearchFilterManager {
           preSelected: preSelected
         });
       } else {
+        console.log(`🔧 DEDUPLICATION: Skipping duplicate object type "${objectType}" (already exists in candidates)`);
       }
     }
     
@@ -433,17 +466,20 @@ export class SearchFilterManager {
       // Use normalized artist name for deduplication
       const normalizedArtist = artistInfo.artist.trim().replace(/,\s*$/, '');
       const artistWords = normalizedArtist.toLowerCase().split(/\s+/);
+      console.log(`🔧 ARTIST DEDUPLICATION: Removing artist words from significant word extraction:`, artistWords);
       
       // Remove artist words from the text to prevent duplication
       artistWords.forEach(artistWord => {
         if (artistWord.length > 2) { // Only remove meaningful words
           const wordRegex = new RegExp(`\\b${artistWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
           textForSignificantWords = textForSignificantWords.replace(wordRegex, '');
+          console.log(`🔧 Removed artist word "${artistWord}" from significant word extraction`);
         }
       });
     }
     
     const significantWords = this.extractSignificantWords(textForSignificantWords);
+    console.log('🔧 DEBUG: Significant words extracted (after artist deduplication):', significantWords);
     
     significantWords.forEach(word => {
       if (word && typeof word === 'string') {
@@ -451,6 +487,7 @@ export class SearchFilterManager {
         const alreadyExists = candidates.some(c => c.term.toLowerCase() === word.toLowerCase());
         if (!alreadyExists) {
           const preSelected = shouldBePreSelected(word);
+          console.log(`🔧 DEBUG: Processing significant word "${word}" - preSelected: ${preSelected}`);
           candidates.push({
             term: word,
             type: 'keyword',
@@ -459,18 +496,21 @@ export class SearchFilterManager {
             preSelected: preSelected
           });
         } else {
+          console.log(`🔧 DEBUG: Skipping duplicate significant word "${word}"`);
         }
       }
     });
     
     // 9. GEOGRAPHIC TERMS (from searchTermExtractor)
     const geographicTerms = this.searchTermExtractor?.extractGeographicTerms(text) || [];
+    console.log('🔧 DEBUG: Geographic terms extracted:', geographicTerms);
     
     geographicTerms.forEach(geoTerm => {
       if (geoTerm && typeof geoTerm === 'string') {
         const alreadyExists = candidates.some(c => c.term.toLowerCase() === geoTerm.toLowerCase());
         if (!alreadyExists) {
           const preSelected = shouldBePreSelected(geoTerm);
+          console.log(`🔧 DEBUG: Processing geographic term "${geoTerm}" - preSelected: ${preSelected}`);
           candidates.push({
             term: geoTerm,
             type: 'origin',
@@ -493,17 +533,24 @@ export class SearchFilterManager {
     const preSelectedTerms = candidates.filter(c => c.preSelected).map(c => c.term);
     const currentQuery = preSelectedTerms.join(' ');
     
+    console.log('🎯 ALL extracted candidate search terms:', candidates);
+    console.log('✅ Total candidates found:', candidates.length);
+    console.log('✅ Pre-selected candidates:', preSelectedTerms);
+    console.log('🔧 EXTENDED TERMS DEBUG - All candidates by type:');
     
     const selectedCandidates = candidates.filter(c => c.preSelected);
     const unselectedCandidates = candidates.filter(c => !c.preSelected);
     
     console.log(`📌 SELECTED (will be checked): ${selectedCandidates.length}`);
+    selectedCandidates.forEach(c => console.log(`   ✅ "${c.term}" (${c.type}) - ${c.description}`));
     
+    console.log(`📋 UNSELECTED (should be available as unchecked): ${unselectedCandidates.length}`);
     unselectedCandidates.forEach(c => console.log(`   ⚪ "${c.term}" (${c.type}) - ${c.description}`));
     
     if (unselectedCandidates.length === 0) {
       console.warn('⚠️ PROBLEM: No unselected candidates found - should have extended terms like japan, synthesizer, etc.');
     } else {
+      console.log(`✅ GOOD: Found ${unselectedCandidates.length} extended terms for user control`);
     }
     
     return {
@@ -534,6 +581,7 @@ export class SearchFilterManager {
         // Only include the MOST SIGNIFICANT model (not all of them)
         const primaryModel = watchModels[0]; // First detected is usually most prominent
         queryTerms.push(primaryModel);
+        console.log(`🎯 CONSERVATIVE: Including ONE primary model "${primaryModel}" for broad market coverage`);
       }
       
       // VERY SELECTIVE: Only include period if it's a DECADE (not specific years)
@@ -541,12 +589,15 @@ export class SearchFilterManager {
       const decadePeriod = periods.find(p => p.includes('-tal')); // Prefer "1970-tal" over "1970"
       if (decadePeriod) {
         queryTerms.push(decadePeriod);
+        console.log(`🎯 CONSERVATIVE: Including decade period "${decadePeriod}" for broad market coverage`);
       }
       
       // STOP HERE: Reference numbers, materials, specific years are NOT pre-selected
       // They remain available as refinement options
       
       const conservativeQuery = queryTerms.join(' ').trim();
+      console.log(`🎯 CONSERVATIVE ALGORITHM: "${conservativeQuery}" (3-4 core terms only)`);
+      console.log(`📋 Available for refinement: Reference numbers, materials, specific years, etc.`);
       return conservativeQuery;
     }
     
@@ -558,6 +609,7 @@ export class SearchFilterManager {
     const words = basicQuery.split(' ').filter(w => w.length > 2);
     const conservativeFreetext = words.slice(0, 4).join(' ');
     
+    console.log(`🎯 CONSERVATIVE FREETEXT: "${conservativeFreetext}" (limited to 4 words)`);
     return conservativeFreetext;
   }
   
@@ -631,6 +683,7 @@ export class SearchFilterManager {
               !cleaned.match(/^[A-Z]{1}$/) && // Not single letters
               !models.some(m => m.toLowerCase() === cleaned.toLowerCase())) {
             models.push(cleaned);
+            console.log(`🔍 MODEL DETECTED: "${cleaned}"`);
           }
         });
       }
@@ -643,6 +696,7 @@ export class SearchFilterManager {
         const modelName = quoted.replace(/"/g, '').trim();
         if (modelName.length > 2 && !models.some(m => m.toLowerCase() === modelName.toLowerCase())) {
           models.push(modelName);
+          console.log(`🔍 QUOTED MODEL DETECTED: "${modelName}"`);
         }
       });
     }
@@ -778,6 +832,7 @@ export class SearchFilterManager {
 
   // NEW: Setup interactive search filter functionality (Phase 2)
   setupSearchFilterInteractivity() {
+    console.log('🔧 Setting up interactive search filter functionality...');
     
     const updateBtn = document.getElementById('update-search-btn');
     const currentSearchDisplay = document.getElementById('current-search-display');
@@ -818,6 +873,7 @@ export class SearchFilterManager {
     
     // Add click handler to update button
     updateBtn.addEventListener('click', async () => {
+      console.log('🔄 User triggered search filter update...');
       
       const selectedTerms = [];
       candidateCheckboxes.forEach(checkbox => {
@@ -833,6 +889,7 @@ export class SearchFilterManager {
       
       // Build new search query
       const newQuery = selectedTerms.join(' ');
+      console.log('🔍 New user-selected search query:', newQuery);
       
       // Show loading state
       updateBtn.textContent = 'Söker...';
@@ -849,12 +906,14 @@ export class SearchFilterManager {
           return;
         }
         
+        console.log('🔧 CONSISTENCY FIX: Using SearchQueryManager SSoT for interactive filter');
         
         // Update SSoT with user selections
         this.searchQuerySSoT.updateUserSelections(selectedTerms);
         
         // Get the new query from SSoT (with core terms preserved)
         const newQueryFromSSoT = this.searchQuerySSoT.getCurrentQuery();
+        console.log('🎯 SSoT generated consistent query:', newQueryFromSSoT);
         
         // Build search context using SSoT
         const customSearchContext = this.searchQuerySSoT.buildSearchContext(
@@ -866,6 +925,7 @@ export class SearchFilterManager {
           'user_interactive' // analysisType
         );
         
+        console.log('🎯 SSoT search context for interactive filter:', customSearchContext);
         
         // Call API with custom search
         const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
@@ -882,6 +942,7 @@ export class SearchFilterManager {
         const valuationSuggestions = this.qualityAnalyzer.salesAnalysisManager.analyzeValuationSuggestions(filteredSalesData);
         this.dashboardManager.addMarketDataDashboard(filteredSalesData, valuationSuggestions);
         
+        console.log('✅ Search filter updated successfully');
         
       } catch (error) {
         console.error('❌ Failed to update search filter:', error);
@@ -894,10 +955,12 @@ export class SearchFilterManager {
       }
     });
     
+    console.log('✅ Interactive search filter setup complete!');
   }
 
   // NEW: Setup interactive header search filter functionality with auto-reload
   setupHeaderSearchFilterInteractivity() {
+    console.log("🔧 Setting up header search filter with auto-reload...");
     
     // Support both old and new modular system checkbox classes
     const candidateCheckboxes = [
@@ -911,10 +974,12 @@ export class SearchFilterManager {
       return;
     }
     
+    console.log(`✅ Found ${candidateCheckboxes.length} header checkboxes`);
     
     // Add change listeners to all checkboxes for auto-reload
     candidateCheckboxes.forEach((checkbox, index) => {
       checkbox.addEventListener("change", async (event) => {
+        console.log(`🔄 Checkbox ${index + 1} changed: ${checkbox.value} = ${checkbox.checked}`);
         
         // Slight delay to allow UI to update before reload
         setTimeout(async () => {
@@ -923,10 +988,12 @@ export class SearchFilterManager {
       });
     });
     
+    console.log("✅ Header search filter auto-reload functionality activated");
   }
 
   // Handle search filter changes with auto-reload
   async handleHeaderSearchFilterChange() {
+    console.log("🔄 Processing header search filter change...");
     
     // Support both old and new modular system checkbox classes
     const candidateCheckboxes = [
@@ -942,6 +1009,7 @@ export class SearchFilterManager {
       }
     });
     
+    console.log("👤 User selected terms from UI:", selectedTerms);
     
     if (selectedTerms.length === 0) {
       console.log("⚠️ No terms selected - keeping current search");
@@ -955,12 +1023,14 @@ export class SearchFilterManager {
         return;
       }
       
+      console.log("🔧 CONSISTENCY FIX: Using SearchQueryManager SSoT for header filter");
       
       // Update SSoT with user selections
       this.searchQuerySSoT.updateUserSelections(selectedTerms);
       
       // Get the new query from SSoT (with core terms preserved)
       const newQuery = this.searchQuerySSoT.getCurrentQuery();
+      console.log("🎯 SSoT generated consistent query:", newQuery);
       
       // Build search context using SSoT
       const customSearchContext = this.searchQuerySSoT.buildSearchContext(
@@ -972,8 +1042,12 @@ export class SearchFilterManager {
         'user_header_filter' // analysisType
       );
       
+      console.log("🎯 SSoT search context for header filter:", customSearchContext);
       
       // Show loading indicator on dashboard
+      console.log('🔄 SearchFilterManager: About to call showDashboardLoading');
+      console.log('🔧 SearchFilterManager: Dashboard manager exists?', !!this.dashboardManager);
+      console.log('🔧 SearchFilterManager: Dashboard manager type:', this.dashboardManager?.constructor?.name);
       
       if (this.dashboardManager && typeof this.dashboardManager.showDashboardLoading === 'function') {
         this.dashboardManager.showDashboardLoading();
@@ -989,6 +1063,7 @@ export class SearchFilterManager {
       filteredSalesData.searchedEntity = newQuery;
       filteredSalesData.searchContext = customSearchContext;
       
+      console.log("🔥 Header filter analysis complete with SSoT consistency");
       
       // Update dashboard with new data
       this.dashboardManager.addMarketDataDashboard(filteredSalesData);
@@ -996,6 +1071,7 @@ export class SearchFilterManager {
     } catch (error) {
       console.error("❌ Header search filter error:", error);
     } finally {
+      console.log('🔄 SearchFilterManager: About to call hideDashboardLoading');
       
       if (this.dashboardManager && typeof this.dashboardManager.hideDashboardLoading === 'function') {
         this.dashboardManager.hideDashboardLoading();
@@ -1007,6 +1083,7 @@ export class SearchFilterManager {
 
   // NEW: Synchronize pill checkbox states with current SSoT selection state
   synchronizePillsWithSSoT() {
+    console.log('🔄 Synchronizing pill checkboxes with SSoT selection state...');
     
     if (!this.searchQuerySSoT) {
       console.log('❌ SearchQuerySSoT not available for synchronization');
@@ -1017,6 +1094,8 @@ export class SearchFilterManager {
     const currentTerms = this.searchQuerySSoT.getCurrentTerms() || [];
     const availableTerms = this.searchQuerySSoT.getAvailableTerms() || [];
     
+    console.log('🎯 SSoT current terms:', currentTerms);
+    console.log('🎯 SSoT available terms:', availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
     
     // Find all pill checkboxes (both old and new modular system)
     const allCheckboxes = [
@@ -1027,6 +1106,7 @@ export class SearchFilterManager {
       ...document.querySelectorAll('.suggestion-checkbox')
     ];
     
+    console.log(`🔍 Found ${allCheckboxes.length} pill checkboxes to synchronize`);
     
     let syncCount = 0;
     let mismatchCount = 0;
@@ -1041,17 +1121,21 @@ export class SearchFilterManager {
       
       // Update checkbox if it doesn't match SSoT state
       if (checkboxCurrentState !== shouldBeSelected) {
+        console.log(`🔄 SYNC: "${checkboxValue}" ${checkboxCurrentState ? '✓' : '○'} → ${shouldBeSelected ? '✓' : '○'} (SSoT correction)`);
         checkbox.checked = shouldBeSelected;
         mismatchCount++;
       } else {
+        console.log(`✅ SYNC: "${checkboxValue}" ${checkboxCurrentState ? '✓' : '○'} (already correct)`);
       }
       
       syncCount++;
     });
     
+    console.log(`✅ Pill synchronization complete: ${syncCount} checkboxes processed, ${mismatchCount} corrections made`);
     
     // Trigger display update if there were changes
     if (mismatchCount > 0) {
+      console.log('🔄 Triggering UI updates after synchronization...');
       
       // Update current search display in filter sections
       const updateCurrentSearchDisplay = () => {

@@ -21,15 +21,18 @@ export class DashboardManagerV2 {
     this.dashboardCreated = false;
     this.currentTerms = [];
     
+    console.log('🎯 DashboardManagerV2: Clean, modular dashboard manager initialized');
   }
 
   // Set dependencies
   setApiManager(apiManager) {
     this.apiManager = apiManager;
+    console.log('✅ DashboardManagerV2: API Manager connected');
   }
 
   setQualityAnalyzer(qualityAnalyzer) {
     this.qualityAnalyzer = qualityAnalyzer;
+    console.log('✅ DashboardManagerV2: Quality Analyzer connected');
   }
 
   setSearchQuerySSoT(searchQuerySSoT) {
@@ -41,13 +44,17 @@ export class DashboardManagerV2 {
     }
     this.checkboxManager = new CheckboxManager(searchQuerySSoT);
     
+    console.log('✅ DashboardManagerV2: SearchQuerySSoT connected and CheckboxManager initialized');
   }
 
   // MAIN: Create dashboard with market data
   addMarketDataDashboard(salesData, analysisType = 'artist') {
+    console.log('🎯 DashboardManagerV2: Creating dashboard with modular approach');
+    console.log('📊 Sales data type:', analysisType);
     
     // Step 1: Process terms with conflict resolution
     const processedTerms = this.processTermsFromSalesData(salesData);
+    console.log(`🔧 Processed ${processedTerms.length} terms after conflict resolution`);
     
     // Step 2: Create dashboard structure
     this.createDashboardStructure(salesData, processedTerms);
@@ -55,10 +62,12 @@ export class DashboardManagerV2 {
     // Step 3: Setup interactions
     this.setupDashboardInteractions();
     
+    console.log('✅ DashboardManagerV2: Dashboard creation complete');
   }
 
   // Process terms from sales data with conflict resolution
   processTermsFromSalesData(salesData) {
+    console.log('🔧 Processing terms from sales data...');
     
     let terms = [];
     
@@ -66,6 +75,7 @@ export class DashboardManagerV2 {
     if (this.searchQuerySSoT) {
       const availableTerms = this.searchQuerySSoT.getAvailableTerms();
       if (availableTerms.length > 0) {
+        console.log('✅ Using terms from SearchQuerySSoT');
         terms = availableTerms;
       }
     }
@@ -92,6 +102,7 @@ export class DashboardManagerV2 {
     
     // CRITICAL: Apply conflict resolution
     const conflictResolved = this.termProcessor.resolveTermConflicts(terms);
+    console.log(`🎯 After conflict resolution: ${conflictResolved.length} terms (removed ${terms.length - conflictResolved.length} conflicts)`);
     
     // Store for later use
     this.currentTerms = conflictResolved;
@@ -107,6 +118,7 @@ export class DashboardManagerV2 {
     const existingDashboard = document.querySelector('.market-data-dashboard');
     if (existingDashboard) {
       existingDashboard.remove();
+      console.log('🗑️ Removed existing dashboard');
     }
     
     // Create new dashboard container
@@ -132,6 +144,7 @@ export class DashboardManagerV2 {
     const mainContainer = document.querySelector('.container');
     if (mainContainer) {
       mainContainer.parentNode.insertBefore(dashboard, mainContainer);
+      console.log('✅ Dashboard inserted into DOM');
     } else {
       document.body.appendChild(dashboard);
       console.log('⚠️ Dashboard appended to body (container not found)');
@@ -443,6 +456,7 @@ export class DashboardManagerV2 {
 
   // Setup dashboard interactions
   setupDashboardInteractions() {
+    console.log('🔗 Setting up dashboard interactions...');
     
     if (!this.checkboxManager) {
       console.log('⚠️ CheckboxManager not available - skipping interaction setup');
@@ -451,10 +465,12 @@ export class DashboardManagerV2 {
     
     // Attach checkbox listeners
     const attachedCount = this.checkboxManager.attachCheckboxListeners();
+    console.log(`✅ Attached ${attachedCount} checkbox listeners`);
     
     // Sync checkboxes with SSoT
     setTimeout(() => {
       const syncResult = this.checkboxManager.syncAllCheckboxesWithSSoT();
+      console.log(`🔄 Initial sync: ${syncResult.syncedCount} checkboxes synced`);
     }, 100);
     
     // Setup expand/collapse functionality
@@ -463,18 +479,22 @@ export class DashboardManagerV2 {
 
   // Setup expand/collapse functionality
   setupExpandCollapse() {
+    console.log('🎨 Setting up expand/collapse functionality...');
     
     const expandBtn = document.querySelector('.header-expand-btn');
     if (expandBtn) {
       expandBtn.addEventListener('click', () => {
+        console.log('🎯 Expand button clicked');
         this.expandHeaderPills();
       });
       
+      console.log('✅ Expand button listener attached');
     }
   }
 
   // Expand header pills to show all terms
   expandHeaderPills() {
+    console.log('🎨 Expanding header pills...');
     
     const container = document.querySelector('.header-pills-container');
     if (!container) {
@@ -501,6 +521,7 @@ export class DashboardManagerV2 {
       // Setup collapse button
       this.setupCollapseButton(container);
       
+      console.log('✅ Header pills expanded');
     }, 150);
   }
 
@@ -509,6 +530,7 @@ export class DashboardManagerV2 {
     const collapseBtn = container.querySelector('.header-collapse-btn');
     if (collapseBtn) {
       collapseBtn.addEventListener('click', () => {
+        console.log('🔄 Collapse button clicked');
         this.collapseHeaderPills(container);
       });
     }
@@ -516,6 +538,7 @@ export class DashboardManagerV2 {
 
   // Collapse header pills back to compact view
   collapseHeaderPills(container) {
+    console.log('🎨 Collapsing header pills...');
     
     // Generate compact pills
     const compactHTML = this.pillGenerator.generateHeaderPills(this.currentTerms, { maxUnselected: 4 });
@@ -536,6 +559,7 @@ export class DashboardManagerV2 {
       // Re-setup expand functionality
       this.setupExpandCollapse();
       
+      console.log('✅ Header pills collapsed');
     }, 150);
   }
 
@@ -1020,10 +1044,12 @@ export class DashboardManagerV2 {
     `;
     document.head.appendChild(style);
     
+    console.log('✅ Complete dashboard styles added');
   }
 
   // Debug information
   debug() {
+    console.log('🔍 DashboardManagerV2 Debug Information:');
     console.log('  Dashboard created:', this.dashboardCreated);
     console.log('  Current terms:', this.currentTerms.length);
     console.log('  API Manager:', !!this.apiManager);
@@ -1069,17 +1095,21 @@ export class DashboardManagerV2 {
     this.checkboxManager = null;
     this.currentTerms = [];
     
+    console.log('✅ DashboardManagerV2: Cleanup complete');
   }
 
   // Show loading state with spinner overlay
   showDashboardLoading(message = 'Uppdaterar analys...') {
+    console.log('🔄 DashboardV2: showDashboardLoading called with message:', message);
     
     const dashboard = document.querySelector('.market-data-dashboard');
     if (!dashboard) {
       console.error('❌ DashboardV2: No .market-data-dashboard element found for spinner!');
+      console.log('🔍 Available elements:', document.querySelectorAll('[class*="dashboard"]'));
       return;
     }
     
+    console.log('✅ DashboardV2: Found dashboard element, applying loading state');
     
     // Add blur class to dashboard
     dashboard.classList.add('dashboard-loading');
@@ -1097,10 +1127,12 @@ export class DashboardManagerV2 {
     `;
     
     dashboard.appendChild(overlay);
+    console.log('🔄 DashboardV2: Loading state enabled successfully -', message);
   }
 
   // Hide loading state with smooth transition
   hideDashboardLoading() {
+    console.log('🔄 DashboardV2: hideDashboardLoading called');
     
     const dashboard = document.querySelector('.market-data-dashboard');
     if (!dashboard) {
@@ -1108,9 +1140,11 @@ export class DashboardManagerV2 {
       return;
     }
     
+    console.log('✅ DashboardV2: Found dashboard element, removing loading state');
     
     const overlay = dashboard.querySelector('.loading-overlay');
     if (overlay) {
+      console.log('🔄 DashboardV2: Found overlay, starting fade-out animation');
       // Fade out overlay first
       overlay.classList.add('fade-out');
       
@@ -1131,5 +1165,6 @@ export class DashboardManagerV2 {
       dashboard.classList.remove('dashboard-loading');
     }
     
+    console.log('✅ DashboardV2: Loading state disabled successfully');
   }
 } 

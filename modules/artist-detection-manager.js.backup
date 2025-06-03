@@ -4,21 +4,26 @@
 export class ArtistDetectionManager {
   constructor(apiManager = null) {
     this.apiManager = apiManager;
+    console.log('🎯 ArtistDetectionManager initialized');
   }
 
   // Set API manager for AI-powered detection
   setApiManager(apiManager) {
     this.apiManager = apiManager;
+    console.log('🤖 ArtistDetectionManager: API manager set for AI detection');
   }
 
   // Main artist detection method - exactly from edit page quality-analyzer.js
   async detectMisplacedArtist(title, artistField, forceReDetection = false) {
     // Only suggest if artist field is empty or very short, OR if force re-detection is enabled
     if (!forceReDetection && artistField && artistField.trim().length > 2) {
+      console.log('🚫 Artist detection skipped - artist field already has content:', artistField);
+      console.log('📝 Artist field will be used directly for search query generation (no detection needed)');
       return null; // Artist field already has content - will be picked up by search query generation
     }
 
     if (!title || title.length < 10) {
+      console.log('🚫 Artist detection skipped - title too short:', title);
       return null; // Title too short to contain artist
     }
 
@@ -38,18 +43,21 @@ export class ArtistDetectionManager {
         potentialArtistFromPattern = match[1].split(' ').map(word => 
           word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
         ).join(' ');
+        console.log('🎯 Detected informal pattern with potential artist:', potentialArtistFromPattern);
         break;
       }
     }
 
     // Try AI-powered detection first (if API key available)
     if (this.apiManager && this.apiManager.apiKey) {
+      console.log('🤖 Attempting AI artist detection for title:', title);
       
       let aiResult = null;
       let aiError = false;
       
       try {
         const objectType = this.extractObjectType(title);
+        console.log('📝 Extracted object type:', objectType);
         
         // Get description from current form data for AI analysis
         const descriptionField = document.querySelector('#item_description_sv');
@@ -60,6 +68,7 @@ export class ArtistDetectionManager {
         // UPDATED: Use the new AI Analysis Engine which doesn't skip prefilled artists by default
         const options = forceReDetection ? {} : {}; // No skipIfArtistExists for normal flow
         aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistForAnalysis, description, options);
+        console.log('🤖 AI artist analysis raw result:', aiResult);
         
       } catch (error) {
         console.error('AI artist detection failed, will try rule-based fallback:', error);
@@ -71,9 +80,11 @@ export class ArtistDetectionManager {
         // ENHANCED: Let AI handle misspelling detection and correction
         // Remove our strict validation - trust AI to detect and correct misspellings
         if (aiResult.hasArtist && aiResult.artistName) {
+          console.log('🔍 AI detected artist name:', aiResult.artistName);
           
           // Basic validation that it looks like a person name
           if (!this.looksLikePersonName(aiResult.artistName)) {
+            console.log('🚫 AI detected name failed basic person name validation, rejecting:', aiResult.artistName);
             aiResult = { hasArtist: false };
           }
         }
@@ -82,13 +93,16 @@ export class ArtistDetectionManager {
         const requiredConfidence = isInformalPattern ? 0.5 : 0.6; // Lower thresholds to allow corrections
         
         if (aiResult && aiResult.hasArtist && aiResult.confidence > requiredConfidence) {
+          console.log('✅ AI detected artist with sufficient confidence:', aiResult);
           
           // Optionally verify the artist if artist info is enabled
           let verification = null;
           if (this.apiManager.enableArtistInfo && aiResult.artistName) {
+            console.log('🔍 Verifying artist:', aiResult.artistName);
             const period = this.extractPeriod(title);
             const objectType = this.extractObjectType(title);
             verification = await this.apiManager.verifyArtist(aiResult.artistName, objectType, period);
+            console.log('🔍 Artist verification result:', verification);
           }
           
           return {
@@ -106,6 +120,7 @@ export class ArtistDetectionManager {
           // ENHANCED: If we have informal pattern match AND AI detects same artist, accept it even with lower confidence
           if (isInformalPattern && potentialArtistFromPattern && 
               aiResult.artistName && aiResult.artistName.toLowerCase().includes(potentialArtistFromPattern.toLowerCase())) {
+            console.log('🎯 AI + Pattern match boost - accepting lower confidence for informal entry');
             return {
               detectedArtist: aiResult.artistName,
               suggestedTitle: aiResult.suggestedTitle || this.generateSuggestedTitle(title, aiResult.artistName),
@@ -118,6 +133,7 @@ export class ArtistDetectionManager {
           
           // IMPORTANT: Do NOT fall back to rules here - AI successfully responded, just with low confidence
           // We should respect the AI's decision and not override it with rule-based detection
+          console.log('🚫 AI response had low confidence, not falling back to rules (AI completed successfully)');
           return null;
         } else {
           console.log('❌ AI artist analysis returned no artist detected');
@@ -128,7 +144,9 @@ export class ArtistDetectionManager {
       
       // ONLY fall back to rules if there was an actual API error
       if (aiError) {
+        console.log('🔧 AI failed with error, falling back to rule-based detection');
       } else {
+        console.log('🚫 AI completed successfully but found no artist, not using rule-based fallback');
         return null;
       }
     } else {
@@ -137,6 +155,7 @@ export class ArtistDetectionManager {
 
     // ENHANCED: If we detected informal pattern but AI failed with error, use rule-based as backup
     if (isInformalPattern && potentialArtistFromPattern) {
+      console.log('🔧 Using rule-based detection for confirmed informal pattern (after AI error)');
       return {
         detectedArtist: potentialArtistFromPattern,
         suggestedTitle: title.replace(new RegExp(`^${potentialArtistFromPattern.replace(/\s+/g, '\\s+')}\\s+`, 'i'), '').trim(),
@@ -147,6 +166,7 @@ export class ArtistDetectionManager {
     }
 
     // Fallback to full rule-based detection ONLY if AI had an error
+    console.log('🔧 Using rule-based artist detection as fallback');
     const ruleResult = this.detectMisplacedArtistRuleBased(title, artistField);
     
     if (ruleResult && forceReDetection) {
@@ -162,12 +182,14 @@ export class ArtistDetectionManager {
     // First try to match all caps object type (traditional format)
     let match = title.match(/^([A-ZÅÄÖÜ]+)/);
     if (match && match[1].length > 1) {
+      console.log(`🔍 Found all-caps object type: "${match[1]}"`);
       return match[1];
     }
     
     // If no all-caps match, try to match capitalized word at start (like "Figurin")
     match = title.match(/^([A-ZÅÄÖÜ][a-zåäöü]+)/);
     if (match && match[1].length > 1) {
+      console.log(`🔍 Found capitalized object type: "${match[1]}" -> converting to: "${match[1].toUpperCase()}"`);
       return match[1].toUpperCase(); // Convert to uppercase for consistency
     }
     
