@@ -402,7 +402,7 @@ export class QualityAnalyzer {
           const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
             data.title,
             data.description,
-            { artist: aiArtistForMarketAnalysis.detectedArtist }, // Pass AI artist for integration
+            { artist: formattedAIArtist }, // FIX: Pass FORMATTED AI artist for integration  
             formattedAIArtist // Pass formatted artist as context
           );
           
