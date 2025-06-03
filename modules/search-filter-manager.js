@@ -58,6 +58,8 @@ export class SearchFilterManager {
 
   // NEW: Extract candidate search terms for interactive user selection
   extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null) {
+    console.log('🔍 Extracting ALL candidate search terms for:', title);
+    console.log('📋 Input parameters:', {
       hasArtistInfo: !!artistInfo, 
       artistInfoContent: artistInfo?.artist || 'none',
       hasActualSearchQuery: !!actualSearchQuery 
