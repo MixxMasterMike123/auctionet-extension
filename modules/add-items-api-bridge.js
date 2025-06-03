@@ -3,7 +3,7 @@
 
 import { APIManager } from './api-manager.js';
 import { AIEnhancementEngine } from './core/ai-enhancement-engine.js';
-import { AIEnhancementUI } from './ui/ai-enhancement-ui.js';
+// Removed AIEnhancementUI import - Integration Manager handles all UI now
 
 export class AddItemsAPIBridge {
   constructor() {
@@ -13,27 +13,20 @@ export class AddItemsAPIBridge {
     // 🚀 NEW: AI Enhancement Engine using the proven API manager
     this.aiEnhancementEngine = new AIEnhancementEngine(this.apiManager);
     
-    // 🎨 NEW: Modern UI for add page
-    this.aiEnhancementUI = new AIEnhancementUI(this.aiEnhancementEngine, {
-      pageType: 'add',
-      buttonStyle: 'modern',
-      showQualityIndicator: true,
-      placement: 'inline'
-    });
+    // UI is now handled by AddItemsIntegrationManager - no duplicate UI!
     
     console.log('✅ AddItemsAPIBridge: Initialized with edit page API manager');
   }
 
   /**
-   * Initialize the bridge - loads settings and sets up UI
+   * Initialize the bridge - loads settings only (UI handled by Integration Manager)
    */
   async init() {
     try {
       // Load API manager settings (API key, model, etc.)
       await this.apiManager.loadSettings();
       
-      // Initialize AI Enhancement UI
-      await this.aiEnhancementUI.init();
+      // UI initialization is now handled by AddItemsIntegrationManager
       
       console.log('✅ AddItemsAPIBridge: Initialization complete');
       return true;
@@ -59,13 +52,7 @@ export class AddItemsAPIBridge {
     return this.aiEnhancementEngine;
   }
 
-  /**
-   * Get the AI Enhancement UI
-   * @returns {AIEnhancementUI} The AI enhancement UI
-   */
-  getAIEnhancementUI() {
-    return this.aiEnhancementUI;
-  }
+  // getAIEnhancementUI removed - UI is now handled by AddItemsIntegrationManager
 
   /**
    * Extract form data in the format expected by the edit page API
@@ -85,7 +72,7 @@ export class AddItemsAPIBridge {
   }
 
   /**
-   * Improve a single field using AI (wrapper for existing functionality)
+   * Improve a single field using AI and apply the result
    * @param {string} fieldType - Field to improve
    * @param {Object} options - Additional options
    * @returns {Promise<Object>} Enhancement result
@@ -100,11 +87,19 @@ export class AddItemsAPIBridge {
       throw new Error(`More information needed for ${fieldType}. Missing: ${assessment.missingInfo.join(', ')}`);
     }
     
-    return await this.aiEnhancementEngine.improveField(formData, fieldType, options);
+    // Get the improvement from AI Enhancement Engine
+    const result = await this.aiEnhancementEngine.improveField(formData, fieldType, options);
+    
+    // Apply the improvement to the field
+    if (result && result[fieldType]) {
+      this.applyImprovement(fieldType, result[fieldType]);
+    }
+    
+    return result;
   }
 
   /**
-   * Improve all fields using AI (wrapper for existing functionality)
+   * Improve all fields using AI and apply the results
    * @param {Object} options - Additional options
    * @returns {Promise<Object>} Enhancement result for all fields
    */
@@ -118,7 +113,18 @@ export class AddItemsAPIBridge {
       throw new Error(`More information needed for comprehensive enhancement. Missing: ${assessment.missingInfo.join(', ')}`);
     }
     
-    return await this.aiEnhancementEngine.improveAllFields(formData, options);
+    // Get improvements from AI Enhancement Engine
+    const result = await this.aiEnhancementEngine.improveAllFields(formData, options);
+    
+    // Apply improvements to all fields
+    if (result) {
+      if (result.title) this.applyImprovement('title', result.title);
+      if (result.description) this.applyImprovement('description', result.description);
+      if (result.condition) this.applyImprovement('condition', result.condition);
+      if (result.keywords) this.applyImprovement('keywords', result.keywords);
+    }
+    
+    return result;
   }
 
   /**

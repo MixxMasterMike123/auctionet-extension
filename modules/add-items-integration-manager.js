@@ -98,6 +98,9 @@ export class AddItemsIntegrationManager {
    * Add quality indicator with master button
    */
   addQualityIndicator() {
+    // First inject the CSS styles that were previously provided by AI Enhancement UI
+    this.injectStyles();
+    
     const indicator = document.createElement('div');
     indicator.className = 'quality-indicator';
     indicator.innerHTML = `
@@ -428,6 +431,164 @@ export class AddItemsIntegrationManager {
   }
 
   /**
+   * Inject necessary CSS styles (previously provided by AI Enhancement UI)
+   */
+  injectStyles() {
+    if (document.getElementById('ai-enhancement-integration-styles')) {
+      return; // Already injected
+    }
+
+    const style = document.createElement('style');
+    style.id = 'ai-enhancement-integration-styles';
+    style.textContent = `
+      /* AI Enhancement Integration Styles */
+      .quality-indicator {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 1px solid #dee2e6;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      
+      .quality-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+      }
+      
+      .quality-title {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        text-align: center;
+        width: 100%;
+      }
+      
+      .quality-score-container {
+        margin-bottom: 12px;
+        width: 100%;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      
+      .quality-score {
+        display: inline-block;
+        font-weight: bold;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        min-width: 80px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+      }
+      
+      .refresh-quality-btn {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .refresh-quality-btn:hover {
+        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+        transform: rotate(180deg) scale(1.1);
+      }
+      
+      .ai-assist-button {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+      }
+      
+      .ai-assist-button:hover {
+        background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(0, 123, 255, 0.4);
+      }
+      
+      .ai-master-button {
+        width: 100%;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+      }
+      
+      .ai-master-button:hover {
+        background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+      }
+      
+      .ai-button-wrapper {
+        margin-top: 12px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      
+      .ai-updated {
+        background-color: #d4edda !important;
+        border: 2px solid #28a745 !important;
+        transition: all 0.3s ease;
+      }
+      
+      /* Button states */
+      .ai-assist-button.loading {
+        opacity: 0.7;
+        cursor: not-allowed;
+        animation: pulse 1.5s infinite;
+      }
+      
+      .ai-assist-button.success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      }
+      
+      .ai-assist-button.error {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
+      }
+    `;
+    
+    document.head.appendChild(style);
+    console.log('✅ AI Enhancement Integration styles injected');
+  }
+
+  /**
    * Destroy and cleanup
    */
   destroy() {
@@ -439,6 +600,12 @@ export class AddItemsIntegrationManager {
     
     const aiButtons = document.querySelectorAll('.ai-button-wrapper');
     aiButtons.forEach(wrapper => wrapper.remove());
+    
+    // Remove injected styles
+    const styles = document.getElementById('ai-enhancement-integration-styles');
+    if (styles) {
+      styles.remove();
+    }
     
     console.log('🧹 AddItemsIntegrationManager: Cleaned up');
   }
