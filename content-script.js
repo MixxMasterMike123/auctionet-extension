@@ -1288,45 +1288,18 @@
 
       // Field-specific loading indicator methods - delegate to main content.js implementation
       showFieldLoadingIndicator(fieldType) {
-        console.log(`🔄 Attempting to show field loading indicator for: ${fieldType}`);
-        console.log('🔍 Checking window.auctionetAssistant:', !!window.auctionetAssistant);
-        
-        // Check if the main assistant is available
-        if (window.auctionetAssistant && window.auctionetAssistant.showFieldLoadingIndicator) {
-          console.log('✅ Delegating to main assistant field loading indicator');
-          window.auctionetAssistant.showFieldLoadingIndicator(fieldType);
-        } else {
-          console.warn('Main assistant not available for field loading indicator, using fallback');
-          this.fallbackShowFieldLoadingIndicator(fieldType);
-        }
+        console.log(`🔄 Showing field loading indicator for: ${fieldType}`);
+        this.fallbackShowFieldLoadingIndicator(fieldType);
       }
 
       showFieldSuccessIndicator(fieldType) {
-        console.log(`✅ Attempting to show field success indicator for: ${fieldType}`);
-        console.log('🔍 Checking window.auctionetAssistant:', !!window.auctionetAssistant);
-        
-        // Check if the main assistant is available
-        if (window.auctionetAssistant && window.auctionetAssistant.showFieldSuccessIndicator) {
-          console.log('✅ Delegating to main assistant field success indicator');
-          window.auctionetAssistant.showFieldSuccessIndicator(fieldType);
-        } else {
-          console.warn('Main assistant not available for field success indicator, using fallback');
-          this.fallbackShowFieldSuccessIndicator(fieldType);
-        }
+        console.log(`✅ Showing field success indicator for: ${fieldType}`);
+        this.fallbackShowFieldSuccessIndicator(fieldType);
       }
 
       showFieldErrorIndicator(fieldType, message) {
-        console.log(`❌ Attempting to show field error indicator for: ${fieldType}`, message);
-        console.log('🔍 Checking window.auctionetAssistant:', !!window.auctionetAssistant);
-        
-        // Check if the main assistant is available
-        if (window.auctionetAssistant && window.auctionetAssistant.showFieldErrorIndicator) {
-          console.log('✅ Delegating to main assistant field error indicator');
-          window.auctionetAssistant.showFieldErrorIndicator(fieldType, message);
-        } else {
-          console.warn('Main assistant not available for field error indicator, using fallback');
-          this.fallbackShowFieldErrorIndicator(fieldType, message);
-        }
+        console.log(`❌ Showing field error indicator for: ${fieldType}`, message);
+        this.fallbackShowFieldErrorIndicator(fieldType, message);
       }
 
       // Fallback implementations with actual animations - EXACT copy from Add Items page

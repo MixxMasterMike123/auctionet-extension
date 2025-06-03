@@ -1,6 +1,7 @@
 // modules/api-manager.js - API Management Module
 import { CONFIG } from './config.js';
 import { AuctionetAPI } from './auctionet-api.js';
+import { AIAnalysisEngine } from './core/ai-analysis-engine.js';
 
 export class APIManager {
   constructor() {
@@ -10,6 +11,10 @@ export class APIManager {
     this.currentModel = 'claude-3-5-sonnet'; // Set default model instead of null
     this.auctionetAPI = new AuctionetAPI();
     this.searchQuerySSoT = null; // NEW: AI-only SearchQuerySSoT support
+    
+    // Initialize AI Analysis Engine
+    this.aiAnalysisEngine = new AIAnalysisEngine(this);
+    
     this.loadSettings();
   }
 
@@ -38,6 +43,11 @@ export class APIManager {
       
       console.log('Artist info setting loaded:', this.enableArtistInfo);
       console.log('Show dashboard setting loaded:', this.showDashboard);
+      
+      // Sync settings with AI Analysis Engine
+      if (this.aiAnalysisEngine) {
+        this.aiAnalysisEngine.updateSettings({ enableArtistInfo: this.enableArtistInfo });
+      }
       
       if (this.apiKey) {
         console.log('API key loaded from storage: Found');
@@ -1021,16 +1031,22 @@ Return JSON only:
     };
   }
 
-  // AI-powered artist detection methods
-  async analyzeForArtist(title, objectType, artistField, description = '') {
-    console.log('🎯 analyzeForArtist called with:', { title, objectType, artistField, description: description?.substring(0, 100) + '...' });
+  // AI-powered artist detection methods - UPDATED to use AI Analysis Engine
+  async analyzeForArtist(title, objectType, artistField, description = '', options = {}) {
+    console.log('🎯 APIManager: Delegating to AI Analysis Engine');
+    return await this.aiAnalysisEngine.analyzeForArtist(title, objectType, artistField, description, options);
+  }
+
+  // LEGACY METHOD - kept for backward compatibility but delegates to engine
+  async analyzeForArtist_LEGACY(title, objectType, artistField, description = '') {
+    console.log('🎯 analyzeForArtist_LEGACY called with:', { title, objectType, artistField, description: description?.substring(0, 100) + '...' });
     
     if (!this.apiKey) {
       console.log('❌ No API key available, skipping AI artist analysis');
       return null;
     }
 
-    // Only analyze if artist field is empty or very short
+    // ORIGINAL BUG: Only analyze if artist field is empty or very short
     if (artistField && artistField.trim().length > 2) {
       console.log('🚫 Artist field not empty, skipping AI analysis:', artistField);
       return null;
@@ -1041,81 +1057,18 @@ Return JSON only:
       return null;
     }
 
-    console.log('🚀 Starting AI artist analysis...');
-    
-    try {
-      const prompt = `Analysera denna svenska auktionspost för konstnärsnamn:
-
-TITEL: "${title}"
-OBJEKTTYP: ${objectType || 'Okänd'}
-
-UPPGIFT: Hitta konstnärs-/designernamn som borde vara i konstnärsfält.
-
-REGLER:
-- INFORMAL INMATNING: "rolf lidberg pappaer litografi" → "Rolf Lidberg"
-- Konstnärsnamn ofta först i titel
-- Ignorera kapitalisering
-- "Signerad [Namn]" = konstnärsnamn
-- INTE konstnärsnamn: företag, orter, skolor
-
-EXEMPEL:
-- "carl malmsten stol ek" → "Carl Malmsten"
-- "lisa larson figurin" → "Lisa Larson"
-- "IKEA lampa" → INGET (företag)
-
-JSON:
-{
-  "hasArtist": boolean,
-  "artistName": "namn eller null",
-  "suggestedTitle": "titel utan konstnär eller null",
-  "confidence": 0.0-1.0,
-  "reasoning": "kort förklaring"
-}`;
-
-      console.log('📤 Sending AI request with prompt length:', prompt.length);
-
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          type: 'anthropic-fetch',
-          apiKey: this.apiKey,
-          body: {
-            model: 'claude-3-haiku-20240307', // Use fast Haiku model for artist detection
-            max_tokens: 300,
-            temperature: 0.1, // Low temperature for consistent analysis
-            messages: [{
-              role: 'user',
-              content: prompt
-            }]
-          }
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else if (response.success) {
-            resolve(response);
-          } else {
-            reject(new Error(response.error || 'API request failed'));
-          }
-        });
-      });
-
-      console.log('📥 AI response received:', response);
-
-      if (response.success && response.data?.content?.[0]?.text) {
-        console.log('📝 AI response text:', response.data.content[0].text);
-        const result = this.parseArtistAnalysisResponse(response.data.content[0].text);
-        console.log('🎯 Parsed AI artist analysis result:', result);
-        return result;
-      }
-
-      console.log('❌ Invalid AI response structure');
-      return null;
-    } catch (error) {
-      console.error('💥 Error in AI artist analysis:', error);
-      return null; // Graceful fallback to rule-based system
-    }
+    // This was the legacy implementation with the bug - now delegates to AI Analysis Engine
+    console.log('🚀 LEGACY: Delegating to AI Analysis Engine with skipIfArtistExists=true');
+    return await this.aiAnalysisEngine.analyzeForArtist(title, objectType, artistField, description, { skipIfArtistExists: true });
   }
 
   async verifyArtist(artistName, objectType, period) {
+    console.log('🎯 APIManager: Delegating artist verification to AI Analysis Engine');
+    return await this.aiAnalysisEngine.verifyArtist(artistName, objectType, period);
+  }
+
+  // LEGACY method for artist verification
+  async verifyArtist_LEGACY(artistName, objectType, period) {
     if (!this.apiKey || !this.enableArtistInfo) {
       return null;
     }

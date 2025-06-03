@@ -65,7 +65,9 @@ export class ArtistDetectionManager {
         
         // For re-detection, use empty artist field to force AI analysis
         const artistForAnalysis = forceReDetection ? '' : artistField;
-        aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistForAnalysis, description);
+        // UPDATED: Use the new AI Analysis Engine which doesn't skip prefilled artists by default
+        const options = forceReDetection ? {} : {}; // No skipIfArtistExists for normal flow
+        aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistForAnalysis, description, options);
         console.log('🤖 AI artist analysis raw result:', aiResult);
         
       } catch (error) {

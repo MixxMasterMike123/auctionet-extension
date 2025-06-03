@@ -378,60 +378,79 @@ export class QualityAnalyzer {
         new Promise(resolve => setTimeout(() => resolve(null), 8000)) // 8s timeout
       ]);
       
-      // IMMEDIATE SSoT INTEGRATION: If AI detected an artist, feed it to SSoT immediately
+      // CRITICAL FIX: Always do FULL analysis regardless of artist detection
+      console.log('🚀 FIXED: Running full AI analysis with artist integration (not artist-only)');
+      
       if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist) {
-        console.log('🤖 AI detected artist for immediate market analysis:', aiArtistForMarketAnalysis.detectedArtist);
+        console.log('🤖 AI detected artist - will integrate into FULL analysis:', aiArtistForMarketAnalysis.detectedArtist);
         
-        // FORMAT AI-detected artist with quotes for maximum precision
+        // FORMAT AI-detected artist for integration
         const formattedAIArtist = this.formatAIDetectedArtistForSSoT(aiArtistForMarketAnalysis.detectedArtist);
-        console.log('🎯 Formatted AI artist for SSoT:', formattedAIArtist);
+        console.log('🎯 Formatted AI artist for integration:', formattedAIArtist);
         
-        // IMMEDIATELY update SSoT with the AI-detected artist for market analysis
-        if (this.searchQuerySSoT) {
-          const enhancedQuery = formattedAIArtist;
-          console.log('🚀 Immediately feeding AI artist to SSoT for market analysis:', enhancedQuery);
+        // FIXED: Do FULL candidate extraction WITH artist integration
+        if (this.searchQuerySSoT && this.searchFilterManager) {
+          console.log('🔍 FIXED: Generating FULL candidate terms WITH AI artist integration...');
           
-          // Create AI-enhanced candidate terms for SSoT
-          const aiEnhancedCandidates = {
-            candidates: [{
-              term: formattedAIArtist,
-              type: 'artist',
-              priority: 95,
-              source: 'ai_detected',
-              description: 'AI-detected artist (quoted for precision)',
-              preSelected: true,
-              isPrecisionQuoted: true,
-              confidence: aiArtistForMarketAnalysis.confidence || 0.8
-            }],
-            currentQuery: enhancedQuery,
-            reasoning: `AI detected artist "${aiArtistForMarketAnalysis.detectedArtist}" - formatted for maximum precision`,
-            analysisType: 'ai_immediate'
+          // Create enhanced data with AI-detected artist for full analysis
+          const enhancedData = {
+            ...data,
+            aiDetectedArtist: aiArtistForMarketAnalysis.detectedArtist
           };
           
-          // Initialize SSoT with AI-enhanced data
-          this.searchQuerySSoT.initialize(enhancedQuery, aiEnhancedCandidates, 'ai_immediate');
-          console.log('✅ SSoT updated with AI-detected artist for immediate market analysis');
+          // Extract FULL candidate terms WITH artist integration  
+          const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
+            data.title,
+            data.description,
+            { artist: aiArtistForMarketAnalysis.detectedArtist }, // Pass AI artist for integration
+            formattedAIArtist // Pass formatted artist as context
+          );
           
-          // IMMEDIATE MARKET ANALYSIS: Trigger sales analysis with AI artist
-          if (this.apiManager) {
-            console.log('🚀 Triggering immediate market analysis with AI-detected artist...');
-            const searchContext = this.searchQuerySSoT.buildSearchContext();
+          if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
+            console.log('✅ FIXED: Full candidate terms WITH artist generated:', candidateSearchTerms.candidates.length);
+            console.log('📋 FIXED: Full terms:', candidateSearchTerms.candidates.map(c => `${c.term} (${c.type})`));
             
-            // Start market analysis in background (non-blocking)
-            this.apiManager.analyzeSales(searchContext).then(salesData => {
-              if (salesData && salesData.hasComparableData) {
-                console.log('✅ AI-enhanced market analysis completed:', salesData);
-                
-                // Update dashboard with AI-enhanced results
-                if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
-                  this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'ai_enhanced');
+            // Initialize SSoT with FULL candidate terms (not just artist)
+            this.searchQuerySSoT.initialize(
+              candidateSearchTerms.currentQuery, 
+              candidateSearchTerms, 
+              'ai_enhanced_full_analysis'
+            );
+            
+            console.log('🚀 FIXED: SSoT initialized with FULL analysis including AI artist');
+            
+            // Trigger market analysis with FULL search context
+            if (this.apiManager) {
+              console.log('🎯 FIXED: Triggering market analysis with FULL terms...');
+              const searchContext = this.searchQuerySSoT.buildSearchContext();
+              
+              // Start market analysis in background (non-blocking)
+              this.apiManager.analyzeSales(searchContext).then(salesData => {
+                if (salesData && salesData.hasComparableData) {
+                  console.log('✅ FIXED: Full market analysis completed:', salesData);
+                  
+                  // Update dashboard with full results
+                  if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
+                    this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'ai_enhanced_full');
+                  }
                 }
-              }
-            }).catch(error => {
-              console.error('❌ AI-enhanced market analysis failed:', error);
-            });
+              }).catch(error => {
+                console.error('❌ Full market analysis failed:', error);
+              });
+            }
+          } else {
+            console.log('⚠️ FIXED: Failed to generate full candidate terms, using fallback');
+            // Fallback to the minimal artist-only approach if full extraction fails
+            await this.triggerDashboardForNonArtItems(data);
           }
+        } else {
+          console.log('⚠️ FIXED: Missing components, using fallback dashboard');
+          await this.triggerDashboardForNonArtItems(data);
         }
+      } else {
+        console.log('🎯 FIXED: No artist detected - using standard full analysis');
+        // Standard flow for non-artist items
+        await this.triggerDashboardForNonArtItems(data);
       }
       
       // Continue with original artist detection flow for quality warnings
@@ -549,99 +568,8 @@ export class QualityAnalyzer {
     this.updateQualityIndicator(currentScore, currentWarnings);
     console.log('✅ Artist detection results displayed');
     
-    // CRITICAL FIX: Initialize SearchQuerySSoT with AI-detected artist for immediate dashboard
-    if (aiArtist.detectedArtist && this.searchQuerySSoT) {
-      console.log('🎯 AI detected artist - initializing SearchQuerySSoT for immediate dashboard');
-      
-      try {
-        // Create enhanced data object that includes the AI-detected artist
-        const enhancedData = {
-          ...data,
-          aiDetectedArtist: aiArtist.detectedArtist // Add AI-detected artist for AI Rules processing
-        };
-        
-        // ENHANCED INTEGRATION: Format AI artist with quotes for maximum precision
-        const formattedAIArtist = this.formatAIDetectedArtistForSSoT(aiArtist.detectedArtist);
-        console.log('🎯 Formatted AI artist for immediate integration:', formattedAIArtist);
-        
-        // Generate candidate search terms with AI-detected artist included
-        if (this.searchFilterManager) {
-          console.log('🔍 Generating candidate terms with AI-detected artist integration...');
-          
-          const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
-          enhancedData.title,
-          enhancedData.description,
-            { artist: aiArtist.detectedArtist }, // CRITICAL FIX: Pass AI artist as object with artist property
-            formattedAIArtist // Pass formatted artist as actualSearchQuery for AI Rules
-          );
-          
-          if (candidateSearchTerms && candidateSearchTerms.candidates) {
-            console.log('✅ AI-enhanced candidate terms generated:', candidateSearchTerms.candidates.length);
-            
-            // Initialize SSoT with AI-enhanced candidate terms
-            this.searchQuerySSoT.initialize(
-              candidateSearchTerms.currentQuery, 
-              candidateSearchTerms, 
-              'ai_enhanced_immediate'
-            );
-            
-            console.log('🚀 SSoT initialized with AI-enhanced candidate terms for immediate market analysis');
-            
-            // IMMEDIATE MARKET ANALYSIS: Trigger with AI-enhanced terms
-            if (this.apiManager && this.salesAnalysisManager) {
-              console.log('🎯 Triggering immediate AI-enhanced market analysis...');
-              
-              const searchContext = this.searchQuerySSoT.buildSearchContext();
-              
-              // Trigger market analysis with AI-enhanced context
-              this.apiManager.analyzeSales(searchContext).then(salesData => {
-                if (salesData && salesData.hasComparableData) {
-                  console.log('✅ AI-enhanced immediate market analysis completed');
-                  
-                  // Add AI-enhanced candidate terms to sales data for dashboard
-                  salesData.candidateSearchTerms = candidateSearchTerms;
-                  
-                  // Update dashboard with complete AI-enhanced results
-                  if (this.salesAnalysisManager.dashboardManager) {
-                    this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'ai_enhanced_complete');
-          }
-        } else {
-                  console.log('⚠️ AI-enhanced market analysis found no comparable data');
-                }
-              }).catch(error => {
-                console.error('❌ AI-enhanced immediate market analysis failed:', error);
-              });
-            }
-          } else {
-            console.log('⚠️ Failed to generate AI-enhanced candidate terms, using basic integration');
-            
-            // Fallback: Basic SSoT integration
-            const basicCandidates = {
-              candidates: [{
-                term: formattedAIArtist,
-                type: 'artist',
-                priority: 95,
-                source: 'ai_detected',
-                description: 'AI-detected artist (quoted for precision)',
-                preSelected: true,
-                isPrecisionQuoted: true
-              }],
-              currentQuery: formattedAIArtist,
-              reasoning: 'AI-detected artist basic integration',
-              analysisType: 'ai_basic'
-            };
-            
-            this.searchQuerySSoT.initialize(formattedAIArtist, basicCandidates, 'ai_basic');
-            console.log('🔧 Basic SSoT integration completed for AI-detected artist');
-          }
-        } else {
-          console.log('⚠️ SearchFilterManager not available, basic SSoT integration only');
-        }
-        
-      } catch (error) {
-        console.error('❌ Error during AI artist SSoT integration:', error);
-      }
-    }
+    // CRITICAL FIX: SSoT already initialized in runAIArtistDetection - no duplicate logic needed
+    console.log('✅ FIXED: Artist warning created - SSoT already initialized with FULL analysis above');
     
     return {
       detectedArtist: aiArtist,
