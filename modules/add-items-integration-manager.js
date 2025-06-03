@@ -277,17 +277,28 @@ export class AddItemsIntegrationManager {
     const scoreElement = document.querySelector('.quality-score');
     if (!scoreElement) return;
 
-    // Update score display
+    // Update score display with smooth transition
+    const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
+    if (currentScore !== score) {
+      scoreElement.style.transform = 'scale(1.1)';
+      setTimeout(() => {
+        scoreElement.style.transform = 'scale(1)';
+      }, 200);
+    }
+    
     scoreElement.textContent = `${score}/100`;
     
-    // Set color based on score
-    let color = '#e74c3c'; // Red for poor
-    if (score >= 80) color = '#27ae60'; // Green for excellent
-    else if (score >= 60) color = '#f39c12'; // Orange for good
-    else if (score >= 40) color = '#e67e22'; // Dark orange for fair
+    // Remove previous color classes
+    scoreElement.classList.remove('good', 'medium', 'poor');
     
-    scoreElement.style.color = color;
-    scoreElement.style.fontWeight = 'bold';
+    // Add color class based on score (matching original edit page)
+    if (score >= 80) {
+      scoreElement.classList.add('good');
+    } else if (score >= 60) {
+      scoreElement.classList.add('medium');
+    } else {
+      scoreElement.classList.add('poor');
+    }
     
     console.log(`📊 Quality score updated: ${score}/100`);
   }
@@ -489,6 +500,24 @@ export class AddItemsIntegrationManager {
         transition: all 0.3s ease;
       }
       
+      .quality-score.good { 
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); 
+        color: #155724; 
+        border: 2px solid #b8dacc;
+      }
+      
+      .quality-score.medium { 
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); 
+        color: #856404; 
+        border: 2px solid #f1c40f;
+      }
+      
+      .quality-score.poor { 
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); 
+        color: #721c24; 
+        border: 2px solid #e74c3c;
+      }
+      
       .refresh-quality-btn {
         background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
         color: white;
@@ -514,19 +543,24 @@ export class AddItemsIntegrationManager {
         background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
         color: white;
         border: none;
-        padding: 8px 16px;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
         cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
       }
       
       .ai-assist-button:hover {
         background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
         transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(0, 123, 255, 0.4);
+        box-shadow: 0 3px 6px rgba(0, 123, 255, 0.4);
+      }
+      
+      .ai-assist-button:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
       }
       
       .ai-master-button {
@@ -539,7 +573,7 @@ export class AddItemsIntegrationManager {
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all 0.2s ease;
         box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
       }
       
@@ -547,6 +581,11 @@ export class AddItemsIntegrationManager {
         background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
         transform: translateY(-1px);
         box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+      }
+      
+      .ai-master-button:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 4px rgba(40, 167, 69, 0.3);
       }
       
       .ai-button-wrapper {

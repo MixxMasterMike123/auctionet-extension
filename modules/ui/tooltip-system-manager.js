@@ -359,16 +359,15 @@ export class TooltipSystemManager {
       .ai-tooltip {
         position: absolute;
         background: white;
-        border: 1px solid #e1e5e9;
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 14px;
-        line-height: 1.5;
-        max-width: 400px;
+        font-size: 13px;
+        line-height: 1.4;
+        max-width: 300px;
+        min-width: 200px;
         z-index: 10000;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
       }
 
       .ai-tooltip-artist {
@@ -394,7 +393,7 @@ export class TooltipSystemManager {
       .tooltip-header {
         display: flex;
         align-items: center;
-        padding: 16px 16px 12px;
+        padding: 12px 14px 8px;
         border-bottom: 1px solid #f0f0f0;
       }
 
@@ -430,7 +429,7 @@ export class TooltipSystemManager {
       }
 
       .tooltip-content {
-        padding: 16px;
+        padding: 12px 14px;
         color: #555;
       }
 
@@ -443,10 +442,10 @@ export class TooltipSystemManager {
       }
 
       .tooltip-buttons {
-        padding: 12px 16px 16px;
+        padding: 8px 14px 12px;
         border-top: 1px solid #f0f0f0;
         display: flex;
-        gap: 8px;
+        gap: 6px;
         justify-content: flex-end;
       }
 

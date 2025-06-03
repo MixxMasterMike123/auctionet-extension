@@ -411,9 +411,9 @@ export class FieldMonitorManager {
       }
     }
 
-    // Show tooltip if we have a configuration
+    // Show tooltip if we have a configuration - positioned to the left to be less intrusive
     if (tooltipConfig) {
-      this.tooltipSystemManager.showTooltip(tooltipConfig, fieldInfo.element, 'right');
+      this.tooltipSystemManager.showTooltip(tooltipConfig, fieldInfo.element, 'left');
     }
   }
 
