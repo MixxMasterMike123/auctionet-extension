@@ -1100,8 +1100,16 @@ export class DashboardManagerV2 {
 
   // Show loading state with spinner overlay
   showDashboardLoading(message = 'Uppdaterar analys...') {
+    console.log('🔄 DashboardV2: showDashboardLoading called with message:', message);
+    
     const dashboard = document.querySelector('.market-data-dashboard');
-    if (!dashboard) return;
+    if (!dashboard) {
+      console.error('❌ DashboardV2: No .market-data-dashboard element found for spinner!');
+      console.log('🔍 Available elements:', document.querySelectorAll('[class*="dashboard"]'));
+      return;
+    }
+    
+    console.log('✅ DashboardV2: Found dashboard element, applying loading state');
     
     // Add blur class to dashboard
     dashboard.classList.add('dashboard-loading');
@@ -1119,16 +1127,24 @@ export class DashboardManagerV2 {
     `;
     
     dashboard.appendChild(overlay);
-    console.log('🔄 DashboardV2: Loading state enabled -', message);
+    console.log('🔄 DashboardV2: Loading state enabled successfully -', message);
   }
 
   // Hide loading state with smooth transition
   hideDashboardLoading() {
+    console.log('🔄 DashboardV2: hideDashboardLoading called');
+    
     const dashboard = document.querySelector('.market-data-dashboard');
-    if (!dashboard) return;
+    if (!dashboard) {
+      console.error('❌ DashboardV2: No .market-data-dashboard element found for hiding spinner!');
+      return;
+    }
+    
+    console.log('✅ DashboardV2: Found dashboard element, removing loading state');
     
     const overlay = dashboard.querySelector('.loading-overlay');
     if (overlay) {
+      console.log('🔄 DashboardV2: Found overlay, starting fade-out animation');
       // Fade out overlay first
       overlay.classList.add('fade-out');
       
@@ -1144,10 +1160,11 @@ export class DashboardManagerV2 {
         }, 300);
       }, 150);
     } else {
+      console.log('⚠️ DashboardV2: No overlay found, just removing blur');
       // No overlay, just remove blur
       dashboard.classList.remove('dashboard-loading');
     }
     
-    console.log('✅ DashboardV2: Loading state disabled');
+    console.log('✅ DashboardV2: Loading state disabled successfully');
   }
 } 

@@ -851,7 +851,12 @@ export class SearchFilterManager {
     
     const updateBtn = document.getElementById('update-search-btn');
     const currentSearchDisplay = document.getElementById('current-search-display');
-    const candidateCheckboxes = document.querySelectorAll('.candidate-checkbox');
+    // Support both old and new modular system checkbox classes  
+    const candidateCheckboxes = [
+      ...document.querySelectorAll('.candidate-checkbox'),
+      ...document.querySelectorAll('.smart-checkbox'),
+      ...document.querySelectorAll('.header-checkbox')
+    ];
     
     if (!updateBtn || !currentSearchDisplay || candidateCheckboxes.length === 0) {
       console.log('⚠️ Search filter elements not found - interactivity not available');
@@ -972,7 +977,12 @@ export class SearchFilterManager {
   setupHeaderSearchFilterInteractivity() {
     console.log("🔧 Setting up header search filter with auto-reload...");
     
-    const candidateCheckboxes = document.querySelectorAll(".candidate-checkbox-header");
+    // Support both old and new modular system checkbox classes
+    const candidateCheckboxes = [
+      ...document.querySelectorAll(".candidate-checkbox-header"),
+      ...document.querySelectorAll(".header-checkbox"),
+      ...document.querySelectorAll(".smart-checkbox")
+    ];
     
     if (candidateCheckboxes.length === 0) {
       console.log("⚠️ No header search filter checkboxes found");
@@ -1000,7 +1010,12 @@ export class SearchFilterManager {
   async handleHeaderSearchFilterChange() {
     console.log("🔄 Processing header search filter change...");
     
-    const candidateCheckboxes = document.querySelectorAll(".candidate-checkbox-header");
+    // Support both old and new modular system checkbox classes
+    const candidateCheckboxes = [
+      ...document.querySelectorAll(".candidate-checkbox-header"),
+      ...document.querySelectorAll(".header-checkbox"),
+      ...document.querySelectorAll(".smart-checkbox")
+    ];
     const selectedTerms = [];
     
     candidateCheckboxes.forEach(checkbox => {
@@ -1045,7 +1060,15 @@ export class SearchFilterManager {
       console.log("🎯 SSoT search context for header filter:", customSearchContext);
       
       // Show loading indicator on dashboard
-      this.dashboardManager.showDashboardLoading();
+      console.log('🔄 SearchFilterManager: About to call showDashboardLoading');
+      console.log('🔧 SearchFilterManager: Dashboard manager exists?', !!this.dashboardManager);
+      console.log('🔧 SearchFilterManager: Dashboard manager type:', this.dashboardManager?.constructor?.name);
+      
+      if (this.dashboardManager && typeof this.dashboardManager.showDashboardLoading === 'function') {
+        this.dashboardManager.showDashboardLoading();
+      } else {
+        console.error('❌ SearchFilterManager: Dashboard manager or showDashboardLoading method not available!');
+      }
       
       // Call API with SSoT-generated search context
       const filteredSalesData = await this.apiManager.analyzeSales(customSearchContext);
@@ -1063,7 +1086,13 @@ export class SearchFilterManager {
     } catch (error) {
       console.error("❌ Header search filter error:", error);
     } finally {
-      this.dashboardManager.hideDashboardLoading();
+      console.log('🔄 SearchFilterManager: About to call hideDashboardLoading');
+      
+      if (this.dashboardManager && typeof this.dashboardManager.hideDashboardLoading === 'function') {
+        this.dashboardManager.hideDashboardLoading();
+      } else {
+        console.error('❌ SearchFilterManager: Dashboard manager or hideDashboardLoading method not available in finally!');
+      }
     }
   }
 
@@ -1083,10 +1112,13 @@ export class SearchFilterManager {
     console.log('🎯 SSoT current terms:', currentTerms);
     console.log('🎯 SSoT available terms:', availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
     
-    // Find all pill checkboxes (both regular and header)
+    // Find all pill checkboxes (both old and new modular system)
     const allCheckboxes = [
       ...document.querySelectorAll('.candidate-checkbox'),
-      ...document.querySelectorAll('.candidate-checkbox-header')
+      ...document.querySelectorAll('.candidate-checkbox-header'),
+      ...document.querySelectorAll('.smart-checkbox'),
+      ...document.querySelectorAll('.header-checkbox'),
+      ...document.querySelectorAll('.suggestion-checkbox')
     ];
     
     console.log(`🔍 Found ${allCheckboxes.length} pill checkboxes to synchronize`);
@@ -1122,7 +1154,12 @@ export class SearchFilterManager {
       
       // Update current search display in filter sections
       const updateCurrentSearchDisplay = () => {
-        const candidateCheckboxes = document.querySelectorAll('.candidate-checkbox');
+        // Support both old and new modular system checkbox classes
+        const candidateCheckboxes = [
+          ...document.querySelectorAll('.candidate-checkbox'),
+          ...document.querySelectorAll('.smart-checkbox'),
+          ...document.querySelectorAll('.header-checkbox')
+        ];
         const selectedTerms = [];
         candidateCheckboxes.forEach(checkbox => {
           if (checkbox.checked) {

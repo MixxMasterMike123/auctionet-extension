@@ -1,11 +1,13 @@
 import { SearchTermExtractor } from "/modules/search-term-extractor.js";
 import { ItemTypeHandlers } from "/modules/item-type-handlers.js";
 import { SalesAnalysisManager } from "/modules/sales-analysis-manager.js";
-import { DashboardManager } from './dashboard-manager.js';
+import { DashboardManagerV2 } from './dashboard-manager-v2.js';
 import { SearchFilterManager } from './search-filter-manager.js';
 import { DataExtractor } from './data-extractor.js';
 import { SearchQuerySSoT } from './search-query-ssot.js';
 import { ArtistDetectionManager } from './artist-detection-manager.js';
+import { BrandValidationManager } from './brand-validation-manager.js';
+import { InlineBrandValidator } from './inline-brand-validator.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
   constructor() {
@@ -23,10 +25,16 @@ export class QualityAnalyzer {
     // NEW: Initialize ArtistDetectionManager SSoT
     this.artistDetectionManager = new ArtistDetectionManager();
     
+    // NEW: Initialize BrandValidationManager
+    this.brandValidationManager = new BrandValidationManager();
+    
+    // NEW: Initialize InlineBrandValidator for real-time field validation
+    this.inlineBrandValidator = new InlineBrandValidator(this.brandValidationManager);
+    
     // Initialize manager instances
     this.salesAnalysisManager = new SalesAnalysisManager();
     this.searchFilterManager = new SearchFilterManager();
-    this.dashboardManager = new DashboardManager();
+    this.dashboardManager = new DashboardManagerV2();
     
     this.pendingAnalyses = new Set();
     this.aiAnalysisActive = false;
@@ -53,6 +61,12 @@ export class QualityAnalyzer {
     
     // NEW: Connect ArtistDetectionManager to API manager for AI detection
     this.artistDetectionManager.setApiManager(apiManager);
+    
+    // NEW: Connect BrandValidationManager to API manager for AI brand validation
+    this.brandValidationManager.setApiManager(apiManager);
+    
+    // NEW: Connect InlineBrandValidator to BrandValidationManager
+    this.inlineBrandValidator.setBrandValidationManager(this.brandValidationManager);
     
     // Connect SearchQuerySSoT to apiManager for SSoT-consistent queries
     if (this.searchQuerySSoT) {
@@ -99,6 +113,16 @@ export class QualityAnalyzer {
   setSearchQuerySSoT(searchQuerySSoT) {
     this.searchQuerySSoT = searchQuerySSoT;
     
+    // CRITICAL FIX: Listen to SSoT events to trigger dashboard refresh when pills are clicked
+    this.searchQuerySSoT.addListener((event, data) => {
+      console.log('🔔 QualityAnalyzer: Received SSoT event:', event);
+      
+      if (event === 'user_selection_updated') {
+        console.log('🔄 QualityAnalyzer: User changed pill selections, triggering new market analysis...');
+        this.handleUserSelectionUpdate(data);
+      }
+    });
+    
     // Connect SearchQuerySSoT to apiManager for SSoT-consistent queries
     if (this.apiManager) {
       console.log('🔗 Connecting SearchQuerySSoT to APIManager for consistent live auction queries');
@@ -109,7 +133,7 @@ export class QualityAnalyzer {
     this.salesAnalysisManager.setSearchQuerySSoT(searchQuerySSoT);
     this.searchFilterManager.setSearchQuerySSoT(searchQuerySSoT);
     
-    console.log('✅ QualityAnalyzer: AI-only SearchQuerySSoT connected to all components');
+    console.log('✅ QualityAnalyzer: AI-only SearchQuerySSoT connected to all components with event listener');
   }
 
   // NEW: Delegate artist detection to ArtistDetectionManager SSoT
@@ -122,6 +146,55 @@ export class QualityAnalyzer {
   detectMisplacedArtistRuleBased(title, artistField) {
     console.log('🔧 QualityAnalyzer: Delegating rule-based artist detection to ArtistDetectionManager SSoT');
     return this.artistDetectionManager.detectMisplacedArtistRuleBased(title, artistField);
+  }
+
+  // CRITICAL FIX: Handle user selection updates from SSoT to trigger new market analysis
+  async handleUserSelectionUpdate(data) {
+    console.log('🔄 QualityAnalyzer: Handling user pill selection update...');
+    console.log('🔄 New query:', data.query);
+    console.log('🔄 Selected terms:', data.selectedTerms);
+    
+    try {
+      // Show loading spinner on dashboard
+      console.log('🔄 QualityAnalyzer: About to show loading spinner');
+      if (this.salesAnalysisManager.dashboardManager && typeof this.salesAnalysisManager.dashboardManager.showDashboardLoading === 'function') {
+        this.salesAnalysisManager.dashboardManager.showDashboardLoading('Uppdaterar analys med nya söktermer...');
+        console.log('✅ QualityAnalyzer: Loading spinner activated');
+      } else {
+        console.error('❌ QualityAnalyzer: Dashboard manager or showDashboardLoading method not available!');
+      }
+      
+      // Get the updated search context from SSoT
+      const searchContext = this.searchQuerySSoT.buildSearchContext();
+      console.log('🎯 QualityAnalyzer: Using updated search context for market analysis');
+      
+      // Trigger new market analysis with updated query
+      const salesData = await this.apiManager.analyzeSales(searchContext);
+      
+      if (salesData) {
+        console.log('✅ QualityAnalyzer: Market analysis completed with updated terms');
+        
+        // Update dashboard with new results
+        if (this.salesAnalysisManager.dashboardManager) {
+          this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData);
+          console.log('🎯 QualityAnalyzer: Dashboard refreshed with new market data');
+        }
+      } else {
+        console.log('⚠️ QualityAnalyzer: No market data returned for updated query');
+      }
+      
+    } catch (error) {
+      console.error('❌ QualityAnalyzer: Failed to handle user selection update:', error);
+    } finally {
+      // Hide loading spinner
+      console.log('🔄 QualityAnalyzer: About to hide loading spinner');
+      if (this.salesAnalysisManager.dashboardManager && typeof this.salesAnalysisManager.dashboardManager.hideDashboardLoading === 'function') {
+        this.salesAnalysisManager.dashboardManager.hideDashboardLoading();
+        console.log('✅ QualityAnalyzer: Loading spinner deactivated');
+      } else {
+        console.error('❌ QualityAnalyzer: Dashboard manager or hideDashboardLoading method not available in finally!');
+      }
+    }
   }
 
   // NEW: Delegate helper methods to ArtistDetectionManager SSoT
@@ -362,6 +435,7 @@ export class QualityAnalyzer {
     try {
       // Track pending analyses
       this.pendingAnalyses.add('artist');
+      this.pendingAnalyses.add('brand');
       
       // ENHANCED STRATEGY: Immediately detect and format AI artist for SSoT integration
       console.log('🎯 Starting AI artist detection for immediate SSoT integration...');
@@ -369,14 +443,19 @@ export class QualityAnalyzer {
       // First, check if we have an immediate artist (from field or rule-based detection)
       const immediateArtist = this.determineBestArtistForMarketAnalysis(data);
       
-      // Start artist detection (for quality warnings AND SSoT integration)
+      // Start parallel analyses - artist detection AND brand validation
       const artistAnalysisPromise = this.detectMisplacedArtist(data.title, data.artist);
+      const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
       
       // CRITICAL ENHANCEMENT: Handle AI artist detection for immediate market analysis
       const aiArtistForMarketAnalysis = await Promise.race([
         artistAnalysisPromise,
         new Promise(resolve => setTimeout(() => resolve(null), 8000)) // 8s timeout
       ]);
+      
+      // NEW: Handle brand validation in parallel
+      console.log('🏷️ Starting brand validation analysis...');
+      this.updateAILoadingMessage('🏷️ Kontrollerar märkesnamn...');
       
       // CRITICAL FIX: Always do FULL analysis regardless of artist detection
       console.log('🚀 FIXED: Running full AI analysis with artist integration (not artist-only)');
@@ -474,10 +553,33 @@ export class QualityAnalyzer {
           this.aiAnalysisActive = false;
         }
       });
+      
+      // NEW: Handle brand validation results in parallel
+      brandValidationPromise.then(brandIssues => {
+        this.handleBrandValidationResult(brandIssues, data, currentWarnings, currentScore).then(result => {
+          this.pendingAnalyses.delete('brand');
+          console.log('✅ Brand validation analysis complete');
+          
+          // Only hide loading if all analyses are done
+          if (this.pendingAnalyses.size === 0) {
+            this.hideAILoadingIndicator();
+            this.aiAnalysisActive = false;
+          }
+        });
+      }).catch(error => {
+        console.error('❌ Brand validation failed:', error);
+        this.pendingAnalyses.delete('brand');
+        
+        if (this.pendingAnalyses.size === 0) {
+          this.hideAILoadingIndicator();
+          this.aiAnalysisActive = false;
+        }
+      });
 
     } catch (error) {
-      console.error('💥 AI Artist Detection Error:', error);
+      console.error('💥 AI Analysis Error:', error);
       this.pendingAnalyses.delete('artist');
+      this.pendingAnalyses.delete('brand');
       this.hideAILoadingIndicator();
       this.aiAnalysisActive = false;
     }
@@ -576,6 +678,251 @@ export class QualityAnalyzer {
       warnings: currentWarnings,
       score: currentScore
     };
+  }
+
+  // NEW: Handle brand validation results
+  async handleBrandValidationResult(brandIssues, data, currentWarnings, currentScore) {
+    console.log('🏷️ Handling brand validation result:', brandIssues);
+    
+    if (!brandIssues || brandIssues.length === 0) {
+      console.log('✅ No brand issues detected');
+      return {
+        brandIssues: [],
+        warnings: currentWarnings,
+        score: currentScore
+      };
+    }
+    
+    console.log(`⚠️ ${brandIssues.length} brand issues detected`);
+    
+    // Convert brand issues to warnings
+    for (const issue of brandIssues) {
+      const brandWarning = this.brandValidationManager.generateBrandWarning(issue);
+      
+      // Check for existing brand warnings to avoid duplicates
+      const existingBrandWarningIndex = currentWarnings.findIndex(w => w.isBrandWarning);
+      if (existingBrandWarningIndex >= 0) {
+        console.log('🔄 Replacing existing brand warning');
+        currentWarnings[existingBrandWarningIndex] = brandWarning;
+      } else {
+        console.log('➕ Adding new brand validation warning');
+        currentWarnings.push(brandWarning);
+      }
+    }
+    
+    // Update quality display
+    console.log('🔄 Updating quality indicator with brand validation...');
+    this.updateQualityIndicator(currentScore, currentWarnings);
+    
+    // Setup click handlers for brand corrections
+    setTimeout(() => {
+      this.setupBrandCorrectionHandlers();
+    }, 100);
+    
+    console.log('✅ Brand validation results displayed');
+    
+    return {
+      brandIssues: brandIssues,
+      warnings: currentWarnings,
+      score: currentScore
+    };
+  }
+
+  // NEW: Setup click handlers for brand corrections
+  setupBrandCorrectionHandlers() {
+    const brandElements = document.querySelectorAll('.clickable-brand');
+    
+    brandElements.forEach(element => {
+      if (element.dataset.handlerAttached) return; // Avoid duplicate handlers
+      if (element.dataset.corrected === 'true') return; // Skip already corrected elements
+      
+      element.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const originalBrand = element.dataset.original;
+        const suggestedBrand = element.dataset.suggested;
+        
+        console.log(`🔧 Brand correction clicked: "${originalBrand}" → "${suggestedBrand}"`);
+        
+        try {
+          // Get current form data
+          const data = this.dataExtractor.extractItemData();
+          
+          // Replace brand in title
+          const updatedTitle = data.title.replace(
+            new RegExp(`\\b${this.escapeRegex(originalBrand)}\\b`, 'gi'),
+            suggestedBrand
+          );
+          
+          // Update title field using the same selectors as the rest of the system
+          const titleFieldSelectors = [
+            '#item_title_sv',
+            '#item_title',
+            'input[name*="title"]',
+            'input[id*="title"]',
+            'textarea[name*="title"]',
+            'textarea[id*="title"]'
+          ];
+          
+          let titleField = null;
+          for (const selector of titleFieldSelectors) {
+            titleField = document.querySelector(selector);
+            if (titleField) {
+              console.log(`✅ Found title field with selector: ${selector}`);
+              break;
+            }
+          }
+          
+          if (!titleField) {
+            console.error('❌ Could not find title field to update');
+            this.showErrorFeedback(element, 'Kunde inte uppdatera titelfältet');
+            return;
+          }
+          
+          // Update the field
+          titleField.value = updatedTitle;
+          
+          // Trigger change events
+          try {
+            titleField.dispatchEvent(new Event('input', { bubbles: true }));
+            titleField.dispatchEvent(new Event('change', { bubbles: true }));
+          } catch (eventError) {
+            console.warn('⚠️ Event dispatch warning (non-critical):', eventError);
+          }
+          
+          // SUCCESS - Visual feedback and state management
+          try {
+            // Visual feedback - mark as corrected
+            element.style.backgroundColor = '#e8f5e8';
+            element.innerHTML = `${suggestedBrand} ✓`;
+            element.style.textDecoration = 'none';
+            element.style.cursor = 'default';
+            element.style.color = '#28a745';
+            
+            // Disable the entire warning item
+            const warningItem = element.closest('li');
+            if (warningItem) {
+              warningItem.style.opacity = '0.6';
+              warningItem.style.backgroundColor = '#f8f9fa';
+              warningItem.style.border = '1px solid #e8f5e8';
+              warningItem.style.borderRadius = '4px';
+              warningItem.style.padding = '8px';
+              warningItem.style.transition = 'all 0.3s ease';
+              
+              // Add a "corrected" indicator
+              const correctedBadge = document.createElement('span');
+              correctedBadge.innerHTML = ' <small style="color: #28a745; font-weight: 600;">✓ RÄTTAT</small>';
+              warningItem.appendChild(correctedBadge);
+            }
+            
+            // Mark element as handled to prevent future clicks
+            element.dataset.corrected = 'true';
+            
+            // Success feedback
+            this.showSuccessFeedback(element, `Märke rättat till "${suggestedBrand}"`);
+            
+            console.log(`✅ Brand corrected successfully: "${originalBrand}" → "${suggestedBrand}"`);
+            
+          } catch (uiError) {
+            console.warn('⚠️ UI feedback warning (non-critical):', uiError);
+            // Still show success even if UI feedback fails
+            console.log(`✅ Brand corrected: "${originalBrand}" → "${suggestedBrand}"`);
+          }
+          
+          // Re-run analysis after a short delay (separate from UI to avoid blocking)
+          try {
+            setTimeout(() => {
+              this.analyzeQuality();
+            }, 500);
+          } catch (analysisError) {
+            console.warn('⚠️ Re-analysis scheduling warning (non-critical):', analysisError);
+          }
+          
+        } catch (error) {
+          console.error('❌ Critical error during brand correction:', error);
+          this.showErrorFeedback(element, 'Fel vid rättning av märke');
+        }
+      });
+      
+      element.dataset.handlerAttached = 'true';
+    });
+    
+    console.log(`✅ Brand correction handlers attached to ${brandElements.length} elements`);
+  }
+
+  // Helper method for success feedback
+  showSuccessFeedback(element, message) {
+    try {
+      console.log(`💚 Showing success feedback: "${message}"`);
+      
+      // Create success tooltip
+      const tooltip = document.createElement('div');
+      tooltip.className = 'brand-success-tooltip';
+      tooltip.textContent = message;
+      tooltip.style.cssText = `
+        position: absolute;
+        background: #28a745;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        z-index: 10000;
+        white-space: nowrap;
+        pointer-events: none;
+        transform: translateY(-100%);
+        margin-top: -8px;
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        animation: fadeInSuccess 0.3s ease-out;
+      `;
+      
+      // Add animation keyframes if not already present
+      if (!document.getElementById('success-feedback-styles')) {
+        const style = document.createElement('style');
+        style.id = 'success-feedback-styles';
+        style.textContent = `
+          @keyframes fadeInSuccess {
+            from { opacity: 0; transform: translateY(-100%) scale(0.8); }
+            to { opacity: 1; transform: translateY(-100%) scale(1); }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      // Ensure parent element can contain tooltip
+      const parent = element.parentElement;
+      if (parent) {
+        const originalPosition = parent.style.position;
+        parent.style.position = 'relative';
+        parent.appendChild(tooltip);
+        
+        console.log(`✅ Success tooltip added to DOM`);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+          try {
+            if (tooltip.parentElement) {
+              tooltip.parentElement.removeChild(tooltip);
+              // Restore original position if it was changed
+              if (originalPosition) {
+                parent.style.position = originalPosition;
+              }
+              console.log(`🗑️ Success tooltip removed`);
+            }
+          } catch (removeError) {
+            console.warn('⚠️ Minor error removing success tooltip:', removeError);
+          }
+        }, 3000);
+      } else {
+        console.warn('⚠️ No parent element found for success tooltip');
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ Error showing success feedback (non-critical):', error);
+      // Fallback: log success to console
+      console.log(`✅ ${message}`);
+    }
   }
 
   // NEW: Trigger dashboard for non-art items (furniture, watches, etc.)
@@ -1261,6 +1608,28 @@ export class QualityAnalyzer {
     });
 
     console.log(`🎯 Live quality monitoring set up for ${monitoredCount} fields`);
+    
+    // NEW: Start inline brand validation monitoring
+    if (this.inlineBrandValidator) {
+      try {
+        this.inlineBrandValidator.startMonitoring();
+        console.log('📝 Inline brand spell checking activated');
+        
+        // For EDIT pages: Check for existing errors after a delay
+        setTimeout(() => {
+          const existingErrors = this.inlineBrandValidator.getCurrentErrors();
+          if (existingErrors.length > 0) {
+            console.log(`🔍 Found ${existingErrors.length} existing brand spelling errors on page load`);
+            existingErrors.forEach(error => {
+              console.log(`   - ${error.field}: "${error.original}" → "${error.suggested}" (${Math.round(error.confidence * 100)}%)`);
+            });
+          }
+        }, 1000); // Wait for validation to complete
+        
+      } catch (error) {
+        console.warn('⚠️ Failed to start inline brand validation:', error);
+      }
+    }
     
     // Test if fields exist right now
     console.log('🔍 Field existence check:');
