@@ -32,17 +32,20 @@ export class SalesAnalysisManager {
   // NEW: Set AI-only SearchQuerySSoT
   setSearchQuerySSoT(searchQuerySSoT) {
     this.searchQuerySSoT = searchQuerySSoT;
+    console.log('✅ SalesAnalysisManager: AI-only SearchQuerySSoT connected');
   }
 
   // ==================== MAIN SALES ANALYSIS ====================
 
   async startSalesAnalysis(artistInfo, data, currentWarnings, currentScore, searchFilterManager, qualityAnalyzer) {
+    console.log('💰 Starting sales analysis with best available artist/search:', artistInfo);
     
     // CRITICAL FIX: Get the actual search query from SSoT to pass to extractCandidateSearchTerms
     // This ensures the AI Rules selection is respected for preSelected terms
     let actualSearchQuery = null;
     if (this.searchQuerySSoT && this.searchQuerySSoT.getCurrentQuery()) {
       actualSearchQuery = this.searchQuerySSoT.getCurrentQuery();
+      console.log('🎯 FIXED: Using SSoT query for candidate term extraction:', actualSearchQuery);
     }
     
     // CRITICAL FIX: Transform artistInfo to proper structure for SearchFilterManager
@@ -53,6 +56,7 @@ export class SalesAnalysisManager {
       const originalArtist = currentData?.artist;
       
       if (originalArtist && originalArtist.trim()) {
+        console.log('🎯 ARTIST FIX: Using original artist field for candidate terms:', originalArtist);
         properArtistInfo = {
           artist: originalArtist,
           isBrand: false,
@@ -67,6 +71,7 @@ export class SalesAnalysisManager {
       } else if (artistInfo.artist) {
         properArtistInfo = artistInfo; // Already in correct format
       } else {
+        console.log('🎯 ARTIST FIX: Creating artistInfo from AI data structure');
         // Extract artist from searchTerms if available
         const searchTerms = artistInfo.searchTerms || [];
         const artistTerm = searchTerms.find(term => 
@@ -77,6 +82,7 @@ export class SalesAnalysisManager {
         );
         
         if (artistTerm) {
+          console.log('🎯 ARTIST FIX: Extracted artist from searchTerms:', artistTerm);
           properArtistInfo = {
             artist: artistTerm,
             isBrand: false,
@@ -86,6 +92,7 @@ export class SalesAnalysisManager {
       }
     }
     
+    console.log('🎯 ARTIST FIX: Final artistInfo for candidate extraction:', properArtistInfo);
     
     // NEW: Test the candidate search terms extraction with AI Rules query
     const candidateTerms = searchFilterManager.extractCandidateSearchTerms(data.title, data.description, properArtistInfo, actualSearchQuery);
@@ -97,19 +104,25 @@ export class SalesAnalysisManager {
       // CRITICAL FIX: ALWAYS initialize SSoT with candidate terms for extended checkbox functionality
       // Even if SSoT already has an AI query, it needs ALL candidate terms for user control
       if (this.searchQuerySSoT) {
+        console.log('🔧 FORCING SSoT initialization with ALL candidate terms for extended checkboxes');
         console.log('   Current AI query:', this.searchQuerySSoT.getCurrentQuery());
         console.log('   Will add', candidateTerms.candidates?.length || 0, 'candidate terms');
         
         // Force initialization with all candidate terms
         this.searchQuerySSoT.initialize(this.searchQuerySSoT.getCurrentQuery(), candidateTerms, 'system_with_extensions');
+        console.log('✅ SSoT re-initialized with AI query + ALL extended candidate terms');
       } else {
         console.error('❌ CRITICAL ERROR: SearchQuerySSoT not available for initialization');
         console.error('🔧 SearchQuerySSoT reference:', this.searchQuerySSoT);
       }
       
+      console.log('🧪 PHASE 1 TEST - Candidate search terms extracted:');
+      console.log('📋 Candidates:');
       candidateTerms.candidates.forEach((candidate, index) => {
         console.log(`   ${index + 1}. "${candidate.term}" (${candidate.type}) - preSelected: ${candidate.preSelected} - ${candidate.description}`);
       });
+      console.log('🎯 Current algorithm would use:', candidateTerms.currentQuery);
+      console.log('📊 Analysis type:', candidateTerms.analysisType);
     }
     
     if (!artistInfo) {
@@ -145,6 +158,7 @@ export class SalesAnalysisManager {
       if (isBrand) analysisType = 'brand';
       if (isFreetext) analysisType = 'freetext';
       
+      console.log(`💰 Running comprehensive market analysis for ${analysisType}:`, artistName);
       
       // Extract additional context for sales analysis from current item
       const objectType = qualityAnalyzer.extractObjectType(data.title);
@@ -157,12 +171,18 @@ export class SalesAnalysisManager {
       // 🚨 STRICT SSoT: Use ONLY SearchQuerySSoT for all search operations
       let searchContext;
       
+      console.log('🔧 DEBUGGING: Checking SearchQuerySSoT before buildSearchContext');
+      console.log('🔧 this.searchQuerySSoT exists:', !!this.searchQuerySSoT);
+      console.log('🔧 this.searchQuerySSoT type:', typeof this.searchQuerySSoT);
       if (this.searchQuerySSoT) {
+        console.log('🔧 SearchQuerySSoT methods available:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.searchQuerySSoT)));
+        console.log('🔧 buildSearchContext method exists:', typeof this.searchQuerySSoT.buildSearchContext);
       }
       
       if (this.searchQuerySSoT) {
         // MANDATORY: Use SSoT as the ONLY source
         searchContext = this.searchQuerySSoT.buildSearchContext();
+        console.log('✅ STRICT SSoT: Using SearchQuerySSoT as ONLY source for market analysis');
         console.log('🔒 SSoT Search Context:', searchContext);
         
         // CRITICAL FIX: Check if search context is valid and has a query
@@ -196,6 +216,7 @@ export class SalesAnalysisManager {
         console.error('🔧 DETAILED DEBUG: All this properties:', Object.keys(this));
         
         // Provide graceful fallback instead of throwing error
+        console.log('🔄 Providing graceful fallback instead of crashing...');
         this.showNoSalesDataMessage(currentWarnings, currentScore, 'ssot_unavailable', 'System otillgängligt', qualityAnalyzer);
         this.pendingAnalyses.delete('sales');
         return;
@@ -204,6 +225,7 @@ export class SalesAnalysisManager {
       // STRICT SSoT: analysisType must come from SSoT, not legacy detection
       searchContext.analysisType = 'ssot_query'; // Mark as SSoT-driven
       
+      console.log('🔍 STRICT SSoT: Search context for market analysis:', searchContext);
       
       // Check if apiManager is available
       if (!this.apiManager) {
@@ -226,12 +248,15 @@ export class SalesAnalysisManager {
       // 🔧 CRITICAL FIX: Add candidate search terms to salesData for dashboard checkboxes
       if (this.lastCandidateSearchTerms) {
         salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
+        console.log('✅ Added candidateSearchTerms to salesData for dashboard checkboxes');
+        console.log('📋 Candidates available:', salesData.candidateSearchTerms.candidates.length);
       } else {
         console.log('⚠️ No candidateSearchTerms available to add to salesData');
       }
       
       // NEW: If this is an AI artist analysis and we previously had freetext data, merge them
       if (analysisType === 'artist' && this.previousFreetextData) {
+        console.log('🔄 Merging AI artist data with previous freetext data for comprehensive dashboard');
         salesData = this.mergeSalesData(salesData, this.previousFreetextData);
       }
       
@@ -241,6 +266,7 @@ export class SalesAnalysisManager {
         this.previousFreetextData = salesData;
       }
       
+      console.log('📊 Sales analysis completed:', salesData);
       
       // Remove sales from pending analyses
       this.pendingAnalyses.delete('sales');
@@ -257,6 +283,7 @@ export class SalesAnalysisManager {
 
   // NEW: Merge AI artist data with broader freetext market data
   mergeSalesData(artistData, freetextData) {
+    console.log('🔄 Merging datasets - Artist vs Freetext');
     
     // Use artist data as primary (higher confidence, more specific)
     const mergedData = { ...artistData };
@@ -267,6 +294,7 @@ export class SalesAnalysisManager {
     
     // Merge exceptional sales from freetext if artist data doesn't have them
     if (!mergedData.historical?.exceptionalSales && freetextData.historical?.exceptionalSales) {
+      console.log('📈 Adding exceptional sales from broader market context');
       if (!mergedData.historical) mergedData.historical = {};
       mergedData.historical.exceptionalSales = freetextData.historical.exceptionalSales;
       
@@ -279,6 +307,7 @@ export class SalesAnalysisManager {
     
     // Add broader market context info
     if (freetextData.historical?.totalMatches > artistData.historical?.totalMatches) {
+      console.log('📊 Adding broader market context numbers');
       mergedData.broaderMarket = {
         totalMatches: freetextData.historical.totalMatches,
         searchQuery: freetextData.historical.actualSearchQuery,
@@ -288,6 +317,7 @@ export class SalesAnalysisManager {
     
     // Enhance insights by combining both datasets
     if (freetextData.insights && freetextData.insights.length > 0) {
+      console.log('💡 Enhancing insights with broader market data');
       if (!mergedData.insights) mergedData.insights = [];
       
       // Add unique insights from freetext that aren't in artist data
@@ -307,6 +337,7 @@ export class SalesAnalysisManager {
       });
     }
     
+    console.log('✅ Data merge complete - enriched artist analysis');
     return mergedData;
   }
 
@@ -324,9 +355,11 @@ export class SalesAnalysisManager {
     );
     
     if (hasValidData) {
+      console.log('💰 Processing comprehensive market analysis results');
       
       // If we don't have traditional sales data but have AI-generated terms, create mock data
       if (!salesData.hasComparableData && (salesData.candidateSearchTerms || (this.searchQuerySSoT && this.searchQuerySSoT.getCurrentQuery()))) {
+        console.log('🤖 Creating dashboard with AI-generated search strategy (no historical sales data)');
         
         // Create basic structure for dashboard
         salesData.hasComparableData = true;
@@ -341,17 +374,21 @@ export class SalesAnalysisManager {
       
       // CRITICAL FIX: Use AI-only SearchQuerySSoT instead of re-extracting terms
       if (this.searchQuerySSoT) {
+        console.log('🎯 CONSISTENCY FIX: Using AI-only SearchQuerySSoT for search query');
         
         // Get the ACTUAL search query from AI-only SSoT
         const actualSearchQuery = this.searchQuerySSoT.getCurrentQuery();
+        console.log('🔧 AI-only SSoT Query:', actualSearchQuery);
         
         // Get metadata from AI-only SSoT
         const metadata = this.searchQuerySSoT.getCurrentMetadata();
+        console.log('🔧 AI-only SSoT Metadata:', metadata);
         
         // Use AI-only data for dashboard
         salesData.aiOnlyQuery = actualSearchQuery;
         salesData.aiOnlyMetadata = metadata;
         
+        console.log('✅ CONSISTENCY FIX: Used AI-only SearchQuerySSoT data');
         
       } else {
         console.log('⚠️ AI-only SearchQuerySSoT not available - using sales data as-is');
@@ -359,24 +396,29 @@ export class SalesAnalysisManager {
       
       // NEW: Analyze valuation and suggest changes if needed
       const valuationSuggestions = this.analyzeValuationSuggestions(salesData);
+      console.log('💰 Generated valuation suggestions:', valuationSuggestions);
       
       // Use the new dashboard approach and pass valuation suggestions
       this.dashboardManager.addMarketDataDashboard(salesData, valuationSuggestions);
       
       if (valuationSuggestions.length > 0) {
+        console.log('💰 Adding valuation suggestions to warnings');
         // Add valuation suggestions to current warnings
         const updatedWarnings = [...currentWarnings, ...valuationSuggestions];
         qualityAnalyzer.updateQualityIndicator(currentScore, updatedWarnings);
       } else {
+        console.log('💰 No valuation suggestions generated');
         // Update UI with current warnings (without market data)
         qualityAnalyzer.updateQualityIndicator(currentScore, currentWarnings);
       }
       
+      console.log('✅ Market data dashboard and valuation analysis displayed');
       
       // Hide the AI loading indicator now that analysis is complete
       qualityAnalyzer.hideAILoadingIndicator();
     } else {
       // NO MEANINGFUL DATA: Show appropriate message
+      console.log('ℹ️ No meaningful market data found - showing no data message');
       
       // Determine entity name for the message
       let entityName = 'okänd';
@@ -404,16 +446,19 @@ export class SalesAnalysisManager {
     const suggestions = [];
     
     if (!salesData || !salesData.priceRange) {
+      console.log('💰 No price range in sales data');
       return suggestions;
     }
     
     // Get current valuation data with null checks
     if (!this.dataExtractor) {
+      console.log('💰 No data extractor available for valuation analysis');
       return suggestions;
     }
     
     const data = this.dataExtractor.extractItemData();
     if (!data) {
+      console.log('💰 No item data available for valuation analysis');
       return suggestions;
     }
     
@@ -425,6 +470,15 @@ export class SalesAnalysisManager {
     const marketLow = salesData.priceRange.low;
     const marketHigh = salesData.priceRange.high;
     const marketMid = (marketLow + marketHigh) / 2;
+    
+    console.log('💰 Analyzing valuations against market data:', {
+      currentEstimate,
+      currentUpperEstimate,
+      currentAcceptedReserve,
+      marketLow,
+      marketHigh,
+      marketMid
+    });
     
     // Analyze each component and add suggestions
     if (currentEstimate > 0) {
@@ -468,6 +522,7 @@ export class SalesAnalysisManager {
       }
     }
     
+    console.log('💰 Valuation analysis complete. Suggestions generated:', suggestions.length);
     return suggestions;
   }
 
@@ -483,11 +538,25 @@ export class SalesAnalysisManager {
     const isExtremelyHigh = valuationVsMarketHigh > 3.0;
     const isExtremelyLow = valuationVsMarketLow < 0.3;
     
+    console.log('💰 Comparison thresholds:', {
+      valuation,
+      marketLow,
+      marketHigh,
+      lowThreshold,
+      highThreshold,
+      tolerance,
+      valuationVsMarketHigh,
+      valuationVsMarketLow,
+      isExtremelyHigh,
+      isExtremelyLow
+    });
+    
     if (isExtremelyHigh) {
       // Valuation is extremely above market - this is a serious error
       const suggestedLow = Math.round(marketLow);
       const suggestedHigh = Math.round(marketHigh);
       
+      console.log('💰 Valuation extremely high - major correction needed');
       return {
         needsAdjustment: true,
         message: `Värdering (${this.formatSEK(valuation)}) betydligt över liknande försäljningar`,
@@ -499,6 +568,7 @@ export class SalesAnalysisManager {
       const suggestedLow = Math.round(marketLow);
       const suggestedHigh = Math.round(marketHigh);
       
+      console.log('💰 Valuation extremely low - major correction needed');
       return {
         needsAdjustment: true,
         message: `Värdering (${this.formatSEK(valuation)}) betydligt under liknande försäljningar`,
@@ -510,6 +580,7 @@ export class SalesAnalysisManager {
       const suggestedLow = Math.round(marketLow * 0.8);
       const suggestedHigh = Math.round(marketMid);
       
+      console.log('💰 Valuation too low - suggesting increase');
       return {
         needsAdjustment: true,
         message: `Värdering (${this.formatSEK(valuation)}) under genomsnittliga försäljningar`,
@@ -521,6 +592,7 @@ export class SalesAnalysisManager {
       const suggestedLow = Math.round(marketMid);
       const suggestedHigh = Math.round(marketHigh * 1.2);
       
+      console.log('💰 Valuation too high - suggesting decrease');
       return {
         needsAdjustment: true,
         message: `Värdering (${this.formatSEK(valuation)}) över genomsnittliga försäljningar`,
@@ -529,6 +601,7 @@ export class SalesAnalysisManager {
       };
     }
     
+    console.log('💰 Valuation within acceptable range - providing positive feedback');
     // NEW: Provide positive feedback when valuation is spot-on
     return { 
       needsAdjustment: true, // Set to true so it shows up as a "suggestion"
@@ -577,8 +650,20 @@ export class SalesAnalysisManager {
     const estimateVsMarket = estimate / marketHigh;
     const isEstimateUnrealistic = estimateVsMarket > 3.0 || estimateVsMarket < 0.3;
     
+    console.log('💰 Reserve analysis:', {
+      estimate,
+      acceptedReserve,
+      marketLow,
+      marketHigh,
+      marketReserveIdeal: Math.round(marketReserveIdeal),
+      marketReserveMax: Math.round(marketReserveMax),
+      estimateVsMarket,
+      isEstimateUnrealistic
+    });
+    
     if (isEstimateUnrealistic) {
       // MARKET-BASED ANALYSIS: Ignore unrealistic estimate, use market data
+      console.log('💰 Using market-based reserve analysis (estimate unrealistic)');
       
       if (acceptedReserve > marketReserveMax) {
         return {
@@ -605,6 +690,7 @@ export class SalesAnalysisManager {
       }
     } else {
       // TRADITIONAL ANALYSIS: Estimate seems reasonable, use estimate-based rules
+      console.log('💰 Using estimate-based reserve analysis (estimate reasonable)');
       
       const expectedReserveMin = estimate * 0.6;
       const expectedReserveMax = estimate * 0.8;
@@ -678,6 +764,9 @@ export class SalesAnalysisManager {
   showNoSalesDataMessage(currentWarnings, currentScore, analysisType = 'artist', entityName = '', qualityAnalyzer) {
     // CRITICAL FIX: Don't extract current warnings from DOM as they lose detectedArtist properties
     // Use the currentWarnings parameter directly which preserves all properties
+    console.log('📋 PRESERVING artist warnings with detectedArtist properties');
+    console.log('📋 Current warnings count:', currentWarnings.length);
+    console.log('📋 Artist warnings in current warnings:', currentWarnings.filter(w => w.detectedArtist).length);
     
     let updatedWarnings = [...currentWarnings]; // Use the parameter, not DOM extraction
     
@@ -697,6 +786,8 @@ export class SalesAnalysisManager {
       severity: 'info'
     });
     
+    console.log('📋 Updated warnings with preserved artist data:', updatedWarnings.length);
+    console.log('📋 Artist warnings after update:', updatedWarnings.filter(w => w.detectedArtist).length);
     
     // Update the display
     qualityAnalyzer.updateQualityIndicator(currentScore, updatedWarnings);
@@ -728,8 +819,10 @@ export class SalesAnalysisManager {
   }
 
   addMarketDataWarnings(salesData, warnings) {
+    console.log('📊 Adding market data warnings to quality analysis');
     
     if (!salesData.insights || salesData.insights.length === 0) {
+      console.log('📊 No market insights to add');
       return warnings;
     }
     
@@ -769,6 +862,7 @@ export class SalesAnalysisManager {
       }
     });
     
+    console.log('📊 Market warnings added:', updatedWarnings.length - warnings.length);
     return updatedWarnings;
   }
 

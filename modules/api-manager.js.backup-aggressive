@@ -31,11 +31,14 @@ export class APIManager {
         this.currentModel = result.selectedModel;
         
         // Always log which model is loaded, whether it changed or not
+        console.log(`🤖 Model loaded from storage: ${CONFIG.MODELS[this.currentModel].name}`);
         
         // Log if this was a change from the default
         if (previousModel !== this.currentModel) {
+          console.log(`🤖 Model changed from default: ${CONFIG.MODELS[previousModel]?.name || previousModel} → ${CONFIG.MODELS[this.currentModel].name}`);
         }
       } else {
+        console.log(`🤖 Using default AI model: ${CONFIG.MODELS[this.currentModel].name} (no saved model found)`);
       }
       
       console.log('Artist info setting loaded:', this.enableArtistInfo);
@@ -71,9 +74,12 @@ export class APIManager {
         
         // Always log the refresh action, even if model didn't change
         if (previousModel !== this.currentModel) {
+          console.log(`🤖 Model switched: ${CONFIG.MODELS[previousModel]?.name || previousModel} → ${CONFIG.MODELS[this.currentModel].name}`);
         } else {
+          console.log(`🤖 Model refresh confirmed: ${CONFIG.MODELS[this.currentModel].name} (no change)`);
         }
       } else {
+        console.log('🤖 Model refresh: No valid model found in storage, keeping current:', CONFIG.MODELS[this.currentModel]?.name);
       }
     } catch (error) {
       console.error('Error refreshing model selection:', error);
@@ -217,6 +223,7 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     
     // SPECIAL CASE: Handle search_query field type - return raw JSON response
     if (fieldType === 'search_query') {
+      console.log('🔧 Processing search_query response - returning raw JSON');
       return response.trim();
     }
     
@@ -1026,11 +1033,13 @@ Return JSON only:
 
   // AI-powered artist detection methods - UPDATED to use AI Analysis Engine
   async analyzeForArtist(title, objectType, artistField, description = '', options = {}) {
+    console.log('🎯 APIManager: Delegating to AI Analysis Engine');
     return await this.aiAnalysisEngine.analyzeForArtist(title, objectType, artistField, description, options);
   }
 
   // LEGACY METHOD - kept for backward compatibility but delegates to engine
   async analyzeForArtist_LEGACY(title, objectType, artistField, description = '') {
+    console.log('🎯 analyzeForArtist_LEGACY called with:', { title, objectType, artistField, description: description?.substring(0, 100) + '...' });
     
     if (!this.apiKey) {
       console.log('❌ No API key available, skipping AI artist analysis');
@@ -1039,18 +1048,22 @@ Return JSON only:
 
     // ORIGINAL BUG: Only analyze if artist field is empty or very short
     if (artistField && artistField.trim().length > 2) {
+      console.log('🚫 Artist field not empty, skipping AI analysis:', artistField);
       return null;
     }
 
     if (!title || title.length < 10) {
+      console.log('🚫 Title too short for AI analysis:', title);
       return null;
     }
 
     // This was the legacy implementation with the bug - now delegates to AI Analysis Engine
+    console.log('🚀 LEGACY: Delegating to AI Analysis Engine with skipIfArtistExists=true');
     return await this.aiAnalysisEngine.analyzeForArtist(title, objectType, artistField, description, { skipIfArtistExists: true });
   }
 
   async verifyArtist(artistName, objectType, period) {
+    console.log('🎯 APIManager: Delegating artist verification to AI Analysis Engine');
     return await this.aiAnalysisEngine.verifyArtist(artistName, objectType, period);
   }
 
@@ -1200,8 +1213,10 @@ SVARA MED JSON:
 
   // Market analysis methods
   async analyzeComparableSales(artistName, objectType, period, technique, description, currentValuation = null) {
+    console.log('💰 analyzeComparableSales called with:', { artistName, objectType, period, technique, currentValuation });
     
     try {
+      console.log('🔍 Using Auctionet API for comprehensive market data analysis...');
       
       // Run historical and live analysis in parallel
       const [historicalResult, liveResult] = await Promise.all([
@@ -1211,6 +1226,7 @@ SVARA MED JSON:
       
       // Combine historical and live data intelligently
       if (historicalResult || liveResult) {
+        console.log('✅ Market analysis successful');
         
         // Create SSoT for WORKING search queries (the ones that actually found data)
         const workingQueries = {
@@ -1225,7 +1241,9 @@ SVARA MED JSON:
           console.log(`⚠️ SEARCH QUERY MISMATCH DETECTED:`);
           console.log(`   Historical query: "${workingQueries.historical}"`);
           console.log(`   Live query: "${workingQueries.live}"`);
+          console.log(`   🎯 Dashboard will use both actual queries that found data`);
         } else {
+          console.log(`✅ Using consistent working query: "${bestWorkingQuery}"`);
         }
         
         const combinedResult = {
@@ -1269,11 +1287,13 @@ SVARA MED JSON:
           marketContext: this.generateCombinedMarketContext(historicalResult, liveResult)
         };
         
+        console.log(`📊 Combined analysis: Historical=${!!historicalResult}, Live=${!!liveResult}`);
         return combinedResult;
       } else {
         console.log('❌ No market data found (neither historical nor live)');
         
         // Fallback to Claude analysis if no Auctionet data found
+        console.log('🤖 Falling back to Claude AI analysis...');
         return await this.analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description);
       }
       
@@ -1287,6 +1307,7 @@ SVARA MED JSON:
 
   // NEW: Enhanced sales analysis that accepts search context for artist, brand, and freetext searches
   async analyzeSales(searchContext) {
+    console.log('🔍 analyzeSales called with search context:', searchContext);
     
     const {
       primarySearch,
@@ -1301,23 +1322,30 @@ SVARA MED JSON:
     
     // Store original SSoT query for logging purposes only
     const originalSSoTQuery = this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : null;
+    console.log('🔧 Original SSoT query before API call:', originalSSoTQuery);
     
     let analysisResult;
     
     try {
       if (analysisType === 'artist') {
+        console.log('🎯 Performing artist search for:', primarySearch);
         analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
       } else if (analysisType === 'brand') {
+        console.log('🎯 Performing brand search for:', primarySearch);
         analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
       } else if (analysisType === 'freetext') {
+        console.log('🎯 Performing freetext search for:', primarySearch);
         analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
       } else {
+        console.log('🎯 Performing default search for:', primarySearch);
         analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
       }
 
+      console.log('✅ Market analysis successful');
       
       // Keep original SSoT query intact - NO OVERRIDES
       console.log('🔒 SSoT remains unchanged - respecting Single Source of Truth principle');
+      console.log('🎯 Final SSoT query:', this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : 'N/A');
       
       return analysisResult;
 
@@ -1378,6 +1406,7 @@ SVARA MED JSON:
       // CRITICAL FIX: Check if priceRange exists before accessing its properties
       if (!historicalResult.priceRange || !historicalResult.priceRange.low || !historicalResult.priceRange.high) {
         console.warn('⚠️ Historical result missing priceRange data, skipping price comparison insights');
+        console.log('🔍 Available historicalResult properties:', Object.keys(historicalResult || {}));
         return insights; // Return early with empty insights
       }
       
@@ -1391,6 +1420,16 @@ SVARA MED JSON:
         const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
         const catalogerVsHist = ((currentValuation - histAvg) / histAvg) * 100;
         const catalogerVsLive = ((currentValuation - liveAvg) / liveAvg) * 100;
+        
+        console.log('🧠 Smart insight analysis:', {
+          histAvg: Math.round(histAvg),
+          liveAvg: Math.round(liveAvg),
+          currentValuation,
+          priceDiff: Math.round(priceDiff),
+          catalogerVsHist: Math.round(catalogerVsHist),
+          catalogerVsLive: Math.round(catalogerVsLive),
+          marketContext: isWeakMarket ? 'weak' : isStrongMarket ? 'strong' : 'normal'
+        });
         
         // Only provide insights if the difference is significant
         if (Math.abs(priceDiff) > 15) {
@@ -1617,6 +1656,7 @@ SVARA MED JSON:
 
   // Fallback method using Claude AI (original implementation)
   async analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description) {
+    console.log('🤖 Using Claude AI for sales analysis fallback...');
     
     if (!this.apiKey) {
       console.log('❌ No API key available, skipping Claude sales analysis');
@@ -1625,9 +1665,11 @@ SVARA MED JSON:
 
     // Only analyze if we have sufficient information
     if (!artistName || artistName.trim().length < 3) {
+      console.log('🚫 Insufficient artist information for sales analysis');
       return null;
     }
 
+    console.log('🚀 Starting Claude comparable sales analysis...');
     
     try {
       const prompt = `Analysera jämförbara försäljningar för denna svenska auktionspost:
@@ -1711,6 +1753,7 @@ Svara ENDAST med giltig JSON:
             console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
           } else if (response && response.success) {
+            console.log('✅ Chrome runtime success');
             resolve(response);
           } else {
             console.error('❌ Chrome runtime failed:', response);
@@ -1719,20 +1762,24 @@ Svara ENDAST med giltig JSON:
         });
       });
 
+      console.log('📊 Processing Claude comparable sales response...');
 
       if (response.success && response.data?.content?.[0]?.text) {
         const content = response.data.content[0].text;
+        console.log('🤖 Raw Claude comparable sales response:', content);
 
         // Parse JSON response with fallback
         let salesData;
         try {
           salesData = JSON.parse(content);
+          console.log('✅ JSON parsing successful:', salesData);
         } catch (parseError) {
           console.warn('⚠️ JSON parsing failed, attempting fallback parsing:', parseError);
           salesData = this.fallbackParseSalesData(content);
         }
 
         if (salesData && salesData.hasComparableData) {
+          console.log('✅ Claude comparable sales analysis successful:', salesData);
           // Mark as AI estimate
           salesData.dataSource = 'claude_ai_estimate';
           return salesData;
@@ -1753,6 +1800,7 @@ Svara ENDAST med giltig JSON:
 
   // Fallback parser for sales data if JSON parsing fails
   fallbackParseSalesData(content) {
+    console.log('🔧 Attempting fallback parsing for sales data');
     
     try {
       // Look for price ranges in the text
@@ -1798,11 +1846,13 @@ Svara ENDAST med giltig JSON:
   // NEW: Set SearchQuerySSoT for AI-only search decisions
   setSearchQuerySSoT(searchQuerySSoT) {
     this.searchQuerySSoT = searchQuerySSoT;
+    console.log('✅ APIManager: SearchQuerySSoT connected');
   }
 
   // NEW: AI-powered search term extraction
   async generateAISearchTerms(prompt) {
     try {
+      console.log('🧠 AI Manager: Generating AI search terms...');
       
       const response = await this.callClaudeAPI({
         title: 'AI Search Term Extraction',
@@ -1822,6 +1872,7 @@ Svara ENDAST med giltig JSON:
         }
         
         parsedResponse = JSON.parse(cleanResponse);
+        console.log('✅ AI Manager: Successfully parsed AI response:', parsedResponse);
         
         return parsedResponse;
       } catch (parseError) {

@@ -3,6 +3,7 @@
 
 export class TermProcessor {
   constructor() {
+    console.log('🧠 TermProcessor: Smart term processing module initialized');
   }
 
   // CRITICAL: Resolve conflicting terms like "Anna" vs "Anna Ehrner"
@@ -31,6 +32,7 @@ export class TermProcessor {
         resolved.push(conflictingTerms[0]);
       } else {
         // Multiple terms conflict - resolve by priority
+        console.log(`🚨 CONFLICT DETECTED: ${conflictingTerms.length} terms for "${cleanTerm}"`);
         conflictingTerms.forEach(t => console.log(`   - "${t.term}" (type: ${t.type}, priority: ${t.priority || 0}, source: ${t.source || 'unknown'})`));
         
         const bestTerm = this.selectBestTermFromConflicts(conflictingTerms);
@@ -44,6 +46,7 @@ export class TermProcessor {
 
   // Select the best term when multiple terms conflict
   selectBestTermFromConflicts(conflictingTerms) {
+    console.log('🧠 Selecting best term from conflicts:', conflictingTerms.map(t => t.term));
 
     // Priority rules (highest priority wins)
     const priorityRules = [
@@ -76,11 +79,13 @@ export class TermProcessor {
     scoredTerms.sort((a, b) => b.score - a.score);
     const bestTerm = scoredTerms[0].term;
     
+    console.log(`🏆 WINNER: "${bestTerm.term}" with score ${scoredTerms[0].score}`);
     return bestTerm;
   }
 
   // Enhanced smart suggestion selection with conflict resolution
   selectSmartSuggestions(terms, options = {}) {
+    console.log('🧠 Selecting smart suggestions from', terms.length, 'terms');
     
     if (!terms || terms.length === 0) return [];
 

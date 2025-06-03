@@ -78,6 +78,7 @@ export class DashboardManagerV2 {
     
     // Strategy 3: Emergency fallback
     if (terms.length === 0) {
+      console.log('🚨 Emergency fallback - creating minimal terms');
       const query = this.searchQuerySSoT?.getCurrentQuery() || 'Unknown';
       terms = [{
         term: query,
@@ -141,6 +142,7 @@ export class DashboardManagerV2 {
 
   // Generate dashboard header with pills
   generateDashboardHeader(salesData, terms) {
+    console.log('🖥️ Generating dashboard header with pills...');
     
     const currentQuery = this.searchQuerySSoT?.getCurrentQuery() || 'Unknown search';
     const querySource = this.searchQuerySSoT?.getQuerySource() || 'automatisk';
@@ -169,6 +171,7 @@ export class DashboardManagerV2 {
 
   // Generate market content section
   generateMarketContent(salesData) {
+    console.log('💰 Generating market content...');
     
     let contentHTML = '<div class="market-dashboard-content">';
     

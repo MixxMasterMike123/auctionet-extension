@@ -20,6 +20,7 @@ export class PillGenerator {
 
   // Generate header pills (desktop-optimized)
   generateHeaderPills(terms, options = {}) {
+    console.log('🖥️ Generating header pills for', terms.length, 'terms');
     
     if (!terms || terms.length === 0) {
       return '<div class="header-pills-placeholder">Inga söktermer tillgängliga</div>';
@@ -83,6 +84,7 @@ export class PillGenerator {
 
   // Generate compact pills for dashboard
   generateCompactPills(terms, options = {}) {
+    console.log('💊 Generating compact pills for', terms.length, 'terms');
     
     if (!terms || terms.length === 0) {
       return '<div class="compact-pills-placeholder">Inga söktermer tillgängliga</div>';

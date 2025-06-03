@@ -31,9 +31,9 @@
 
     console.log('Auctionet AI Assistant: On correct page, loading modules...');
     
-    // Dynamically import modules
+    // Dynamically import modules - UPDATED TO USE NEW MODULAR SYSTEM
     const { UIManager } = await import(chrome.runtime.getURL('modules/ui-manager.js'));
-    const { DashboardManager } = await import(chrome.runtime.getURL('modules/dashboard-manager.js'));
+    const { DashboardManagerV2 } = await import(chrome.runtime.getURL('modules/dashboard-manager-v2.js'));
     const { SearchFilterManager } = await import(chrome.runtime.getURL('modules/search-filter-manager.js'));
     const { QualityAnalyzer } = await import(chrome.runtime.getURL('modules/quality-analyzer.js'));
     const { APIManager } = await import(chrome.runtime.getURL('modules/api-manager.js'));
@@ -55,8 +55,8 @@
         this.searchQuerySSoT = new SearchQuerySSoT(this.apiManager);
         console.log('🤖 AI-only SearchQuerySSoT initialized');
         
-        // Initialize other managers
-        this.dashboardManager = new DashboardManager();
+        // Initialize other managers - UPDATED TO USE NEW MODULAR SYSTEM
+        this.dashboardManager = new DashboardManagerV2();
         this.salesAnalysisManager = new SalesAnalysisManager();
         this.uiManager = new UIManager(this.apiManager, this.qualityAnalyzer);
         

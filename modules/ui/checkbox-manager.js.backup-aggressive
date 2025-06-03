@@ -180,6 +180,7 @@ export class CheckboxManager {
     // Use SSoT's smart quote matching if available
     if (this.searchQuerySSoT && this.searchQuerySSoT.isTermSelected) {
       const isSelected = this.searchQuerySSoT.isTermSelected(checkboxValue);
+      console.log(`🧠 SSoT smart matching: "${checkboxValue}" → ${isSelected}`);
       return isSelected;
     }
     

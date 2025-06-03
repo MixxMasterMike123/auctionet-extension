@@ -145,6 +145,7 @@ export class SearchFilterManager {
       // FALLBACK: Use original logic when no AI Rules available
       // Guard against null/undefined terms
       if (!term || typeof term !== 'string') {
+        console.log(`🚨 AI DECISION: Invalid term (null/undefined) - skipping ❌`);
         return false;
       }
       

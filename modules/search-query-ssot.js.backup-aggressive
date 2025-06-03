@@ -347,6 +347,7 @@ export class SearchQuerySSoT {
 
   // Emergency fallback (ARTIST FIELD PRIORITY)
   getEmergencyFallback(title, artist, description) {
+    console.log('🚨 SSoT: Generating emergency fallback query with artist field priority');
     
     let fallbackTerms = [];
     let reasoning = 'Emergency fallback: ';
@@ -419,6 +420,7 @@ export class SearchQuerySSoT {
     const query = fallbackTerms.join(' ');
     const confidence = artist && artist.trim() ? 0.7 : 0.2; // Higher confidence if artist field used
     
+    console.log(`🧠 Emergency reasoning: ${reasoning}`);
     
     return {
       success: true,
@@ -571,6 +573,7 @@ export class SearchQuerySSoT {
     const timoTerm = currentAvailableTerms.find(t => t.term && t.term.includes('Timo'));
     if (timoTerm) {
     } else {
+      console.log('🚨 CRITICAL DEBUG: Timo Sarpaneva term NOT FOUND in availableTerms!');
     }
     
     // CRITICAL FIX: Identify AI-detected artists that should be preserved
@@ -723,7 +726,9 @@ export class SearchQuerySSoT {
       `${reasoningParts.join(' | ')}` : 
       'User cleared all selections';
     
+    console.log('   Current query:', this.currentQuery);
     console.log('   Selected terms:', this.currentTerms.length);
+    console.log('   Available terms state:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
     console.log('   Preservation reasoning:', this.currentMetadata.reasoning);
     
     // CRITICAL FIX: Update the actual search keywords field in the DOM
@@ -756,6 +761,7 @@ export class SearchQuerySSoT {
   
   // Get all available terms for dashboard checkboxes (both selected and unselected)
   getAvailableTerms() {
+    console.log('   Available terms stored:', this.availableTerms.length);
     console.log('   Selected terms:', this.currentTerms.length);
     
     // CRITICAL FIX: Use the stored availableTerms from initialization
