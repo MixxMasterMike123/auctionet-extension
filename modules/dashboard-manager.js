@@ -843,10 +843,37 @@ export class DashboardManager {
     });
     
     // CRITICAL FIX: Add back AI-detected artists unless explicitly unchecked
+    // Uses smart quote matching to handle quoted vs unquoted artist names
     aiDetectedArtists.forEach(artist => {
-      if (!uncheckedArtists.includes(artist.term) && !selectedTerms.includes(artist.term)) {
+      // SMART MATCHING: Check if this artist was explicitly unchecked using quote-aware comparison
+      const wasExplicitlyUnchecked = uncheckedArtists.some(uncheckedTerm => {
+        // Direct match first
+        if (uncheckedTerm === artist.term) return true;
+        
+        // Smart quote matching
+        const uncheckedWithoutQuotes = uncheckedTerm.replace(/['"]/g, '');
+        const artistWithoutQuotes = artist.term.replace(/['"]/g, '');
+        return uncheckedWithoutQuotes === artistWithoutQuotes;
+      });
+      
+      // SMART MATCHING: Check if this artist is already in selected terms
+      const alreadyInSelection = selectedTerms.some(selectedTerm => {
+        // Direct match first
+        if (selectedTerm === artist.term) return true;
+        
+        // Smart quote matching
+        const selectedWithoutQuotes = selectedTerm.replace(/['"]/g, '');
+        const artistWithoutQuotes = artist.term.replace(/['"]/g, '');
+        return selectedWithoutQuotes === artistWithoutQuotes;
+      });
+      
+      if (!wasExplicitlyUnchecked && !alreadyInSelection) {
         selectedTerms.unshift(artist.term); // Add at beginning to maintain priority
         console.log(`🤖 Preserving AI-detected artist: ${artist.term} (not explicitly unchecked)`);
+      } else if (wasExplicitlyUnchecked) {
+        console.log(`🚫 Respecting user choice: AI artist "${artist.term}" explicitly unchecked`);
+      } else {
+        console.log(`✅ AI artist "${artist.term}" already in selection`);
       }
     });
     
