@@ -44,7 +44,11 @@ class AuctionetCatalogingAssistant {
     this.currentPage = null;
     this.tooltipManager = null;
     this.isProgrammaticUpdate = false; // Track when we're updating fields programmatically
-    this.init();
+    
+    // Initialize asynchronously to prevent blocking
+    this.init().catch(error => {
+      console.error('❌ Failed to initialize AuctionetCatalogingAssistant:', error);
+    });
     
     // Listen for API key changes
     chrome.storage.onChanged.addListener((changes, namespace) => {
