@@ -234,6 +234,11 @@ Artist field prefilled → Run AI analysis → Good SSoT data → Correct PILLS/
    - **NEW:** AI detects artist → Runs FULL analysis → Extracts ALL terms → Artist + candidates
    - **Result:** SSoT gets rich search terms + PILLS for user control
 
+3. **Artist Quote Bug:** 🎯 **CONSISTENCY ISSUE**
+   - **OLD:** Artist names show as `Anna Ehrner` (unquoted) in dashboard/PILLS
+   - **NEW:** Artist names show as `"Anna Ehrner"` (properly quoted) everywhere
+   - **Result:** Consistent quoted artist names in SSoT, dashboard, and API queries
+
 ---
 
 ## 🎯 **NEXT ACTION**

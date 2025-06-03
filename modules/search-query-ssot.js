@@ -314,7 +314,7 @@ export class SearchQuerySSoT {
     const context = {
       // Primary search query (what gets sent to Auctionet)
       primarySearch: this.currentQuery,
-      searchTerms: this.currentQuery,
+      searchTerms: this.currentTerms, // FIX: Use terms array for proper PILLS rendering
       finalSearch: this.currentQuery,
       
       // Metadata for transparency
