@@ -698,9 +698,10 @@ export class QualityAnalyzer {
     
     
     // Create properly formatted warning for the existing display system (without button - we'll add it programmatically)
+    // CRITICAL FIX: Create clean text message first, then add HTML elements programmatically to avoid data corruption
     const artistMessage = aiArtist.verification ? 
-      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist.replace(/"/g, '&quot;')}">${aiArtist.detectedArtist}</strong>" (95% säkerhet) ✓ Verifierad konstnär <span class="artist-bio-tooltip" data-full-bio="${(aiArtist.verification.biography || 'Ingen detaljerad biografi tillgänglig').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="cursor: help; border-bottom: 1px dotted rgba(25, 118, 210, 0.5); transition: all 0.2s ease;">(${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'})</span> - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
-      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist.replace(/"/g, '&quot;')}">${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
+      `AI upptäckte konstnär: "${aiArtist.detectedArtist}" (95% säkerhet) ✓ Verifierad konstnär (biografi tillgänglig) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
+      `AI upptäckte konstnär: "${aiArtist.detectedArtist}" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
 
 
     // Insert artist warning at the beginning since it's important info
@@ -941,26 +942,55 @@ export class QualityAnalyzer {
 
   // NEW: Setup ignore button handlers for artist detections
   setupIgnoreArtistHandlers() {
-    // Find artist warnings that don't already have ignore buttons
+    // Find artist warnings by their data attribute
     const artistWarnings = document.querySelectorAll('li[data-artist-warning="true"]');
     
     artistWarnings.forEach(warningLi => {
-      // Skip if already has ignore button
-      if (warningLi.querySelector('.ignore-artist-btn')) return;
+      // Skip if already processed
+      if (warningLi.dataset.ignoreHandlerAdded) return;
       
-      // Find the clickable artist element to get the artist name
-      const clickableArtist = warningLi.querySelector('.clickable-artist');
-      if (!clickableArtist) return;
+      // Get the warning data from the element
+      const warningData = warningLi.warningData;
+      if (!warningData || !warningData.isArtistWarning || !warningData.detectedArtist) return;
       
-      const artistName = clickableArtist.dataset.artist || clickableArtist.textContent.trim();
-      if (!artistName) return;
+      const artistName = warningData.detectedArtist;
+      
+      // Find the text content and make the artist name clickable
+      const issueSpan = warningLi.querySelector('.issue-text');
+      if (issueSpan) {
+        const originalText = issueSpan.textContent;
+        
+        // Create clickable artist span
+        const clickableSpan = document.createElement('strong');
+        clickableSpan.className = 'clickable-artist';
+        clickableSpan.textContent = `"${artistName}"`;
+        clickableSpan.style.cursor = 'pointer';
+        clickableSpan.style.color = '#1976d2';
+        clickableSpan.style.textDecoration = 'underline';
+        clickableSpan.title = `Klicka för att flytta "${artistName}" till konstnärsfält`;
+        
+        // Replace the quoted artist name in the text with the clickable element
+        const textParts = originalText.split(`"${artistName}"`);
+        if (textParts.length === 2) {
+          issueSpan.innerHTML = '';
+          issueSpan.appendChild(document.createTextNode(textParts[0]));
+          issueSpan.appendChild(clickableSpan);
+          issueSpan.appendChild(document.createTextNode(textParts[1]));
+        }
+        
+        // Add click handler to move artist to field
+        clickableSpan.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.addClickToCopyHandler(warningLi, artistName, warningData);
+        });
+      }
       
       // Create ignore button
       const ignoreButton = document.createElement('button');
       ignoreButton.className = 'ignore-artist-btn';
-      ignoreButton.dataset.artist = artistName;
       ignoreButton.innerHTML = '✕ Ignorera';
-      ignoreButton.title = 'Ignorera denna konstnärsdetektering';
+      ignoreButton.title = `Ignorera konstnärsdetektering för "${artistName}"`;
       
       // Style the button
       Object.assign(ignoreButton.style, {
@@ -982,43 +1012,37 @@ export class QualityAnalyzer {
         ignoreButton.style.background = '#dc3545';
       });
       
-      // Add click handler
+      // Add click handler for ignore
       ignoreButton.addEventListener('click', async (e) => {
-                 e.preventDefault();
-         e.stopPropagation();
-         
-         if (!artistName) {
-           console.error('❌ No artist name found on ignore button');
-           return;
-         }
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log(`🚫 Ignore button clicked for artist: "${artistName}"`);
+        
+        // Create better confirmation dialog
+        const confirmed = await this.showIgnoreConfirmationDialog(artistName);
+        
+        if (!confirmed) {
+          return;
+        }
 
-         // Create better confirmation dialog
-         const confirmed = await this.showIgnoreConfirmationDialog(artistName);
-         
-         if (!confirmed) {
-           return;
-         }
-
-         try {
-           // Handle the ignore action
-           await this.artistIgnoreManager.handleIgnoreAction(artistName, warningLi);
-           
-           console.log(`✅ Successfully ignored artist: "${artistName}"`);
-           
-         } catch (error) {
-           console.error('❌ Error ignoring artist:', error);
-           alert(`Fel vid ignorering av konstnär: ${error.message}`);
-         }
-       });
-       
-       // Find where to insert the button (after the message text)
-       const issueSpan = warningLi.querySelector('.issue-text') || warningLi;
-       if (issueSpan.appendChild) {
-         issueSpan.appendChild(ignoreButton);
-       } else {
-         // Fallback: append to the li itself
-         warningLi.appendChild(ignoreButton);
-       }
+        try {
+          // Handle the ignore action
+          await this.artistIgnoreManager.handleIgnoreAction(artistName, warningLi);
+          
+          console.log(`✅ Successfully ignored artist: "${artistName}"`);
+          
+        } catch (error) {
+          console.error('❌ Error ignoring artist:', error);
+          alert(`Fel vid ignorering av konstnär: ${error.message}`);
+        }
+      });
+      
+      // Append ignore button to the warning element
+      warningLi.appendChild(ignoreButton);
+      
+      // Mark as processed
+      warningLi.dataset.ignoreHandlerAdded = 'true';
     });
   }
 
@@ -1036,7 +1060,6 @@ export class QualityAnalyzer {
         
         const originalBrand = element.dataset.original;
         const suggestedBrand = element.dataset.suggested;
-        
         
         try {
           // Get current form data
@@ -1137,7 +1160,6 @@ export class QualityAnalyzer {
       
       element.dataset.handlerAttached = 'true';
     });
-    
   }
 
   // Helper method for success feedback
@@ -2130,136 +2152,35 @@ export class QualityAnalyzer {
         const warningItems = warnings.map((w, warningIndex) => {
           let issue = w.issue;
           
-          
           // SAFETY CHECK: Ensure issue exists
           if (!issue) {
             console.warn(`⚠️ Warning ${warningIndex + 1} has no issue text:`, w);
             issue = w.message || 'Ingen information tillgänglig';
           }
           
-          // ENHANCED: Make artist names clickable for copy functionality
-          if (w.detectedArtist) {
-            
-            // Create clickable replacement with simple styling
-            const clickableReplacement = `<span class="clickable-artist" 
-              style="
-                color: #1976d2; 
-                cursor: pointer; 
-                text-decoration: underline; 
-                font-weight: 700; 
-                transition: color 0.2s ease;
-              " 
-              title="Klicka för att lägga till '${w.detectedArtist}' i konstnärsfältet"
-              data-artist="${w.detectedArtist}">${w.detectedArtist}</span>`;
-            
-            // COMPREHENSIVE pattern matching - try EVERYTHING
-            let patternMatched = false;
-            const allPatterns = [
-              // Pattern 1: "Artist Name" with <strong> tags
-              { pattern: new RegExp(`"<strong>${this.escapeRegex(w.detectedArtist)}</strong>"`, 'gi'), replacement: `"${clickableReplacement}"` },
-              // Pattern 2: "Artist Name" without tags  
-              { pattern: new RegExp(`"${this.escapeRegex(w.detectedArtist)}"`, 'gi'), replacement: `"${clickableReplacement}"` },
-              // Pattern 3: Artist Name with <strong> tags (no quotes)
-              { pattern: new RegExp(`<strong>${this.escapeRegex(w.detectedArtist)}</strong>`, 'gi'), replacement: clickableReplacement },
-              // Pattern 4: Artist Name without any formatting
-              { pattern: new RegExp(`\\b${this.escapeRegex(w.detectedArtist)}\\b`, 'gi'), replacement: clickableReplacement },
-              // Pattern 5: Artist Name at start of parentheses (like in verification text)
-              { pattern: new RegExp(`\\(${this.escapeRegex(w.detectedArtist)}\\s`, 'gi'), replacement: `(${clickableReplacement} ` },
-              // Pattern 6: Case insensitive exact match anywhere
-              { pattern: new RegExp(this.escapeRegex(w.detectedArtist), 'gi'), replacement: clickableReplacement }
-            ];
-            
-            
-            for (let i = 0; i < allPatterns.length; i++) {
-              const { pattern, replacement } = allPatterns[i];
-              
-              if (pattern.test(issue)) {
-                
-                // Create fresh pattern to avoid global flag issues
-                const freshPattern = new RegExp(pattern.source, pattern.flags);
-                const originalIssue = issue;
-                issue = issue.replace(freshPattern, replacement);
-                
-                
-                patternMatched = true;
-                break;
-              } else {
-                console.log(`❌ Pattern ${i + 1} did not match`);
-              }
-            }
-            
-            // ULTIMATE FALLBACK: If nothing worked, force add clickable element at the end
-            if (!patternMatched) {
-              console.log(`⚠️ NO PATTERNS MATCHED! Force adding clickable artist at end`);
-              issue += ` → <strong style="color: red;">KLICKA HÄR:</strong> ${clickableReplacement}`;
-            }
-            
-          }
-          
           // Build data attributes string
-          let dataAttrs = `data-artist="${w.detectedArtist || ''}"`;
+          let dataAttrs = '';
           if (w.dataAttributes) {
             Object.entries(w.dataAttributes).forEach(([key, value]) => {
               dataAttrs += ` ${key}="${value}"`;
             });
           }
           
-          return `<li class="warning-${w.severity}" ${dataAttrs}><strong>${w.field}:</strong> ${issue}</li>`;
+          return `<li class="warning-${w.severity}" ${dataAttrs}>
+            <strong>${w.field}:</strong> 
+            <span class="issue-text">${issue}</span>
+          </li>`;
         }).join('');
-        
-        // DEBUG: Log the actual HTML being generated
-         
-        
-        // DEBUG: Check if clickable elements exist before setting innerHTML
-        const existingClickableElements = document.querySelectorAll('.clickable-artist');
         
         warningsElement.innerHTML = `<ul>${warningItems}</ul>`;
         
-        // DEBUG: Check if clickable elements exist after setting innerHTML
-        const newClickableElements = document.querySelectorAll('.clickable-artist');
-        
-         
-        // ENHANCED: Add click-to-copy handlers for any artist names
+        // Store warning data on DOM elements for handlers to access
         warnings.forEach((warning, index) => {
-          if (warning.detectedArtist) {
-            const warningItem = warningsElement.querySelectorAll('li')[index];
-            if (warningItem) {
-              this.addClickToCopyHandler(warningItem, warning.detectedArtist, warning);
-              
-              // ENHANCED: Add hover effects for better UX
-              const clickableElements = warningItem.querySelectorAll('.clickable-artist');
-              
-              clickableElements.forEach((element, elementIndex) => {
-                
-                // Test click functionality immediately
-                
-                element.addEventListener('mouseenter', () => {
-                  element.style.color = '#0d47a1';
-                });
-                
-                element.addEventListener('mouseleave', () => {
-                  element.style.color = '#1976d2';
-                });
-              });
-            } else {
-              console.error(`❌ Could not find warning item element for index ${index}`);
-            }
+          const warningItem = warningsElement.querySelectorAll('li')[index];
+          if (warningItem) {
+            warningItem.warningData = warning; // Store the full warning data
           }
         });
-        
-        
-        // IMMEDIATE TESTING: Test artist field detection and clickable elements
-        setTimeout(() => {
-          this.testArtistFieldDetection();
-          
-          // Test if clickable elements are actually in the DOM
-          const allClickableElements = document.querySelectorAll('.clickable-artist');
-          
-          allClickableElements.forEach((element, index) => {
-            console.log(`   ${index + 1}. Text: "${element.textContent}", Data-artist: "${element.getAttribute('data-artist')}"`);
-          });
-        }, 500);
-         
       } else {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
       }
