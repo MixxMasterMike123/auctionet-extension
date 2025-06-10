@@ -1119,12 +1119,13 @@ export class QualityAnalyzer {
                   existingDashboard.remove();
                 }
                 
-                // Generate new search query with artist now in field
+                // Generate new search query with artist now in field (but don't update Hidden Keywords field)
                 const ssotResult = await this.searchQuerySSoT.generateAndSetQuery(
                   updatedData.title,
                   updatedData.description,
                   updatedData.artist,  // Now contains the moved artist
-                  ''  // No AI artist since it's been moved
+                  '',  // No AI artist since it's been moved
+                  { updateDOMField: false }  // CRITICAL FIX: Don't update Hidden Keywords field
                 );
                 
                 if (ssotResult && ssotResult.success) {
@@ -1339,12 +1340,13 @@ export class QualityAnalyzer {
                   existingDashboard.remove();
                 }
                 
-                // Generate new search query with artist now in field
+                // Generate new search query with artist now in field (but don't update Hidden Keywords field)
                 const ssotResult = await this.searchQuerySSoT.generateAndSetQuery(
                   updatedData.title,
                   updatedData.description,
                   updatedData.artist,  // Now contains the moved artist
-                  ''  // No AI artist since it's been moved
+                  '',  // No AI artist since it's been moved
+                  { updateDOMField: false }  // CRITICAL FIX: Don't update Hidden Keywords field
                 );
                 
                 if (ssotResult && ssotResult.success) {

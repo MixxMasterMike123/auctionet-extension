@@ -125,14 +125,14 @@ export class SearchQuerySSoT {
   }
 
   // MAIN METHOD: Generate and set the authoritative search query
-  async generateAndSetQuery(title, description = '', artist = '', aiArtist = '') {
+  async generateAndSetQuery(title, description = '', artist = '', aiArtist = '', options = {}) {
     
     try {
       // Use AI to generate optimal search query (with artist field support)
       const aiResult = await this.aiGenerator.generateOptimalSearchQuery(title, description, artist, aiArtist);
       
       if (aiResult && aiResult.success) {
-        this.setCurrentQuery(aiResult);
+        this.setCurrentQuery(aiResult, options);
         return aiResult;
       } else {
         throw new Error('AI search generation failed');
@@ -142,14 +142,14 @@ export class SearchQuerySSoT {
       
       // Emergency fallback with artist field priority
       const fallback = this.getEmergencyFallback(title, artist, description);
-      this.setCurrentQuery(fallback);
+      this.setCurrentQuery(fallback, options);
       console.log('⚠️ SSoT: Emergency fallback set as authoritative source');
       return fallback;
     }
   }
 
   // Set the current authoritative query
-  setCurrentQuery(queryData) {
+  setCurrentQuery(queryData, options = {}) {
     console.log('🔒 SSoT: Setting authoritative query:', queryData);
     
     this.currentQuery = queryData.query || '';
@@ -225,8 +225,11 @@ export class SearchQuerySSoT {
       originalDescription: queryData.originalDescription || ''
     };
     
-    // CRITICAL FIX: Update DOM field when query is set
-    this.updateDOMSearchField();
+    // CRITICAL FIX: Update DOM field when query is set (unless explicitly disabled)
+    const shouldUpdateDOMField = options.updateDOMField !== false; // Default to true
+    if (shouldUpdateDOMField) {
+      this.updateDOMSearchField();
+    }
     
     // Notify all listeners
     this.notifyListeners('query_generated', {
