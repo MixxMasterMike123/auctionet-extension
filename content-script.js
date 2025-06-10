@@ -993,17 +993,6 @@
               </ul>
             </div>
             
-            <div class="ai-settings-section" style="margin: 15px 0; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #007cba;">
-              <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #333;">⚙️ AI-inställningar</h4>
-              <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px;">
-                <input type="checkbox" id="dialog-enable-artist-info" style="margin-right: 8px;" ${this.apiManager.enableArtistInfo ? 'checked' : ''}>
-                <span>Lägg till konstnärsinformation i beskrivningen</span>
-              </label>
-              <div style="font-size: 11px; color: #666; margin-top: 4px;">
-                När konstnär/formgivare är känd, lägg till kort historisk kontext och information om specifika serier/modeller.
-              </div>
-            </div>
-            
             ${this.getFieldSpecificTips(fieldType, data)}
             
             <div class="dialog-buttons">
@@ -1024,21 +1013,6 @@
           dialog.remove();
           this.forceImproveField(fieldType);
         });
-        
-        // Handle artist info checkbox change
-        const artistInfoCheckbox = document.getElementById('dialog-enable-artist-info');
-        if (artistInfoCheckbox) {
-          artistInfoCheckbox.addEventListener('change', async () => {
-            const isEnabled = artistInfoCheckbox.checked;
-            try {
-              await chrome.storage.sync.set({ enableArtistInfo: isEnabled });
-              this.apiManager.enableArtistInfo = isEnabled;
-              console.log('Artist info setting updated from dialog:', isEnabled);
-            } catch (error) {
-              console.error('Error saving artist info setting:', error);
-            }
-          });
-        }
         
         // Close on background click
         dialog.querySelector('.dialog-overlay').addEventListener('click', () => {
@@ -1065,17 +1039,6 @@
             <h3>⚡ Förbättra ${fieldName}</h3>
             <p>AI:n är redo att förbättra ${fieldName} enligt svenska auktionsstandarder.</p>
             
-            <div class="ai-settings-section" style="margin: 15px 0; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #007cba;">
-              <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #333;">⚙️ AI-inställningar</h4>
-              <label style="display: flex; align-items: center; cursor: pointer; font-size: 13px;">
-                <input type="checkbox" id="dialog-enable-artist-info" style="margin-right: 8px;" ${this.apiManager.enableArtistInfo ? 'checked' : ''}>
-                <span>Lägg till konstnärsinformation i beskrivningen</span>
-              </label>
-              <div style="font-size: 11px; color: #666; margin-top: 4px;">
-                När konstnär/formgivare är känd, lägg till kort historisk kontext och information om specifika serier/modeller.
-              </div>
-            </div>
-            
             <div class="dialog-buttons">
               <button class="btn btn-link" id="cancel-settings-dialog">Avbryt</button>
               <button class="btn btn-primary" id="proceed-with-ai" style="background: #007cba;">Förbättra ${fieldName}</button>
@@ -1094,21 +1057,6 @@
           dialog.remove();
           this.proceedWithAIImprovement(fieldType);
         });
-        
-        // Handle artist info checkbox change
-        const artistInfoCheckbox = document.getElementById('dialog-enable-artist-info');
-        if (artistInfoCheckbox) {
-          artistInfoCheckbox.addEventListener('change', async () => {
-            const isEnabled = artistInfoCheckbox.checked;
-            try {
-              await chrome.storage.sync.set({ enableArtistInfo: isEnabled });
-              this.apiManager.enableArtistInfo = isEnabled;
-              console.log('Artist info setting updated from dialog:', isEnabled);
-            } catch (error) {
-              console.error('Error saving artist info setting:', error);
-            }
-          });
-        }
         
         // Close on background click
         dialog.querySelector('.dialog-overlay').addEventListener('click', () => {
