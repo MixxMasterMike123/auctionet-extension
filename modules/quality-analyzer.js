@@ -476,8 +476,8 @@ export class QualityAnalyzer {
       }
 
       // Start parallel analyses - artist detection AND brand validation
-      // IMPORTANT: Force AI analysis even when artist field is filled to get verification
-      const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist, true);
+      // Always run AI analysis for verification and brand validation, but don't suggest title changes when artist field is filled
+      const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist, false);
       const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
       
       // CRITICAL ENHANCEMENT: Handle AI artist detection but EXCLUDE from initial SSoT

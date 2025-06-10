@@ -13,10 +13,8 @@ export class ArtistDetectionManager {
 
   // Main artist detection method - exactly from edit page quality-analyzer.js
   async detectMisplacedArtist(title, artistField, forceReDetection = false) {
-    // IMPORTANT: Always run AI analysis when forceReDetection = true, regardless of artist field content
-    if (!forceReDetection && artistField && artistField.trim().length > 2) {
-      return null; // Artist field already has content - will be picked up by search query generation
-    }
+    // Track if artist field is already filled (will affect result processing but not prevent AI analysis)
+    const artistFieldFilled = artistField && artistField.trim().length > 2;
 
     if (!title || title.length < 10) {
       return null; // Title too short to contain artist
@@ -90,6 +88,19 @@ export class ArtistDetectionManager {
             const period = this.extractPeriod(title);
             const objectType = this.extractObjectType(title);
             verification = await this.apiManager.verifyArtist(aiResult.artistName, objectType, period);
+          }
+          
+          // If artist field is already filled, return verification result but don't suggest title changes
+          if (artistFieldFilled && !forceReDetection) {
+            return {
+              detectedArtist: aiResult.artistName,
+              suggestedTitle: null, // Don't suggest title changes when artist field is filled
+              confidence: aiResult.confidence,
+              reasoning: 'Artist field already filled - AI analysis for verification only',
+              verification: verification,
+              source: 'ai-verification',
+              foundIn: 'verification'
+            };
           }
           
           return {
