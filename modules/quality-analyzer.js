@@ -429,6 +429,9 @@ export class QualityAnalyzer {
       const ignoredArtists = this.artistIgnoreManager.getIgnoredArtists();
       let analysisTitle = data.title;
       
+      console.log(`🔍 AI Analysis Debug - Total ignored artists: ${ignoredArtists.length}`, ignoredArtists);
+      console.log(`🔍 AI Analysis Debug - Original title: "${data.title}"`);
+      
       // Remove ignored artists from title before AI analysis to prevent re-detection
       for (const ignoredArtist of ignoredArtists) {
         const normalizedIgnored = this.artistIgnoreManager.normalizeArtistName(ignoredArtist);
@@ -439,12 +442,17 @@ export class QualityAnalyzer {
           // Remove the ignored artist from title for analysis
           const regex = new RegExp(`\\b${this.escapeRegex(ignoredArtist)}\\b`, 'gi');
           analysisTitle = analysisTitle.replace(regex, '').replace(/\s+/g, ' ').trim();
+          console.log(`🔍 AI Analysis Debug - Title after removing "${ignoredArtist}": "${analysisTitle}"`);
+        } else {
+          console.log(`🔍 AI Analysis Debug - Ignored artist "${ignoredArtist}" not found in title`);
         }
       }
       
-      console.log('🔍 Original title:', data.title);
+      console.log(`🔍 AI Analysis Debug - Final analysis title: "${analysisTitle}"`);
       if (analysisTitle !== data.title) {
-        console.log('🔍 Analysis title (ignored artists removed):', analysisTitle);
+        console.log(`🔍 AI Analysis Debug - Title was modified for analysis`);
+      } else {
+        console.log(`🔍 AI Analysis Debug - Title unchanged for analysis`);
       }
 
       // Start parallel analyses - artist detection AND brand validation
@@ -668,6 +676,8 @@ export class QualityAnalyzer {
     const filteredResult = this.artistIgnoreManager.filterDetectionResult(aiArtist);
     if (!filteredResult) {
       console.log(`🚫 Artist detection filtered out as ignored: "${aiArtist.detectedArtist}"`);
+      console.log(`🔍 Filter Debug - Ignored artists list:`, this.artistIgnoreManager.getIgnoredArtists());
+      console.log(`🔍 Filter Debug - Is "${aiArtist.detectedArtist}" ignored?`, this.artistIgnoreManager.isArtistIgnored(aiArtist.detectedArtist));
       
       // Still trigger dashboard for non-art items when artist is ignored
       await this.triggerDashboardForNonArtItems(data);

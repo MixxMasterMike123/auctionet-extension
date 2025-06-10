@@ -125,11 +125,15 @@ export class ArtistIgnoreManager {
    */
   async handleIgnoreAction(artistName, warningElement) {
     try {
+      console.log(`🚫 Debug - Starting ignore action for artist: "${artistName}"`);
+      
       // Add to ignored list
       const success = this.ignoreArtist(artistName);
       if (!success) {
         throw new Error('Failed to ignore artist');
       }
+
+      console.log(`🚫 Debug - Artist added to ignored list. Current ignored artists:`, this.getIgnoredArtists());
 
       // Visual feedback - mark as ignored
       this.updateWarningElementAsIgnored(warningElement, artistName);
@@ -140,6 +144,7 @@ export class ArtistIgnoreManager {
 
       // Trigger quality re-analysis to remove the warning
       if (this.qualityAnalyzer) {
+        console.log(`🔄 Debug - Triggering quality re-analysis to remove warning for "${artistName}"`);
         setTimeout(() => {
           this.qualityAnalyzer.analyzeQuality();
         }, 100);
