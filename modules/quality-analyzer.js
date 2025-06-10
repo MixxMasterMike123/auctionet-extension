@@ -2604,7 +2604,13 @@ export class QualityAnalyzer {
     // Use AI-only SearchQuerySSoT if available
     if (this.searchQuerySSoT) {
       try {
-        const result = await this.searchQuerySSoT.generateAndSetQuery(data.title, data.description, data.artist || '', aiArtist?.detectedArtist || '');
+        const result = await this.searchQuerySSoT.generateAndSetQuery(
+          data.title, 
+          data.description, 
+          data.artist || '', 
+          aiArtist?.detectedArtist || '',
+          { updateDOMField: false }  // CRITICAL FIX: Don't update Hidden Keywords field during market analysis
+        );
         
         if (result && result.success) {
           
