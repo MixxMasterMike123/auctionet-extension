@@ -97,9 +97,9 @@ export class CheckboxManager {
     // Get all current checkbox states
     const allSelectedTerms = this.getAllSelectedTerms();
     
-    // Update SSoT with new selections
+    // Update SSoT with new selections (CRITICAL: Don't update hidden keywords field)
     if (this.searchQuerySSoT) {
-      this.searchQuerySSoT.updateUserSelections(allSelectedTerms);
+      this.searchQuerySSoT.updateUserSelections(allSelectedTerms, { updateDOMField: false });
       
       // Trigger dashboard refresh if needed
       this.triggerDashboardRefresh();
