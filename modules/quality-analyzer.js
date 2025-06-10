@@ -394,19 +394,35 @@ export class QualityAnalyzer {
       score -= 15;
     }
     
-    // Check for keyword quality - simplified approach
+    // Check for keyword quality - more lenient approach for AI-generated content
     if (data.keywords) {
       const keywords = data.keywords.toLowerCase();
       const titleDesc = (data.title + ' ' + data.description + ' ' + data.condition).toLowerCase();
       
-      const keywordArray = data.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0);
-      const uniqueKeywords = keywordArray.filter(keyword => 
-        !titleDesc.includes(keyword.toLowerCase()) || keyword.length <= 3
-      );
+      // Split keywords by both comma and space (Auctionet format uses spaces)
+      const keywordArray = data.keywords.includes(',') ? 
+        data.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0) :
+        data.keywords.split(/\s+/).map(k => k.trim()).filter(k => k.length > 0);
       
-      const uniquePercentage = uniqueKeywords.length / keywordArray.length;
+      const uniqueKeywords = keywordArray.filter(keyword => {
+        const normalizedKeyword = keyword.toLowerCase().replace(/-/g, ' ');
+        // More sophisticated duplicate detection
+        return !titleDesc.includes(normalizedKeyword) && 
+               !titleDesc.includes(keyword.toLowerCase()) && 
+               keyword.length > 2; // Ignore very short words
+      });
       
-      if (uniquePercentage < 0.4) {
+      const uniquePercentage = keywordArray.length > 0 ? uniqueKeywords.length / keywordArray.length : 0;
+      
+      console.log('🔍 Keyword quality check:', {
+        totalKeywords: keywordArray.length,
+        uniqueKeywords: uniqueKeywords.length,
+        uniquePercentage: (uniquePercentage * 100).toFixed(1) + '%',
+        threshold: '20%'
+      });
+      
+      // More lenient threshold - only flag if less than 20% are unique (was 40%)
+      if (uniquePercentage < 0.2 && keywordArray.length > 3) {
         warnings.push({ field: 'Sökord', issue: 'Tips: Många sökord upprepar titel/beskrivning - kompletterande termer kan förbättra sökbarheten', severity: 'low' });
       }
     }
