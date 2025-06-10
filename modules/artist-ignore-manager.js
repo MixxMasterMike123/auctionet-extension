@@ -3,9 +3,15 @@
 
 export class ArtistIgnoreManager {
   constructor() {
-    this.ignoredArtists = new Set(); // Track ignored artists for current session
+    this.ignoredArtists = [];
+    this.storageKey = 'auctionet_ignored_artists';
+    // NEW: Add expiration tracking
+    this.expirationKey = 'auctionet_ignored_artists_expiry';
+    this.defaultExpirationHours = 24; // 24 hours instead of permanent
+    this.loadFromStorage();
     this.qualityAnalyzer = null;
     this.searchQuerySSoT = null;
+    this.setupKeyboardShortcuts(); // NEW: Add keyboard shortcuts
     console.log('🚫 ArtistIgnoreManager initialized');
   }
 
@@ -32,12 +38,14 @@ export class ArtistIgnoreManager {
     }
 
     const normalizedName = this.normalizeArtistName(artistName);
-    this.ignoredArtists.add(normalizedName);
+    if (!this.ignoredArtists.includes(normalizedName)) {
+      this.ignoredArtists.push(normalizedName);
+    }
     
     console.log(`🚫 Ignored artist: "${artistName}" (normalized: "${normalizedName}")`);
     
     // Store in session storage for persistence across page interactions
-    this.saveIgnoredArtistsToStorage();
+    this.saveToStorage();
     
     return true;
   }
@@ -51,7 +59,7 @@ export class ArtistIgnoreManager {
     if (!artistName) return false;
     
     const normalizedName = this.normalizeArtistName(artistName);
-    return this.ignoredArtists.has(normalizedName);
+    return this.ignoredArtists.includes(normalizedName);
   }
 
   /**
@@ -62,11 +70,13 @@ export class ArtistIgnoreManager {
     if (!artistName) return false;
     
     const normalizedName = this.normalizeArtistName(artistName);
-    const wasIgnored = this.ignoredArtists.delete(normalizedName);
+    const index = this.ignoredArtists.indexOf(normalizedName);
+    const wasIgnored = index !== -1;
     
     if (wasIgnored) {
+      this.ignoredArtists.splice(index, 1);
       console.log(`✅ Un-ignored artist: "${artistName}"`);
-      this.saveIgnoredArtistsToStorage();
+      this.saveToStorage();
     }
     
     return wasIgnored;
@@ -77,15 +87,15 @@ export class ArtistIgnoreManager {
    * @returns {Array<string>}
    */
   getIgnoredArtists() {
-    return Array.from(this.ignoredArtists);
+    return [...this.ignoredArtists];
   }
 
   /**
    * Clear all ignored artists
    */
   clearAllIgnored() {
-    this.ignoredArtists.clear();
-    this.saveIgnoredArtistsToStorage();
+    this.ignoredArtists.length = 0;
+    this.saveToStorage();
     console.log('🧹 Cleared all ignored artists');
   }
 
@@ -277,41 +287,71 @@ export class ArtistIgnoreManager {
     }, 3000);
   }
 
-  /**
-   * Save ignored artists to session storage
-   */
-  saveIgnoredArtistsToStorage() {
+  // Load ignored artists from sessionStorage with expiration check
+  loadFromStorage() {
     try {
-      const ignoredArray = Array.from(this.ignoredArtists);
-      sessionStorage.setItem('auctionet_ignored_artists', JSON.stringify(ignoredArray));
-    } catch (error) {
-      console.warn('⚠️ Could not save ignored artists to storage:', error);
-    }
-  }
+      // Check if data has expired
+      const expiryTime = sessionStorage.getItem(this.expirationKey);
+      if (expiryTime) {
+        const now = Date.now();
+        const expiry = parseInt(expiryTime);
+        
+        if (now > expiry) {
+          console.log('⏰ Ignored artists list expired, clearing...');
+          this.clearAllIgnoredArtists();
+          return;
+        }
+      }
 
-  /**
-   * Load ignored artists from session storage
-   */
-  loadIgnoredArtistsFromStorage() {
-    try {
-      const stored = sessionStorage.getItem('auctionet_ignored_artists');
+      const stored = sessionStorage.getItem(this.storageKey);
       if (stored) {
-        const ignoredArray = JSON.parse(stored);
-        this.ignoredArtists = new Set(ignoredArray);
-        console.log(`📥 Loaded ${ignoredArray.length} ignored artists from storage`);
+        this.ignoredArtists = JSON.parse(stored);
+        console.log(`📥 Loaded ${this.ignoredArtists.length} ignored artists from storage`);
+        
+        // Set expiration if not set
+        if (!expiryTime) {
+          this.setExpiration();
+        }
       }
     } catch (error) {
-      console.warn('⚠️ Could not load ignored artists from storage:', error);
-      this.ignoredArtists = new Set(); // Reset to empty set
+      console.error('❌ Failed to load ignored artists from storage:', error);
+      this.ignoredArtists = [];
     }
+
+    // Clean up any corrupted entries
+    const originalLength = this.ignoredArtists.length;
+    this.ignoredArtists = this.ignoredArtists.filter(artist => 
+      artist && 
+      typeof artist === 'string' && 
+      artist.trim().length > 0 &&
+      !artist.includes('<') && // Remove HTML tags
+      artist.length < 100 // Reasonable length limit
+    );
+    
+    if (this.ignoredArtists.length !== originalLength) {
+      console.log(`🧹 Cleaned ${originalLength - this.ignoredArtists.length} corrupted entries`);
+      this.saveToStorage();
+    }
+
+    console.log('🚫 ArtistIgnoreManager initialized with ignored artists:', this.getIgnoredArtists());
   }
 
-  /**
-   * Initialize - load from storage
-   */
-  init() {
-    this.loadIgnoredArtistsFromStorage();
-    console.log('🚫 ArtistIgnoreManager initialized with ignored artists:', this.getIgnoredArtists());
+  // NEW: Set expiration time
+  setExpiration(hoursFromNow = this.defaultExpirationHours) {
+    const expiryTime = Date.now() + (hoursFromNow * 60 * 60 * 1000);
+    sessionStorage.setItem(this.expirationKey, expiryTime.toString());
+    console.log(`⏰ Ignored artists will expire in ${hoursFromNow} hours`);
+  }
+
+  // Save to sessionStorage with expiration
+  saveToStorage() {
+    try {
+      sessionStorage.setItem(this.storageKey, JSON.stringify(this.ignoredArtists));
+      this.setExpiration(); // Reset expiration timer
+      console.log(`💾 Saved ${this.ignoredArtists.length} ignored artists to storage`);
+    } catch (error) {
+      console.error('❌ Failed to save ignored artists to storage:', error);
+    }
   }
 
   // NEW: Remove specific artist from ignored list
@@ -421,5 +461,30 @@ export class ArtistIgnoreManager {
         document.body.removeChild(modal);
       }
     });
+  }
+
+  // NEW: Setup keyboard shortcuts for easier management
+  setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      // Ctrl+Shift+C = Clear all ignored artists
+      if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        if (this.ignoredArtists.length > 0) {
+          const count = this.clearAllIgnoredArtists();
+          alert(`✅ Cleared ${count} ignored artists! Page will refresh.`);
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          alert('No ignored artists to clear.');
+        }
+      }
+      
+      // Ctrl+Shift+I = Show ignored artists management
+      if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+        e.preventDefault();
+        this.showManagementUI();
+      }
+    });
+    
+    console.log('⌨️ Keyboard shortcuts active: Ctrl+Shift+C (clear), Ctrl+Shift+I (manage)');
   }
 } 
