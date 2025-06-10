@@ -83,9 +83,10 @@ export class ArtistDetectionManager {
         
         if (aiResult && aiResult.hasArtist && aiResult.confidence > requiredConfidence) {
           
-          // Optionally verify the artist if artist info is enabled
+          // ALWAYS verify detected artists for user verification (biography tooltip)
+          // The enableArtistInfo setting should not disable basic verification functionality
           let verification = null;
-          if (this.apiManager.enableArtistInfo && aiResult.artistName) {
+          if (aiResult.artistName) {
             const period = this.extractPeriod(title);
             const objectType = this.extractObjectType(title);
             verification = await this.apiManager.verifyArtist(aiResult.artistName, objectType, period);

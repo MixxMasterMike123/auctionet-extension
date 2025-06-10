@@ -198,7 +198,9 @@ JSON:
    * Verify artist information (extracted from api-manager.js)
    */
   async verifyArtist(artistName, objectType, period) {
-    if (!this.apiManager?.apiKey || !this.enableArtistInfo) {
+    // Always provide verification for detected artists (for biography tooltip)
+    // The enableArtistInfo setting should not disable basic verification functionality
+    if (!this.apiManager?.apiKey) {
       return null;
     }
 
