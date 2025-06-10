@@ -10,6 +10,7 @@ import { BrandValidationManager } from './brand-validation-manager.js';
 import { InlineBrandValidator } from './inline-brand-validator.js';
 import { ArtistIgnoreManager } from './artist-ignore-manager.js';
 import { cleanTitleAfterArtistRemoval } from './core/title-cleanup-utility.js';
+import { BiographyTooltipManager } from './core/biography-tooltip-manager.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
   constructor() {
@@ -37,6 +38,10 @@ export class QualityAnalyzer {
     this.artistIgnoreManager = new ArtistIgnoreManager();
     this.artistIgnoreManager.setQualityAnalyzer(this);
     this.artistIgnoreManager.init(); // Load ignored artists from storage immediately
+    
+    // NEW: Initialize Biography Tooltip Manager SSoT component
+    this.biographyManager = new BiographyTooltipManager();
+    this.biographyManager.init();
     
     // Initialize manager instances
     this.salesAnalysisManager = new SalesAnalysisManager();
@@ -970,60 +975,34 @@ export class QualityAnalyzer {
         clickableSpan.style.textDecoration = 'underline';
         clickableSpan.title = `Klicka för att flytta "${artistName}" till konstnärsfält`;
         
-        // Add biography snippet if available
+        // NEW: Use Biography Manager SSoT component for biography handling
         let biographySpan = null;
-        if (warningData.verification && warningData.verification.biography) {
-          const fullBio = warningData.verification.biography;
-          if (fullBio && fullBio !== 'Ingen detaljerad biografi tillgänglig') {
-            // Create biography snippet (first 80 characters)
-            const bioPreview = fullBio.length > 80 ? fullBio.substring(0, 80) + '...' : fullBio;
-            
-            biographySpan = document.createElement('span');
-            biographySpan.className = 'artist-bio-tooltip';
-            biographySpan.textContent = ` (${bioPreview})`;
-            biographySpan.style.cssText = `
-              color: #666;
-              font-style: italic;
-              font-size: 0.9em;
-              cursor: help;
-              border-bottom: 1px dotted rgba(25, 118, 210, 0.5);
-              transition: all 0.2s ease;
-              font-weight: normal;
-            `;
-            biographySpan.title = 'Klicka för att visa fullständig biografi';
-            
-            // Add click handler to show full biography
-            biographySpan.addEventListener('click', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              alert(fullBio + '\n\n🤖 AI-genererad biografi (Claude Haiku)');
-            });
-            
-            // Add hover effect for biography snippet
-            biographySpan.addEventListener('mouseenter', () => {
-              biographySpan.style.backgroundColor = '#f0f8ff';
-              biographySpan.style.borderRadius = '2px';
-            });
-            
-            biographySpan.addEventListener('mouseleave', () => {
-              biographySpan.style.backgroundColor = 'transparent';
-            });
-          }
+        const biography = this.biographyManager.extractBiography(warningData);
+        if (biography) {
+          // Create biography snippet using SSoT component
+          biographySpan = this.biographyManager.createBiographySnippet(null, biography, artistName);
         }
         
-        // Replace the quoted artist name in the text with the clickable element and biography
+        // Replace the quoted artist name in the text with the clickable element
         const textParts = originalText.split(`"${artistName}"`);
         if (textParts.length === 2) {
           issueSpan.innerHTML = '';
           issueSpan.appendChild(document.createTextNode(textParts[0]));
           issueSpan.appendChild(clickableSpan);
-          
-          // Add biography snippet if it exists
-          if (biographySpan) {
-            issueSpan.appendChild(biographySpan);
-          }
-          
           issueSpan.appendChild(document.createTextNode(textParts[1]));
+          
+          // Add biography snippet on new line if it exists
+          if (biographySpan) {
+            const biographyLine = document.createElement('div');
+            biographyLine.style.cssText = `
+              margin-top: 4px;
+              font-size: 0.9em;
+              color: #666;
+              font-style: italic;
+            `;
+            biographyLine.appendChild(biographySpan);
+            issueSpan.appendChild(biographyLine);
+          }
         }
         
         // Add click handler to move artist to field
@@ -1034,30 +1013,66 @@ export class QualityAnalyzer {
         });
       }
       
+      // Create action buttons container
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'artist-action-buttons';
+      buttonContainer.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        align-items: center;
+      `;
+      
       // Create ignore button
       const ignoreButton = document.createElement('button');
       ignoreButton.className = 'ignore-artist-btn';
-      ignoreButton.innerHTML = '✕ Ignorera';
+      ignoreButton.textContent = 'Ignorera';
       ignoreButton.title = `Ignorera konstnärsdetektering för "${artistName}"`;
       
-      // Style the button
+      // Style the ignore button to match Figma
       Object.assign(ignoreButton.style, {
-        marginLeft: '8px',
-        padding: '2px 6px',
-        fontSize: '11px',
+        padding: '6px 12px',
+        fontSize: '12px',
         background: '#dc3545',
         color: 'white',
         border: 'none',
-        borderRadius: '3px',
-        cursor: 'pointer'
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontWeight: '300'
       });
       
-      // Add hover effect
+      // Create move button
+      const moveButton = document.createElement('button');
+      moveButton.className = 'move-artist-btn';
+      moveButton.textContent = 'Flytta till konstnärsfält';
+      moveButton.title = `Flytta "${artistName}" från titel till konstnärsfält`;
+      
+      // Style the move button to match Figma
+      Object.assign(moveButton.style, {
+        padding: '6px 12px',
+        fontSize: '12px',
+        background: '#3E3E3E',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontWeight: '300'
+      });
+      
+      // Add hover effects for ignore button
       ignoreButton.addEventListener('mouseenter', () => {
         ignoreButton.style.background = '#c82333';
       });
       ignoreButton.addEventListener('mouseleave', () => {
         ignoreButton.style.background = '#dc3545';
+      });
+      
+      // Add hover effects for move button
+      moveButton.addEventListener('mouseenter', () => {
+        moveButton.style.background = '#525252';
+      });
+      moveButton.addEventListener('mouseleave', () => {
+        moveButton.style.background = '#3E3E3E';
       });
       
       // Add click handler for ignore
@@ -1086,11 +1101,28 @@ export class QualityAnalyzer {
         }
       });
       
-      // Append ignore button to the warning element
-      warningLi.appendChild(ignoreButton);
+      // Add click handler for move button
+      moveButton.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Get the warning data from the element
+        const warningData = {
+          detectedArtist: artistName,
+          foundIn: warningLi.dataset.foundIn || 'titel'
+        };
+        
+        await this.moveArtistToField(artistName, warningData, moveButton);
+      });
       
-      // Mark as processed
+      // Add buttons to container and append to warning element
+      buttonContainer.appendChild(ignoreButton);
+      buttonContainer.appendChild(moveButton);
+      warningLi.appendChild(buttonContainer);
+      
+      // Mark as processed and store metadata for button handlers
       warningLi.dataset.ignoreHandlerAdded = 'true';
+      warningLi.dataset.foundIn = warningLi.textContent.includes('titel') ? 'titel' : 'other';
     });
   }
 
@@ -2202,69 +2234,7 @@ export class QualityAnalyzer {
     console.log('Keywords field:', document.querySelector('#item_hidden_keywords'));
     
     // SAFETY CHECK: Ensure all necessary components are properly initialized
-    
-    // BIOGRAPHY TOOLTIP FUNCTIONALITY - Add CSS styles and event handlers
-    const style = document.createElement('style');
-    style.textContent = `
-      .artist-bio-tooltip:hover {
-        cursor: help;
-      }
-      
-      .artist-bio-tooltip::after {
-        content: attr(data-full-bio);
-        position: absolute;
-        background: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 12px;
-        border-radius: 6px;
-        font-size: 12px;
-        white-space: pre-wrap;
-        max-width: 350px;
-        z-index: 10000;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        margin-top: 20px;
-        margin-left: -50px;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s ease;
-      }
-      
-      .artist-bio-tooltip:hover::after {
-        opacity: 1;
-      }
-      
-      .artist-bio-tooltip::before {
-        content: '';
-        position: absolute;
-        top: -5px;
-        left: 50px;
-        border: 5px solid transparent;
-        border-bottom-color: rgba(0, 0, 0, 0.9);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-      }
-      
-      .artist-bio-tooltip:hover::before {
-        opacity: 1;
-      }
-    `;
-    
-    // Only add the style if it doesn't already exist
-    if (!document.querySelector('style[data-artist-bio-tooltip]')) {
-      style.setAttribute('data-artist-bio-tooltip', 'true');
-      document.head.appendChild(style);
-    }
-    
-    // Add biography tooltip functionality with attribution
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('artist-bio-tooltip')) {
-        e.preventDefault();
-        const fullBio = e.target.getAttribute('data-full-bio');
-        if (fullBio && fullBio !== 'Ingen detaljerad biografi tillgänglig') {
-          alert(fullBio + '\n\n🤖 AI-genererad biografi (Claude Haiku)');
-        }
-      }
-    });
+    // NOTE: Biography functionality now handled by BiographyTooltipManager SSoT component
   }
 
   assessDataQuality(data, fieldType) {

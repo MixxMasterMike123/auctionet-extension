@@ -29,31 +29,21 @@ export class BiographyTooltipManager {
       return null;
     }
 
-    // Create biography snippet (first 80 characters)
-    const bioPreview = biography.length > 80 ? biography.substring(0, 80) + '...' : biography;
+    // Create biography snippet (shorter for cleaner design - first 50 characters)
+    const bioPreview = biography.length > 50 ? biography.substring(0, 50) + '...' : biography;
     
     const biographySpan = document.createElement('span');
     biographySpan.className = 'artist-bio-tooltip';
-    biographySpan.textContent = ` (${bioPreview})`;
+    biographySpan.textContent = `(${bioPreview})`;
+    biographySpan.setAttribute('data-full-bio', biography + '\n\n🤖 AI-genererad biografi (Claude Haiku)');
     biographySpan.style.cssText = `
-      color: #666;
-      font-style: italic;
-      font-size: 0.9em;
       cursor: help;
       border-bottom: 1px dotted rgba(25, 118, 210, 0.5);
       transition: all 0.2s ease;
-      font-weight: normal;
+      position: relative;
     `;
-    biographySpan.title = 'Klicka för att visa fullständig biografi';
     
-    // Add click handler to show full biography
-    biographySpan.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.showFullBiography(artistName, biography);
-    });
-    
-    // Add hover effect
+    // Add hover effect for snippet
     biographySpan.addEventListener('mouseenter', () => {
       biographySpan.style.backgroundColor = '#f0f8ff';
       biographySpan.style.borderRadius = '2px';
@@ -206,8 +196,51 @@ export class BiographyTooltipManager {
     style.setAttribute('data-biography-tooltip-styles', 'true');
     style.textContent = `
       /* Biography Snippet Styles */
-      .artist-bio-tooltip:hover {
+      .artist-bio-tooltip {
+        position: relative;
         cursor: help;
+      }
+
+      .artist-bio-tooltip::after {
+        content: attr(data-full-bio);
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-width: 350px;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        margin-top: 20px;
+        margin-left: -50px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        font-style: normal;
+        font-weight: normal;
+        line-height: 1.4;
+      }
+      
+      .artist-bio-tooltip:hover::after {
+        opacity: 1;
+      }
+      
+      .artist-bio-tooltip::before {
+        content: '';
+        position: absolute;
+        top: 15px;
+        left: 50px;
+        border: 5px solid transparent;
+        border-bottom-color: rgba(0, 0, 0, 0.9);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 10001;
+      }
+      
+      .artist-bio-tooltip:hover::before {
+        opacity: 1;
       }
 
       .artist-bio-preview {
