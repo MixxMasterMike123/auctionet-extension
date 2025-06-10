@@ -420,7 +420,7 @@ export class QualityAnalyzer {
       this.pendingAnalyses.add('artist');
       this.pendingAnalyses.add('brand');
       
-      // ENHANCED STRATEGY: Immediately detect and format AI artist for SSoT integration
+      // NEW FLOW: Initially exclude artists detected in title from SSoT
       
       // First, check if we have an immediate artist (from field or rule-based detection)
       const immediateArtist = this.determineBestArtistForMarketAnalysis(data);
@@ -451,7 +451,7 @@ export class QualityAnalyzer {
       const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist);
       const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
       
-      // CRITICAL ENHANCEMENT: Handle AI artist detection for immediate market analysis
+      // CRITICAL ENHANCEMENT: Handle AI artist detection but EXCLUDE from initial SSoT
       const aiArtistForMarketAnalysis = await Promise.race([
         artistAnalysisPromise,
         new Promise(resolve => setTimeout(() => resolve(null), 8000)) // 8s timeout
@@ -460,14 +460,62 @@ export class QualityAnalyzer {
       // NEW: Handle brand validation in parallel
       this.updateAILoadingMessage('🏷️ Kontrollerar märkesnamn...');
       
-      // CRITICAL FIX: Always do FULL analysis regardless of artist detection
+      // NEW FLOW: Generate SSoT WITHOUT artist detected in title (conservative approach)
       
-      if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist) {
+      if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist && aiArtistForMarketAnalysis.foundIn === 'title') {
         
-        // FORMAT AI-detected artist for integration
+        console.log(`🚫 Artist "${aiArtistForMarketAnalysis.detectedArtist}" detected in title - EXCLUDING from initial SSoT until user validation`);
+        
+        // Generate SSoT WITHOUT the detected artist (conservative approach)
+        if (this.searchQuerySSoT && this.searchFilterManager) {
+          
+          // Extract candidate terms WITHOUT the detected artist
+          const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
+            data.title,
+            data.description,
+            { artist: data.artist }, // Use only existing artist field (not AI detected)
+            data.artist || '' // Pass existing artist as context
+          );
+          
+          if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
+            
+            // Initialize SSoT with terms EXCLUDING detected artist
+            this.searchQuerySSoT.initialize(
+              candidateSearchTerms.currentQuery, 
+              candidateSearchTerms, 
+              'conservative_no_title_artist'
+            );
+            
+            // Trigger market analysis with conservative search context
+            if (this.apiManager) {
+              const searchContext = this.searchQuerySSoT.buildSearchContext();
+              
+              // Start market analysis in background (non-blocking)
+              this.apiManager.analyzeSales(searchContext).then(salesData => {
+                if (salesData && salesData.hasComparableData) {
+                  
+                  // Update dashboard with conservative results
+                  if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
+                    this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'conservative_no_title_artist');
+                  }
+                }
+              }).catch(error => {
+                console.error('❌ Conservative market analysis failed:', error);
+              });
+            }
+          } else {
+            console.log('⚠️ Failed to generate conservative candidate terms, using fallback');
+            await this.triggerDashboardForNonArtItems(data);
+          }
+        } else {
+          console.log('⚠️ Missing components, using fallback dashboard');
+          await this.triggerDashboardForNonArtItems(data);
+        }
+      } else if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist && aiArtistForMarketAnalysis.foundIn === 'artist') {
+        
+        // Artist found in artist field - include in SSoT as before
         const formattedAIArtist = this.formatAIDetectedArtistForSSoT(aiArtistForMarketAnalysis.detectedArtist);
         
-        // FIXED: Do FULL candidate extraction WITH artist integration
         if (this.searchQuerySSoT && this.searchFilterManager) {
           
           // Create enhanced data with AI-detected artist for full analysis
@@ -480,19 +528,18 @@ export class QualityAnalyzer {
           const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
             data.title,
             data.description,
-            { artist: formattedAIArtist }, // FIX: Pass FORMATTED AI artist for integration  
+            { artist: formattedAIArtist }, // Include AI artist from field
             formattedAIArtist // Pass formatted artist as context
           );
           
           if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
             
-            // Initialize SSoT with FULL candidate terms (not just artist)
+            // Initialize SSoT with FULL candidate terms including artist
             this.searchQuerySSoT.initialize(
               candidateSearchTerms.currentQuery, 
               candidateSearchTerms, 
-              'ai_enhanced_full_analysis'
+              'ai_enhanced_with_field_artist'
             );
-            
             
             // Trigger market analysis with FULL search context
             if (this.apiManager) {
@@ -504,7 +551,7 @@ export class QualityAnalyzer {
                   
                   // Update dashboard with full results
                   if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
-                    this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'ai_enhanced_full');
+                    this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'ai_enhanced_with_field_artist');
                   }
                 }
               }).catch(error => {
@@ -512,12 +559,11 @@ export class QualityAnalyzer {
               });
             }
           } else {
-            console.log('⚠️ FIXED: Failed to generate full candidate terms, using fallback');
-            // Fallback to the minimal artist-only approach if full extraction fails
+            console.log('⚠️ Failed to generate full candidate terms, using fallback');
             await this.triggerDashboardForNonArtItems(data);
           }
         } else {
-          console.log('⚠️ FIXED: Missing components, using fallback dashboard');
+          console.log('⚠️ Missing components, using fallback dashboard');
           await this.triggerDashboardForNonArtItems(data);
         }
       } else {
