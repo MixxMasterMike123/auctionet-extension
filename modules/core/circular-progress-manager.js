@@ -11,6 +11,13 @@ export class CircularProgressManager {
    * @param {boolean} shouldAnimate - Whether to animate from 0% to final scores
    */
   createQualityCircles(container, overallScore, warnings, shouldAnimate = false) {
+    console.log('🎯 CircularProgressManager: Creating quality circles', {
+      overallScore,
+      warningsCount: warnings.length,
+      shouldAnimate,
+      containerExists: !!container
+    });
+    
     // Find or create the metrics container
     let metricsContainer = container.querySelector('.quality-metrics');
     
@@ -51,6 +58,12 @@ export class CircularProgressManager {
     const completeness = this.calculateCompleteness(warnings);
     const accuracy = this.calculateAccuracy(warnings);
 
+    console.log('📊 CircularProgressManager: Calculated scores', {
+      overallScore,
+      completeness,
+      accuracy
+    });
+
     // Generate tooltip content
     const tooltipData = [
       this.generateOverallTooltip(overallScore, warnings),
@@ -66,11 +79,18 @@ export class CircularProgressManager {
 
     // Handle animations
     if (shouldAnimate) {
+      console.log('🎬 CircularProgressManager: Starting animations');
       this.animateCircles(metricsContainer, [
         { score: overallScore, index: 0 },
         { score: completeness, index: 1 },
         { score: accuracy, index: 2 }
       ]);
+    } else {
+      console.log('🚫 CircularProgressManager: Animation disabled, setting final scores directly');
+      // Set final scores immediately without animation
+      setTimeout(() => {
+        this.setFinalScores(metricsContainer, overallScore, completeness, accuracy);
+      }, 100);
     }
   }
 
@@ -188,9 +208,31 @@ export class CircularProgressManager {
   }
 
   /**
+   * Set final scores immediately without animation
+   */
+  setFinalScores(container, overallScore, completeness, accuracy) {
+    console.log('⚡ Setting final scores immediately:', { overallScore, completeness, accuracy });
+    
+    const circles = container.querySelectorAll('.progress-circle');
+    const scoreTexts = container.querySelectorAll('.score-text');
+    const scores = [overallScore, completeness, accuracy];
+    
+    circles.forEach((circle, index) => {
+      const finalOffset = this.getDashOffset(30, scores[index]);
+      circle.style.strokeDashoffset = finalOffset;
+      
+      if (scoreTexts[index]) {
+        scoreTexts[index].textContent = `${scores[index]}%`;
+      }
+    });
+  }
+
+  /**
    * Animate a single circle to its final score
    */
   animateCircleToScore(container, circleIndex, finalScore) {
+    console.log(`🎯 Animating circle ${circleIndex} to ${finalScore}%`);
+    
     const circles = container.querySelectorAll('.progress-circle');
     const scoreTexts = container.querySelectorAll('.score-text');
     
@@ -198,15 +240,20 @@ export class CircularProgressManager {
       const circle = circles[circleIndex];
       const scoreText = scoreTexts[circleIndex];
       
+      console.log(`✅ Found circle and text elements for index ${circleIndex}`);
+      
       // Set up transition
       circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
       
       // Animate to final position
       const finalOffset = this.getDashOffset(30, finalScore);
+      console.log(`📐 Setting stroke-dashoffset from ${circle.style.strokeDashoffset} to ${finalOffset}`);
       circle.style.strokeDashoffset = finalOffset;
       
       // Animate score text
       this.animateScoreText(scoreText, 0, finalScore, 1500);
+    } else {
+      console.warn(`❌ Could not find circle or text elements for index ${circleIndex}`);
     }
   }
 

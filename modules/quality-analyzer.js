@@ -683,8 +683,10 @@ export class QualityAnalyzer {
     if (!aiArtist || !aiArtist.detectedArtist) {
       console.log('⚠️ No valid artist detection result, skipping artist warning');
       
-      // IMPORTANT: Still trigger quality indicator update with animation even when no artist detected
-      this.updateQualityIndicator(currentScore, currentWarnings, true);
+      // IMPORTANT: Recalculate score with latest data and trigger quality indicator update with animation
+      const latestData = this.dataExtractor.extractItemData();
+      const recalculatedScore = this.calculateCurrentQualityScore(latestData);
+      this.updateQualityIndicator(recalculatedScore, currentWarnings, true);
       
       // NEW: TRIGGER DASHBOARD FOR NON-ART ITEMS TOO!
       await this.triggerDashboardForNonArtItems(data);
@@ -744,8 +746,10 @@ export class QualityAnalyzer {
       currentWarnings.unshift(artistWarning);
     }
 
-    // Update quality display with animation after AI analysis
-    this.updateQualityIndicator(currentScore, currentWarnings, true);
+    // Update quality display with animation after AI analysis (recalculate score with latest data)
+    const latestData = this.dataExtractor.extractItemData();
+    const recalculatedScore = this.calculateCurrentQualityScore(latestData);
+    this.updateQualityIndicator(recalculatedScore, currentWarnings, true);
     
     // NEW: Setup ignore button event handler
     setTimeout(() => {
@@ -787,8 +791,10 @@ export class QualityAnalyzer {
       }
     }
     
-    // Update quality display with animation after brand validation
-    this.updateQualityIndicator(currentScore, currentWarnings, true);
+    // Update quality display with animation after brand validation (recalculate score with latest data)
+    const latestData = this.dataExtractor.extractItemData();
+    const recalculatedScore = this.calculateCurrentQualityScore(latestData);
+    this.updateQualityIndicator(recalculatedScore, currentWarnings, true);
     
     // Setup click handlers for brand corrections
     setTimeout(() => {
