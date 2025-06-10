@@ -3081,12 +3081,16 @@ export class QualityAnalyzer {
     
     if (this.searchQuerySSoT && this.searchFilterManager && data.artist) {
       try {
-        // Extract candidate terms WITH existing artist
+        // CRITICAL FIX: Quote-wrap artist field before passing to SSoT system
+        const formattedArtist = this.formatAIDetectedArtistForSSoT(data.artist);
+        console.log(`🎯 Quote-wrapped artist field: "${data.artist}" → ${formattedArtist}`);
+        
+        // Extract candidate terms WITH properly formatted existing artist
         const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
           data.title,
           data.description,
-          { artist: data.artist },
-          data.artist
+          { artist: formattedArtist },
+          formattedArtist
         );
         
         if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {

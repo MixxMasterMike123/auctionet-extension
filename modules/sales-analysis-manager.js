@@ -34,6 +34,32 @@ export class SalesAnalysisManager {
     this.searchQuerySSoT = searchQuerySSoT;
   }
 
+  // NEW: Format artist for SSoT integration with maximum precision (same logic as QualityAnalyzer)
+  formatArtistForSSoT(artistName) {
+    if (!artistName || typeof artistName !== 'string') {
+      return artistName;
+    }
+    
+    // Remove any existing quotes first
+    const cleanArtist = artistName.trim().replace(/^["']|["']$/g, '');
+    
+    // Check if multi-word name (most artist names)
+    const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
+    
+    if (words.length > 1) {
+      // Multi-word: Always quote for precision
+      const formatted = `"${cleanArtist}"`;
+      return formatted;
+    } else if (words.length === 1) {
+      // Single word: Also quote for consistency and precision
+      const formatted = `"${cleanArtist}"`;
+      return formatted;
+    }
+    
+    // Fallback
+    return cleanArtist;
+  }
+
   // ==================== MAIN SALES ANALYSIS ====================
 
   async startSalesAnalysis(artistInfo, data, currentWarnings, currentScore, searchFilterManager, qualityAnalyzer) {
@@ -53,8 +79,12 @@ export class SalesAnalysisManager {
       const originalArtist = currentData?.artist;
       
       if (originalArtist && originalArtist.trim()) {
+        // CRITICAL FIX: Quote-wrap artist field before passing to SSoT system
+        const formattedArtist = this.formatArtistForSSoT(originalArtist);
+        console.log(`🎯 Quote-wrapped original artist: "${originalArtist}" → ${formattedArtist}`);
+        
         properArtistInfo = {
-          artist: originalArtist,
+          artist: formattedArtist,
           isBrand: false,
           isFreetext: false
         };
