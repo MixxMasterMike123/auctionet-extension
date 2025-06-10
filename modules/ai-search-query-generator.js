@@ -218,10 +218,23 @@ Return JSON format:
       }
       
       if (parsedResponse && parsedResponse.searchTerms && Array.isArray(parsedResponse.searchTerms)) {
-        console.log('✅ AI search query generation successful');
+        
+        // NEW: FORCE quote wrapping for artist names in AI response
+        const processedTerms = parsedResponse.searchTerms.map(term => {
+          // Check if this looks like an artist name (2+ words, proper case)
+          if (typeof term === 'string' && this.looksLikeArtistName(term)) {
+            return this.forceQuoteWrapArtist(term);
+          }
+          return term;
+        });
+        
+        console.log('✅ AI search query generation successful with quote processing');
+        console.log('🔄 Original terms:', parsedResponse.searchTerms);
+        console.log('✅ Processed terms:', processedTerms);
+        
         return {
           success: true,
-          searchTerms: parsedResponse.searchTerms,
+          searchTerms: processedTerms,
           reasoning: parsedResponse.reasoning || 'AI-generated search terms',
           confidence: parsedResponse.confidence || 0.8
         };
@@ -233,6 +246,47 @@ Return JSON format:
       console.error('💥 AI call failed:', error);
       return { success: false, error: error.message };
     }
+  }
+
+  // NEW: Check if a term looks like an artist name
+  looksLikeArtistName(term) {
+    if (!term || typeof term !== 'string') return false;
+    
+    // Remove existing quotes for analysis
+    const cleanTerm = term.replace(/['"]/g, '').trim();
+    
+    // Check if it's 2+ words with proper capitalization (artist name pattern)
+    const words = cleanTerm.split(/\s+/);
+    if (words.length < 2) return false;
+    
+    // Check if all words start with capital letter (artist name pattern)
+    const isProperCase = words.every(word => /^[A-ZÅÄÖÜ][a-zåäöü]+$/.test(word));
+    
+    // Additional check: not a technical term or measurement
+    const isTechnical = /\d|mm|cm|kg|karat|gold|silver|bronze|aluminum|steel|plastic|rubber/.test(cleanTerm.toLowerCase());
+    
+    return isProperCase && !isTechnical && cleanTerm.length >= 6; // Min 6 chars for "Bo Ek"
+  }
+
+  // NEW: Force quote wrapping for artist names
+  forceQuoteWrapArtist(term) {
+    if (!term || typeof term !== 'string') return term;
+    
+    // Remove any existing quotes first
+    const cleanTerm = term.replace(/^["']|["']$/g, '').trim();
+    
+    // Split into words
+    const words = cleanTerm.split(/\s+/).filter(word => word.length > 0);
+    
+    if (words.length > 1) {
+      // Multi-word: Always wrap in quotes
+      const quotedTerm = `"${cleanTerm}"`;
+      console.log(`🎯 FORCE QUOTE WRAP: "${term}" → ${quotedTerm} (multi-word artist name)`);
+      return quotedTerm;
+    }
+    
+    // Single word: return as-is
+    return cleanTerm;
   }
 
   // Emergency fallback query generation

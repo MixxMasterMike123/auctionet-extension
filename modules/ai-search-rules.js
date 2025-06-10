@@ -227,6 +227,14 @@ Return JSON format:
     if (aiResult && aiResult.terms && Array.isArray(aiResult.terms)) {
       console.log('✅ AI RULES: AI successfully extracted', aiResult.terms.length, 'terms');
       
+      // NEW: FORCE quote wrapping for artist names before processing
+      aiResult.terms.forEach(term => {
+        if (term.category === 'artist' && typeof term.term === 'string') {
+          term.term = forceQuoteWrapArtist(term.term);
+          console.log(`🎯 AI RULES: Force-wrapped artist term: "${term.term}"`);
+        }
+      });
+      
       // CRITICAL: Ensure any artist terms (from field or AI-detected) are ALWAYS pre-selected
       aiResult.terms.forEach(term => {
         if (term.category === 'artist') {
@@ -407,4 +415,25 @@ export function updateRule(ruleCategory, updates) {
 // Get current rules for debugging
 export function getCurrentRules() {
   return AI_SEARCH_RULES;
+}
+
+// NEW: Force quote wrapping for artist names
+function forceQuoteWrapArtist(term) {
+  if (!term || typeof term !== 'string') return term;
+  
+  // Remove any existing quotes first
+  const cleanTerm = term.replace(/^["']|["']$/g, '').trim();
+  
+  // Split into words
+  const words = cleanTerm.split(/\s+/).filter(word => word.length > 0);
+  
+  if (words.length > 1) {
+    // Multi-word: Always wrap in quotes
+    const quotedTerm = `"${cleanTerm}"`;
+    console.log(`🎯 AI RULES QUOTE WRAP: "${term}" → ${quotedTerm} (multi-word artist name)`);
+    return quotedTerm;
+  }
+  
+  // Single word: return as-is
+  return cleanTerm;
 } 
