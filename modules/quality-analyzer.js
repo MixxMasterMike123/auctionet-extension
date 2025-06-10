@@ -38,7 +38,7 @@ export class QualityAnalyzer {
     // NEW: Initialize ArtistIgnoreManager for handling false positives
     this.artistIgnoreManager = new ArtistIgnoreManager();
     this.artistIgnoreManager.setQualityAnalyzer(this);
-    this.artistIgnoreManager.init(); // Load ignored artists from storage immediately
+    // No need to call .init() - initialization happens automatically in constructor
     
     // NEW: Initialize Biography Tooltip Manager SSoT component
     this.biographyManager = new BiographyTooltipManager();
