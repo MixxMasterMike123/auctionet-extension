@@ -675,6 +675,14 @@ VIKTIGT FÖR TITEL: ${itemData.artist ?
   'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA ALDRIG VARA VERSALER (all caps) eftersom konstnären läggs till i versaler automatiskt. Använd normal kapitalisering: "Servisdelar" INTE "SERVISDELAR".' : 
   'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
 
+KRITISKT - KONSTNÄR I MITTEN/SLUTET AV TITEL:
+• Om konstnärsnamn förekommer i MITTEN eller SLUTET av titeln (inte först) - BEHÅLL det där
+• Detta gäller när OBJEKTET är huvudsaken, inte konstnären
+• Korrigera stavfel i konstnärsnamnet men behåll positionen
+• FÖRSTA ORDET ska vara VERSALER (objektnamnet)
+• EXEMPEL: "SERVISDELAR, 24 delar, porslin, Stig Lindberg, 'Spisa Ribb', Gustavsberg. 1900-tal."
+• Konstnären stannar i titeln när den INTE är i början
+
 KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
 ${itemData.artist && this.enableArtistInfo ? 
   'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs verk för att lägga till KORT, RELEVANT kontext. Fokusera på specifika detaljer om denna modell/serie om du känner till dem (tillverkningsår, karakteristiska drag). Håll det koncist - max 1-2 meningar extra kontext. Om du inte är säker om specifika fakta, använd "troligen" eller "anses vara".' : 
@@ -793,6 +801,14 @@ FÖRSTA ORDETS KAPITALISERING:
 ${itemData.artist ? 
   '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA ALDRIG VARA VERSALER (all caps)\n• Exempel: "Servisdelar, porslin, 24 delar" (blir "STIG LINDBERG, Servisdelar, porslin, 24 delar")\n• FÖRBJUDET: "SERVISDELAR" (blir "STIG LINDBERG, SERVISDELAR" - två versaler i rad)' : 
   '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET SKA VARA VERSALER (uppercase)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"'}
+
+SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
+• Om konstnärsnamn finns i MITTEN eller SLUTET av nuvarande titel (inte först) - BEHÅLL det där
+• Detta gäller när OBJEKTET är huvudsaken, inte konstnären  
+• Korrigera stavfel i konstnärsnamnet men behåll exakt position
+• FÖRSTA ORDET ska vara VERSALER (objektnamnet är huvudsaken)
+• EXEMPEL: "SERVISDELAR, 24 delar, porslin, Stig Lindberg, 'Spisa Ribb', Gustavsberg. 1900-tal."
+• Flytta ALDRIG konstnären när den inte är i början - det är medvetet placerad
 
 Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
 
