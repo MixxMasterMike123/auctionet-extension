@@ -77,21 +77,11 @@ export class CircularProgressManager {
     // Setup tooltips
     this.setupTooltips(metricsContainer, tooltipData);
 
-    // Handle animations
-    if (shouldAnimate) {
-      console.log('🎬 CircularProgressManager: Starting animations');
-      this.animateCircles(metricsContainer, [
-        { score: overallScore, index: 0 },
-        { score: completeness, index: 1 },
-        { score: accuracy, index: 2 }
-      ]);
-    } else {
-      console.log('🚫 CircularProgressManager: Animation disabled, setting final scores directly');
-      // Set final scores immediately without animation
-      setTimeout(() => {
-        this.setFinalScores(metricsContainer, overallScore, completeness, accuracy);
-      }, 100);
-    }
+    // Always set final scores immediately - no animations to avoid interfering with AI analysis
+    console.log('⚡ CircularProgressManager: Setting scores immediately (animations disabled for stability)');
+    setTimeout(() => {
+      this.setFinalScores(metricsContainer, overallScore, completeness, accuracy);
+    }, 100);
   }
 
   /**
