@@ -425,8 +425,30 @@ export class QualityAnalyzer {
       // First, check if we have an immediate artist (from field or rule-based detection)
       const immediateArtist = this.determineBestArtistForMarketAnalysis(data);
       
+      // NEW: Pre-filter ignored artists from title before AI analysis
+      const ignoredArtists = this.artistIgnoreManager.getIgnoredArtists();
+      let analysisTitle = data.title;
+      
+      // Remove ignored artists from title before AI analysis to prevent re-detection
+      for (const ignoredArtist of ignoredArtists) {
+        const normalizedIgnored = this.artistIgnoreManager.normalizeArtistName(ignoredArtist);
+        const titleWords = analysisTitle.toLowerCase();
+        
+        if (titleWords.includes(normalizedIgnored)) {
+          console.log(`🚫 Pre-filtering ignored artist "${ignoredArtist}" from AI analysis title`);
+          // Remove the ignored artist from title for analysis
+          const regex = new RegExp(`\\b${this.escapeRegex(ignoredArtist)}\\b`, 'gi');
+          analysisTitle = analysisTitle.replace(regex, '').replace(/\s+/g, ' ').trim();
+        }
+      }
+      
+      console.log('🔍 Original title:', data.title);
+      if (analysisTitle !== data.title) {
+        console.log('🔍 Analysis title (ignored artists removed):', analysisTitle);
+      }
+
       // Start parallel analyses - artist detection AND brand validation
-      const artistAnalysisPromise = this.detectMisplacedArtist(data.title, data.artist);
+      const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist);
       const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
       
       // CRITICAL ENHANCEMENT: Handle AI artist detection for immediate market analysis
@@ -699,6 +721,161 @@ export class QualityAnalyzer {
     };
   }
 
+  // NEW: Show better confirmation dialog for ignoring artists
+  showIgnoreConfirmationDialog(artistName) {
+    return new Promise((resolve) => {
+      // Create modal dialog
+      const modal = document.createElement('div');
+      modal.className = 'ignore-artist-modal';
+      modal.innerHTML = `
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>🚫 Ignorera konstnärsdetektering</h3>
+          </div>
+          <div class="modal-body">
+            <p><strong>Konstnär:</strong> ${artistName}</p>
+            <p>Detta kommer att:</p>
+            <ul>
+              <li>✕ Ta bort varningen från kvalitetsindikatorn</li>
+              <li>🔄 Köra ny AI-analys utan denna konstnär</li>
+              <li>🚫 Förhindra framtida detekteringar av samma namn</li>
+              <li>💾 Spara inställningen för denna session</li>
+            </ul>
+            <p><small><em>Denna åtgärd kan inte ångras under pågående session.</em></small></p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel">Avbryt</button>
+            <button class="btn-confirm">Ignorera konstnär</button>
+          </div>
+        </div>
+      `;
+
+      // Add styles
+      const style = document.createElement('style');
+      style.textContent = `
+        .ignore-artist-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 10000;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .ignore-artist-modal .modal-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(2px);
+        }
+        .ignore-artist-modal .modal-content {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+          max-width: 500px;
+          width: 90%;
+          max-height: 80vh;
+          overflow: auto;
+        }
+        .ignore-artist-modal .modal-header {
+          padding: 20px 20px 0;
+          border-bottom: 1px solid #eee;
+        }
+        .ignore-artist-modal .modal-header h3 {
+          margin: 0 0 15px 0;
+          color: #dc3545;
+          font-size: 18px;
+        }
+        .ignore-artist-modal .modal-body {
+          padding: 20px;
+        }
+        .ignore-artist-modal .modal-body p {
+          margin: 0 0 15px 0;
+          line-height: 1.5;
+        }
+        .ignore-artist-modal .modal-body ul {
+          margin: 10px 0;
+          padding-left: 20px;
+        }
+        .ignore-artist-modal .modal-body li {
+          margin: 8px 0;
+          line-height: 1.4;
+        }
+        .ignore-artist-modal .modal-footer {
+          padding: 15px 20px 20px;
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          border-top: 1px solid #eee;
+        }
+        .ignore-artist-modal button {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+        .ignore-artist-modal .btn-cancel {
+          background: #6c757d;
+          color: white;
+        }
+        .ignore-artist-modal .btn-cancel:hover {
+          background: #5a6268;
+        }
+        .ignore-artist-modal .btn-confirm {
+          background: #dc3545;
+          color: white;
+        }
+        .ignore-artist-modal .btn-confirm:hover {
+          background: #c82333;
+        }
+      `;
+      document.head.appendChild(style);
+      document.body.appendChild(modal);
+
+      // Handle button clicks
+      modal.querySelector('.btn-cancel').addEventListener('click', () => {
+        cleanup();
+        resolve(false);
+      });
+
+      modal.querySelector('.btn-confirm').addEventListener('click', () => {
+        cleanup();
+        resolve(true);
+      });
+
+      modal.querySelector('.modal-overlay').addEventListener('click', () => {
+        cleanup();
+        resolve(false);
+      });
+
+      // Handle escape key
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          cleanup();
+          resolve(false);
+        }
+      };
+      document.addEventListener('keydown', handleEscape);
+
+      function cleanup() {
+        document.removeEventListener('keydown', handleEscape);
+        modal.remove();
+        style.remove();
+      }
+    });
+  }
+
   // NEW: Setup ignore button handlers for artist detections
   setupIgnoreArtistHandlers() {
     // Find artist warnings that don't already have ignore buttons
@@ -752,8 +929,8 @@ export class QualityAnalyzer {
            return;
          }
 
-         // Confirm action
-         const confirmed = confirm(`Ignorera konstnärsdetektering "${artistName}"?\n\nDetta kommer att:\n• Ta bort varningen från kvalitetsindikatorn\n• Uppdatera sökningar utan konstnären\n• Förhindra framtida detekteringar av samma konstnär`);
+         // Create better confirmation dialog
+         const confirmed = await this.showIgnoreConfirmationDialog(artistName);
          
          if (!confirmed) {
            return;
