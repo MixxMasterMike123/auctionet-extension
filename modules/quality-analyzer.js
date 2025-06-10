@@ -713,6 +713,7 @@ export class QualityAnalyzer {
       suggestedTitle: aiArtist.suggestedTitle,
       suggestedDescription: aiArtist.suggestedDescription,
       foundIn: aiArtist.foundIn,
+      verification: aiArtist.verification, // NEW: Store verification data for biography tooltip
       isArtistWarning: true, // NEW: Mark this as an artist warning to preserve it
       dataAttributes: { 'data-artist-warning': 'true' } // NEW: Add data attribute for ignore button targeting
     };
@@ -969,12 +970,59 @@ export class QualityAnalyzer {
         clickableSpan.style.textDecoration = 'underline';
         clickableSpan.title = `Klicka för att flytta "${artistName}" till konstnärsfält`;
         
-        // Replace the quoted artist name in the text with the clickable element
+        // Add biography snippet if available
+        let biographySpan = null;
+        if (warningData.verification && warningData.verification.biography) {
+          const fullBio = warningData.verification.biography;
+          if (fullBio && fullBio !== 'Ingen detaljerad biografi tillgänglig') {
+            // Create biography snippet (first 80 characters)
+            const bioPreview = fullBio.length > 80 ? fullBio.substring(0, 80) + '...' : fullBio;
+            
+            biographySpan = document.createElement('span');
+            biographySpan.className = 'artist-bio-tooltip';
+            biographySpan.textContent = ` (${bioPreview})`;
+            biographySpan.style.cssText = `
+              color: #666;
+              font-style: italic;
+              font-size: 0.9em;
+              cursor: help;
+              border-bottom: 1px dotted rgba(25, 118, 210, 0.5);
+              transition: all 0.2s ease;
+              font-weight: normal;
+            `;
+            biographySpan.title = 'Klicka för att visa fullständig biografi';
+            
+            // Add click handler to show full biography
+            biographySpan.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              alert(fullBio + '\n\n🤖 AI-genererad biografi (Claude Haiku)');
+            });
+            
+            // Add hover effect for biography snippet
+            biographySpan.addEventListener('mouseenter', () => {
+              biographySpan.style.backgroundColor = '#f0f8ff';
+              biographySpan.style.borderRadius = '2px';
+            });
+            
+            biographySpan.addEventListener('mouseleave', () => {
+              biographySpan.style.backgroundColor = 'transparent';
+            });
+          }
+        }
+        
+        // Replace the quoted artist name in the text with the clickable element and biography
         const textParts = originalText.split(`"${artistName}"`);
         if (textParts.length === 2) {
           issueSpan.innerHTML = '';
           issueSpan.appendChild(document.createTextNode(textParts[0]));
           issueSpan.appendChild(clickableSpan);
+          
+          // Add biography snippet if it exists
+          if (biographySpan) {
+            issueSpan.appendChild(biographySpan);
+          }
+          
           issueSpan.appendChild(document.createTextNode(textParts[1]));
         }
         
