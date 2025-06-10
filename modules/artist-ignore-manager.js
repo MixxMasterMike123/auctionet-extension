@@ -134,10 +134,9 @@ export class ArtistIgnoreManager {
       // Visual feedback - mark as ignored
       this.updateWarningElementAsIgnored(warningElement, artistName);
 
-      // Update SearchQuerySSoT to exclude ignored artist
-      if (this.searchQuerySSoT) {
-        await this.updateSearchQueryWithoutIgnoredArtist(artistName);
-      }
+      // NEW FLOW: No need to update SSoT since title-detected artists are already excluded
+      // The conservative initial analysis already generated SSoT without the detected artist
+      console.log(`✅ Artist "${artistName}" ignored - SSoT already excludes title-detected artists`);
 
       // Trigger quality re-analysis to remove the warning
       if (this.qualityAnalyzer) {
@@ -196,6 +195,7 @@ export class ArtistIgnoreManager {
   /**
    * Update SearchQuerySSoT to exclude ignored artist
    * @param {string} ignoredArtist - Artist to exclude
+   * @deprecated This method is largely unnecessary with the new flow since title-detected artists are already excluded from initial SSoT
    */
   async updateSearchQueryWithoutIgnoredArtist(ignoredArtist) {
     if (!this.searchQuerySSoT) {
