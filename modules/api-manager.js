@@ -672,7 +672,7 @@ Konstnär/Formgivare: ${itemData.artist}
 Värdering: ${itemData.estimate} SEK
 
 VIKTIGT FÖR TITEL: ${itemData.artist ? 
-  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA VERSAL (normal capital letter).' : 
+  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA ALDRIG VARA VERSALER (all caps) eftersom konstnären läggs till i versaler automatiskt. Använd normal kapitalisering: "Servisdelar" INTE "SERVISDELAR".' : 
   'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
 
 KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
@@ -755,7 +755,7 @@ VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KR
 
 KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
 ${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET I TITEL SKA VARA VERSAL (normal capital letter)' : 
+  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA ALDRIG VARA VERSALER eftersom konstnären läggs till i versaler automatiskt\n• Exempel: "Servisdelar" (blir "STIG LINDBERG, Servisdelar") INTE "SERVISDELAR" (blir "STIG LINDBERG, SERVISDELAR")' : 
   '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
 
 KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
@@ -791,7 +791,7 @@ KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
 
 FÖRSTA ORDETS KAPITALISERING:
 ${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA VERSAL (normal capital letter)\n• Exempel: "Bajonett, Eskilstuna, 1900-tal" (konstnärens namn läggs till automatiskt)' : 
+  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA ALDRIG VARA VERSALER (all caps)\n• Exempel: "Servisdelar, porslin, 24 delar" (blir "STIG LINDBERG, Servisdelar, porslin, 24 delar")\n• FÖRBJUDET: "SERVISDELAR" (blir "STIG LINDBERG, SERVISDELAR" - två versaler i rad)' : 
   '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET SKA VARA VERSALER (uppercase)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"'}
 
 Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
