@@ -551,137 +551,136 @@ export class QualityAnalyzer {
       // NEW: Handle brand validation in parallel
       this.updateAILoadingMessage('🏷️ Kontrollerar märkesnamn...');
       
-      // NEW FLOW: Generate SSoT WITHOUT artist detected in title (conservative approach)
+      // CRITICAL FIX: Show artist detection UI for ALL detected artists, regardless of where found
       
-      if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist && aiArtistForMarketAnalysis.foundIn === 'title') {
+      if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist) {
         
-        console.log(`🚫 Artist "${aiArtistForMarketAnalysis.detectedArtist}" detected in title - EXCLUDING from initial SSoT until user validation`);
+        console.log(`✅ Artist "${aiArtistForMarketAnalysis.detectedArtist}" detected - showing UI and handling market analysis`);
         
-        // Generate SSoT WITHOUT the detected artist (conservative approach)
-        if (this.searchQuerySSoT && this.searchFilterManager) {
+        // FIRST: Show the artist detection UI (this was missing!)
+        await this.handleArtistDetectionResult(aiArtistForMarketAnalysis, data, currentWarnings, currentScore);
+        
+        // SECOND: Handle market analysis based on where artist was found
+        if (aiArtistForMarketAnalysis.foundIn === 'title') {
+          console.log(`🚫 Artist detected in title - using conservative SSoT until user validates`);
           
-          // Extract candidate terms WITHOUT the detected artist
-          const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
-            data.title,
-            data.description,
-            { artist: data.artist }, // Use only existing artist field (not AI detected)
-            data.artist || '' // Pass existing artist as context
-          );
-          
-          if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
+          // Generate SSoT WITHOUT the detected artist (conservative approach)
+          if (this.searchQuerySSoT && this.searchFilterManager) {
             
-            // Initialize SSoT with terms EXCLUDING detected artist
-            this.searchQuerySSoT.initialize(
-              candidateSearchTerms.currentQuery, 
-              candidateSearchTerms, 
-              'conservative_no_title_artist'
+            // Extract candidate terms WITHOUT the detected artist
+            const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
+              data.title,
+              data.description,
+              { artist: data.artist }, // Use only existing artist field (not AI detected)
+              data.artist || '' // Pass existing artist as context
             );
             
-            // Trigger market analysis with conservative search context
-            if (this.apiManager) {
-              const searchContext = this.searchQuerySSoT.buildSearchContext();
+            if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
               
-              // Start market analysis in background (non-blocking)
-              this.apiManager.analyzeSales(searchContext).then(salesData => {
-                if (salesData && salesData.hasComparableData) {
-                  
-                  // Update dashboard with conservative results
-                  if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
-                    this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'conservative_no_title_artist');
+              // Initialize SSoT with terms EXCLUDING detected artist
+              this.searchQuerySSoT.initialize(
+                candidateSearchTerms.currentQuery, 
+                candidateSearchTerms, 
+                'conservative_no_title_artist'
+              );
+              
+              // Trigger market analysis with conservative search context
+              if (this.apiManager) {
+                const searchContext = this.searchQuerySSoT.buildSearchContext();
+                
+                // Start market analysis in background (non-blocking)
+                this.apiManager.analyzeSales(searchContext).then(salesData => {
+                  if (salesData && salesData.hasComparableData) {
+                    
+                    // Update dashboard with conservative results
+                    if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
+                      this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'conservative_no_title_artist');
+                    }
                   }
-                }
-              }).catch(error => {
-                console.error('❌ Conservative market analysis failed:', error);
-              });
+                }).catch(error => {
+                  console.error('❌ Conservative market analysis failed:', error);
+                });
+              }
+            } else {
+              console.log('⚠️ Failed to generate conservative candidate terms, using fallback');
+              await this.triggerDashboardForNonArtItems(data);
             }
           } else {
-            console.log('⚠️ Failed to generate conservative candidate terms, using fallback');
+            console.log('⚠️ Missing components, using fallback dashboard');
             await this.triggerDashboardForNonArtItems(data);
           }
-        } else {
-          console.log('⚠️ Missing components, using fallback dashboard');
-          await this.triggerDashboardForNonArtItems(data);
         }
-      } else if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist && aiArtistForMarketAnalysis.foundIn === 'artist') {
-        
-        // Artist found in artist field - include in SSoT as before
-        const formattedAIArtist = this.formatAIDetectedArtistForSSoT(aiArtistForMarketAnalysis.detectedArtist);
-        
-        if (this.searchQuerySSoT && this.searchFilterManager) {
+        } else if (aiArtistForMarketAnalysis.foundIn === 'artist') {
+          console.log(`✅ Artist detected in artist field - using full SSoT integration`);
           
-          // Create enhanced data with AI-detected artist for full analysis
-          const enhancedData = {
-            ...data,
-            aiDetectedArtist: aiArtistForMarketAnalysis.detectedArtist
-          };
+          // Artist found in artist field - include in SSoT as before
+          const formattedAIArtist = this.formatAIDetectedArtistForSSoT(aiArtistForMarketAnalysis.detectedArtist);
           
-          // Extract FULL candidate terms WITH artist integration  
-          const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
-            data.title,
-            data.description,
-            { artist: formattedAIArtist }, // Include AI artist from field
-            formattedAIArtist // Pass formatted artist as context
-          );
-          
-          if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
+          if (this.searchQuerySSoT && this.searchFilterManager) {
             
-            // Initialize SSoT with FULL candidate terms including artist
-            this.searchQuerySSoT.initialize(
-              candidateSearchTerms.currentQuery, 
-              candidateSearchTerms, 
-              'ai_enhanced_with_field_artist'
+            // Create enhanced data with AI-detected artist for full analysis
+            const enhancedData = {
+              ...data,
+              aiDetectedArtist: aiArtistForMarketAnalysis.detectedArtist
+            };
+            
+            // Extract FULL candidate terms WITH artist integration  
+            const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
+              data.title,
+              data.description,
+              { artist: formattedAIArtist }, // Include AI artist from field
+              formattedAIArtist // Pass formatted artist as context
             );
             
-            // Trigger market analysis with FULL search context
-            if (this.apiManager) {
-              const searchContext = this.searchQuerySSoT.buildSearchContext();
+            if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
               
-              // Start market analysis in background (non-blocking)
-              this.apiManager.analyzeSales(searchContext).then(salesData => {
-                if (salesData && salesData.hasComparableData) {
-                  
-                  // Update dashboard with full results
-                  if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
-                    this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'ai_enhanced_with_field_artist');
+              // Initialize SSoT with FULL candidate terms including artist
+              this.searchQuerySSoT.initialize(
+                candidateSearchTerms.currentQuery, 
+                candidateSearchTerms, 
+                'ai_enhanced_with_field_artist'
+              );
+              
+              // Trigger market analysis with FULL search context
+              if (this.apiManager) {
+                const searchContext = this.searchQuerySSoT.buildSearchContext();
+                
+                // Start market analysis in background (non-blocking)
+                this.apiManager.analyzeSales(searchContext).then(salesData => {
+                  if (salesData && salesData.hasComparableData) {
+                    
+                    // Update dashboard with full results
+                    if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
+                      this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'ai_enhanced_with_field_artist');
+                    }
                   }
-                }
-              }).catch(error => {
-                console.error('❌ Full market analysis failed:', error);
-              });
+                }).catch(error => {
+                  console.error('❌ Full market analysis failed:', error);
+                });
+              }
+            } else {
+              console.log('⚠️ Failed to generate full candidate terms, using fallback');
+              await this.triggerDashboardForNonArtItems(data);
             }
           } else {
-            console.log('⚠️ Failed to generate full candidate terms, using fallback');
+            console.log('⚠️ Missing components, using fallback dashboard');
             await this.triggerDashboardForNonArtItems(data);
           }
-        } else {
-          console.log('⚠️ Missing components, using fallback dashboard');
-          await this.triggerDashboardForNonArtItems(data);
         }
+        
+        // Clean up pending analysis since we already handled UI above
+        this.pendingAnalyses.delete('artist');
       } else {
         // Standard flow for non-artist items
         await this.triggerDashboardForNonArtItems(data);
+        this.pendingAnalyses.delete('artist');
       }
       
-      // Continue with original artist detection flow for quality warnings
-      artistAnalysisPromise.then(aiArtist => {
-        this.handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore).then(result => {
-          this.pendingAnalyses.delete('artist');
-          
-          // Only hide loading if all analyses are done
-          if (this.pendingAnalyses.size === 0) {
-            this.hideAILoadingIndicator();
-            this.aiAnalysisActive = false;
-          }
-        });
-      }).catch(error => {
-        console.error('❌ Artist detection failed:', error);
-        this.pendingAnalyses.delete('artist');
-        
-        if (this.pendingAnalyses.size === 0) {
-          this.hideAILoadingIndicator();
-          this.aiAnalysisActive = false;
-        }
-      });
+      // Check if artist analysis is complete and hide loading if needed
+      if (this.pendingAnalyses.size === 0) {
+        this.hideAILoadingIndicator();
+        this.aiAnalysisActive = false;
+      }
       
       // NEW: Handle brand validation results in parallel
       brandValidationPromise.then(brandIssues => {
