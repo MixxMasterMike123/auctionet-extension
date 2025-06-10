@@ -345,17 +345,20 @@ export class CircularProgressManager {
   calculateCompleteness(warnings) {
     let completeness = 100;
     
-    warnings.forEach(warning => {
-      if (warning.severity === 'high') {
-        completeness -= 15;
-      } else if (warning.severity === 'medium') {
-        completeness -= 8;
-      } else {
-        completeness -= 3;
-      }
+    console.log('🔍 Calculating completeness from warnings:', warnings.length);
+    
+    warnings.forEach((warning, index) => {
+      const deduction = warning.severity === 'high' ? 15 : 
+                       warning.severity === 'medium' ? 8 : 3;
+      completeness -= deduction;
+      
+      console.log(`   ${index + 1}. ${warning.field}: "${warning.issue}" (${warning.severity}) → -${deduction}%`);
     });
     
-    return Math.max(0, completeness);
+    const finalScore = Math.max(0, completeness);
+    console.log(`📊 Final completeness score: ${finalScore}%`);
+    
+    return finalScore;
   }
 
   /**
