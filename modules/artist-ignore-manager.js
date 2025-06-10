@@ -313,4 +313,113 @@ export class ArtistIgnoreManager {
     this.loadIgnoredArtistsFromStorage();
     console.log('🚫 ArtistIgnoreManager initialized with ignored artists:', this.getIgnoredArtists());
   }
+
+  // NEW: Remove specific artist from ignored list
+  removeIgnoredArtist(artistName) {
+    if (!artistName) return false;
+    
+    const normalizedName = this.normalizeArtistName(artistName);
+    const beforeCount = this.ignoredArtists.length;
+    
+    this.ignoredArtists = this.ignoredArtists.filter(ignored => {
+      const normalizedIgnored = this.normalizeArtistName(ignored);
+      return normalizedIgnored !== normalizedName;
+    });
+    
+    const afterCount = this.ignoredArtists.length;
+    
+    if (beforeCount > afterCount) {
+      this.saveToStorage();
+      console.log(`✅ Removed "${artistName}" from ignored list (${beforeCount} → ${afterCount})`);
+      return true;
+    } else {
+      console.log(`⚠️ "${artistName}" was not in ignored list`);
+      return false;
+    }
+  }
+
+  // NEW: Clear all ignored artists
+  clearAllIgnoredArtists() {
+    const count = this.ignoredArtists.length;
+    this.ignoredArtists = [];
+    this.saveToStorage();
+    console.log(`✅ Cleared ${count} ignored artists`);
+    return count;
+  }
+
+  // NEW: Show management UI
+  showManagementUI() {
+    if (this.ignoredArtists.length === 0) {
+      alert('No ignored artists to manage.');
+      return;
+    }
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 500px;
+      max-height: 600px;
+      overflow-y: auto;
+    `;
+
+    let html = `
+      <h3>🚫 Ignored Artists Management</h3>
+      <p>These artists are currently ignored and won't trigger detection:</p>
+      <div style="margin: 15px 0;">
+    `;
+
+    this.ignoredArtists.forEach((artist, index) => {
+      html += `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border: 1px solid #ddd; margin: 5px 0; border-radius: 4px;">
+          <span>${artist}</span>
+          <button onclick="window.auctionetAssistant.qualityAnalyzer.artistIgnoreManager.removeIgnoredArtist('${artist}'); this.parentElement.remove();" 
+                  style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+            Remove
+          </button>
+        </div>
+      `;
+    });
+
+    html += `
+      </div>
+      <div style="text-align: center; margin-top: 20px;">
+        <button onclick="window.auctionetAssistant.qualityAnalyzer.artistIgnoreManager.clearAllIgnoredArtists(); document.body.removeChild(this.closest('.ignored-artists-modal'));" 
+                style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+          Clear All
+        </button>
+        <button onclick="document.body.removeChild(this.closest('.ignored-artists-modal'));" 
+                style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+          Close
+        </button>
+      </div>
+    `;
+
+    content.innerHTML = html;
+    modal.appendChild(content);
+    modal.className = 'ignored-artists-modal';
+    document.body.appendChild(modal);
+
+    // Close on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    });
+  }
 } 
