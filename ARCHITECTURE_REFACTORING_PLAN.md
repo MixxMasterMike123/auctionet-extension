@@ -370,18 +370,47 @@ async function loadPageOrchestrator(pageType) {
 
 ---
 
-## 🎯 **Immediate Next Action**
+## 🎯 **CURRENT IMPLEMENTATION STRATEGY** 
 
-**START WITH: Biography Tooltip Manager Extraction**
-- This fixes the immediate user-reported bug
-- It's a contained component with clear boundaries
-- Success here proves the refactoring approach works
-- Biography is used across multiple pages (good SSoT candidate)
+### **✅ DECISION: Edit Page First + Biography Fix**
+**Focus:** One page at a time, starting with Edit Page (most complex)
+**Approach:** Build SSoT components AS we build Edit Page orchestrator
 
-**Command to begin:**
+### **📋 CURRENT PHASE: Step 5.1 - Biography Manager (COMPLETED!)**
+**Status:** ✅ COMPLETED - FIRST SSoT COMPONENT CREATED
+**Result:** `modules/core/biography-tooltip-manager.js` (245 lines, fully functional)
+**Source:** Extracted from working add-items-tooltip-manager.js implementation
+**Features:** 
+- ✅ Biography snippets with hover effects
+- ✅ Full biography modal popups  
+- ✅ Haiku attribution
+- ✅ Modern UI with animations
+- ✅ Cross-page reusable SSoT component
+
+### **📋 CURRENT PHASE: Step 5.2 - Integration Test (ACTIVE)**
+**Status:** 🟡 ACTIVE
+**Goal:** Test Biography Manager in isolation + integrate to quality-analyzer.js
+**Actions:**
+1. Test biography manager component independently  
+2. Replace broken biography code in quality-analyzer.js
+3. Verify biography functionality works on Edit page
+
+### **📋 NEXT PHASES:**
+1. **🟡 ACTIVE** - Biography Manager Creation & Integration
+2. **⏳ NEXT** - Edit Page Orchestrator Creation  
+3. **⏳ QUEUE** - Add Item Page Orchestrator
+4. **⏳ QUEUE** - Items Page Orchestrator
+
+### **🔧 IMMEDIATE COMMANDS:**
 ```bash
-# Step 1: Create the biography manager component
+# Step 1: Create directory structure
+mkdir -p modules/core modules/shared pages
+
+# Step 2: Create biography manager 
 touch modules/core/biography-tooltip-manager.js
+
+# Step 3: Create edit page orchestrator
+touch pages/edit-page-orchestrator.js
 ```
 
 ---
