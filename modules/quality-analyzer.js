@@ -407,7 +407,7 @@ export class QualityAnalyzer {
       }
     }
 
-    // Update UI with immediate results
+    // Update UI with immediate results (no animation for initial display)
     this.updateQualityIndicator(score, warnings);
 
     // Now run AI artist detection asynchronously and update when complete
@@ -732,8 +732,8 @@ export class QualityAnalyzer {
       currentWarnings.unshift(artistWarning);
     }
 
-    // Update quality display immediately and ensure it's visible
-    this.updateQualityIndicator(currentScore, currentWarnings);
+    // Update quality display with animation after AI analysis
+    this.updateQualityIndicator(currentScore, currentWarnings, true);
     
     // NEW: Setup ignore button event handler
     setTimeout(() => {
@@ -775,8 +775,8 @@ export class QualityAnalyzer {
       }
     }
     
-    // Update quality display
-    this.updateQualityIndicator(currentScore, currentWarnings);
+    // Update quality display with animation after brand validation
+    this.updateQualityIndicator(currentScore, currentWarnings, true);
     
     // Setup click handlers for brand corrections
     setTimeout(() => {
@@ -2378,26 +2378,12 @@ export class QualityAnalyzer {
     return enhancedTerms.filter(term => term && term.length > 2).slice(0, 5);
   }
 
-  updateQualityIndicator(score, warnings) {
+  updateQualityIndicator(score, warnings, shouldAnimate = false) {
     
-    const scoreElement = document.querySelector('.quality-score');
+    // Create or update circular progress indicators
+    this.createCircularQualityIndicators(score, warnings, shouldAnimate);
+    
     const warningsElement = document.querySelector('.quality-warnings');
-    
-    if (scoreElement) {
-      // Add smooth transition effect for score changes
-      const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
-      const newScore = score;
-      
-      if (currentScore !== newScore) {
-        scoreElement.style.transform = 'scale(1.1)';
-        setTimeout(() => {
-          scoreElement.style.transform = 'scale(1)';
-        }, 200);
-      }
-      
-      scoreElement.textContent = `${score}/100`;
-      scoreElement.className = `quality-score ${score >= 80 ? 'good' : score >= 60 ? 'medium' : 'poor'}`;
-    }
     
     if (warningsElement) {
       if (warnings.length > 0) {
@@ -2437,6 +2423,206 @@ export class QualityAnalyzer {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
       }
     }
+  }
+
+  createCircularQualityIndicators(score, warnings, shouldAnimate = false) {
+    // Find or create the metrics container
+    let metricsContainer = document.querySelector('.quality-metrics');
+    
+    if (!metricsContainer) {
+      const qualityIndicator = document.querySelector('.quality-indicator');
+      if (!qualityIndicator) return;
+      
+      const qualityHeader = qualityIndicator.querySelector('.quality-header');
+      metricsContainer = document.createElement('div');
+      metricsContainer.className = 'quality-metrics';
+      
+      if (qualityHeader) {
+        qualityHeader.insertAdjacentElement('afterend', metricsContainer);
+      } else {
+        qualityIndicator.insertBefore(metricsContainer, qualityIndicator.firstChild);
+      }
+    }
+    
+    // Calculate metrics
+    const overallScore = score;
+    const completeness = this.calculateCompleteness(warnings);
+    const accuracy = this.calculateAccuracy(warnings);
+    
+    // Get circumference for calculations
+    const fullCircumference = this.getCircumference(30);
+    
+    // Create the circular indicators
+    // Always start at 0% - only animate to final scores when shouldAnimate = true
+    const displayScore = 0;
+    const displayCompleteness = 0;
+    const displayAccuracy = 0;
+    
+    // Always start with full circumference (0% progress)
+    const initialOffset = fullCircumference;
+    const completenessOffset = fullCircumference;
+    const accuracyOffset = fullCircumference;
+    
+    metricsContainer.innerHTML = `
+      <div class="quality-circle">
+        <div class="quality-circle-label">Totalt</div>
+        <div class="circular-progress">
+          <svg>
+            <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
+            <circle class="progress-circle ${this.getScoreClass(overallScore)}" 
+                    cx="35" cy="35" r="30"
+                    stroke-dasharray="${fullCircumference}"
+                    stroke-dashoffset="${initialOffset}"
+                    data-final-score="${overallScore}"></circle>
+          </svg>
+          <div class="score-text">${displayScore}%</div>
+        </div>
+      </div>
+      
+      <div class="quality-circle">
+        <div class="quality-circle-label">Komplett</div>
+        <div class="circular-progress">
+          <svg>
+            <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
+            <circle class="progress-circle ${this.getScoreClass(completeness)}" 
+                    cx="35" cy="35" r="30"
+                    stroke-dasharray="${fullCircumference}"
+                    stroke-dashoffset="${completenessOffset}"
+                    data-final-score="${completeness}"></circle>
+          </svg>
+          <div class="score-text">${displayCompleteness}%</div>
+        </div>
+      </div>
+      
+      <div class="quality-circle">
+        <div class="quality-circle-label">Noggrannhet</div>
+        <div class="circular-progress">
+          <svg>
+            <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
+            <circle class="progress-circle ${this.getScoreClass(accuracy)}" 
+                    cx="35" cy="35" r="30"
+                    stroke-dasharray="${fullCircumference}"
+                    stroke-dashoffset="${accuracyOffset}"
+                    data-final-score="${accuracy}"></circle>
+          </svg>
+          <div class="score-text">${displayAccuracy}%</div>
+        </div>
+      </div>
+    `;
+    
+    // Only animate if explicitly requested
+    if (shouldAnimate) {
+      setTimeout(() => {
+        const progressData = [
+          { score: overallScore, index: 0 },
+          { score: completeness, index: 1 },
+          { score: accuracy, index: 2 }
+        ];
+        
+        progressData.forEach((data, i) => {
+          setTimeout(() => {
+            this.animateCircleToScore(metricsContainer, i, data.score);
+          }, i * 200); // Stagger animations by 200ms
+        });
+      }, 300); // Wait 300ms before starting animations
+    }
+  }
+
+  animateCircleToScore(container, circleIndex, finalScore) {
+    const circles = container.querySelectorAll('.progress-circle');
+    const scoreTexts = container.querySelectorAll('.score-text');
+    
+    if (circles[circleIndex] && scoreTexts[circleIndex]) {
+      const circle = circles[circleIndex];
+      const scoreText = scoreTexts[circleIndex];
+      
+      // Set up transition
+      circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+      
+      // Animate to final position
+      const finalOffset = this.getDashOffset(30, finalScore);
+      circle.style.strokeDashoffset = finalOffset;
+      
+      // Animate score text
+      this.animateScoreText(scoreText, 0, finalScore, 1500);
+    }
+  }
+
+  animateScoreText(element, startScore, endScore, duration) {
+    const startTime = performance.now();
+    
+    const updateScore = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Use easing function for smooth animation
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const currentScore = Math.round(startScore + (endScore - startScore) * easeProgress);
+      
+      element.textContent = `${currentScore}%`;
+      
+      if (progress < 1) {
+        requestAnimationFrame(updateScore);
+      }
+    };
+    
+    requestAnimationFrame(updateScore);
+  }
+
+  getCircumference(radius) {
+    return 2 * Math.PI * radius;
+  }
+
+  getDashOffset(radius, percentage) {
+    const circumference = this.getCircumference(radius);
+    return circumference - (percentage / 100) * circumference;
+  }
+
+  getScoreClass(score) {
+    if (score >= 80) return 'good';
+    if (score >= 60) return 'medium';
+    return 'poor';
+  }
+
+  calculateCompleteness(warnings) {
+    // Base completeness on missing critical information
+    let completeness = 100;
+    
+    warnings.forEach(warning => {
+      if (warning.severity === 'high') {
+        completeness -= 15;
+      } else if (warning.severity === 'medium') {
+        completeness -= 8;
+      } else {
+        completeness -= 3;
+      }
+    });
+    
+    return Math.max(0, completeness);
+  }
+
+  calculateAccuracy(warnings) {
+    // Base accuracy on data quality issues
+    let accuracy = 100;
+    
+    const accuracyIssues = warnings.filter(w => 
+      w.issue?.includes('struktur') || 
+      w.issue?.includes('terminologi') ||
+      w.issue?.includes('konstnär') ||
+      w.issue?.includes('märke')
+    );
+    
+    accuracyIssues.forEach(warning => {
+      if (warning.severity === 'high') {
+        accuracy -= 20;
+      } else if (warning.severity === 'medium') {
+        accuracy -= 10;
+      } else {
+        accuracy -= 5;
+      }
+    });
+    
+    return Math.max(0, accuracy);
   }
 
   // Helper method to escape regex special characters
