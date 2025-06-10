@@ -11,6 +11,7 @@ import { InlineBrandValidator } from './inline-brand-validator.js';
 import { ArtistIgnoreManager } from './artist-ignore-manager.js';
 import { cleanTitleAfterArtistRemoval } from './core/title-cleanup-utility.js';
 import { BiographyTooltipManager } from './core/biography-tooltip-manager.js';
+import { CircularProgressManager } from './core/circular-progress-manager.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
   constructor() {
@@ -42,6 +43,9 @@ export class QualityAnalyzer {
     // NEW: Initialize Biography Tooltip Manager SSoT component
     this.biographyManager = new BiographyTooltipManager();
     this.biographyManager.init();
+    
+    // NEW: Initialize Circular Progress Manager for quality indicators
+    this.circularProgressManager = new CircularProgressManager();
     
     // Initialize manager instances
     this.salesAnalysisManager = new SalesAnalysisManager();
@@ -410,8 +414,12 @@ export class QualityAnalyzer {
     // Update UI with immediate results (no animation for initial display)
     this.updateQualityIndicator(score, warnings);
 
-    // Now run AI artist detection asynchronously and update when complete
-    this.runAIArtistDetection(data, warnings, score);
+    // Now run AI artist detection asynchronously and update when complete (only if API is available)
+    if (this.apiManager) {
+      this.runAIArtistDetection(data, warnings, score);
+    } else {
+      console.log('⚠️ API manager not available - skipping AI analysis, using fallback quality display');
+    }
   }
 
   async runAIArtistDetection(data, currentWarnings, currentScore) {
@@ -468,7 +476,8 @@ export class QualityAnalyzer {
       }
 
       // Start parallel analyses - artist detection AND brand validation
-      const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist);
+      // IMPORTANT: Force AI analysis even when artist field is filled to get verification
+      const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist, true);
       const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
       
       // CRITICAL ENHANCEMENT: Handle AI artist detection but EXCLUDE from initial SSoT
@@ -673,6 +682,9 @@ export class QualityAnalyzer {
     // Check if aiArtist is null or undefined
     if (!aiArtist || !aiArtist.detectedArtist) {
       console.log('⚠️ No valid artist detection result, skipping artist warning');
+      
+      // IMPORTANT: Still trigger quality indicator update with animation even when no artist detected
+      this.updateQualityIndicator(currentScore, currentWarnings, true);
       
       // NEW: TRIGGER DASHBOARD FOR NON-ART ITEMS TOO!
       await this.triggerDashboardForNonArtItems(data);
@@ -2380,8 +2392,11 @@ export class QualityAnalyzer {
 
   updateQualityIndicator(score, warnings, shouldAnimate = false) {
     
-    // Create or update circular progress indicators
-    this.createCircularQualityIndicators(score, warnings, shouldAnimate);
+    // Create or update circular progress indicators using reusable component
+    const qualityIndicator = document.querySelector('.quality-indicator');
+    if (qualityIndicator) {
+      this.circularProgressManager.createQualityCircles(qualityIndicator, score, warnings, shouldAnimate);
+    }
     
     const warningsElement = document.querySelector('.quality-warnings');
     
@@ -2425,205 +2440,7 @@ export class QualityAnalyzer {
     }
   }
 
-  createCircularQualityIndicators(score, warnings, shouldAnimate = false) {
-    // Find or create the metrics container
-    let metricsContainer = document.querySelector('.quality-metrics');
-    
-    if (!metricsContainer) {
-      const qualityIndicator = document.querySelector('.quality-indicator');
-      if (!qualityIndicator) return;
-      
-      const qualityHeader = qualityIndicator.querySelector('.quality-header');
-      metricsContainer = document.createElement('div');
-      metricsContainer.className = 'quality-metrics';
-      
-      if (qualityHeader) {
-        qualityHeader.insertAdjacentElement('afterend', metricsContainer);
-      } else {
-        qualityIndicator.insertBefore(metricsContainer, qualityIndicator.firstChild);
-      }
-    }
-    
-    // Calculate metrics
-    const overallScore = score;
-    const completeness = this.calculateCompleteness(warnings);
-    const accuracy = this.calculateAccuracy(warnings);
-    
-    // Get circumference for calculations
-    const fullCircumference = this.getCircumference(30);
-    
-    // Create the circular indicators
-    // Always start at 0% - only animate to final scores when shouldAnimate = true
-    const displayScore = 0;
-    const displayCompleteness = 0;
-    const displayAccuracy = 0;
-    
-    // Always start with full circumference (0% progress)
-    const initialOffset = fullCircumference;
-    const completenessOffset = fullCircumference;
-    const accuracyOffset = fullCircumference;
-    
-    metricsContainer.innerHTML = `
-      <div class="quality-circle">
-        <div class="quality-circle-label">Totalt</div>
-        <div class="circular-progress">
-          <svg>
-            <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
-            <circle class="progress-circle ${this.getScoreClass(overallScore)}" 
-                    cx="35" cy="35" r="30"
-                    stroke-dasharray="${fullCircumference}"
-                    stroke-dashoffset="${initialOffset}"
-                    data-final-score="${overallScore}"></circle>
-          </svg>
-          <div class="score-text">${displayScore}%</div>
-        </div>
-      </div>
-      
-      <div class="quality-circle">
-        <div class="quality-circle-label">Komplett</div>
-        <div class="circular-progress">
-          <svg>
-            <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
-            <circle class="progress-circle ${this.getScoreClass(completeness)}" 
-                    cx="35" cy="35" r="30"
-                    stroke-dasharray="${fullCircumference}"
-                    stroke-dashoffset="${completenessOffset}"
-                    data-final-score="${completeness}"></circle>
-          </svg>
-          <div class="score-text">${displayCompleteness}%</div>
-        </div>
-      </div>
-      
-      <div class="quality-circle">
-        <div class="quality-circle-label">Noggrannhet</div>
-        <div class="circular-progress">
-          <svg>
-            <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
-            <circle class="progress-circle ${this.getScoreClass(accuracy)}" 
-                    cx="35" cy="35" r="30"
-                    stroke-dasharray="${fullCircumference}"
-                    stroke-dashoffset="${accuracyOffset}"
-                    data-final-score="${accuracy}"></circle>
-          </svg>
-          <div class="score-text">${displayAccuracy}%</div>
-        </div>
-      </div>
-    `;
-    
-    // Only animate if explicitly requested
-    if (shouldAnimate) {
-      setTimeout(() => {
-        const progressData = [
-          { score: overallScore, index: 0 },
-          { score: completeness, index: 1 },
-          { score: accuracy, index: 2 }
-        ];
-        
-        progressData.forEach((data, i) => {
-          setTimeout(() => {
-            this.animateCircleToScore(metricsContainer, i, data.score);
-          }, i * 200); // Stagger animations by 200ms
-        });
-      }, 300); // Wait 300ms before starting animations
-    }
-  }
-
-  animateCircleToScore(container, circleIndex, finalScore) {
-    const circles = container.querySelectorAll('.progress-circle');
-    const scoreTexts = container.querySelectorAll('.score-text');
-    
-    if (circles[circleIndex] && scoreTexts[circleIndex]) {
-      const circle = circles[circleIndex];
-      const scoreText = scoreTexts[circleIndex];
-      
-      // Set up transition
-      circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
-      
-      // Animate to final position
-      const finalOffset = this.getDashOffset(30, finalScore);
-      circle.style.strokeDashoffset = finalOffset;
-      
-      // Animate score text
-      this.animateScoreText(scoreText, 0, finalScore, 1500);
-    }
-  }
-
-  animateScoreText(element, startScore, endScore, duration) {
-    const startTime = performance.now();
-    
-    const updateScore = (currentTime) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Use easing function for smooth animation
-      const easeProgress = 1 - Math.pow(1 - progress, 3);
-      const currentScore = Math.round(startScore + (endScore - startScore) * easeProgress);
-      
-      element.textContent = `${currentScore}%`;
-      
-      if (progress < 1) {
-        requestAnimationFrame(updateScore);
-      }
-    };
-    
-    requestAnimationFrame(updateScore);
-  }
-
-  getCircumference(radius) {
-    return 2 * Math.PI * radius;
-  }
-
-  getDashOffset(radius, percentage) {
-    const circumference = this.getCircumference(radius);
-    return circumference - (percentage / 100) * circumference;
-  }
-
-  getScoreClass(score) {
-    if (score >= 80) return 'good';
-    if (score >= 60) return 'medium';
-    return 'poor';
-  }
-
-  calculateCompleteness(warnings) {
-    // Base completeness on missing critical information
-    let completeness = 100;
-    
-    warnings.forEach(warning => {
-      if (warning.severity === 'high') {
-        completeness -= 15;
-      } else if (warning.severity === 'medium') {
-        completeness -= 8;
-      } else {
-        completeness -= 3;
-      }
-    });
-    
-    return Math.max(0, completeness);
-  }
-
-  calculateAccuracy(warnings) {
-    // Base accuracy on data quality issues
-    let accuracy = 100;
-    
-    const accuracyIssues = warnings.filter(w => 
-      w.issue?.includes('struktur') || 
-      w.issue?.includes('terminologi') ||
-      w.issue?.includes('konstnär') ||
-      w.issue?.includes('märke')
-    );
-    
-    accuracyIssues.forEach(warning => {
-      if (warning.severity === 'high') {
-        accuracy -= 20;
-      } else if (warning.severity === 'medium') {
-        accuracy -= 10;
-      } else {
-        accuracy -= 5;
-      }
-    });
-    
-    return Math.max(0, accuracy);
-  }
+  
 
   // Helper method to escape regex special characters
   escapeRegex(string) {

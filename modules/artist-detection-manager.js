@@ -13,7 +13,7 @@ export class ArtistDetectionManager {
 
   // Main artist detection method - exactly from edit page quality-analyzer.js
   async detectMisplacedArtist(title, artistField, forceReDetection = false) {
-    // Only suggest if artist field is empty or very short, OR if force re-detection is enabled
+    // IMPORTANT: Always run AI analysis when forceReDetection = true, regardless of artist field content
     if (!forceReDetection && artistField && artistField.trim().length > 2) {
       return null; // Artist field already has content - will be picked up by search query generation
     }
@@ -55,8 +55,8 @@ export class ArtistDetectionManager {
         const descriptionField = document.querySelector('#item_description_sv');
         const description = descriptionField ? descriptionField.value : '';
         
-        // For re-detection, use empty artist field to force AI analysis
-        const artistForAnalysis = forceReDetection ? '' : artistField;
+        // Always pass the actual artist field value to AI for proper analysis
+        const artistForAnalysis = artistField || '';
         // UPDATED: Use the new AI Analysis Engine which doesn't skip prefilled artists by default
         const options = forceReDetection ? {} : {}; // No skipIfArtistExists for normal flow
         aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistForAnalysis, description, options);

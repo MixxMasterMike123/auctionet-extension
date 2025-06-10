@@ -61,8 +61,8 @@ export class UIManager {
     const indicator = document.createElement('div');
     indicator.className = 'quality-indicator';
     indicator.innerHTML = `
+      <h4 class="quality-title">Katalogiseringskvalitet</h4>
       <div class="quality-header">
-        <h4 class="quality-title">Katalogiseringskvalitet</h4>
         <div class="quality-score-container">
           <span class="quality-score">Analyserar...</span>
           <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
