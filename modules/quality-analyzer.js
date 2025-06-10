@@ -609,7 +609,6 @@ export class QualityAnalyzer {
             console.log('⚠️ Missing components, using fallback dashboard');
             await this.triggerDashboardForNonArtItems(data);
           }
-        }
         } else if (aiArtistForMarketAnalysis.foundIn === 'artist') {
           console.log(`✅ Artist detected in artist field - using full SSoT integration`);
           
