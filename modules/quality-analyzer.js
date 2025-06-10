@@ -1955,28 +1955,45 @@ export class QualityAnalyzer {
 
   // Helper method to clean title after artist removal
   cleanTitleAfterArtistRemoval(title, artistName) {
-    // Simple implementation - remove artist name and clean up spacing/punctuation
+    console.log(`🧹 Cleaning title after artist removal:`, { original: title, artistName });
+    
     let cleanedTitle = title;
     
-    // Remove the artist name (with or without quotes)
+    // Remove the artist name with various patterns including leading/trailing punctuation
     const patterns = [
-      new RegExp(`"${this.escapeRegex(artistName)}"\\s*,?\\s*`, 'gi'),
-      new RegExp(`${this.escapeRegex(artistName)}\\s*,?\\s*`, 'gi'),
-      new RegExp(`\\s*,\\s*"${this.escapeRegex(artistName)}"`, 'gi'),
-      new RegExp(`\\s*,\\s*${this.escapeRegex(artistName)}`, 'gi')
+      // Artist at beginning with various punctuation after
+      new RegExp(`^\\s*"?${this.escapeRegex(artistName)}"?\\s*[,.:;-]?\\s*`, 'gi'),
+      // Artist in middle with commas
+      new RegExp(`\\s*,\\s*"?${this.escapeRegex(artistName)}"?\\s*,?\\s*`, 'gi'),
+      // Artist at end with comma before
+      new RegExp(`\\s*,\\s*"?${this.escapeRegex(artistName)}"?\\s*$`, 'gi'),
+      // General fallback pattern
+      new RegExp(`"?${this.escapeRegex(artistName)}"?`, 'gi')
     ];
     
-    patterns.forEach(pattern => {
-      cleanedTitle = cleanedTitle.replace(pattern, ' ');
+    patterns.forEach((pattern, index) => {
+      const beforeReplace = cleanedTitle;
+      cleanedTitle = cleanedTitle.replace(pattern, index === 0 ? '' : ' ');
+      if (beforeReplace !== cleanedTitle) {
+        console.log(`   Pattern ${index + 1} matched: "${beforeReplace}" → "${cleanedTitle}"`);
+      }
     });
     
-    // Clean up extra spaces and commas
+    // Comprehensive cleanup of punctuation and spacing
     cleanedTitle = cleanedTitle
+      .replace(/^\s*[,.;:-]+\s*/, '')  // Remove leading punctuation (like ". " or ", ")
+      .replace(/\s*[,.;:-]+\s*$/, '')  // Remove trailing punctuation
       .replace(/\s+/g, ' ')  // Multiple spaces to single space
       .replace(/\s*,\s*,\s*/g, ', ')  // Multiple commas to single comma
-      .replace(/^[\s,]+|[\s,]+$/g, '')  // Remove leading/trailing spaces and commas
+      .replace(/^[\s,]+|[\s,]+$/g, '')  // Remove remaining leading/trailing spaces and commas
       .trim();
     
+    // Ensure first letter is capitalized if content remains
+    if (cleanedTitle.length > 0) {
+      cleanedTitle = cleanedTitle.charAt(0).toUpperCase() + cleanedTitle.slice(1);
+    }
+    
+    console.log(`🧹 Title cleanup result: "${title}" → "${cleanedTitle}"`);
     return cleanedTitle;
   }
 
