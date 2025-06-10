@@ -11,15 +11,18 @@ export class AISearchQueryGenerator {
     this.cacheExpiry = 30 * 60 * 1000; // 30 minutes
   }
 
-  async generateOptimalSearchQuery(title, description = '', artist = '', aiArtist = '') {
+  async generateOptimalSearchQuery(title, description = '', artist = '', aiArtist = '', excludeArtist = null) {
     console.log('🤖 AI-ONLY: Starting pure AI search query generation...');
     console.log('📝 Title:', title);
     console.log('📄 Description:', description);
     console.log('👤 Artist field:', artist);
     console.log('🤖 AI Artist:', aiArtist);
+    if (excludeArtist) {
+      console.log('🚫 Excluding ignored artist:', excludeArtist);
+    }
 
     // STEP 1: Apply AI rules first (especially artist field respect)
-    const inputData = { title, description, artist, aiArtist };
+    const inputData = { title, description, artist, aiArtist, excludeArtist };
     const rulesResult = applySearchRules(inputData);
     
     // ENHANCED SUFFICIENCY CHECK: Artist field has special priority
@@ -75,7 +78,7 @@ export class AISearchQueryGenerator {
       }
 
       // Build context for AI (including artist field if available)
-      const context = this.buildAIContext(title, description, artist, aiArtist);
+      const context = this.buildAIContext(title, description, artist, aiArtist, excludeArtist);
       
       console.log('🚀 Calling AI for search query generation...');
       const response = await this.callClaudeAPI(context);
@@ -119,7 +122,7 @@ export class AISearchQueryGenerator {
     }
   }
 
-  buildAIContext(title, description, artist, aiArtist) {
+  buildAIContext(title, description, artist, aiArtist, excludeArtist = null) {
     // Build enhanced context that emphasizes artist field importance
     let context = `Generate optimal search terms for auction market analysis.
 
@@ -136,6 +139,13 @@ Artist field (MANDATORY to include): "${artist}"`;
     if (aiArtist && aiArtist.trim() && aiArtist !== artist) {
       context += `
 AI detected artist: "${aiArtist}"`;
+    }
+
+    // NEW: Exclude ignored artist
+    if (excludeArtist && excludeArtist.trim()) {
+      context += `
+
+CRITICAL EXCLUSION: Do NOT include "${excludeArtist}" in search terms - this artist was marked as incorrectly detected.`;
     }
 
     context += `

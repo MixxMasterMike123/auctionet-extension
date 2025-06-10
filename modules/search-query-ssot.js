@@ -129,7 +129,8 @@ export class SearchQuerySSoT {
     
     try {
       // Use AI to generate optimal search query (with artist field support)
-      const aiResult = await this.aiGenerator.generateOptimalSearchQuery(title, description, artist, aiArtist);
+      // NEW: Pass excludeArtist option to filter out ignored artists
+      const aiResult = await this.aiGenerator.generateOptimalSearchQuery(title, description, artist, aiArtist, options.excludeArtist);
       
       if (aiResult && aiResult.success) {
         this.setCurrentQuery(aiResult, options);

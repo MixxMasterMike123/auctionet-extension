@@ -155,9 +155,12 @@ export const AI_SEARCH_RULES = {
 
 // Helper function to apply rules in search generation
 export function applySearchRules(inputData) {
-  const { title, description, artist, aiArtist } = inputData;
+  const { title, description, artist, aiArtist, excludeArtist } = inputData;
   
   console.log('🤖 AI RULES: Starting AI-powered term extraction for:', inputData);
+  if (excludeArtist) {
+    console.log('🚫 AI RULES: Will exclude ignored artist:', excludeArtist);
+  }
   
   // Check if we have AI capability for intelligent term extraction
   if (window.apiManager && typeof window.apiManager.generateAISearchTerms === 'function') {
@@ -172,17 +175,26 @@ export function applySearchRules(inputData) {
 
 // NEW: AI-Powered intelligent term extraction
 async function generateAISearchTerms(inputData) {
-  const { title, description, artist, aiArtist } = inputData;
+  const { title, description, artist, aiArtist, excludeArtist } = inputData;
   
-  try {
-    // Prepare prompt for AI term extraction
-    const prompt = `
+      try {
+      // Prepare prompt for AI term extraction
+      let prompt = `
 Analyze this auction item and extract meaningful search terms for market analysis.
 
 Title: "${title}"
 Description: "${description || 'No description'}"
 Artist Field: "${artist || 'Empty'}"
-AI-Detected Artist: "${aiArtist || 'None detected'}"
+AI-Detected Artist: "${aiArtist || 'None detected'}"`;
+
+      // Add exclusion instruction if needed
+      if (excludeArtist && excludeArtist.trim()) {
+        prompt += `
+
+CRITICAL EXCLUSION: Do NOT include "${excludeArtist}" in any search terms - this artist was marked as incorrectly detected (false positive).`;
+      }
+
+      prompt += `
 
 Extract 8-12 search terms and categorize each as:
 - artist: Person who created the item

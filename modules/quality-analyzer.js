@@ -8,6 +8,7 @@ import { SearchQuerySSoT } from './search-query-ssot.js';
 import { ArtistDetectionManager } from './artist-detection-manager.js';
 import { BrandValidationManager } from './brand-validation-manager.js';
 import { InlineBrandValidator } from './inline-brand-validator.js';
+import { ArtistIgnoreManager } from './artist-ignore-manager.js';
 import { cleanTitleAfterArtistRemoval } from './core/title-cleanup-utility.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
@@ -31,6 +32,9 @@ export class QualityAnalyzer {
     
     // NEW: Initialize InlineBrandValidator for real-time field validation
     this.inlineBrandValidator = new InlineBrandValidator(this.brandValidationManager);
+    
+    // NEW: Initialize ArtistIgnoreManager for handling false positives
+    this.artistIgnoreManager = new ArtistIgnoreManager();
     
     // Initialize manager instances
     this.salesAnalysisManager = new SalesAnalysisManager();
@@ -124,6 +128,11 @@ export class QualityAnalyzer {
     // Wire SearchQuerySSoT to all components that need it
     this.salesAnalysisManager.setSearchQuerySSoT(searchQuerySSoT);
     this.searchFilterManager.setSearchQuerySSoT(searchQuerySSoT);
+    
+    // NEW: Wire ArtistIgnoreManager dependencies
+    this.artistIgnoreManager.setQualityAnalyzer(this);
+    this.artistIgnoreManager.setSearchQuerySSoT(searchQuerySSoT);
+    this.artistIgnoreManager.init(); // Load ignored artists from storage
   }
 
   // NEW: Delegate artist detection to ArtistDetectionManager SSoT
@@ -586,12 +595,27 @@ export class QualityAnalyzer {
         score: currentScore
       };
     }
+
+    // NEW: Filter out ignored artists (false positives)
+    const filteredResult = this.artistIgnoreManager.filterDetectionResult(aiArtist);
+    if (!filteredResult) {
+      console.log(`🚫 Artist detection filtered out as ignored: "${aiArtist.detectedArtist}"`);
+      
+      // Still trigger dashboard for non-art items when artist is ignored
+      await this.triggerDashboardForNonArtItems(data);
+      
+      return {
+        detectedArtist: null,
+        warnings: currentWarnings,
+        score: currentScore
+      };
+    }
     
     
     // Create properly formatted warning for the existing display system
     const artistMessage = aiArtist.verification ? 
-      `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (95% säkerhet) ✓ Verifierad konstnär <span class="artist-bio-tooltip" data-full-bio="${(aiArtist.verification.biography || 'Ingen detaljerad biografi tillgänglig').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="cursor: help; border-bottom: 1px dotted rgba(25, 118, 210, 0.5); transition: all 0.2s ease;">(${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'})</span> - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
-      `AI upptäckte konstnär: "<strong>${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
+      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist}">${aiArtist.detectedArtist}</strong>" (95% säkerhet) ✓ Verifierad konstnär <span class="artist-bio-tooltip" data-full-bio="${(aiArtist.verification.biography || 'Ingen detaljerad biografi tillgänglig').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="cursor: help; border-bottom: 1px dotted rgba(25, 118, 210, 0.5); transition: all 0.2s ease;">(${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'})</span> - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält <button class="ignore-artist-btn" data-artist="${aiArtist.detectedArtist}" style="margin-left: 8px; padding: 2px 6px; font-size: 11px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Ignorera denna konstnärsdetektering">✕ Ignorera</button>` :
+      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist}">${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält <button class="ignore-artist-btn" data-artist="${aiArtist.detectedArtist}" style="margin-left: 8px; padding: 2px 6px; font-size: 11px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Ignorera denna konstnärsdetektering">✕ Ignorera</button>`;
 
 
     // Insert artist warning at the beginning since it's important info
@@ -617,6 +641,11 @@ export class QualityAnalyzer {
 
     // Update quality display immediately and ensure it's visible
     this.updateQualityIndicator(currentScore, currentWarnings);
+    
+    // NEW: Setup ignore button event handler
+    setTimeout(() => {
+      this.setupIgnoreArtistHandlers();
+    }, 100);
     
     // CRITICAL FIX: SSoT already initialized in runAIArtistDetection - no duplicate logic needed
     
@@ -667,6 +696,49 @@ export class QualityAnalyzer {
       warnings: currentWarnings,
       score: currentScore
     };
+  }
+
+  // NEW: Setup ignore button handlers for artist detections
+  setupIgnoreArtistHandlers() {
+    const ignoreButtons = document.querySelectorAll('.ignore-artist-btn');
+    
+    ignoreButtons.forEach(button => {
+      if (button.dataset.handlerAttached) return; // Avoid duplicate handlers
+      
+      button.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const artistName = button.dataset.artist;
+        if (!artistName) {
+          console.error('❌ No artist name found on ignore button');
+          return;
+        }
+
+        // Confirm action
+        const confirmed = confirm(`Ignorera konstnärsdetektering "${artistName}"?\n\nDetta kommer att:\n• Ta bort varningen från kvalitetsindikatorn\n• Uppdatera sökningar utan konstnären\n• Förhindra framtida detekteringar av samma konstnär`);
+        
+        if (!confirmed) {
+          return;
+        }
+
+        try {
+          // Find the warning element (parent li)
+          const warningElement = button.closest('li');
+          
+          // Handle the ignore action
+          await this.artistIgnoreManager.handleIgnoreAction(artistName, warningElement);
+          
+          console.log(`✅ Successfully ignored artist: "${artistName}"`);
+          
+        } catch (error) {
+          console.error('❌ Error ignoring artist:', error);
+          alert(`Fel vid ignorering av konstnär: ${error.message}`);
+        }
+      });
+      
+      button.dataset.handlerAttached = 'true';
+    });
   }
 
   // NEW: Setup click handlers for brand corrections
