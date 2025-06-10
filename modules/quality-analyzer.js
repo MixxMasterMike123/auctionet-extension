@@ -35,6 +35,8 @@ export class QualityAnalyzer {
     
     // NEW: Initialize ArtistIgnoreManager for handling false positives
     this.artistIgnoreManager = new ArtistIgnoreManager();
+    this.artistIgnoreManager.setQualityAnalyzer(this);
+    this.artistIgnoreManager.init(); // Load ignored artists from storage immediately
     
     // Initialize manager instances
     this.salesAnalysisManager = new SalesAnalysisManager();
@@ -129,10 +131,8 @@ export class QualityAnalyzer {
     this.salesAnalysisManager.setSearchQuerySSoT(searchQuerySSoT);
     this.searchFilterManager.setSearchQuerySSoT(searchQuerySSoT);
     
-    // NEW: Wire ArtistIgnoreManager dependencies
-    this.artistIgnoreManager.setQualityAnalyzer(this);
+    // NEW: Wire ArtistIgnoreManager SearchQuerySSoT dependency (already initialized in constructor)
     this.artistIgnoreManager.setSearchQuerySSoT(searchQuerySSoT);
-    this.artistIgnoreManager.init(); // Load ignored artists from storage
   }
 
   // NEW: Delegate artist detection to ArtistDetectionManager SSoT
@@ -415,6 +415,13 @@ export class QualityAnalyzer {
     this.aiAnalysisActive = true;
     this.pendingAnalyses = new Set();
 
+    // DEBUG: Check artist ignore manager state at start
+    console.log(`🔍 Debug - Artist ignore manager initialized?`, !!this.artistIgnoreManager);
+    if (this.artistIgnoreManager) {
+      console.log(`🔍 Debug - Current ignored artists at start:`, this.artistIgnoreManager.getIgnoredArtists());
+      console.log(`🔍 Debug - Session storage content:`, sessionStorage.getItem('auctionet_ignored_artists'));
+    }
+
     try {
       // Track pending analyses
       this.pendingAnalyses.add('artist');
@@ -692,8 +699,8 @@ export class QualityAnalyzer {
     
     // Create properly formatted warning for the existing display system (without button - we'll add it programmatically)
     const artistMessage = aiArtist.verification ? 
-      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist}">${aiArtist.detectedArtist}</strong>" (95% säkerhet) ✓ Verifierad konstnär <span class="artist-bio-tooltip" data-full-bio="${(aiArtist.verification.biography || 'Ingen detaljerad biografi tillgänglig').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="cursor: help; border-bottom: 1px dotted rgba(25, 118, 210, 0.5); transition: all 0.2s ease;">(${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'})</span> - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
-      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist}">${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
+      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist.replace(/"/g, '&quot;')}">${aiArtist.detectedArtist}</strong>" (95% säkerhet) ✓ Verifierad konstnär <span class="artist-bio-tooltip" data-full-bio="${(aiArtist.verification.biography || 'Ingen detaljerad biografi tillgänglig').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="cursor: help; border-bottom: 1px dotted rgba(25, 118, 210, 0.5); transition: all 0.2s ease;">(${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'})</span> - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
+      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist.replace(/"/g, '&quot;')}">${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
 
 
     // Insert artist warning at the beginning since it's important info
