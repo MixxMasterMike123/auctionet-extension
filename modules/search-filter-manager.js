@@ -850,8 +850,8 @@ export class SearchFilterManager {
         }
         
         
-        // Update SSoT with user selections
-        this.searchQuerySSoT.updateUserSelections(selectedTerms);
+        // Update SSoT with user selections (don't update Hidden Keywords field)
+        this.searchQuerySSoT.updateUserSelections(selectedTerms, { updateDOMField: false });
         
         // Get the new query from SSoT (with core terms preserved)
         const newQueryFromSSoT = this.searchQuerySSoT.getCurrentQuery();
@@ -956,8 +956,8 @@ export class SearchFilterManager {
       }
       
       
-      // Update SSoT with user selections
-      this.searchQuerySSoT.updateUserSelections(selectedTerms);
+      // Update SSoT with user selections (don't update Hidden Keywords field)
+      this.searchQuerySSoT.updateUserSelections(selectedTerms, { updateDOMField: false });
       
       // Get the new query from SSoT (with core terms preserved)
       const newQuery = this.searchQuerySSoT.getCurrentQuery();

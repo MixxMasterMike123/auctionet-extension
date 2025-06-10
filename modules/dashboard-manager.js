@@ -823,8 +823,8 @@ export class DashboardManager {
     });
     
     
-    // Update SSoT with user selections (now includes preserved AI artists)
-    this.searchQuerySSoT.updateUserSelections(selectedTerms);
+    // Update SSoT with user selections (now includes preserved AI artists - don't update Hidden Keywords field)
+    this.searchQuerySSoT.updateUserSelections(selectedTerms, { updateDOMField: false });
     
     
     // Update dashboard header immediately
