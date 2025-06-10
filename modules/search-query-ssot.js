@@ -560,7 +560,7 @@ export class SearchQuerySSoT {
   }
 
   // Update user selections and regenerate query
-  updateUserSelections(selectedTerms) {
+  updateUserSelections(selectedTerms, options = {}) {
     
     // NEW: Respect user deselection of artist terms
     const currentAvailableTerms = this.availableTerms || [];
@@ -723,8 +723,11 @@ export class SearchQuerySSoT {
     
     console.log('   Preservation reasoning:', this.currentMetadata.reasoning);
     
-    // CRITICAL FIX: Update the actual search keywords field in the DOM
-    this.updateDOMSearchField();
+    // CRITICAL FIX: Update the actual search keywords field in the DOM (unless explicitly disabled)
+    const shouldUpdateDOMField = options.updateDOMField !== false; // Default to true
+    if (shouldUpdateDOMField) {
+      this.updateDOMSearchField();
+    }
     
     // Notify listeners of the change
     this.notifyListeners('user_selection_updated', {
