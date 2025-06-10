@@ -439,6 +439,52 @@ export class QualityAnalyzer {
   }
 
   async runAIArtistDetection(data, currentWarnings, currentScore) {
+    // SMART CHECK: Skip AI analysis if artist field is filled AND no artist detected in title
+    if (data.artist && data.artist.trim()) {
+      // Quick rule-based check if title contains artist names
+      const titleHasArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
+      
+      if (!titleHasArtist || !titleHasArtist.detectedArtist) {
+        console.log('⚡ SMART SKIP: Artist field filled and no artist in title - skipping AI analysis');
+        console.log(`   Artist field: "${data.artist}"`);
+        console.log(`   Title: "${data.title}"`);
+        
+        // Still run brand validation and market analysis with existing artist
+        this.showAILoadingIndicator('🏷️ Kontrollerar märkesnamn...');
+        this.aiAnalysisActive = true;
+        this.pendingAnalyses = new Set(['brand']); // Only brand validation
+        
+        try {
+          // Run brand validation
+          const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
+          const brandIssues = await Promise.race([
+            brandValidationPromise,
+            new Promise(resolve => setTimeout(() => resolve([]), 5000))
+          ]);
+          
+          // Handle brand validation results
+          if (brandIssues && brandIssues.length > 0) {
+            await this.handleBrandValidationResult(brandIssues, data, currentWarnings, currentScore);
+          }
+          
+          // Trigger market analysis with existing artist
+          await this.triggerMarketAnalysisWithExistingArtist(data);
+          
+        } catch (error) {
+          console.error('❌ Brand validation failed:', error);
+        } finally {
+          this.pendingAnalyses.delete('brand');
+          this.aiAnalysisActive = false;
+          this.hideAILoadingIndicator();
+        }
+        
+        return; // Skip the rest of AI artist detection
+      } else {
+        console.log('⚠️ Artist field filled but artist still detected in title - running AI analysis');
+        console.log(`   Detected in title: "${titleHasArtist.detectedArtist}"`);
+      }
+    }
+
     // Show initial AI loading indicator
     this.showAILoadingIndicator('🤖 Söker konstnärsnamn...');
     this.aiAnalysisActive = true;
@@ -3013,6 +3059,53 @@ export class QualityAnalyzer {
     
     // Update with animation enabled
     this.updateQualityIndicator(newScore, currentWarnings, true);
+  }
+
+  async triggerMarketAnalysisWithExistingArtist(data) {
+    console.log('📊 Triggering market analysis with existing artist field');
+    
+    if (this.searchQuerySSoT && this.searchFilterManager && data.artist) {
+      try {
+        // Extract candidate terms WITH existing artist
+        const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
+          data.title,
+          data.description,
+          { artist: data.artist },
+          data.artist
+        );
+        
+        if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
+          // Initialize SSoT with existing artist
+          this.searchQuerySSoT.initialize(
+            candidateSearchTerms.currentQuery, 
+            candidateSearchTerms, 
+            'existing_artist_field'
+          );
+          
+          // Trigger market analysis with existing artist context
+          if (this.apiManager) {
+            const searchContext = this.searchQuerySSoT.buildSearchContext();
+            
+            const salesData = await this.apiManager.analyzeSales(searchContext);
+            if (salesData && salesData.hasComparableData) {
+              // Update dashboard with results
+              if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
+                this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'existing_artist_field');
+              }
+            }
+          }
+        } else {
+          console.log('⚠️ Failed to generate candidate terms with existing artist, using fallback');
+          await this.triggerDashboardForNonArtItems(data);
+        }
+      } catch (error) {
+        console.error('❌ Market analysis with existing artist failed:', error);
+        await this.triggerDashboardForNonArtItems(data);
+      }
+    } else {
+      console.log('⚠️ Missing components for market analysis, using fallback dashboard');
+      await this.triggerDashboardForNonArtItems(data);
+    }
   }
 
   // NEW: Test artist field detection for debugging
