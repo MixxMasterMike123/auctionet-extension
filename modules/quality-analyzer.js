@@ -612,10 +612,10 @@ export class QualityAnalyzer {
     }
     
     
-    // Create properly formatted warning for the existing display system
+    // Create properly formatted warning for the existing display system (without button - we'll add it programmatically)
     const artistMessage = aiArtist.verification ? 
-      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist}">${aiArtist.detectedArtist}</strong>" (95% säkerhet) ✓ Verifierad konstnär <span class="artist-bio-tooltip" data-full-bio="${(aiArtist.verification.biography || 'Ingen detaljerad biografi tillgänglig').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="cursor: help; border-bottom: 1px dotted rgba(25, 118, 210, 0.5); transition: all 0.2s ease;">(${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'})</span> - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält <button class="ignore-artist-btn" data-artist="${aiArtist.detectedArtist}" style="margin-left: 8px; padding: 2px 6px; font-size: 11px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Ignorera denna konstnärsdetektering">✕ Ignorera</button>` :
-      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist}">${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält <button class="ignore-artist-btn" data-artist="${aiArtist.detectedArtist}" style="margin-left: 8px; padding: 2px 6px; font-size: 11px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;" title="Ignorera denna konstnärsdetektering">✕ Ignorera</button>`;
+      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist}">${aiArtist.detectedArtist}</strong>" (95% säkerhet) ✓ Verifierad konstnär <span class="artist-bio-tooltip" data-full-bio="${(aiArtist.verification.biography || 'Ingen detaljerad biografi tillgänglig').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" style="cursor: help; border-bottom: 1px dotted rgba(25, 118, 210, 0.5); transition: all 0.2s ease;">(${aiArtist.verification.biography ? aiArtist.verification.biography.substring(0, 80) + '...' : 'biografi saknas'})</span> - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
+      `AI upptäckte konstnär: "<strong class="clickable-artist" data-artist="${aiArtist.detectedArtist}">${aiArtist.detectedArtist}</strong>" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
 
 
     // Insert artist warning at the beginning since it's important info
@@ -627,7 +627,8 @@ export class QualityAnalyzer {
       suggestedTitle: aiArtist.suggestedTitle,
       suggestedDescription: aiArtist.suggestedDescription,
       foundIn: aiArtist.foundIn,
-      isArtistWarning: true // NEW: Mark this as an artist warning to preserve it
+      isArtistWarning: true, // NEW: Mark this as an artist warning to preserve it
+      dataAttributes: { 'data-artist-warning': 'true' } // NEW: Add data attribute for ignore button targeting
     };
 
     
@@ -700,44 +701,84 @@ export class QualityAnalyzer {
 
   // NEW: Setup ignore button handlers for artist detections
   setupIgnoreArtistHandlers() {
-    const ignoreButtons = document.querySelectorAll('.ignore-artist-btn');
+    // Find artist warnings that don't already have ignore buttons
+    const artistWarnings = document.querySelectorAll('li[data-artist-warning="true"]');
     
-    ignoreButtons.forEach(button => {
-      if (button.dataset.handlerAttached) return; // Avoid duplicate handlers
+    artistWarnings.forEach(warningLi => {
+      // Skip if already has ignore button
+      if (warningLi.querySelector('.ignore-artist-btn')) return;
       
-      button.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const artistName = button.dataset.artist;
-        if (!artistName) {
-          console.error('❌ No artist name found on ignore button');
-          return;
-        }
-
-        // Confirm action
-        const confirmed = confirm(`Ignorera konstnärsdetektering "${artistName}"?\n\nDetta kommer att:\n• Ta bort varningen från kvalitetsindikatorn\n• Uppdatera sökningar utan konstnären\n• Förhindra framtida detekteringar av samma konstnär`);
-        
-        if (!confirmed) {
-          return;
-        }
-
-        try {
-          // Find the warning element (parent li)
-          const warningElement = button.closest('li');
-          
-          // Handle the ignore action
-          await this.artistIgnoreManager.handleIgnoreAction(artistName, warningElement);
-          
-          console.log(`✅ Successfully ignored artist: "${artistName}"`);
-          
-        } catch (error) {
-          console.error('❌ Error ignoring artist:', error);
-          alert(`Fel vid ignorering av konstnär: ${error.message}`);
-        }
+      // Find the clickable artist element to get the artist name
+      const clickableArtist = warningLi.querySelector('.clickable-artist');
+      if (!clickableArtist) return;
+      
+      const artistName = clickableArtist.dataset.artist || clickableArtist.textContent.trim();
+      if (!artistName) return;
+      
+      // Create ignore button
+      const ignoreButton = document.createElement('button');
+      ignoreButton.className = 'ignore-artist-btn';
+      ignoreButton.dataset.artist = artistName;
+      ignoreButton.innerHTML = '✕ Ignorera';
+      ignoreButton.title = 'Ignorera denna konstnärsdetektering';
+      
+      // Style the button
+      Object.assign(ignoreButton.style, {
+        marginLeft: '8px',
+        padding: '2px 6px',
+        fontSize: '11px',
+        background: '#dc3545',
+        color: 'white',
+        border: 'none',
+        borderRadius: '3px',
+        cursor: 'pointer'
       });
       
-      button.dataset.handlerAttached = 'true';
+      // Add hover effect
+      ignoreButton.addEventListener('mouseenter', () => {
+        ignoreButton.style.background = '#c82333';
+      });
+      ignoreButton.addEventListener('mouseleave', () => {
+        ignoreButton.style.background = '#dc3545';
+      });
+      
+      // Add click handler
+      ignoreButton.addEventListener('click', async (e) => {
+                 e.preventDefault();
+         e.stopPropagation();
+         
+         if (!artistName) {
+           console.error('❌ No artist name found on ignore button');
+           return;
+         }
+
+         // Confirm action
+         const confirmed = confirm(`Ignorera konstnärsdetektering "${artistName}"?\n\nDetta kommer att:\n• Ta bort varningen från kvalitetsindikatorn\n• Uppdatera sökningar utan konstnären\n• Förhindra framtida detekteringar av samma konstnär`);
+         
+         if (!confirmed) {
+           return;
+         }
+
+         try {
+           // Handle the ignore action
+           await this.artistIgnoreManager.handleIgnoreAction(artistName, warningLi);
+           
+           console.log(`✅ Successfully ignored artist: "${artistName}"`);
+           
+         } catch (error) {
+           console.error('❌ Error ignoring artist:', error);
+           alert(`Fel vid ignorering av konstnär: ${error.message}`);
+         }
+       });
+       
+       // Find where to insert the button (after the message text)
+       const issueSpan = warningLi.querySelector('.issue-text') || warningLi;
+       if (issueSpan.appendChild) {
+         issueSpan.appendChild(ignoreButton);
+       } else {
+         // Fallback: append to the li itself
+         warningLi.appendChild(ignoreButton);
+       }
     });
   }
 
@@ -1915,7 +1956,15 @@ export class QualityAnalyzer {
             
           }
           
-          return `<li class="warning-${w.severity}" data-artist="${w.detectedArtist || ''}"><strong>${w.field}:</strong> ${issue}</li>`;
+          // Build data attributes string
+          let dataAttrs = `data-artist="${w.detectedArtist || ''}"`;
+          if (w.dataAttributes) {
+            Object.entries(w.dataAttributes).forEach(([key, value]) => {
+              dataAttrs += ` ${key}="${value}"`;
+            });
+          }
+          
+          return `<li class="warning-${w.severity}" ${dataAttrs}><strong>${w.field}:</strong> ${issue}</li>`;
         }).join('');
         
         // DEBUG: Log the actual HTML being generated
