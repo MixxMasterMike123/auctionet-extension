@@ -152,16 +152,24 @@ CRITICAL EXCLUSION: Do NOT include "${excludeArtist}" in search terms - this art
 
 Rules:
 1. ALWAYS include artist field content if provided (highest priority)
-2. Include brand names (Royal Copenhagen, Yamaha, Omega, etc.)
-3. Include specific object types (fat, armbandsur, synthesizer, etc.)
-4. Include model numbers or pattern names
-5. Maximum 4 terms, prioritize by market relevance
-6. Terms should be in the language they appear (Swedish/English mix is fine)
+2. CRITICAL: Multi-word artist names MUST be wrapped in quotes for exact matching
+   - Examples: "Håkan Berg", "Lisa Larson", "Niels Thorsson"
+   - Single names can remain unquoted: Picasso
+3. Include brand names (Royal Copenhagen, Yamaha, Omega, etc.)
+4. Include specific object types (fat, armbandsur, synthesizer, etc.)
+5. Include model numbers or pattern names
+6. Maximum 4 terms, prioritize by market relevance
+7. Terms should be in the language they appear (Swedish/English mix is fine)
+
+QUOTE WRAPPING EXAMPLES:
+- Artist field "håkan berg" → searchTerms: ["\"håkan berg\"", "etching"]
+- Artist field "Niels Thorsson" → searchTerms: ["\"Niels Thorsson\"", "fat"]
+- Artist field "Picasso" → searchTerms: ["Picasso", "målning"]
 
 Return JSON format:
 {
   "searchTerms": ["term1", "term2", "term3"],
-  "reasoning": "explanation of term selection prioritizing artist field",
+  "reasoning": "explanation of term selection prioritizing artist field with quote wrapping",
   "confidence": 0.95
 }`;
 
