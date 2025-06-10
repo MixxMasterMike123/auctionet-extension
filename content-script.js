@@ -916,24 +916,8 @@
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);
             
-            // Re-analyze quality after improvement with animated score update
-            setTimeout(() => {
-              console.log('🔄 Recalculating quality score after field improvement...');
-              
-              // Extract fresh data and recalculate score
-              const latestData = this.dataExtractor.extractItemData();
-              const currentWarnings = this.qualityAnalyzer.extractCurrentWarnings();
-              const newScore = this.qualityAnalyzer.calculateCurrentQualityScore(latestData);
-              
-              console.log('📊 Quality score after improvement:', { 
-                fieldType, 
-                newScore, 
-                warningsCount: currentWarnings.length 
-              });
-              
-              // Update circular progress indicators with animation
-              this.qualityAnalyzer.updateQualityIndicator(newScore, currentWarnings, true);
-            }, 500);
+            // Re-analyze quality after improvement
+            setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
           } else {
             throw new Error(`No ${fieldType} value in response`);
           }
@@ -1221,24 +1205,8 @@
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);
             
-            // Re-analyze quality after improvement with animated score update
-            setTimeout(() => {
-              console.log('🔄 Recalculating quality score after forced field improvement...');
-              
-              // Extract fresh data and recalculate score
-              const latestData = this.dataExtractor.extractItemData();
-              const currentWarnings = this.qualityAnalyzer.extractCurrentWarnings();
-              const newScore = this.qualityAnalyzer.calculateCurrentQualityScore(latestData);
-              
-              console.log('📊 Quality score after forced improvement:', { 
-                fieldType, 
-                newScore, 
-                warningsCount: currentWarnings.length 
-              });
-              
-              // Update circular progress indicators with animation
-              this.qualityAnalyzer.updateQualityIndicator(newScore, currentWarnings, true);
-            }, 500);
+            // Re-analyze quality after improvement
+            setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
           } else {
             throw new Error(`No ${fieldType} value in response`);
           }
@@ -1263,24 +1231,7 @@
         }
         
         this.showFieldSuccessIndicator('all');
-        
-        // Re-analyze quality after ALL improvements with animated score update
-        setTimeout(() => {
-          console.log('🔄 Recalculating quality score after all improvements...');
-          
-          // Extract fresh data and recalculate score
-          const latestData = this.dataExtractor.extractItemData();
-          const currentWarnings = this.qualityAnalyzer.extractCurrentWarnings();
-          const newScore = this.qualityAnalyzer.calculateCurrentQualityScore(latestData);
-          
-          console.log('📊 Quality score after all improvements:', { 
-            newScore, 
-            warningsCount: currentWarnings.length 
-          });
-          
-          // Update circular progress indicators with animation
-          this.qualityAnalyzer.updateQualityIndicator(newScore, currentWarnings, true);
-        }, 500);
+        setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
       }
 
       // Field-specific loading indicator methods - delegate to main content.js implementation
