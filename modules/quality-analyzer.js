@@ -8,6 +8,7 @@ import { SearchQuerySSoT } from './search-query-ssot.js';
 import { ArtistDetectionManager } from './artist-detection-manager.js';
 import { BrandValidationManager } from './brand-validation-manager.js';
 import { InlineBrandValidator } from './inline-brand-validator.js';
+import { cleanTitleAfterArtistRemoval } from './core/title-cleanup-utility.js';
 // modules/quality-analyzer.js - Quality Analysis Module
 export class QualityAnalyzer {
   constructor() {
@@ -1274,14 +1275,17 @@ export class QualityAnalyzer {
             artistField.value = artistName;
           }
 
+          // Store original title before any modifications for feedback purposes
+          const originalTitle = titleField ? titleField.value.trim() : '';
+          let titleWasModified = false;
+          
           // NEW: Update title field if we have a suggested title (remove artist from title)
           if (titleField && artistWarning && artistWarning.suggestedTitle) {
-            const currentTitle = titleField.value.trim();
             const suggestedTitle = artistWarning.suggestedTitle.trim();
-            
             
             // Update title field with cleaned title
             titleField.value = suggestedTitle;
+            titleWasModified = true;
             
             // Trigger events for title field
             const titleEvents = ['input', 'change', 'blur'];
@@ -1290,7 +1294,22 @@ export class QualityAnalyzer {
             });
             
           } else if (titleField && !artistWarning?.suggestedTitle) {
-            console.log(`⚠️ No suggested title available - artist copied but not removed from title`);
+            // ENHANCED: Use title cleanup utility as fallback when no suggestedTitle is available
+            const cleanedTitle = cleanTitleAfterArtistRemoval(originalTitle, artistName);
+            
+            if (cleanedTitle !== originalTitle) {
+              console.log(`🧹 Using title cleanup utility: "${originalTitle}" → "${cleanedTitle}"`);
+              titleField.value = cleanedTitle;
+              titleWasModified = true;
+              
+              // Trigger events for title field
+              const titleEvents = ['input', 'change', 'blur'];
+              titleEvents.forEach(eventType => {
+                titleField.dispatchEvent(new Event(eventType, { bubbles: true }));
+              });
+            } else {
+              console.log(`⚠️ No cleanup needed or artist not found in title`);
+            }
           } else if (!titleField) {
             console.log(`⚠️ Title field not found - artist copied but title not updated`);
           }
@@ -1366,7 +1385,7 @@ export class QualityAnalyzer {
           
           // Success indication shows MOVED not just added
           element.style.color = '#4caf50';
-          element.textContent = titleField && artistWarning?.suggestedTitle ? '✓ Flyttad!' : '✓ Tillagd!';
+          element.textContent = titleWasModified ? '✓ Flyttad!' : '✓ Tillagd!';
           
           // Briefly highlight the artist field to show where it was added
           const originalFieldBackground = artistField.style.backgroundColor;
@@ -1376,7 +1395,7 @@ export class QualityAnalyzer {
           artistField.style.transition = 'all 0.3s ease';
 
           // Also highlight title field if it was updated
-          if (titleField && artistWarning?.suggestedTitle) {
+          if (titleWasModified) {
             const originalTitleBackground = titleField.style.backgroundColor;
             const originalTitleBorder = titleField.style.border;
             titleField.style.backgroundColor = '#fff3e0';
@@ -1524,6 +1543,69 @@ export class QualityAnalyzer {
     console.log('Keywords field:', document.querySelector('#item_hidden_keywords'));
     
     // SAFETY CHECK: Ensure all necessary components are properly initialized
+    
+    // BIOGRAPHY TOOLTIP FUNCTIONALITY - Add CSS styles and event handlers
+    const style = document.createElement('style');
+    style.textContent = `
+      .artist-bio-tooltip:hover {
+        cursor: help;
+      }
+      
+      .artist-bio-tooltip::after {
+        content: attr(data-full-bio);
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-width: 350px;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        margin-top: 20px;
+        margin-left: -50px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+      
+      .artist-bio-tooltip:hover::after {
+        opacity: 1;
+      }
+      
+      .artist-bio-tooltip::before {
+        content: '';
+        position: absolute;
+        top: -5px;
+        left: 50px;
+        border: 5px solid transparent;
+        border-bottom-color: rgba(0, 0, 0, 0.9);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      
+      .artist-bio-tooltip:hover::before {
+        opacity: 1;
+      }
+    `;
+    
+    // Only add the style if it doesn't already exist
+    if (!document.querySelector('style[data-artist-bio-tooltip]')) {
+      style.setAttribute('data-artist-bio-tooltip', 'true');
+      document.head.appendChild(style);
+    }
+    
+    // Add biography tooltip functionality with attribution
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('artist-bio-tooltip')) {
+        e.preventDefault();
+        const fullBio = e.target.getAttribute('data-full-bio');
+        if (fullBio && fullBio !== 'Ingen detaljerad biografi tillgänglig') {
+          alert(fullBio + '\n\n🤖 AI-genererad biografi (Claude Haiku)');
+        }
+      }
+    });
   }
 
   assessDataQuality(data, fieldType) {
