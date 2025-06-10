@@ -1,6 +1,7 @@
 export class CircularProgressManager {
   constructor() {
     this.tooltips = new Map(); // Store tooltip references for cleanup
+    this.isInitialLoad = true; // Track if this is the first time loading circles
   }
 
   /**
@@ -77,11 +78,27 @@ export class CircularProgressManager {
     // Setup tooltips
     this.setupTooltips(metricsContainer, tooltipData);
 
-    // Always set final scores immediately - no animations to avoid interfering with AI analysis
-    console.log('⚡ CircularProgressManager: Setting scores immediately (animations disabled for stability)');
-    setTimeout(() => {
-      this.setFinalScores(metricsContainer, overallScore, completeness, accuracy);
-    }, 100);
+    // Smart animation: animate only when explicitly requested and safe
+    if (shouldAnimate && !this.isInitialLoad) {
+      console.log('🎬 CircularProgressManager: Starting animations (safe mode)');
+      this.animateCircles(metricsContainer, [
+        { score: overallScore, index: 0 },
+        { score: completeness, index: 1 },
+        { score: accuracy, index: 2 }
+      ]);
+    } else {
+      console.log('⚡ CircularProgressManager: Setting scores immediately', {
+        shouldAnimate,
+        isInitialLoad: this.isInitialLoad,
+        reason: shouldAnimate ? 'initial load' : 'animation disabled'
+      });
+      setTimeout(() => {
+        this.setFinalScores(metricsContainer, overallScore, completeness, accuracy);
+      }, 100);
+    }
+    
+    // Mark that initial load is complete
+    this.isInitialLoad = false;
   }
 
   /**

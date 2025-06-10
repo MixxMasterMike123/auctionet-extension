@@ -916,8 +916,8 @@
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);
             
-            // Re-analyze quality after improvement
-            setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
+            // Re-analyze quality with animation after improvement
+            setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
           } else {
             throw new Error(`No ${fieldType} value in response`);
           }
@@ -1110,8 +1110,8 @@
           
           this.showFieldSuccessIndicator(fieldType);
           
-          // Re-analyze quality after improvements
-          setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
+          // Re-analyze quality with animation after improvements
+          setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
         } catch (error) {
           console.error('Error improving field:', error);
           this.showFieldErrorIndicator(fieldType, error.message);

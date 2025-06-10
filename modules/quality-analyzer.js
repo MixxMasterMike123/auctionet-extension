@@ -412,7 +412,7 @@ export class QualityAnalyzer {
     }
 
     // Update UI with immediate results (no animation for initial display)
-    this.updateQualityIndicator(score, warnings);
+    this.updateQualityIndicator(score, warnings, false);
 
     // Now run AI artist detection asynchronously and update when complete (only if API is available)
     if (this.apiManager) {
@@ -2979,6 +2979,24 @@ export class QualityAnalyzer {
       this.searchFilterManager.setSearchTermExtractor(this.searchTermExtractor);
     }
     
+  }
+
+  // Method to recalculate and update quality with animation (for field improvements)
+  async recalculateQualityWithAnimation() {
+    console.log('🎬 Recalculating quality with animation after field improvement...');
+    
+    // Extract fresh data and current warnings
+    const latestData = this.dataExtractor.extractItemData();
+    const currentWarnings = this.extractCurrentWarnings();
+    const newScore = this.calculateCurrentQualityScore(latestData);
+    
+    console.log('📊 New quality scores:', { 
+      newScore, 
+      warningsCount: currentWarnings.length 
+    });
+    
+    // Update with animation enabled
+    this.updateQualityIndicator(newScore, currentWarnings, true);
   }
 
   // NEW: Test artist field detection for debugging
