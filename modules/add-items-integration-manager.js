@@ -56,7 +56,7 @@ export class AddItemsIntegrationManager {
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
-      this.addAIButton(titleField, 'title-correct', 'AI-stavning');
+      this.addAIButton(titleField, 'title-correct', 'AI-korrigera stavning');
     }
     if (descriptionField) {
       this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
