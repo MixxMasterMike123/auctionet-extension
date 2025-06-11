@@ -231,8 +231,8 @@ class AuctionetCatalogingAssistant {
               apiKey: parentClass.apiKey,
               body: {
                 model: 'claude-3-haiku-20240307',
-                max_tokens: 2000,
-                temperature: 0.7,
+                max_tokens: fieldType === 'title-correct' ? 500 : 2000,
+                temperature: fieldType === 'title-correct' ? 0.1 : 0.7,
                 system: 'You are an expert Swedish auction cataloger. Follow Swedish auction standards.',
                 messages: [{
                   role: 'user',
@@ -506,6 +506,28 @@ Sökord: ${itemData.keywords || ''}
       return baseInfo + `
 UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
 `;
+    } else if (fieldType === 'title-correct') {
+      return baseInfo + `
+UPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.
+
+KRITISKT - MINIMALA ÄNDRINGAR:
+• Lägg INTE till ny information, material eller tidsperioder
+• Ändra INTE ordningen på elementer
+• Ta INTE bort information
+• Korrigera ENDAST:
+  - Saknade mellanslag ("SVERIGEStockholm" → "SVERIGE Stockholm")
+  - Felplacerade punkter ("TALLRIK. keramik" → "TALLRIK, keramik")
+  - Saknade citattecken runt titlar/motiv ("Dune Mario Bellini" → "Dune" Mario Bellini)
+  - Stavfel i välkända namn/märken
+  - Kommatecken istället för punkt mellan objekt och material
+
+EXEMPEL KORRIGERINGAR:
+• "SERVIRINGSBRICKA, akryl.Dune Mario Bellini" → "SERVIRINGSBRICKA, akryl, "Dune" Mario Bellini"
+• "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
+• "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
+
+Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.
+`;
     }
     
     return baseInfo + `
@@ -522,6 +544,9 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       improvements.description = response.match(/Beskrivning:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
       improvements.condition = response.match(/Kondition:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
       improvements.keywords = response.match(/Sökord:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
+    } else if (fieldType === 'title-correct') {
+      // For title corrections, map to 'title' field for application
+      improvements.title = response.trim();
     } else {
       improvements[fieldType] = response.trim();
     }

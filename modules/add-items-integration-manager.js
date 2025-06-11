@@ -182,22 +182,28 @@ export class AddItemsIntegrationManager {
    * @param {Object} options - Additional options
    */
   async improveField(fieldType, options = {}) {
+    console.log(`🎯 IntegrationManager: improveField called with fieldType=${fieldType}`);
+    
     if (!this.apiBridge) {
+      console.log(`❌ IntegrationManager: API bridge not available`);
       this.showErrorIndicator(fieldType, 'API bridge not available');
       return;
     }
     
+    console.log(`✅ IntegrationManager: API bridge available, calling improveField`);
     this.showLoadingIndicator(fieldType);
     
     try {
+      console.log(`🚀 IntegrationManager: Calling apiBridge.improveField(${fieldType})`);
       await this.apiBridge.improveField(fieldType, options);
+      console.log(`✅ IntegrationManager: apiBridge.improveField completed successfully`);
       this.showSuccessIndicator(fieldType);
       
       // Trigger quality analysis after improvement
       setTimeout(() => this.analyzeQuality(), 500);
       
     } catch (error) {
-      console.error('Error improving field:', error);
+      console.error('❌ IntegrationManager: Error improving field:', error);
       this.showErrorIndicator(fieldType, error.message);
     }
   }
