@@ -2,19 +2,15 @@
 (async function() {
   'use strict';
   
-  console.log('Auctionet AI Assistant: Starting initialization...');
+
   
   try {
     // Wait for page to be fully loaded
     if (document.readyState === 'loading') {
-      console.log('Waiting for DOM to load...');
       await new Promise(resolve => {
         document.addEventListener('DOMContentLoaded', resolve);
       });
     }
-
-    // Additional wait to ensure dynamic content is loaded
-    console.log('Waiting for dynamic content...');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Check if we're on the right page first
@@ -25,11 +21,8 @@
                          document.querySelector('#item_title_sv');
 
     if (!isCorrectPage) {
-      console.log('Auctionet AI Assistant: Not on an item edit page');
       return;
     }
-
-    console.log('Auctionet AI Assistant: On correct page, loading modules...');
     
     // Dynamically import modules - UPDATED TO USE NEW MODULAR SYSTEM
     const { UIManager } = await import(chrome.runtime.getURL('modules/ui-manager.js'));
@@ -41,8 +34,6 @@
     const { SearchQuerySSoT } = await import(chrome.runtime.getURL('modules/search-query-ssot.js'));
     const { SalesAnalysisManager } = await import(chrome.runtime.getURL('modules/sales-analysis-manager.js'));
     
-    console.log('Modules loaded successfully, initializing assistant...');
-    
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
       constructor() {
@@ -53,7 +44,6 @@
         // Initialize AI-only SearchQuerySSoT
         this.apiManager = new APIManager();
         this.searchQuerySSoT = new SearchQuerySSoT(this.apiManager);
-        console.log('🤖 AI-only SearchQuerySSoT initialized');
         
         // Initialize other managers - UPDATED TO USE NEW MODULAR SYSTEM
         this.dashboardManager = new DashboardManagerV2();
@@ -66,7 +56,6 @@
         
         // Get SearchFilterManager from QualityAnalyzer (properly connected with SearchTermExtractor)
         this.searchFilterManager = this.qualityAnalyzer.searchFilterManager;
-        console.log('✅ Using QualityAnalyzer SearchFilterManager (with SearchTermExtractor connected)');
         
         // Wire up AI-only SearchQuerySSoT to all components
         this.qualityAnalyzer.setSearchQuerySSoT(this.searchQuerySSoT);
@@ -76,9 +65,6 @@
         
         // 🔧 CRITICAL FIX: Wire DashboardManager to SalesAnalysisManager
         this.salesAnalysisManager.setDashboardManager(this.dashboardManager);
-        console.log('🔗 SalesAnalysisManager connected to DashboardManager');
-        
-        console.log('✅ AI-only SearchQuerySSoT wired to all components');
         
         // CRITICAL FIX: Set up dependencies in correct order
         this.qualityAnalyzer.salesAnalysisManager = this.salesAnalysisManager; // MUST be before setApiManager
@@ -86,7 +72,6 @@
         
         // CRITICAL FIX: Ensure dashboard manager has direct ApiManager reference for hot reload
         this.dashboardManager.setApiManager(this.apiManager);
-        console.log('✅ DashboardManager: Direct ApiManager reference set for hot reload');
         
         // Inject the EXACT CSS from Add Items page for field animations
         this.injectFieldAnimationCSS();
@@ -101,7 +86,6 @@
         
         // Make assistant globally accessible for component communication
         window.auctionetAssistant = this;
-        console.log('✅ Assistant made globally accessible for component communication');
       }
 
       // Inject EXACT CSS from Add Items page for field animations
