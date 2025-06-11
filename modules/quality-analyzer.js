@@ -491,11 +491,7 @@ export class QualityAnalyzer {
     this.pendingAnalyses = new Set();
 
     // DEBUG: Check artist ignore manager state at start
-    console.log(`🔍 Debug - Artist ignore manager initialized?`, !!this.artistIgnoreManager);
-    if (this.artistIgnoreManager) {
-      console.log(`🔍 Debug - Current ignored artists at start:`, this.artistIgnoreManager.getIgnoredArtists());
-      console.log(`🔍 Debug - Session storage content:`, sessionStorage.getItem('auctionet_ignored_artists'));
-    }
+
 
     try {
       // Track pending analyses
@@ -511,8 +507,7 @@ export class QualityAnalyzer {
       const ignoredArtists = this.artistIgnoreManager.getIgnoredArtists();
       let analysisTitle = data.title;
       
-      console.log(`🔍 AI Analysis Debug - Total ignored artists: ${ignoredArtists.length}`, ignoredArtists);
-      console.log(`🔍 AI Analysis Debug - Original title: "${data.title}"`);
+
       
       // Remove ignored artists from title before AI analysis to prevent re-detection
       for (const ignoredArtist of ignoredArtists) {
@@ -555,7 +550,7 @@ export class QualityAnalyzer {
       
       if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist) {
         
-        console.log(`✅ Artist "${aiArtistForMarketAnalysis.detectedArtist}" detected - showing UI and handling market analysis`);
+
         
         // FIRST: Show the artist detection UI (this was missing!)
         await this.handleArtistDetectionResult(aiArtistForMarketAnalysis, data, currentWarnings, currentScore);
@@ -665,6 +660,10 @@ export class QualityAnalyzer {
             console.log('⚠️ Missing components, using fallback dashboard');
             await this.triggerDashboardForNonArtItems(data);
           }
+        } else {
+          // CRITICAL: Fallback case for any other foundIn value (or missing foundIn)
+          console.log(`⚠️ Artist detected with unknown foundIn value: "${aiArtistForMarketAnalysis.foundIn}" - using fallback dashboard`);
+          await this.triggerDashboardForNonArtItems(data);
         }
         
         // Clean up pending analysis since we already handled UI above
