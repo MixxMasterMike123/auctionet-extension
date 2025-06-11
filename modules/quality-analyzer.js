@@ -821,6 +821,9 @@ export class QualityAnalyzer {
     });
     this.updateQualityIndicator(recalculatedScore, currentWarnings, true);
     
+    // CRITICAL FIX: Clear any pending timeouts to prevent race condition override
+    this.clearPendingQualityTimeouts();
+    
     // NEW: Setup ignore button event handler
     setTimeout(() => {
       this.setupIgnoreArtistHandlers();
@@ -2254,7 +2257,8 @@ export class QualityAnalyzer {
       console.log('🔍 DEBUGGING: debouncedUpdate called for field:', event.target?.id || 'unknown');
       
       clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
+      // Store timeout reference for potential clearing
+      this.updateTimeout = setTimeout(() => {
         console.log('🔍 DEBUGGING: timeout triggered, about to call analyzeQuality()');
         
         // CRITICAL FIX: Check if AI artist detection is already active before triggering recalculation
@@ -2286,7 +2290,6 @@ export class QualityAnalyzer {
           return;
         }
         
-        console.log('🔍 DEBUGGING: No AI artist warning detected, proceeding with analyzeQuality()');
         this.analyzeQuality();
       }, 800); // Wait 800ms after user stops typing
     };
@@ -3165,6 +3168,29 @@ export class QualityAnalyzer {
     allInputs.forEach((input, index) => {
       if (input.id && (input.id.includes('artist') || input.name.includes('artist'))) {
         // Log input details for debugging if needed
+      }
+    });
+  }
+
+  // NEW: Clear any pending timeouts to prevent race conditions
+  clearPendingQualityTimeouts() {
+    console.log('🔄 DEBUGGING: Clearing all pending quality analysis timeouts');
+    
+    // Clear the main debouncedUpdate timeout if it exists
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+      this.updateTimeout = null;
+      console.log('🔄 DEBUGGING: Cleared pending debouncedUpdate timeout');
+    }
+    
+    // Clear any other quality-related timeouts
+    const timeoutElements = document.querySelectorAll('[data-quality-timeout]');
+    timeoutElements.forEach(element => {
+      const timeoutId = element.getAttribute('data-quality-timeout');
+      if (timeoutId) {
+        clearTimeout(parseInt(timeoutId));
+        element.removeAttribute('data-quality-timeout');
+        console.log('🔄 DEBUGGING: Cleared timeout:', timeoutId);
       }
     });
   }
