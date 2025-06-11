@@ -670,18 +670,13 @@
       }
 
       async init() {
-        console.log('Auctionet AI Assistant: Initializing assistant...');
-        
         await this.apiManager.loadSettings();
-        console.log('API key loaded:', this.apiManager.apiKey ? 'Yes' : 'No');
         
         this.uiManager.injectUI();
         this.attachEventListeners();
         
         // Run initial quality analysis after API key is loaded
         await this.uiManager.runInitialQualityAnalysis();
-        
-        console.log('Auctionet AI Assistant: Initialization complete');
       }
 
       setupEventListeners() {
@@ -727,21 +722,10 @@
           'input[type="checkbox"][class*="anmärkningar"]'
         ];
         
-        console.log('🔍 Setting up "Inga anmärkningar" checkbox listeners...');
-        
         checkboxSelectors.forEach(selector => {
           const checkbox = document.querySelector(selector);
           if (checkbox) {
-            console.log(`✅ Found "Inga anmärkningar" checkbox with selector: ${selector}`);
-            console.log('📋 Checkbox details:', {
-              checked: checkbox.checked,
-              value: checkbox.value,
-              name: checkbox.name,
-              id: checkbox.id,
-              className: checkbox.className
-            });
             checkbox.addEventListener('change', () => {
-              console.log('📋 "Inga anmärkningar" checkbox changed:', checkbox.checked);
               this.updateConditionButtonState();
             });
           }
@@ -749,15 +733,12 @@
         
         // Fallback: search for any checkbox with "Inga anmärkningar" text nearby
         const allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
-        console.log(`🔍 Fallback: Setting up listeners for ${allCheckboxes.length} checkboxes...`);
         
         allCheckboxes.forEach(checkbox => {
           const parent = checkbox.parentElement;
           const textContent = parent ? parent.textContent : '';
           if (textContent.includes('Inga anmärkningar') || textContent.includes('anmärkningar')) {
-            console.log('✅ Found checkbox by text content, setting up listener');
             checkbox.addEventListener('change', () => {
-              console.log('📋 "Inga anmärkningar" checkbox (by text) changed:', checkbox.checked);
               this.updateConditionButtonState();
             });
           }
@@ -767,12 +748,9 @@
       }
 
       updateConditionButtonState() {
-        console.log('🔄 Updating condition button state...');
         const isNoRemarksChecked = this.isNoRemarksChecked();
-        console.log('📋 isNoRemarksChecked result:', isNoRemarksChecked);
         
         const conditionButton = document.querySelector('[data-field-type="condition"]');
-        console.log('🔍 Condition button found:', !!conditionButton);
         
         if (conditionButton) {
           if (isNoRemarksChecked) {
@@ -780,13 +758,11 @@
             conditionButton.style.opacity = '0.5';
             conditionButton.style.cursor = 'not-allowed';
             conditionButton.title = 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat';
-            console.log('🚫 Condition button DISABLED - "Inga anmärkningar" is checked');
           } else {
             conditionButton.disabled = false;
             conditionButton.style.opacity = '1';
             conditionButton.style.cursor = 'pointer';
             conditionButton.title = 'AI-förbättra kondition';
-            console.log('✅ Condition button ENABLED - "Inga anmärkningar" is not checked');
           }
         } else {
           // Try alternative selectors but don't log as error during initialization
@@ -799,24 +775,18 @@
           });
           
           if (foundConditionButton) {
-            console.log('✅ Found condition button with alternative method');
             // Apply the same logic as above
             if (isNoRemarksChecked) {
               foundConditionButton.disabled = true;
               foundConditionButton.style.opacity = '0.5';
               foundConditionButton.style.cursor = 'not-allowed';
               foundConditionButton.title = 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat';
-              console.log('🚫 Condition button DISABLED - "Inga anmärkningar" is checked');
             } else {
               foundConditionButton.disabled = false;
               foundConditionButton.style.opacity = '1';
               foundConditionButton.style.cursor = 'pointer';
               foundConditionButton.title = 'AI-förbättra kondition';
-              console.log('✅ Condition button ENABLED - "Inga anmärkningar" is not checked');
             }
-          } else {
-            // Only log as warning if we're past initialization
-            console.log('ℹ️ Condition button not found yet - UI may still be loading');
           }
         }
       }
@@ -824,13 +794,11 @@
       attachEventListeners() {
         // Individual field buttons (exclude master button)
         const buttons = document.querySelectorAll('.ai-assist-button:not(.ai-master-button)');
-        console.log('Found AI assist buttons:', buttons.length);
         
         buttons.forEach(button => {
           button.addEventListener('click', (e) => {
             e.preventDefault();
             const fieldType = e.target.dataset.fieldType;
-            console.log('Button clicked for field type:', fieldType);
             if (fieldType) {
               this.improveField(fieldType);
             } else {
@@ -842,10 +810,8 @@
         // Master button (separate handler)
         const masterButton = document.querySelector('.ai-master-button');
         if (masterButton) {
-          console.log('Master button found and event listener attached');
           masterButton.addEventListener('click', (e) => {
             e.preventDefault();
-            console.log('Master button clicked');
             this.improveAllFields();
           });
         } else {
@@ -854,7 +820,6 @@
         
         // Update condition button state after buttons are attached and UI is ready
         setTimeout(() => {
-          console.log('🔧 Updating condition button state after UI initialization...');
           this.updateConditionButtonState();
         }, 500); // Increased delay to ensure UI is fully ready
       }
@@ -890,9 +855,7 @@
         this.showFieldLoadingIndicator(fieldType);
         
         try {
-          console.log('🎯 Individual field - Artist info enabled:', this.apiManager.enableArtistInfo);
           const improved = await this.apiManager.callClaudeAPI(itemData, fieldType);
-          console.log('Improved result for', fieldType, ':', improved);
           
           // For single field improvements, extract the specific field value
           const value = improved[fieldType];
@@ -1062,7 +1025,7 @@
           // For "all" improvements, exclude condition if "Inga anmärkningar" is checked
           let actualFieldType = fieldType;
           if (fieldType === 'all' && this.isNoRemarksChecked()) {
-            console.log('📋 "Inga anmärkningar" is checked - excluding condition from improvements');
+  
             // We'll still call with 'all' but handle condition exclusion in the response processing
           }
           
@@ -1225,7 +1188,7 @@
       }
 
       showFieldSuccessIndicator(fieldType) {
-        console.log(`✅ Showing field success indicator for: ${fieldType}`);
+
         this.fallbackShowFieldSuccessIndicator(fieldType);
       }
 
@@ -1310,11 +1273,11 @@
         // Add overlay to container - EXACT same as Add Items page
         fieldContainer.appendChild(overlay);
         
-        console.log(`✅ Loading animation applied to ${fieldType} field`);
+        
       }
 
       fallbackShowFieldSuccessIndicator(fieldType) {
-        console.log(`✅ Fallback success indicator for ${fieldType}`);
+
         
         // Remove loading state - EXACT same as Add Items page
         this.fallbackRemoveFieldLoadingIndicator(fieldType);
@@ -1481,27 +1444,17 @@
         
         // Fallback: search for any checkbox with "Inga anmärkningar" text nearby
         const allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
-        console.log(`🔍 Fallback: Checking ${allCheckboxes.length} checkboxes for "Inga anmärkningar" text...`);
         
         for (const checkbox of allCheckboxes) {
           const parent = checkbox.parentElement;
           const textContent = parent ? parent.textContent : '';
           if (textContent.includes('Inga anmärkningar') || textContent.includes('anmärkningar')) {
-            console.log('✅ Found checkbox by text content:', {
-              checked: checkbox.checked,
-              textContent: textContent.trim(),
-              value: checkbox.value,
-              name: checkbox.name,
-              id: checkbox.id
-            });
             if (checkbox.checked) {
-              console.log('🚫 "Inga anmärkningar" checkbox found by text and is CHECKED');
               return true;
             }
           }
         }
         
-        console.log('✅ "Inga anmärkningar" is NOT checked - condition button should be enabled');
         return false;
       }
 
@@ -1513,16 +1466,9 @@
         // Setup live monitoring of condition field
         const conditionField = document.querySelector('#item_condition_sv');
         if (conditionField) {
-          console.log('✅ Edit page: Condition field found, setting up monitoring...');
-          
           // Debounced condition analysis
           const debouncedAnalysis = this.debounce(() => {
-            console.log('🔄 Edit page: Running debounced condition analysis...');
             const formData = this.dataExtractor.extractItemData();
-            console.log('📊 Edit page: Extracted condition data:', { 
-              conditionLength: formData.condition?.length || 0, 
-              condition: formData.condition?.substring(0, 100) || 'EMPTY'
-            });
             this.analyzeConditionQuality(formData);
           }, 2000);
           
@@ -1530,10 +1476,7 @@
           conditionField.addEventListener('blur', debouncedAnalysis);
           
           // NEW: IMMEDIATE condition analysis on edit pages since listing already exists
-          console.log('🚀 Edit page detected - triggering immediate condition analysis...');
           setTimeout(() => {
-            console.log('⏰ Edit page: Running initial condition analysis...');
-            
             // Debug: Check if dataExtractor is working
             if (!this.dataExtractor) {
               console.error('❌ Edit page: dataExtractor is not available!');
@@ -1541,19 +1484,12 @@
             }
             
             const formData = this.dataExtractor.extractItemData();
-            console.log('🩺 Edit page: Initial condition analysis data:', {
-              hasCondition: !!formData.condition,
-              conditionLength: formData.condition?.length || 0,
-              condition: formData.condition?.substring(0, 100) || 'EMPTY',
-              title: formData.title?.substring(0, 50) || 'EMPTY'
-            });
             
             // Force immediate analysis even if dismissed before
             const tooltipId = 'condition-quality';
             this.dismissedTooltips.delete(tooltipId); // Clear any previous dismissal
             
             this.analyzeConditionQuality(formData);
-            console.log('✅ Edit page: Initial condition analysis completed');
           }, 2000); // Increased delay to ensure page is fully loaded
         } else {
           console.warn('⚠️ Edit page: Condition field not found! Available fields:');
@@ -1581,24 +1517,16 @@
 
       // Analyze condition quality - EXACT copy from Add Items page
       async analyzeConditionQuality(formData) {
-        console.log('🩺 Edit page: analyzeConditionQuality called with:', {
-          hasCondition: !!formData.condition,
-          conditionLength: formData.condition?.length || 0,
-          condition: formData.condition?.substring(0, 50) || 'EMPTY'
-        });
-        
         // Skip if "Inga anmärkningar" (No remarks) is checked
         const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
                                  document.querySelector('input[type="checkbox"]#item_no_remarks') ||
                                  document.querySelector('input[type="checkbox"][name*="no_remarks"]');
         
         if (noRemarksCheckbox && noRemarksCheckbox.checked) {
-          console.log('⏭️ Edit page: Skipping condition analysis - "Inga anmärkningar" is checked');
           return; // Silent return - no need to log this every time
         }
         
         if (!formData.condition || formData.condition.length < 3) {
-          console.log('📝 Edit page: Condition is empty or too short, showing empty tooltip');
           this.showConditionGuidanceTooltip(formData, 'empty');
           return;
         }
@@ -1606,18 +1534,13 @@
         // Check if already dismissed in session
         const tooltipId = 'condition-quality';
         if (this.dismissedTooltips.has(tooltipId)) {
-          console.log('🚫 Edit page: Tooltip already dismissed in this session');
           return;
         }
         
         const conditionIssues = this.detectConditionIssues(formData);
-        console.log('🔍 Edit page: Detected condition issues:', conditionIssues.length, conditionIssues.map(i => i.type));
         
         if (conditionIssues.length > 0) {
-          console.log('⚠️ Edit page: Condition issues detected - showing guidance');
           this.showConditionGuidanceTooltip(formData, 'improve', conditionIssues);
-        } else {
-          console.log('✅ Edit page: No condition issues found - no tooltip needed');
         }
       }
 
@@ -1628,11 +1551,7 @@
         const cleanCondition = condition.replace(/<[^>]*>/g, '').trim(); // Remove HTML tags
         const conditionLower = cleanCondition.toLowerCase();
         
-        console.log('🔍 Edit page: Analyzing condition text:', {
-          original: condition.substring(0, 50),
-          clean: cleanCondition.substring(0, 50),
-          length: cleanCondition.length
-        });
+
         
         // CRITICAL: Detect the dreaded "Bruksslitage" alone
         if (conditionLower === 'bruksslitage' || conditionLower === 'bruksslitage.') {
@@ -1669,7 +1588,6 @@
         });
         
         if (hasVagueOnly) {
-          console.log('⚠️ Edit page: Detected vague-only condition description');
           issues.push({
             type: 'vague_only',
             severity: 'high',
@@ -1720,7 +1638,7 @@
           });
         }
         
-        console.log('🔍 Edit page: Final issues found:', issues.length, issues.map(i => i.type));
+
         return issues.slice(0, 2); // Max 2 issues to avoid overwhelming
       }
 
@@ -1817,7 +1735,7 @@
             type: 'condition-guidance'
           });
           
-          console.log('✨ Condition guidance tooltip shown');
+  
         }, 200);
       }
 
@@ -1876,7 +1794,7 @@
         }
         
         // PRIORITY 2: Fall back to text-based detection if no dropdown category or unmapped
-        console.log('🔍 Using text-based category detection as fallback');
+
         
         // Watch/Clock category - Enhanced detection
         if (combined.match(/\b(ur|klocka|armbandsur|fickur|väckarklocka|rolex|omega|patek|cartier|tissot|longines|seiko|automatisk|manuell|quartz|kronograf|datum|helium|vattentät)\b/)) {
@@ -1958,7 +1876,7 @@
         if (selectElement && selectElement.value) {
           const selectedOption = selectElement.querySelector(`option[value="${selectElement.value}"]`);
           if (selectedOption && selectedOption.textContent.trim()) {
-            console.log('✅ Found category from select element:', selectedOption.textContent.trim());
+  
             return selectedOption.textContent.trim();
           }
         }
@@ -1966,14 +1884,14 @@
         // Method 2: Check Chosen.js implementation
         const chosenElement = document.querySelector('#item_category_id_chosen .chosen-single span');
         if (chosenElement && chosenElement.textContent.trim()) {
-          console.log('✅ Found category from Chosen.js:', chosenElement.textContent.trim());
+          
           return chosenElement.textContent.trim();
         }
         
         // Method 3: Check any visible category text in the form
         const chosenContainer = document.querySelector('.chosen-container .chosen-single span');
         if (chosenContainer && chosenContainer.textContent.trim()) {
-          console.log('✅ Found category from Chosen container:', chosenContainer.textContent.trim());
+          
           return chosenContainer.textContent.trim();
         }
         

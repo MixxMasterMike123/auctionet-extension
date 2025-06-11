@@ -12,7 +12,7 @@ export class ArtistIgnoreManager {
     this.qualityAnalyzer = null;
     this.searchQuerySSoT = null;
     this.setupKeyboardShortcuts(); // NEW: Add keyboard shortcuts
-    console.log('🚫 ArtistIgnoreManager initialized');
+
   }
 
   /**
@@ -333,7 +333,7 @@ export class ArtistIgnoreManager {
       this.saveToStorage();
     }
 
-    console.log('🚫 ArtistIgnoreManager initialized with ignored artists:', this.getIgnoredArtists());
+
   }
 
   // NEW: Set expiration time
@@ -485,6 +485,6 @@ export class ArtistIgnoreManager {
       }
     });
     
-    console.log('⌨️ Keyboard shortcuts active: Ctrl+Shift+C (clear), Ctrl+Shift+I (manage)');
+
   }
 } 

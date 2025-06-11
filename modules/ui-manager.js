@@ -7,20 +7,11 @@ export class UIManager {
   }
 
   injectUI() {
-    console.log('Injecting UI elements...');
-    
     // Add AI assistance button next to each field
     const titleField = document.querySelector('#item_title_sv');
     const descriptionField = document.querySelector('#item_description_sv');
     const conditionField = document.querySelector('#item_condition_sv');
     const keywordsField = document.querySelector('#item_hidden_keywords');
-
-    console.log('Found fields:', {
-      title: !!titleField,
-      description: !!descriptionField,
-      condition: !!conditionField,
-      keywords: !!keywordsField
-    });
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
@@ -74,27 +65,21 @@ export class UIManager {
     
     const sidebar = document.querySelector('.grid-col4');
     if (sidebar) {
-      console.log('✅ Adding quality indicator to sidebar');
       sidebar.insertBefore(indicator, sidebar.firstChild);
       
       // Add event listener for manual refresh button
       const refreshButton = indicator.querySelector('.refresh-quality-btn');
       if (refreshButton) {
-        console.log('✅ Manual refresh button found, adding listener');
         refreshButton.addEventListener('click', async () => {
-          console.log('🔄 Manual quality refresh triggered');
           await this.qualityAnalyzer.analyzeQuality();
         });
       }
       
       // Set up live quality monitoring
-      console.log('🚀 Setting up live quality monitoring...');
       try {
         this.qualityAnalyzer.setupLiveQualityUpdates();
-        console.log('✅ Live quality monitoring setup complete');
       } catch (error) {
         console.error('❌ Error setting up live quality monitoring:', error);
-        console.log('⚠️ Extension will continue without live monitoring');
       }
       
       // Note: Initial quality analysis will be called after API key is loaded
@@ -458,8 +443,6 @@ export class UIManager {
       return;
     }
     
-    console.log('🔧 Auto-resizing textarea:', textarea.id);
-    
     // Add resizing class for enhanced animation
     textarea.classList.add('resizing');
     
@@ -485,11 +468,9 @@ export class UIManager {
       }, 400);
     });
     
-    console.log(`📏 Textarea resized from ${originalHeight} to ${newHeight}px (scroll: ${scrollHeight}px)`);
   }
 
   setupAutoResizeForAllTextareas() {
-    console.log('🔧 Setting up auto-resize for all textareas...');
     
     const textareas = document.querySelectorAll('textarea');
     let setupCount = 0;
@@ -515,10 +496,7 @@ export class UIManager {
       this.autoResizeTextarea(textarea);
       
       setupCount++;
-      console.log(`✅ Auto-resize setup for textarea: ${textarea.id || textarea.name || 'unnamed'}`);
     });
-    
-    console.log(`🎯 Auto-resize setup complete for ${setupCount} textareas`);
   }
 
   // Method to manually trigger resize for all textareas (useful after programmatic changes)
@@ -527,12 +505,10 @@ export class UIManager {
     textareas.forEach(textarea => {
       this.autoResizeTextarea(textarea);
     });
-    console.log(`🔄 Manual resize triggered for ${textareas.length} textareas`);
   }
 
   // Method to run initial quality analysis (called after API key is loaded)
   async runInitialQualityAnalysis() {
-    console.log('📊 Running initial quality analysis...');
     try {
       await this.qualityAnalyzer.analyzeQuality();
     } catch (error) {

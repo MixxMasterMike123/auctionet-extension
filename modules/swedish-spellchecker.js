@@ -7,7 +7,7 @@ export class SwedishSpellChecker {
     this.auctionTerms = this.initializeAuctionTerms();
     this.stopWords = this.initializeStopWords();
     
-    console.log('🇸🇪 SwedishSpellChecker: Initialized with', this.commonWords.length, 'common words and', this.auctionTerms.length, 'auction terms');
+
   }
 
   // Initialize common Swedish words and their misspellings
