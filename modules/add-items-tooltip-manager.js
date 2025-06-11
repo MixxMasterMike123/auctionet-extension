@@ -1657,8 +1657,8 @@ FÖRBJUDET:
 • Överdriven regelefterlevnad - skriv naturligt och autentiskt
 
 TITELFORMAT (max 60 tecken):
-Om konstnär-fält tomt: [KONSTNÄR], [Föremål], [Material], [Period] - FÖRSTA ORDET VERSALER
-Om konstnär-fält ifyllt: [föremål], [Material], [Period] - FÖRSTA ORDET GEMENER (konstnärens namn läggs till automatiskt)
+Om konstnär-fält tomt: [MÄRKE/KONSTNÄR]. [föremål], [material], [period] - FÖRSTA ORDET VERSALER + PUNKT
+Om konstnär-fält ifyllt: [Föremål]. [antal], [material], [period] - FÖRSTA ORDET PROPER + PUNKT
 
 KRITISKA TITELREGLER FÖR OBJEKT UTAN KONSTNÄR:
 • MÅSTE börja med märke/tillverkare i VERSALER följt av PUNKT: "ROLEX.", "OMEGA.", "IKEA."
@@ -1731,8 +1731,8 @@ Konstnär/Formgivare: ${formData.artist || ''}
 Värdering: ${formData.estimate || ''} SEK
 
 VIKTIGT FÖR TITEL: ${formData.artist ? 
-  'Konstnär/formgivare-fältet är ifyllt (' + formData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA VERSAL (normal capital letter).' : 
-  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
+  'Konstnär/formgivare-fältet är ifyllt (' + formData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA PROPER KAPITALISERAT följt av PUNKT (.).' : 
+  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER följt av PUNKT (.).'}
 
 KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
 ${formData.artist && this.apiManager.enableArtistInfo ? 
@@ -1866,6 +1866,15 @@ KRITISKA TITELFORMATREGLER FÖR OBJEKT UTAN KONSTNÄR:
 • Format: MÄRKE. modell, material, teknik, mått.
 • KORREKT: "ROLEX. Submariner, Stål, automatic, 40mm."
 • FEL: "ROLEX, Submariner, Stål, automatic, 40mm." (komma efter märke, inte punkt)
+
+KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
+• Rätta alltid märkesnamn till korrekt stavning/kapitalisering enligt varumärkesstandard
+• IKEA: alltid versaler - "Ikea" → "IKEA", "ikea" → "IKEA"  
+• iPhone: alltid "iPhone" - "Iphone" → "iPhone", "IPHONE" → "iPhone"
+• Royal Copenhagen: alltid "Royal Copenhagen" - "royal copenhagen" → "Royal Copenhagen"
+• Kosta Boda: alltid "Kosta Boda" - "kosta boda" → "Kosta Boda"
+• Respektera märkenas officiella kapitalisering/formatering
+• Om osäker på exakt stavning, behåll originalet
 ` : ''}
 
 Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter.`;

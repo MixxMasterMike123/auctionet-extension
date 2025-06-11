@@ -797,10 +797,24 @@ KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
 • EXEMPEL: "Pepparkorn" ska förbli "Pepparkorn" (med citattecken) för att undvika översättning
 • Om originaltiteln har citattecken runt produktnamn - BEHÅLL dem ALLTID
 
-FÖRSTA ORDETS KAPITALISERING:
+KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
+• Rätta alltid märkesnamn till korrekt stavning/kapitalisering enligt varumärkesstandard
+• IKEA: alltid versaler - "Ikea" → "IKEA", "ikea" → "IKEA"  
+• iPhone: alltid "iPhone" - "Iphone" → "iPhone", "IPHONE" → "iPhone"
+• Royal Copenhagen: alltid "Royal Copenhagen" - "royal copenhagen" → "Royal Copenhagen"
+• Kosta Boda: alltid "Kosta Boda" - "kosta boda" → "Kosta Boda"
+• Orrefors: alltid "Orrefors" - "orrefors" → "Orrefors"
+• Rolex: alltid "Rolex" - "rolex" → "Rolex", "ROLEX" → "Rolex" (utom första ordet)
+• Omega: alltid "Omega" - "omega" → "Omega"
+• Lego: alltid "Lego" - "lego" → "Lego", "LEGO" → "Lego" (utom första ordet)
+• Använd din omfattande kunskap om korrekta märkesstavningar för alla välkända varumärken
+• Respektera märkenas officiella kapitalisering/formatering
+• Om osäker på exakt stavning, behåll originalet
+
+KRITISKA TITELFORMATREGLER:
 ${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal)\n• Exempel: "Skulpturer, porträttbyster, 3 st" (blir "SVEN GUNNARSSON. Skulpturer, porträttbyster, 3 st")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer" (proper kapitalisering)' : 
-  '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET SKA VARA VERSALER (uppercase)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"'}
+  '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' : 
+  '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
 
 SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • Om konstnärsnamn finns i MITTEN eller SLUTET av nuvarande titel (inte först) - BEHÅLL det där
