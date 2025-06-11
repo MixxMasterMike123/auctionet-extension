@@ -126,34 +126,20 @@ JSON:
         // Clean up common JSON issues before parsing
         let cleanJson = jsonMatch[0];
         
-        // Fix common issues: trailing commas, unescaped quotes, etc.
+        // Fix common JSON issues step by step
         cleanJson = cleanJson
           .replace(/,(\s*[}\]])/g, '$1')  // Remove trailing commas
           .replace(/([{,]\s*)(\w+):/g, '$1"$2":')  // Quote unquoted keys
           .replace(/:\s*'([^']*)'/g, ': "$1"')  // Convert single quotes to double quotes
-          .replace(/:\s*([^",{\[\]}\s]+)(?=\s*[,}])/g, ': "$1"');  // Quote unquoted string values
+          
+        // Fix the specific nested quotes issue in the response
+        // Replace: "VÄGGLAMPA, "Pioggia d'oro", Italien" with: "VÄGGLAMPA, \"Pioggia d'oro\", Italien"
+        cleanJson = cleanJson.replace(/"([^"]*)"([^"]+)"([^"]*)"/g, '"$1\\"$2\\"$3"');
         
         console.log('🔧 Cleaned JSON:', cleanJson);
         
         const parsed = JSON.parse(cleanJson);
-        
-        // Validate the response structure
-        if (typeof parsed.hasArtist === 'boolean' && 
-            typeof parsed.confidence === 'number' &&
-            parsed.confidence >= 0 && parsed.confidence <= 1) {
-          
-          return {
-            hasArtist: parsed.hasArtist,
-            artistName: parsed.artistName || null,
-            isVerified: parsed.isVerified || false,
-            foundIn: parsed.foundIn || 'unknown',
-            suggestedTitle: parsed.suggestedTitle || null,
-            suggestedDescription: parsed.suggestedDescription || null,
-            confidence: parsed.confidence,
-            reasoning: parsed.reasoning || '',
-            source: 'ai'
-          };
-        }
+        return this.validateAndStructureArtistResponse(parsed);
       }
       
       // Fallback parsing if JSON is malformed
@@ -183,6 +169,30 @@ JSON:
       console.error('Response text that failed:', responseText);
       return null;
     }
+  }
+
+  /**
+   * Validate and structure artist response
+   */
+  validateAndStructureArtistResponse(parsed) {
+    // Validate the response structure
+    if (typeof parsed.hasArtist === 'boolean' && 
+        typeof parsed.confidence === 'number' &&
+        parsed.confidence >= 0 && parsed.confidence <= 1) {
+      
+      return {
+        hasArtist: parsed.hasArtist,
+        artistName: parsed.artistName || null,
+        isVerified: parsed.isVerified || false,
+        foundIn: parsed.foundIn || 'unknown',
+        suggestedTitle: parsed.suggestedTitle || null,
+        suggestedDescription: parsed.suggestedDescription || null,
+        confidence: parsed.confidence,
+        reasoning: parsed.reasoning || '',
+        source: 'ai'
+      };
+    }
+    return null;
   }
 
   /**
