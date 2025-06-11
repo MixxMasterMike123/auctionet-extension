@@ -15,6 +15,7 @@ export class UIManager {
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
+      this.addAIButton(titleField, 'title-correct', 'AI-stavning');
     }
     if (descriptionField) {
       this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
@@ -232,6 +233,18 @@ export class UIManager {
       
       .ai-assist-button:active {
         background: #004085;
+      }
+      
+      .ai-assist-button[data-field-type="title-correct"] {
+        background: #D18300;
+      }
+      
+      .ai-assist-button[data-field-type="title-correct"]:hover {
+        background: #B17200;
+      }
+      
+      .ai-assist-button[data-field-type="title-correct"]:active {
+        background: #A16600;
       }
       
       .ai-undo-wrapper {

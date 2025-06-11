@@ -583,6 +583,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
+      this.addAIButton(titleField, 'title-correct', 'AI-stavning');
     }
     if (descriptionField) {
       this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
@@ -819,6 +820,18 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
         
         .ai-assist-button:active {
           background: #004085;
+        }
+        
+        .ai-assist-button[data-field-type="title-correct"] {
+          background: #D18300;
+        }
+        
+        .ai-assist-button[data-field-type="title-correct"]:hover {
+          background: #B17200;
+        }
+        
+        .ai-assist-button[data-field-type="title-correct"]:active {
+          background: #A16600;
         }
         
         .ai-undo-button {
@@ -1297,6 +1310,15 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
         // Check if artist is unknown/obscure and might lead to hallucination
         if (data.artist && data.artist.length > 0 && descLength < 20) {
           issues.push('artist_verification');
+          needsMoreInfo = true;
+        }
+        break;
+        
+      case 'title-correct':
+        // For title corrections, we just need a basic title to work with
+        // No additional information required since we're only correcting grammar/structure
+        if (titleLength < 5) {
+          issues.push('basic_title');
           needsMoreInfo = true;
         }
         break;
@@ -2194,6 +2216,27 @@ Korrekt: "TALLRIK, fajans, troligen Matet, Martres-Tolosane, 18/1900-tal"
 FEL: "TALLRIK, fajans, Matet, Martres-Tolosane, 18/1900-tal" (troligen borttaget)
 
 Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
+    } else if (fieldType === 'title-correct') {
+      return baseInfo + `
+UPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.
+
+KRITISKT - MINIMALA ÄNDRINGAR:
+• Lägg INTE till ny information, material eller tidsperioder
+• Ändra INTE ordningen på elementer
+• Ta INTE bort information
+• Korrigera ENDAST:
+  - Saknade mellanslag ("SVERIGEStockholm" → "SVERIGE Stockholm")
+  - Felplacerade punkter ("TALLRIK. keramik" → "TALLRIK, keramik")
+  - Saknade citattecken runt titlar/motiv ("Dune Mario Bellini" → "Dune" Mario Bellini)
+  - Stavfel i välkända namn/märken
+  - Kommatecken istället för punkt mellan objekt och material
+
+EXEMPEL KORRIGERINGAR:
+• "SERVIRINGSBRICKA, akryl.Dune Mario Bellini" → "SERVIRINGSBRICKA, akryl, "Dune" Mario Bellini"
+• "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
+• "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
+
+Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`;
     } else if (fieldType === 'description') {
       return baseInfo + `
 UPPGIFT: Förbättra endast beskrivningen. Inkludera mått om de finns, använd korrekt terminologi.
@@ -2293,7 +2336,7 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
     }
     
     // For single field requests, parse the structured response
-    if (['title', 'description', 'condition', 'keywords'].includes(fieldType)) {
+    if (['title', 'title-correct', 'description', 'condition', 'keywords'].includes(fieldType)) {
       const result = {};
       const lines = response.split('\n');
       
@@ -2314,6 +2357,12 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
       // If no structured response found, treat as legacy format
       if (Object.keys(result).length === 0) {
         result[fieldType] = response.trim();
+      }
+      
+      // For title-correct, map the result to the correct field type
+      if (fieldType === 'title-correct' && result[fieldType]) {
+        result['title'] = result[fieldType];
+        delete result[fieldType];
       }
       
       console.log('Single field parsed result:', result);
@@ -2379,6 +2428,7 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
   applyImprovement(fieldType, value) {
     const fieldMap = {
       'title': '#item_title_sv',
+      'title-correct': '#item_title_sv',  // Apply title corrections to title field
       'description': '#item_description_sv',
       'condition': '#item_condition_sv',
       'keywords': '#item_hidden_keywords'
@@ -2529,6 +2579,12 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
         "📝 Optimerar titel för sökbarhet...",
         "✨ Genererar professionell titel...",
         "🏷️ Förbättrar titel enligt auktionsstandard..."
+      ],
+      'title-correct': [
+        "✏️ Korrigerar stavning och grammatik...",
+        "🔧 Justerar struktur och interpunktion...",
+        "✅ Fixar mellanslag och citattecken...",
+        "📝 Korrigerar tekniska fel i titel..."
       ],
       description: [
         "📖 Skapar detaljerad beskrivning...",

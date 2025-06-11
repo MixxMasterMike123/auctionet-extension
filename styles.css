@@ -26,6 +26,18 @@
   background: #004085;
 }
 
+.ai-assist-button[data-field-type="title-correct"] {
+  background: #D18300;
+}
+
+.ai-assist-button[data-field-type="title-correct"]:hover {
+  background: #B17200;
+}
+
+.ai-assist-button[data-field-type="title-correct"]:active {
+  background: #A16600;
+}
+
 .ai-master-button {
   background: #27ae60;
   color: white;

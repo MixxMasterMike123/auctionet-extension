@@ -1265,6 +1265,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
+      this.addAIButton(titleField, 'title-correct', 'AI-stavning');
     }
     if (descriptionField) {
       this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
@@ -1464,6 +1465,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
   applyImprovement(fieldType, value) {
     const fieldMap = {
       'title': '#item_title_sv',
+      'title-correct': '#item_title_sv',  // Apply title corrections to title field
       'description': '#item_description_sv',
       'condition': '#item_condition_sv',
       'keywords': '#item_hidden_keywords'
@@ -1879,6 +1881,28 @@ KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
 ` : ''}
 
 Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter.`;
+    
+      case 'title-correct':
+        return baseInfo + `
+UPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.
+
+KRITISKT - MINIMALA ÄNDRINGAR:
+• Lägg INTE till ny information, material eller tidsperioder
+• Ändra INTE ordningen på elementer
+• Ta INTE bort information
+• Korrigera ENDAST:
+  - Saknade mellanslag ("SVERIGEStockholm" → "SVERIGE Stockholm")
+  - Felplacerade punkter ("TALLRIK. keramik" → "TALLRIK, keramik")
+  - Saknade citattecken runt titlar/motiv ("Dune Mario Bellini" → "Dune" Mario Bellini)
+  - Stavfel i välkända namn/märken
+  - Kommatecken istället för punkt mellan objekt och material
+
+EXEMPEL KORRIGERINGAR:
+• "SERVIRINGSBRICKA, akryl.Dune Mario Bellini" → "SERVIRINGSBRICKA, akryl, "Dune" Mario Bellini"
+• "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
+• "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
+
+Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`;
     }
   }
 
@@ -1924,6 +1948,13 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
       // Single field response
       const result = {};
       result[fieldType] = responseText.trim();
+      
+      // For title-correct, map the result to the correct field type
+      if (fieldType === 'title-correct' && result[fieldType]) {
+        result['title'] = result[fieldType];
+        delete result[fieldType];
+      }
+      
       console.log('✅ Parsed single field result:', result);
       return result;
     }
@@ -2797,6 +2828,18 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
         
         .ai-assist-button:active {
           background: #004085;
+        }
+        
+        .ai-assist-button[data-field-type="title-correct"] {
+          background: #D18300;
+        }
+        
+        .ai-assist-button[data-field-type="title-correct"]:hover {
+          background: #B17200;
+        }
+        
+        .ai-assist-button[data-field-type="title-correct"]:active {
+          background: #A16600;
         }
         
         .ai-updated {
