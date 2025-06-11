@@ -13,8 +13,14 @@ export class ArtistDetectionManager {
 
   // Main artist detection method - exactly from edit page quality-analyzer.js
   async detectMisplacedArtist(title, artistField, forceReDetection = false) {
+    console.log('🔍 ARTIST DETECTION: detectMisplacedArtist() called');
+    console.log('🔍 ARTIST DETECTION: title:', title?.substring(0, 50) + '...');
+    console.log('🔍 ARTIST DETECTION: artistField:', artistField);
+    console.log('🔍 ARTIST DETECTION: forceReDetection:', forceReDetection);
+    
     // Track if artist field is already filled (will affect result processing but not prevent AI analysis)
     const artistFieldFilled = artistField && artistField.trim().length > 2;
+    console.log('🔍 ARTIST DETECTION: artistFieldFilled:', artistFieldFilled);
 
     if (!title || title.length < 10) {
       return null; // Title too short to contain artist
@@ -42,6 +48,7 @@ export class ArtistDetectionManager {
 
     // Try AI-powered detection first (if API key available)
     if (this.apiManager && this.apiManager.apiKey) {
+      console.log('🔍 ARTIST DETECTION: API manager available, attempting AI detection');
       
       let aiResult = null;
       let aiError = false;
@@ -55,9 +62,11 @@ export class ArtistDetectionManager {
         
         // Always pass the actual artist field value to AI for proper analysis
         const artistForAnalysis = artistField || '';
+        console.log('🔍 ARTIST DETECTION: calling AI with artistForAnalysis:', artistForAnalysis);
         // UPDATED: Use the new AI Analysis Engine which doesn't skip prefilled artists by default
         const options = forceReDetection ? {} : {}; // No skipIfArtistExists for normal flow
         aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistForAnalysis, description, options);
+        console.log('🔍 ARTIST DETECTION: AI result received:', aiResult);
         
       } catch (error) {
         console.error('AI artist detection failed, will try rule-based fallback:', error);
@@ -80,6 +89,7 @@ export class ArtistDetectionManager {
         const requiredConfidence = isInformalPattern ? 0.5 : 0.6; // Lower thresholds to allow corrections
         
         if (aiResult && aiResult.hasArtist && aiResult.confidence > requiredConfidence) {
+          console.log('🔍 ARTIST DETECTION: AI result meets confidence threshold, proceeding with artist:', aiResult.artistName);
           
           // ALWAYS verify detected artists for user verification (biography tooltip)
           // The enableArtistInfo setting should not disable basic verification functionality
@@ -92,6 +102,7 @@ export class ArtistDetectionManager {
           
           // If artist field is already filled, return verification result but don't suggest title changes
           if (artistFieldFilled && !forceReDetection) {
+            console.log('🔍 ARTIST DETECTION: Artist field filled, returning verification only');
             return {
               detectedArtist: aiResult.artistName,
               suggestedTitle: null, // Don't suggest title changes when artist field is filled
@@ -103,6 +114,7 @@ export class ArtistDetectionManager {
             };
           }
           
+          console.log('🔍 ARTIST DETECTION: Returning full AI detection result');
           return {
             detectedArtist: aiResult.artistName,
             suggestedTitle: aiResult.suggestedTitle || this.generateSuggestedTitle(title, aiResult.artistName),
@@ -140,13 +152,14 @@ export class ArtistDetectionManager {
       
       // NO FALLBACK: Only use AI detection - no rule-based fallback
       if (aiError) {
-        console.log('❌ AI detection failed, no fallback available (AI-only mode)');
+        console.log('❌ ARTIST DETECTION: AI detection failed, no fallback available (AI-only mode)');
         return null;
       } else {
+        console.log('❌ ARTIST DETECTION: AI detection completed but no artist found/confidence too low');
         return null;
       }
     } else {
-      console.log('❌ No API manager available for AI detection, no rule-based fallback (AI-only mode)');
+      console.log('❌ ARTIST DETECTION: No API manager available for AI detection, no rule-based fallback (AI-only mode)');
       return null;
     }
   }

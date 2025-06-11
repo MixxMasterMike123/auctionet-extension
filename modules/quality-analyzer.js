@@ -430,9 +430,10 @@ export class QualityAnalyzer {
 
     // Now run AI artist detection asynchronously and update when complete (only if API is available)
     if (this.apiManager) {
+      console.log('🔍 DEBUGGING: analyzeQuality() calling runAIArtistDetection');
       this.runAIArtistDetection(data, warnings, score);
     } else {
-
+      console.log('🔍 DEBUGGING: analyzeQuality() - no API manager, skipping AI detection');
     }
   }
 
@@ -522,14 +523,21 @@ export class QualityAnalyzer {
 
       // Start parallel analyses - artist detection AND brand validation
       // Always run AI analysis for verification and brand validation, but don't suggest title changes when artist field is filled
+      console.log('🔍 DEBUGGING: About to call detectMisplacedArtist with:', {
+        analysisTitle: analysisTitle,
+        artist: data.artist,
+        forceReDetection: false
+      });
       const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist, false);
       const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
       
       // CRITICAL ENHANCEMENT: Handle AI artist detection but EXCLUDE from initial SSoT
+      console.log('🔍 DEBUGGING: Waiting for artist analysis result...');
       const aiArtistForMarketAnalysis = await Promise.race([
         artistAnalysisPromise,
         new Promise(resolve => setTimeout(() => resolve(null), 8000)) // 8s timeout
       ]);
+      console.log('🔍 DEBUGGING: Artist analysis result:', aiArtistForMarketAnalysis);
       
       // NEW: Handle brand validation in parallel
       this.updateAILoadingMessage('🏷️ Kontrollerar märkesnamn...');
@@ -725,9 +733,14 @@ export class QualityAnalyzer {
   }
 
   async handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore) {
+    console.log('🔍 DEBUGGING: handleArtistDetectionResult called with:', {
+      aiArtist: aiArtist,
+      currentWarningsCount: currentWarnings.length
+    });
     
     // Check if aiArtist is null or undefined
     if (!aiArtist || !aiArtist.detectedArtist) {
+      console.log('🔍 DEBUGGING: No artist detected, proceeding with non-art flow');
 
       
       // IMPORTANT: Recalculate score with latest data and trigger quality indicator update with animation
@@ -767,6 +780,7 @@ export class QualityAnalyzer {
       `AI upptäckte konstnär: "${aiArtist.detectedArtist}" (95% säkerhet) ✓ Verifierad konstnär (biografi tillgänglig) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
       `AI upptäckte konstnär: "${aiArtist.detectedArtist}" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
 
+    console.log('🔍 DEBUGGING: Creating artist warning with message:', artistMessage);
 
     // Insert artist warning at the beginning since it's important info
     const artistWarning = {
@@ -785,15 +799,26 @@ export class QualityAnalyzer {
     
     // CRITICAL FIX: Don't add duplicate artist warnings
     const existingArtistWarningIndex = currentWarnings.findIndex(w => w.isArtistWarning);
+    console.log('🔍 DEBUGGING: Existing artist warning index:', existingArtistWarningIndex);
+    
     if (existingArtistWarningIndex >= 0) {
+      console.log('🔍 DEBUGGING: Replacing existing artist warning');
       currentWarnings[existingArtistWarningIndex] = artistWarning;
     } else {
+      console.log('🔍 DEBUGGING: Adding new artist warning to beginning of warnings array');
       currentWarnings.unshift(artistWarning);
     }
+    
+    console.log('🔍 DEBUGGING: Total warnings after artist warning added:', currentWarnings.length);
 
     // Update quality display with animation after AI analysis (recalculate score with latest data)
     const latestData = this.dataExtractor.extractItemData();
     const recalculatedScore = this.calculateCurrentQualityScore(latestData);
+    console.log('🔍 DEBUGGING: About to update quality indicator with:', {
+      recalculatedScore: recalculatedScore,
+      warningsCount: currentWarnings.length,
+      animation: true
+    });
     this.updateQualityIndicator(recalculatedScore, currentWarnings, true);
     
     // NEW: Setup ignore button event handler
@@ -2234,6 +2259,18 @@ export class QualityAnalyzer {
         
         // CRITICAL FIX: Check if AI artist detection is already active before triggering recalculation
         const existingWarnings = this.extractCurrentWarnings();
+        console.log('🔍 DEBUGGING: existing warnings count:', existingWarnings.length);
+        
+        existingWarnings.forEach((warning, index) => {
+          console.log(`🔍 DEBUGGING: warning ${index}:`, {
+            textContent: warning.textContent?.substring(0, 100) + '...',
+            classList: Array.from(warning.classList || []),
+            hasAIDetected: warning.textContent?.includes('(AI-detekterad)'),
+            hasAIUppAckt: warning.textContent?.includes('AI har upptäckt'),
+            hasAIClass: warning.classList?.contains('ai-detected-artist')
+          });
+        });
+        
         const hasAIArtistWarning = existingWarnings.some(warning => 
           warning.textContent && (
             warning.textContent.includes('(AI-detekterad)') || 
@@ -2241,6 +2278,8 @@ export class QualityAnalyzer {
             warning.classList.contains('ai-detected-artist')
           )
         );
+        
+        console.log('🔍 DEBUGGING: hasAIArtistWarning result:', hasAIArtistWarning);
         
         if (hasAIArtistWarning) {
           console.log('🛡️ AI artist detection already active, skipping recalculation to prevent override');
