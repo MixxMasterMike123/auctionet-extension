@@ -14,7 +14,6 @@ export class BiographyTooltipManager {
    */
   init() {
     this.injectStyles();
-    console.log('✅ Biography Tooltip Manager initialized');
   }
 
   /**
@@ -109,8 +108,6 @@ export class BiographyTooltipManager {
       }
     };
     document.addEventListener('keydown', handleEscape);
-    
-    console.log('✨ Artist biography popup displayed for:', artistName);
   }
 
   /**
@@ -373,7 +370,6 @@ export class BiographyTooltipManager {
     
     document.head.appendChild(style);
     this.stylesInjected = true;
-    console.log('✅ Biography tooltip styles injected');
   }
 
   /**
@@ -385,7 +381,6 @@ export class BiographyTooltipManager {
     activePopups.forEach(popup => popup.remove());
     
     this.activeTooltips.clear();
-    console.log('✅ Biography tooltips cleaned up');
   }
 }
 
