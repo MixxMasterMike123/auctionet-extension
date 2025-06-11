@@ -1295,7 +1295,8 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     wrapper.className = 'ai-button-wrapper';
     wrapper.appendChild(button);
     
-    field.parentElement.appendChild(wrapper);
+    // Position right after the field element, not at the end of parent
+    field.parentNode.insertBefore(wrapper, field.nextSibling);
   }
 
   // NEW: Add quality indicator with master button (simplified - no warnings)
@@ -1732,7 +1733,7 @@ Värdering: ${formData.estimate || ''} SEK
 
 VIKTIGT FÖR TITEL: ${formData.artist ? 
   'Konstnär/formgivare-fältet är ifyllt (' + formData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA PROPER KAPITALISERAT följt av PUNKT (.).' : 
-  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER följt av PUNKT (.).'}
+  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER följt av KOMMA (,). Nästa ord efter komma ska ha liten bokstav (utom namn/märken).'}
 
 KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
 ${formData.artist && this.apiManager.enableArtistInfo ? 
@@ -2771,35 +2772,31 @@ Returnera ENDAST den förbättrade texten utan extra formatering eller etiketter
         
         /* AI Button Styles */
         .ai-button-wrapper {
-          margin-top: 12px;
+          margin-top: 0px;
           display: flex;
           gap: 12px;
           align-items: center;
           flex-wrap: wrap;
+          margin-bottom: 12px;
         }
         
         .ai-assist-button {
-          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+          padding: 6px 12px;
+          font-size: 12px;
+          background: #006ccc;
           color: white;
           border: none;
-          padding: 6px 12px;
           border-radius: 4px;
-          font-size: 12px;
-          font-weight: 500;
           cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+          font-weight: 300;
         }
         
         .ai-assist-button:hover {
-          background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 3px 6px rgba(0, 123, 255, 0.4);
+          background: #0056b3;
         }
         
         .ai-assist-button:active {
-          transform: translateY(0);
-          box-shadow: 0 1px 3px rgba(0, 123, 255, 0.3);
+          background: #004085;
         }
         
         .ai-updated {

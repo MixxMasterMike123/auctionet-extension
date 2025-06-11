@@ -767,6 +767,15 @@ SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • EXEMPEL: "SERVISDELAR, 24 delar, porslin, Stig Lindberg, 'Spisa Ribb', Gustavsberg. 1900-tal."
 • Flytta ALDRIG konstnären när den inte är i början - det är medvetet placerad
 
+UPPDATERAD REGEL - FORMATERING NÄR INGET KONSTNÄRSFÄLT:
+• KRITISKT: När konstnär/formgivare-fältet är TOMT ska första ordet ha KOMMA (,) INTE punkt (.)
+• FÖRSTA ORDET: Versaler (uppercase)
+• EFTER KOMMA: Liten bokstav (utom namn/märken som Eskilstuna, Kosta Boda)
+• RÄTT: "BOKHYLLA, betsat trä, 1900-talets mitt"
+• FEL: "BOKHYLLA. Betsat trä, 1900-talets mitt"
+• RÄTT: "LJUSPLÅTAR, ett par, mässing, 1900-tal"
+• FEL: "LJUSPLÅTAR. Ett par, mässing, 1900-tal"
+
 === BESKRIVNING-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL BESKRIVNING-FÖRBÄTTRING) ===
 
 FÄLTAVGRÄNSNING FÖR BESKRIVNING:

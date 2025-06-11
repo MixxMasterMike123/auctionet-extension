@@ -83,14 +83,8 @@ export class AIEnhancementUI {
     wrapper.className = 'ai-button-wrapper';
     wrapper.appendChild(button);
     
-    // Different placement strategies based on page type
-    if (this.options.pageType === 'add') {
-      // Add page: place after the field with modern styling
-      field.parentElement.appendChild(wrapper);
-    } else {
-      // Edit page: traditional placement
-      field.parentElement.appendChild(wrapper);
-    }
+    // Position right after the field element, not at the end of parent
+    field.parentNode.insertBefore(wrapper, field.nextSibling);
   }
 
   /**
@@ -430,7 +424,12 @@ export class AIEnhancementUI {
     return `
       /* Modern AI Enhancement UI for Add Page */
       .ai-button-wrapper {
-        margin-top: 8px;
+        margin-top: 0px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
       }
       
       .ai-assist-button--modern {
@@ -505,7 +504,12 @@ export class AIEnhancementUI {
     return `
       /* Traditional AI Enhancement UI for Edit Page */
       .ai-button-wrapper {
-        margin-top: 5px;
+        margin-top: 0px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
       }
       
       .ai-assist-button--edit {

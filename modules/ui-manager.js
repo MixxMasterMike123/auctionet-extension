@@ -45,7 +45,8 @@ export class UIManager {
     wrapper.className = 'ai-button-wrapper';
     wrapper.appendChild(button);
     
-    field.parentElement.appendChild(wrapper);
+    // Position right after the field element, not at the end of parent
+    field.parentNode.insertBefore(wrapper, field.nextSibling);
   }
 
   addQualityIndicator() {
@@ -206,30 +207,31 @@ export class UIManager {
       }
       
       .ai-button-wrapper {
-        margin-top: 12px;
+        margin-top: 0px;
         display: flex;
         gap: 12px;
         align-items: center;
         flex-wrap: wrap;
+        margin-bottom: 12px;
       }
       
       .ai-assist-button {
-        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        padding: 6px 12px;
+        font-size: 12px;
+        background: #006ccc;
         color: white;
         border: none;
-        padding: 6px 12px;
         border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
         cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        font-weight: 300;
       }
       
       .ai-assist-button:hover {
-        background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 3px 6px rgba(0, 123, 255, 0.4);
+        background: #0056b3;
+      }
+      
+      .ai-assist-button:active {
+        background: #004085;
       }
       
       .ai-undo-wrapper {
