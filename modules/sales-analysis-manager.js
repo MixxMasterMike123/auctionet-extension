@@ -394,12 +394,16 @@ export class SalesAnalysisManager {
       this.dashboardManager.addMarketDataDashboard(salesData, valuationSuggestions);
       
       if (valuationSuggestions.length > 0) {
-        // Add valuation suggestions to current warnings
-        const updatedWarnings = [...currentWarnings, ...valuationSuggestions];
+        // CRITICAL FIX: Get fresh warnings from DOM to include any AI warnings that were just added
+        const freshWarnings = qualityAnalyzer.extractCurrentWarnings();
+        // Add valuation suggestions to fresh warnings
+        const updatedWarnings = [...freshWarnings, ...valuationSuggestions];
         qualityAnalyzer.updateQualityIndicator(currentScore, updatedWarnings);
       } else {
-        // Update UI with current warnings (without market data)
-        qualityAnalyzer.updateQualityIndicator(currentScore, currentWarnings);
+        // CRITICAL FIX: Get fresh warnings from DOM instead of using stale currentWarnings
+        const freshWarnings = qualityAnalyzer.extractCurrentWarnings();
+        // Update UI with fresh warnings (without market data)
+        qualityAnalyzer.updateQualityIndicator(currentScore, freshWarnings);
       }
       
       
@@ -706,10 +710,8 @@ export class SalesAnalysisManager {
   }
 
   showNoSalesDataMessage(currentWarnings, currentScore, analysisType = 'artist', entityName = '', qualityAnalyzer) {
-    // CRITICAL FIX: Don't extract current warnings from DOM as they lose detectedArtist properties
-    // Use the currentWarnings parameter directly which preserves all properties
-    
-    let updatedWarnings = [...currentWarnings]; // Use the parameter, not DOM extraction
+    // CRITICAL FIX: Get fresh warnings from DOM to include any AI warnings that were just added
+    let updatedWarnings = qualityAnalyzer.extractCurrentWarnings(); // Get fresh warnings from UI
     
     // Add informational message about no sales data with appropriate context
     let message;
