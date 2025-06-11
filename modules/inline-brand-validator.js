@@ -43,7 +43,7 @@ export class InlineBrandValidator {
   // Attach validation to a specific field
   attachToField(field, type) {
     if (this.monitoredFields.has(field)) {
-      console.log('⚠️ Field already being monitored');
+
       return;
     }
 

@@ -128,7 +128,7 @@ export class BrandValidationManager {
   // AI-powered brand validation using Claude
   async validateBrandsWithAI(title, description) {
     if (!this.apiManager || !this.apiManager.analyzeItemData) {
-      console.log('⚠️ No API manager available for AI brand validation');
+
       return [];
     }
 

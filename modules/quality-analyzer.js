@@ -88,7 +88,7 @@ export class QualityAnalyzer {
     if (this.searchQuerySSoT) {
       apiManager.setSearchQuerySSoT(this.searchQuerySSoT);
     } else {
-      console.log('⚠️ SearchQuerySSoT not available yet during setApiManager - will connect later');
+
     }
     
     // Debug: Check if salesAnalysisManager is available
@@ -117,7 +117,7 @@ export class QualityAnalyzer {
   setSearchQueryManager(searchQueryManager) {
     this.searchQueryManager = searchQueryManager;
     // DEPRECATED: This method is kept for backward compatibility but should use setSearchQuerySSoT
-    console.log('⚠️ QualityAnalyzer: Using legacy SearchQueryManager - consider updating to SearchQuerySSoT');
+    
   }
 
   // NEW: Set AI-only search query system
@@ -414,12 +414,7 @@ export class QualityAnalyzer {
       
       const uniquePercentage = keywordArray.length > 0 ? uniqueKeywords.length / keywordArray.length : 0;
       
-      console.log('🔍 Keyword quality check:', {
-        totalKeywords: keywordArray.length,
-        uniqueKeywords: uniqueKeywords.length,
-        uniquePercentage: (uniquePercentage * 100).toFixed(1) + '%',
-        threshold: '20%'
-      });
+
       
       // More lenient threshold - only flag if less than 20% are unique (was 40%)
       if (uniquePercentage < 0.2 && keywordArray.length > 3) {
@@ -434,7 +429,7 @@ export class QualityAnalyzer {
     if (this.apiManager) {
       this.runAIArtistDetection(data, warnings, score);
     } else {
-      console.log('⚠️ API manager not available - skipping AI analysis, using fallback quality display');
+
     }
   }
 
@@ -445,9 +440,7 @@ export class QualityAnalyzer {
       const titleHasArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
       
       if (!titleHasArtist || !titleHasArtist.detectedArtist) {
-        console.log('⚡ SMART SKIP: Artist field filled and no artist in title - skipping AI analysis');
-        console.log(`   Artist field: "${data.artist}"`);
-        console.log(`   Title: "${data.title}"`);
+
         
         // Still run brand validation and market analysis with existing artist
         this.showAILoadingIndicator('🏷️ Kontrollerar märkesnamn...');
@@ -480,8 +473,7 @@ export class QualityAnalyzer {
         
         return; // Skip the rest of AI artist detection
       } else {
-        console.log('⚠️ Artist field filled but artist still detected in title - running AI analysis');
-        console.log(`   Detected in title: "${titleHasArtist.detectedArtist}"`);
+
       }
     }
 
@@ -515,22 +507,13 @@ export class QualityAnalyzer {
         const titleWords = analysisTitle.toLowerCase();
         
         if (titleWords.includes(normalizedIgnored)) {
-          console.log(`🚫 Pre-filtering ignored artist "${ignoredArtist}" from AI analysis title`);
           // Remove the ignored artist from title for analysis
           const regex = new RegExp(`\\b${this.escapeRegex(ignoredArtist)}\\b`, 'gi');
           analysisTitle = analysisTitle.replace(regex, '').replace(/\s+/g, ' ').trim();
-          console.log(`🔍 AI Analysis Debug - Title after removing "${ignoredArtist}": "${analysisTitle}"`);
-        } else {
-          console.log(`🔍 AI Analysis Debug - Ignored artist "${ignoredArtist}" not found in title`);
         }
       }
       
-      console.log(`🔍 AI Analysis Debug - Final analysis title: "${analysisTitle}"`);
-      if (analysisTitle !== data.title) {
-        console.log(`🔍 AI Analysis Debug - Title was modified for analysis`);
-      } else {
-        console.log(`🔍 AI Analysis Debug - Title unchanged for analysis`);
-      }
+      
 
       // Start parallel analyses - artist detection AND brand validation
       // Always run AI analysis for verification and brand validation, but don't suggest title changes when artist field is filled
@@ -557,7 +540,7 @@ export class QualityAnalyzer {
         
         // SECOND: Handle market analysis based on where artist was found
         if (aiArtistForMarketAnalysis.foundIn === 'title') {
-          console.log(`🚫 Artist detected in title - using conservative SSoT until user validates`);
+
           
           // Generate SSoT WITHOUT the detected artist (conservative approach)
           if (this.searchQuerySSoT && this.searchFilterManager) {
@@ -597,15 +580,15 @@ export class QualityAnalyzer {
                 });
               }
             } else {
-              console.log('⚠️ Failed to generate conservative candidate terms, using fallback');
+
               await this.triggerDashboardForNonArtItems(data);
             }
           } else {
-            console.log('⚠️ Missing components, using fallback dashboard');
+
             await this.triggerDashboardForNonArtItems(data);
           }
         } else if (aiArtistForMarketAnalysis.foundIn === 'artist') {
-          console.log(`✅ Artist detected in artist field - using full SSoT integration`);
+          
           
           // Artist found in artist field - include in SSoT as before
           const formattedAIArtist = this.formatAIDetectedArtistForSSoT(aiArtistForMarketAnalysis.detectedArtist);
@@ -653,16 +636,16 @@ export class QualityAnalyzer {
                 });
               }
             } else {
-              console.log('⚠️ Failed to generate full candidate terms, using fallback');
+
               await this.triggerDashboardForNonArtItems(data);
             }
           } else {
-            console.log('⚠️ Missing components, using fallback dashboard');
+
             await this.triggerDashboardForNonArtItems(data);
           }
         } else {
           // CRITICAL: Fallback case for any other foundIn value (or missing foundIn)
-          console.log(`⚠️ Artist detected with unknown foundIn value: "${aiArtistForMarketAnalysis.foundIn}" - using fallback dashboard`);
+
           await this.triggerDashboardForNonArtItems(data);
         }
         
@@ -740,7 +723,7 @@ export class QualityAnalyzer {
     
     // Check if aiArtist is null or undefined
     if (!aiArtist || !aiArtist.detectedArtist) {
-      console.log('⚠️ No valid artist detection result, skipping artist warning');
+
       
       // IMPORTANT: Recalculate score with latest data and trigger quality indicator update with animation
       const latestData = this.dataExtractor.extractItemData();
@@ -760,9 +743,7 @@ export class QualityAnalyzer {
     // NEW: Filter out ignored artists (false positives)
     const filteredResult = this.artistIgnoreManager.filterDetectionResult(aiArtist);
     if (!filteredResult) {
-      console.log(`🚫 Artist detection filtered out as ignored: "${aiArtist.detectedArtist}"`);
-      console.log(`🔍 Filter Debug - Ignored artists list:`, this.artistIgnoreManager.getIgnoredArtists());
-      console.log(`🔍 Filter Debug - Is "${aiArtist.detectedArtist}" ignored?`, this.artistIgnoreManager.isArtistIgnored(aiArtist.detectedArtist));
+      
       
       // Still trigger dashboard for non-art items when artist is ignored
       await this.triggerDashboardForNonArtItems(data);
@@ -835,7 +816,7 @@ export class QualityAnalyzer {
       };
     }
     
-    console.log(`⚠️ ${brandIssues.length} brand issues detected`);
+    
     
     // Convert brand issues to warnings
     for (const issue of brandIssues) {
@@ -1157,7 +1138,7 @@ export class QualityAnalyzer {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log(`🚫 Ignore button clicked for artist: "${artistName}"`);
+
         
         // Create better confirmation dialog
         const confirmed = await this.showIgnoreConfirmationDialog(artistName);
@@ -1170,7 +1151,7 @@ export class QualityAnalyzer {
           // Handle the ignore action
           await this.artistIgnoreManager.handleIgnoreAction(artistName, warningLi);
           
-          console.log(`✅ Successfully ignored artist: "${artistName}"`);
+
           
         } catch (error) {
           console.error('❌ Error ignoring artist:', error);
@@ -1393,7 +1374,7 @@ export class QualityAnalyzer {
   async triggerDashboardForNonArtItems(data) {
     
     if (!this.searchQuerySSoT || !this.searchFilterManager || !this.apiManager || !this.salesAnalysisManager) {
-      console.log('⚠️ Missing required components for non-art dashboard');
+      
       return;
     }
     
@@ -1434,7 +1415,7 @@ export class QualityAnalyzer {
             this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'non_art_complete');
           }
         } else {
-          console.log('⚠️ Non-art market analysis found no comparable data');
+    
           
           // Still show dashboard even without market data - user can refine search terms
           if (this.salesAnalysisManager.dashboardManager && candidateSearchTerms) {
@@ -1453,7 +1434,7 @@ export class QualityAnalyzer {
         }
         
       } else {
-        console.log('❌ Failed to generate candidate terms for non-art item');
+
       }
       
     } catch (error) {
@@ -1617,8 +1598,6 @@ export class QualityAnalyzer {
           // Check if field already has content
           const currentValue = artistField.value.trim();
           if (currentValue && currentValue !== artistName) {
-            console.log(`⚠️ Artist field already contains: "${currentValue}"`);
-            
             // Instantly replace field content (no confirmation popup)
             artistField.value = artistName;
           } else {
@@ -1684,7 +1663,7 @@ export class QualityAnalyzer {
                     this
                   );
                 } else {
-                  console.log('⚠️ Failed to generate new search query after artist move');
+  
                 }
               } catch (error) {
                 console.error('Error re-triggering market analysis after artist move:', error);
@@ -1789,7 +1768,6 @@ export class QualityAnalyzer {
       // Check if field already has content
       const currentValue = artistField.value.trim();
       if (currentValue && currentValue !== artistName) {
-        console.log(`⚠️ Artist field already contains: "${currentValue}"`);
         // Instantly replace field content (no confirmation popup)
         artistField.value = artistName;
       } else {
@@ -1820,7 +1798,7 @@ export class QualityAnalyzer {
         const cleanedTitle = this.cleanTitleAfterArtistRemoval(originalTitle, artistName);
         
         if (cleanedTitle !== originalTitle) {
-          console.log(`🧹 Using title cleanup utility: "${originalTitle}" → "${cleanedTitle}"`);
+
           titleField.value = cleanedTitle;
           titleWasModified = true;
           
@@ -1830,10 +1808,10 @@ export class QualityAnalyzer {
             titleField.dispatchEvent(new Event(eventType, { bubbles: true }));
           });
         } else {
-          console.log(`⚠️ No cleanup needed or artist not found in title`);
+
         }
       } else if (!titleField) {
-        console.log(`⚠️ Title field not found - artist copied but title not updated`);
+
       }
       
       // Trigger form events to ensure proper validation and saving
@@ -1892,7 +1870,7 @@ export class QualityAnalyzer {
                 this
               );
             } else {
-              console.log('⚠️ Failed to generate new search query after artist move');
+
             }
           } catch (error) {
             console.error('Error re-triggering market analysis after artist move:', error);
@@ -1952,7 +1930,7 @@ export class QualityAnalyzer {
 
   // Helper method to clean title after artist removal
   cleanTitleAfterArtistRemoval(title, artistName) {
-    console.log(`🧹 Cleaning title after artist removal:`, { original: title, artistName });
+
     
     let cleanedTitle = title;
     
@@ -1972,7 +1950,7 @@ export class QualityAnalyzer {
       const beforeReplace = cleanedTitle;
       cleanedTitle = cleanedTitle.replace(pattern, index === 0 ? '' : ' ');
       if (beforeReplace !== cleanedTitle) {
-        console.log(`   Pattern ${index + 1} matched: "${beforeReplace}" → "${cleanedTitle}"`);
+
       }
     });
     
@@ -1990,7 +1968,7 @@ export class QualityAnalyzer {
       cleanedTitle = cleanedTitle.charAt(0).toUpperCase() + cleanedTitle.slice(1);
     }
     
-    console.log(`🧹 Title cleanup result: "${title}" → "${cleanedTitle}"`);
+    
     return cleanedTitle;
   }
 
@@ -2050,8 +2028,6 @@ export class QualityAnalyzer {
           // Check if field already has content
           const currentValue = artistField.value.trim();
           if (currentValue && currentValue !== artistName) {
-            console.log(`⚠️ Artist field already contains: "${currentValue}"`);
-            
             // Instantly replace field content (no confirmation popup)
             artistField.value = artistName;
           } else {
@@ -2082,7 +2058,6 @@ export class QualityAnalyzer {
             const cleanedTitle = cleanTitleAfterArtistRemoval(originalTitle, artistName);
             
             if (cleanedTitle !== originalTitle) {
-              console.log(`🧹 Using title cleanup utility: "${originalTitle}" → "${cleanedTitle}"`);
               titleField.value = cleanedTitle;
               titleWasModified = true;
               
@@ -2091,11 +2066,7 @@ export class QualityAnalyzer {
               titleEvents.forEach(eventType => {
                 titleField.dispatchEvent(new Event(eventType, { bubbles: true }));
               });
-            } else {
-              console.log(`⚠️ No cleanup needed or artist not found in title`);
             }
-          } else if (!titleField) {
-            console.log(`⚠️ Title field not found - artist copied but title not updated`);
           }
           
           // Trigger form events to ensure proper validation and saving
@@ -2155,8 +2126,6 @@ export class QualityAnalyzer {
                     this.searchFilterManager,
                     this
                   );
-                } else {
-                  console.log('⚠️ Failed to generate new search query after artist move');
                 }
               } catch (error) {
                 console.error('Error re-triggering market analysis after artist move:', error);
@@ -2254,7 +2223,7 @@ export class QualityAnalyzer {
     const debouncedUpdate = (event) => {
       clearTimeout(updateTimeout);
       updateTimeout = setTimeout(() => {
-        console.log('⚡ Live quality update triggered by:', event?.target?.id || event?.target?.tagName || 'unknown field');
+  
         this.analyzeQuality();
       }, 800); // Wait 800ms after user stops typing
     };
@@ -2322,10 +2291,7 @@ export class QualityAnalyzer {
     }
     
     // Test if fields exist right now
-    console.log('Title field:', document.querySelector('#item_title_sv'));
-    console.log('Description field:', document.querySelector('#item_description_sv'));
-    console.log('Condition field:', document.querySelector('#item_condition_sv'));
-    console.log('Keywords field:', document.querySelector('#item_hidden_keywords'));
+    
     
     // SAFETY CHECK: Ensure all necessary components are properly initialized
     // NOTE: Biography functionality now handled by BiographyTooltipManager SSoT component
@@ -2671,12 +2637,6 @@ export class QualityAnalyzer {
     // 4. Brand detection from title/description
     // 5. Freetext search from title/description
 
-    console.log('🔍 Determining best artist for market analysis:', {
-      artist: data.artist, 
-      title: data.title?.substring(0, 80),
-      aiArtist: aiArtist?.detectedArtist 
-    });
-
     // 1. PRIORITY: AI-detected artist (most reliable)
     if (aiArtist && aiArtist.detectedArtist) {
       return {
@@ -2966,7 +2926,7 @@ export class QualityAnalyzer {
     }
 
     // Fallback: Use the old complex system if AI-only fails
-    console.log('⚠️ AI-ONLY system unavailable, using legacy fallback...');
+
     return this.determineBestArtistForMarketAnalysis_LEGACY(data, aiArtist);
   }
 
@@ -2979,11 +2939,7 @@ export class QualityAnalyzer {
     // 4. Brand detection from title/description
     // 5. Freetext search from title/description
 
-    console.log('🔍 Determining best artist for market analysis (LEGACY):', {
-      artist: data.artist, 
-      title: data.title?.substring(0, 80),
-      aiArtist: aiArtist?.detectedArtist 
-    });
+
 
     // 1. PRIORITY: AI-detected artist (most reliable)
     if (aiArtist && aiArtist.detectedArtist) {
@@ -3042,7 +2998,7 @@ export class QualityAnalyzer {
       };
     }
 
-    console.log('❌ No suitable artist or search terms found for market analysis');
+
     return null;
   }
 
@@ -3059,30 +3015,27 @@ export class QualityAnalyzer {
 
   // Method to recalculate and update quality with animation (for field improvements)
   async recalculateQualityWithAnimation() {
-    console.log('🎬 Recalculating quality with animation after field improvement...');
+
     
     // Extract fresh data and current warnings
     const latestData = this.dataExtractor.extractItemData();
     const currentWarnings = this.extractCurrentWarnings();
     const newScore = this.calculateCurrentQualityScore(latestData);
     
-    console.log('📊 New quality scores:', { 
-      newScore, 
-      warningsCount: currentWarnings.length 
-    });
+
     
     // Update with animation enabled
     this.updateQualityIndicator(newScore, currentWarnings, true);
   }
 
   async triggerMarketAnalysisWithExistingArtist(data) {
-    console.log('📊 Triggering market analysis with existing artist field');
+
     
     if (this.searchQuerySSoT && this.searchFilterManager && data.artist) {
       try {
         // CRITICAL FIX: Quote-wrap artist field before passing to SSoT system
         const formattedArtist = this.formatAIDetectedArtistForSSoT(data.artist);
-        console.log(`🎯 Quote-wrapped artist field: "${data.artist}" → ${formattedArtist}`);
+
         
         // Extract candidate terms WITH properly formatted existing artist
         const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
@@ -3113,7 +3066,7 @@ export class QualityAnalyzer {
             }
           }
         } else {
-          console.log('⚠️ Failed to generate candidate terms with existing artist, using fallback');
+
           await this.triggerDashboardForNonArtItems(data);
         }
       } catch (error) {
@@ -3121,7 +3074,7 @@ export class QualityAnalyzer {
         await this.triggerDashboardForNonArtItems(data);
       }
     } else {
-      console.log('⚠️ Missing components for market analysis, using fallback dashboard');
+
       await this.triggerDashboardForNonArtItems(data);
     }
   }
@@ -3140,12 +3093,7 @@ export class QualityAnalyzer {
     artistFieldSelectors.forEach((selector, index) => {
       const field = document.querySelector(selector);
       if (field) {
-        console.log(`   ID: ${field.id}`);
-        console.log(`   Name: ${field.name}`);
-        console.log(`   Value: "${field.value}"`);
-        console.log(`   Element:`, field);
-      } else {
-        console.log(`❌ No field found with selector ${index + 1}: ${selector}`);
+        // Field found for debugging if needed
       }
     });
     
@@ -3153,7 +3101,7 @@ export class QualityAnalyzer {
     const allInputs = document.querySelectorAll('input[type="text"]');
     allInputs.forEach((input, index) => {
       if (input.id && (input.id.includes('artist') || input.name.includes('artist'))) {
-        console.log(`   ${index + 1}. ID: ${input.id}, Name: ${input.name}, Value: "${input.value}"`);
+        // Log input details for debugging if needed
       }
     });
   }

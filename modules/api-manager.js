@@ -1426,7 +1426,7 @@ SVARA MED JSON:
 
       
       // Keep original SSoT query intact - NO OVERRIDES
-      console.log('🔒 SSoT remains unchanged - respecting Single Source of Truth principle');
+
       
       return analysisResult;
 
@@ -1474,15 +1474,7 @@ SVARA MED JSON:
         }
       }
       
-      console.log('🏛️ Market context analysis:', {
-        reserveMetPercentage,
-        analyzedLiveItems,
-        totalBids,
-        averageBidsPerItem,
-        hasReliableMarketData,
-        isWeakMarket,
-        isStrongMarket
-      });
+
       
       // CRITICAL FIX: Check if priceRange exists before accessing its properties
       if (!historicalResult.priceRange || !historicalResult.priceRange.low || !historicalResult.priceRange.high) {

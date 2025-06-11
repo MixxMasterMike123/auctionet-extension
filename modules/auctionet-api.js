@@ -18,7 +18,7 @@ export class AuctionetAPI {
       const result = await chrome.storage.sync.get(['excludeCompanyId']);
       if (result.excludeCompanyId) {
         this.excludeCompanyId = result.excludeCompanyId.trim();
-        console.log(`🚫 Company exclusion active: ${this.excludeCompanyId}`);
+  
       } else {
         this.excludeCompanyId = null;
         console.log(`✅ No company exclusion set`);
@@ -33,7 +33,7 @@ export class AuctionetAPI {
     await this.loadExcludeCompanySetting();
     // Clear cache since exclusion rules have changed
     this.cache.clear();
-    console.log('🔄 Exclude company setting refreshed, cache cleared');
+
   }
 
   // NEW: Format artist name for search queries to ensure it's treated as one entity
@@ -62,10 +62,7 @@ export class AuctionetAPI {
 
   // Main method to analyze comparable sales for an item
   async analyzeComparableSales(artistName, objectType, period, technique, currentValuation = null, searchQueryManager = null) {
-    console.log('🔍 Starting Auctionet market analysis...');
-    console.log(`💰 Current valuation for exceptional sales filtering: ${currentValuation ? currentValuation.toLocaleString() + ' SEK' : 'Not provided'}`);
-    
-    console.log(`📊 Search parameters: Artist="${artistName}", Object="${objectType}", Period="${period}", Technique="${technique}"`);
+
 
     // Ensure company exclusion setting is loaded before searching
     await this.loadExcludeCompanySetting();
@@ -82,10 +79,7 @@ export class AuctionetAPI {
         const querySource = searchQueryManager.getQuerySource ? searchQueryManager.getQuerySource() : 'unknown';
         const rawMetadata = searchQueryManager.getCurrentMetadata ? searchQueryManager.getCurrentMetadata() : {};
         
-        console.log(`🎯 STRICT SSoT: Found SearchQueryManager query: "${ssotQuery}"`);
-        console.log(`🎯 Query source (mapped): "${querySource}"`);
-        console.log(`🎯 Raw metadata source: "${rawMetadata.source}"`);
-        console.log(`🎯 Checking if user selection...`);
+        
         
         // Check BOTH raw source and mapped source for user selection detection
         const isUserSelection = 
@@ -96,7 +90,7 @@ export class AuctionetAPI {
           rawMetadata.source === 'användarval' ||
           rawMetadata.source === 'user_modified';
         
-        console.log(`🎯 Is user selection: ${isUserSelection}`);
+        
         
         // If this is a user selection, ONLY use SSoT query (no fallbacks)
         if (isUserSelection) {
@@ -105,7 +99,7 @@ export class AuctionetAPI {
           const ssotResult = await this.searchAuctionResults(ssotQuery, `User-Selected SSoT Query: ${ssotQuery}`);
           
           if (ssotResult && ssotResult.soldItems.length > 0) {
-            console.log(`✅ User-selected SSoT query found ${ssotResult.soldItems.length} sold items - SUCCESS`);
+
             bestResult = ssotResult;
             totalMatches = ssotResult.totalEntries;
             usedStrategy = { 
@@ -130,7 +124,7 @@ export class AuctionetAPI {
           const ssotResult = await this.searchAuctionResults(ssotQuery, `AI-Generated SSoT Query: ${ssotQuery}`);
           
           if (ssotResult && ssotResult.soldItems.length >= 3) {
-            console.log(`✅ AI-generated SSoT query found sufficient results: ${ssotResult.soldItems.length} sold items`);
+
             bestResult = ssotResult;
             totalMatches = ssotResult.totalEntries;
             usedStrategy = { 
@@ -152,12 +146,12 @@ export class AuctionetAPI {
         // PRIORITY 1: Try the canonical query first (from centralized SearchQueryBuilder)
         const formattedArtist = this.formatArtistForSearch(artistName);
         const basicQuery = [formattedArtist, objectType, period, technique].filter(Boolean).join(' ');
-        console.log(`🎯 Trying basic query first: "${basicQuery}"`);
+
         const canonicalResult = await this.searchAuctionResults(basicQuery, "Basic combined query");
         
         if (canonicalResult && canonicalResult.soldItems.length >= 3) {
           // Canonical query succeeded with good results - use it!
-          console.log(`✅ SUCCESS: Canonical query found ${canonicalResult.soldItems.length} sold items`);
+
           bestResult = canonicalResult;
           totalMatches = canonicalResult.totalEntries;
           usedStrategy = { 
@@ -173,36 +167,29 @@ export class AuctionetAPI {
           
           // Try each search strategy until we get good results
           for (const strategy of searchStrategies) {
-            console.log(`🎯 Trying fallback search strategy: ${strategy.description}`);
-            console.log(`🔍 Fallback query: "${strategy.query}"`);
+
             
             const result = await this.searchAuctionResults(strategy.query, strategy.description);
             
             // NEW: Track artist-only search results for comparison
             if (strategy.description.includes('Artist only') && result && result.soldItems) {
               artistSearchResults = result.soldItems.length;
-              console.log(`👤 Artist-only search found: ${artistSearchResults} results`);
+
             }
             
-            if (result && result.soldItems.length > 0) {
-              console.log(`✅ Found ${result.soldItems.length} sold items with fallback strategy: ${strategy.description}`);
-              
-              // Use the first strategy that gives us results, or combine results
-              if (!bestResult || result.soldItems.length > bestResult.soldItems.length) {
-                bestResult = result;
-                totalMatches = result.totalEntries;
-                usedStrategy = strategy; // Store the winning strategy
-                console.log(`🏆 New best fallback strategy: "${strategy.query}"`);
+                          if (result && result.soldItems.length > 0) {
+                // Use the first strategy that gives us results, or combine results
+                if (!bestResult || result.soldItems.length > bestResult.soldItems.length) {
+                  bestResult = result;
+                  totalMatches = result.totalEntries;
+                  usedStrategy = strategy; // Store the winning strategy
+                }
+                
+                // Stop if we have enough data (5+ items)
+                if (result.soldItems.length >= 5) {
+                  break;
+                }
               }
-              
-              // Stop if we have enough data (5+ items)
-              if (result.soldItems.length >= 5) {
-                console.log('🛑 Stopping fallback search - found enough data (' + result.soldItems.length + ' items)');
-                break;
-              }
-            } else {
-              console.log(`❌ No results for fallback query: "${strategy.query}"`);
-            }
           }
         }
       }
@@ -224,10 +211,7 @@ export class AuctionetAPI {
       // Analyze the market data
       const marketAnalysis = this.analyzeMarketData(bestResult.soldItems, artistName, objectType, totalMatches, currentValuation);
       
-      console.log('✅ Auctionet market analysis complete');
-      console.log(`📊 Analyzed ${bestResult.soldItems.length} sales from ${totalMatches} total matches`);
-      console.log(`🎯 Used search strategy: ${usedStrategy ? usedStrategy.description : 'Unknown'}`);
-      console.log(`🔍 Final actualSearchQuery being returned: "${usedStrategy ? usedStrategy.query : null}"`);
+
       
       return {
         hasComparableData: true,
@@ -264,8 +248,7 @@ export class AuctionetAPI {
 
   // NEW: Analyze live auctions for current market activity
   async analyzeLiveAuctions(artistName, objectType, period, technique, searchQueryManager = null) {
-    console.log('🔴 Starting LIVE auction analysis...');
-    console.log(`🎯 Artist: ${artistName}, Object: ${objectType}, Period: ${period}, Technique: ${technique}`);
+
     
     // 🚨 CRITICAL SSoT ENFORCEMENT: ONLY use SearchQueryManager SSoT query - NO FALLBACKS
     let bestResult = null;
@@ -275,11 +258,10 @@ export class AuctionetAPI {
     // STRICT SSoT: Use SearchQueryManager SSoT query EXCLUSIVELY
     if (searchQueryManager && searchQueryManager.getCurrentQuery()) {
       const ssotQuery = searchQueryManager.getCurrentQuery();
-      console.log(`🎯 STRICT SSoT: Using ONLY SearchQueryManager query (no fallbacks): "${ssotQuery}"`);
+
       
       const ssotResult = await this.searchLiveAuctions(ssotQuery, `SSoT Query: ${ssotQuery}`);
-      if (ssotResult && ssotResult.liveItems && ssotResult.liveItems.length > 0) {
-        console.log(`✅ SSoT query found ${ssotResult.liveItems.length} live items - SUCCESS`);
+              if (ssotResult && ssotResult.liveItems && ssotResult.liveItems.length > 0) {
         bestResult = ssotResult;
         usedStrategy = {
           query: ssotQuery,
@@ -287,8 +269,7 @@ export class AuctionetAPI {
           source: 'ssot'
         };
         totalMatches = ssotResult.totalEntries;
-      } else {
-        console.log(`❌ SSoT query "${ssotQuery}" found no live auctions - RESPECTING SSoT (no fallbacks)`);
+              } else {
         // 🔒 NO FALLBACKS - respect Single Source of Truth even if zero results
         // This ensures live auction query is IDENTICAL to historical query
         usedStrategy = {
@@ -297,8 +278,7 @@ export class AuctionetAPI {
           source: 'ssot'
         };
       }
-    } else {
-      console.log('❌ No SearchQueryManager or SSoT query available - cannot proceed with live analysis');
+          } else {
       return null;
     }
     
@@ -307,8 +287,7 @@ export class AuctionetAPI {
     // Live: "Yamaha DX7" ✅ (even if zero results)
     // NEVER: "yamaha yamaha" or any other fallback queries
       
-    if (!bestResult || (bestResult && bestResult.liveItems.length === 0)) {
-      console.log(`✅ SSoT ENFORCED: No live auctions found for "${usedStrategy.query}" but maintaining query consistency with historical data`);
+          if (!bestResult || (bestResult && bestResult.liveItems.length === 0)) {
       
       // Return empty result but with correct SSoT query for dashboard consistency
       return {
@@ -329,10 +308,7 @@ export class AuctionetAPI {
     // Analyze live auction data
     const liveAnalysis = this.analyzeLiveMarketData(bestResult.liveItems, artistName, objectType);
     
-    console.log('✅ Live auction analysis complete');
-    console.log(`📊 Analyzed ${bestResult.liveItems.length} live auctions from ${totalMatches} total matches`);
-    console.log(`🎯 Used LIVE search strategy: ${usedStrategy ? usedStrategy.description : 'Unknown'}`);
-    console.log(`🔍 Final LIVE actualSearchQuery being returned: "${usedStrategy ? usedStrategy.query : null}"`);
+    
     
     return {
       hasLiveData: true,
@@ -363,9 +339,8 @@ export class AuctionetAPI {
     try {
       // No is=ended parameter for live auctions
       const url = `${this.baseUrl}?q=${encodeURIComponent(query)}&per_page=${maxResults}`;
-      console.log(`📡 Fetching LIVE: ${url}`);
-      console.log(`🔴 LIVE DATA: Company filtering ENABLED - excluding company ${this.excludeCompanyId || 'none'} to avoid conflicts of interest`);
-      console.log(`🚫 Company exclusion setting: ${this.excludeCompanyId || 'Not set'}`);
+
+      
       
       const response = await fetch(url);
       
@@ -380,7 +355,7 @@ export class AuctionetAPI {
         return null;
       }
       
-      console.log(`📊 Found ${data.items.length} live items out of ${data.pagination.total_entries} total matches`);
+      
       
       // Filter for active auctions with bidding activity
       const allActiveItems = data.items.filter(item => 
@@ -389,7 +364,7 @@ export class AuctionetAPI {
         item.ends_at > (Date.now() / 1000) // Not ended
       );
       
-      console.log(`🔴 Active items before company exclusion: ${allActiveItems.length}`);
+      
       
       // Apply company exclusion filter
       const filteredItems = allActiveItems.filter(item => {
@@ -405,7 +380,7 @@ export class AuctionetAPI {
       
       // Only apply relevance filtering for broad fallback searches (not specific SSoT queries)
       if (description.includes('Brand only') || description.includes('generic') || query.split(' ').length === 1) {
-        console.log(`🔍 RELEVANCE CHECK: Validating fallback search results for "${query}" (${description})`);
+
         
         // For synthesizer searches, ensure items are actually synthesizers/keyboards
         if (description.toLowerCase().includes('synthesizer') || query.toLowerCase().includes('synthesizer')) {
@@ -418,14 +393,12 @@ export class AuctionetAPI {
                               title.includes('jupiter') || title.includes('moog');
             
             if (!isRelevant) {
-              console.log(`🚫 RELEVANCE: Filtering non-synthesizer Yamaha item: ${item.title.substring(0, 50)}...`);
+
             }
             return isRelevant;
           });
           
-          if (originalCount > liveItems.length) {
-            console.log(`🎹 RELEVANCE: Filtered ${originalCount - liveItems.length} non-synthesizer items, keeping ${liveItems.length} relevant synthesizer listings`);
-          }
+
         }
         
         // For watch searches, ensure items are actually watches
@@ -438,20 +411,13 @@ export class AuctionetAPI {
                               title.includes('timepiece') || title.includes('ur');
             
             if (!isRelevant) {
-              console.log(`🚫 RELEVANCE: Filtering non-watch item: ${item.title.substring(0, 50)}...`);
             }
             return isRelevant;
           });
           
-          if (originalCount > liveItems.length) {
-            console.log(`⌚ RELEVANCE: Filtered ${originalCount - liveItems.length} non-watch items, keeping ${liveItems.length} relevant watch listings`);
-          }
+
         }
-      } else {
-        console.log(`✅ RELEVANCE: Specific search query - no relevance filtering needed`);
-      }
-      
-      console.log(`🔴 Final active live items after relevance check: ${liveItems.length}`);
+              }
       
       // Transform to our format
       const transformedItems = liveItems.map(item => ({
@@ -475,13 +441,7 @@ export class AuctionetAPI {
         auctionId: this.extractAuctionId(this.convertToSwedishUrl(item.url))
       }));
       
-      if (this.excludeCompanyId && allActiveItems.length > filteredItems.length) {
-        console.log(`🚫 Company exclusion (LIVE only): Filtered out ${allActiveItems.length - filteredItems.length} live items from company ${this.excludeCompanyId}`);
-      } else if (this.excludeCompanyId) {
-        console.log(`ℹ️ Company exclusion active for ${this.excludeCompanyId}, but no items were filtered out`);
-      } else {
-        console.log(`ℹ️ No company exclusion set - all active items included`);
-      }
+
       
       const result = {
         totalEntries: data.pagination.total_entries,
@@ -502,7 +462,7 @@ export class AuctionetAPI {
 
   // NEW: Analyze live market data
   analyzeLiveMarketData(liveItems, artistName, objectType) {
-    console.log(`📊 Analyzing live market data from ${liveItems.length} active auctions...`);
+
     
     if (liveItems.length === 0) {
       return null;
@@ -595,7 +555,6 @@ export class AuctionetAPI {
 
   // Build different search strategies from broad to specific
   buildSearchStrategies(artistName, objectType, period, technique) {
-    console.log('🔧 Building search strategies with:', { artistName, objectType, period, technique });
     
     const strategies = [];
     
@@ -606,7 +565,6 @@ export class AuctionetAPI {
     const isJewelrySearch = this.isJewelrySpecificSearch(artistName);
     
     if (isJewelrySearch) {
-      console.log('💍 Detected jewelry-specific search, adding fallback strategies');
       return this.buildJewelrySearchStrategies(artistName, objectType, technique);
     }
 
@@ -614,7 +572,6 @@ export class AuctionetAPI {
     const isWatchSearch = this.isWatchSpecificSearch(artistName);
     
     if (isWatchSearch) {
-      console.log('⌚ Detected watch-specific search, adding fallback strategies');
       return this.buildWatchSearchStrategies(artistName, objectType, technique);
     }
     
@@ -622,14 +579,13 @@ export class AuctionetAPI {
     const isInstrumentSearch = this.isInstrumentSpecificSearch(artistName);
     
     if (isInstrumentSearch) {
-      console.log('🎼 Detected musical instrument search, adding fallback strategies');
       return this.buildInstrumentSearchStrategies(artistName, objectType, technique);
     }
     
     // Strategy 1: Artist + Object Type (most specific)
     if (formattedArtist && objectType) {
       const query = `${formattedArtist} ${objectType}`;
-      console.log(`🎯 Strategy 1 query: "${query}" (length: ${query.length})`);
+
       strategies.push({
         query: query,
         description: `Artist + Object Type: "${formattedArtist} ${objectType}"`,
@@ -640,7 +596,7 @@ export class AuctionetAPI {
     // Strategy 2: Artist + Technique
     if (formattedArtist && technique) {
       const query = `${formattedArtist} ${technique}`;
-      console.log(`🎯 Strategy 2 query: "${query}" (length: ${query.length})`);
+
       strategies.push({
         query: query,
         description: `Artist + Technique: "${formattedArtist} ${technique}"`,
@@ -651,7 +607,7 @@ export class AuctionetAPI {
     // Strategy 3: Artist + Period
     if (formattedArtist && period) {
       const query = `${formattedArtist} ${period}`;
-      console.log(`🎯 Strategy 3 query: "${query}" (length: ${query.length})`);
+
       strategies.push({
         query: query,
         description: `Artist + Period: "${formattedArtist} ${period}"`,
@@ -662,7 +618,7 @@ export class AuctionetAPI {
     // Strategy 4: Artist only (broader search)
     if (formattedArtist) {
       const query = formattedArtist;
-      console.log(`🎯 Strategy 4 query: "${query}" (length: ${query.length})`);
+
       strategies.push({
         query: query,
         description: `Artist only: "${formattedArtist}"`,
@@ -673,7 +629,7 @@ export class AuctionetAPI {
     // Strategy 5: Object Type + Technique + Period (no artist)
     if (objectType && technique && period) {
       const query = `${objectType} ${technique} ${period}`;
-      console.log(`🎯 Strategy 5 query: "${query}" (length: ${query.length})`);
+
       strategies.push({
         query: query,
         description: `Object + Technique + Period: "${objectType} ${technique} ${period}"`,
@@ -684,7 +640,7 @@ export class AuctionetAPI {
     // Strategy 6: Object Type + Period (broader)
     if (objectType && period) {
       const query = `${objectType} ${period}`;
-      console.log(`🎯 Strategy 6 query: "${query}" (length: ${query.length})`);
+
       strategies.push({
         query: query,
         description: `Object + Period: "${objectType} ${period}"`,
@@ -692,7 +648,7 @@ export class AuctionetAPI {
       });
     }
     
-    console.log(`🔧 Built ${strategies.length} search strategies`);
+
     return strategies;
   }
 
@@ -711,7 +667,6 @@ export class AuctionetAPI {
 
   // NEW: Build jewelry-specific search strategies with progressive fallbacks
   buildJewelrySearchStrategies(fullSearchString, objectType, technique) {
-    console.log('💍 Building jewelry search strategies for:', fullSearchString);
     
     const strategies = [];
     
@@ -722,7 +677,7 @@ export class AuctionetAPI {
     const weights = parts.filter(part => /(?:\d+[.,]?\d*\s*gram)/.test(part));
     const sizes = parts.filter(part => /(?:längd|diameter|storlek)/.test(part));
     
-    console.log('💍 Extracted components:', { jewelryType, materials, weights, sizes });
+
     
     // Strategy 1: Full specific search (original)
     strategies.push({
@@ -765,7 +720,7 @@ export class AuctionetAPI {
       weight: 0.4
     });
     
-    console.log(`💍 Built ${strategies.length} jewelry search strategies`);
+
     return strategies;
   }
 
@@ -779,7 +734,6 @@ export class AuctionetAPI {
 
   // NEW: Build watch-specific search strategies with progressive fallbacks
   buildWatchSearchStrategies(fullSearchString, objectType, technique) {
-    console.log('⌚ Building watch search strategies for:', fullSearchString);
     
     const strategies = [];
     
@@ -794,7 +748,7 @@ export class AuctionetAPI {
     // Common materials
     const materials = parts.filter(part => /(?:guld|gold|silver|platina|doublé|stål|steel)/.test(part));
     
-    console.log('⌚ Extracted components:', { watchType, brands, materials, fullParts: parts });
+
     
     // Strategy 1: Full specific search (original - but only if short enough)
     if (fullSearchString.length <= 30) {
@@ -836,7 +790,7 @@ export class AuctionetAPI {
       weight: 0.5
     });
     
-    console.log(`⌚ Built ${strategies.length} watch search strategies`);
+
     return strategies;
   }
 
@@ -1032,13 +986,12 @@ export class AuctionetAPI {
       return cached;
     }
     
-    console.log(`🔍 HISTORICAL SEARCH: "${query}" (${description})`);
-    console.log(`📊 HISTORICAL DATA: Company filtering DISABLED - includes ALL companies (even ${this.excludeCompanyId || 'none'}) for complete market analysis`);
+    
     
     try {
       const url = `${this.baseUrl}?is=ended&q=${encodeURIComponent(query)}&per_page=${maxResults}`;
-      console.log(`📡 API URL: ${url}`);
-      console.log(`🔗 Equivalent website URL: https://auctionet.com/sv/search?event_id=&is=ended&q=${encodeURIComponent(query)}`);
+      
+      
       
       const response = await fetch(url);
       
@@ -1053,7 +1006,7 @@ export class AuctionetAPI {
         return null;
       }
       
-      console.log(`📊 Found ${data.items.length} items out of ${data.pagination.total_entries} total matches`);
+      
       
       // Debug: Check currency distribution before filtering
       const currencyDistribution = {};
@@ -1061,13 +1014,13 @@ export class AuctionetAPI {
         const currency = item.currency || 'unknown';
         currencyDistribution[currency] = (currencyDistribution[currency] || 0) + 1;
       });
-      console.log(`💱 Currency distribution:`, currencyDistribution);
+      
       
       // Filter for sold items with ANY price data (not as restrictive as before)
       const soldItems = data.items.filter(item => {
         // CRITICAL: Only include Swedish currency items to avoid mixing DKK/NOK/EUR with SEK
         if (item.currency && item.currency !== 'SEK') {
-          console.log(`🚫 Filtering non-SEK currency item: ${item.title.substring(0, 30)}... (${item.currency})`);
+
           return false;
         }
         
@@ -1084,14 +1037,14 @@ export class AuctionetAPI {
         return hasValidPrice && isHistoricalItem;
       });
       
-      console.log(`🔨 Historical items with usable data: ${soldItems.length}`);
+
       
       // NEW: Validate search results for data quality when no specific artist
       const isGenericSearch = !description.includes('Artist') || description.includes('freetext') || description.includes('Object +');
       let validatedItems = soldItems;
       
       if (isGenericSearch && soldItems.length > 3) {
-        console.log(`🔍 Validating generic search results for data quality...`);
+
         validatedItems = this.validateSearchResults(soldItems, query, description);
         
         if (validatedItems.length < soldItems.length) {
@@ -1105,7 +1058,7 @@ export class AuctionetAPI {
         const lenientItems = data.items.filter(item => {
           // CRITICAL: Only include Swedish currency items to avoid mixing DKK/NOK/EUR with SEK
           if (item.currency && item.currency !== 'SEK') {
-            console.log(`🚫 Filtering non-SEK currency item (lenient): ${item.title.substring(0, 30)}... (${item.currency})`);
+
             return false;
           }
           
@@ -1186,7 +1139,7 @@ export class AuctionetAPI {
 
   // NEW: Validate search results to prevent mixed/irrelevant data from skewing analysis
   validateSearchResults(soldItems, query, description) {
-    console.log(`🔍 Validating ${soldItems.length} search results for data consistency...`);
+
     
     if (soldItems.length <= 3) {
       console.log('📊 Too few items to validate - accepting all');
@@ -1216,11 +1169,7 @@ export class AuctionetAPI {
     const highestPrice = sortedPrices[sortedPrices.length - 1];
     const priceRatio = highestPrice / lowestPrice;
     
-    console.log(`💰 Price analysis: ${lowestPrice.toLocaleString()} - ${highestPrice.toLocaleString()} SEK (ratio: ${priceRatio.toFixed(1)}x)`);
-    
-    // TEMPORARY: Completely disable price ratio filtering for luxury brands
-    // The expensive models (Speedmaster, Flightmaster, etc.) are legitimate market data
-    console.log(`✅ LUXURY BRAND MODE: Price ratio filtering DISABLED (${priceRatio.toFixed(1)}x) - keeping ALL ${soldItems.length} items`);
+
     
     /* DISABLED - WAS FILTERING OUT EXPENSIVE OMEGA WATCHES
     // IMPORTANT: For luxury brands like OMEGA, high-value items are legitimate, not outliers
@@ -1267,8 +1216,6 @@ export class AuctionetAPI {
     const keyTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
     
     if (keyTerms.length > 0) {
-      console.log(`🔍 Checking title consistency for terms: ${keyTerms.join(', ')}`);
-      
       const consistentItems = soldItems.filter(item => {
         const titleLower = item.title.toLowerCase();
         const descLower = (item.description || '').toLowerCase();
@@ -1361,7 +1308,7 @@ export class AuctionetAPI {
 
   // Analyze market data from sold items
   analyzeMarketData(soldItems, artistName, objectType, totalMatches = 0, currentValuation = null) {
-    console.log(`📊 Analyzing market data from ${soldItems.length} sales...`);
+
     
     if (!soldItems || soldItems.length === 0) {
       console.log('❌ No sold items to analyze');
@@ -1371,7 +1318,7 @@ export class AuctionetAPI {
     // Count actual sales vs unsold items
     const actualSales = soldItems.filter(item => item.finalPrice > 0);
     const unsoldItems = soldItems.filter(item => item.finalPrice === 0);
-    console.log(`💰 Found ${actualSales.length} actual sales out of ${soldItems.length} items (${unsoldItems.length} unsold)`);
+
     
     if (actualSales.length === 0) {
       console.log('❌ No actual sales found');
@@ -1383,10 +1330,10 @@ export class AuctionetAPI {
     
     // CRITICAL: Extract exceptional sales BEFORE outlier filtering
     const exceptionalSales = this.detectExceptionalSales(actualSales, prices, currentValuation);
-    console.log(`🌟 Exceptional sales detected BEFORE outlier filtering: ${exceptionalSales ? exceptionalSales.count : 0}`);
+
     
     // For luxury brands, keep ALL prices - don't remove "outliers" that might be legitimate premium models
-    console.log(`📊 Luxury brand analysis: Using ALL ${prices.length} prices (no outlier filtering)`);
+
     
     // Calculate confidence based on all data
     const confidence = this.calculateConfidence(actualSales, artistName, objectType, totalMatches);
@@ -1485,10 +1432,10 @@ export class AuctionetAPI {
     }));
     
     if (exceptionalSales.length > 0) {
-      console.log(`🌟 Found ${exceptionalSales.length} exceptional confirmed sale(s):`);
+  
       exceptionalSales.forEach(sale => {
         const valuationInfo = sale.priceVsValuation ? ` (${sale.priceVsValuation}% av din värdering)` : '';
-        console.log(`   ${sale.price.toLocaleString()} SEK - ${sale.title.substring(0, 50)}...${valuationInfo}`);
+
       });
     }
     
@@ -1737,7 +1684,7 @@ export class AuctionetAPI {
     
     // IMPORTANT: For luxury brands, show the ACTUAL market range
     // Don't use percentiles - show from cheapest to most expensive
-    console.log(`📊 Using ALL ${prices.length} prices for range calculation (no outlier filtering)`);
+
     
     // For luxury brands like OMEGA, show the true market range
     const minPrice = sortedPrices[0];
@@ -1761,8 +1708,6 @@ export class AuctionetAPI {
         high = Math.round(center + (currentRangeWidth / 2) + expansion);
       }
     }
-    
-    console.log(`📊 Price range calculation: ${low.toLocaleString()}-${high.toLocaleString()} SEK (from ${sortedPrices.length} prices, FULL RANGE: ${minPrice.toLocaleString()}-${maxPrice.toLocaleString()})`);
     
     return { low, high, currency: 'SEK' };
   }

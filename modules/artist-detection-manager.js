@@ -132,7 +132,7 @@ export class ArtistDetectionManager {
           // We should respect the AI's decision and not override it with rule-based detection
           return null;
         } else {
-          console.log('❌ AI artist analysis returned no artist detected');
+    
           // AI successfully responded but found no artist - don't fall back to rules
           return null;
         }

@@ -1105,10 +1105,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     
     // Test if fields exist right now
     console.log('🔍 Field existence check:');
-    console.log('Title field:', document.querySelector('#item_title_sv'));
-    console.log('Description field:', document.querySelector('#item_description_sv'));
-    console.log('Condition field:', document.querySelector('#item_condition_sv'));
-    console.log('Keywords field:', document.querySelector('#item_hidden_keywords'));
+
   }
 
   attachEventListeners() {
