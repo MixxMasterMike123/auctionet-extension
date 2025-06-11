@@ -5,7 +5,6 @@ export class AIAnalysisEngine {
   constructor(apiManager) {
     this.apiManager = apiManager;
     this.enableArtistInfo = true; // Default setting
-    console.log('🧠 AI Analysis Engine initialized');
   }
 
   /**
@@ -13,23 +12,14 @@ export class AIAnalysisEngine {
    * This replaces the logic in api-manager.js that was skipping analysis
    */
   async analyzeForArtist(title, objectType, artistField, description = '', options = {}) {
-    console.log('🧠 AI Analysis Engine: analyzeForArtist called', { 
-      title: title?.substring(0, 50), 
-      objectType, 
-      artistField, 
-      description: description?.substring(0, 50),
-      options 
-    });
     
     // Check if we have API access
     if (!this.apiManager?.apiKey) {
-      console.log('❌ No API key available, skipping AI artist analysis');
       return null;
     }
 
     // Validate inputs
     if (!title || title.length < 10) {
-      console.log('🚫 Title too short for AI analysis:', title);
       return null;
     }
 
@@ -38,23 +28,11 @@ export class AIAnalysisEngine {
     // 
     // NEW LOGIC: Only skip if explicitly requested to skip existing artists
     if (options.skipIfArtistExists && artistField && artistField.trim().length > 2) {
-      console.log('🚫 Skipping AI analysis per skipIfArtistExists option:', artistField);
       return null;
     }
     
-    // For prefilled artist fields, we should still run AI analysis to:
-    // 1. Verify the artist is correctly placed
-    // 2. Get proper search terms for SSoT
-    // 3. Ensure consistent quality scoring
-    if (artistField && artistField.trim().length > 2) {
-      console.log('🎯 Artist field prefilled - running AI analysis for verification and SSoT generation');
-    }
-
-    console.log('🚀 Starting AI artist analysis...');
-    
     try {
       const result = await this.performAIArtistAnalysis(title, objectType, artistField, description);
-      console.log('✅ AI artist analysis completed:', result);
       return result;
     } catch (error) {
       console.error('💥 Error in AI artist analysis:', error);
@@ -99,7 +77,7 @@ JSON:
   "reasoning": "kort förklaring"
 }`;
 
-    console.log('📤 Sending AI request with prompt length:', prompt.length);
+
 
     const response = await new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
@@ -125,16 +103,10 @@ JSON:
       });
     });
 
-    console.log('📥 AI response received:', response);
-
     if (response.success && response.data?.content?.[0]?.text) {
-      console.log('📝 AI response text:', response.data.content[0].text);
       const result = this.parseArtistAnalysisResponse(response.data.content[0].text);
-      console.log('🎯 Parsed AI artist analysis result:', result);
       return result;
     }
-
-    console.log('❌ Invalid AI response structure');
     return null;
   }
 
@@ -250,7 +222,6 @@ SVARA MED JSON:
 
       if (response.success && response.data?.content?.[0]?.text) {
         const result = this.parseArtistVerificationResponse(response.data.content[0].text);
-        console.log('🎯 AI artist verification result:', result);
         return result;
       }
 
@@ -305,7 +276,6 @@ SVARA MED JSON:
   updateSettings(settings) {
     if (typeof settings.enableArtistInfo === 'boolean') {
       this.enableArtistInfo = settings.enableArtistInfo;
-      console.log('🔧 AI Analysis Engine: enableArtistInfo updated to', this.enableArtistInfo);
     }
   }
 } 
