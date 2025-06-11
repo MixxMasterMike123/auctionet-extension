@@ -739,32 +739,7 @@ FÄLTAVGRÄNSNING:
 • KONDITION: Endast fysiskt skick och skador - ALDRIG beskrivande information
 • Håll fälten strikt separerade - konditionsdetaljer som "slitage", "repor", "märken" hör ENDAST i konditionsfältet
 
-KRITISKT FÖR SÖKORD - KOMPLETTERANDE TERMER:
-• Generera sökord som kompletterar de FÖRBÄTTRADE titel/beskrivning du skapar
-• Läs noggrant igenom dina FÖRBÄTTRADE titel/beskrivning INNAN du skapar sökord
-• Generera ENDAST ord som INTE redan finns i dina förbättrade fält
-• Fokusera på HELT NYA alternativa söktermer som köpare kan använda
-• Kontrollera även PARTIELLA matchningar: "litografi" matchar "färglitografi"
-• Inkludera: stilperioder, tekniker, användningsområden, alternativa namn
-• Exempel: Om din förbättrade titel säger "vas" - lägg till "dekoration inredning samlarobjekt"
-• KONKRETA EXEMPEL: Om beskrivning säger "blomstermotiv" → använd INTE "blomstermotiv", använd "växtmotiv" istället
-• KONKRETA EXEMPEL: Om beskrivning säger "orkidén" → använd INTE "orkidé", använd "flora" istället
-• För perioder: Använd decennier istället för exakta år: "1970-tal" istället av "1974"
-• MAX 10-12 relevanta termer
-
-KRITISKT - BEVARA ALLA MÅTT OCH LISTOR I BESKRIVNINGEN:
-• BEHÅLL ALLTID detaljerade måttlistor: "4 snapsglas, höjd 15,5 cm", "2 vinglas, höjd 19,5 cm", etc.
-• BEHÅLL ALLTID kvantiteter och specifikationer: "Bestående av:", "Består av:", antal objekt
-• BEHÅLL ALLTID alla mått i cm/mm - dessa är ALDRIG konditionsinformation
-• TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått, kvantiteter eller listor
-• EXEMPEL PÅ VAD SOM MÅSTE BEVARAS: "Bestående av: 4 snapsglas, höjd 15,5 cm, 2 vinglas, höjd 19,5 cm"
-
-VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KRITISKT FEL!
-
-KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
-${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal)\n• Exempel: "Skulpturer" (blir "SVEN GUNNARSSON. Skulpturer") INTE "SKULPTURER" eller "skulpturer"\n• Auctionet lägger till: "KONSTNÄR. " så titeln ska vara "Skulpturer" inte "skulpturer"' : 
-  '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
+=== TITEL-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL TITEL-FÖRBÄTTRING) ===
 
 KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
 • BEHÅLL ALLTID citattecken runt produktnamn, modellnamn och svenska designnamn
@@ -788,7 +763,7 @@ KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
 • Respektera märkenas officiella kapitalisering/formatering
 • Om osäker på exakt stavning, behåll originalet
 
-KRITISKA TITELFORMATREGLER FÖR TITEL-FÄLTET:
+KRITISKA TITELFORMATREGLER:
 ${itemData.artist ? 
   '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' : 
   '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
@@ -800,6 +775,92 @@ SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • FÖRSTA ORDET ska vara VERSALER (objektnamnet är huvudsaken)
 • EXEMPEL: "SERVISDELAR, 24 delar, porslin, Stig Lindberg, 'Spisa Ribb', Gustavsberg. 1900-tal."
 • Flytta ALDRIG konstnären när den inte är i början - det är medvetet placerad
+
+=== BESKRIVNING-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL BESKRIVNING-FÖRBÄTTRING) ===
+
+FÄLTAVGRÄNSNING FÖR BESKRIVNING:
+• Inkludera ALDRIG konditionsinformation i beskrivningen
+• Konditionsdetaljer som "slitage", "repor", "märken", "skador", "nagg", "sprickor", "fläckar" hör ENDAST hemma i konditionsfältet
+• Beskrivningen ska fokusera på: material, teknik, mått, stil, ursprung, märkningar, funktion
+• EXEMPEL PÅ FÖRBJUDET I BESKRIVNING: "Slitage förekommer", "repor och märken", "normalt åldersslitage", "mindre skador"
+• KRITISKT: BEHÅLL ALLTID MÅTT OCH TEKNISKA SPECIFIKATIONER - dessa är INTE konditionsinformation
+• BEHÅLL: "höjd 15,5 cm", "4 snapsglas", "2 vinglas", "består av", "bestående av" - detta är beskrivande information
+• TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
+
+VIKTIGT - PARAGRAFSTRUKTUR FÖR BESKRIVNING:
+${itemData.artist && this.enableArtistInfo ? 
+  '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer i beskrivningsfältet\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' : 
+  '• Returnera befintlig förbättrad beskrivning\n• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
+• Lägg INTE till mått som inte är angivna
+• Lägg INTE till material som inte är nämnt (såvida det inte är känt från konstnärens typiska tekniker)
+• Lägg INTE till märkningar eller signaturer som inte finns
+• Förbättra språk, struktur och befintlig information
+• Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
+
+=== KONDITION-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL KONDITION-FÖRBÄTTRING) ===
+
+FÄLTAVGRÄNSNING FÖR KONDITION:
+• Fokusera ENDAST på fysiskt skick och skador
+• Inkludera ALDRIG beskrivande information om material, teknik, stil eller funktion
+• Konditionsrapporten ska vara separat från beskrivningen
+• Använd specifika konditionstermer: "repor", "nagg", "sprickor", "fläckar", "välbevarat", "mindre skador"
+• UNDVIK vaga termer som endast "bruksslitage" - var specifik
+
+KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
+• Beskriv ENDAST skador/slitage som redan är nämnda i nuvarande kondition
+• Lägg ALDRIG till specifika placeringar som "i metallramen", "på ovansidan", "vid foten" om inte redan angivet
+• Lägg ALDRIG till specifika mått som "repor 3cm" om inte angivet
+• Lägg ALDRIG till nya defekter, material eller delar som inte nämns
+• Lägg ALDRIG till detaljer om VAR skadorna finns om det inte redan står i originalet
+• EXEMPEL PÅ FÖRBJUDET: Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
+• Förbättra ENDAST språk och använd standardtermer för EXAKT samma information som redan finns
+• Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
+
+STRIKT REGEL: Kopiera ENDAST den skadeinformation som redan finns - lägg ALDRIG till nya detaljer.
+
+=== SÖKORD-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL SÖKORD-GENERERING) ===
+
+KRITISKT FÖR SÖKORD - KOMPLETTERANDE TERMER:
+• Generera sökord som kompletterar de FÖRBÄTTRADE titel/beskrivning du skapar
+• Läs noggrant igenom dina FÖRBÄTTRADE titel/beskrivning INNAN du skapar sökord
+• Generera ENDAST ord som INTE redan finns i dina förbättrade fält
+• Fokusera på HELT NYA alternativa söktermer som köpare kan använda
+• Kontrollera även PARTIELLA matchningar: "litografi" matchar "färglitografi"
+• Inkludera: stilperioder, tekniker, användningsområden, alternativa namn
+• Exempel: Om din förbättrade titel säger "vas" - lägg till "dekoration inredning samlarobjekt"
+• KONKRETA EXEMPEL: Om beskrivning säger "blomstermotiv" → använd INTE "blomstermotiv", använd "växtmotiv" istället
+• KONKRETA EXEMPEL: Om beskrivning säger "orkidén" → använd INTE "orkidé", använd "flora" istället
+• För perioder: Använd decennier istället för exakta år: "1970-tal" istället av "1974"
+• MAX 10-12 relevanta termer
+
+KOMPLETTERANDE SÖKORD - EXEMPEL:
+• För konsttryck: "grafik reproduktion konstprint limited-edition"
+• För målningar: "oljemålning akvarell konstverk originalverk"  
+• För skulptur: "skulptur plastik konstföremål tredimensionell"
+• För möbler: "vintage retro funktionalism dansk-design"
+• För perioder: Använd decennier istället för exakta år: "1970-tal" istället av "1974"
+
+OBLIGATORISK AUCTIONET FORMAT FÖR SÖKORD:
+• Separera sökord med MELLANSLAG (ALDRIG kommatecken)
+• Använd "-" för flerordsfraser: "svensk-design", "1970-tal", "limited-edition"
+• EXEMPEL KORREKT: "grafik reproduktion svensk-design 1970-tal konstprint"
+• EXEMPEL FEL: "grafik, reproduktion, svensk design, 1970-tal" (kommatecken och mellanslag i fraser)
+
+STRIKT REGEL FÖR SÖKORD: Läs titel och beskrivning noggrant - om ett ord redan finns där (även delvis), använd det ALDRIG i sökorden.
+
+KRITISKT - BEVARA ALLA MÅTT OCH LISTOR I BESKRIVNINGEN:
+• BEHÅLL ALLTID detaljerade måttlistor: "4 snapsglas, höjd 15,5 cm", "2 vinglas, höjd 19,5 cm", etc.
+• BEHÅLL ALLTID kvantiteter och specifikationer: "Bestående av:", "Består av:", antal objekt
+• BEHÅLL ALLTID alla mått i cm/mm - dessa är ALDRIG konditionsinformation
+• TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått, kvantiteter eller listor
+• EXEMPEL PÅ VAD SOM MÅSTE BEVARAS: "Bestående av: 4 snapsglas, höjd 15,5 cm, 2 vinglas, höjd 19,5 cm"
+
+VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KRITISKT FEL!
+
+KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
+${itemData.artist ? 
+  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal)\n• Exempel: "Skulpturer" (blir "SVEN GUNNARSSON. Skulpturer") INTE "SKULPTURER" eller "skulpturer"\n• Auctionet lägger till: "KONSTNÄR. " så titeln ska vara "Skulpturer" inte "skulpturer"' : 
+  '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
 
 Returnera EXAKT i detta format (en rad per fält):
 TITEL: [förbättrad titel]
