@@ -121,13 +121,51 @@ export class CircularProgressManager {
       button.type = 'button';
       button.textContent = '⚡ Förbättra alla';
       
-      // Append at the end of the container
-      container.appendChild(button);
+      // Find the quality-header and append the button there (not to main container)
+      const qualityHeader = container.querySelector('.quality-header');
+      if (qualityHeader) {
+        qualityHeader.appendChild(button);
+        console.log('✅ "Förbättra alla" button added to quality-header');
+      } else {
+        // Fallback: append to main container if no quality-header found
+        container.appendChild(button);
+        console.log('✅ "Förbättra alla" button added to main container (fallback)');
+      }
       
-      console.log('✅ "Förbättra alla" button added to quality indicator');
+      // CRITICAL: Attach event listener to the newly created button
+      this.attachButtonEventListener(button);
+      
     } else {
       console.log('✅ "Förbättra alla" button already exists');
     }
+  }
+
+  /**
+   * Attach event listener to the master button
+   * This ensures the button works even when created dynamically
+   */
+  attachButtonEventListener(button) {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('✨ "Förbättra alla" button clicked - using global assistant');
+      
+      // Use the global assistant methods to trigger improvement
+      if (window.assistant && typeof window.assistant.improveAllFields === 'function') {
+        window.assistant.improveAllFields();
+      } else if (window.auctionetAssistant && typeof window.auctionetAssistant.improveAllFields === 'function') {
+        window.auctionetAssistant.improveAllFields();
+      } else if (window.addItemsManager && typeof window.addItemsManager.improveAllFields === 'function') {
+        window.addItemsManager.improveAllFields();
+      } else {
+        console.warn('⚠️ No global assistant found to handle button click');
+        // Fallback: dispatch custom event
+        document.dispatchEvent(new CustomEvent('ai-improve-all-requested', {
+          detail: { source: 'circular-progress-manager' }
+        }));
+      }
+    });
+    
+    console.log('✅ Event listener attached to "Förbättra alla" button');
   }
 
   /**
