@@ -138,35 +138,17 @@ export class ArtistDetectionManager {
         }
       }
       
-      // ONLY fall back to rules if there was an actual API error
+      // NO FALLBACK: Only use AI detection - no rule-based fallback
       if (aiError) {
+        console.log('❌ AI detection failed, no fallback available (AI-only mode)');
+        return null;
       } else {
         return null;
       }
     } else {
-      console.log('❌ No API manager available for AI detection, using rule-based detection');
+      console.log('❌ No API manager available for AI detection, no rule-based fallback (AI-only mode)');
+      return null;
     }
-
-    // ENHANCED: If we detected informal pattern but AI failed with error, use rule-based as backup
-    if (isInformalPattern && potentialArtistFromPattern) {
-      return {
-        detectedArtist: potentialArtistFromPattern,
-        suggestedTitle: title.replace(new RegExp(`^${potentialArtistFromPattern.replace(/\s+/g, '\\s+')}\\s+`, 'i'), '').trim(),
-        confidence: 0.8,
-        source: 'rules-informal',
-        foundIn: forceReDetection ? 'titel (upprepad sökning)' : 'titel'
-      };
-    }
-
-    // Fallback to full rule-based detection ONLY if AI had an error
-    const ruleResult = this.detectMisplacedArtistRuleBased(title, artistField);
-    
-    if (ruleResult && forceReDetection) {
-      // Add context for re-detection
-      ruleResult.foundIn = 'titel (upprepad sökning)';
-    }
-    
-    return ruleResult;
   }
 
   // Helper method to extract object type from title

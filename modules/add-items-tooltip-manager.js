@@ -251,6 +251,17 @@ export class AddItemsTooltipManager {
       clearTimeout(this.artistDetectionTimeout);
     }
 
+    // CRITICAL FIX: Prevent overriding AI results with delayed recalculation
+    const existingTooltip = document.querySelector('#ai-tooltip-artist-detection');
+    if (existingTooltip) {
+      // Check if existing tooltip is from AI source
+      const tooltipContent = existingTooltip.innerHTML;
+      if (tooltipContent.includes('(AI-detekterad)') || tooltipContent.includes('AI-')) {
+        console.log('🛡️ AI-sourced tooltip already active, skipping delayed recalculation to prevent override');
+        return;
+      }
+    }
+
     // ENHANCED: More intelligent re-detection logic
     this.artistDetectionTimeout = setTimeout(async () => {
       const formData = this.extractFormData();
