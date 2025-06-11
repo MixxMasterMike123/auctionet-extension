@@ -100,7 +100,7 @@ export class DashboardManagerV2 {
 
   // Create the dashboard HTML structure
   createDashboardStructure(salesData, terms) {
-    console.log('🏗️ Creating dashboard HTML structure...');
+
     
     // Remove existing dashboard
     const existingDashboard = document.querySelector('.market-data-dashboard');

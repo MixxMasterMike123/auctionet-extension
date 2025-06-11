@@ -435,7 +435,7 @@ export class SearchQuerySSoT {
   // Listener management for component coordination
   addListener(callback) {
     this.listeners.push(callback);
-    console.log(`📡 SSoT: Added listener (${this.listeners.length} total)`);
+
   }
 
   removeListener(callback) {
@@ -444,7 +444,7 @@ export class SearchQuerySSoT {
   }
 
   notifyListeners(event, data) {
-    console.log(`📡 SSoT: Notifying ${this.listeners.length} listeners of event: ${event}`);
+
     this.listeners.forEach(callback => {
       try {
         callback(event, data);

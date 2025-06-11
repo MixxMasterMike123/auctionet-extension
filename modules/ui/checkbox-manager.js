@@ -67,7 +67,7 @@ export class CheckboxManager {
 
   // Remove all event listeners
   removeAllListeners() {
-    console.log('🧹 Removing all checkbox and label listeners...');
+
     
     let removedCount = 0;
     this.eventListeners.forEach((handler, element) => {

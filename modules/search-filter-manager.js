@@ -58,12 +58,7 @@ export class SearchFilterManager {
 
   // NEW: Extract candidate search terms for interactive user selection
   extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null) {
-    console.log('🔍 Extracting ALL candidate search terms for:', title);
-    console.log('📋 Input parameters:', {
-      hasArtistInfo: !!artistInfo, 
-      artistInfoContent: artistInfo?.artist || 'none',
-      hasActualSearchQuery: !!actualSearchQuery 
-    });
+
     
     // DEBUGGING: Check artist field in DOM regardless of parameters
     const artistFieldFromDOM = document.querySelector('#item_artist_name_sv')?.value?.trim();
@@ -104,12 +99,12 @@ export class SearchFilterManager {
           analysisType: artistInfo ? 'artist' : 'freetext'
         };
       } else {
-        console.log('⚠️ SearchQuerySSoT has LOW-QUALITY data - rebuilding with fresh extraction');
+
       }
     }
     
     // FALLBACK: If no existing AI Rules data, proceed with original extraction logic
-    console.log('⚠️ No existing AI Rules data found, using original extraction logic');
+
     
     const text = `${title} ${description}`.toLowerCase();
     const candidates = [];
@@ -497,9 +492,7 @@ export class SearchFilterManager {
     const selectedCandidates = candidates.filter(c => c.preSelected);
     const unselectedCandidates = candidates.filter(c => !c.preSelected);
     
-    console.log(`📌 SELECTED (will be checked): ${selectedCandidates.length}`);
-    
-    unselectedCandidates.forEach(c => console.log(`   ⚪ "${c.term}" (${c.type}) - ${c.description}`));
+
     
     if (unselectedCandidates.length === 0) {
       console.warn('⚠️ PROBLEM: No unselected candidates found - should have extended terms like japan, synthesizer, etc.');
@@ -789,7 +782,7 @@ export class SearchFilterManager {
     ];
     
     if (!updateBtn || !currentSearchDisplay || candidateCheckboxes.length === 0) {
-      console.log('⚠️ Search filter elements not found - interactivity not available');
+
       return;
     }
     
@@ -907,7 +900,7 @@ export class SearchFilterManager {
     ];
     
     if (candidateCheckboxes.length === 0) {
-      console.log("⚠️ No header search filter checkboxes found");
+
       return;
     }
     
@@ -944,7 +937,7 @@ export class SearchFilterManager {
     
     
     if (selectedTerms.length === 0) {
-      console.log("⚠️ No terms selected - keeping current search");
+
       return;
     }
     
@@ -1009,7 +1002,7 @@ export class SearchFilterManager {
   synchronizePillsWithSSoT() {
     
     if (!this.searchQuerySSoT) {
-      console.log('❌ SearchQuerySSoT not available for synchronization');
+
       return;
     }
     

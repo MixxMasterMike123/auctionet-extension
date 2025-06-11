@@ -1015,12 +1015,11 @@
         this.showFieldLoadingIndicator(fieldType);
         
         // Don't reload settings here - they were just set by the dialog
-        console.log('⚡ Proceed with AI - Artist info enabled:', this.apiManager.enableArtistInfo);
-        console.log('⚡ Proceed with AI - API key present:', !!this.apiManager.apiKey);
+
         
         try {
           const itemData = this.dataExtractor.extractItemData();
-          console.log('⚡ Item data for API call:', { artist: itemData.artist, enableArtistInfo: this.apiManager.enableArtistInfo });
+
           
           // For "all" improvements, exclude condition if "Inga anmärkningar" is checked
           let actualFieldType = fieldType;
@@ -1124,7 +1123,7 @@
         
         // Ensure API manager settings are loaded
         await this.apiManager.loadSettings();
-        console.log('🔧 Force improve - Artist info enabled:', this.apiManager.enableArtistInfo);
+
         
         const itemData = this.dataExtractor.extractItemData();
         
@@ -1145,7 +1144,7 @@
         
         try {
           const improved = await this.apiManager.callClaudeAPI(itemData, fieldType);
-          console.log('Forced improved result for', fieldType, ':', improved);
+
           
           const value = improved[fieldType];
           if (value) {
@@ -1183,7 +1182,7 @@
 
       // Field-specific loading indicator methods - delegate to main content.js implementation
       showFieldLoadingIndicator(fieldType) {
-        console.log(`🔄 Showing field loading indicator for: ${fieldType}`);
+
         this.fallbackShowFieldLoadingIndicator(fieldType);
       }
 
@@ -1193,13 +1192,13 @@
       }
 
       showFieldErrorIndicator(fieldType, message) {
-        console.log(`❌ Showing field error indicator for: ${fieldType}`, message);
+
         this.fallbackShowFieldErrorIndicator(fieldType, message);
       }
 
       // Fallback implementations with actual animations - EXACT copy from Add Items page
       fallbackShowFieldLoadingIndicator(fieldType) {
-        console.log(`🔄 Fallback loading indicator for ${fieldType}`);
+
         
         // Remove any existing loading states first
         this.fallbackRemoveFieldLoadingIndicator(fieldType);
@@ -1422,21 +1421,12 @@
           'input[type="checkbox"][class*="anmärkningar"]'
         ];
         
-        console.log('🔍 Checking for "Inga anmärkningar" checkbox...');
+
         
         for (const selector of checkboxSelectors) {
           const checkbox = document.querySelector(selector);
           if (checkbox) {
-            console.log(`✅ Found checkbox with selector: ${selector}`);
-            console.log('📋 Checkbox details:', {
-              checked: checkbox.checked,
-              value: checkbox.value,
-              name: checkbox.name,
-              id: checkbox.id,
-              className: checkbox.className
-            });
             if (checkbox.checked) {
-              console.log('🚫 "Inga anmärkningar" is CHECKED - should disable condition button');
               return true;
             }
           }
@@ -1599,7 +1589,7 @@
         
         // Check length - LOWERED threshold from 20 to 15 characters
         if (cleanCondition.length < 15) {
-          console.log('⚠️ Edit page: Condition text too short:', cleanCondition.length, 'characters');
+  
           issues.push({
             type: 'too_short',
             severity: 'high', 
@@ -1611,7 +1601,7 @@
         
         // Check for missing location specifics
         if (conditionLower.includes('repor') && !this.hasLocationSpecifics(conditionLower)) {
-          console.log('⚠️ Edit page: Found "repor" but missing location specifics');
+
           issues.push({
             type: 'missing_location',
             severity: 'medium',
@@ -1628,7 +1618,7 @@
         });
         
         if (hasGenericWithoutDetails && cleanCondition.length < 25) {
-          console.log('⚠️ Edit page: Found generic terms without specific details');
+  
           issues.push({
             type: 'generic_without_details',
             severity: 'medium',
@@ -1670,7 +1660,7 @@
 
         const tooltipId = 'condition-quality';
         
-        console.log('⏳ Scheduling condition guidance tooltip to show in 200ms (fast edit page mode)...');
+
         
         // Add delay for smooth UX - MUCH FASTER on edit pages
         setTimeout(() => {
