@@ -1164,12 +1164,14 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     
     const itemData = this.extractItemData();
     
-    // Assess data quality for hallucination prevention
-    const qualityAssessment = this.assessDataQuality(itemData, fieldType);
-    
-    if (qualityAssessment.needsMoreInfo) {
-      this.showFieldSpecificInfoDialog(fieldType, qualityAssessment.missingInfo, itemData);
-      return;
+    // Assess data quality for hallucination prevention (skip for title corrections)
+    if (fieldType !== 'title-correct') {
+      const qualityAssessment = this.assessDataQuality(itemData, fieldType);
+      
+      if (qualityAssessment.needsMoreInfo) {
+        this.showFieldSpecificInfoDialog(fieldType, qualityAssessment.missingInfo, itemData);
+        return;
+      }
     }
     
     this.showFieldLoadingIndicator(fieldType);
@@ -1179,7 +1181,9 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       console.log('Improved result for', fieldType, ':', improved);
       
       // For single field improvements, extract the specific field value
-      const value = improved[fieldType];
+      // Handle title-correct mapping to title field
+      const responseField = fieldType === 'title-correct' ? 'title' : fieldType;
+      const value = improved[responseField];
       if (value) {
         this.applyImprovement(fieldType, value);
         this.showFieldSuccessIndicator(fieldType);
@@ -1943,8 +1947,8 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022', // Fixed from invalid model name
-            max_tokens: 1500,
+            model: fieldType === 'title-correct' ? 'claude-3-haiku-20240307' : 'claude-3-5-sonnet-20241022',
+            max_tokens: fieldType === 'title-correct' ? 500 : 1500,
             temperature: 0.1,
             system: systemPrompt,
             messages: [{
@@ -2020,7 +2024,7 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022', // Fixed from invalid model name
+            model: 'claude-3-5-sonnet-20241022', // Keep Sonnet for corrections
             max_tokens: 1500,
             temperature: 0.1,
             system: systemPrompt,
