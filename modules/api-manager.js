@@ -38,19 +38,14 @@ export class APIManager {
       } else {
       }
       
-      console.log('Artist info setting loaded:', this.enableArtistInfo);
-      console.log('Show dashboard setting loaded:', this.showDashboard);
+      
       
       // Sync settings with AI Analysis Engine
       if (this.aiAnalysisEngine) {
         this.aiAnalysisEngine.updateSettings({ enableArtistInfo: this.enableArtistInfo });
       }
       
-      if (this.apiKey) {
-        console.log('API key loaded from storage: Found');
-      } else {
-        console.log('API key loaded from storage: Not found');
-      }
+
       
       // Also refresh Auctionet API settings
       if (this.auctionetAPI) {
@@ -124,7 +119,6 @@ export class APIManager {
     } catch (error) {
       if ((error.message.includes('Overloaded') || error.message.includes('rate limit') || error.message.includes('429')) && retryCount < 3) {
         const delay = Math.pow(2, retryCount) * 1000;
-        console.log(`API overloaded, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
         
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.callClaudeAPI(itemData, fieldType, retryCount + 1);
@@ -140,7 +134,6 @@ export class APIManager {
 
   async processAPIResponse(response, systemPrompt, userPrompt, fieldType) {
     const data = response.data;
-    console.log('Received API response:', data);
     
     if (!data || !data.content || !Array.isArray(data.content) || data.content.length === 0) {
       throw new Error('Invalid response format from API');
@@ -194,7 +187,6 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
       
       if (correctionResponse.success) {
         const correctionData = correctionResponse.data;
-        console.log('Received correction response:', correctionData);
         
         if (correctionData && correctionData.content && correctionData.content[0] && correctionData.content[0].text) {
           result = this.parseClaudeResponse(correctionData.content[0].text, fieldType);
@@ -208,7 +200,6 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
   }
 
   parseClaudeResponse(response, fieldType) {
-    console.log('Parsing Claude response for fieldType:', fieldType, 'Response:', response);
     
     if (!response || typeof response !== 'string') {
       console.error('Invalid response format:', response);
