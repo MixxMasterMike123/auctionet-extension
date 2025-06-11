@@ -1598,9 +1598,9 @@ Om INGET saknas, returnera: {"missingElements": []}`;
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022', // Default model same as EDIT page
-            max_tokens: 4000, // Same as EDIT page
-            temperature: 0.2, // Same as EDIT page
+            model: fieldType === 'title-correct' ? 'claude-3-haiku-20240307' : 'claude-3-5-sonnet-20241022',
+            max_tokens: fieldType === 'title-correct' ? 500 : 4000,
+            temperature: fieldType === 'title-correct' ? 0.1 : 0.2,
             system: systemPrompt,
             messages: [{
               role: 'user',
