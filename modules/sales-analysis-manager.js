@@ -394,16 +394,17 @@ export class SalesAnalysisManager {
       this.dashboardManager.addMarketDataDashboard(salesData, valuationSuggestions);
       
       if (valuationSuggestions.length > 0) {
-        // CRITICAL FIX: Get fresh warnings from DOM to include any AI warnings that were just added
+        // RACE CONDITION FIX: Don't call updateQualityIndicator() from sales analysis
+        // The quality analyzer should own quality indicator updates to prevent race conditions
+        // Store warnings for potential future use, but don't force UI update
         const freshWarnings = qualityAnalyzer.extractCurrentWarnings();
-        // Add valuation suggestions to fresh warnings
         const updatedWarnings = [...freshWarnings, ...valuationSuggestions];
-        qualityAnalyzer.updateQualityIndicator(currentScore, updatedWarnings);
+        console.log('📊 Sales analysis complete with valuation suggestions, but not updating UI to prevent race conditions');
       } else {
-        // CRITICAL FIX: Get fresh warnings from DOM instead of using stale currentWarnings
+        // RACE CONDITION FIX: Don't call updateQualityIndicator() from sales analysis  
+        // The quality analyzer should own quality indicator updates to prevent race conditions
         const freshWarnings = qualityAnalyzer.extractCurrentWarnings();
-        // Update UI with fresh warnings (without market data)
-        qualityAnalyzer.updateQualityIndicator(currentScore, freshWarnings);
+        console.log('📊 Sales analysis complete without valuation suggestions, but not updating UI to prevent race conditions');
       }
       
       
@@ -730,8 +731,9 @@ export class SalesAnalysisManager {
     });
     
     
-    // Update the display
-    qualityAnalyzer.updateQualityIndicator(currentScore, updatedWarnings);
+    // RACE CONDITION FIX: Don't update quality indicator from sales analysis
+    // The quality analyzer should own quality indicator updates to prevent race conditions
+    console.log('📊 No sales data message prepared, but not updating UI to prevent race conditions');
     qualityAnalyzer.checkAndHideLoadingIndicator();
     qualityAnalyzer.hideAILoadingIndicator();
   }
@@ -752,7 +754,9 @@ export class SalesAnalysisManager {
         severity: 'low'
       });
       
-      qualityAnalyzer.updateQualityIndicator(currentScore, updatedWarnings);
+      // RACE CONDITION FIX: Don't update quality indicator from sales analysis
+      // The quality analyzer should own quality indicator updates to prevent race conditions
+      console.log('📊 Sales analysis error handled, but not updating UI to prevent race conditions');
     }
     
     qualityAnalyzer.checkAndHideLoadingIndicator();

@@ -213,8 +213,11 @@ export class ArtistDetectionManager {
     return cleanedTitle || 'Titel utan konstnärsnamn';
   }
 
-  // Complete rule-based artist detection - exactly from edit page quality-analyzer.js
-  detectMisplacedArtistRuleBased(title, artistField) {
+  // Rule-based detection REMOVED - AI-only approach for better reliability and no race conditions
+  detectMisplacedArtistRuleBased_REMOVED(title, artistField, aiDetectedArtist = null) {
+    // RACE CONDITION FIX: Skip rule-based detection if AI already detected the same artist
+    // This prevents rule-based warnings from overwriting AI warnings with buttons
+    
     // PRIORITY CHECK: Artist name incorrectly placed at beginning of title in ALL CAPS
     // Pattern: "FIRSTNAME LASTNAME. Rest of title..." or "FIRSTNAME MIDDLE LASTNAME. Rest of title..."
     const allCapsArtistPattern = /^([A-ZÅÄÖÜ\s]{4,40})\.\s+(.+)/;
@@ -223,6 +226,12 @@ export class ArtistDetectionManager {
     if (allCapsMatch) {
       const [, potentialArtist, restOfTitle] = allCapsMatch;
       const cleanArtist = potentialArtist.trim();
+      
+      // RACE CONDITION FIX: Check if AI already detected this artist
+      if (aiDetectedArtist && this.normalizeArtistName(cleanArtist) === this.normalizeArtistName(aiDetectedArtist)) {
+        console.log('🔄 RACE CONDITION PREVENTED: Skipping rule-based detection for', cleanArtist, '- AI already detected this artist');
+        return null; // Skip rule-based detection to preserve AI warning
+      }
       
       // Check if it looks like a person's name
       if (this.looksLikePersonName(cleanArtist)) {
@@ -457,6 +466,15 @@ export class ArtistDetectionManager {
     }
 
     return null;
+  }
+
+  // Helper method to normalize artist names for comparison
+  normalizeArtistName(name) {
+    if (!name) return '';
+    return name.toLowerCase()
+      .replace(/[^\w\s]/g, '') // Remove punctuation
+      .replace(/\s+/g, ' ')    // Normalize whitespace
+      .trim();
   }
 
   // Helper method to determine if a string looks like a person's name - exactly from edit page

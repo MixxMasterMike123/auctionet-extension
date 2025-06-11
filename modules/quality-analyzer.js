@@ -149,10 +149,7 @@ export class QualityAnalyzer {
     return await this.artistDetectionManager.detectMisplacedArtist(title, artistField, forceReDetection);
   }
 
-  // NEW: Delegate rule-based detection to ArtistDetectionManager SSoT  
-  detectMisplacedArtistRuleBased(title, artistField) {
-    return this.artistDetectionManager.detectMisplacedArtistRuleBased(title, artistField);
-  }
+  // Rule-based detection REMOVED - AI-only approach for better reliability
 
   // CRITICAL FIX: Handle user selection updates from SSoT to trigger new market analysis
   async handleUserSelectionUpdate(data) {
@@ -440,48 +437,8 @@ export class QualityAnalyzer {
   async runAIArtistDetection(data, currentWarnings, currentScore) {
     console.log('🔍 DEBUGGING: runAIArtistDetection() called with artist field:', data.artist);
     
-    // SMART CHECK: Skip AI analysis if artist field is filled AND no artist detected in title
-    if (data.artist && data.artist.trim()) {
-      // Quick rule-based check if title contains artist names
-      const titleHasArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
-      
-      if (!titleHasArtist || !titleHasArtist.detectedArtist) {
-
-        
-        // Still run brand validation and market analysis with existing artist
-        this.showAILoadingIndicator('🏷️ Kontrollerar märkesnamn...');
-        this.aiAnalysisActive = true;
-        this.pendingAnalyses = new Set(['brand']); // Only brand validation
-        
-        try {
-          // Run brand validation
-          const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
-          const brandIssues = await Promise.race([
-            brandValidationPromise,
-            new Promise(resolve => setTimeout(() => resolve([]), 5000))
-          ]);
-          
-          // Handle brand validation results
-          if (brandIssues && brandIssues.length > 0) {
-            await this.handleBrandValidationResult(brandIssues, data, currentWarnings, currentScore);
-          }
-          
-          // Trigger market analysis with existing artist
-          await this.triggerMarketAnalysisWithExistingArtist(data);
-          
-        } catch (error) {
-          console.error('❌ Brand validation failed:', error);
-        } finally {
-          this.pendingAnalyses.delete('brand');
-          this.aiAnalysisActive = false;
-          this.hideAILoadingIndicator();
-        }
-        
-        return; // Skip the rest of AI artist detection
-      } else {
-
-      }
-    }
+    // SIMPLIFIED: Always run full AI analysis - no rule-based pre-checks needed
+    // AI detection is fast, reliable, and handles all edge cases better than regex
 
     // Show initial AI loading indicator
     this.showAILoadingIndicator('🤖 Söker konstnärsnamn...');
@@ -864,10 +821,9 @@ export class QualityAnalyzer {
       }
     }
     
-    // Update quality display with animation after brand validation (recalculate score with latest data)
-    const latestData = this.dataExtractor.extractItemData();
-    const recalculatedScore = this.calculateCurrentQualityScore(latestData);
-    this.updateQualityIndicator(recalculatedScore, currentWarnings, true);
+    // RACE CONDITION FIX: Don't update quality indicator from brand validation to prevent overwriting AI warnings
+    // Brand validation runs in parallel with artist detection and should not overwrite the main UI
+    console.log('📊 Brand validation complete, but not updating UI to prevent race conditions');
     
     // Setup click handlers for brand corrections
     setTimeout(() => {
@@ -2505,6 +2461,12 @@ export class QualityAnalyzer {
   }
 
   updateQualityIndicator(score, warnings, shouldAnimate = false) {
+    // RACE CONDITION DEBUG: Track what's calling updateQualityIndicator
+    const stack = new Error().stack;
+    const caller = stack.split('\n')[2]?.trim() || 'unknown';
+    console.log('🔍 RACE CONDITION DEBUG: updateQualityIndicator called by:', caller);
+    console.log('🔍 RACE CONDITION DEBUG: warnings count:', warnings?.length || 0);
+    console.log('🔍 RACE CONDITION DEBUG: has artist warning:', warnings?.some(w => w.isArtistWarning) || false);
     
     // Create or update circular progress indicators using reusable component
     const qualityIndicator = document.querySelector('.quality-indicator');
@@ -2696,12 +2658,11 @@ export class QualityAnalyzer {
   }
 
   determineBestArtistForMarketAnalysis(data, aiArtist = null) {
-    // PRIORITY ORDER for market analysis:
+    // SIMPLIFIED PRIORITY ORDER for market analysis (AI-ONLY):
     // 1. AI-detected artist (highest priority if found)
     // 2. Artist field (if filled)
-    // 3. Rule-based artist detection
-    // 4. Brand detection from title/description
-    // 5. Freetext search from title/description
+    // 3. Brand detection from title/description
+    // 4. Freetext search from title/description
 
     // 1. PRIORITY: AI-detected artist (most reliable)
     if (aiArtist && aiArtist.detectedArtist) {
@@ -2723,16 +2684,7 @@ export class QualityAnalyzer {
       };
     }
 
-    // 3. Rule-based artist detection
-    const ruleBasedArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
-    if (ruleBasedArtist && ruleBasedArtist.detectedArtist) {
-      return {
-        artist: ruleBasedArtist.detectedArtist,
-        source: 'rule_based',
-        confidence: ruleBasedArtist.confidence || 0.7,
-        objectType: this.extractObjectType(data.title)
-      };
-    }
+    // 3. Rule-based artist detection REMOVED - AI-only approach for better reliability
 
     // 4. Brand detection (check for known brands/manufacturers)
     const brandDetection = this.detectBrandInTitle(data.title, data.description);
@@ -3027,16 +2979,7 @@ export class QualityAnalyzer {
       };
     }
 
-    // 3. Rule-based artist detection
-    const ruleBasedArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
-    if (ruleBasedArtist && ruleBasedArtist.detectedArtist) {
-      return {
-        artist: ruleBasedArtist.detectedArtist,
-        source: 'rule_based',
-        confidence: ruleBasedArtist.confidence || 0.7,
-        objectType: this.extractObjectType(data.title)
-      };
-    }
+    // 3. Rule-based artist detection REMOVED - AI-only approach for better reliability
 
     // 4. Brand detection (check for known brands/manufacturers)
     const brandDetection = this.detectBrandInTitle(data.title, data.description);

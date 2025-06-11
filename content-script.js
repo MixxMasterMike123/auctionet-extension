@@ -867,8 +867,8 @@
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);
             
-            // Re-analyze quality with animation after improvement
-            setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
+            // RACE CONDITION FIX: Removed circle score recalculation to prevent overwriting AI warnings
+            // setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
           } else {
             throw new Error(`No ${fieldType} value in response`);
           }
@@ -1060,8 +1060,8 @@
           
           this.showFieldSuccessIndicator(fieldType);
           
-          // Re-analyze quality with animation after improvements
-          setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
+          // RACE CONDITION FIX: Removed circle score recalculation to prevent overwriting AI warnings
+          // setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
         } catch (error) {
           console.error('Error improving field:', error);
           this.showFieldErrorIndicator(fieldType, error.message);
