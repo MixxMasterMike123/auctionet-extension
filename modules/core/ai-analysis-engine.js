@@ -67,6 +67,8 @@ EXEMPEL:
 - "lisa larson figurin" → "Lisa Larson"
 - "IKEA lampa" → INGET (företag)
 
+VIKTIGT: I JSON-svaret, använd \\" för citattecken inom strängar.
+
 JSON:
 {
   "hasArtist": boolean,
@@ -118,7 +120,13 @@ JSON:
       // Try to extract JSON from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+        let jsonString = jsonMatch[0];
+        
+        // Simple fix for nested quotes in string values (most common issue)
+        // Replace: "text "quoted" text" with: "text \"quoted\" text"
+        jsonString = jsonString.replace(/"([^"]*)"([^"]+)"([^"]*)"/g, '"$1\\"$2\\"$3"');
+        
+        const parsed = JSON.parse(jsonString);
         
         // Validate the response structure
         if (typeof parsed.hasArtist === 'boolean' && 
