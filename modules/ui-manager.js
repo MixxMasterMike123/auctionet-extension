@@ -256,26 +256,7 @@ export class UIManager {
         background: #A16600;
       }
 
-      .ai-assist-button[data-field-type="title-correct"].loading {
-        background: #B17200;
-        pointer-events: none;
-        animation: pulse 1.5s ease-in-out infinite;
-      }
 
-      .ai-assist-button[data-field-type="title-correct"].loading::after {
-        content: "";
-      }
-
-      @keyframes pulse {
-        0%, 100% { 
-          opacity: 0.7;
-          transform: scale(0.98);
-        }
-        50% { 
-          opacity: 1;
-          transform: scale(1.02);
-        }
-      }
       
       .ai-undo-wrapper {
         margin-top: 6px;
