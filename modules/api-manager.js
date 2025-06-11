@@ -212,7 +212,7 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     }
     
     // For single field requests
-    if (['title', 'description', 'condition', 'keywords'].includes(fieldType)) {
+    if (['title', 'title-correct', 'description', 'condition', 'keywords'].includes(fieldType)) {
       const result = {};
       const lines = response.split('\n');
       
@@ -232,6 +232,12 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
       
       if (Object.keys(result).length === 0) {
         result[fieldType] = response.trim();
+      }
+      
+      // For title-correct, map the result to title field for field application
+      if (fieldType === 'title-correct' && result[fieldType]) {
+        result.title = result[fieldType];
+        delete result[fieldType];
       }
       
       console.log('Single field parsed result:', result);
@@ -913,6 +919,28 @@ SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • Flytta ALDRIG konstnären när den inte är i början - det är medvetet placerad
 
 Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
+
+      case 'title-correct':
+        return baseInfo + `
+UPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.
+
+KRITISKT - MINIMALA ÄNDRINGAR:
+• Lägg INTE till ny information, material eller tidsperioder
+• Ändra INTE ordningen på elementer
+• Ta INTE bort information
+• Korrigera ENDAST:
+  - Saknade mellanslag ("SVERIGEStockholm" → "SVERIGE Stockholm")
+  - Felplacerade punkter ("TALLRIK. keramik" → "TALLRIK, keramik")
+  - Saknade citattecken runt titlar/motiv ("Dune Mario Bellini" → "Dune" Mario Bellini)
+  - Stavfel i välkända namn/märken
+  - Kommatecken istället för punkt mellan objekt och material
+
+EXEMPEL KORRIGERINGAR:
+• "SERVIRINGSBRICKA, akryl.Dune Mario Bellini" → "SERVIRINGSBRICKA, akryl, "Dune" Mario Bellini"
+• "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
+• "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
+
+Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`;
 
       case 'description':
         return baseInfo + `

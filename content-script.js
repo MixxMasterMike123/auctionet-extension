@@ -844,12 +844,14 @@
         
         const itemData = this.dataExtractor.extractItemData();
         
-        // Assess data quality for hallucination prevention
-        const qualityAssessment = this.qualityAnalyzer.assessDataQuality(itemData, fieldType);
-        
-        if (qualityAssessment.needsMoreInfo) {
-          this.showFieldSpecificInfoDialog(fieldType, qualityAssessment.missingInfo, itemData);
-          return;
+        // Assess data quality for hallucination prevention (skip for title corrections)
+        if (fieldType !== 'title-correct') {
+          const qualityAssessment = this.qualityAnalyzer.assessDataQuality(itemData, fieldType);
+          
+          if (qualityAssessment.needsMoreInfo) {
+            this.showFieldSpecificInfoDialog(fieldType, qualityAssessment.missingInfo, itemData);
+            return;
+          }
         }
         
         this.showFieldLoadingIndicator(fieldType);
@@ -857,8 +859,10 @@
         try {
           const improved = await this.apiManager.callClaudeAPI(itemData, fieldType);
           
-          // For single field improvements, extract the specific field value
-          const value = improved[fieldType];
+          // For single field improvements, extract the specific field value  
+          // Handle title-correct mapping to title field
+          const responseField = fieldType === 'title-correct' ? 'title' : fieldType;
+          const value = improved[responseField];
           if (value) {
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);
@@ -1145,8 +1149,9 @@
         try {
           const improved = await this.apiManager.callClaudeAPI(itemData, fieldType);
 
-          
-          const value = improved[fieldType];
+          // Handle title-correct mapping to title field
+          const responseField = fieldType === 'title-correct' ? 'title' : fieldType;
+          const value = improved[responseField];
           if (value) {
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);

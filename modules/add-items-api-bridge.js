@@ -80,19 +80,28 @@ export class AddItemsAPIBridge {
   async improveField(fieldType, options = {}) {
     const formData = this.extractFormData();
     
-    // Use data quality assessment from AI Enhancement Engine
-    const assessment = this.aiEnhancementEngine.assessDataQuality(formData, fieldType);
-    
-    if (assessment.needsMoreInfo && !options.force) {
-      throw new Error(`More information needed for ${fieldType}. Missing: ${assessment.missingInfo.join(', ')}`);
+    // Use data quality assessment from AI Enhancement Engine (skip for title corrections)
+    if (fieldType !== 'title-correct') {
+      const assessment = this.aiEnhancementEngine.assessDataQuality(formData, fieldType);
+      
+      if (assessment.needsMoreInfo && !options.force) {
+        throw new Error(`More information needed for ${fieldType}. Missing: ${assessment.missingInfo.join(', ')}`);
+      }
     }
     
     // Get the improvement from AI Enhancement Engine
     const result = await this.aiEnhancementEngine.improveField(formData, fieldType, options);
     
     // Apply the improvement to the field
-    if (result && result[fieldType]) {
-      this.applyImprovement(fieldType, result[fieldType]);
+    // Handle title-correct mapping to title field
+    const responseField = fieldType === 'title-correct' ? 'title' : fieldType;
+    console.log(`🔍 API Bridge: fieldType=${fieldType}, responseField=${responseField}, result=`, result);
+    
+    if (result && result[responseField]) {
+      console.log(`✅ API Bridge: Applying improvement - fieldType=${fieldType}, value=${result[responseField]}`);
+      this.applyImprovement(fieldType, result[responseField]);
+    } else {
+      console.log(`❌ API Bridge: No value found - result[${responseField}] =`, result[responseField]);
     }
     
     return result;
@@ -135,13 +144,20 @@ export class AddItemsAPIBridge {
   applyImprovement(fieldType, value) {
     const fieldMap = {
       'title': '#item_title_sv',
+      'title-correct': '#item_title_sv',  // title-correct applies to title field
       'description': '#item_description_sv',
       'condition': '#item_condition_sv',
       'keywords': '#item_hidden_keywords'
     };
     
+    console.log(`🔍 applyImprovement: fieldType=${fieldType}, value="${value}"`);
+    console.log(`🔍 applyImprovement: Looking for field selector="${fieldMap[fieldType]}"`);
+    
     const field = document.querySelector(fieldMap[fieldType]);
+    console.log(`🔍 applyImprovement: Found field element=`, field);
+    
     if (field && value) {
+      console.log(`🔄 applyImprovement: Setting field value from "${field.value}" to "${value}"`);
       field.value = value;
       field.dispatchEvent(new Event('change', { bubbles: true }));
       
@@ -155,6 +171,11 @@ export class AddItemsAPIBridge {
       }
       
       console.log(`✅ Applied improvement to ${fieldType}`);
+    } else {
+      console.log(`❌ applyImprovement failed: field=${!!field}, value="${value}"`);
+      if (!field) {
+        console.log(`❌ Field not found with selector: ${fieldMap[fieldType]}`);
+      }
     }
   }
 

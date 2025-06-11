@@ -42,12 +42,19 @@ export class UIManager {
     button.type = 'button';
     button.dataset.fieldType = type;
     
-    const wrapper = document.createElement('div');
-    wrapper.className = 'ai-button-wrapper';
-    wrapper.appendChild(button);
+    // Check if wrapper already exists for this field
+    let wrapper = field.parentNode.querySelector('.ai-button-wrapper');
     
-    // Position right after the field element, not at the end of parent
-    field.parentNode.insertBefore(wrapper, field.nextSibling);
+    if (!wrapper) {
+      // Create new wrapper if none exists
+      wrapper = document.createElement('div');
+      wrapper.className = 'ai-button-wrapper';
+      
+      // Position right after the field element, not at the end of parent
+      field.parentNode.insertBefore(wrapper, field.nextSibling);
+    }
+    
+    wrapper.appendChild(button);
   }
 
   addQualityIndicator() {
@@ -210,10 +217,11 @@ export class UIManager {
       .ai-button-wrapper {
         margin-top: 0px;
         display: flex;
-        gap: 12px;
+        justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         margin-bottom: 12px;
+        max-width: 300px;
       }
       
       .ai-assist-button {
@@ -362,6 +370,7 @@ export class UIManager {
   applyImprovement(fieldType, value) {
     const fieldMap = {
       'title': '#item_title_sv',
+      'title-correct': '#item_title_sv',  // title-correct applies to title field
       'description': '#item_description_sv',
       'condition': '#item_condition_sv',
       'keywords': '#item_hidden_keywords'
