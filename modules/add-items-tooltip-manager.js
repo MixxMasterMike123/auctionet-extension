@@ -242,38 +242,61 @@ export class AddItemsTooltipManager {
   }
 
   scheduleArtistDetection() {
+    console.log('🔍 DEBUGGING: scheduleArtistDetection() called');
+    
     if (!this.enabled || !this.apiManager.apiKey) {
+      console.log('🔍 DEBUGGING: scheduleArtistDetection() - disabled or no API key, returning early');
       return;
     }
 
     // Clear any existing timeout
     if (this.artistDetectionTimeout) {
+      console.log('🔍 DEBUGGING: scheduleArtistDetection() - clearing existing timeout');
       clearTimeout(this.artistDetectionTimeout);
     }
 
     // CRITICAL FIX: Prevent overriding AI results with delayed recalculation
     const existingTooltip = document.querySelector('#ai-tooltip-artist-detection');
+    console.log('🔍 DEBUGGING: scheduleArtistDetection() - existing tooltip check:', !!existingTooltip);
+    
     if (existingTooltip) {
       // Check if existing tooltip is from AI source
       const tooltipContent = existingTooltip.innerHTML;
-      if (tooltipContent.includes('(AI-detekterad)') || tooltipContent.includes('AI-')) {
+      const hasAIMarker = tooltipContent.includes('(AI-detekterad)') || tooltipContent.includes('AI-');
+      console.log('🔍 DEBUGGING: scheduleArtistDetection() - tooltip has AI marker:', hasAIMarker);
+      console.log('🔍 DEBUGGING: scheduleArtistDetection() - tooltip content preview:', tooltipContent.substring(0, 200));
+      
+      if (hasAIMarker) {
         console.log('🛡️ AI-sourced tooltip already active, skipping delayed recalculation to prevent override');
         return;
       }
     }
 
     // ENHANCED: More intelligent re-detection logic
+    console.log('🔍 DEBUGGING: scheduleArtistDetection() - setting timeout for 1500ms');
     this.artistDetectionTimeout = setTimeout(async () => {
+      console.log('🔍 DEBUGGING: setTimeout callback triggered - starting delayed analysis');
       const formData = this.extractFormData();
+      console.log('🔍 DEBUGGING: setTimeout callback - extracted form data:', {
+        titleLength: formData.title?.length || 0,
+        artistLength: formData.artist?.length || 0,
+        titlePreview: formData.title?.substring(0, 50) || ''
+      });
       
       // Skip if not enough data
       if (!this.hasEnoughDataForAnalysis(formData)) {
+        console.log('🔍 DEBUGGING: setTimeout callback - not enough data for analysis, returning');
         return;
       }
 
       // Create content key for comparison (title + artist field)
       const contentKey = `${formData.title.trim()}|${formData.artist.trim()}`;
       const lastContent = this.lastAnalyzedContent.get('artist-detection');
+      console.log('🔍 DEBUGGING: setTimeout callback - content key comparison:', {
+        current: contentKey,
+        last: lastContent,
+        changed: lastContent !== contentKey
+      });
       
       // ENHANCED: Smarter content change detection
       if (lastContent === contentKey) {

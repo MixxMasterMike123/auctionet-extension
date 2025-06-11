@@ -252,12 +252,15 @@ export class QualityAnalyzer {
   }
 
   async analyzeQuality() {
+    console.log('🔍 DEBUGGING: analyzeQuality() called');
+    
     if (!this.dataExtractor) {
       console.error('Data extractor not set');
       return;
     }
 
     const data = this.dataExtractor.extractItemData();
+    console.log('🔍 DEBUGGING: analyzeQuality() - extracted data, title:', data.title?.substring(0, 50) + '...');
     const warnings = [];
     let score = 100;
     
@@ -434,6 +437,8 @@ export class QualityAnalyzer {
   }
 
   async runAIArtistDetection(data, currentWarnings, currentScore) {
+    console.log('🔍 DEBUGGING: runAIArtistDetection() called with artist field:', data.artist);
+    
     // SMART CHECK: Skip AI analysis if artist field is filled AND no artist detected in title
     if (data.artist && data.artist.trim()) {
       // Quick rule-based check if title contains artist names
@@ -2221,9 +2226,28 @@ export class QualityAnalyzer {
     // Debounce function to prevent too frequent updates
     let updateTimeout;
     const debouncedUpdate = (event) => {
+      console.log('🔍 DEBUGGING: debouncedUpdate called for field:', event.target?.id || 'unknown');
+      
       clearTimeout(updateTimeout);
       updateTimeout = setTimeout(() => {
-  
+        console.log('🔍 DEBUGGING: timeout triggered, about to call analyzeQuality()');
+        
+        // CRITICAL FIX: Check if AI artist detection is already active before triggering recalculation
+        const existingWarnings = this.extractCurrentWarnings();
+        const hasAIArtistWarning = existingWarnings.some(warning => 
+          warning.textContent && (
+            warning.textContent.includes('(AI-detekterad)') || 
+            warning.textContent.includes('AI har upptäckt') ||
+            warning.classList.contains('ai-detected-artist')
+          )
+        );
+        
+        if (hasAIArtistWarning) {
+          console.log('🛡️ AI artist detection already active, skipping recalculation to prevent override');
+          return;
+        }
+        
+        console.log('🔍 DEBUGGING: No AI artist warning detected, proceeding with analyzeQuality()');
         this.analyzeQuality();
       }, 800); // Wait 800ms after user stops typing
     };
