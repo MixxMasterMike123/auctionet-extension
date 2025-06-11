@@ -122,9 +122,16 @@ JSON:
       if (jsonMatch) {
         let jsonString = jsonMatch[0];
         
-        // Simple fix for nested quotes in string values (most common issue)
-        // Replace: "text "quoted" text" with: "text \"quoted\" text"
-        jsonString = jsonString.replace(/"([^"]*)"([^"]+)"([^"]*)"/g, '"$1\\"$2\\"$3"');
+        // Fix common JSON formatting issues that cause parsing errors
+        jsonString = jsonString
+          // Fix nested quotes: "text "quoted" text" → "text \"quoted\" text"
+          .replace(/"([^"]*)"([^"]+)"([^"]*)"/g, '"$1\\"$2\\"$3"')
+          // Fix control characters (newlines, tabs, etc.) in strings
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+          .replace(/\t/g, '\\t')
+          // Remove any other control characters (ASCII 0-31 except allowed ones)
+          .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
         
         const parsed = JSON.parse(jsonString);
         
@@ -169,7 +176,9 @@ JSON:
       
       return null;
     } catch (error) {
-      console.error('Error parsing AI artist analysis response:', error);
+      // Silently handle parsing errors to avoid console noise
+      // Artist analysis is a background feature, errors shouldn't be prominent
+      console.log('⚠️ AI artist analysis: parsing issue (non-critical)', error.message);
       return null;
     }
   }
@@ -263,7 +272,7 @@ SVARA MED JSON:
       
       return null;
     } catch (error) {
-      console.error('Error parsing artist verification response:', error);
+      console.log('⚠️ AI artist verification: parsing issue (non-critical)', error.message);
       return null;
     }
   }
