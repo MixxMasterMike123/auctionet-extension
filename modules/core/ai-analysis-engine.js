@@ -115,10 +115,27 @@ JSON:
    */
   parseArtistAnalysisResponse(responseText) {
     try {
+      // Log the raw response for debugging
+      console.log('🔍 AI Analysis Response (raw):', responseText);
+      
       // Try to extract JSON from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+        console.log('🔍 Extracted JSON:', jsonMatch[0]);
+        
+        // Clean up common JSON issues before parsing
+        let cleanJson = jsonMatch[0];
+        
+        // Fix common issues: trailing commas, unescaped quotes, etc.
+        cleanJson = cleanJson
+          .replace(/,(\s*[}\]])/g, '$1')  // Remove trailing commas
+          .replace(/([{,]\s*)(\w+):/g, '$1"$2":')  // Quote unquoted keys
+          .replace(/:\s*'([^']*)'/g, ': "$1"')  // Convert single quotes to double quotes
+          .replace(/:\s*([^",{\[\]}\s]+)(?=\s*[,}])/g, ': "$1"');  // Quote unquoted string values
+        
+        console.log('🔧 Cleaned JSON:', cleanJson);
+        
+        const parsed = JSON.parse(cleanJson);
         
         // Validate the response structure
         if (typeof parsed.hasArtist === 'boolean' && 
@@ -140,6 +157,7 @@ JSON:
       }
       
       // Fallback parsing if JSON is malformed
+      console.log('⚠️ JSON parsing failed, using fallback regex parsing');
       const hasArtist = /hasArtist['":\s]*true/i.test(responseText);
       const artistMatch = responseText.match(/artistName['":\s]*["']([^"']+)["']/i);
       const confidenceMatch = responseText.match(/confidence['":\s]*([0-9.]+)/i);
@@ -162,6 +180,7 @@ JSON:
       return null;
     } catch (error) {
       console.error('Error parsing AI artist analysis response:', error);
+      console.error('Response text that failed:', responseText);
       return null;
     }
   }
