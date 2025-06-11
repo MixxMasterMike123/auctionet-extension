@@ -2,24 +2,19 @@
 (async function() {
   'use strict';
   
-  console.log('Auctionet Admin Item Banner: Starting initialization...');
-  
   try {
     // Wait for page to be fully loaded
     if (document.readyState === 'loading') {
-      console.log('Waiting for DOM to load...');
       await new Promise(resolve => {
         document.addEventListener('DOMContentLoaded', resolve);
       });
     }
 
     // Additional wait to ensure dynamic content is loaded
-    console.log('Waiting for dynamic content...');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Check if we're on the right page (admin item show page, not edit)
     const url = window.location.href;
-    console.log('Current URL:', url);
     
     // More robust page detection - handle the actual Auctionet URL structure
     const isAdminItemPage = url.includes('auctionet.com/admin/') && 
@@ -34,42 +29,26 @@
                              document.querySelector('.heading');
     const hasEditLink = document.querySelector('a[href*="/edit"]');
     
-    console.log('Page detection:', {
-      isAdminItemPage,
-      hasItemTable,
-      hasDetailsSection,
-      hasEditLink,
-      url
-    });
-
     const isCorrectPage = isAdminItemPage && (hasItemTable || hasDetailsSection) && hasEditLink;
 
     if (!isCorrectPage) {
-      console.log('Auctionet Admin Item Banner: Not on an admin item show page');
       return;
     }
-
-    console.log('Auctionet Admin Item Banner: On correct page, initializing...');
     
     // Extract item data from the admin show page
     const itemData = extractItemDataFromShowPage();
-    console.log('Extracted item data:', itemData);
     
     if (!itemData.title) {
-      console.log('Could not extract item data, aborting');
       return;
     }
     
     // Calculate quality score
     const qualityScore = calculateQualityScore(itemData);
-    console.log('Calculated quality score:', qualityScore);
     
     // Show banner if quality is below 71 (catches items missing keywords that would score 70 on edit page)
     if (qualityScore.score < 71) {
       showQualityBanner(qualityScore, itemData);
     }
-    
-    console.log('Auctionet Admin Item Banner: Initialization complete');
     
   } catch (error) {
     console.error('Auctionet Admin Item Banner: Error during initialization:', error);
@@ -84,7 +63,7 @@
       artist: ''
     };
 
-    console.log('Starting data extraction...');
+
 
     // Extract title from the details section - try multiple selectors
     const titleSelectors = [
@@ -99,7 +78,7 @@
       const titleElement = document.querySelector(selector);
       if (titleElement && titleElement.textContent.trim()) {
         data.title = titleElement.textContent.trim();
-        console.log('Found title with selector:', selector, '→', data.title);
+
         break;
       }
     }
@@ -112,7 +91,7 @@
           const nextElement = heading.nextElementSibling;
           if (nextElement && nextElement.textContent.trim()) {
             data.title = nextElement.textContent.trim();
-            console.log('Found title via heading search:', data.title);
+
             break;
           }
         }
@@ -129,7 +108,7 @@
         const nextSibling = headings[i].nextElementSibling;
         if (nextSibling) {
           data.description = nextSibling.innerHTML || nextSibling.textContent || '';
-          console.log('Found description:', data.description.substring(0, 50) + '...');
+
         }
       }
       
@@ -137,7 +116,7 @@
         const nextSibling = headings[i].nextElementSibling;
         if (nextSibling) {
           data.condition = nextSibling.innerHTML || nextSibling.textContent || '';
-          console.log('Found condition:', data.condition.substring(0, 50) + '...');
+
         }
       }
     }
@@ -154,7 +133,7 @@
           if (valueCell) {
             data.artist = valueCell.textContent.trim();
             if (data.artist === '-') data.artist = '';
-            console.log('Found artist:', data.artist);
+
             break;
           }
         }
@@ -165,7 +144,7 @@
     // For keywords, we'll assume empty since they're not visible on show page
     data.keywords = '';
 
-    console.log('Final extracted data:', data);
+
     return data;
   }
 
@@ -173,28 +152,18 @@
     let score = 100;
     const issues = [];
     
-    console.log('🔍 Quality scoring debug:');
-    console.log('Title:', `"${data.title}" (${data.title.length} chars)`);
-    console.log('Description raw:', `"${data.description}"`);
-    console.log('Condition raw:', `"${data.condition}"`);
-    
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
     const condLength = data.condition.replace(/<[^>]*>/g, '').length;
-    
-    console.log('Description clean:', `"${data.description.replace(/<[^>]*>/g, '')}" (${descLength} chars)`);
-    console.log('Condition clean:', `"${data.condition.replace(/<[^>]*>/g, '')}" (${condLength} chars)`);
     
     // Apply same scoring logic as in quality-analyzer.js
     if (data.title.length < 14) {
       score -= 15;
       issues.push('Titel för kort');
-      console.log('❌ Title penalty: -15 (too short)');
     }
     
     if (descLength < 35) {
       score -= 20;
       issues.push('Beskrivning för kort');
-      console.log('❌ Description penalty: -20 (too short)');
     }
     
     // Condition analysis
@@ -205,7 +174,6 @@
       if (condLength < 25) {
         score -= 20;
         issues.push('Konditionsrapport för kort');
-        console.log('❌ Condition length penalty: -20 (too short)');
       }
       
       if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i) || 
@@ -213,7 +181,6 @@
           conditionText.trim() === 'bruksslitage') {
         score -= 35;
         issues.push('Enbart "bruksslitage" i kondition');
-        console.log('❌ "Bruksslitage only" penalty: -35');
       }
       
       const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
@@ -222,30 +189,23 @@
       if (hasVaguePhrase && condLength < 40) {
         score -= 20;
         issues.push('Vaga uttryck i kondition');
-        console.log('❌ Vague condition penalty: -20');
       }
     }
     
     // Check for measurements
     const hasMeasurementsResult = hasMeasurements(data.description);
-    console.log('Has measurements:', hasMeasurementsResult);
     if (!hasMeasurementsResult) {
       score -= 10;
       issues.push('Saknar mått');
-      console.log('❌ No measurements penalty: -10');
     }
     
     const adminScore = Math.max(0, score);
-    console.log('📊 Admin score (without keywords):', adminScore);
     
     // Convert to "edit page equivalent" score
     // Admin scoring: 0-100 (no keywords penalty)
     // Edit scoring: 0-100 (includes 30-point keywords penalty)
     // Formula: editEquivalent = adminScore - 30 (assuming keywords are missing)
     const editEquivalentScore = Math.max(0, adminScore - 30);
-    
-    console.log('🔄 Edit page equivalent score:', editEquivalentScore);
-    console.log('📋 Issues found:', issues);
     
     // Add keywords to issues list since we assume they're missing
     const allIssues = [...issues];
