@@ -243,16 +243,43 @@ export class UIManager {
         background: #004085;
       }
       
-      .ai-assist-button[data-field-type="title-correct"] {
+            .ai-assist-button[data-field-type="title-correct"] {
         background: #D18300;
+        transition: all 0.3s ease;
       }
-      
+
       .ai-assist-button[data-field-type="title-correct"]:hover {
         background: #B17200;
       }
-      
+
       .ai-assist-button[data-field-type="title-correct"]:active {
         background: #A16600;
+      }
+
+      .ai-assist-button[data-field-type="title-correct"].loading {
+        background: #B17200;
+        position: relative;
+        color: transparent;
+        pointer-events: none;
+      }
+
+      .ai-assist-button[data-field-type="title-correct"].loading::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 12px;
+        height: 12px;
+        margin: -6px 0 0 -6px;
+        border: 2px solid #fff;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
       
       .ai-undo-wrapper {

@@ -800,6 +800,10 @@
             e.preventDefault();
             const fieldType = e.target.dataset.fieldType;
             if (fieldType) {
+              // Add loading animation for title-correct button
+              if (fieldType === 'title-correct') {
+                e.target.classList.add('loading');
+              }
               this.improveField(fieldType);
             } else {
               console.warn('Button clicked but no fieldType found:', e.target);
@@ -867,6 +871,12 @@
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);
             
+            // Remove loading animation for title-correct button
+            if (fieldType === 'title-correct') {
+              const button = document.querySelector('.ai-assist-button[data-field-type="title-correct"]');
+              if (button) button.classList.remove('loading');
+            }
+            
             // Re-analyze quality with animation after improvement
             setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
           } else {
@@ -875,6 +885,12 @@
         } catch (error) {
           console.error('Error improving field:', error);
           this.showFieldErrorIndicator(fieldType, error.message);
+          
+          // Remove loading animation for title-correct button on error
+          if (fieldType === 'title-correct') {
+            const button = document.querySelector('.ai-assist-button[data-field-type="title-correct"]');
+            if (button) button.classList.remove('loading');
+          }
         }
       }
 
