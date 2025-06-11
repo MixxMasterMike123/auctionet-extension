@@ -5,7 +5,7 @@
 export class FieldMonitorManager {
   constructor(options = {}) {
     this.options = {
-      debounceTime: 1000,
+      debounceTime: 2000, // Increased to 2 seconds to prevent excessive API calls
       enableRealTimeAnalysis: true,
       monitorFocus: true,
       monitorTyping: true,
@@ -132,18 +132,26 @@ export class FieldMonitorManager {
    * @param {string} fieldType - Field type
    */
   attachFieldEventListeners(element, fieldType) {
-    // Input change monitoring
-    const handleInput = () => {
-      this.handleFieldInput(fieldType);
-    };
-
     // Focus monitoring
     const handleFocus = () => {
       this.handleFieldFocus(fieldType);
     };
 
+    // IMMEDIATE analysis on blur (when user clicks outside field)
     const handleBlur = () => {
-      this.handleFieldBlur(fieldType);
+      console.log(`🔍 Field ${fieldType} lost focus, triggering immediate analysis`);
+      // Cancel any pending debounced analysis
+      if (this.debounceTimers.has(fieldType)) {
+        clearTimeout(this.debounceTimers.get(fieldType));
+        this.debounceTimers.delete(fieldType);
+      }
+      // Trigger immediate analysis
+      this.triggerFieldAnalysis(fieldType, { immediate: true });
+    };
+
+    // FALLBACK: Input change monitoring with longer debounce
+    const handleInput = () => {
+      this.handleFieldInput(fieldType);
     };
 
     // Paste monitoring
@@ -155,9 +163,9 @@ export class FieldMonitorManager {
     };
 
     // Attach listeners
-    element.addEventListener('input', handleInput);
     element.addEventListener('focus', handleFocus);
     element.addEventListener('blur', handleBlur);
+    element.addEventListener('input', handleInput);
     element.addEventListener('paste', handlePaste);
 
     // Store cleanup function

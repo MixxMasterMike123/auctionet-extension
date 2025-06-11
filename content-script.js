@@ -1467,10 +1467,17 @@
           const debouncedAnalysis = this.debounce(() => {
             const formData = this.dataExtractor.extractItemData();
             this.analyzeConditionQuality(formData);
-          }, 2000);
+          }, 1000); // Reduced since blur handles immediate analysis
           
+          // IMMEDIATE analysis on blur (when user clicks outside field)
+          conditionField.addEventListener('blur', () => {
+            console.log('🔍 DEBUGGING: Condition field blur detected, triggering immediate analysis');
+            const formData = this.dataExtractor.extractItemData();
+            this.analyzeConditionQuality(formData);
+          });
+          
+          // Debounced analysis on input (reduced delay since blur handles immediate analysis)
           conditionField.addEventListener('input', debouncedAnalysis);
-          conditionField.addEventListener('blur', debouncedAnalysis);
           
           // NEW: IMMEDIATE condition analysis on edit pages since listing already exists
           setTimeout(() => {

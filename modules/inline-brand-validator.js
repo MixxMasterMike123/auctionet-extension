@@ -58,13 +58,21 @@ export class InlineBrandValidator {
       clearTimeout(this.debounceTimeout);
       this.debounceTimeout = setTimeout(() => {
         this.validateFieldContent(field, markerContainer, type);
-      }, 800); // Debounce typing
+      }, 800); // Reduced since blur handles immediate validation
     };
 
+    // IMMEDIATE validation on blur (when user clicks outside field)
+    field.addEventListener('blur', () => {
+      console.log('🔍 DEBUGGING: Brand validator blur detected, triggering immediate validation for:', field.id);
+      clearTimeout(this.debounceTimeout);
+      this.validateFieldContent(field, markerContainer, type);
+      this.hideTooltip();
+    });
+    
+    // Debounced validation on input (reduced delay since blur handles immediate validation)
     field.addEventListener('input', validateHandler);
     field.addEventListener('paste', validateHandler);
     field.addEventListener('focus', () => this.showOverlay(markerContainer));
-    field.addEventListener('blur', () => this.hideTooltip());
 
     // NEW: Validate existing content immediately (important for EDIT pages)
     if (field.value && field.value.trim().length > 0) {

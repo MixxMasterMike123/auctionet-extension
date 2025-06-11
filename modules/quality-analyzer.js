@@ -54,6 +54,7 @@ export class QualityAnalyzer {
     
     this.pendingAnalyses = new Set();
     this.aiAnalysisActive = false;
+    this.pendingTimeouts = new Set(); // Track all pending timeouts
     
     // Inject dependencies
     this.itemTypeHandlers.setSearchTermExtractor(this.searchTermExtractor);
@@ -437,7 +438,29 @@ export class QualityAnalyzer {
   async runAIArtistDetection(data, currentWarnings, currentScore) {
     console.log('🔍 DEBUGGING: runAIArtistDetection() called with artist field:', data.artist);
     
-    // SIMPLIFIED: Always run full AI analysis - no rule-based pre-checks needed
+    // CRITICAL FIX: Skip AI artist detection if artist field is already filled
+    if (data.artist && data.artist.trim().length > 2) {
+      console.log('🔍 DEBUGGING: Artist field already filled, skipping AI artist detection');
+      
+      // Still run brand validation and market analysis for existing artist
+      await this.triggerMarketAnalysisWithExistingArtist(data);
+      
+      // Run brand validation in parallel
+      try {
+        const brandIssues = await this.brandValidationManager.validateBrandsInContent(data.title, data.description);
+        await this.handleBrandValidationResult(brandIssues, data, currentWarnings, currentScore);
+      } catch (error) {
+        console.error('❌ Brand validation failed:', error);
+      }
+      
+      return {
+        detectedArtist: null,
+        warnings: currentWarnings,
+        score: currentScore
+      };
+    }
+    
+    // SIMPLIFIED: Run full AI analysis only when artist field is empty
     // AI detection is fast, reliable, and handles all edge cases better than regex
 
     // Show initial AI loading indicator
@@ -2208,17 +2231,33 @@ export class QualityAnalyzer {
 
   setupLiveQualityUpdates() {
     // Debounce function to prevent too frequent updates
-    let updateTimeout;
     const debouncedUpdate = (event) => {
       console.log('🔍 DEBUGGING: debouncedUpdate called for field:', event.target?.id || 'unknown');
       
-      clearTimeout(updateTimeout);
-      // Store timeout reference for potential clearing
-      this.updateTimeout = setTimeout(() => {
-        console.log('🔍 DEBUGGING: timeout triggered, about to call analyzeQuality()');
+              // CRITICAL: Use instance variable for timeout to allow blur events to clear it
+        clearTimeout(this.updateTimeout);
         
-        // CRITICAL FIX: Check if AI artist detection is already active before triggering recalculation
-        const existingWarnings = this.extractCurrentWarnings();
+        // Track this timeout so we can clear it later
+        this.updateTimeout = setTimeout(() => {
+          // Remove this timeout from tracking when it executes
+          this.pendingTimeouts.delete(this.updateTimeout);
+          
+          console.log('🔍 DEBUGGING: timeout triggered, about to call analyzeQuality()');
+          
+          // CRITICAL: Don't run analysis if user is still actively editing a field
+          const activeElement = document.activeElement;
+          if (activeElement && (
+            activeElement.id === 'item_title_sv' ||
+            activeElement.id === 'item_description_sv' ||
+            activeElement.id === 'item_condition_sv' ||
+            activeElement.id === 'item_hidden_keywords'
+          )) {
+            console.log('🛡️ User still editing field:', activeElement.id, '- skipping analysis to prevent interruption');
+            return;
+          }
+          
+          // CRITICAL FIX: Check if AI artist detection is already active before triggering recalculation
+          const existingWarnings = this.extractCurrentWarnings();
         console.log('🔍 DEBUGGING: existing warnings count:', existingWarnings.length);
         
         existingWarnings.forEach((warning, index) => {
@@ -2247,7 +2286,10 @@ export class QualityAnalyzer {
         }
         
         this.analyzeQuality();
-      }, 800); // Wait 800ms after user stops typing
+      }, 800); // Reduced since blur handles immediate analysis
+      
+      // Add this timeout to our tracking set
+      this.pendingTimeouts.add(this.updateTimeout);
     };
 
     // Use the exact same selectors as extractItemData()
@@ -2270,9 +2312,18 @@ export class QualityAnalyzer {
         if (element.type === 'checkbox') {
           element.addEventListener('change', debouncedUpdate);
         } else {
+          // IMMEDIATE analysis on blur (when user clicks outside field)
+          element.addEventListener('blur', () => {
+            console.log('🔍 DEBUGGING: Field blur detected, triggering immediate analysis for:', element.id);
+            // CRITICAL: Clear ALL pending timeouts to prevent duplicate analysis
+            clearTimeout(this.updateTimeout);
+            this.clearPendingQualityTimeouts();
+            this.analyzeQuality();
+          });
+          
+          // DEBOUNCED analysis for typing (with longer delay as fallback)
           element.addEventListener('input', debouncedUpdate);
           element.addEventListener('paste', debouncedUpdate);
-          element.addEventListener('keyup', debouncedUpdate);
         }
         
         // Test immediate trigger
@@ -3126,6 +3177,13 @@ export class QualityAnalyzer {
       console.log('🔄 DEBUGGING: Cleared pending debouncedUpdate timeout');
     }
     
+    // Clear ALL tracked timeouts
+    this.pendingTimeouts.forEach(timeoutId => {
+      clearTimeout(timeoutId);
+      console.log('🔄 DEBUGGING: Cleared tracked timeout:', timeoutId);
+    });
+    this.pendingTimeouts.clear();
+    
     // Clear any other quality-related timeouts
     const timeoutElements = document.querySelectorAll('[data-quality-timeout]');
     timeoutElements.forEach(element => {
@@ -3133,7 +3191,7 @@ export class QualityAnalyzer {
       if (timeoutId) {
         clearTimeout(parseInt(timeoutId));
         element.removeAttribute('data-quality-timeout');
-        console.log('🔄 DEBUGGING: Cleared timeout:', timeoutId);
+        console.log('🔄 DEBUGGING: Cleared DOM timeout:', timeoutId);
       }
     });
   }

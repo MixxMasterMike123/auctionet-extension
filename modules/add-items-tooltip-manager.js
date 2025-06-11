@@ -108,25 +108,25 @@ export class AddItemsTooltipManager {
     // IMPROVED: Enhanced artist detection on title field changes
     const titleField = document.querySelector(this.fieldMappings.title);
     if (titleField) {
-      // Longer debounce for more stable detection (like edit page)
-      titleField.addEventListener('input', this.debounce((e) => {
-        console.log('🎯 Title field input detected, scheduling artist detection...');
-        this.scheduleArtistDetection();
-      }, 800)); // Increased from 500ms to 800ms
-      
-      titleField.addEventListener('paste', () => {
-        console.log('🎯 Title field paste detected, scheduling artist detection...');
-        setTimeout(() => this.scheduleArtistDetection(), 200); // Slight delay for paste content
-      });
-      
-      // IMPROVED: Also listen for focus out to trigger final detection
+      // IMMEDIATE analysis on blur (when user clicks outside field)
       titleField.addEventListener('blur', () => {
-        console.log('🎯 Title field lost focus, triggering final artist detection...');
+        console.log('🎯 Title field lost focus, triggering immediate artist detection...');
         // Cancel any pending detection and run immediately
         if (this.artistDetectionTimeout) {
           clearTimeout(this.artistDetectionTimeout);
         }
         this.triggerArtistDetectionOnly();
+      });
+      
+      // FALLBACK: Debounced analysis for typing (longer delay as backup)
+      titleField.addEventListener('input', this.debounce((e) => {
+        console.log('🎯 Title field input detected, scheduling artist detection...');
+        this.scheduleArtistDetection();
+      }, 3000)); // Longer fallback delay since blur is primary trigger
+      
+      titleField.addEventListener('paste', () => {
+        console.log('🎯 Title field paste detected, scheduling artist detection...');
+        setTimeout(() => this.scheduleArtistDetection(), 200); // Slight delay for paste content
       });
     }
     
@@ -134,11 +134,20 @@ export class AddItemsTooltipManager {
     const descriptionField = document.querySelector(this.fieldMappings.description);
     if (descriptionField) {
       console.log('✅ Setting up independent description field monitoring');
+      
+      // IMMEDIATE analysis on blur (when user clicks outside field)
+      descriptionField.addEventListener('blur', () => {
+        console.log('📝 Description field lost focus, triggering immediate analysis...');
+        const formData = this.extractFormData();
+        this.analyzeDescriptionQuality(formData);
+      });
+      
+      // FALLBACK: Debounced analysis for typing (longer delay as backup)
       const debouncedDescriptionAnalysis = this.debounce((e) => {
         console.log('📝 Description field changed, analyzing description quality...');
         const formData = this.extractFormData();
         this.analyzeDescriptionQuality(formData);
-      }, 1200); // Slightly longer debounce for description
+      }, 4000); // Longer fallback delay since blur is primary trigger
       
       descriptionField.addEventListener('input', debouncedDescriptionAnalysis);
       descriptionField.addEventListener('paste', () => {
@@ -148,13 +157,6 @@ export class AddItemsTooltipManager {
           this.analyzeDescriptionQuality(formData);
         }, 300);
       });
-      
-      // Also trigger on blur for final analysis
-      descriptionField.addEventListener('blur', () => {
-        console.log('📝 Description field lost focus, final description analysis...');
-        const formData = this.extractFormData();
-        this.analyzeDescriptionQuality(formData);
-      });
     } else {
       console.warn('❌ Description field not found for monitoring');
     }
@@ -163,11 +165,20 @@ export class AddItemsTooltipManager {
     const conditionField = document.querySelector(this.fieldMappings.condition);
     if (conditionField) {
       console.log('✅ Setting up independent condition field monitoring');
+      
+      // IMMEDIATE analysis on blur (when user clicks outside field)
+      conditionField.addEventListener('blur', () => {
+        console.log('🩺 Condition field lost focus, triggering immediate analysis...');
+        const formData = this.extractFormData();
+        this.analyzeConditionQuality(formData);
+      });
+      
+      // FALLBACK: Debounced analysis for typing (longer delay as backup)
       const debouncedConditionAnalysis = this.debounce((e) => {
         console.log('🩺 Condition field changed, analyzing condition quality...');
         const formData = this.extractFormData();
         this.analyzeConditionQuality(formData);
-      }, 1000); // Medium debounce for condition
+      }, 4000); // Longer fallback delay since blur is primary trigger
       
       conditionField.addEventListener('input', debouncedConditionAnalysis);
       conditionField.addEventListener('paste', () => {
@@ -177,13 +188,6 @@ export class AddItemsTooltipManager {
           this.analyzeConditionQuality(formData);
         }, 300);
       });
-      
-      // Also trigger on blur for final analysis
-      conditionField.addEventListener('blur', () => {
-        console.log('🩺 Condition field lost focus, final condition analysis...');
-        const formData = this.extractFormData();
-        this.analyzeConditionQuality(formData);
-      });
     } else {
       console.warn('❌ Condition field not found for monitoring');
     }
@@ -191,6 +195,22 @@ export class AddItemsTooltipManager {
     // Also monitor artist field changes to ensure we re-detect when artist is cleared
     const artistField = document.querySelector(this.fieldMappings.artist);
     if (artistField) {
+      // IMMEDIATE analysis on blur (when user clicks outside field)
+      artistField.addEventListener('blur', (e) => {
+        const artistValue = e.target.value.trim();
+        console.log('🎯 Artist field lost focus, value:', artistValue);
+        
+        // If artist field was cleared, re-run detection immediately
+        if (artistValue.length === 0) {
+          console.log('🔄 Artist field cleared, triggering immediate re-detection...');
+          if (this.artistDetectionTimeout) {
+            clearTimeout(this.artistDetectionTimeout);
+          }
+          this.triggerArtistDetectionOnly();
+        }
+      });
+      
+      // FALLBACK: Debounced analysis for typing (longer delay as backup)
       artistField.addEventListener('input', this.debounce((e) => {
         const artistValue = e.target.value.trim();
         console.log('🎯 Artist field changed:', artistValue);
@@ -200,7 +220,7 @@ export class AddItemsTooltipManager {
           console.log('🔄 Artist field cleared, re-running detection...');
           this.scheduleArtistDetection();
         }
-      }, 500));
+      }, 3000)); // Longer fallback delay since blur is primary trigger
     }
     
     // NEW: Monitor "Inga anmärkningar" checkbox to dismiss condition tooltips when checked
