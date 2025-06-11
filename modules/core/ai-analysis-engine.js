@@ -115,35 +115,31 @@ JSON:
    */
   parseArtistAnalysisResponse(responseText) {
     try {
-      // Log the raw response for debugging
-      console.log('🔍 AI Analysis Response (raw):', responseText);
-      
       // Try to extract JSON from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        console.log('🔍 Extracted JSON:', jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
         
-        // Clean up common JSON issues before parsing
-        let cleanJson = jsonMatch[0];
-        
-        // Fix common JSON issues step by step
-        cleanJson = cleanJson
-          .replace(/,(\s*[}\]])/g, '$1')  // Remove trailing commas
-          .replace(/([{,]\s*)(\w+):/g, '$1"$2":')  // Quote unquoted keys
-          .replace(/:\s*'([^']*)'/g, ': "$1"')  // Convert single quotes to double quotes
+        // Validate the response structure
+        if (typeof parsed.hasArtist === 'boolean' && 
+            typeof parsed.confidence === 'number' &&
+            parsed.confidence >= 0 && parsed.confidence <= 1) {
           
-        // Fix the specific nested quotes issue in the response
-        // Replace: "VÄGGLAMPA, "Pioggia d'oro", Italien" with: "VÄGGLAMPA, \"Pioggia d'oro\", Italien"
-        cleanJson = cleanJson.replace(/"([^"]*)"([^"]+)"([^"]*)"/g, '"$1\\"$2\\"$3"');
-        
-        console.log('🔧 Cleaned JSON:', cleanJson);
-        
-        const parsed = JSON.parse(cleanJson);
-        return this.validateAndStructureArtistResponse(parsed);
+          return {
+            hasArtist: parsed.hasArtist,
+            artistName: parsed.artistName || null,
+            isVerified: parsed.isVerified || false,
+            foundIn: parsed.foundIn || 'unknown',
+            suggestedTitle: parsed.suggestedTitle || null,
+            suggestedDescription: parsed.suggestedDescription || null,
+            confidence: parsed.confidence,
+            reasoning: parsed.reasoning || '',
+            source: 'ai'
+          };
+        }
       }
       
       // Fallback parsing if JSON is malformed
-      console.log('⚠️ JSON parsing failed, using fallback regex parsing');
       const hasArtist = /hasArtist['":\s]*true/i.test(responseText);
       const artistMatch = responseText.match(/artistName['":\s]*["']([^"']+)["']/i);
       const confidenceMatch = responseText.match(/confidence['":\s]*([0-9.]+)/i);
@@ -166,33 +162,8 @@ JSON:
       return null;
     } catch (error) {
       console.error('Error parsing AI artist analysis response:', error);
-      console.error('Response text that failed:', responseText);
       return null;
     }
-  }
-
-  /**
-   * Validate and structure artist response
-   */
-  validateAndStructureArtistResponse(parsed) {
-    // Validate the response structure
-    if (typeof parsed.hasArtist === 'boolean' && 
-        typeof parsed.confidence === 'number' &&
-        parsed.confidence >= 0 && parsed.confidence <= 1) {
-      
-      return {
-        hasArtist: parsed.hasArtist,
-        artistName: parsed.artistName || null,
-        isVerified: parsed.isVerified || false,
-        foundIn: parsed.foundIn || 'unknown',
-        suggestedTitle: parsed.suggestedTitle || null,
-        suggestedDescription: parsed.suggestedDescription || null,
-        confidence: parsed.confidence,
-        reasoning: parsed.reasoning || '',
-        source: 'ai'
-      };
-    }
-    return null;
   }
 
   /**
