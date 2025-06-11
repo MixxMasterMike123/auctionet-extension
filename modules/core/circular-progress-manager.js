@@ -97,8 +97,37 @@ export class CircularProgressManager {
       }, 100);
     }
     
+    // NEW: Ensure "Förbättra alla" button is present
+    this.ensureImproveAllButton(container);
+    
     // Mark that initial load is complete
     this.isInitialLoad = false;
+  }
+
+  /**
+   * Ensure the "Förbättra alla" button is present in the quality indicator
+   * This preserves the existing functionality after circular progress is added
+   */
+  ensureImproveAllButton(container) {
+    // Check if button already exists
+    const existingButton = container.querySelector('.ai-master-button');
+    
+    if (!existingButton) {
+      console.log('✅ Adding missing "Förbättra alla" button');
+      
+      // Create the button with the same structure as the original system
+      const button = document.createElement('button');
+      button.className = 'ai-assist-button ai-master-button';
+      button.type = 'button';
+      button.textContent = '⚡ Förbättra alla';
+      
+      // Append at the end of the container
+      container.appendChild(button);
+      
+      console.log('✅ "Förbättra alla" button added to quality indicator');
+    } else {
+      console.log('✅ "Förbättra alla" button already exists');
+    }
   }
 
   /**
