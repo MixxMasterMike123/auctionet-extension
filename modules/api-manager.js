@@ -774,6 +774,33 @@ KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
 • EXEMPEL: "Pepparkorn" ska förbli "Pepparkorn" (med citattecken) för att undvika översättning
 • Om originaltiteln har citattecken runt produktnamn - BEHÅLL dem ALLTID
 
+KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
+• Rätta alltid märkesnamn till korrekt stavning/kapitalisering enligt varumärkesstandard
+• IKEA: alltid versaler - "Ikea" → "IKEA", "ikea" → "IKEA"  
+• iPhone: alltid "iPhone" - "Iphone" → "iPhone", "IPHONE" → "iPhone"
+• Royal Copenhagen: alltid "Royal Copenhagen" - "royal copenhagen" → "Royal Copenhagen"
+• Kosta Boda: alltid "Kosta Boda" - "kosta boda" → "Kosta Boda"
+• Orrefors: alltid "Orrefors" - "orrefors" → "Orrefors"
+• Rolex: alltid "Rolex" - "rolex" → "Rolex", "ROLEX" → "Rolex" (utom första ordet)
+• Omega: alltid "Omega" - "omega" → "Omega"
+• Lego: alltid "Lego" - "lego" → "Lego", "LEGO" → "Lego" (utom första ordet)
+• Använd din omfattande kunskap om korrekta märkesstavningar för alla välkända varumärken
+• Respektera märkenas officiella kapitalisering/formatering
+• Om osäker på exakt stavning, behåll originalet
+
+KRITISKA TITELFORMATREGLER FÖR TITEL-FÄLTET:
+${itemData.artist ? 
+  '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' : 
+  '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
+
+SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
+• Om konstnärsnamn finns i MITTEN eller SLUTET av nuvarande titel (inte först) - BEHÅLL det där
+• Detta gäller när OBJEKTET är huvudsaken, inte konstnären  
+• Korrigera stavfel i konstnärsnamnet men behåll exakt position
+• FÖRSTA ORDET ska vara VERSALER (objektnamnet är huvudsaken)
+• EXEMPEL: "SERVISDELAR, 24 delar, porslin, Stig Lindberg, 'Spisa Ribb', Gustavsberg. 1900-tal."
+• Flytta ALDRIG konstnären när den inte är i början - det är medvetet placerad
+
 Returnera EXAKT i detta format (en rad per fält):
 TITEL: [förbättrad titel]
 BESKRIVNING: [förbättrad beskrivning utan konditionsinformation]
