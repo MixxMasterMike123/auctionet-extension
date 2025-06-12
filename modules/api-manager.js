@@ -635,6 +635,7 @@ Om detta är en title-correct uppgift - GÖR ENDAST MINIMALA KORRIGERINGAR:
 • FÖRBÄTTRA ALDRIG innehåll eller struktur
 • Korrigera ENDAST stavfel och interpunktion
 • Behåll EXAKT samma ordval och struktur som originalet
+• Lägg till avslutande punkt (.) om den saknas - svensk grammatik kräver det
 
 ABSOLUT FÖRBJUDNA VÄRDEORD - ANVÄND ALDRIG:
 • Fantastisk, Vacker, Utsökt, Nyskick, Magnifik, Underbar, Exceptionell, Perfekt
@@ -911,7 +912,7 @@ KRITISKT - BEVARA ALLA MÅTT OCH LISTOR I BESKRIVNINGEN:
 • BEHÅLL ALLTID detaljerade måttlistor: "4 snapsglas, höjd 15,5 cm", "2 vinglas, höjd 19,5 cm", etc.
 • BEHÅLL ALLTID kvantiteter och specifikationer: "Bestående av:", "Består av:", antal objekt
 • BEHÅLL ALLTID alla mått i cm/mm - dessa är ALDRIG konditionsinformation
-• TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått, kvantiteter eller listor
+• TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
 • EXEMPEL PÅ VAD SOM MÅSTE BEVARAS: "Bestående av: 4 snapsglas, höjd 15,5 cm, 2 vinglas, höjd 19,5 cm"
 
 VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KRITISKT FEL!
@@ -996,10 +997,11 @@ ENDAST TILLÅTET - MINIMALA KORRIGERINGAR:
 • Saknade kommatecken mellan namn: "Moshe Dayan Menachhem Begin" → "Moshe Dayan, Menachem Begin"
 • Saknade citattecken runt titlar/motiv: "Dune Mario Bellini" → "Dune" Mario Bellini
 • Kommatecken istället för punkt mellan objekt och material
+• Saknad avslutande punkt: "TALLRIK, keramik, Sverige" → "TALLRIK, keramik, Sverige."
 
 EXEMPEL KORREKT MINIMAL KORRIGERING:
 ORIGINAL: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan Menachhem Begin, Anwar Sadat, signerade"
-KORREKT: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan, Menachem Begin, Anwar Sadat, signerade"
+KORREKT: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan, Menachem Begin, Anwar Sadat, signerade."
 FÖRBJUDET: "Porträttskulpturer, trä, föreställande Indira Gandhi, Moshe Dayan, Menachem Begin och Anwar Sadat, signerade"
 
 STRIKT REGEL: Behåll EXAKT samma ordval, struktur och innehåll. Korrigera ENDAST uppenbara stavfel och interpunktion.
@@ -1009,7 +1011,7 @@ KRITISKT RETURFORMAT:
 • INGA fältnamn som "TITEL:" eller "titel:"
 • INGA strukturerade format eller JSON
 • INGA extra förklaringar eller kommentarer
-• EXEMPEL KORREKT SVAR: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan, Menachem Begin, Anwar Sadat, signerade"
+• EXEMPEL KORREKT SVAR: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan, Menachem Begin, Anwar Sadat, signerade."
 • EXEMPEL FELAKTIGT SVAR: "TITEL: ..." eller "{title: '...'}" eller förbättringar av innehåll
 
 Returnera ENDAST den korrigerade titeln med minimala stavnings- och interpunktionskorrigeringar.`;
