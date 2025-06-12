@@ -1005,7 +1005,7 @@ EXEMPEL KORREKT MINIMAL KORRIGERING:
 • Saknad punkt: "TALLRIK, keramik, Sverige" → "TALLRIK, keramik, Sverige."
 • FÖRBJUDET: Ändra ordval eller lägga till beskrivande text
 
-STRIKT REGEL: Behåll EXAKT samma ordval, struktur och innehåll. Korrigera ENDAST uppenbara stavfel och interpunktion.
+STRIKT REGEL: Behåll EXAKT samma ordval, struktur och innehåll. Korrigera ENDAST uppenbara stavfel och interpunktion. LÄGG ALLTID TILL AVSLUTANDE PUNKT.
 
 KRITISKT RETURFORMAT:
 • Returnera ENDAST den korrigerade titeln som ren text
