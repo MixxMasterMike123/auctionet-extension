@@ -230,8 +230,27 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
         }
       });
       
+      // IMPROVED FALLBACK LOGIC: Handle cases where AI doesn't follow the expected format
       if (Object.keys(result).length === 0) {
-        result[fieldType] = response.trim();
+        // For title-correct, if no structured response, use the entire response as title
+        if (fieldType === 'title-correct') {
+          result.title = response.trim();
+        } else {
+          result[fieldType] = response.trim();
+        }
+      }
+      
+      // SPECIAL CASE: For title-correct, if we got other fields but no title, try to extract title from response
+      if (fieldType === 'title-correct' && !result.title && Object.keys(result).length > 0) {
+        // Check if any of the other fields might contain the corrected title
+        if (result.description && result.description.length > 0 && result.description.length < 100) {
+          // If description is short, it might be the corrected title
+          result.title = result.description;
+        } else {
+          // Last resort: use the entire response as title
+          result.title = response.trim();
+        }
+        console.warn('⚠️ title-correct: AI returned unexpected format, using fallback logic');
       }
       
       // For title-correct, map the result to title field for field application
@@ -940,7 +959,15 @@ EXEMPEL KORRIGERINGAR:
 • "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
 • "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
 
-Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`;
+KRITISKT RETURFORMAT:
+• Returnera ENDAST den korrigerade titeln som ren text
+• INGA fältnamn som "TITEL:" eller "titel:"
+• INGA strukturerade format eller JSON
+• INGA extra förklaringar eller kommentarer
+• EXEMPEL KORREKT SVAR: "TALLRIK, keramik, Sverige"
+• EXEMPEL FELAKTIGT SVAR: "TITEL: TALLRIK, keramik, Sverige" eller "{title: 'TALLRIK, keramik, Sverige'}"
+
+Returnera ENDAST den korrigerade titeln som ren text utan extra formatering eller etiketter.`;
 
       case 'description':
         return baseInfo + `
