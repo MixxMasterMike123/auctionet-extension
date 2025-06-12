@@ -602,6 +602,14 @@ GRUNDREGLER:
 • UPPFINN ALDRIG information som inte finns
 • Skriv naturligt och flytande - fokusera på autenticitet över regelefterlevnad
 
+🚨 SPECIAL REGEL FÖR TITLE-CORRECT:
+Om detta är en title-correct uppgift - GÖR ENDAST MINIMALA KORRIGERINGAR:
+• ÄNDRA ALDRIG ordval eller terminologi
+• LÄGG ALDRIG TILL beskrivande ord
+• FÖRBÄTTRA ALDRIG innehåll eller struktur
+• Korrigera ENDAST stavfel och interpunktion
+• Behåll EXAKT samma ordval och struktur som originalet
+
 ABSOLUT FÖRBJUDNA VÄRDEORD - ANVÄND ALDRIG:
 • Fantastisk, Vacker, Utsökt, Nyskick, Magnifik, Underbar, Exceptionell, Perfekt
 • Ovanlig, Sällsynt, Extraordinär, Unik, Spektakulär, Enastående, Otrolig
@@ -941,33 +949,44 @@ Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter
 
       case 'title-correct':
         return baseInfo + `
+🚨 DETTA ÄR EN TITLE-CORRECT UPPGIFT - ENDAST MINIMALA KORRIGERINGAR TILLÅTNA 🚨
+
 UPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.
 
-KRITISKT - MINIMALA ÄNDRINGAR:
-• Lägg INTE till ny information, material eller tidsperioder
-• Ändra INTE ordningen på elementer
-• Ta INTE bort information
-• Korrigera ENDAST:
-  - Saknade mellanslag ("SVERIGEStockholm" → "SVERIGE Stockholm")
-  - Felplacerade punkter ("TALLRIK. keramik" → "TALLRIK, keramik")
-  - Saknade citattecken runt titlar/motiv ("Dune Mario Bellini" → "Dune" Mario Bellini)
-  - Stavfel i välkända namn/märken
-  - Kommatecken istället för punkt mellan objekt och material
+🚨 ABSOLUT FÖRBJUDET - GÖR ALDRIG DESSA ÄNDRINGAR:
+• Ändra ordval eller terminologi ("Träskulpturer" → "Porträttskulpturer")
+• Lägg till beskrivande ord ("föreställande", "bestående av", etc.)
+• Ändra ordning på namn eller element
+• Förbättra eller förtydliga innehåll
+• Lägg till ny information, material eller tidsperioder
+• Ta bort information som redan finns
+• Ändra från plural till singular eller tvärtom
+• Ersätt befintliga ord med "bättre" alternativ
 
-EXEMPEL KORRIGERINGAR:
-• "SERVIRINGSBRICKA, akryl.Dune Mario Bellini" → "SERVIRINGSBRICKA, akryl, "Dune" Mario Bellini"
-• "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
-• "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
+ENDAST TILLÅTET - MINIMALA KORRIGERINGAR:
+• Stavfel i namn: "Menachhem" → "Menachem" 
+• Saknade mellanslag: "SVERIGEStockholm" → "SVERIGE Stockholm"
+• Felplacerade punkter: "TALLRIK. keramik" → "TALLRIK, keramik"
+• Saknade kommatecken mellan namn: "Moshe Dayan Menachhem Begin" → "Moshe Dayan, Menachem Begin"
+• Saknade citattecken runt titlar/motiv: "Dune Mario Bellini" → "Dune" Mario Bellini
+• Kommatecken istället för punkt mellan objekt och material
+
+EXEMPEL KORREKT MINIMAL KORRIGERING:
+ORIGINAL: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan Menachhem Begin, Anwar Sadat, signerade"
+KORREKT: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan, Menachem Begin, Anwar Sadat, signerade"
+FÖRBJUDET: "Porträttskulpturer, trä, föreställande Indira Gandhi, Moshe Dayan, Menachem Begin och Anwar Sadat, signerade"
+
+STRIKT REGEL: Behåll EXAKT samma ordval, struktur och innehåll. Korrigera ENDAST uppenbara stavfel och interpunktion.
 
 KRITISKT RETURFORMAT:
 • Returnera ENDAST den korrigerade titeln som ren text
 • INGA fältnamn som "TITEL:" eller "titel:"
 • INGA strukturerade format eller JSON
 • INGA extra förklaringar eller kommentarer
-• EXEMPEL KORREKT SVAR: "TALLRIK, keramik, Sverige"
-• EXEMPEL FELAKTIGT SVAR: "TITEL: TALLRIK, keramik, Sverige" eller "{title: 'TALLRIK, keramik, Sverige'}"
+• EXEMPEL KORREKT SVAR: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan, Menachem Begin, Anwar Sadat, signerade"
+• EXEMPEL FELAKTIGT SVAR: "TITEL: ..." eller "{title: '...'}" eller förbättringar av innehåll
 
-Returnera ENDAST den korrigerade titeln som ren text utan extra formatering eller etiketter.`;
+Returnera ENDAST den korrigerade titeln med minimala stavnings- och interpunktionskorrigeringar.`;
 
       case 'description':
         return baseInfo + `
