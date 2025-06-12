@@ -1000,9 +1000,10 @@ ENDAST TILLÅTET - MINIMALA KORRIGERINGAR:
 • Saknad avslutande punkt: "TALLRIK, keramik, Sverige" → "TALLRIK, keramik, Sverige."
 
 EXEMPEL KORREKT MINIMAL KORRIGERING:
-ORIGINAL: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan Menachhem Begin, Anwar Sadat, signerade"
-KORREKT: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan, Menachem Begin, Anwar Sadat, signerade."
-FÖRBJUDET: "Porträttskulpturer, trä, föreställande Indira Gandhi, Moshe Dayan, Menachem Begin och Anwar Sadat, signerade"
+• Stavfel: "Menachhem" → "Menachem"
+• Saknade kommatecken: "John Smith Jane Doe" → "John Smith, Jane Doe"
+• Saknad punkt: "TALLRIK, keramik, Sverige" → "TALLRIK, keramik, Sverige."
+• FÖRBJUDET: Ändra ordval eller lägga till beskrivande text
 
 STRIKT REGEL: Behåll EXAKT samma ordval, struktur och innehåll. Korrigera ENDAST uppenbara stavfel och interpunktion.
 
@@ -1011,7 +1012,7 @@ KRITISKT RETURFORMAT:
 • INGA fältnamn som "TITEL:" eller "titel:"
 • INGA strukturerade format eller JSON
 • INGA extra förklaringar eller kommentarer
-• EXEMPEL KORREKT SVAR: "Träskulpturer 4 st, Indira Gandhi, Moshe Dayan, Menachem Begin, Anwar Sadat, signerade."
+• EXEMPEL KORREKT SVAR: Endast den korrigerade titeln som ren text
 • EXEMPEL FELAKTIGT SVAR: "TITEL: ..." eller "{title: '...'}" eller förbättringar av innehåll
 
 Returnera ENDAST den korrigerade titeln med minimala stavnings- och interpunktionskorrigeringar.`;
