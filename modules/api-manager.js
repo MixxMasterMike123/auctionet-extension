@@ -88,15 +88,41 @@ export class APIManager {
     const systemPrompt = this.getSystemPrompt();
     const userPrompt = this.getUserPrompt(itemData, fieldType);
 
+    // Field-specific model selection
+    const getModelForField = (fieldType) => {
+      if (fieldType === 'title-correct') {
+        // Use Haiku for simple corrections - faster and more literal
+        return 'claude-3-haiku-20240307';
+      }
+      // Use user's selected model for other tasks
+      return this.getCurrentModel().id;
+    };
+
+    // Field-specific parameters
+    const getParametersForField = (fieldType) => {
+      if (fieldType === 'title-correct') {
+        return {
+          max_tokens: 500,
+          temperature: 0.1  // Very low temperature for literal corrections
+        };
+      }
+      return {
+        max_tokens: CONFIG.API.maxTokens,
+        temperature: CONFIG.API.temperature
+      };
+    };
+
+    const modelParams = getParametersForField(fieldType);
+
     try {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: this.getCurrentModel().id,
-            max_tokens: CONFIG.API.maxTokens,
-            temperature: CONFIG.API.temperature,
+            model: getModelForField(fieldType),
+            max_tokens: modelParams.max_tokens,
+            temperature: modelParams.temperature,
             system: systemPrompt,
             messages: [{
               role: 'user',
