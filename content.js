@@ -8,6 +8,17 @@
 
 console.log('🚀 Auctionet AI Assistant: Content script loaded!');
 
+// 🚀 CRITICAL: Initialize AI Rules System v2.0 FIRST
+(async function initializeAIRules() {
+  try {
+    console.log('🔄 Initializing AI Rules System v2.0...');
+    await initializeAIRulesSystem();
+    console.log('✅ AI Rules System v2.0 initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize AI Rules System:', error);
+  }
+})();
+
 // Import the API Bridge that connects add page to edit page API manager
 import('./modules/add-items-api-bridge.js').then(module => {
   window.AddItemsAPIBridge = module.AddItemsAPIBridge;
@@ -492,47 +503,19 @@ RESPOND WITH VALID JSON:
   }
 
   generatePromptForAddItems(itemData, fieldType) {
-    const baseInfo = `
-FÖREMÅLSINFORMATION:
-Kategori: ${itemData.category || ''}
-Nuvarande titel: ${itemData.title || ''}
-Nuvarande beskrivning: ${itemData.description || ''}
-Kondition: ${itemData.condition || ''}
-Konstnär/Formgivare: ${itemData.artist || ''}
-Sökord: ${itemData.keywords || ''}
-`;
-
-    if (fieldType === 'all') {
-      return baseInfo + `
-UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
-`;
-    } else if (fieldType === 'title-correct') {
-      return baseInfo + `
-UPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.
-
-KRITISKT - MINIMALA ÄNDRINGAR:
-• Lägg INTE till ny information, material eller tidsperioder
-• Ändra INTE ordningen på elementer
-• Ta INTE bort information
-• Korrigera ENDAST:
-  - Saknade mellanslag ("SVERIGEStockholm" → "SVERIGE Stockholm")
-  - Felplacerade punkter ("TALLRIK. keramik" → "TALLRIK, keramik")
-  - Saknade citattecken runt titlar/motiv ("Dune Mario Bellini" → "Dune" Mario Bellini)
-  - Stavfel i välkända namn/märken
-  - Kommatecken istället för punkt mellan objekt och material
-
-EXEMPEL KORRIGERINGAR:
-• "SERVIRINGSBRICKA, akryl.Dune Mario Bellini" → "SERVIRINGSBRICKA, akryl, "Dune" Mario Bellini"
-• "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
-• "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
-
-Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.
-`;
+    // 🚀 NEW: Using centralized AI Rules System v2.0
+    // OLD: 30+ lines of basic prompt generation
+    // NEW: Unified with global system
+    if (fieldType === 'title-correct') {
+      return buildPrompt({
+        type: 'titleCorrect',
+        fields: ['title'],
+        context: { itemData, source: 'contentJs' }
+      }).userPrompt;
     }
     
-    return baseInfo + `
-UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
-`;
+    // For other field types, use the migration class
+    return ContentJSMigration.getUserPrompt(itemData, fieldType);
   }
 
   parseClaudeResponseForAddItems(response, fieldType) {
@@ -2087,272 +2070,17 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
   }
 
   getSystemPrompt() {
-    return `Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.
-
-GRUNDREGLER:
-• Använd endast verifierbara fakta
-• Skriv objektivt utan säljande språk
-• Använd etablerad auktionsterminologi
-• UPPFINN ALDRIG information som inte finns
-
-FÖRBJUDET:
-• Säljande uttryck: "vacker", "fantastisk", "unik", "sällsynt"
-• Meta-kommentarer: "ytterligare uppgifter behövs", "mer information krävs"
-• Spekulationer och gissningar
-
-TITELFORMAT (max 60 tecken):
-Om konstnär-fält tomt: [KONSTNÄR], [Föremål], [Material], [Period]
-Om konstnär-fält ifyllt: [Föremål], [Material], [Period]
-
-OSÄKERHETSMARKÖRER - BEHÅLL ALLTID:
-"troligen", "tillskriven", "efter", "stil av", "möjligen"
-
-KONDITION - KRITISKA REGLER:
-• Använd korta, faktabaserade termer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
-• UPPFINN ALDRIG nya skador, placeringar eller detaljer
-• Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
-• Lägg ALDRIG till specifika platser som "i metallramen", "på ovansidan", "vid foten"
-• Förbättra ENDAST språket - lägg INTE till nya faktauppgifter
-
-STRIKT ANTI-HALLUCINATION:
-• Förbättra ENDAST språk och struktur av BEFINTLIG information
-• Lägg INTE till material, mått, skador, placeringar som inte är nämnda
-• Kopiera EXAKT samma skadeinformation som redan finns
-• Katalogtext ska vara FÄRDIG utan önskemål om mer data
-• ALDRIG lägga till detaljer för att "förbättra" - bara förbättra språket`;
+    // 🚀 NEW: Using centralized AI Rules System v2.0
+    // OLD: 120+ lines of hardcoded rules
+    // NEW: Single call to global system
+    return getSystemPrompt('core', 'contentJs');
   }
 
   getUserPrompt(itemData, fieldType) {
-    const baseInfo = `
-FÖREMÅLSINFORMATION:
-Kategori: ${itemData.category}
-Nuvarande titel: ${itemData.title}
-Nuvarande beskrivning: ${itemData.description}
-Kondition: ${itemData.condition}
-Konstnär/Formgivare: ${itemData.artist}
-Värdering: ${itemData.estimate} SEK
-
-VIKTIGT FÖR TITEL: ${itemData.artist ? 
-  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet.' : 
-  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt.'}
-
-KONSTNÄRSINFORMATION FÖR TIDSPERIOD:
-${itemData.artist ? 
-  'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs aktiva period för att bestämma korrekt tidsperiod. Om du inte är säker, använd "troligen" eller utelämna period.' : 
-  'Ingen konstnär angiven - lägg INTE till tidsperiod om den inte redan finns i källdata.'}
-
-KRITISKT - BEHÅLL OSÄKERHETSMARKÖRER I TITEL:
-Om nuvarande titel innehåller ord som "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ" - BEHÅLL dessa exakt. De anger juridisk osäkerhet och får ALDRIG tas bort eller ändras.
-
-ANTI-HALLUCINATION INSTRUKTIONER:
-• Lägg ALDRIG till information som inte finns i källdata
-• Uppfinn ALDRIG tidsperioder, material, mått eller skador
-• Förbättra ENDAST språk, struktur och terminologi
-• Om information saknas - utelämna eller använd osäkerhetsmarkörer
-`;
-
-    if (fieldType === 'all') {
-      return baseInfo + `
-UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
-
-KRITISKT - FÄLTAVGRÄNSNING:
-• BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
-• KONDITION: Endast fysiskt skick och skador - ALDRIG beskrivande information
-• Håll fälten strikt separerade - konditionsdetaljer som "slitage", "repor", "märken" hör ENDAST i konditionsfältet
-• Om konditionsinformation finns i nuvarande beskrivning - flytta den till konditionsfältet
-
-KRITISKT - ANTI-HALLUCINATION REGLER:
-• Lägg ALDRIG till information som inte finns i källdata
-• Uppfinn INTE tidsperioder, material, mått eller skador
-• Använd konstnärsinformation för tidsperiod ENDAST om du är säker
-• Förbättra ENDAST språk, struktur och terminologi av befintlig information
-• Lägg ALDRIG till kommentarer om vad som "behövs", "saknas" eller "krävs"
-• Skriv INTE fraser som "ytterligare uppgifter behövs" eller "mer information krävs"
-• Katalogtext ska vara FÄRDIG och KOMPLETT utan önskemål om mer data
-
-Returnera EXAKT i detta format (en rad per fält):
-TITEL: [förbättrad titel]
-BESKRIVNING: [förbättrad beskrivning utan konditionsinformation]
-KONDITION: [förbättrad konditionsrapport]
-SÖKORD: [relevanta sökord separerade med mellanslag, använd "-" för flerordsfraser]
-VALIDERING: [kvalitetspoäng och eventuella varningar]
-
-VIKTIGT FÖR SÖKORD: Använd kommatecken för att separera sökord.
-EXEMPEL: "konstglas, mundblåst, svensk design, 1960-tal, samlarobjekt"
-
-Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
-    } else if (fieldType === 'all-enhanced' && itemData.additionalInfo) {
-      return baseInfo + `
-YTTERLIGARE INFORMATION:
-Material: ${itemData.additionalInfo.material}
-Teknik: ${itemData.additionalInfo.technique}
-Märkningar: ${itemData.additionalInfo.markings}
-Specifika skador: ${itemData.additionalInfo.damage}
-Övrigt: ${itemData.additionalInfo.additional}
-
-UPPGIFT: Använd all tillgänglig information för att skapa professionell katalogisering.
-
-ANTI-HALLUCINATION REGLER:
-• Använd ENDAST den information som angivits ovan
-• Lägg INTE till ytterligare detaljer som inte är nämnda
-• Kombinera källdata med tilläggsinfo på ett faktabaserat sätt
-• Lägg ALDRIG till kommentarer om vad som "behövs" eller "saknas"
-• Katalogtext ska vara FÄRDIG och KOMPLETT
-
-Returnera EXAKT i detta format (en rad per fält):
-TITEL: [förbättrad titel med korrekt material]
-BESKRIVNING: [detaljerad beskrivning med all relevant information]
-KONDITION: [specifik konditionsrapport baserad på angiven information]
-SÖKORD: [omfattande sökord baserade på all information]
-VALIDERING: [kvalitetspoäng och förbättringar]
-
-Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
-    } else if (fieldType === 'all-sparse') {
-      return baseInfo + `
-UPPGIFT: Informationen är mycket knapphändig. Gör ditt bästa för att förbättra baserat på tillgänglig information, men markera var mer information behövs.
-
-KRITISKT - SPARSE DATA REGLER:
-• Förbättra ENDAST språk och struktur av befintlig information
-• Lägg ALDRIG till påhittade detaljer för att fylla ut texten
-• Om information saknas - lämna tomt eller använd osäkerhetsmarkörer
-• Lägg ALDRIG till kommentarer om vad som "behövs" eller "saknas" i katalogtext
-• Katalogtext ska vara FÄRDIG och KOMPLETT utan önskemål om mer data
-
-Returnera EXAKT i detta format (en rad per fält):
-TITEL: [förbättrad titel]
-BESKRIVNING: [förbättrad beskrivning]
-KONDITION: [förbättrad konditionsrapport]
-SÖKORD: [generera så många relevanta sökord som möjligt]
-VALIDERING: [kvalitetspoäng och eventuella varningar]
-
-Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
-    } else if (fieldType === 'title') {
-      return baseInfo + `
-UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tecken.
-
-KRITISKT VIKTIGT - BEHÅLL OSÄKERHETSMARKÖRER:
-Om originaltiteln innehåller "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ", "skola av", eller "krets kring" - BEHÅLL dessa ord exakt som de är. De anger juridisk osäkerhet och får ALDRIG tas bort.
-
-ANTI-HALLUCINATION FÖR TITEL:
-• Lägg INTE till tidsperiod om den inte finns i originaldata ELLER kan härledas från känd konstnär
-• Lägg INTE till material som inte är nämnt
-• Lägg INTE till platser eller tillverkare som inte är angivna
-• Förbättra ENDAST struktur, stavning och terminologi
-
-EXEMPEL:
-Original: "TALLRIK, fajans, troligen Matet, Martres-Tolosane, Frankrike, 18/1900-tal"
-Korrekt: "TALLRIK, fajans, troligen Matet, Martres-Tolosane, 18/1900-tal"
-FEL: "TALLRIK, fajans, Matet, Martres-Tolosane, 18/1900-tal" (troligen borttaget)
-
-Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
-    } else if (fieldType === 'title-correct') {
-      return baseInfo + `
-UPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.
-
-KRITISKT - MINIMALA ÄNDRINGAR:
-• Lägg INTE till ny information, material eller tidsperioder
-• Ändra INTE ordningen på elementer
-• Ta INTE bort information
-• Korrigera ENDAST:
-  - Saknade mellanslag ("SVERIGEStockholm" → "SVERIGE Stockholm")
-  - Felplacerade punkter ("TALLRIK. keramik" → "TALLRIK, keramik")
-  - Saknade citattecken runt titlar/motiv ("Dune Mario Bellini" → "Dune" Mario Bellini)
-  - Stavfel i välkända namn/märken
-  - Kommatecken istället för punkt mellan objekt och material
-
-EXEMPEL KORRIGERINGAR:
-• "SERVIRINGSBRICKA, akryl.Dune Mario Bellini" → "SERVIRINGSBRICKA, akryl, "Dune" Mario Bellini"
-• "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
-• "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
-
-Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`;
-    } else if (fieldType === 'description') {
-      return baseInfo + `
-UPPGIFT: Förbättra endast beskrivningen. Inkludera mått om de finns, använd korrekt terminologi.
-
-KRITISKT - FÄLTAVGRÄNSNING FÖR BESKRIVNING:
-• Inkludera ALDRIG konditionsinformation i beskrivningen
-• Konditionsdetaljer som "slitage", "repor", "märken", "skador", "nagg", "sprickor", "fläckar" hör ENDAST hemma i konditionsfältet
-• Beskrivningen ska fokusera på: material, teknik, mått, stil, ursprung, märkningar, funktion
-• EXEMPEL PÅ FÖRBJUDET I BESKRIVNING: "Slitage förekommer", "repor och märken", "normalt åldersslitage", "mindre skador"
-• Om konditionsinformation finns i nuvarande beskrivning - TA BORT den och behåll endast beskrivande information
-
-ANTI-HALLUCINATION FÖR BESKRIVNING:
-• Lägg INTE till mått som inte är angivna
-• Lägg INTE till material som inte är nämnt
-• Lägg INTE till tekniker som inte är beskrivna
-• Lägg INTE till märkningar eller signaturer som inte finns
-• Förbättra ENDAST språk, struktur och befintlig information
-• Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
-• Skriv INTE fraser som "ytterligare uppgifter behövs" eller "information saknas"
-
-Returnera ENDAST den förbättrade beskrivningen utan extra formatering eller etiketter.`;
-    } else if (fieldType === 'condition') {
-      return baseInfo + `
-UPPGIFT: Förbättra konditionsrapporten. Skriv KORT och FAKTABASERAT. Använd endast standardtermer. Max 2-3 korta meningar.
-
-KRITISKT - FÄLTAVGRÄNSNING FÖR KONDITION:
-• Fokusera ENDAST på fysiskt skick och skador
-• Inkludera ALDRIG beskrivande information om material, teknik, stil eller funktion
-• Konditionsrapporten ska vara separat från beskrivningen
-• Använd specifika konditionstermer: "repor", "nagg", "sprickor", "fläckar", "välbevarat", "mindre skador"
-• UNDVIK vaga termer som endast "bruksslitage" - var specifik
-
-KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
-• Beskriv ENDAST skador/slitage som redan är nämnda i nuvarande kondition
-• Lägg ALDRIG till specifika placeringar som "i metallramen", "på ovansidan", "vid foten" om inte redan angivet
-• Lägg ALDRIG till specifika mått som "repor 3cm" om inte angivet
-• Lägg ALDRIG till nya defekter, material eller delar som inte nämns
-• Lägg ALDRIG till detaljer om VAR skadorna finns om det inte redan står i originalet
-• EXEMPEL PÅ FÖRBJUDET: Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
-• Förbättra ENDAST språk och använd standardtermer för EXAKT samma information som redan finns
-• Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
-• Lägg ALDRIG till kommentarer om vad som "behövs" eller "saknas"
-• Skriv INTE fraser som "ytterligare uppgifter behövs" eller "mer information krävs"
-
-STRIKT REGEL: Kopiera ENDAST den skadeinformation som redan finns - lägg ALDRIG till nya detaljer.
-
-EXEMPEL PÅ KORREKT FÖRBÄTTRING:
-Original: "bruksslitage" → Förbättrat: "Normalt bruksslitage"
-Original: "repor" → Förbättrat: "Mindre repor" (INTE "repor i metallramen")
-Original: "slitage förekommer" → Förbättrat: "Synligt slitage"
-
-UNDVIK: Långa beskrivningar, förklaringar av tillverkningstekniker, värderande kommentarer, påhittade skador, specifika placeringar.
-
-Returnera ENDAST den förbättrade konditionsrapporten utan extra formatering eller etiketter.`;
-    } else if (fieldType === 'keywords') {
-      return baseInfo + `
-UPPGIFT: Generera HÖGKVALITATIVA dolda sökord som kompletterar titel och beskrivning enligt Auctionets format.
-
-KRITISKT - UNDVIK ALLA UPPREPNINGAR:
-• Generera ENDAST sökord som INTE redan finns i nuvarande titel/beskrivning
-• Läs noggrant igenom titel och beskrivning INNAN du skapar sökord
-• Om ordet redan finns någonstans - använd det INTE
-• Fokusera på HELT NYA alternativa söktermer som köpare kan använda
-• Exempel: Om titel säger "färglitografi" - använd INTE "färglitografi" igen
-
-KOMPLETTERANDE SÖKORD - EXEMPEL:
-• För konsttryck: "grafik reproduktion konstprint limited-edition"
-• För målningar: "oljemålning akvarell konstverk originalverk"  
-• För skulptur: "skulptur plastik konstföremål tredimensionell"
-• För möbler: "vintage retro funktionalism dansk-design"
-• För perioder: Använd decennier istället för exakta år: "1970-tal" istället av "1974"
-
-OBLIGATORISK AUCTIONET FORMAT:
-• Separera sökord med MELLANSLAG (ALDRIG kommatecken)
-• Använd "-" för flerordsfraser: "svensk-design", "1970-tal", "limited-edition"
-• EXEMPEL KORREKT: "grafik reproduktion svensk-design 1970-tal konstprint"
-• EXEMPEL FEL: "grafik, reproduktion, svensk design, 1970-tal" (kommatecken och mellanslag i fraser)
-
-KRITISKT - RETURFORMAT:
-• Returnera ENDAST sökorden separerade med mellanslag
-• INGA kommatecken mellan sökord
-• INGA förklaringar, kommentarer eller etiketter
-• MAX 10-12 relevanta termer
-• EXEMPEL: "grafik reproduktion svensk-design 1970-tal dekor inredning"
-
-STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där, använd det ALDRIG i sökorden.`;
-    }
+    // 🚀 NEW: Using centralized AI Rules System v2.0
+    // OLD: ~200 lines of scattered rules
+    // NEW: Single call to migration class
+    return ContentJSMigration.getUserPrompt(itemData, fieldType);
   }
 
   parseClaudeResponse(response, fieldType) {

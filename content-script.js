@@ -34,6 +34,11 @@
     const { SearchQuerySSoT } = await import(chrome.runtime.getURL('modules/search-query-ssot.js'));
     const { SalesAnalysisManager } = await import(chrome.runtime.getURL('modules/sales-analysis-manager.js'));
     
+    // 🚀 CRITICAL: Initialize AI Rules System v2.0 FIRST
+    console.log('🔄 Initializing AI Rules System v2.0...');
+    await initializeAIRulesSystem();
+    console.log('✅ AI Rules System v2.0 initialized successfully');
+    
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
       constructor() {

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Rules System Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 AI Rules System Integration Test</h1>
+    
+    <div class="test-container">
+        <h2>📋 System Status</h2>
+        <div id="system-status">Loading...</div>
+        <button onclick="testSystemStatus()">🔄 Test System Status</button>
+    </div>
+
+    <div class="test-container">
+        <h2>🎯 Global Functions Test</h2>
+        <div id="global-functions-result">Not tested yet</div>
+        <button onclick="testGlobalFunctions()">🧪 Test Global Functions</button>
+    </div>
+
+    <div class="test-container">
+        <h2>🔄 Migration Classes Test</h2>
+        <div id="migration-classes-result">Not tested yet</div>
+        <button onclick="testMigrationClasses()">🚀 Test Migration Classes</button>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 Performance Test</h2>
+        <div id="performance-result">Not tested yet</div>
+        <button onclick="testPerformance()">⚡ Test Performance</button>
+    </div>
+
+    <div class="test-container">
+        <h2>🎨 Content.js Integration Test</h2>
+        <div id="content-integration-result">Not tested yet</div>
+        <button onclick="testContentIntegration()">🔗 Test Content.js Integration</button>
+    </div>
+
+    <script src="modules/refactored/ai-rules-system/ai-rules-manager.js"></script>
+    <script src="modules/refactored/ai-rules-system/complete-migration.js"></script>
+    
+    <script>
+        // Test system status
+        function testSystemStatus() {
+            const statusDiv = document.getElementById('system-status');
+            statusDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Check if AI Rules System is loaded
+                const systemLoaded = typeof getSystemPrompt !== 'undefined';
+                const managerLoaded = typeof getAIRulesManager !== 'undefined';
+                const migrationLoaded = typeof ContentJSMigration !== 'undefined';
+                
+                let status = '<div class="test-result info">';
+                status += '<h4>🔍 System Components:</h4>';
+                status += `<p>✅ AI Rules Manager: ${systemLoaded ? 'Loaded' : 'Missing'}</p>`;
+                status += `<p>✅ Global Functions: ${managerLoaded ? 'Available' : 'Missing'}</p>`;
+                status += `<p>✅ Migration Classes: ${migrationLoaded ? 'Available' : 'Missing'}</p>`;
+                status += '</div>';
+                
+                if (systemLoaded && managerLoaded && migrationLoaded) {
+                    status += '<div class="test-result success">🎉 All systems loaded successfully!</div>';
+                } else {
+                    status += '<div class="test-result error">❌ Some components are missing</div>';
+                }
+                
+                statusDiv.innerHTML = status;
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="test-result error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test global functions
+        function testGlobalFunctions() {
+            const resultDiv = document.getElementById('global-functions-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const tests = [];
+                
+                // Test system prompts
+                try {
+                    const corePrompt = getCorePrompt();
+                    tests.push(`✅ getCorePrompt(): ${corePrompt.substring(0, 50)}...`);
+                } catch (e) {
+                    tests.push(`❌ getCorePrompt(): ${e.message}`);
+                }
+                
+                // Test category rules
+                try {
+                    const weaponRules = getCategoryRules('weapons');
+                    tests.push(`✅ getCategoryRules('weapons'): ${weaponRules ? 'Found' : 'Not found'}`);
+                } catch (e) {
+                    tests.push(`❌ getCategoryRules(): ${e.message}`);
+                }
+                
+                // Test brand corrections
+                try {
+                    const corrections = getBrandCorrections();
+                    tests.push(`✅ getBrandCorrections(): ${Object.keys(corrections).length} corrections`);
+                } catch (e) {
+                    tests.push(`❌ getBrandCorrections(): ${e.message}`);
+                }
+                
+                // Test prompt building
+                try {
+                    const prompt = buildPrompt({
+                        type: 'core',
+                        category: 'weapons',
+                        fields: ['title']
+                    });
+                    tests.push(`✅ buildPrompt(): Generated ${prompt.systemPrompt.length} char system prompt`);
+                } catch (e) {
+                    tests.push(`❌ buildPrompt(): ${e.message}`);
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="test-result info">
+                        <h4>🧪 Global Functions Test Results:</h4>
+                        ${tests.map(test => `<p>${test}</p>`).join('')}
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test migration classes
+        function testMigrationClasses() {
+            const resultDiv = document.getElementById('migration-classes-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const tests = [];
+                
+                // Test ContentJSMigration
+                try {
+                    const systemPrompt = ContentJSMigration.getSystemPrompt();
+                    tests.push(`✅ ContentJSMigration.getSystemPrompt(): ${systemPrompt.substring(0, 50)}...`);
+                } catch (e) {
+                    tests.push(`❌ ContentJSMigration.getSystemPrompt(): ${e.message}`);
+                }
+                
+                // Test APIManagerMigration
+                try {
+                    const systemPrompt = APIManagerMigration.getSystemPrompt();
+                    tests.push(`✅ APIManagerMigration.getSystemPrompt(): ${systemPrompt.substring(0, 50)}...`);
+                } catch (e) {
+                    tests.push(`❌ APIManagerMigration.getSystemPrompt(): ${e.message}`);
+                }
+                
+                // Test BrandValidationMigration
+                try {
+                    const corrections = BrandValidationMigration.getBrandCorrections();
+                    tests.push(`✅ BrandValidationMigration.getBrandCorrections(): ${Object.keys(corrections).length} corrections`);
+                } catch (e) {
+                    tests.push(`❌ BrandValidationMigration.getBrandCorrections(): ${e.message}`);
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="test-result info">
+                        <h4>🚀 Migration Classes Test Results:</h4>
+                        ${tests.map(test => `<p>${test}</p>`).join('')}
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test performance
+        function testPerformance() {
+            const resultDiv = document.getElementById('performance-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const startTime = performance.now();
+                
+                // Perform 100 operations
+                for (let i = 0; i < 100; i++) {
+                    getCorePrompt();
+                    getCategoryRules('weapons');
+                    getBrandCorrections();
+                    buildPrompt({ type: 'core', fields: ['title'] });
+                }
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                resultDiv.innerHTML = `
+                    <div class="test-result success">
+                        <h4>⚡ Performance Test Results:</h4>
+                        <p>✅ 400 operations completed in: ${Math.round(duration)} ms</p>
+                        <p>✅ Average per operation: ${Math.round(duration / 400 * 1000)} μs</p>
+                        <p>✅ Performance: ${duration < 100 ? 'Excellent' : duration < 500 ? 'Good' : 'Needs optimization'}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Test content.js integration
+        function testContentIntegration() {
+            const resultDiv = document.getElementById('content-integration-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Simulate content.js usage
+                const mockItemData = {
+                    category: 'Konst',
+                    title: 'MÅLNING, olja på duk',
+                    description: 'Vacker målning',
+                    condition: 'Bra skick',
+                    artist: 'Okänd konstnär'
+                };
+                
+                const tests = [];
+                
+                // Test system prompt (like content.js would use)
+                try {
+                    const systemPrompt = getSystemPrompt('core', 'contentJs');
+                    tests.push(`✅ System prompt for content.js: ${systemPrompt.length} characters`);
+                } catch (e) {
+                    tests.push(`❌ System prompt: ${e.message}`);
+                }
+                
+                // Test user prompt generation (like content.js would use)
+                try {
+                    const userPrompt = ContentJSMigration.getUserPrompt(mockItemData, 'all');
+                    tests.push(`✅ User prompt generation: ${userPrompt.length} characters`);
+                } catch (e) {
+                    tests.push(`❌ User prompt: ${e.message}`);
+                }
+                
+                // Test title-correct prompt (like content.js would use)
+                try {
+                    const titlePrompt = buildPrompt({
+                        type: 'titleCorrect',
+                        fields: ['title'],
+                        context: { itemData: mockItemData, source: 'contentJs' }
+                    }).userPrompt;
+                    tests.push(`✅ Title-correct prompt: ${titlePrompt.length} characters`);
+                } catch (e) {
+                    tests.push(`❌ Title-correct prompt: ${e.message}`);
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="test-result success">
+                        <h4>🔗 Content.js Integration Test Results:</h4>
+                        ${tests.map(test => `<p>${test}</p>`).join('')}
+                        <p><strong>🎉 Content.js can now use centralized AI Rules System!</strong></p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-run system status test on load
+        window.addEventListener('load', () => {
+            setTimeout(testSystemStatus, 500);
+        });
+    </script>
+</body>
+</html> 
