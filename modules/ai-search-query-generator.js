@@ -2,7 +2,7 @@
 // Uses Claude to generate optimal search terms for auction market analysis
 
 import { APIManager } from './api-manager.js';
-import { applySearchRules } from './ai-search-rules.js';
+import { applySearchRules } from './refactored/ai-rules/ai-rules-wrapper.js';
 
 export class AISearchQueryGenerator {
   constructor(apiManagerInstance = null) {
@@ -23,7 +23,7 @@ export class AISearchQueryGenerator {
 
     // STEP 1: Apply AI rules first (especially artist field respect)
     const inputData = { title, description, artist, aiArtist, excludeArtist };
-    const rulesResult = applySearchRules(inputData);
+    const rulesResult = await applySearchRules(inputData);
     
     // ENHANCED SUFFICIENCY CHECK: Artist field has special priority
     const hasArtistField = artist && artist.trim();
