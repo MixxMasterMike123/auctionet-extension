@@ -1,122 +1,142 @@
-# Auctionet AI Cataloging Assistant
+# 🎯 Auctionet AI Cataloging Assistant
 
-AI-powered cataloging assistant for Auctionet using Claude 4 to improve auction item descriptions.
+AI-powered cataloging assistant for Auctionet using Claude AI to improve auction item descriptions with professional Swedish auction standards.
 
-## Features
+## 🚀 Current Status
 
-### Edit Page Enhancement (Existing)
-- **AI-powered field improvements** for titles, descriptions, conditions, and keywords
-- **Quality analysis** with scoring system and improvement suggestions
-- **Real-time quality updates** as you edit fields
-- **Undo functionality** for all AI improvements
-- **Swedish auction standards** validation
+**Phase 1: Modular Architecture** ✅ **COMPLETE**  
+- Core AI infrastructure built and tested
+- Modular, maintainable codebase established
+- Ready for integration with existing functionality
 
-### Add Items Page - Modern Tooltip System (NEW!)
-- **🎯 Artist Detection Tooltips** - Automatically detects artist names in titles and offers to move them to the artist field
-- **Modern UI Design** - Clean, subtle tooltips that don't disrupt your workflow
-- **Smart Positioning** - Tooltips position themselves intelligently relative to form fields
-- **Session Memory** - Remembers dismissed tooltips for the current session
-- **Debounced Analysis** - Analyzes content 3 seconds after you stop typing to avoid interruptions
+**Phase 2: Integration** 🔄 **NEXT**  
+- Gradual migration from monolithic files
+- Backward compatibility maintained
+- Performance optimization
 
-## Add Items Tooltip Features
+## ✨ Features
 
-### Artist Detection
-- **Automatic Detection**: Identifies artist names placed incorrectly in titles
-- **Smart Patterns**: Recognizes various Swedish auction title formats
-- **One-Click Fix**: "Flytta" button moves artist to correct field and cleans up title
-- **Visual Feedback**: Blue-accented tooltip clearly shows detected artist
+### 🎨 AI-Powered Enhancement
+- **Smart field improvements** for titles, descriptions, conditions, and keywords
+- **Category-specific rules** for weapons, watches, jewelry, historical items
+- **Anti-hallucination protection** prevents AI from adding false information
+- **Field-specific model selection** (Haiku for corrections, Sonnet for complex tasks)
 
-### Upcoming Features (Next Steps)
-- **AI Description Suggestions** - Generate enhanced descriptions
-- **AI Condition Reports** - Smart condition assessment
-- **Market Valuation** - AI-powered price estimation
-- **Hidden Keywords** - Automatic SEO keyword generation
+### 🔍 Quality Analysis
+- **Professional quality scoring** with Swedish auction standards
+- **Real-time validation** and improvement suggestions
+- **Brand correction** and terminology standardization
+- **Conservative enhancement** for specialized categories
 
-## Installation
+### 🎯 Artist Detection
+- **Intelligent artist detection** from titles and descriptions
+- **Artist verification** with biographical context
+- **Smart field management** with automatic artist placement
 
-1. Download or clone this repository
-2. Open Chrome/Edge and go to `chrome://extensions/`
-3. Enable "Developer mode"
-4. Click "Load unpacked" and select the extension folder
-5. Get your Anthropic Claude API key from https://console.anthropic.com/
-6. Click the extension icon and enter your API key
+### 📊 Market Analysis
+- **Comparable sales analysis** from Auctionet data
+- **Live auction monitoring** for current market trends
+- **Price estimation** with confidence scoring
+- **Market sentiment analysis**
 
-## Usage
+## 🏗️ Architecture
 
-### Edit Pages (Existing)
-1. Navigate to any item edit page on Auctionet admin
-2. You'll see AI assistance buttons next to each field
-3. Click "⚡ Förbättra alla" to improve all fields at once
-4. Use individual field buttons for targeted improvements
-5. Review and edit the AI suggestions as needed
+### **New Modular System** (Phase 1 Complete)
+```
+modules/ai/
+├── config/models.js              # Model configurations & field rules
+├── core/
+│   ├── model-manager.js          # Intelligent model selection
+│   ├── response-parser.js        # Unified response parsing
+│   └── prompt-manager.js         # Prompt orchestration
+└── prompts/
+    ├── base-prompts.js           # Core system prompts
+    ├── category-prompts.js       # Category-specific rules
+    └── field-prompts.js          # Field-specific prompts
+```
 
-### Add Items Pages (NEW!)
-1. Navigate to the "Add new item" page on Auctionet admin
-2. Start filling in the title field
-3. If an artist name is detected in the title, you'll see a tooltip: **"KONSTNÄR UPPTÄCKT I TITEL"**
-4. Click the blue "Flytta" button to automatically move the artist to the correct field
-5. The title will be cleaned up automatically
-6. Continue filling out the form - more tooltips will appear as we add new features
-
-## Example: Artist Detection
-
-**Before:**
-- Title: `LISA LARSON. Skulptur, "Storstegaren" brons, signerad och numrerad 327`
-- Artist: _(empty)_
-
-**After clicking "Flytta":**
-- Title: `Skulptur, "Storstegaren" brons, signerad och numrerad 327`
-- Artist: `LISA LARSON`
-
-## Technical Architecture
-
-### File Structure
+### **Legacy Files** (Being Refactored)
 ```
 modules/
-├── add-items-tooltip-manager.js    # NEW: Modern tooltip system for add pages
-├── quality-analyzer.js             # Quality analysis and artist detection
-├── api-manager.js                  # Claude API integration
-├── sales-analysis-manager.js       # Market analysis features
-└── search-filter-manager.js        # Search functionality
-
-content.js                          # Main content script (updated)
-content-script.js                   # Entry point
-manifest.json                       # Extension manifest (updated)
+├── api-manager.js                # 94KB → Target: 30KB
+├── quality-analyzer.js           # 121KB → Being modularized
+└── add-items-tooltip-manager.js  # 159KB → Being modularized
 ```
 
-### Add Items Tooltip System
-- **Modular Design**: Self-contained tooltip manager that reuses existing detection logic
-- **Non-Intrusive**: Tooltips appear only when relevant and can be dismissed
-- **Responsive Positioning**: Smart positioning that adapts to viewport and field locations
-- **Event-Driven**: Debounced analysis prevents performance issues
+## 🛠️ Installation
 
-## API Key
+1. **Download** or clone this repository
+2. **Chrome Extensions**: Go to `chrome://extensions/`
+3. **Enable** "Developer mode"
+4. **Load unpacked** and select the extension folder
+5. **API Key**: Get your Anthropic Claude API key from https://console.anthropic.com/
+6. **Configure**: Click the extension icon and enter your API key
 
-You need a Claude API key from Anthropic. The extension will securely store this in Chrome's sync storage.
+## 📖 Usage
 
-## Privacy
+### Edit Pages
+1. Navigate to any item edit page on Auctionet admin
+2. Use AI assistance buttons next to each field
+3. Click "⚡ Förbättra alla" to improve all fields at once
+4. Review and edit AI suggestions as needed
 
-- Your API key is stored locally in your browser
-- Only item data you're editing is sent to Claude API
-- No data is stored on external servers
-- All processing happens locally or via direct API calls
+### Add Items Pages
+1. Navigate to "Add new item" page
+2. Fill in fields - AI tooltips will appear with suggestions
+3. Use artist detection and field enhancement features
+4. Follow quality guidance for professional cataloging
 
-## Support
+## 🔧 Development
 
-For issues or feature requests, please check the browser console for detailed logs.
+### **Current Development Guidelines**
+- **Safety First**: Never modify working code during module creation
+- **Modular Design**: Single responsibility, reusable components
+- **Test-Driven**: Comprehensive testing before integration
+- **Documentation**: Keep `modules/ai/README.md` updated
 
-## Version History
+### **For Developers**
+- **Master Plan**: See `modules/ai/README.md` for complete architecture
+- **Quick Reference**: See `DEVELOPMENT_CONTEXT.md` for essential context
+- **Current Status**: Phase 1 complete, ready for Phase 2 integration
 
-### v1.1.0 (Latest)
-- ✨ **NEW: Add Items Tooltip System**
-- 🎯 Artist detection with modern tooltip UI
-- 📱 Smart responsive positioning
-- 🔄 Real-time field analysis with debouncing
-- 🎨 Modern design with glass morphism effects
-- 📝 Session-based dismissal memory
+## 🔐 Privacy & Security
+
+- **Local Storage**: API key stored securely in Chrome sync storage
+- **Direct API**: Only item data sent directly to Claude API
+- **No External Storage**: No data stored on external servers
+- **Local Processing**: All processing happens locally or via direct API calls
+
+## 📊 Success Metrics
+
+- **File Size Reduction**: api-manager.js from 94KB to ~30KB target
+- **Code Maintainability**: Single source of truth for AI behavior
+- **Performance**: Intelligent caching and model selection
+- **Reliability**: Comprehensive validation and error handling
+
+## 🎯 Version History
+
+### v2.0.0 (In Development)
+- 🏗️ **Modular Architecture**: Complete AI infrastructure refactoring
+- 🧠 **Smart Model Selection**: Field-specific model optimization
+- 🛡️ **Anti-Hallucination**: Enhanced protection against false information
+- ⚡ **Performance**: Intelligent caching and optimization
+
+### v1.2.0 (Current Stable)
+- 📋 **Category-Specific Guidance**: Professional condition reporting
+- 🎯 **Artist Detection**: Enhanced artist identification
+- 🔧 **Bug Fixes**: Artist move functionality and tooltip improvements
 
 ### v1.0.0
-- Initial release with edit page functionality
-- AI-powered field improvements
-- Quality analysis system
-- Swedish auction standards validation 
+- 🚀 **Initial Release**: Basic AI enhancement functionality
+- 📝 **Quality Analysis**: Swedish auction standards validation
+
+## 🆘 Support
+
+- **Documentation**: Check `modules/ai/README.md` for technical details
+- **Development**: See `DEVELOPMENT_CONTEXT.md` for current status
+- **Issues**: Check browser console for detailed logs
+- **Architecture**: Modular system designed for maintainability
+
+---
+
+**🎯 This extension is actively being refactored into a maintainable, modular architecture while preserving all existing functionality.** 
