@@ -1,4 +1,12 @@
 // modules/ai-search-rules.js - AI Search Query Generation Rules
+// 
+// ⚠️  DEPRECATED: This file has been refactored into a modular system
+// 🔄 NEW LOCATION: modules/refactored/ai-rules/
+// 📖 MIGRATION: Use modules/refactored/ai-rules/ai-rules-wrapper.js for backward compatibility
+// 
+// This file is kept for reference but should not be used in new code.
+// All functionality has been moved to the new AIRulesEngine system.
+//
 // Configurable rules for AI search query generation that can be tweaked
 
 export const AI_SEARCH_RULES = {
