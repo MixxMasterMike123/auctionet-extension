@@ -75,8 +75,13 @@ export class AddItemsTooltipManager {
     // NEW: Add AI improvement buttons like on edit page
     this.injectAIButtons();
     
-    // NEW: Initialize FreetextParser component
-    await this.freetextParser.init();
+    // NEW: Initialize FreetextParser component with error handling
+    try {
+      await this.freetextParser.init();
+    } catch (error) {
+      console.error('❌ Failed to initialize FreetextParser:', error);
+      // Continue initialization even if FreetextParser fails
+    }
     
     // NEW: Setup auto-resize for textareas (same as EDIT page)
     this.setupAutoResizeForAllTextareas();

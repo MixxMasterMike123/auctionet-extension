@@ -39,8 +39,11 @@ export class FreetextParser {
    */
   async init() {
     try {
-      this.addFreetextButton();
+      // Add a small delay to ensure page controllers are fully loaded
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       this.injectStyles();
+      this.addFreetextButton();
       console.log('✅ FreetextParser UI elements added to AddItem page');
     } catch (error) {
       console.error('❌ FreetextParser initialization failed:', error);
@@ -51,6 +54,18 @@ export class FreetextParser {
    * Add the main freetext parser button to the AddItem page
    */
   addFreetextButton() {
+    // Wait for DOM to be ready and avoid conflicts with existing controllers
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => this.addFreetextButton());
+      return;
+    }
+
+    // Check if button already exists to avoid duplicates
+    if (document.querySelector('#freetext-parser-btn')) {
+      console.log('⚠️ Freetext parser button already exists');
+      return;
+    }
+
     // Find the form container (following existing patterns)
     const formContainer = document.querySelector('.add-item-form, form, .form-container') || 
                          document.querySelector('main') || 
@@ -72,14 +87,22 @@ export class FreetextParser {
       </button>
     `;
 
-    // Insert at the top of the form for maximum visibility
-    formContainer.insertBefore(buttonContainer, formContainer.firstChild);
+    // Insert at the top of the form for maximum visibility, but avoid disrupting existing structure
+    const firstChild = formContainer.firstChild;
+    if (firstChild) {
+      formContainer.insertBefore(buttonContainer, firstChild);
+    } else {
+      formContainer.appendChild(buttonContainer);
+    }
 
-    // Attach event listener
+    // Attach event listener with error handling
     const button = buttonContainer.querySelector('#freetext-parser-btn');
-    button.addEventListener('click', () => this.openFreetextModal());
-
-    console.log('✅ Freetext parser button added to AddItem page');
+    if (button) {
+      button.addEventListener('click', () => this.openFreetextModal());
+      console.log('✅ Freetext parser button added to AddItem page');
+    } else {
+      console.error('❌ Failed to find freetext parser button after creation');
+    }
   }
 
   /**
@@ -91,16 +114,31 @@ export class FreetextParser {
       return;
     }
 
-    this.currentModal = this.createFreetextModal();
-    document.body.appendChild(this.currentModal);
-    
-    // Focus on textarea
-    setTimeout(() => {
-      const textarea = this.currentModal.querySelector('#freetext-input');
-      if (textarea) textarea.focus();
-    }, 100);
+    try {
+      this.currentModal = this.createFreetextModal();
+      
+      // Ensure document.body exists before appending
+      if (document.body) {
+        document.body.appendChild(this.currentModal);
+        
+        // Focus on textarea with error handling
+        setTimeout(() => {
+          if (this.currentModal) {
+            const textarea = this.currentModal.querySelector('#freetext-input');
+            if (textarea) {
+              textarea.focus();
+            }
+          }
+        }, 100);
 
-    console.log('✅ Freetext modal opened');
+        console.log('✅ Freetext modal opened');
+      } else {
+        console.error('❌ document.body not available for modal');
+      }
+    } catch (error) {
+      console.error('❌ Failed to open freetext modal:', error);
+      this.currentModal = null;
+    }
   }
 
   /**
@@ -200,10 +238,12 @@ export class FreetextParser {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
         this.closeModal();
-        document.removeEventListener('keydown', handleEscape);
       }
     };
     document.addEventListener('keydown', handleEscape);
+    
+    // Store reference for cleanup
+    modal._escapeHandler = handleEscape;
 
     // Analyze button
     const analyzeBtn = modal.querySelector('#analyze-btn');
@@ -620,11 +660,29 @@ export class FreetextParser {
    */
   closeModal() {
     if (this.currentModal) {
-      this.currentModal.remove();
-      this.currentModal = null;
-      this.parsedData = null;
-      this.isProcessing = false;
-      console.log('✅ Freetext modal closed');
+      try {
+        // Remove event listeners to prevent memory leaks
+        const escapeHandler = this.currentModal._escapeHandler;
+        if (escapeHandler) {
+          document.removeEventListener('keydown', escapeHandler);
+        }
+        
+        // Remove modal from DOM
+        if (this.currentModal.parentNode) {
+          this.currentModal.parentNode.removeChild(this.currentModal);
+        }
+        
+        this.currentModal = null;
+        this.parsedData = null;
+        this.isProcessing = false;
+        console.log('✅ Freetext modal closed');
+      } catch (error) {
+        console.error('❌ Error closing modal:', error);
+        // Force cleanup
+        this.currentModal = null;
+        this.parsedData = null;
+        this.isProcessing = false;
+      }
     }
   }
 
