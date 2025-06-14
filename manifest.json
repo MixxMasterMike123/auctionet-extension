@@ -37,6 +37,7 @@
         "modules/refactored/ai-rules-system/complete-migration.js",
         "content.js"
       ],
+      "css": ["styles/components/freetext-parser.css"],
       "run_at": "document_end"
     }
   ],
