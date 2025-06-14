@@ -566,62 +566,53 @@ INSTRUKTIONER:
   }
 
   /**
-   * Auto-enhance fields using AI Rules System v2.0 (the "cheat" step!)
-   * This simulates running the enhance buttons to get optimal field distribution
+   * Auto-enhance fields using EXACT SAME logic as edit page "enhance all"
+   * This is the "cheat" step that gives us perfect results!
    */
   async autoEnhanceFields(parsedData) {
-    console.log('🎯 Auto-enhancing fields with AI Rules System v2.0...');
+    console.log('🎯 Auto-enhancing fields with EXACT edit page logic...');
     
     try {
-      // Use AI Rules System v2.0 for enhancement (same as enhance buttons)
-      const { buildPrompt } = window;
+      // Convert parsed data to edit page format
+      const itemData = {
+        category: '', // FreetextParser doesn't have category
+        title: parsedData.title || '',
+        description: parsedData.description || '',
+        condition: parsedData.condition || '',
+        artist: parsedData.artist || '',
+        keywords: parsedData.keywords || '',
+        estimate: parsedData.estimate || ''
+      };
+
+      // Use EXACT SAME system prompt as edit page
+      const systemPrompt = this.getEditPageSystemPrompt();
       
-      // Build enhancement prompt for all fields
-      const promptData = buildPrompt({
-        type: 'core',
-        category: null,
-        fields: ['all']
+      // Use EXACT SAME user prompt logic as edit page
+      const userPrompt = this.getEditPageUserPrompt(itemData, 'all');
+
+      console.log('🚀 Using edit page enhancement logic:', {
+        hasSystemPrompt: !!systemPrompt,
+        hasUserPrompt: !!userPrompt,
+        systemPromptLength: systemPrompt.length,
+        userPromptLength: userPrompt.length
       });
-      
-      const enhancementPrompt = `${promptData.systemPrompt}
-
-UPPGIFT: Optimera och förbättra dessa auktionsfält enligt svenska auktionsstandarder.
-
-NUVARANDE DATA:
-Titel: "${parsedData.title || ''}"
-Beskrivning: "${parsedData.description || ''}"
-Skick: "${parsedData.condition || ''}"
-Konstnär: "${parsedData.artist || ''}"
-
-🎯 OPTIMERINGSREGLER:
-• Titel ska börja med föremål och innehålla viktigaste info (max 60 tecken)
-• Flytta konstnär till artist-fält om det förbättrar titeln
-• Beskrivning ska vara detaljerad men utan upprepning från titel
-• Skick ska vara kort och faktabaserat
-
-Returnera optimerad data i JSON-format:
-{
-  "title": "Optimerad titel",
-  "description": "Optimerad beskrivning", 
-  "condition": "Optimerat skick",
-  "artist": "Konstnär om identifierad"
-}`;
 
       const response = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Auto-enhance timeout'));
-        }, 15000);
+          reject(new Error('Edit page enhancement timeout'));
+        }, 20000);
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
             model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 1000,
+            max_tokens: 2000,
             temperature: 0.1,
+            system: systemPrompt,
             messages: [{
               role: 'user',
-              content: enhancementPrompt
+              content: userPrompt
             }]
           }
         }, (response) => {
@@ -631,42 +622,138 @@ Returnera optimerad data i JSON-format:
           } else if (response && response.success) {
             resolve(response);
           } else {
-            reject(new Error('Auto-enhance failed'));
+            reject(new Error('Edit page enhancement failed'));
           }
         });
       });
 
       if (response.success && response.data?.content?.[0]?.text) {
         const enhancedText = response.data.content[0].text;
-        console.log('🔍 Auto-enhance response:', enhancedText);
+        console.log('🔍 Edit page enhancement response:', enhancedText);
         
-        // Parse the enhanced response
-        const jsonMatch = enhancedText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const enhancedFields = JSON.parse(jsonMatch[0]);
-          
-          // Merge enhanced fields with original data
-          const result = {
-            ...parsedData,
-            title: enhancedFields.title || parsedData.title,
-            description: enhancedFields.description || parsedData.description,
-            condition: enhancedFields.condition || parsedData.condition,
-            artist: enhancedFields.artist || parsedData.artist
-          };
-          
-          console.log('✅ Auto-enhancement successful:', result);
-          return result;
-        }
+        // Use EXACT SAME parsing logic as edit page
+        const enhancedFields = this.parseEditPageResponse(enhancedText, 'all');
+        
+        // Merge enhanced fields with original data (preserve non-enhanced fields)
+        const result = {
+          ...parsedData,
+          title: enhancedFields.title || parsedData.title,
+          description: enhancedFields.description || parsedData.description,
+          condition: enhancedFields.condition || parsedData.condition,
+          artist: enhancedFields.artist || parsedData.artist,
+          keywords: enhancedFields.keywords || parsedData.keywords
+        };
+        
+        console.log('✅ Edit page enhancement successful:', result);
+        return result;
       }
       
-      console.log('⚠️ Auto-enhancement failed, using original data');
+      console.log('⚠️ Edit page enhancement failed, using original data');
       return parsedData;
       
     } catch (error) {
-      console.error('❌ Auto-enhancement error:', error);
+      console.error('❌ Edit page enhancement error:', error);
       console.log('⚠️ Falling back to original parsed data');
       return parsedData;
     }
+  }
+
+  /**
+   * Get EXACT SAME system prompt as edit page
+   */
+  getEditPageSystemPrompt() {
+    // Use the exact same system prompt as content.js
+    const { ContentJSMigration } = window;
+    if (ContentJSMigration && ContentJSMigration.getSystemPrompt) {
+      return ContentJSMigration.getSystemPrompt();
+    }
+    
+    // Fallback to AI Rules System v2.0
+    const { getSystemPrompt } = window;
+    if (getSystemPrompt) {
+      return getSystemPrompt('core', 'contentJs');
+    }
+    
+    // Final fallback - basic system prompt
+    return `Du är en expert på svenska auktionskatalogisering. Förbättra auktionstexter enligt svenska auktionsstandarder med fokus på korrekt terminologi, struktur och anti-hallucination.`;
+  }
+
+  /**
+   * Get EXACT SAME user prompt logic as edit page
+   */
+  getEditPageUserPrompt(itemData, fieldType) {
+    // Use the exact same user prompt logic as content.js
+    const { ContentJSMigration } = window;
+    if (ContentJSMigration && ContentJSMigration.getUserPrompt) {
+      return ContentJSMigration.getUserPrompt(itemData, fieldType);
+    }
+    
+    // Fallback to APIManagerMigration
+    const { APIManagerMigration } = window;
+    if (APIManagerMigration && APIManagerMigration.getUserPrompt) {
+      return APIManagerMigration.getUserPrompt(itemData, fieldType);
+    }
+    
+    // Final fallback - basic prompt for 'all' fields
+    return `FÖREMÅLSINFORMATION:
+Titel: ${itemData.title}
+Beskrivning: ${itemData.description}
+Kondition: ${itemData.condition}
+Konstnär: ${itemData.artist}
+
+UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera sökord enligt svenska auktionsstandarder.
+
+Returnera EXAKT i detta format:
+TITEL: [förbättrad titel]
+BESKRIVNING: [förbättrad beskrivning]
+KONDITION: [förbättrad konditionsrapport]
+SÖKORD: [sökord separerade med mellanslag]`;
+  }
+
+  /**
+   * Parse response using EXACT SAME logic as edit page
+   */
+  parseEditPageResponse(response, fieldType) {
+    console.log('🔍 Parsing edit page response for fieldType:', fieldType, 'Response:', response);
+    
+    // Use exact same parsing logic as content.js parseClaudeResponse method
+    const result = {};
+    const lines = response.split('\n');
+    
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      
+      // Handle different formats: "TITEL:", "**TITEL:**", "**TITEL (XX tecken):**"
+      if (trimmedLine.match(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i)) {
+        result.title = trimmedLine.replace(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i, '').trim();
+      } else if (trimmedLine.match(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i)) {
+        result.description = trimmedLine.replace(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, '').trim();
+      } else if (trimmedLine.match(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i)) {
+        result.condition = trimmedLine.replace(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i, '').trim();
+      } else if (trimmedLine.match(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i)) {
+        result.keywords = trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim();
+      }
+      
+      // Handle simple formats (legacy)
+      else if (trimmedLine.startsWith('TITEL:')) {
+        result.title = trimmedLine.substring(6).trim();
+      } else if (trimmedLine.startsWith('BESKRIVNING:')) {
+        result.description = trimmedLine.substring(12).trim();
+      } else if (trimmedLine.startsWith('KONDITION:')) {
+        result.condition = trimmedLine.substring(10).trim();
+      } else if (trimmedLine.startsWith('SÖKORD:')) {
+        result.keywords = trimmedLine.substring(7).trim();
+      }
+    });
+    
+    // If we only got a simple response (like just a title), handle it appropriately
+    if (Object.keys(result).length === 0 && response.trim().length > 0) {
+      // Assume it's a single field response based on the request type
+      result.title = response.trim();
+    }
+    
+    console.log('✅ Edit page parsed result:', result);
+    return result;
   }
 
   /**
