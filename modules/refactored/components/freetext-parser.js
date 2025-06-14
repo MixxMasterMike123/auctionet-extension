@@ -347,20 +347,53 @@ export class FreetextParser {
   async parseFreetextWithAI(freetext) {
     console.log('🔄 Parsing freetext with AI Rules System v2.0...');
 
-    // Use AI Rules System v2.0 for consistent prompting
-    const prompt = buildPrompt({
-      type: 'freetextParser',
-      context: { 
-        freetext, 
-        language: 'swedish',
-        source: 'addItemsPage'
-      },
-      fields: ['title', 'description', 'condition', 'artist', 'materials', 'period'],
-      instructions: 'Parse Swedish auction freetext into structured catalog data'
-    });
+    // Build comprehensive prompt for freetext parsing
+    const systemPrompt = `Du är en expert på svenska auktionskatalogisering. Din uppgift är att analysera fritext och extrahera strukturerad data för professionell katalogisering.
 
-    const response = await this.apiManager.callAI(prompt.userPrompt, {
-      systemPrompt: prompt.systemPrompt,
+VIKTIGA PRINCIPER:
+- Använd endast verifierbara information från fritexten
+- Skriv professionellt utan säljande språk
+- Uppskatta värdering konservativt baserat på beskrivning
+- Markera osäkerhet i confidence-poäng (0.0-1.0)
+- Alla texter ska vara på svenska
+- Identifiera konstnärer/formgivare när möjligt`;
+
+    const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
+
+FRITEXT:
+"${freetext}"
+
+Returnera data i exakt detta JSON-format:
+{
+  "title": "Kort, beskrivande titel (max 255 tecken)",
+  "description": "Detaljerad beskrivning med mått, material, teknik, period",
+  "condition": "Konditionsbeskrivning på svenska",
+  "artist": "Konstnär/formgivare om identifierad, annars null",
+  "keywords": "relevanta sökord separerade med mellanslag",
+  "estimate": 500,
+  "reserve": 300,
+  "materials": "material/teknik",
+  "period": "tidsperiod/datering",
+  "shouldDisposeIfUnsold": false,
+  "confidence": {
+    "title": 0.9,
+    "description": 0.8,
+    "condition": 0.7,
+    "artist": 0.6,
+    "estimate": 0.5
+  },
+  "reasoning": "Kort förklaring av analysen på svenska"
+}
+
+INSTRUKTIONER:
+- estimate/reserve ska vara numeriska värden i SEK
+- confidence-värden mellan 0.0-1.0
+- shouldDisposeIfUnsold: true endast om fritexten nämner skänkning/återvinning
+- Lämna fält som null om information saknas
+- Var konservativ med värderingar`;
+
+    const response = await this.apiManager.callAI(userPrompt, {
+      systemPrompt: systemPrompt,
       maxTokens: 2000,
       temperature: 0.1 // Low temperature for consistent parsing
     });
@@ -373,20 +406,82 @@ export class FreetextParser {
    */
   parseAIResponse(response) {
     try {
+      console.log('🔍 Raw AI response:', response);
+
+      // Clean the response and extract JSON
+      let cleanResponse = response.trim();
+      
+      // Remove markdown code blocks if present
+      cleanResponse = cleanResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      
       // Try to parse JSON response first
-      if (response.includes('{') && response.includes('}')) {
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (cleanResponse.includes('{') && cleanResponse.includes('}')) {
+        const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
+          const parsedData = JSON.parse(jsonMatch[0]);
+          
+          // Validate and normalize the parsed data
+          return this.validateAndNormalizeParsedData(parsedData);
         }
       }
 
       // Fallback: Parse structured text response
-      return this.parseStructuredTextResponse(response);
+      return this.parseStructuredTextResponse(cleanResponse);
     } catch (error) {
-      console.error('❌ Failed to parse AI response:', error);
-      throw new Error('AI response kunde inte tolkas');
+      console.error('❌ Failed to parse AI response:', error, 'Response:', response);
+      throw new Error('AI response kunde inte tolkas. Försök igen med tydligare fritext.');
     }
+  }
+
+  /**
+   * Validate and normalize parsed data
+   */
+  validateAndNormalizeParsedData(data) {
+    const normalized = {
+      title: data.title || '',
+      description: data.description || '',
+      condition: data.condition || '',
+      artist: data.artist || null,
+      keywords: data.keywords || '',
+      materials: data.materials || '',
+      period: data.period || '',
+      estimate: this.parseNumericValue(data.estimate),
+      reserve: this.parseNumericValue(data.reserve),
+      shouldDisposeIfUnsold: Boolean(data.shouldDisposeIfUnsold),
+      confidence: {
+        title: this.normalizeConfidence(data.confidence?.title),
+        description: this.normalizeConfidence(data.confidence?.description),
+        condition: this.normalizeConfidence(data.confidence?.condition),
+        artist: this.normalizeConfidence(data.confidence?.artist),
+        estimate: this.normalizeConfidence(data.confidence?.estimate)
+      },
+      reasoning: data.reasoning || ''
+    };
+
+    console.log('✅ Normalized parsed data:', normalized);
+    return normalized;
+  }
+
+  /**
+   * Parse numeric values safely
+   */
+  parseNumericValue(value) {
+    if (typeof value === 'number') return Math.max(0, Math.round(value));
+    if (typeof value === 'string') {
+      const num = parseInt(value.replace(/[^\d]/g, ''));
+      return isNaN(num) ? null : Math.max(0, num);
+    }
+    return null;
+  }
+
+  /**
+   * Normalize confidence values to 0.0-1.0 range
+   */
+  normalizeConfidence(value) {
+    if (typeof value === 'number') {
+      return Math.max(0, Math.min(1, value));
+    }
+    return 0.5; // Default confidence
   }
 
   /**
@@ -475,6 +570,9 @@ export class FreetextParser {
     const modal = this.currentModal;
     if (!modal) return;
 
+    // Store parsed data for later use
+    this.parsedData = data;
+
     // Hide processing section
     const processingSection = modal.querySelector('.ai-processing-section');
     if (processingSection) processingSection.style.display = 'none';
@@ -500,7 +598,7 @@ export class FreetextParser {
       applyBtn.style.display = 'inline-block';
     }
 
-    console.log('✅ Parsed preview displayed');
+    console.log('✅ Parsed preview displayed with data:', data);
   }
 
   /**
@@ -513,26 +611,32 @@ export class FreetextParser {
         ${this.generateFieldPreview('description', 'Beskrivning', data.description, data.confidence?.description)}
         ${this.generateFieldPreview('condition', 'Skick', data.condition, data.confidence?.condition)}
         ${this.generateFieldPreview('artist', 'Konstnär', data.artist, data.confidence?.artist)}
-        ${this.generateFieldPreview('materials', 'Material', data.materials, data.confidence?.materials)}
-        ${this.generateFieldPreview('period', 'Period', data.period, data.confidence?.period)}
+        ${this.generateFieldPreview('materials', 'Material', data.materials)}
+        ${this.generateFieldPreview('period', 'Period', data.period)}
+        ${this.generateFieldPreview('keywords', 'Sökord', data.keywords)}
       </div>
       
-      ${data.estimatedValue ? `
+      ${(data.estimate || data.reserve) ? `
         <div class="market-analysis">
-          <h5>📊 Marknadsanalys</h5>
-          <p><strong>Uppskattat värde:</strong> ${data.estimatedValue} SEK</p>
-          ${data.reservePrice ? `<p><strong>Föreslaget utrop:</strong> ${data.reservePrice} SEK</p>` : ''}
+          <h5>💰 Värdering</h5>
+          ${data.estimate ? `<p><strong>Uppskattat värde:</strong> ${data.estimate} SEK ${this.getConfidenceBadge(data.confidence?.estimate)}</p>` : ''}
+          ${data.reserve ? `<p><strong>Föreslaget bevakningspris:</strong> ${data.reserve} SEK</p>` : ''}
+          ${data.shouldDisposeIfUnsold ? '<p><strong>⚠️ Ska skänkas/återvinnas om osålt</strong></p>' : ''}
         </div>
       ` : ''}
       
-      ${data.keywords && data.keywords.length > 0 ? `
-        <div class="search-optimization">
-          <h5>🔍 Sökoptimering</h5>
-          <div class="keywords-preview">
-            ${data.keywords.map(keyword => `<span class="keyword-tag">${keyword}</span>`).join('')}
-          </div>
+      ${data.reasoning ? `
+        <div class="ai-reasoning">
+          <h5>🤖 AI-analys</h5>
+          <p><em>${data.reasoning}</em></p>
         </div>
       ` : ''}
+      
+      <div class="preview-actions">
+        <p class="text-muted">
+          <small>Granska informationen ovan och redigera vid behov innan du tillämpar på formuläret.</small>
+        </p>
+      </div>
     `;
   }
 
@@ -581,23 +685,98 @@ export class FreetextParser {
     }
 
     try {
-      // Get updated values from preview fields
+      // Get updated values from preview fields (user may have edited them)
       const updatedData = this.getUpdatedDataFromPreview();
+      console.log('🔄 Applying parsed data to form:', updatedData);
       
-      // Apply to form using existing field mappings
-      this.addItemsManager.applyParsedDataToForm(updatedData);
+      // Apply data directly to form fields using the exact field IDs from the HTML
+      this.applyToFormField('item_title_sv', updatedData.title);
+      this.applyToFormField('item_description_sv', updatedData.description);
+      this.applyToFormField('item_condition_sv', updatedData.condition);
+      this.applyToFormField('item_artist_name_sv', updatedData.artist);
+      this.applyToFormField('item_hidden_keywords', updatedData.keywords);
+      
+      // Apply numeric fields from original parsed data
+      if (this.parsedData.estimate) {
+        this.applyToFormField('item_current_auction_attributes_estimate', this.parsedData.estimate);
+      }
+      if (this.parsedData.reserve) {
+        this.applyToFormField('item_current_auction_attributes_reserve', this.parsedData.reserve);
+      }
+      
+      // Apply checkbox for disposal if unsold
+      if (this.parsedData.shouldDisposeIfUnsold) {
+        const checkbox = document.getElementById('item_should_be_disposed_of_if_unsold');
+        if (checkbox) {
+          checkbox.checked = true;
+          console.log('✅ Set disposal checkbox to checked');
+        }
+      }
       
       // Close modal
       this.closeModal();
       
-      // Show success feedback
-      this.addItemsManager.showSuccessFeedback('✅ Katalogpost skapad från fritext!');
+      // Show success message
+      this.showSuccessMessage('Fritext har analyserats och tillämpats på formuläret!');
       
-      console.log('✅ Parsed data applied to form');
+      console.log('✅ All parsed data applied to form successfully');
+      
     } catch (error) {
       console.error('❌ Failed to apply parsed data:', error);
       this.showError('Kunde inte applicera data till formuläret.');
     }
+  }
+
+  /**
+   * Apply value to a specific form field
+   */
+  applyToFormField(fieldId, value) {
+    if (!value) return;
+    
+    const field = document.getElementById(fieldId);
+    if (field) {
+      // Check if field already has content and ask for confirmation
+      if (field.value.trim() && field.hasAttribute('data-confirm-nonempty')) {
+        const confirmMessage = field.getAttribute('data-confirm-nonempty');
+        if (!confirm(confirmMessage)) {
+          console.log(`⏭️ Skipped ${fieldId} - user declined replacement`);
+          return;
+        }
+      }
+      
+      field.value = value;
+      
+      // Trigger change event to notify any listeners (important for Auctionet's form validation)
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      console.log(`✅ Applied to ${fieldId}:`, value);
+    } else {
+      console.warn(`⚠️ Field not found: ${fieldId}`);
+    }
+  }
+
+  /**
+   * Show success message to user
+   */
+  showSuccessMessage(message) {
+    // Create a temporary success notification
+    const notification = document.createElement('div');
+    notification.className = 'freetext-success-notification';
+    notification.innerHTML = `
+      <div class="alert alert-success" style="position: fixed; top: 20px; right: 20px; z-index: 10000; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <strong>✅ Klart!</strong> ${message}
+      </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 4000);
   }
 
   /**
@@ -609,8 +788,18 @@ export class FreetextParser {
     
     previewFields.forEach(field => {
       const fieldName = field.closest('.field-preview').dataset.field;
-      data[fieldName] = field.value.trim();
+      const value = field.value.trim();
+      if (value) {
+        data[fieldName] = value;
+      }
     });
+    
+    // Include original parsed data for fields not shown in preview
+    if (this.parsedData) {
+      data.estimate = this.parsedData.estimate;
+      data.reserve = this.parsedData.reserve;
+      data.shouldDisposeIfUnsold = this.parsedData.shouldDisposeIfUnsold;
+    }
     
     return data;
   }
