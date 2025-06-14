@@ -512,6 +512,8 @@ applyToFormField('item_artist_name_sv', parsedData.artist);
 // ✅ Anti-hallucination rules and forbidden words validation
 // ✅ CRITICAL: Market-based valuation - AI does cataloging, market analysis does pricing
 // ✅ Integration with existing 3.5M auction dataset for accurate estimates/reserves
+// ✅ CRITICAL: Proper search query building with quoted artist names ("Gunnar Nylund")
+// ✅ Intelligent fallback strategy - removes least important keywords when no results found
 ```
 
 ### Artist Detection System Pattern (PHASE 3B COMPLETED)

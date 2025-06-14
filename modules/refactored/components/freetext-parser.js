@@ -1139,7 +1139,19 @@ ${categoryPrompt}`;
     // Build final query (limit to 4-5 terms for optimal results)
     const finalQuery = queryTerms.slice(0, 5).join(' ').trim();
     
-    console.log(`🔍 FINAL SEARCH QUERY: "${finalQuery}" (${queryTerms.length} terms)`);
+    console.log(`🔍 FREETEXT PARSER SEARCH QUERY BUILDING:`, {
+      originalData: {
+        title: data.title,
+        artist: data.artist,
+        materials: data.materials,
+        period: data.period
+      },
+      extractedTerms: queryTerms,
+      finalQuery: finalQuery,
+      termCount: queryTerms.length,
+      queryLength: finalQuery.length
+    });
+    
     return finalQuery;
   }
   
@@ -1288,6 +1300,18 @@ ${categoryPrompt}`;
       }
     }
     
+    // EMERGENCY FALLBACK: Try with unquoted terms if all quoted attempts failed
+    console.log('🚨 All quoted attempts failed - trying emergency unquoted fallback');
+    const emergencyQuery = this.buildEmergencyFallbackQuery(data);
+    if (emergencyQuery && emergencyQuery !== initialQuery) {
+      console.log(`🔄 Emergency fallback: "${emergencyQuery}"`);
+      marketData = await this.callMarketAnalysis(emergencyQuery, 'emergency_unquoted');
+      if (marketData && marketData.hasComparableData) {
+        console.log(`✅ Emergency fallback successful with: "${emergencyQuery}"`);
+        return marketData;
+      }
+    }
+    
     console.log('❌ All fallback attempts failed - no market data found');
     return null;
   }
@@ -1366,11 +1390,51 @@ ${categoryPrompt}`;
   }
   
   /**
+   * Build emergency fallback query with unquoted terms for broader search
+   */
+  buildEmergencyFallbackQuery(data) {
+    const terms = [];
+    
+    // Add artist without quotes
+    if (data.artist && data.artist.trim()) {
+      const cleanArtist = data.artist.trim().replace(/^["']|["']$/g, '');
+      terms.push(cleanArtist);
+    }
+    
+    // Add object type
+    const objectType = this.extractObjectType(data.title);
+    if (objectType) {
+      terms.push(objectType);
+    }
+    
+    // Add brand without quotes
+    const brand = this.extractBrandFromTitle(data.title);
+    if (brand && !terms.some(t => t.toLowerCase().includes(brand.toLowerCase()))) {
+      const cleanBrand = brand.replace(/^["']|["']$/g, '');
+      terms.push(cleanBrand);
+    }
+    
+    // Limit to 3 terms for broader search
+    const emergencyQuery = terms.slice(0, 3).join(' ').trim();
+    
+    console.log(`🚨 EMERGENCY FALLBACK QUERY: "${emergencyQuery}" (unquoted for broader search)`);
+    return emergencyQuery;
+  }
+  
+  /**
    * Call market analysis with a specific query
    */
   async callMarketAnalysis(query, attemptType) {
     try {
-      return await this.apiManager.analyzeSales({
+      console.log(`🔍 FREETEXT PARSER API CALL [${attemptType.toUpperCase()}]:`, {
+        query: query,
+        queryLength: query.length,
+        termCount: query.split(' ').length,
+        hasQuotes: query.includes('"'),
+        timestamp: new Date().toISOString()
+      });
+      
+      const searchContext = {
         primarySearch: query,
         searchTerms: query.split(' '),
         finalSearch: query,
@@ -1380,7 +1444,22 @@ ${categoryPrompt}`;
         generatedAt: Date.now(),
         isEmpty: false,
         hasValidQuery: true
+      };
+      
+      console.log(`📤 SENDING TO API:`, searchContext);
+      
+      const result = await this.apiManager.analyzeSales(searchContext);
+      
+      console.log(`📥 API RESPONSE [${attemptType.toUpperCase()}]:`, {
+        hasData: !!result,
+        hasComparableData: result?.hasComparableData,
+        historicalSales: result?.historical?.analyzedSales || 0,
+        totalMatches: result?.historical?.totalMatches || 0,
+        priceRange: result?.priceRange ? `${result.priceRange.low}-${result.priceRange.high} SEK` : 'none',
+        confidence: result?.confidence || 0
       });
+      
+      return result;
     } catch (error) {
       console.error(`❌ Market analysis failed for ${attemptType} query "${query}":`, error);
       return null;
