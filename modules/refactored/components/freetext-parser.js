@@ -397,9 +397,11 @@ export class FreetextParser {
       console.log('✅ Step 4 completed');
 
       // Step 5: Auto-enhance using AI Rules System v2.0 (the "cheat" step!)
-      console.log('📋 Step 5: Auto-enhancing with AI Rules System v2.0...');
+      console.log('📋 Step 5: Auto-enhancing with EDIT PAGE logic...');
+      console.log('📋 Data before enhancement:', finalData);
       const enhancedData = await this.autoEnhanceFields(finalData);
       console.log('✅ Step 5 completed - fields optimized');
+      console.log('📋 Data after enhancement:', enhancedData);
 
       console.log('📋 Final step: Showing enhanced preview...');
       this.parsedData = enhancedData;
@@ -662,19 +664,29 @@ INSTRUKTIONER:
    * Get EXACT SAME system prompt as edit page
    */
   getEditPageSystemPrompt() {
+    console.log('🔍 Checking for ContentJSMigration:', {
+      hasWindow: typeof window !== 'undefined',
+      hasContentJSMigration: !!window.ContentJSMigration,
+      hasGetSystemPrompt: !!(window.ContentJSMigration && window.ContentJSMigration.getSystemPrompt),
+      hasGlobalGetSystemPrompt: !!window.getSystemPrompt
+    });
+    
     // Use the exact same system prompt as content.js
     const { ContentJSMigration } = window;
     if (ContentJSMigration && ContentJSMigration.getSystemPrompt) {
+      console.log('✅ Using ContentJSMigration.getSystemPrompt()');
       return ContentJSMigration.getSystemPrompt();
     }
     
     // Fallback to AI Rules System v2.0
     const { getSystemPrompt } = window;
     if (getSystemPrompt) {
+      console.log('✅ Using global getSystemPrompt()');
       return getSystemPrompt('core', 'contentJs');
     }
     
     // Final fallback - basic system prompt
+    console.log('⚠️ Using fallback system prompt');
     return `Du är en expert på svenska auktionskatalogisering. Förbättra auktionstexter enligt svenska auktionsstandarder med fokus på korrekt terminologi, struktur och anti-hallucination.`;
   }
 
@@ -682,32 +694,68 @@ INSTRUKTIONER:
    * Get EXACT SAME user prompt logic as edit page
    */
   getEditPageUserPrompt(itemData, fieldType) {
+    console.log('🔍 Checking for user prompt methods:', {
+      hasContentJSMigration: !!window.ContentJSMigration,
+      hasContentJSGetUserPrompt: !!(window.ContentJSMigration && window.ContentJSMigration.getUserPrompt),
+      hasAPIManagerMigration: !!window.APIManagerMigration,
+      hasAPIManagerGetUserPrompt: !!(window.APIManagerMigration && window.APIManagerMigration.getUserPrompt)
+    });
+    
     // Use the exact same user prompt logic as content.js
     const { ContentJSMigration } = window;
     if (ContentJSMigration && ContentJSMigration.getUserPrompt) {
+      console.log('✅ Using ContentJSMigration.getUserPrompt()');
       return ContentJSMigration.getUserPrompt(itemData, fieldType);
     }
     
     // Fallback to APIManagerMigration
     const { APIManagerMigration } = window;
     if (APIManagerMigration && APIManagerMigration.getUserPrompt) {
+      console.log('✅ Using APIManagerMigration.getUserPrompt()');
       return APIManagerMigration.getUserPrompt(itemData, fieldType);
     }
     
-    // Final fallback - basic prompt for 'all' fields
-    return `FÖREMÅLSINFORMATION:
-Titel: ${itemData.title}
-Beskrivning: ${itemData.description}
+    // Final fallback - use EXACT edit page logic hardcoded
+    console.log('⚠️ Using fallback user prompt with EXACT edit page logic');
+    
+    const baseInfo = `
+FÖREMÅLSINFORMATION:
+Kategori: ${itemData.category}
+Nuvarande titel: ${itemData.title}
+Nuvarande beskrivning: ${itemData.description}
 Kondition: ${itemData.condition}
-Konstnär: ${itemData.artist}
+Konstnär/Formgivare: ${itemData.artist}
+Värdering: ${itemData.estimate} SEK
 
-UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera sökord enligt svenska auktionsstandarder.
+VIKTIGT FÖR TITEL: ${itemData.artist ? 
+  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet.' : 
+  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt.'}
+
+KONSTNÄRSINFORMATION FÖR TIDSPERIOD:
+${itemData.artist ? 
+  'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs aktiva period för att bestämma korrekt tidsperiod. Om du inte är säker, använd "troligen" eller utelämna period.' : 
+  'Ingen konstnär angiven - lägg INTE till tidsperiod om den inte redan finns i källdata.'}
+
+ANTI-HALLUCINATION INSTRUKTIONER:
+• Lägg ALDRIG till information som inte finns i källdata
+• Uppfinn ALDRIG tidsperioder, material, mått eller skador
+• Förbättra ENDAST språk, struktur och terminologi
+• Om information saknas - utelämna eller använd osäkerhetsmarkörer
+`;
+
+    return baseInfo + `
+UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
+
+FÄLTAVGRÄNSNING:
+• BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
+• KONDITION: Endast fysiskt skick och skador - ALDRIG beskrivande information
+• Håll fälten strikt separerade
 
 Returnera EXAKT i detta format:
 TITEL: [förbättrad titel]
 BESKRIVNING: [förbättrad beskrivning]
 KONDITION: [förbättrad konditionsrapport]
-SÖKORD: [sökord separerade med mellanslag]`;
+SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
