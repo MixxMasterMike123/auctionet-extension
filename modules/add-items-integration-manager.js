@@ -2,12 +2,15 @@
 // Integration manager that connects our new modular components
 // and handles remaining UI features (AI buttons, quality indicator, auto-resize)
 
+import { FreetextParser } from './refactored/components/freetext-parser.js';
+
 export class AddItemsIntegrationManager {
   constructor() {
     this.apiBridge = null;
     this.tooltipSystemManager = null;
     this.fieldQualityAnalyzer = null;
     this.fieldMonitorManager = null;
+    this.freetextParser = null;
     
     console.log('✅ AddItemsIntegrationManager: Initialized');
   }
@@ -29,8 +32,12 @@ export class AddItemsIntegrationManager {
     this.fieldQualityAnalyzer = fieldQualityAnalyzer;
     this.fieldMonitorManager = fieldMonitorManager;
 
+    // Initialize FreetextParser component
+    this.freetextParser = new FreetextParser(this.apiBridge, this);
+
     // Initialize UI features
     this.injectAIButtons();
+    this.initializeFreetextParser();
     this.setupAutoResizeForAllTextareas();
     
     console.log('✅ AddItemsIntegrationManager: Full initialization complete');
@@ -73,6 +80,18 @@ export class AddItemsIntegrationManager {
     
     // Attach event listeners
     this.attachAIButtonEventListeners();
+  }
+
+  /**
+   * Initialize FreetextParser component
+   */
+  async initializeFreetextParser() {
+    try {
+      await this.freetextParser.init();
+      // console.log('✅ FreetextParser initialized in AddItemsIntegrationManager');
+    } catch (error) {
+      console.error('❌ Failed to initialize FreetextParser:', error);
+    }
   }
 
   /**
@@ -644,9 +663,105 @@ export class AddItemsIntegrationManager {
   }
 
   /**
+   * Apply parsed freetext data to form fields
+   * Called by FreetextParser component
+   */
+  applyParsedDataToForm(parsedData) {
+    console.log('🤖 Applying parsed freetext data to form:', parsedData);
+    
+    try {
+      // Map parsed data to form fields
+      const fieldMapping = {
+        title: '#item_title_sv',
+        description: '#item_description_sv',
+        condition: '#item_condition_sv',
+        artist: '#item_artist_name_sv',
+        keywords: '#item_hidden_keywords'
+      };
+
+      // Apply data to each field
+      Object.keys(parsedData).forEach(fieldName => {
+        const value = parsedData[fieldName];
+        const selector = fieldMapping[fieldName];
+        
+        if (value && selector) {
+          const field = document.querySelector(selector);
+          if (field) {
+            field.value = value;
+            
+            // Trigger change event for any listeners
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // Auto-resize if it's a textarea
+            if (field.tagName.toLowerCase() === 'textarea') {
+              this.autoResizeTextarea(field);
+            }
+            
+            console.log(`✅ Applied ${fieldName}: ${value.substring(0, 50)}...`);
+          } else {
+            console.warn(`❌ Field not found for ${fieldName}: ${selector}`);
+          }
+        }
+      });
+
+      // Handle special fields
+      if (parsedData.materials && !parsedData.description?.includes(parsedData.materials)) {
+        // Add materials to description if not already included
+        const descField = document.querySelector('#item_description_sv');
+        if (descField && descField.value) {
+          descField.value += `\n\nMaterial: ${parsedData.materials}`;
+          this.autoResizeTextarea(descField);
+        }
+      }
+
+      if (parsedData.period && !parsedData.description?.includes(parsedData.period)) {
+        // Add period to description if not already included
+        const descField = document.querySelector('#item_description_sv');
+        if (descField && descField.value) {
+          descField.value += `\nPeriod: ${parsedData.period}`;
+          this.autoResizeTextarea(descField);
+        }
+      }
+
+      // Trigger quality analysis after applying data
+      setTimeout(() => {
+        this.analyzeQuality();
+      }, 500);
+
+      console.log('✅ Successfully applied all parsed data to form');
+      
+    } catch (error) {
+      console.error('❌ Failed to apply parsed data to form:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Show success feedback (used by FreetextParser)
+   */
+  showSuccessFeedback(message) {
+    console.log('✅', message);
+    // Could add a toast notification here in the future
+  }
+
+  /**
+   * Show error feedback (used by FreetextParser)
+   */
+  showErrorFeedback(message) {
+    console.error('❌', message);
+    // Could add a toast notification here in the future
+  }
+
+  /**
    * Destroy and cleanup
    */
   destroy() {
+    // Clean up FreetextParser
+    if (this.freetextParser) {
+      this.freetextParser.destroy();
+    }
+    
     // Remove any added UI elements
     const qualityIndicator = document.querySelector('.quality-indicator');
     if (qualityIndicator) {

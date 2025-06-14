@@ -31,7 +31,7 @@ export class FreetextParser {
       enableMarketAnalysis: true
     };
     
-    console.log('✅ FreetextParser component initialized');
+    // console.log('✅ FreetextParser component initialized');
   }
 
   /**
@@ -44,7 +44,7 @@ export class FreetextParser {
       
       this.injectStyles();
       this.addFreetextButton();
-      console.log('✅ FreetextParser UI elements added to AddItem page');
+      // console.log('✅ FreetextParser UI elements added to AddItem page');
     } catch (error) {
       console.error('❌ FreetextParser initialization failed:', error);
     }
@@ -99,7 +99,7 @@ export class FreetextParser {
     const button = buttonContainer.querySelector('#freetext-parser-btn');
     if (button) {
       button.addEventListener('click', () => this.openFreetextModal());
-      console.log('✅ Freetext parser button added to AddItem page');
+      // console.log('✅ Freetext parser button added to AddItem page');
     } else {
       console.error('❌ Failed to find freetext parser button after creation');
     }
@@ -131,7 +131,7 @@ export class FreetextParser {
           }
         }, 100);
 
-        console.log('✅ Freetext modal opened');
+        // console.log('✅ Freetext modal opened');
       } else {
         console.error('❌ document.body not available for modal');
       }
