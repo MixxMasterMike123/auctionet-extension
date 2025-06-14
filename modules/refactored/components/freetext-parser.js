@@ -347,6 +347,10 @@ export class FreetextParser {
   async parseFreetextWithAI(freetext) {
     console.log('🔄 Parsing freetext with AI Rules System v2.0...');
 
+    if (!this.apiManager.apiKey) {
+      throw new Error('API key not configured. Please set your Anthropic API key in the extension popup.');
+    }
+
     // Build comprehensive prompt for freetext parsing
     const systemPrompt = `Du är en expert på svenska auktionskatalogisering. Din uppgift är att analysera fritext och extrahera strukturerad data för professionell katalogisering.
 
@@ -392,13 +396,43 @@ INSTRUKTIONER:
 - Lämna fält som null om information saknas
 - Var konservativ med värderingar`;
 
-    const response = await this.apiManager.callAI(userPrompt, {
-      systemPrompt: systemPrompt,
-      maxTokens: 2000,
-      temperature: 0.1 // Low temperature for consistent parsing
-    });
+    try {
+      // Call AI API directly using Chrome runtime messaging (same pattern as other components)
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: {
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 2000,
+            temperature: 0.1, // Low temperature for consistent parsing
+            system: systemPrompt,
+            messages: [{
+              role: 'user',
+              content: userPrompt
+            }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.success) {
+            resolve(response);
+          } else {
+            reject(new Error(response.error || 'AI analysis failed'));
+          }
+        });
+      });
 
-    return this.parseAIResponse(response);
+      if (response.success && response.data?.content?.[0]?.text) {
+        return this.parseAIResponse(response.data.content[0].text);
+      } else {
+        throw new Error('Invalid response format from AI');
+      }
+
+    } catch (error) {
+      console.error('❌ AI parsing failed:', error);
+      throw error;
+    }
   }
 
   /**
