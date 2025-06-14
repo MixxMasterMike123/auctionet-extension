@@ -1029,30 +1029,23 @@ ${categoryPrompt}`;
         return data;
       }
       
-      // Extract search parameters from parsed data
-      const artistName = data.artist || '';
-      const objectType = this.extractObjectType(data.title);
-      const period = data.period || '';
-      const technique = data.materials || '';
-      const description = `${data.title} ${data.description}`.trim();
+      // Build proper search query using the same system as other components
+      const searchQuery = this.buildOptimalSearchQuery(data);
       
-      console.log('🔍 Running market analysis with:', {
-        artistName,
-        objectType,
-        period,
-        technique,
-        description: description.substring(0, 100) + '...'
+      if (!searchQuery || searchQuery.trim().length < 3) {
+        console.log('⏭️ Skipping market analysis - could not build meaningful search query');
+        data.reasoning = (data.reasoning || '') + ' Kunde inte bygga sökfråga för marknadsanalys.';
+        return data;
+      }
+      
+      console.log('🔍 Running market analysis with optimized search query:', {
+        searchQuery,
+        hasArtist: !!data.artist,
+        title: data.title?.substring(0, 50) + '...'
       });
       
-      // Use existing market analysis system
-      const marketData = await this.apiManager.analyzeComparableSales(
-        artistName,
-        objectType,
-        period,
-        technique,
-        description,
-        data.estimate // Pass current estimate for comparison
-      );
+      // Use the modern search-based market analysis approach with fallback strategy
+      let marketData = await this.tryMarketAnalysisWithFallbacks(searchQuery, data);
       
       if (marketData && marketData.hasComparableData) {
         console.log('✅ Market analysis successful:', {
@@ -1097,6 +1090,301 @@ ${categoryPrompt}`;
     }
     
     return data;
+  }
+  
+  /**
+   * Build optimal search query with quoted artist names and intelligent keyword prioritization
+   * Following the same patterns as existing components
+   */
+  buildOptimalSearchQuery(data) {
+    const queryTerms = [];
+    
+    // PRIORITY 1: Artist (HIGHEST PRIORITY - quoted for exact matching)
+    if (data.artist && data.artist.trim()) {
+      const formattedArtist = this.formatArtistForSearch(data.artist);
+      queryTerms.push(formattedArtist);
+      console.log(`🎯 ARTIST: Added "${formattedArtist}" as primary search term`);
+    }
+    
+    // PRIORITY 2: Object type (CRITICAL for relevance)
+    const objectType = this.extractObjectType(data.title);
+    if (objectType && !queryTerms.some(term => term.toLowerCase().includes(objectType.toLowerCase()))) {
+      queryTerms.push(objectType);
+      console.log(`🎯 OBJECT: Added "${objectType}" as object type`);
+    }
+    
+    // PRIORITY 3: Brand/Designer (if different from artist)
+    const brand = this.extractBrandFromTitle(data.title);
+    if (brand && !queryTerms.some(term => term.toLowerCase().includes(brand.toLowerCase()))) {
+      const formattedBrand = this.formatBrandForSearch(brand);
+      queryTerms.push(formattedBrand);
+      console.log(`🎯 BRAND: Added "${formattedBrand}" as brand/designer`);
+    }
+    
+    // PRIORITY 4: Material (if distinctive)
+    if (data.materials && this.isDistinctiveMaterial(data.materials)) {
+      const material = data.materials.toLowerCase();
+      if (!queryTerms.some(term => term.toLowerCase().includes(material))) {
+        queryTerms.push(material);
+        console.log(`🎯 MATERIAL: Added "${material}" as distinctive material`);
+      }
+    }
+    
+    // PRIORITY 5: Period (if decade format)
+    if (data.period && data.period.includes('-tal')) {
+      queryTerms.push(data.period);
+      console.log(`🎯 PERIOD: Added "${data.period}" as time period`);
+    }
+    
+    // Build final query (limit to 4-5 terms for optimal results)
+    const finalQuery = queryTerms.slice(0, 5).join(' ').trim();
+    
+    console.log(`🔍 FINAL SEARCH QUERY: "${finalQuery}" (${queryTerms.length} terms)`);
+    return finalQuery;
+  }
+  
+  /**
+   * Format artist name for search with proper quoting
+   */
+  formatArtistForSearch(artistName) {
+    if (!artistName || typeof artistName !== 'string') {
+      return '';
+    }
+    
+    // Remove any existing quotes and clean
+    const cleanArtist = artistName.trim().replace(/^["']|["']$/g, '').replace(/,\s*$/, '');
+    
+    // Check if multi-word name (most artist names)
+    const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
+    
+    if (words.length > 1) {
+      // Multi-word: Always quote for exact matching
+      return `"${cleanArtist}"`;
+    } else {
+      // Single word: Also quote for consistency
+      return `"${cleanArtist}"`;
+    }
+  }
+  
+  /**
+   * Extract brand/designer from title (Nielsen Design, Bern, etc.)
+   */
+  extractBrandFromTitle(title) {
+    if (!title) return '';
+    
+    // Look for quoted brand names first
+    const quotedMatch = title.match(/"([^"]+)"/);
+    if (quotedMatch) {
+      return quotedMatch[1];
+    }
+    
+    // Look for common design brands/patterns
+    const brandPatterns = [
+      /\b([A-Z][a-z]+ Design)\b/,
+      /\b(IKEA|Ikea)\b/,
+      /\b(Royal Copenhagen)\b/,
+      /\b(Kosta Boda)\b/,
+      /\b(Orrefors)\b/,
+      /\b(Arabia)\b/,
+      /\b(Rörstrand)\b/,
+      /\b(Gustavsberg)\b/,
+      /\b([A-Z][a-z]+)\s*,\s*[a-z]/  // Pattern like "Bern, böjträ"
+    ];
+    
+    for (const pattern of brandPatterns) {
+      const match = title.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    
+    return '';
+  }
+  
+  /**
+   * Format brand for search with proper quoting
+   */
+  formatBrandForSearch(brand) {
+    if (!brand) return '';
+    
+    // Clean the brand name
+    const cleanBrand = brand.trim().replace(/,\s*$/, '');
+    
+    // Always quote brand names for exact matching
+    return `"${cleanBrand}"`;
+  }
+  
+  /**
+   * Check if material is distinctive enough to include in search
+   */
+  isDistinctiveMaterial(material) {
+    if (!material) return false;
+    
+    const distinctiveMaterials = [
+      'silver', 'guld', 'brons', 'koppar', 'mässing', 'tenn',
+      'porslin', 'stengods', 'keramik', 'glas', 'kristall',
+      'fårskinn', 'läder', 'sammet', 'siden',
+      'marmor', 'granit', 'onyx', 'alabaster',
+      'mahogny', 'ek', 'björk', 'teak', 'rosenträ'
+    ];
+    
+    const lowerMaterial = material.toLowerCase();
+    return distinctiveMaterials.some(dm => lowerMaterial.includes(dm));
+  }
+  
+  /**
+   * Try market analysis with progressive fallback strategy
+   * If no results found, progressively remove least important keywords
+   */
+  async tryMarketAnalysisWithFallbacks(initialQuery, data) {
+    const queryTerms = initialQuery.split(' ').filter(term => term.trim());
+    
+    // Define priority order (most important first - these are removed LAST)
+    const termPriorities = this.getTermPriorities(queryTerms, data);
+    
+    console.log('🔍 Starting market analysis with fallback strategy:', {
+      initialQuery,
+      termCount: queryTerms.length,
+      priorities: termPriorities
+    });
+    
+    // Try initial query first
+    let marketData = await this.callMarketAnalysis(initialQuery, 'initial');
+    if (marketData && marketData.hasComparableData) {
+      console.log('✅ Initial query successful');
+      return marketData;
+    }
+    
+    // If no results, try progressively removing terms (least important first)
+    let currentTerms = [...queryTerms];
+    let attemptCount = 1;
+    
+    while (currentTerms.length > 1 && attemptCount < 4) {
+      // Remove the least important term
+      const leastImportantIndex = this.findLeastImportantTermIndex(currentTerms, termPriorities);
+      const removedTerm = currentTerms.splice(leastImportantIndex, 1)[0];
+      
+      const fallbackQuery = currentTerms.join(' ');
+      console.log(`🔄 Fallback attempt ${attemptCount}: Removed "${removedTerm}", trying: "${fallbackQuery}"`);
+      
+      marketData = await this.callMarketAnalysis(fallbackQuery, `fallback_${attemptCount}`);
+      if (marketData && marketData.hasComparableData) {
+        console.log(`✅ Fallback ${attemptCount} successful with query: "${fallbackQuery}"`);
+        return marketData;
+      }
+      
+      attemptCount++;
+    }
+    
+    // Final attempt with just the most important term
+    if (currentTerms.length > 0) {
+      const finalQuery = currentTerms[0];
+      console.log(`🔄 Final attempt with most important term: "${finalQuery}"`);
+      
+      marketData = await this.callMarketAnalysis(finalQuery, 'final');
+      if (marketData && marketData.hasComparableData) {
+        console.log(`✅ Final attempt successful with: "${finalQuery}"`);
+        return marketData;
+      }
+    }
+    
+    console.log('❌ All fallback attempts failed - no market data found');
+    return null;
+  }
+  
+  /**
+   * Get priority scores for search terms (higher = more important, removed last)
+   */
+  getTermPriorities(terms, data) {
+    const priorities = {};
+    
+    terms.forEach(term => {
+      let priority = 50; // Base priority
+      
+      // Artist names (quoted) = highest priority
+      if (term.includes('"') && data.artist && term.includes(data.artist.replace(/['"]/g, ''))) {
+        priority = 100;
+      }
+      // Object types = high priority
+      else if (this.isObjectType(term)) {
+        priority = 90;
+      }
+      // Brands (quoted) = high priority
+      else if (term.includes('"') && term !== data.artist) {
+        priority = 85;
+      }
+      // Distinctive materials = medium priority
+      else if (this.isDistinctiveMaterial(term)) {
+        priority = 70;
+      }
+      // Periods = lower priority
+      else if (term.includes('-tal') || /\d{4}/.test(term)) {
+        priority = 60;
+      }
+      // Generic terms = lowest priority
+      else {
+        priority = 40;
+      }
+      
+      priorities[term] = priority;
+    });
+    
+    return priorities;
+  }
+  
+  /**
+   * Find the index of the least important term to remove
+   */
+  findLeastImportantTermIndex(terms, priorities) {
+    let lowestPriority = Infinity;
+    let lowestIndex = 0;
+    
+    terms.forEach((term, index) => {
+      const priority = priorities[term] || 50;
+      if (priority < lowestPriority) {
+        lowestPriority = priority;
+        lowestIndex = index;
+      }
+    });
+    
+    return lowestIndex;
+  }
+  
+  /**
+   * Check if a term is an object type
+   */
+  isObjectType(term) {
+    const objectTypes = [
+      'fåtölj', 'stol', 'bord', 'skåp', 'byrå', 'soffa', 'matta',
+      'tavla', 'målning', 'litografi', 'grafik', 'teckning', 'akvarell',
+      'skulptur', 'vas', 'skål', 'fat', 'tallrik', 'kopp', 'kanna',
+      'lampa', 'ljusstake', 'spegel', 'klocka', 'ur', 'smycke', 'ring',
+      'halsband', 'brosch', 'armband', 'möbel'
+    ];
+    
+    return objectTypes.some(type => term.toLowerCase().includes(type));
+  }
+  
+  /**
+   * Call market analysis with a specific query
+   */
+  async callMarketAnalysis(query, attemptType) {
+    try {
+      return await this.apiManager.analyzeSales({
+        primarySearch: query,
+        searchTerms: query.split(' '),
+        finalSearch: query,
+        source: `freetext_parser_${attemptType}`,
+        confidence: 0.7,
+        reasoning: `FreetextParser ${attemptType} search query`,
+        generatedAt: Date.now(),
+        isEmpty: false,
+        hasValidQuery: true
+      });
+    } catch (error) {
+      console.error(`❌ Market analysis failed for ${attemptType} query "${query}":`, error);
+      return null;
+    }
   }
   
   /**
