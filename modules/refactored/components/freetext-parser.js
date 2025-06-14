@@ -64,8 +64,14 @@ export class FreetextParser {
     }
 
     // Check if button already exists to avoid duplicates
-    if (document.querySelector('#freetext-parser-btn')) {
-      console.log('⚠️ Freetext parser button already exists');
+    const existingButton = document.querySelector('#freetext-parser-btn');
+    if (existingButton) {
+      console.log('⚠️ Freetext parser button already exists:', {
+        element: existingButton,
+        visible: existingButton.offsetParent !== null,
+        parent: existingButton.parentNode,
+        className: existingButton.className
+      });
       return;
     }
 
