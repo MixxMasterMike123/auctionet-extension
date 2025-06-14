@@ -70,17 +70,21 @@ export class FreetextParser {
     }
 
     // Find the form container (following existing patterns)
-    const formContainer = document.querySelector('.add-item-form, form, .form-container') || 
+    const formContainer = document.querySelector('.item_form, #new_item, .add-item-form, form, .form-container') || 
                          document.querySelector('main') || 
                          document.body;
     
     console.log('🔍 Form container search results:', {
+      '.item_form': !!document.querySelector('.item_form'),
+      '#new_item': !!document.querySelector('#new_item'),
       '.add-item-form': !!document.querySelector('.add-item-form'),
       'form': !!document.querySelector('form'),
       '.form-container': !!document.querySelector('.form-container'),
       'main': !!document.querySelector('main'),
       'body': !!document.body,
-      'selected': formContainer?.tagName
+      'selected': formContainer?.tagName,
+      'selectedClass': formContainer?.className,
+      'selectedId': formContainer?.id
     });
     
     if (!formContainer) {
@@ -99,12 +103,20 @@ export class FreetextParser {
       </button>
     `;
 
-    // Insert at the top of the form for maximum visibility, but avoid disrupting existing structure
-    const firstChild = formContainer.firstChild;
-    if (firstChild) {
-      formContainer.insertBefore(buttonContainer, firstChild);
+    // Insert before the form for maximum visibility, avoiding disrupting form structure
+    if (formContainer.id === 'new_item' || formContainer.className.includes('item_form')) {
+      // For the AddItem form, insert before the form
+      formContainer.parentNode.insertBefore(buttonContainer, formContainer);
+      console.log('📍 Button placed before AddItem form');
     } else {
-      formContainer.appendChild(buttonContainer);
+      // For other containers, insert at the top
+      const firstChild = formContainer.firstChild;
+      if (firstChild) {
+        formContainer.insertBefore(buttonContainer, firstChild);
+      } else {
+        formContainer.appendChild(buttonContainer);
+      }
+      console.log('📍 Button placed inside container');
     }
 
     // Attach event listener with error handling
