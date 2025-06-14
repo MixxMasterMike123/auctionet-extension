@@ -443,15 +443,25 @@ export class FreetextParser {
       field: 'freetextParser',
       category: 'freetextParser'
     });
+    
+    // Get existing title rules to ensure consistency
+    const titleRules = getFieldRules('title');
+    const contextRules = window.getAIRulesManager().rules.contextRules;
 
     const userPrompt = `${fieldTemplate}
+
+🎯 KRITISKA TITEL-FORMATERINGSREGLER (ANVÄND BEFINTLIGA REGLER):
+• Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
+• TITEL UTAN KONSTNÄR: [KONSTNÄR], [Föremål], [Material], [Period] - FÖRSTA ORDET VERSALER, KOMMA EFTER
+• TITEL MED KONSTNÄR I FÄLT: [Föremål], [Material], [Period] - Första ordet stor bokstav, punkt efter
+• Max ${titleRules.maxLength} tecken, följ exakt samma regler som andra komponenter
 
 FRITEXT ATT ANALYSERA:
 "${freetext}"
 
 Returnera data i exakt detta JSON-format:
 {
-  "title": "Kort, beskrivande titel (max 60 tecken, UTAN konstnär)",
+  "title": "Formaterad enligt befintliga titel-regler (max ${titleRules.maxLength} tecken)",
   "description": "Detaljerad beskrivning med mått, material, teknik, period",
   "condition": "Konditionsbeskrivning på svenska",
   "artist": "Konstnär/formgivare om identifierad, annars null",
