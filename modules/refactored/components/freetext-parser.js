@@ -43,7 +43,7 @@ export class FreetextParser {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       this.injectStyles();
-      this.addFreetextButton();
+      // Note: Button is now added by AddItemsIntegrationManager
       console.log('✅ FreetextParser UI elements added to AddItem page');
     } catch (error) {
       console.error('❌ FreetextParser initialization failed:', error);

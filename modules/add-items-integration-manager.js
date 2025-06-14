@@ -75,6 +75,9 @@ export class AddItemsIntegrationManager {
       this.addAIButton(keywordsField, 'keywords', 'AI-generera sökord');
     }
 
+    // Add FreetextParser button
+    this.addFreetextParserButton();
+
     // Add quality indicator with master button
     this.addQualityIndicator();
     
@@ -91,6 +94,82 @@ export class AddItemsIntegrationManager {
       console.log('✅ FreetextParser initialized in AddItemsIntegrationManager');
     } catch (error) {
       console.error('❌ Failed to initialize FreetextParser:', error);
+    }
+  }
+
+  /**
+   * Add FreetextParser button to the page
+   */
+  addFreetextParserButton() {
+    // Find a good location for the FreetextParser button - near the form header
+    const formHeader = document.querySelector('.page-header h3');
+    const form = document.querySelector('#new_item, .item_form');
+    
+    if (!form) {
+      console.log('❌ No AddItem form found for FreetextParser button');
+      return;
+    }
+
+    // Create the FreetextParser button with distinctive styling
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'freetext-parser-container';
+    buttonContainer.style.cssText = `
+      margin: 15px 0;
+      padding: 15px;
+      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+      border: 2px solid #2196f3;
+      border-radius: 8px;
+      text-align: center;
+    `;
+    
+    buttonContainer.innerHTML = `
+      <button type="button" class="btn btn-primary btn-lg" id="freetext-parser-btn" style="
+        background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+        border: none;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        box-shadow: 0 3px 8px rgba(33, 150, 243, 0.3);
+        transition: all 0.2s ease;
+      ">
+        🤖 AI Snabbkatalogisering från fritext
+      </button>
+      <div style="margin-top: 8px; font-size: 14px; color: #666;">
+        Skriv allt du vet om objektet - AI skapar perfekt katalogpost
+      </div>
+    `;
+
+    // Insert before the form
+    form.parentNode.insertBefore(buttonContainer, form);
+    
+    // Add event listener
+    const button = buttonContainer.querySelector('#freetext-parser-btn');
+    if (button) {
+      button.addEventListener('click', () => {
+        if (this.freetextParser) {
+          this.freetextParser.openFreetextModal();
+        } else {
+          console.error('❌ FreetextParser not available');
+        }
+      });
+      
+      // Add hover effects
+      button.addEventListener('mouseenter', () => {
+        button.style.transform = 'translateY(-2px)';
+        button.style.boxShadow = '0 5px 12px rgba(33, 150, 243, 0.4)';
+      });
+      
+      button.addEventListener('mouseleave', () => {
+        button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 3px 8px rgba(33, 150, 243, 0.3)';
+      });
+      
+      console.log('✅ FreetextParser button added to AddItem page');
+    } else {
+      console.error('❌ Failed to find FreetextParser button after creation');
     }
   }
 
