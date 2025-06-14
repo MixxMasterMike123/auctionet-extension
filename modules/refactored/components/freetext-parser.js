@@ -292,6 +292,8 @@ export class FreetextParser {
    * Process freetext using AI Rules System v2.0
    */
   async processFreetextWithAI() {
+    console.log('🔄 processFreetextWithAI called');
+    
     if (this.isProcessing) {
       console.log('⚠️ Already processing freetext');
       return;
@@ -300,43 +302,68 @@ export class FreetextParser {
     const textarea = this.currentModal.querySelector('#freetext-input');
     const freetext = textarea.value.trim();
 
+    console.log('📝 Freetext validation:', {
+      hasTextarea: !!textarea,
+      freetextLength: freetext?.length || 0,
+      freetext: freetext?.substring(0, 100) + '...'
+    });
+
     if (!freetext) {
+      console.warn('⚠️ No freetext provided');
       this.showError('Vänligen skriv in information om objektet först.');
       return;
     }
 
     if (freetext.length < 10) {
+      console.warn('⚠️ Freetext too short:', freetext.length);
       this.showError('Fritext är för kort. Skriv mer information om objektet.');
       return;
     }
 
     try {
+      console.log('🚀 Starting AI processing...');
       this.isProcessing = true;
       this.showProcessingState();
 
       console.log('🤖 Starting AI analysis of freetext:', freetext.substring(0, 100) + '...');
 
       // Step 1: Parse freetext using AI Rules System v2.0
+      console.log('📋 Step 1: Calling parseFreetextWithAI...');
       const parsedData = await this.parseFreetextWithAI(freetext);
+      console.log('✅ Step 1 completed:', parsedData);
       
       // Step 2: Validate against historical auction data (if enabled)
+      console.log('📋 Step 2: Historical validation...');
       const validatedData = this.config.enableHistoricalValidation 
         ? await this.validateAgainstAuctionHistory(parsedData)
         : parsedData;
+      console.log('✅ Step 2 completed');
 
       // Step 3: Generate search terms and market analysis
+      console.log('📋 Step 3: Market data enrichment...');
       const enrichedData = await this.enrichWithMarketData(validatedData);
+      console.log('✅ Step 3 completed');
 
       // Step 4: Calculate confidence scores
+      console.log('📋 Step 4: Confidence scoring...');
       const finalData = this.calculateConfidenceScores(enrichedData);
+      console.log('✅ Step 4 completed');
 
+      console.log('📋 Final step: Showing preview...');
       this.parsedData = finalData;
       this.showParsedPreview(finalData);
+      console.log('✅ All processing completed successfully');
 
     } catch (error) {
       console.error('❌ AI analysis failed:', error);
-      this.showError('AI-analys misslyckades. Försök igen eller kontakta support.');
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      this.showError(`AI-analys misslyckades: ${error.message}`);
     } finally {
+      console.log('🏁 Processing finished, cleaning up...');
       this.isProcessing = false;
     }
   }
@@ -397,8 +424,16 @@ INSTRUKTIONER:
 - Var konservativ med värderingar`;
 
     try {
+      console.log('🚀 Making AI API call with:', {
+        hasApiKey: !!this.apiManager.apiKey,
+        apiKeyLength: this.apiManager.apiKey?.length,
+        freetextLength: freetext.length
+      });
+
       // Call AI API directly using Chrome runtime messaging (same pattern as other components)
       const response = await new Promise((resolve, reject) => {
+        console.log('📤 Sending Chrome runtime message for AI parsing...');
+        
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
@@ -413,24 +448,39 @@ INSTRUKTIONER:
             }]
           }
         }, (response) => {
+          console.log('📥 Chrome runtime response received:', response);
+          
           if (chrome.runtime.lastError) {
+            console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
-          } else if (response.success) {
+          } else if (response && response.success) {
+            console.log('✅ AI API call successful');
             resolve(response);
           } else {
-            reject(new Error(response.error || 'AI analysis failed'));
+            console.error('❌ AI API call failed:', response);
+            reject(new Error(response?.error || 'AI analysis failed'));
           }
         });
       });
 
+      console.log('🔍 Processing AI response:', {
+        success: response.success,
+        hasData: !!response.data,
+        hasContent: !!response.data?.content,
+        contentLength: response.data?.content?.length
+      });
+
       if (response.success && response.data?.content?.[0]?.text) {
+        console.log('✅ AI response text received, length:', response.data.content[0].text.length);
         return this.parseAIResponse(response.data.content[0].text);
       } else {
+        console.error('❌ Invalid AI response structure:', response);
         throw new Error('Invalid response format from AI');
       }
 
     } catch (error) {
       console.error('❌ AI parsing failed:', error);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   }
