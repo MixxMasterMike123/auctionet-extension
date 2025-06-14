@@ -440,10 +440,10 @@ export class QualityAnalyzer {
     
     // CRITICAL FIX: Skip AI artist detection if artist field is already filled
     if (data.artist && data.artist.trim().length > 2) {
-      console.log('🔍 DEBUGGING: Artist field already filled, skipping AI artist detection');
+      console.log('🔍 DEBUGGING: Artist field already filled, but running comprehensive AI analysis for updated content');
       
-      // Still run brand validation and market analysis for existing artist
-      await this.triggerMarketAnalysisWithExistingArtist(data);
+      // BUSINESS CRITICAL: Always run comprehensive AI analysis to capture title/description updates
+      await this.runComprehensiveAIAnalysisForExistingArtist(data);
       
       // Run brand validation in parallel
       try {
@@ -3086,6 +3086,70 @@ export class QualityAnalyzer {
     
     // Update with animation enabled
     this.updateQualityIndicator(newScore, currentWarnings, true);
+  }
+
+  // NEW: Comprehensive AI analysis for existing artists (captures title/description updates)
+  async runComprehensiveAIAnalysisForExistingArtist(data) {
+    console.log('🚀 BUSINESS CRITICAL: Running comprehensive AI analysis for existing artist to capture field updates');
+    
+    if (this.searchQuerySSoT && this.searchFilterManager && data.artist) {
+      try {
+        // CRITICAL FIX: Quote-wrap artist field before passing to SSoT system
+        const formattedArtist = this.formatAIDetectedArtistForSSoT(data.artist);
+        
+        console.log('🔄 Extracting comprehensive search terms with AI Rules System v2.0 for existing artist...');
+        
+        // Extract comprehensive candidate terms WITH properly formatted existing artist
+        // This uses the full AI Rules System v2.0 to capture any new title/description content
+        // CRITICAL: Force fresh extraction to capture field updates (don't preserve existing terms)
+        const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
+          data.title,
+          data.description,
+          { artist: formattedArtist },
+          formattedArtist,
+          true // Force fresh extraction for field updates
+        );
+        
+        if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
+          console.log('✅ AI Rules System extracted', candidateSearchTerms.candidates.length, 'comprehensive search terms for existing artist');
+          
+          // Initialize SSoT with comprehensive terms (same as initial load)
+          this.searchQuerySSoT.initialize(
+            candidateSearchTerms.currentQuery, 
+            candidateSearchTerms, 
+            'comprehensive_existing_artist'
+          );
+          
+          // Trigger comprehensive market analysis with existing artist context
+          if (this.apiManager) {
+            const searchContext = this.searchQuerySSoT.buildSearchContext();
+            console.log('🚀 Starting comprehensive market analysis for existing artist...');
+            
+            const salesData = await this.apiManager.analyzeSales(searchContext);
+            if (salesData && salesData.hasComparableData) {
+              console.log('✅ Comprehensive market analysis complete for existing artist - updating dashboard');
+              
+              // Update dashboard with comprehensive results (same as initial load)
+              if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
+                this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'comprehensive_existing_artist');
+              }
+            } else {
+              console.log('⚠️ No comparable data found for existing artist, showing basic dashboard');
+              await this.triggerDashboardForNonArtItems(data);
+            }
+          }
+        } else {
+          console.log('⚠️ No candidate terms extracted for existing artist, falling back to basic analysis');
+          await this.triggerDashboardForNonArtItems(data);
+        }
+      } catch (error) {
+        console.error('❌ Comprehensive market analysis with existing artist failed:', error);
+        await this.triggerDashboardForNonArtItems(data);
+      }
+    } else {
+      console.log('⚠️ Required components not available for existing artist analysis, falling back to basic analysis');
+      await this.triggerDashboardForNonArtItems(data);
+    }
   }
 
   async triggerMarketAnalysisWithExistingArtist(data) {

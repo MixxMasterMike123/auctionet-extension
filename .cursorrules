@@ -174,6 +174,47 @@ Ask these questions before any implementation:
 - **ALWAYS** have a rollback plan ready
 - **PRESERVE** all existing functionality during any changes
 
+## 🚀 CRITICAL BUSINESS FIX - DECEMBER 2024
+**ISSUE**: AI Analysis was watered-down on subsequent field updates
+**PROBLEM**: When artist field was filled, system skipped comprehensive AI analysis
+**BUSINESS IMPACT**: Title/description updates didn't trigger rich market analysis
+**SOLUTION**: Modified `runAIArtistDetection()` to ALWAYS run full AI Rules System v2.0
+
+### The Fix:
+```javascript
+// OLD BROKEN LOGIC (line 447 in quality-analyzer.js):
+if (data.artist && data.artist.trim().length > 2) {
+  // Skip comprehensive AI analysis - WRONG! This breaks subsequent analysis
+  await this.triggerMarketAnalysisWithExistingArtist(data); // Basic analysis only
+}
+
+// NEW CORRECT LOGIC (simple one-line fix):
+if (data.artist && data.artist.trim().length > 2) {
+  // BUSINESS CRITICAL: Always run comprehensive AI analysis to capture title/description updates
+  await this.runComprehensiveAIAnalysisForExistingArtist(data); // Full AI Rules System v2.0
+}
+```
+
+### Business Requirements Satisfied:
+- ✅ **Initial pageload**: Full rich AI analysis with comprehensive dashboard
+- ✅ **Field updates**: Same full rich AI analysis with comprehensive dashboard  
+- ✅ **Title changes**: New market-relevant terms captured (period, technique, materials)
+- ✅ **Description updates**: Important details affect market positioning
+- ✅ **AI Rules System v2.0**: Always runs for comprehensive search term extraction
+- ✅ **Market analysis**: Always gets rich search context, never watered-down
+
+### Technical Implementation:
+- **Simple fix**: One method call change on line 447 in `runAIArtistDetection()`
+- **New method**: `runComprehensiveAIAnalysisForExistingArtist()` - Uses full AI Rules System v2.0
+- **Force fresh extraction**: Added `forceFreshExtraction` parameter to bypass term preservation
+- **Preserved**: All original artist detection UI and workflow (no breaking changes)
+- **Search terms**: Always comprehensive via AI Rules System for existing artists
+- **Dashboard**: Always rich with full market data sections for field updates
+- **Performance**: Minimal impact - just ensures AI Rules System runs for existing artists
+
+### Critical for Business:
+This fix ensures that when users update titles/descriptions with important new information (like adding period, technique, condition details), the system captures that information for accurate market analysis and pricing recommendations.
+
 ## 🧠 MEMORY SNIPPETS
 # Important patterns and decisions to remember
 

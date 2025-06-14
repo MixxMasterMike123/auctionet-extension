@@ -57,14 +57,15 @@ export class SearchFilterManager {
   }
 
   // NEW: Extract candidate search terms for interactive user selection
-  extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null) {
+  extractCandidateSearchTerms(title, description, artistInfo = null, actualSearchQuery = null, forceFreshExtraction = false) {
 
     
     // DEBUGGING: Check artist field in DOM regardless of parameters
     const artistFieldFromDOM = document.querySelector('#item_artist_name_sv')?.value?.trim();
     
     // CRITICAL FIX: Check if we already have AI Rules data in SearchQuerySSoT to preserve source information
-    if (this.searchQuerySSoT) {
+    // BUT skip preservation if forceFreshExtraction is requested (for field updates)
+    if (this.searchQuerySSoT && !forceFreshExtraction) {
       const existingTerms = this.searchQuerySSoT.getAvailableTerms();
       const queryMetadata = this.searchQuerySSoT.getCurrentMetadata();
       
@@ -104,7 +105,9 @@ export class SearchFilterManager {
     }
     
     // FALLBACK: If no existing AI Rules data, proceed with original extraction logic
-
+    if (forceFreshExtraction) {
+      console.log('🔄 BUSINESS CRITICAL: Forcing fresh extraction to capture field updates - bypassing preservation logic');
+    }
     
     const text = `${title} ${description}`.toLowerCase();
     const candidates = [];
