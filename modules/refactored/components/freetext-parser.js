@@ -13,6 +13,17 @@
  * Dependencies: AI Rules System v2.0, existing popup patterns
  */
 
+// Import AI Rules System v2.0 functions (global access)
+const { 
+  getSystemPrompt, 
+  getCategoryPrompt, 
+  buildPrompt,
+  getCategoryRules,
+  getFieldRules,
+  getForbiddenWords,
+  isForbiddenWord
+} = window;
+
 export class FreetextParser {
   constructor(apiManager, addItemsManager) {
     // Handle both direct APIManager and APIBridge patterns
@@ -425,25 +436,22 @@ export class FreetextParser {
       keyPrefix: this.apiManager.apiKey.substring(0, 10) + '...'
     });
 
-    // Build comprehensive prompt for freetext parsing
-    const systemPrompt = `Du är en expert på svenska auktionskatalogisering. Din uppgift är att analysera fritext och extrahera strukturerad data för professionell katalogisering.
+    // Use AI Rules System v2.0 for consistent prompting
+    const systemPrompt = getSystemPrompt('freetextParser');
+    const categoryPrompt = getCategoryPrompt('freetextParser');
+    const fieldTemplate = buildPrompt({
+      field: 'freetextParser',
+      category: 'freetextParser'
+    });
 
-VIKTIGA PRINCIPER:
-- Använd endast verifierbara information från fritexten
-- Skriv professionellt utan säljande språk
-- Uppskatta värdering konservativt baserat på beskrivning
-- Markera osäkerhet i confidence-poäng (0.0-1.0)
-- Alla texter ska vara på svenska
-- Identifiera konstnärer/formgivare när möjligt`;
+    const userPrompt = `${fieldTemplate}
 
-    const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
-
-FRITEXT:
+FRITEXT ATT ANALYSERA:
 "${freetext}"
 
 Returnera data i exakt detta JSON-format:
 {
-  "title": "Kort, beskrivande titel (max 255 tecken)",
+  "title": "Kort, beskrivande titel (max 60 tecken, UTAN konstnär)",
   "description": "Detaljerad beskrivning med mått, material, teknik, period",
   "condition": "Konditionsbeskrivning på svenska",
   "artist": "Konstnär/formgivare om identifierad, annars null",
@@ -468,7 +476,9 @@ INSTRUKTIONER:
 - confidence-värden mellan 0.0-1.0
 - shouldDisposeIfUnsold: true endast om fritexten nämner skänkning/återvinning
 - Lämna fält som null om information saknas
-- Var konservativ med värderingar`;
+- Var konservativ med värderingar
+
+${categoryPrompt}`;
 
     try {
       console.log('🚀 Making AI API call with:', {

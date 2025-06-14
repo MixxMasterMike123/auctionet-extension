@@ -452,6 +452,25 @@ constructor(apiManager, addItemsManager) {
   }
 }
 
+// AI Rules System v2.0 Integration (CRITICAL ARCHITECTURAL COMPLIANCE):
+const { 
+  getSystemPrompt, 
+  getCategoryPrompt, 
+  buildPrompt,
+  getCategoryRules,
+  getFieldRules,
+  getForbiddenWords,
+  isForbiddenWord
+} = window;
+
+// AI parsing using AI Rules System v2.0 (NO MORE HARDCODED PROMPTS):
+const systemPrompt = getSystemPrompt('freetextParser');
+const categoryPrompt = getCategoryPrompt('freetextParser');
+const fieldTemplate = buildPrompt({
+  field: 'freetextParser',
+  category: 'freetextParser'
+});
+
 // Integration with AddItem page (PRODUCTION READY):
 import { FreetextParser } from './refactored/components/freetext-parser.js';
 const freetextParser = new FreetextParser(apiBridge, addItemsManager); // Pass APIBridge
@@ -487,6 +506,10 @@ applyToFormField('item_artist_name_sv', parsedData.artist);
 // ✅ Modular component following .cursorrules architecture
 // ✅ Zero breaking changes to existing AddItem functionality
 // ✅ Production-ready with full AI parsing implementation
+// ✅ CRITICAL: Full AI Rules System v2.0 integration - NO hardcoded prompts
+// ✅ Artist separation rules: Artist → artist field, Title excludes artist
+// ✅ Swedish auction standards compliance via centralized rules
+// ✅ Anti-hallucination rules and forbidden words validation
 ```
 
 ### Artist Detection System Pattern (PHASE 3B COMPLETED)
