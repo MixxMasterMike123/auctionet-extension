@@ -139,17 +139,22 @@ export class FreetextParser {
    * Open the freetext input modal
    */
   openFreetextModal() {
+    console.log('🔴 FREETEXT MODAL OPENING in FreetextParser...');
+    
     if (this.currentModal) {
       console.log('⚠️ Modal already open');
       return;
     }
 
     try {
+      console.log('🔴 Creating freetext modal...');
       this.currentModal = this.createFreetextModal();
+      console.log('🔴 Modal created, appending to body...');
       
       // Ensure document.body exists before appending
       if (document.body) {
         document.body.appendChild(this.currentModal);
+        console.log('🔴 Modal appended to body successfully');
         
         // Focus on textarea with error handling
         setTimeout(() => {
@@ -157,16 +162,18 @@ export class FreetextParser {
             const textarea = this.currentModal.querySelector('#freetext-input');
             if (textarea) {
               textarea.focus();
+              console.log('🔴 Textarea focused');
             }
           }
         }, 100);
 
-        // console.log('✅ Freetext modal opened');
+        console.log('✅ Freetext modal opened successfully');
       } else {
         console.error('❌ document.body not available for modal');
       }
     } catch (error) {
       console.error('❌ Failed to open freetext modal:', error);
+      console.error('❌ Error stack:', error.stack);
       this.currentModal = null;
     }
   }
