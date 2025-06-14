@@ -88,7 +88,7 @@ export class AddItemsIntegrationManager {
   async initializeFreetextParser() {
     try {
       await this.freetextParser.init();
-      // console.log('✅ FreetextParser initialized in AddItemsIntegrationManager');
+      console.log('✅ FreetextParser initialized in AddItemsIntegrationManager');
     } catch (error) {
       console.error('❌ Failed to initialize FreetextParser:', error);
     }

@@ -44,7 +44,7 @@ export class FreetextParser {
       
       this.injectStyles();
       this.addFreetextButton();
-      // console.log('✅ FreetextParser UI elements added to AddItem page');
+      console.log('✅ FreetextParser UI elements added to AddItem page');
     } catch (error) {
       console.error('❌ FreetextParser initialization failed:', error);
     }
@@ -54,8 +54,11 @@ export class FreetextParser {
    * Add the main freetext parser button to the AddItem page
    */
   addFreetextButton() {
+    console.log('🔍 FreetextParser: addFreetextButton called, document.readyState:', document.readyState);
+    
     // Wait for DOM to be ready and avoid conflicts with existing controllers
     if (document.readyState === 'loading') {
+      console.log('⏳ DOM still loading, waiting for DOMContentLoaded...');
       document.addEventListener('DOMContentLoaded', () => this.addFreetextButton());
       return;
     }
@@ -70,6 +73,15 @@ export class FreetextParser {
     const formContainer = document.querySelector('.add-item-form, form, .form-container') || 
                          document.querySelector('main') || 
                          document.body;
+    
+    console.log('🔍 Form container search results:', {
+      '.add-item-form': !!document.querySelector('.add-item-form'),
+      'form': !!document.querySelector('form'),
+      '.form-container': !!document.querySelector('.form-container'),
+      'main': !!document.querySelector('main'),
+      'body': !!document.body,
+      'selected': formContainer?.tagName
+    });
     
     if (!formContainer) {
       console.error('❌ Could not find form container for freetext button');
@@ -99,7 +111,7 @@ export class FreetextParser {
     const button = buttonContainer.querySelector('#freetext-parser-btn');
     if (button) {
       button.addEventListener('click', () => this.openFreetextModal());
-      // console.log('✅ Freetext parser button added to AddItem page');
+      console.log('✅ Freetext parser button added to AddItem page');
     } else {
       console.error('❌ Failed to find freetext parser button after creation');
     }
