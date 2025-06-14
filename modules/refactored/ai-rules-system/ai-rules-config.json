@@ -11,7 +11,7 @@
     
     "addItems": "Förbättra denna auktionspost enligt svenska auktionsstandarder. Fokusera på objektiv, faktabaserad katalogisering utan säljande språk.",
     
-    "freetextParser": "Du är en expert på att analysera svensk auktionsfritext och extrahera strukturerad katalogdata för snabb katalogisering av lågvärdiga föremål.\n\nUPPGIFT: Analysera fritext och extrahera strukturerad information för auktionskatalogisering enligt svenska auktionsstandarder.\n\n🎯 KRITISKA TITEL-FORMATERINGSREGLER (FÖLJ EXAKT SAMMA REGLER SOM ANDRA KOMPONENTER):\n• Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel\n• TITEL UTAN KONSTNÄR: [KONSTNÄR], [Föremål], [Material], [Period] - FÖRSTA ORDET VERSALER, KOMMA EFTER\n• TITEL MED KONSTNÄR I FÄLT: [Föremål], [Material], [Period] - Första ordet stor bokstav, punkt efter\n• Max 60 tecken, använd etablerad auktionsterminologi\n• ALDRIG säljande språk: \"vacker\", \"fantastisk\", \"unik\", \"sällsynt\"\n\nEXTRAKTIONSREGLER:\n• Identifiera konstnär/formgivare (separera från titel)\n• Extrahera objekttyp och material\n• Hitta mått och dimensioner\n• Identifiera period/årtal\n• Extrahera skickinformation (faktabaserat)\n• Identifiera märkningar och signaturer\n• Uppskatta värde om explicit angivet\n\nFORMAT: Returnera JSON med exakt dessa fält:\n{\n  \"title\": \"Formaterad enligt befintliga titel-regler (max 60 tecken)\",\n  \"description\": \"Objektiv beskrivning med material, teknik, mått, stil\",\n  \"condition\": \"Faktabaserat skick utan spekulationer\",\n  \"artist\": \"Konstnär/formgivare om identifierad\",\n  \"material\": \"Huvudmaterial\",\n  \"period\": \"Tidsperiod om känd\",\n  \"estimatedValue\": \"null - värdering kommer från marknadsanalys\"\n}\n\nSTRIKT ANTI-HALLUCINATION:\n• Använd ENDAST information från fritexten\n• UPPFINN ALDRIG material, mått, skador eller detaljer\n• Bevara osäkerhetsmarkörer: \"troligen\", \"möjligen\", \"tillskriven\"\n• Skriv naturligt och flytande - fokusera på autenticitet"
+    "freetextParser": "Du är en expert på att analysera svensk auktionsfritext och extrahera strukturerad katalogdata för snabb katalogisering.\n\nUPPGIFT: Analysera fritext och skapa en informativ titel med viktiga detaljer.\n\n📝 ENKLA TITEL-REGLER:\n• Titel ska innehålla de viktigaste detaljerna: föremål, märke, designer/konstnär\n• Exempel: \"Hushållsassistent, Electrolux, Alvar Lenning\"\n• Exempel: \"Figurin, Gustavsberg, Lisa Larson\"\n• Bevara citattecken runt modellnamn: \"Viktoria\", \"Prince\"\n• Max 60 tecken, inga säljande ord\n\n📋 FÄLT-FÖRDELNING:\n• TITEL: Föremål + märke + designer (de viktigaste detaljerna)\n• BESKRIVNING: Mått, material, tekniska detaljer\n• SKICK: Endast skickinformation\n• KONSTNÄR: Designer/konstnär (kan vara tom om redan i titel)\n\nReturnera JSON:\n{\n  \"title\": \"Informativ titel med viktiga detaljer (max 60 tecken)\",\n  \"description\": \"Tekniska detaljer, mått, material\",\n  \"condition\": \"Skickinformation\",\n  \"artist\": \"Designer/konstnär eller tom\",\n  \"material\": \"Huvudmaterial\",\n  \"period\": \"Tidsperiod om känd\",\n  \"estimatedValue\": \"Uppskattat värde\"\n}\n\nAnvänd ENDAST information från fritexten. Uppfinn aldrig detaljer."
   },
   
   "categoryRules": {
@@ -209,9 +209,24 @@
       "reason": "Prevents machine translation of Swedish design names",
       "examples": [
         "\"Oxford\"",
-        "\"Pepparkorn\"",
-        "\"Spisa Ribb\""
-      ]
+        "\"Pepparkorn\"", 
+        "\"Spisa Ribb\"",
+        "\"Prince\"",
+        "\"Bern\"",
+        "\"Egg\"",
+        "\"Swan\"",
+        "\"Tulip\""
+      ],
+      "modelNameDetection": {
+        "enabled": true,
+        "patterns": [
+          "Karaff Prince → Karaff, \"Prince\", glas",
+          "Fåtölj Egg → Fåtölj, \"Egg\", läder", 
+          "Vas Oxford → Vas, \"Oxford\", keramik",
+          "Stol Tulip → Stol, \"Tulip\", plast"
+        ],
+        "rule": "All product/model/series names must be quoted to prevent machine translation"
+      }
     }
   },
   

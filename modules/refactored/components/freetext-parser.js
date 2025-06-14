@@ -396,9 +396,14 @@ export class FreetextParser {
       const finalData = this.calculateConfidenceScores(enrichedData);
       console.log('✅ Step 4 completed');
 
-      console.log('📋 Final step: Showing preview...');
-      this.parsedData = finalData;
-      this.showParsedPreview(finalData);
+      // Step 5: Auto-enhance using AI Rules System v2.0 (the "cheat" step!)
+      console.log('📋 Step 5: Auto-enhancing with AI Rules System v2.0...');
+      const enhancedData = await this.autoEnhanceFields(finalData);
+      console.log('✅ Step 5 completed - fields optimized');
+
+      console.log('📋 Final step: Showing enhanced preview...');
+      this.parsedData = enhancedData;
+      this.showParsedPreview(enhancedData);
       console.log('✅ All processing completed successfully');
 
     } catch (error) {
@@ -436,38 +441,39 @@ export class FreetextParser {
       keyPrefix: this.apiManager.apiKey.substring(0, 10) + '...'
     });
 
-    // Use AI Rules System v2.0 for consistent prompting
-    const systemPrompt = getSystemPrompt('freetextParser');
-    const categoryPrompt = getCategoryPrompt('freetextParser');
-    const fieldTemplate = buildPrompt({
-      field: 'freetextParser',
-      category: 'freetextParser'
-    });
-    
-    // Get existing title rules to ensure consistency
-    const titleRules = getFieldRules('title');
-    const contextRules = window.getAIRulesManager().rules.contextRules;
+    // Use simple, working hardcoded prompts (restored from working version)
+    const systemPrompt = `Du är en expert på svenska auktionskatalogisering. Din uppgift är att analysera fritext och extrahera strukturerad data för professionell katalogisering.
 
-    const userPrompt = `${fieldTemplate}
+VIKTIGA PRINCIPER:
+- Använd endast verifierbara information från fritexten
+- Skriv professionellt utan säljande språk
+- Uppskatta värdering konservativt baserat på beskrivning
+- Markera osäkerhet i confidence-poäng (0.0-1.0)
+- Alla texter ska vara på svenska
+- Identifiera konstnärer/formgivare när möjligt`;
 
-🎯 KRITISKA TITEL-FORMATERINGSREGLER (ANVÄND BEFINTLIGA REGLER):
-• Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
-• TITEL UTAN KONSTNÄR: [KONSTNÄR], [Föremål], [Material], [Period] - FÖRSTA ORDET VERSALER, KOMMA EFTER
-• TITEL MED KONSTNÄR I FÄLT: [Föremål], [Material], [Period] - Första ordet stor bokstav, punkt efter
-• Max ${titleRules.maxLength} tecken, följ exakt samma regler som andra komponenter
+    const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
 
-FRITEXT ATT ANALYSERA:
+FRITEXT:
 "${freetext}"
+
+🎯 TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
+• TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
+• Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
+• Format: [Föremål], [Material], [Märke], [Period]
+• Exempel: "Figurin, stengods, Gustavsberg"
+• Bevara citattecken runt modellnamn: "Viktoria", "Prince"
+• Max 60 tecken
 
 Returnera data i exakt detta JSON-format:
 {
-  "title": "Formaterad enligt befintliga titel-regler (max ${titleRules.maxLength} tecken)",
+  "title": "Föremål först, utan konstnär om artist-fält fylls (max 60 tecken)",
   "description": "Detaljerad beskrivning med mått, material, teknik, period",
   "condition": "Konditionsbeskrivning på svenska",
   "artist": "Konstnär/formgivare om identifierad, annars null",
   "keywords": "relevanta sökord separerade med mellanslag",
-  "estimate": null,
-  "reserve": null,
+  "estimate": 500,
+  "reserve": 300,
   "materials": "material/teknik",
   "period": "tidsperiod/datering",
   "shouldDisposeIfUnsold": false,
@@ -476,19 +482,17 @@ Returnera data i exakt detta JSON-format:
     "description": 0.8,
     "condition": 0.7,
     "artist": 0.6,
-    "estimate": 0.3
+    "estimate": 0.5
   },
   "reasoning": "Kort förklaring av analysen på svenska"
 }
 
 INSTRUKTIONER:
-- estimate/reserve lämnas som null - värdering kommer från marknadsanalys
+- estimate/reserve ska vara numeriska värden i SEK
 - confidence-värden mellan 0.0-1.0
 - shouldDisposeIfUnsold: true endast om fritexten nämner skänkning/återvinning
 - Lämna fält som null om information saknas
-- Fokusera på katalogisering, inte värdering
-
-${categoryPrompt}`;
+- Var konservativ med värderingar`;
 
     try {
       console.log('🚀 Making AI API call with:', {
@@ -558,6 +562,110 @@ ${categoryPrompt}`;
       console.error('❌ AI parsing failed:', error);
       console.error('❌ Error stack:', error.stack);
       throw error;
+    }
+  }
+
+  /**
+   * Auto-enhance fields using AI Rules System v2.0 (the "cheat" step!)
+   * This simulates running the enhance buttons to get optimal field distribution
+   */
+  async autoEnhanceFields(parsedData) {
+    console.log('🎯 Auto-enhancing fields with AI Rules System v2.0...');
+    
+    try {
+      // Use AI Rules System v2.0 for enhancement (same as enhance buttons)
+      const { buildPrompt } = window;
+      
+      // Build enhancement prompt for all fields
+      const promptData = buildPrompt({
+        type: 'core',
+        category: null,
+        fields: ['all']
+      });
+      
+      const enhancementPrompt = `${promptData.systemPrompt}
+
+UPPGIFT: Optimera och förbättra dessa auktionsfält enligt svenska auktionsstandarder.
+
+NUVARANDE DATA:
+Titel: "${parsedData.title || ''}"
+Beskrivning: "${parsedData.description || ''}"
+Skick: "${parsedData.condition || ''}"
+Konstnär: "${parsedData.artist || ''}"
+
+🎯 OPTIMERINGSREGLER:
+• Titel ska börja med föremål och innehålla viktigaste info (max 60 tecken)
+• Flytta konstnär till artist-fält om det förbättrar titeln
+• Beskrivning ska vara detaljerad men utan upprepning från titel
+• Skick ska vara kort och faktabaserat
+
+Returnera optimerad data i JSON-format:
+{
+  "title": "Optimerad titel",
+  "description": "Optimerad beskrivning", 
+  "condition": "Optimerat skick",
+  "artist": "Konstnär om identifierad"
+}`;
+
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Auto-enhance timeout'));
+        }, 15000);
+        
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: {
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 1000,
+            temperature: 0.1,
+            messages: [{
+              role: 'user',
+              content: enhancementPrompt
+            }]
+          }
+        }, (response) => {
+          clearTimeout(timeout);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response && response.success) {
+            resolve(response);
+          } else {
+            reject(new Error('Auto-enhance failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const enhancedText = response.data.content[0].text;
+        console.log('🔍 Auto-enhance response:', enhancedText);
+        
+        // Parse the enhanced response
+        const jsonMatch = enhancedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const enhancedFields = JSON.parse(jsonMatch[0]);
+          
+          // Merge enhanced fields with original data
+          const result = {
+            ...parsedData,
+            title: enhancedFields.title || parsedData.title,
+            description: enhancedFields.description || parsedData.description,
+            condition: enhancedFields.condition || parsedData.condition,
+            artist: enhancedFields.artist || parsedData.artist
+          };
+          
+          console.log('✅ Auto-enhancement successful:', result);
+          return result;
+        }
+      }
+      
+      console.log('⚠️ Auto-enhancement failed, using original data');
+      return parsedData;
+      
+    } catch (error) {
+      console.error('❌ Auto-enhancement error:', error);
+      console.log('⚠️ Falling back to original parsed data');
+      return parsedData;
     }
   }
 
