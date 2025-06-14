@@ -149,7 +149,9 @@ export class AddItemsIntegrationManager {
     const button = buttonContainer.querySelector('#freetext-parser-btn');
     if (button) {
       button.addEventListener('click', () => {
+        console.log('🔴 FREETEXT BUTTON CLICKED in AddItemsIntegrationManager!');
         if (this.freetextParser) {
+          console.log('🔴 FreetextParser available, calling openFreetextModal...');
           this.freetextParser.openFreetextModal();
         } else {
           console.error('❌ FreetextParser not available');

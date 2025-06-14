@@ -278,7 +278,10 @@ export class FreetextParser {
     // Analyze button
     const analyzeBtn = modal.querySelector('#analyze-btn');
     if (analyzeBtn) {
-      analyzeBtn.addEventListener('click', () => this.processFreetextWithAI());
+              analyzeBtn.addEventListener('click', () => {
+          console.log('🔴 ANALYZE BUTTON CLICKED - processFreetextWithAI starting...');
+          this.processFreetextWithAI();
+        });
     }
 
     // Apply button
