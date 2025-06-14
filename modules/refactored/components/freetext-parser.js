@@ -15,23 +15,30 @@
 
 export class FreetextParser {
   constructor(apiManager, addItemsManager) {
-    this.apiManager = apiManager;
-    this.addItemsManager = addItemsManager;
+    // Handle both direct APIManager and APIBridge patterns
+    if (apiManager && typeof apiManager.getAPIManager === 'function') {
+      // This is an APIBridge, get the actual APIManager
+      this.apiManager = apiManager.getAPIManager();
+      console.log('✅ FreetextParser: Using APIManager from APIBridge');
+    } else {
+      // This is a direct APIManager
+      this.apiManager = apiManager;
+      console.log('✅ FreetextParser: Using direct APIManager');
+    }
     
-    // Component state
-    this.isProcessing = false;
+    this.addItemsManager = addItemsManager;
     this.currentModal = null;
     this.parsedData = null;
+    this.isProcessing = false;
     
     // Configuration
     this.config = {
-      minConfidenceThreshold: 0.6,
-      maxProcessingTime: 30000, // 30 seconds
-      enableHistoricalValidation: true,
-      enableMarketAnalysis: true
+      enableHistoricalValidation: false, // Future feature
+      enableMarketDataEnrichment: true,
+      confidenceThreshold: 0.6
     };
     
-    // console.log('✅ FreetextParser component initialized');
+    console.log('✅ FreetextParser: Initialized with config:', this.config);
   }
 
   /**
@@ -39,14 +46,24 @@ export class FreetextParser {
    */
   async init() {
     try {
+      // Verify API manager and key are available
+      console.log('🔍 FreetextParser init - API Manager check:', {
+        hasApiManager: !!this.apiManager,
+        hasApiKey: !!this.apiManager?.apiKey,
+        apiKeyLength: this.apiManager?.apiKey?.length,
+        apiKeyType: typeof this.apiManager?.apiKey
+      });
+      
       // Add a small delay to ensure page controllers are fully loaded
       await new Promise(resolve => setTimeout(resolve, 100));
       
       this.injectStyles();
       // Note: Button is now added by AddItemsIntegrationManager
       console.log('✅ FreetextParser UI elements added to AddItem page');
+      return true;
     } catch (error) {
       console.error('❌ FreetextParser initialization failed:', error);
+      throw error;
     }
   }
 
@@ -330,6 +347,15 @@ export class FreetextParser {
       return;
     }
 
+    // Validate that this looks like auction item text, not console logs or debug info
+    if (freetext.includes('✅') || freetext.includes('🔴') || freetext.includes('console.log') || 
+        freetext.includes('FreetextParser') || freetext.includes('.js:') || 
+        freetext.includes('freetext-parser.js') || freetext.includes('add-items-integration-manager.js')) {
+      console.warn('⚠️ Freetext contains debug information');
+      this.showError('Fritexten verkar innehålla debug-information. Vänligen ange riktig auktionstext för att analysera.');
+      return;
+    }
+
     try {
       console.log('🚀 Starting AI processing...');
       this.isProcessing = true;
@@ -385,8 +411,19 @@ export class FreetextParser {
     console.log('🔄 Parsing freetext with AI Rules System v2.0...');
 
     if (!this.apiManager.apiKey) {
+      console.error('❌ No API key found in apiManager:', {
+        hasApiManager: !!this.apiManager,
+        apiKeyExists: !!this.apiManager?.apiKey,
+        apiKeyType: typeof this.apiManager?.apiKey
+      });
       throw new Error('API key not configured. Please set your Anthropic API key in the extension popup.');
     }
+    
+    console.log('✅ API key validation passed:', {
+      hasApiKey: true,
+      keyLength: this.apiManager.apiKey.length,
+      keyPrefix: this.apiManager.apiKey.substring(0, 10) + '...'
+    });
 
     // Build comprehensive prompt for freetext parsing
     const systemPrompt = `Du är en expert på svenska auktionskatalogisering. Din uppgift är att analysera fritext och extrahera strukturerad data för professionell katalogisering.
@@ -444,6 +481,12 @@ INSTRUKTIONER:
       const response = await new Promise((resolve, reject) => {
         console.log('📤 Sending Chrome runtime message for AI parsing...');
         
+        // Add timeout to catch hanging requests
+        const timeout = setTimeout(() => {
+          console.error('⏰ Chrome runtime message timeout after 30 seconds');
+          reject(new Error('API request timeout - no response from background script'));
+        }, 30000);
+        
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
@@ -458,6 +501,7 @@ INSTRUKTIONER:
             }]
           }
         }, (response) => {
+          clearTimeout(timeout);
           console.log('📥 Chrome runtime response received:', response);
           
           if (chrome.runtime.lastError) {
@@ -471,6 +515,8 @@ INSTRUKTIONER:
             reject(new Error(response?.error || 'AI analysis failed'));
           }
         });
+        
+        console.log('⏳ Chrome runtime message sent, waiting for response...');
       });
 
       console.log('🔍 Processing AI response:', {
