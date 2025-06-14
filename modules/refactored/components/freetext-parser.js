@@ -586,13 +586,13 @@ INSTRUKTIONER:
         estimate: parsedData.estimate || ''
       };
 
-      // Use EXACT SAME system prompt as edit page
+      // Use system prompt (can be same as edit page)
       const systemPrompt = this.getEditPageSystemPrompt();
       
-      // Use EXACT SAME user prompt logic as edit page
-      const userPrompt = this.getEditPageUserPrompt(itemData, 'all');
+      // Use ADD ITEM page specific user prompt (NOT edit page!)
+      const userPrompt = this.getAddItemPageUserPrompt(itemData, 'all');
 
-      console.log('🚀 Using edit page enhancement logic:', {
+      console.log('🚀 Using ADD ITEM page enhancement logic:', {
         hasSystemPrompt: !!systemPrompt,
         hasUserPrompt: !!userPrompt,
         systemPromptLength: systemPrompt.length,
@@ -690,30 +690,13 @@ INSTRUKTIONER:
     return `Du är en expert på svenska auktionskatalogisering. Förbättra auktionstexter enligt svenska auktionsstandarder med fokus på korrekt terminologi, struktur och anti-hallucination.`;
   }
 
-  /**
-   * Get EXACT SAME user prompt logic as edit page
+    /**
+   * Get ADD ITEM page specific user prompt (NOT edit page!)
    */
-  getEditPageUserPrompt(itemData, fieldType) {
-    console.log('🔍 Checking for user prompt methods:', {
-      hasContentJSMigration: !!window.ContentJSMigration,
-      hasContentJSGetUserPrompt: !!(window.ContentJSMigration && window.ContentJSMigration.getUserPrompt),
-      hasAPIManagerMigration: !!window.APIManagerMigration,
-      hasAPIManagerGetUserPrompt: !!(window.APIManagerMigration && window.APIManagerMigration.getUserPrompt)
-    });
+  getAddItemPageUserPrompt(itemData, fieldType) {
+    console.log('🔍 Using ADD ITEM page specific enhancement rules (NOT edit page)');
     
-    // Use the exact same user prompt logic as content.js
-    const { ContentJSMigration } = window;
-    if (ContentJSMigration && ContentJSMigration.getUserPrompt) {
-      console.log('✅ Using ContentJSMigration.getUserPrompt()');
-      return ContentJSMigration.getUserPrompt(itemData, fieldType);
-    }
-    
-    // Fallback to APIManagerMigration
-    const { APIManagerMigration } = window;
-    if (APIManagerMigration && APIManagerMigration.getUserPrompt) {
-      console.log('✅ Using APIManagerMigration.getUserPrompt()');
-      return APIManagerMigration.getUserPrompt(itemData, fieldType);
-    }
+    // CRITICAL: Use ADD ITEM page rules, not edit page rules!
     
     // Final fallback - use EXACT edit page logic hardcoded
     console.log('⚠️ Using fallback user prompt with EXACT edit page logic');
@@ -727,9 +710,20 @@ Kondition: ${itemData.condition}
 Konstnär/Formgivare: ${itemData.artist}
 Värdering: ${itemData.estimate} SEK
 
-VIKTIGT FÖR TITEL: ${itemData.artist ? 
-  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet.' : 
-  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt.'}
+🎯 KRITISKA ADD ITEM TITEL-FORMATERINGSREGLER:
+${itemData.artist ? 
+  '• KONSTNÄR I FÄLT: [Föremål], [Material], [Period]. - Första ordet stor bokstav, PUNKT i slutet' : 
+  '• INGEN KONSTNÄR I FÄLT: [OBJEKT], [modell], [material], [period]. - FÖRSTA ORDET VERSALER, KOMMA EFTER, PUNKT I SLUTET'}
+
+EXEMPEL KORREKT FORMATERING:
+• Med konstnär i fält: "Skulptur, brons, 1960-tal."
+• Utan konstnär i fält: "SKÅL, \"Sofiero\", klarglas, 1900-talets andra hälft."
+
+KRITISKA REGLER:
+• FÖRSTA ORDET: ${itemData.artist ? 'Proper case (Skulptur)' : 'VERSALER (SKÅL)'}
+• INTERPUNKTION: ${itemData.artist ? 'Punkt efter första ordet (.)' : 'Komma efter första ordet (,)'}
+• SLUTPUNKT: ALLTID avsluta med punkt (.)
+• MODELLNAMN: Citattecken runt modeller ("Sofiero", "Prince", "Egg")
 
 KONSTNÄRSINFORMATION FÖR TIDSPERIOD:
 ${itemData.artist ? 
@@ -744,7 +738,8 @@ ANTI-HALLUCINATION INSTRUKTIONER:
 `;
 
     return baseInfo + `
-UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
+
+UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder för ADD ITEM sidan.
 
 FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
@@ -752,7 +747,7 @@ FÄLTAVGRÄNSNING:
 • Håll fälten strikt separerade
 
 Returnera EXAKT i detta format:
-TITEL: [förbättrad titel]
+TITEL: [förbättrad titel enligt ADD ITEM regler - VERSALER första ordet, KOMMA efter, PUNKT i slutet]
 BESKRIVNING: [förbättrad beskrivning]
 KONDITION: [förbättrad konditionsrapport]
 SÖKORD: [kompletterande sökord separerade med mellanslag]`;
@@ -1864,5 +1859,154 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     if (styles) styles.remove();
     
     console.log('✅ FreetextParser component destroyed');
+  }
+
+  /**
+   * Auto-enhance parsed data using AI Rules System v2.0 with ADD ITEM page rules
+   * This uses regular title enhancement but with ADD ITEM page formatting rules
+   */
+  async autoEnhanceParsedData(parsedData) {
+    console.log('🚀 Auto-enhancing parsed data with ADD ITEM page rules...');
+    
+    try {
+      // Use regular enhancement with ADD ITEM page formatting
+      const enhancedFields = {};
+      
+      // Enhance title using ADD ITEM page rules (not title-correct)
+      if (parsedData.title) {
+        console.log('🎯 Enhancing title with ADD ITEM page rules...');
+        const titleResult = await this.enhanceFieldWithAddItemRules('title', parsedData.title, parsedData);
+        if (titleResult && titleResult.title) {
+          enhancedFields.title = titleResult.title;
+          console.log('✅ Title enhanced:', enhancedFields.title);
+        }
+      }
+      
+      // Enhance other fields normally
+      if (parsedData.description) {
+        const descResult = await this.enhanceFieldWithAddItemRules('description', parsedData.description, parsedData);
+        if (descResult && descResult.description) {
+          enhancedFields.description = descResult.description;
+        }
+      }
+      
+      if (parsedData.condition) {
+        const condResult = await this.enhanceFieldWithAddItemRules('condition', parsedData.condition, parsedData);
+        if (condResult && condResult.condition) {
+          enhancedFields.condition = condResult.condition;
+        }
+      }
+      
+      console.log('🎯 Enhanced fields:', enhancedFields);
+      return enhancedFields;
+      
+    } catch (error) {
+      console.error('❌ Auto-enhancement failed:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Enhance a single field using ADD ITEM page rules (not edit page rules)
+   * This uses the blue "AI-förbättra titel" button logic (fieldType: 'title')
+   */
+  async enhanceFieldWithAddItemRules(fieldType, fieldValue, fullData) {
+    console.log(`🔧 Enhancing ${fieldType} with ADD ITEM page rules (blue button logic):`, fieldValue);
+    
+    try {
+      // Build the item data structure expected by AI Rules System
+      const itemData = {
+        title: fullData.title || '',
+        description: fullData.description || '',
+        condition: fullData.condition || '',
+        artist: fullData.artist || '',
+        category: fullData.category || '',
+        keywords: fullData.keywords || ''
+      };
+      
+      // Use the blue "AI-förbättra titel" button logic (fieldType: 'title', NOT 'title-correct')
+      // This does proper title enhancement with ADD ITEM page formatting rules
+      const systemPrompt = getSystemPrompt('addItems');
+      const userPrompt = this.getAddItemPageUserPrompt(itemData, fieldType);
+      
+      console.log(`📝 ${fieldType} ADD ITEM page prompt (blue button logic):`, userPrompt.substring(0, 200) + '...');
+      
+      // Call Claude API with regular enhancement settings (same as blue button)
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('API call timeout'));
+        }, 30000);
+        
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: {
+            model: 'claude-3-5-sonnet-20241022', // Same as blue button
+            max_tokens: 2000, // Same as blue button
+            temperature: 0.2, // Same as blue button
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ]
+          }
+        }, (response) => {
+          clearTimeout(timeout);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response.error) {
+            reject(new Error(response.error));
+          } else {
+            resolve(response);
+          }
+        });
+      });
+      
+      if (response && response.content && response.content[0] && response.content[0].text) {
+        const enhancedText = response.content[0].text.trim();
+        console.log(`✅ ${fieldType} enhanced result (blue button logic):`, enhancedText);
+        
+        // Parse the response if it's a multi-field response
+        if (fieldType === 'all' || enhancedText.includes('TITEL:')) {
+          return this.parseAddItemResponse(enhancedText);
+        } else {
+          // Single field response
+          const result = {};
+          result[fieldType] = enhancedText;
+          return result;
+        }
+      }
+      
+      console.log(`❌ No valid response for ${fieldType} enhancement`);
+      return null;
+      
+    } catch (error) {
+      console.error(`❌ Error enhancing ${fieldType}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Parse ADD ITEM page response (same format as edit page)
+   */
+  parseAddItemResponse(responseText) {
+    console.log('🔍 Parsing ADD ITEM response:', responseText);
+    
+    const result = {};
+    const lines = responseText.split('\n');
+    
+    for (const line of lines) {
+      if (line.startsWith('TITEL:')) {
+        result.title = line.replace('TITEL:', '').trim();
+      } else if (line.startsWith('BESKRIVNING:')) {
+        result.description = line.replace('BESKRIVNING:', '').trim();
+      } else if (line.startsWith('KONDITION:')) {
+        result.condition = line.replace('KONDITION:', '').trim();
+      } else if (line.startsWith('SÖKORD:')) {
+        result.keywords = line.replace('SÖKORD:', '').trim();
+      }
+    }
+    
+    console.log('✅ Parsed ADD ITEM result:', result);
+    return result;
   }
 } 
