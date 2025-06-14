@@ -971,7 +971,18 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    */
   showParsedPreview(data) {
     const modal = this.currentModal;
-    if (!modal) return;
+    if (!modal) {
+      console.error('❌ No modal found for showParsedPreview');
+      return;
+    }
+
+    console.log('🔍 showParsedPreview called with data:', {
+      title: data.title,
+      description: data.description?.substring(0, 50) + '...',
+      condition: data.condition,
+      artist: data.artist,
+      hasData: !!data
+    });
 
     // Store parsed data for later use
     this.parsedData = data;
@@ -985,8 +996,28 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const previewContent = modal.querySelector('.preview-content');
     
     if (previewSection && previewContent) {
-      previewContent.innerHTML = this.generatePreviewHTML(data);
+      console.log('🔍 Generating preview HTML for title:', data.title);
+      const htmlContent = this.generatePreviewHTML(data);
+      console.log('🔍 Generated HTML preview (first 200 chars):', htmlContent.substring(0, 200) + '...');
+      
+      previewContent.innerHTML = htmlContent;
       previewSection.style.display = 'block';
+      
+      console.log('✅ Preview content updated in DOM');
+      
+      // DEBUG: Check what's actually in the DOM after update
+      setTimeout(() => {
+        const titleInput = modal.querySelector('.preview-field--title');
+        const titleValue = titleInput ? titleInput.value : 'NOT FOUND';
+        console.log('🔍 DOM CHECK: Title input value after update:', titleValue);
+        console.log('🔍 DOM CHECK: Title input element:', titleInput);
+        console.log('🔍 DOM CHECK: Preview content HTML:', previewContent.innerHTML.substring(0, 300) + '...');
+      }, 100);
+    } else {
+      console.error('❌ Preview section or content not found:', {
+        hasPreviewSection: !!previewSection,
+        hasPreviewContent: !!previewContent
+      });
     }
 
     // Update buttons
@@ -1053,14 +1084,17 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const isTextarea = ['description', 'condition', 'keywords'].includes(fieldName);
     const fieldClass = `preview-field preview-field--${fieldName}`;
     
+    // CRITICAL FIX: Properly escape HTML attributes to handle quotes
+    const escapedValue = this.escapeHtmlAttribute(value);
+    
     return `
       <div class="field-preview" data-field="${fieldName}">
         <label class="field-label">
           ${label} ${confidenceBadge}
         </label>
         ${isTextarea 
-          ? `<textarea class="${fieldClass}" data-field="${fieldName}" rows="4">${value}</textarea>`
-          : `<input type="text" class="${fieldClass}" data-field="${fieldName}" value="${value}">`
+          ? `<textarea class="${fieldClass}" data-field="${fieldName}" rows="4">${this.escapeHtmlContent(value)}</textarea>`
+          : `<input type="text" class="${fieldClass}" data-field="${fieldName}" value="${escapedValue}">`
         }
       </div>
     `;
@@ -1077,6 +1111,31 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     } else {
       return '<span class="confidence-badge confidence-low">Låg säkerhet</span>';
     }
+  }
+
+  /**
+   * Escape HTML attribute values (for use in value="..." attributes)
+   * CRITICAL: Handles quotes in titles like 'Skål "Sofiero"'
+   */
+  escapeHtmlAttribute(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  /**
+   * Escape HTML content (for use inside textarea tags)
+   */
+  escapeHtmlContent(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   /**
