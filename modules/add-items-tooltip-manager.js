@@ -1,6 +1,7 @@
 // modules/add-items-tooltip-manager.js - Modern tooltip system for add items page
 
 import { ArtistDetectionManager } from './artist-detection-manager.js';
+import { FreetextParser } from './refactored/components/freetext-parser.js';
 
 export class AddItemsTooltipManager {
   constructor(apiManager, qualityAnalyzer) {
@@ -9,6 +10,9 @@ export class AddItemsTooltipManager {
     
     // NEW: Initialize ArtistDetectionManager SSoT for robust detection
     this.artistDetectionManager = new ArtistDetectionManager(apiManager);
+    
+    // NEW: Initialize FreetextParser component for AI-powered freetext parsing
+    this.freetextParser = new FreetextParser(apiManager, this);
     
     this.enabled = true;
     this.activeTooltips = new Map();
@@ -71,10 +75,13 @@ export class AddItemsTooltipManager {
     // NEW: Add AI improvement buttons like on edit page
     this.injectAIButtons();
     
+    // NEW: Initialize FreetextParser component
+    await this.freetextParser.init();
+    
     // NEW: Setup auto-resize for textareas (same as EDIT page)
     this.setupAutoResizeForAllTextareas();
     
-    console.log('✅ Add Items Tooltips: Initialized successfully with permanent state management');
+    console.log('✅ Add Items Tooltips: Initialized successfully with permanent state management and FreetextParser');
   }
 
   // NEW: Initialize field value tracking
@@ -4438,5 +4445,86 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     }
 
     return true;
+  }
+
+  /**
+   * Apply parsed freetext data to form fields
+   * Called by FreetextParser component
+   */
+  applyParsedDataToForm(parsedData) {
+    console.log('🤖 Applying parsed freetext data to form:', parsedData);
+    
+    try {
+      // Map parsed data to form fields
+      const fieldMapping = {
+        title: '#item_title_sv',
+        description: '#item_description_sv',
+        condition: '#item_condition_sv',
+        artist: '#item_artist_name_sv',
+        keywords: '#item_hidden_keywords'
+      };
+
+      // Apply data to each field
+      Object.keys(parsedData).forEach(fieldName => {
+        const value = parsedData[fieldName];
+        const selector = fieldMapping[fieldName];
+        
+        if (value && selector) {
+          const field = document.querySelector(selector);
+          if (field) {
+            // Set programmatic update flag to avoid triggering tooltips
+            this.isProgrammaticUpdate = true;
+            
+            field.value = value;
+            
+            // Trigger change event for any listeners
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // Auto-resize if it's a textarea
+            if (field.tagName.toLowerCase() === 'textarea') {
+              this.autoResizeTextarea(field);
+            }
+            
+            console.log(`✅ Applied ${fieldName}: ${value.substring(0, 50)}...`);
+          } else {
+            console.warn(`❌ Field not found for ${fieldName}: ${selector}`);
+          }
+        }
+      });
+
+      // Handle special fields
+      if (parsedData.materials && !parsedData.description?.includes(parsedData.materials)) {
+        // Add materials to description if not already included
+        const descField = document.querySelector('#item_description_sv');
+        if (descField && descField.value) {
+          descField.value += `\n\nMaterial: ${parsedData.materials}`;
+          this.autoResizeTextarea(descField);
+        }
+      }
+
+      if (parsedData.period && !parsedData.description?.includes(parsedData.period)) {
+        // Add period to description if not already included
+        const descField = document.querySelector('#item_description_sv');
+        if (descField && descField.value) {
+          descField.value += `\nPeriod: ${parsedData.period}`;
+          this.autoResizeTextarea(descField);
+        }
+      }
+
+      // Update our field tracking
+      this.updateFieldValues(this.extractFormData());
+      
+      // Reset programmatic update flag
+      setTimeout(() => {
+        this.isProgrammaticUpdate = false;
+      }, 500);
+
+      console.log('✅ Successfully applied all parsed data to form');
+      
+    } catch (error) {
+      console.error('❌ Failed to apply parsed data to form:', error);
+      throw error;
+    }
   }
 } 
