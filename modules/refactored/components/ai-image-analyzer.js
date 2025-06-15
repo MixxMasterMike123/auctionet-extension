@@ -332,7 +332,8 @@ Returnera data i exakt detta JSON-format:
     "materialAssessment": 0.8,
     "conditionAssessment": 0.7,
     "artistAttribution": 0.6,
-    "periodEstimation": 0.5
+    "periodEstimation": 0.5,
+    "estimate": 0.4
   },
   "reasoning": "Förklaring av bildanalysen och grunden för bedömningarna",
   "imageQuality": {
@@ -407,7 +408,8 @@ INSTRUKTIONER:
         materialAssessment: this.normalizeConfidence(data.confidence?.materialAssessment),
         conditionAssessment: this.normalizeConfidence(data.confidence?.conditionAssessment),
         artistAttribution: this.normalizeConfidence(data.confidence?.artistAttribution),
-        periodEstimation: this.normalizeConfidence(data.confidence?.periodEstimation)
+        periodEstimation: this.normalizeConfidence(data.confidence?.periodEstimation),
+        estimate: this.normalizeConfidence(data.confidence?.estimate)
       },
       imageQuality: {
         clarity: this.normalizeConfidence(data.imageQuality?.clarity),

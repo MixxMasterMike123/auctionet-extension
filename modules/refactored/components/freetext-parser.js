@@ -625,7 +625,14 @@ export class FreetextParser {
       estimate: imageAnalysis.estimate || null, // Use AI estimate as initial value
       reserve: imageAnalysis.reserve || null,   // Use AI reserve as initial value
       shouldDisposeIfUnsold: false,
-      confidence: imageAnalysis.confidence,
+      confidence: {
+        ...imageAnalysis.confidence,
+        title: imageAnalysis.confidence?.objectIdentification || 0.5,
+        description: imageAnalysis.confidence?.materialAssessment || 0.5,
+        condition: imageAnalysis.confidence?.conditionAssessment || 0.5,
+        artist: imageAnalysis.confidence?.artistAttribution || 0.5,
+        estimate: imageAnalysis.confidence?.estimate || 0.4
+      },
       reasoning: imageAnalysis.reasoning || '',
       analysisType: 'image',
       imageAnalysis: imageAnalysis // Store original image analysis
@@ -672,7 +679,14 @@ export class FreetextParser {
       estimate: imageAnalysis.estimate || null, // Use AI estimate as initial value
       reserve: imageAnalysis.reserve || null,   // Use AI reserve as initial value
       shouldDisposeIfUnsold: false,
-      confidence: imageAnalysis.confidence,
+      confidence: {
+        ...imageAnalysis.confidence,
+        title: imageAnalysis.confidence?.objectIdentification || 0.5,
+        description: imageAnalysis.confidence?.materialAssessment || 0.5,
+        condition: imageAnalysis.confidence?.conditionAssessment || 0.5,
+        artist: imageAnalysis.confidence?.artistAttribution || 0.5,
+        estimate: imageAnalysis.confidence?.estimate || 0.4
+      },
       reasoning: imageAnalysis.reasoning || '',
       analysisType: 'combined',
       imageAnalysis: imageAnalysis, // Store original image analysis
