@@ -435,6 +435,54 @@ await window.switchAuctionetSystem(true); // Dynamic switching
 // ✅ Comprehensive documentation with migration guide
 ```
 
+### AIImageAnalyzer Component Pattern (PRODUCTION READY)
+```javascript
+// AI IMAGE ANALYZER: Claude Vision-powered image analysis for auction items
+// STRUCTURE: /modules/refactored/components/ai-image-analyzer.js
+
+// Three analysis modes integration with FreetextParser:
+// 1. Text-only (original freetext parsing)
+// 2. Image-only (Claude Vision analysis)  
+// 3. Combined (image + text for maximum accuracy)
+
+import { AIImageAnalyzer } from './refactored/components/ai-image-analyzer.js';
+const imageAnalyzer = new AIImageAnalyzer(apiManager, {
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  supportedFormats: ['image/jpeg', 'image/png', 'image/webp'],
+  enableMarketValidation: true
+});
+
+// Claude Vision API integration with proper error handling:
+const analysis = await imageAnalyzer.analyzeImage(imageFile, additionalContext);
+const sureScore = imageAnalyzer.calculateSureScore(analysis, marketData);
+
+// Swedish auction expert knowledge (AI Rules System v2.0 integration):
+const systemPrompt = imageAnalyzer.getImageAnalysisSystemPrompt(); // Uses freetextParser rules
+// - Automatic corrections: "Lisa Larsson" → "Lisa Larson", "Uppsala Ekeby" → "Upsala Ekeby"
+// - Title capitalization: ARMBANDSUR vs Figurin based on artist field
+// - Swedish ceramicists, pottery brands, glass makers knowledge
+// - Conservative valuation approach with estimate/reserve fields
+
+// Complete feature set:
+// ✅ Drag-and-drop image upload with preview
+// ✅ Claude Vision API analysis with base64 conversion
+// ✅ Sure Score calculation with confidence breakdown
+// ✅ Market validation via existing auction API
+// ✅ Swedish expert knowledge with automatic corrections
+// ✅ Estimate/reserve valuation fields matching text-only functionality
+// ✅ Comprehensive error handling and user feedback
+// ✅ Modular CSS architecture (ai-image-analyzer.css)
+// ✅ Production-ready with zero breaking changes
+
+// Business Value:
+// ✅ Visual cataloging for items with poor/missing descriptions
+// ✅ AI-powered condition assessment from images
+// ✅ Artist/signature detection from visual cues
+// ✅ Material and period identification from style/appearance
+// ✅ Conservative valuation based on visual condition assessment
+// ✅ Integration with 3.5M auction dataset for market validation
+```
+
 ### Freetext Parser Component Pattern (PRODUCTION READY)
 ```javascript
 // FREETEXT PARSER: AI-powered rapid cataloging for low-value items
