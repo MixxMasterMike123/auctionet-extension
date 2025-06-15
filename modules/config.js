@@ -17,7 +17,7 @@ export const CONFIG = {
   },
 
   // Current model selection
-  CURRENT_MODEL: 'claude-3-5-sonnet', // Default to cost-effective option
+  CURRENT_MODEL: 'claude-4-sonnet', // Default to Claude 4 Sonnet (same cost, better performance)
 
   // API Configuration
   API: {

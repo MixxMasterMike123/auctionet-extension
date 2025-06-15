@@ -925,6 +925,18 @@ export class FreetextParser {
       approach: valuationRules.approach,
       instruction: valuationRules.instruction
     });
+    
+    // For Claude 4, add extra context about realistic pricing based on your data
+    let valuationContext = '';
+    if (currentModel === 'claude-4-sonnet') {
+      valuationContext = `\n\n💰 VÄRDERINGSKONTEXT FÖR CLAUDE 4:
+Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
+- Genomsnittligt slutpris: 1,592 SEK
+- Nuvarande AI-värderingar är ofta 25-30% för höga
+- Ge realistiska värderingar som reflekterar vad köpare faktiskt betalar
+- Använd marknadsdata och objektets faktiska kondition
+- Undvik överdrivet konservativa uppskattningar`;
+    }
 
     const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
 
@@ -966,7 +978,7 @@ INSTRUKTIONER:
 - confidence-värden mellan 0.0-1.0
 - shouldDisposeIfUnsold: true endast om fritexten nämner skänkning/återvinning
 - Lämna fält som null om information saknas
-- ${valuationRules.instruction}`;
+- ${valuationRules.instruction}${valuationContext}`;
 
     try {
       console.log('🚀 Making AI API call with:', {

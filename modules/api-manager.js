@@ -8,7 +8,7 @@ export class APIManager {
     this.apiKey = null;
     this.enableArtistInfo = true;
     this.showDashboard = true; // Default to showing dashboard
-    this.currentModel = 'claude-3-5-sonnet'; // Set default model instead of null
+    this.currentModel = 'claude-4-sonnet'; // Default to Claude 4 Sonnet (same cost, better performance)
     this.auctionetAPI = new AuctionetAPI();
     this.searchQuerySSoT = null; // NEW: AI-only SearchQuerySSoT support
     
@@ -77,7 +77,7 @@ export class APIManager {
 
   // Get current model (replacing the config version)
   getCurrentModel() {
-    return CONFIG.MODELS[this.currentModel] || CONFIG.MODELS['claude-3-5-sonnet'];
+    return CONFIG.MODELS[this.currentModel] || CONFIG.MODELS['claude-4-sonnet'];
   }
 
   async callClaudeAPI(itemData, fieldType, retryCount = 0) {

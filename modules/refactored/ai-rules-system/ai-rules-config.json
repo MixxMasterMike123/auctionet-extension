@@ -80,10 +80,10 @@
       },
       "valuationRules": {
         "claude-4-sonnet": {
-          "approach": "realistic",
-          "instruction": "Ge realistiska värderingar baserat på marknadsdata och objektets beskrivning",
+          "approach": "market-based",
+          "instruction": "Ge marknadsbaserade värderingar som reflekterar verkliga auktionspriser. Använd objektets beskrivning, kondition och marknadskontext för att uppskatta realistiska värden som köpare faktiskt betalar",
           "confidence": "higher",
-          "reasoning": "Claude 4 Sonnet har bättre regelefterlevnad och kan hantera mer nyanserade värderingar"
+          "reasoning": "Claude 4 Sonnet har bättre regelefterlevnad och kan hantera mer nyanserade marknadsbaserade värderingar"
         },
         "claude-3-5-sonnet": {
           "approach": "conservative", 

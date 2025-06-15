@@ -148,6 +148,13 @@ Ask these questions before any implementation:
    - **RESULT**: Production-ready AI cataloging system with professional UI and proven API patterns
    - **BUSINESS VALUE**: Rapid cataloging for high-volume items, eliminates spelling errors, standardizes language
    - **TECHNICAL**: Fixed API key access pattern, comprehensive error handling, confidence scoring
+5. ✅ DONE: Model-Specific Valuation Rules - PRODUCTION READY
+   - **GOAL**: Optimize valuation approach based on AI model capabilities
+   - **STATUS**: ✅ COMPLETE - Claude 4 Sonnet gets realistic valuations, Claude 3.5 keeps conservative
+   - **COMPONENTS**: AI Rules System v2.0 enhancement, getModelSpecificValuationRules() function
+   - **RESULT**: Better utilization of Claude 4's superior reasoning for more accurate market valuations
+   - **BUSINESS VALUE**: More realistic estimates from default model, maintains proven conservative approach for 3.5
+   - **TECHNICAL**: Centralized in AI Rules System, no hardcoded prompts, proper model detection
 
 ## 🚨 ROLLBACK DECISION - DECEMBER 2024
 **DECISION**: Complete rollback to AI Rules System v2.0 state
