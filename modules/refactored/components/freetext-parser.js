@@ -622,8 +622,8 @@ export class FreetextParser {
       keywords: imageAnalysis.keywords || '',
       materials: imageAnalysis.materials || '',
       period: imageAnalysis.period || '',
-      estimate: null, // Will be filled by market analysis
-      reserve: null,
+      estimate: imageAnalysis.estimate || null, // Use AI estimate as initial value
+      reserve: imageAnalysis.reserve || null,   // Use AI reserve as initial value
       shouldDisposeIfUnsold: false,
       confidence: imageAnalysis.confidence,
       reasoning: imageAnalysis.reasoning || '',
@@ -669,8 +669,8 @@ export class FreetextParser {
       keywords: imageAnalysis.keywords || '',
       materials: imageAnalysis.materials || '',
       period: imageAnalysis.period || '',
-      estimate: null, // Will be filled by market analysis
-      reserve: null,
+      estimate: imageAnalysis.estimate || null, // Use AI estimate as initial value
+      reserve: imageAnalysis.reserve || null,   // Use AI reserve as initial value
       shouldDisposeIfUnsold: false,
       confidence: imageAnalysis.confidence,
       reasoning: imageAnalysis.reasoning || '',
@@ -1766,15 +1766,24 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
           confidence: marketData.confidence
         });
         
-        // Update estimates based on market data
+        // Update estimates based on market data (preserve AI estimates if market data is better)
         if (marketData.priceRange) {
           const marketLow = marketData.priceRange.low;
           const marketHigh = marketData.priceRange.high;
           const marketMid = Math.round((marketLow + marketHigh) / 2);
           
-          // Use market data for estimates, but be conservative for freetext parsing
+          // Use market data for estimates, but preserve AI estimates as fallback
+          const aiEstimate = data.estimate; // Store original AI estimate
+          const aiReserve = data.reserve;   // Store original AI reserve
+          
           data.estimate = marketMid;
           data.reserve = Math.round(marketLow * 0.7); // 70% of market low
+          
+          // Add note about AI vs market estimates
+          if (aiEstimate && Math.abs(aiEstimate - marketMid) > marketMid * 0.3) {
+            data.reasoning = (data.reasoning || '') + 
+              ` AI-uppskattning: ${aiEstimate} SEK, marknadsdata: ${marketMid} SEK.`;
+          }
           
           // Add market context to reasoning
           data.reasoning = (data.reasoning || '') + 
@@ -1792,7 +1801,11 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         
       } else {
         console.log('⚠️ No market data found - keeping AI estimates');
-        data.reasoning = (data.reasoning || '') + ' Ingen marknadsdata hittades för värdering.';
+        if (data.estimate || data.reserve) {
+          data.reasoning = (data.reasoning || '') + ' Ingen marknadsdata hittades - använder AI-värdering.';
+        } else {
+          data.reasoning = (data.reasoning || '') + ' Ingen marknadsdata eller AI-värdering tillgänglig.';
+        }
       }
       
     } catch (error) {
