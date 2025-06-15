@@ -21,7 +21,8 @@ const {
   getCategoryRules,
   getFieldRules,
   getForbiddenWords,
-  isForbiddenWord
+  isForbiddenWord,
+  getModelSpecificValuationRules
 } = window;
 
 // Import AIImageAnalyzer component (modular architecture)
@@ -901,7 +902,8 @@ export class FreetextParser {
       buildPrompt,
       getBrandCorrections,
       getArtistCorrections,
-      isForbiddenWord
+      isForbiddenWord,
+      getModelSpecificValuationRules
     } = window;
 
     const systemPrompt = getSystemPrompt('freetextParser') || getSystemPrompt('core');
@@ -1182,6 +1184,22 @@ INSTRUKTIONER:
     
     // CRITICAL: Use ADD ITEM page rules, not edit page rules!
     
+    // Get model-specific valuation rules from AI Rules System v2.0
+    const currentModel = this.apiManager.getCurrentModel().id;
+    const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
+    
+    // For Claude 4, add extra context about realistic pricing based on your data
+    let valuationContext = '';
+    if (currentModel === 'claude-4-sonnet') {
+      valuationContext = `\n\n💰 VÄRDERINGSKONTEXT FÖR CLAUDE 4:
+Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
+- Genomsnittligt slutpris: 1,592 SEK
+- Nuvarande AI-värderingar är ofta 25-30% för höga
+- Ge realistiska värderingar som reflekterar vad köpare faktiskt betalar
+- Använd marknadsdata och objektets faktiska kondition
+- Undvik överdrivet konservativa uppskattningar`;
+    }
+    
     // Final fallback - use EXACT edit page logic hardcoded
     console.log('⚠️ Using fallback user prompt with EXACT edit page logic');
     
@@ -1229,6 +1247,9 @@ FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
 • KONDITION: Endast fysiskt skick och skador - ALDRIG beskrivande information
 • Håll fälten strikt separerade
+
+VÄRDERINGSREGLER:
+• ${valuationRules.instruction}${valuationContext}
 
 Returnera EXAKT i detta format:
 TITEL: [förbättrad titel enligt ADD ITEM regler - VERSALER första ordet, KOMMA efter, PUNKT i slutet]
@@ -2476,6 +2497,8 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       // This does proper title enhancement with ADD ITEM page formatting rules
       const systemPrompt = getSystemPrompt('addItems');
       const userPrompt = this.getAddItemPageUserPrompt(itemData, fieldType);
+      
+      console.log(`🎯 Using model-specific valuation rules for ${fieldType} enhancement`);
       
       console.log(`📝 ${fieldType} ADD ITEM page prompt (blue button logic):`, userPrompt.substring(0, 200) + '...');
       
