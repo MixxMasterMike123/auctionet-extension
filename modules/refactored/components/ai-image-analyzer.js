@@ -607,11 +607,25 @@ INSTRUKTIONER:
       const currentModel = this.apiManager.getCurrentModel().id;
       const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
       
-      console.log('🎯 Using model-specific valuation rules for image analysis:', {
+      console.log('🎯 AIImageAnalyzer - Model-specific valuation rules:', {
         model: currentModel,
         approach: valuationRules.approach,
-        instruction: valuationRules.instruction
+        instruction: valuationRules.instruction,
+        confidence: valuationRules.confidence,
+        reasoning: valuationRules.reasoning
       });
+      
+      // Add extra debugging to see if we're getting the right rules
+      if (currentModel.includes('claude-4') || currentModel.includes('claude-sonnet-4')) {
+        console.log('🚀 Claude 4 detected - should get market-based valuation rules');
+        if (valuationRules.approach === 'conservative') {
+          console.error('❌ CRITICAL: Claude 4 is getting conservative rules instead of market-based!');
+          console.error('❌ Model ID:', currentModel);
+          console.error('❌ Rules received:', valuationRules);
+        } else {
+          console.log('✅ Claude 4 correctly getting market-based valuation rules');
+        }
+      }
       
       return valuationRules.instruction;
     } catch (error) {

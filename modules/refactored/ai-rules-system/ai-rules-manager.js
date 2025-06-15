@@ -445,7 +445,35 @@ class AIRulesManager {
      */
     async reload() {
         console.log('🔄 Reloading AI rules configuration...');
+        this.cache.clear(); // Clear cache to force fresh load
         await this.loadRules();
+    }
+    
+    /**
+     * Clear cache for specific model valuation rules
+     */
+    clearValuationCache(modelId = null) {
+        if (modelId) {
+            // Clear cache for specific model
+            const keysToDelete = [];
+            for (const key of this.cache.keys()) {
+                if (key.includes('valuationRules') && key.includes(modelId)) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach(key => this.cache.delete(key));
+            console.log(`🗑️ Cleared valuation cache for model: ${modelId}`);
+        } else {
+            // Clear all valuation cache
+            const keysToDelete = [];
+            for (const key of this.cache.keys()) {
+                if (key.includes('valuationRules')) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach(key => this.cache.delete(key));
+            console.log('🗑️ Cleared all valuation cache');
+        }
     }
     
     /**
@@ -578,6 +606,10 @@ const getFuzzyMatchingRules = () => getAIRulesManager().getFuzzyMatchingRules();
 // Prompt building
 const buildPrompt = (options) => getAIRulesManager().buildPrompt(options);
 
+// Cache management
+const clearValuationCache = (modelId) => getAIRulesManager().clearValuationCache(modelId);
+const reloadAIRules = () => getAIRulesManager().reload();
+
 // Export everything for module usage
 if (typeof module !== 'undefined' && module.exports) {
     // Node.js environment
@@ -630,4 +662,6 @@ if (typeof module !== 'undefined' && module.exports) {
     window.getQualityValidationRules = getQualityValidationRules;
     window.getFuzzyMatchingRules = getFuzzyMatchingRules;
     window.buildPrompt = buildPrompt;
+    window.clearValuationCache = clearValuationCache;
+    window.reloadAIRules = reloadAIRules;
 } 
