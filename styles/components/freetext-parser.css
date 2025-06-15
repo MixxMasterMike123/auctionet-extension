@@ -433,4 +433,163 @@
   .parsed-fields {
     gap: 16px;
   }
+}
+
+/* Tab system styles */
+.input-method-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.tab-btn {
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #718096;
+  position: relative;
+  top: 1px;
+}
+
+.tab-btn:hover {
+  background: white;
+  color: #2d3748;
+}
+
+.tab-btn--active {
+  background: white;
+  color: #667eea;
+  font-weight: 600;
+  border-color: #e2e8f0;
+}
+
+/* Combined input notice */
+.combined-notice {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.combined-notice h4 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+
+.combined-notice p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* Sure Score display in freetext parser */
+.freetext-sure-score {
+  background: white;
+  border: 2px solid #667eea;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.freetext-sure-score h4 {
+  margin: 0 0 12px 0;
+  font-size: 24px;
+  color: #667eea;
+}
+
+.sure-score-breakdown {
+  margin-top: 16px;
+  text-align: left;
+}
+
+.sure-score-breakdown h5 {
+  margin: 0 0 12px 0;
+  color: #2d3748;
+  font-size: 14px;
+}
+
+.breakdown-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: #f7fafc;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.breakdown-label {
+  color: #718096;
+}
+
+.breakdown-value {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* Analysis type indicator */
+.analysis-type-indicator {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.analysis-type {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.analysis-type--text {
+  background: #bee3f8;
+  color: #2b6cb0;
+}
+
+.analysis-type--image {
+  background: #fbb6ce;
+  color: #b83280;
+}
+
+.analysis-type--combined {
+  background: #c6f6d5;
+  color: #276749;
+}
+
+/* Responsive adjustments for tabs */
+@media (max-width: 768px) {
+  .input-method-tabs {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .tab-btn {
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    top: 0;
+  }
+  
+  .breakdown-items {
+    grid-template-columns: 1fr;
+  }
+  
+  .freetext-sure-score h4 {
+    font-size: 20px;
+  }
 } 

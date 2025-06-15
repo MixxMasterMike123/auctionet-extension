@@ -24,6 +24,9 @@ const {
   isForbiddenWord
 } = window;
 
+// Import AIImageAnalyzer component (modular architecture)
+import { AIImageAnalyzer } from './ai-image-analyzer.js';
+
 export class FreetextParser {
   constructor(apiManager, addItemsManager) {
     // Handle both direct APIManager and APIBridge patterns
@@ -41,6 +44,12 @@ export class FreetextParser {
     this.currentModal = null;
     this.parsedData = null;
     this.isProcessing = false;
+    
+    // Initialize AIImageAnalyzer component
+    this.imageAnalyzer = new AIImageAnalyzer(this.apiManager, {
+      enableMarketValidation: true,
+      confidenceThreshold: 0.6
+    });
     
     // Configuration
     this.config = {
@@ -221,7 +230,13 @@ export class FreetextParser {
         </div>
         
         <div class="popup-content">
-          <div class="freetext-input-section">
+          <div class="input-method-tabs">
+            <button type="button" class="tab-btn tab-btn--active" id="text-tab">📝 Fritext</button>
+            <button type="button" class="tab-btn" id="image-tab">📸 Bild</button>
+            <button type="button" class="tab-btn" id="combined-tab">🔄 Bild + Text</button>
+          </div>
+          
+          <div class="freetext-input-section" id="text-input-section">
             <label for="freetext-input" class="freetext-label">
               <strong>Fritext (skriv allt du vet om objektet):</strong>
               <span class="freetext-hint">Inkludera märke, konstnär, material, mått, skick, värdering, etc.</span>
@@ -238,6 +253,30 @@ export class FreetextParser {
                 "Vas rörstrand gunnar nylund 1950-tal blå glasyr 25cm hög märkt R tre små nagg i kanten uppskattat värde 800kr"
               </div>
             </div>
+          </div>
+          
+          <div class="image-input-section" id="image-input-section" style="display: none;">
+            <div id="image-analyzer-container"></div>
+          </div>
+          
+          <div class="combined-input-section" id="combined-input-section" style="display: none;">
+            <div class="combined-notice">
+              <h4>🚀 Maximal noggrannhet med bild + text!</h4>
+              <p>Kombinera en bild av objektet med beskrivande text för bästa AI-analys och högsta "Sure Score".</p>
+            </div>
+            
+            <div id="combined-image-analyzer-container"></div>
+            
+            <label for="combined-text-input" class="freetext-label">
+              <strong>Tilläggstext (valfritt):</strong>
+              <span class="freetext-hint">Lägg till extra information som inte syns på bilden</span>
+            </label>
+            <textarea 
+              id="combined-text-input" 
+              class="freetext-textarea"
+              placeholder="T.ex: Köpt på auktion 1995, signerad på undersidan, liten spricka som inte syns på bilden..."
+              rows="4"
+            ></textarea>
           </div>
           
           <div class="ai-processing-section" style="display: none;">
@@ -324,6 +363,123 @@ export class FreetextParser {
     if (applyBtn) {
       applyBtn.addEventListener('click', () => this.applyParsedDataToForm());
     }
+
+    // Initialize tab switching
+    this.initializeTabSwitching(modal);
+    
+    // Initialize image analyzers
+    this.initializeImageAnalyzers(modal);
+  }
+
+  /**
+   * Initialize tab switching functionality
+   */
+  initializeTabSwitching(modal) {
+    const textTab = modal.querySelector('#text-tab');
+    const imageTab = modal.querySelector('#image-tab');
+    const combinedTab = modal.querySelector('#combined-tab');
+    
+    const textSection = modal.querySelector('#text-input-section');
+    const imageSection = modal.querySelector('#image-input-section');
+    const combinedSection = modal.querySelector('#combined-input-section');
+    
+    const analyzeBtn = modal.querySelector('#analyze-btn');
+
+    if (!textTab || !imageTab || !combinedTab) {
+      console.error('❌ Tab buttons not found');
+      return;
+    }
+
+    // Tab click handlers
+    textTab.addEventListener('click', () => {
+      this.switchToTab('text', modal);
+      analyzeBtn.textContent = '🤖 Analysera fritext med AI';
+    });
+
+    imageTab.addEventListener('click', () => {
+      this.switchToTab('image', modal);
+      analyzeBtn.textContent = '🤖 Analysera bild med AI';
+    });
+
+    combinedTab.addEventListener('click', () => {
+      this.switchToTab('combined', modal);
+      analyzeBtn.textContent = '🚀 Analysera bild + text med AI';
+    });
+
+    console.log('✅ Tab switching initialized');
+  }
+
+  /**
+   * Switch to specified tab
+   */
+  switchToTab(tabType, modal) {
+    // Update tab button states
+    const tabs = modal.querySelectorAll('.tab-btn');
+    tabs.forEach(tab => tab.classList.remove('tab-btn--active'));
+    modal.querySelector(`#${tabType}-tab`).classList.add('tab-btn--active');
+
+    // Show/hide sections
+    modal.querySelector('#text-input-section').style.display = tabType === 'text' ? 'block' : 'none';
+    modal.querySelector('#image-input-section').style.display = tabType === 'image' ? 'block' : 'none';
+    modal.querySelector('#combined-input-section').style.display = tabType === 'combined' ? 'block' : 'none';
+
+    // Store current tab
+    this.currentTab = tabType;
+    console.log('✅ Switched to tab:', tabType);
+  }
+
+  /**
+   * Initialize image analyzers for image and combined tabs
+   */
+  initializeImageAnalyzers(modal) {
+    try {
+      // Wait for DOM to be ready before initializing image analyzers
+      setTimeout(() => {
+        // Initialize image analyzer for image-only tab
+        const imageContainer = modal.querySelector('#image-analyzer-container');
+        if (imageContainer) {
+          console.log('🔍 Initializing image-only analyzer...');
+          imageContainer.innerHTML = this.imageAnalyzer.generateImageUploadUI('image-analyzer', {
+            showPreview: true,
+            dragAndDrop: true
+          });
+          
+          // Wait a bit more for the HTML to be inserted
+          setTimeout(() => {
+            this.imageAnalyzer.attachImageUploadListeners('image-analyzer', (file) => {
+              console.log('📸 Image selected for image-only analysis:', file?.name);
+              this.selectedImageFile = file;
+            });
+          }, 100);
+        } else {
+          console.warn('⚠️ Image analyzer container not found');
+        }
+
+        // Initialize image analyzer for combined tab
+        const combinedContainer = modal.querySelector('#combined-image-analyzer-container');
+        if (combinedContainer) {
+          console.log('🔍 Initializing combined analyzer...');
+          combinedContainer.innerHTML = this.imageAnalyzer.generateImageUploadUI('combined-image-analyzer', {
+            showPreview: true,
+            dragAndDrop: true
+          });
+          
+          // Wait a bit more for the HTML to be inserted
+          setTimeout(() => {
+            this.imageAnalyzer.attachImageUploadListeners('combined-image-analyzer', (file) => {
+              console.log('📸 Image selected for combined analysis:', file?.name);
+              this.selectedCombinedImageFile = file;
+            });
+          }, 100);
+        } else {
+          console.warn('⚠️ Combined analyzer container not found');
+        }
+
+        console.log('✅ Image analyzers initialization started');
+      }, 50);
+    } catch (error) {
+      console.error('❌ Failed to initialize image analyzers:', error);
+    }
   }
 
   /**
@@ -333,10 +489,68 @@ export class FreetextParser {
     console.log('🔄 processFreetextWithAI called');
     
     if (this.isProcessing) {
-      console.log('⚠️ Already processing freetext');
+      console.log('⚠️ Already processing');
       return;
     }
 
+    // Determine processing method based on current tab
+    const currentTab = this.currentTab || 'text';
+    console.log('🔍 Processing method:', currentTab);
+
+    try {
+      this.isProcessing = true;
+      this.showProcessingState();
+
+      let analysisResult;
+      let sureScore;
+
+      switch (currentTab) {
+        case 'text':
+          analysisResult = await this.processTextOnly();
+          break;
+        case 'image':
+          analysisResult = await this.processImageOnly();
+          break;
+        case 'combined':
+          analysisResult = await this.processCombinedImageAndText();
+          break;
+        default:
+          throw new Error('Unknown processing method');
+      }
+
+      // Calculate sure score and market validation (non-blocking)
+      console.log('📊 Calculating Sure Score and market validation...');
+      let marketData = null;
+      try {
+        marketData = await this.imageAnalyzer.validateWithMarketData(analysisResult);
+      } catch (error) {
+        console.warn('⚠️ Market validation failed, continuing without market data:', error);
+      }
+      sureScore = this.imageAnalyzer.calculateSureScore(analysisResult, marketData);
+
+      // Store results
+      this.parsedData = analysisResult;
+      this.currentSureScore = sureScore;
+      this.currentMarketData = marketData;
+
+      // Show results
+      this.showParsedPreview(analysisResult, sureScore);
+      console.log('✅ Analysis completed successfully');
+
+    } catch (error) {
+      console.error('❌ Analysis failed:', error);
+      this.showError(`AI-analys misslyckades: ${error.message}`);
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Process text-only input (original functionality)
+   */
+  async processTextOnly() {
+    console.log('📝 Processing text-only input...');
+    
     const textarea = this.currentModal.querySelector('#freetext-input');
     const freetext = textarea.value.trim();
 
@@ -347,78 +561,223 @@ export class FreetextParser {
     });
 
     if (!freetext) {
-      console.warn('⚠️ No freetext provided');
-      this.showError('Vänligen skriv in information om objektet först.');
-      return;
+      throw new Error('Vänligen skriv in information om objektet först.');
     }
 
     if (freetext.length < 10) {
-      console.warn('⚠️ Freetext too short:', freetext.length);
-      this.showError('Fritext är för kort. Skriv mer information om objektet.');
-      return;
+      throw new Error('Fritext är för kort. Skriv mer information om objektet.');
     }
 
     // Validate that this looks like auction item text, not console logs or debug info
     if (freetext.includes('✅') || freetext.includes('🔴') || freetext.includes('console.log') || 
         freetext.includes('FreetextParser') || freetext.includes('.js:') || 
         freetext.includes('freetext-parser.js') || freetext.includes('add-items-integration-manager.js')) {
-      console.warn('⚠️ Freetext contains debug information');
-      this.showError('Fritexten verkar innehålla debug-information. Vänligen ange riktig auktionstext för att analysera.');
-      return;
+      throw new Error('Fritexten verkar innehålla debug-information. Vänligen ange riktig auktionstext för att analysera.');
     }
 
+    console.log('🤖 Starting text analysis:', freetext.substring(0, 100) + '...');
+
+    // Step 1: Parse freetext using AI Rules System v2.0
+    const parsedData = await this.parseFreetextWithAI(freetext);
+    
+    // Step 2: Validate against historical auction data (if enabled)
+    const validatedData = this.config.enableHistoricalValidation 
+      ? await this.validateAgainstAuctionHistory(parsedData)
+      : parsedData;
+
+    // Step 3: Generate search terms and market analysis
+    const enrichedData = await this.enrichWithMarketData(validatedData);
+
+    // Step 4: Calculate confidence scores
+    const finalData = this.calculateConfidenceScores(enrichedData);
+
+    // Step 5: Auto-enhance using AI Rules System v2.0
+    const enhancedData = await this.autoEnhanceFields(finalData);
+
+    console.log('✅ Text-only processing completed');
+    return enhancedData;
+  }
+
+  /**
+   * Process image-only input using AIImageAnalyzer
+   */
+  async processImageOnly() {
+    console.log('📸 Processing image-only input...');
+    
+    if (!this.selectedImageFile) {
+      throw new Error('Vänligen välj en bild att analysera först.');
+    }
+
+    console.log('🤖 Starting image analysis:', this.selectedImageFile.name);
+    
+    // Analyze image using AIImageAnalyzer component
+    const imageAnalysis = await this.imageAnalyzer.analyzeImage(this.selectedImageFile);
+    
+    // Convert image analysis to freetext parser format for consistency
+    const parsedData = {
+      title: imageAnalysis.title || '',
+      description: imageAnalysis.description || '',
+      condition: imageAnalysis.condition || '',
+      artist: imageAnalysis.artist || null,
+      keywords: imageAnalysis.keywords || '',
+      materials: imageAnalysis.materials || '',
+      period: imageAnalysis.period || '',
+      estimate: null, // Will be filled by market analysis
+      reserve: null,
+      shouldDisposeIfUnsold: false,
+      confidence: imageAnalysis.confidence,
+      reasoning: imageAnalysis.reasoning || '',
+      analysisType: 'image',
+      imageAnalysis: imageAnalysis // Store original image analysis
+    };
+
+    console.log('✅ Image-only processing completed');
+    return parsedData;
+  }
+
+  /**
+   * Process combined image + text input
+   */
+  async processCombinedImageAndText() {
+    console.log('🔄 Processing combined image + text input...');
+    
+    if (!this.selectedCombinedImageFile) {
+      throw new Error('Vänligen välj en bild för kombinerad analys först.');
+    }
+
+    const combinedTextarea = this.currentModal.querySelector('#combined-text-input');
+    const additionalText = combinedTextarea ? combinedTextarea.value.trim() : '';
+
+    console.log('🤖 Starting combined analysis:', {
+      imageName: this.selectedCombinedImageFile.name,
+      hasAdditionalText: !!additionalText,
+      additionalTextLength: additionalText.length
+    });
+
+    // Analyze image with additional text context
+    const imageAnalysis = await this.imageAnalyzer.analyzeImage(
+      this.selectedCombinedImageFile, 
+      additionalText
+    );
+
+    // Enhanced combined processing with both visual and textual data
+    const parsedData = {
+      title: imageAnalysis.title || '',
+      description: imageAnalysis.description || '',
+      condition: imageAnalysis.condition || '',
+      artist: imageAnalysis.artist || null,
+      keywords: imageAnalysis.keywords || '',
+      materials: imageAnalysis.materials || '',
+      period: imageAnalysis.period || '',
+      estimate: null, // Will be filled by market analysis
+      reserve: null,
+      shouldDisposeIfUnsold: false,
+      confidence: imageAnalysis.confidence,
+      reasoning: imageAnalysis.reasoning || '',
+      analysisType: 'combined',
+      imageAnalysis: imageAnalysis, // Store original image analysis
+      additionalContext: additionalText
+    };
+
+    // If we have additional text, enhance the analysis further
+    if (additionalText && additionalText.length > 10) {
+      console.log('🔧 Enhancing with additional text context...');
+      const enhancedData = await this.enhanceWithAdditionalText(parsedData, additionalText);
+      console.log('✅ Combined processing with text enhancement completed');
+      return enhancedData;
+    }
+
+    console.log('✅ Combined processing completed');
+    return parsedData;
+  }
+
+  /**
+   * Enhance image analysis with additional text context
+   */
+  async enhanceWithAdditionalText(imageData, additionalText) {
+    console.log('🔧 Enhancing image analysis with additional text...');
+    
     try {
-      console.log('🚀 Starting AI processing...');
-      this.isProcessing = true;
-      this.showProcessingState();
+      // Create combined prompt for text enhancement
+      const enhancementPrompt = `
+        Förbättra denna AI-bildanalys med hjälp av användarens tilläggstext:
+        
+        BILDANALYS:
+        Titel: ${imageData.title}
+        Beskrivning: ${imageData.description}
+        Skick: ${imageData.condition}
+        Konstnär: ${imageData.artist || 'Ej identifierad'}
+        Material: ${imageData.materials}
+        
+        TILLÄGGSTEXT FRÅN ANVÄNDARE:
+        "${additionalText}"
+        
+        Använd tilläggstext för att förbättra och komplettera bildanalysen. Behåll originalstruktur men lägg till värdefull information från tilläggstext.
+        
+        Returnera förbättrad data i samma JSON-format som originalanalys.
+      `;
 
-      console.log('🤖 Starting AI analysis of freetext:', freetext.substring(0, 100) + '...');
-
-      // Step 1: Parse freetext using AI Rules System v2.0
-      console.log('📋 Step 1: Calling parseFreetextWithAI...');
-      const parsedData = await this.parseFreetextWithAI(freetext);
-      console.log('✅ Step 1 completed:', parsedData);
+      // Call AI to enhance with text context
+      const systemPrompt = getSystemPrompt('textEnhancement') || this.getEditPageSystemPrompt();
       
-      // Step 2: Validate against historical auction data (if enabled)
-      console.log('📋 Step 2: Historical validation...');
-      const validatedData = this.config.enableHistoricalValidation 
-        ? await this.validateAgainstAuctionHistory(parsedData)
-        : parsedData;
-      console.log('✅ Step 2 completed');
-
-      // Step 3: Generate search terms and market analysis
-      console.log('📋 Step 3: Market data enrichment...');
-      const enrichedData = await this.enrichWithMarketData(validatedData);
-      console.log('✅ Step 3 completed');
-
-      // Step 4: Calculate confidence scores
-      console.log('📋 Step 4: Confidence scoring...');
-      const finalData = this.calculateConfidenceScores(enrichedData);
-      console.log('✅ Step 4 completed');
-
-      // Step 5: Auto-enhance using AI Rules System v2.0 (the "cheat" step!)
-      console.log('📋 Step 5: Auto-enhancing with EDIT PAGE logic...');
-      console.log('📋 Data before enhancement:', finalData);
-      const enhancedData = await this.autoEnhanceFields(finalData);
-      console.log('✅ Step 5 completed - fields optimized');
-      console.log('📋 Data after enhancement:', enhancedData);
-
-      console.log('📋 Final step: Showing enhanced preview...');
-      this.parsedData = enhancedData;
-      this.showParsedPreview(enhancedData);
-      console.log('✅ All processing completed successfully');
-
-    } catch (error) {
-      console.error('❌ AI analysis failed:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Text enhancement timeout'));
+        }, 30000);
+        
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: {
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 2000,
+            temperature: 0.1,
+            system: systemPrompt,
+            messages: [{
+              role: 'user',
+              content: enhancementPrompt
+            }]
+          }
+        }, (response) => {
+          clearTimeout(timeout);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response && response.success) {
+            resolve(response);
+          } else {
+            reject(new Error('Text enhancement failed'));
+          }
+        });
       });
-      this.showError(`AI-analys misslyckades: ${error.message}`);
-    } finally {
-      console.log('🏁 Processing finished, cleaning up...');
-      this.isProcessing = false;
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        try {
+          const enhancedText = response.data.content[0].text;
+          const enhancedData = this.parseAIResponse(enhancedText);
+          
+          // Merge enhanced data with original, preserving image analysis
+          const mergedData = {
+            ...imageData,
+            ...enhancedData,
+            imageAnalysis: imageData.imageAnalysis, // Preserve original image analysis
+            additionalContext: additionalText,
+            analysisType: 'combined'
+          };
+          
+          console.log('✅ Text enhancement completed');
+          return mergedData;
+        } catch (parseError) {
+          console.warn('⚠️ Could not parse enhanced data, using original:', parseError);
+          return imageData;
+        }
+      }
+      
+      console.warn('⚠️ No valid enhancement response, using original data');
+      return imageData;
+      
+    } catch (error) {
+      console.error('❌ Text enhancement failed:', error);
+      return imageData; // Fallback to original image data
     }
   }
 
@@ -443,16 +802,27 @@ export class FreetextParser {
       keyPrefix: this.apiManager.apiKey.substring(0, 10) + '...'
     });
 
-    // Use simple, working hardcoded prompts (restored from working version)
-    const systemPrompt = `Du är en expert på svenska auktionskatalogisering. Din uppgift är att analysera fritext och extrahera strukturerad data för professionell katalogisering.
+    // Use AI Rules System v2.0 for consistent prompts and corrections
+    const { 
+      getSystemPrompt, 
+      getCategoryPrompt, 
+      buildPrompt,
+      getBrandCorrections,
+      getArtistCorrections,
+      isForbiddenWord
+    } = window;
 
-VIKTIGA PRINCIPER:
-- Använd endast verifierbara information från fritexten
-- Skriv professionellt utan säljande språk
-- Uppskatta värdering konservativt baserat på beskrivning
-- Markera osäkerhet i confidence-poäng (0.0-1.0)
-- Alla texter ska vara på svenska
-- Identifiera konstnärer/formgivare när möjligt`;
+    const systemPrompt = getSystemPrompt('freetextParser') || getSystemPrompt('core');
+    const categoryPrompt = getCategoryPrompt('freetextParser');
+    const brandCorrections = getBrandCorrections();
+    const artistCorrections = getArtistCorrections();
+    
+    console.log('✅ Using AI Rules System v2.0:', {
+      hasSystemPrompt: !!systemPrompt,
+      hasCategoryPrompt: !!categoryPrompt,
+      brandCorrectionsCount: Object.keys(brandCorrections || {}).length,
+      artistCorrectionsCount: Object.keys(artistCorrections || {}).length
+    });
 
     const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
 
@@ -962,9 +1332,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
-   * Show parsed data preview
+   * Show parsed data preview with optional sure score
    */
-  showParsedPreview(data) {
+  showParsedPreview(data, sureScore = null) {
     const modal = this.currentModal;
     if (!modal) {
       console.error('❌ No modal found for showParsedPreview');
@@ -992,7 +1362,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     
     if (previewSection && previewContent) {
       console.log('🔍 Generating preview HTML for title:', data.title);
-      const htmlContent = this.generatePreviewHTML(data);
+      const htmlContent = this.generatePreviewHTML(data, sureScore);
       console.log('🔍 Generated HTML preview (first 200 chars):', htmlContent.substring(0, 200) + '...');
       
       previewContent.innerHTML = htmlContent;
@@ -1031,10 +1401,54 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
-   * Generate HTML for parsed data preview
+   * Generate HTML for parsed data preview with optional sure score
    */
-  generatePreviewHTML(data) {
+  generatePreviewHTML(data, sureScore = null) {
+    const sureScoreHTML = sureScore ? `
+      <div class="freetext-sure-score">
+        <h4>🎯 Sure Score: ${Math.round(sureScore.sureScore * 100)}%</h4>
+        <div class="sure-score-level sure-score-level--${sureScore.confidenceLevel.toLowerCase().replace(' ', '-')}">
+          ${sureScore.confidenceLevel} säkerhet
+        </div>
+        <p class="sure-score-recommendation">${sureScore.recommendation}</p>
+        
+        <div class="sure-score-breakdown">
+          <h5>📊 Säkerhetsanalys:</h5>
+          <div class="breakdown-items">
+            <div class="breakdown-item">
+              <span class="breakdown-label">Bildkvalitet:</span>
+              <span class="breakdown-value">${Math.round(sureScore.factors.imageQuality * 100)}%</span>
+            </div>
+            <div class="breakdown-item">
+              <span class="breakdown-label">Analysförmåga:</span>
+              <span class="breakdown-value">${Math.round(sureScore.factors.analysisReliability * 100)}%</span>
+            </div>
+            <div class="breakdown-item">
+              <span class="breakdown-label">Objektsäkerhet:</span>
+              <span class="breakdown-value">${Math.round(sureScore.factors.objectCertainty * 100)}%</span>
+            </div>
+            <div class="breakdown-item">
+              <span class="breakdown-label">Marknadsstöd:</span>
+              <span class="breakdown-value">${Math.round(sureScore.factors.marketSupport * 100)}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : '';
+
+    const analysisTypeIndicator = data.analysisType ? `
+      <div class="analysis-type-indicator">
+        <span class="analysis-type analysis-type--${data.analysisType}">
+          ${data.analysisType === 'image' ? '📸 Bildanalys' : 
+            data.analysisType === 'combined' ? '🔄 Bild + Text' : 
+            '📝 Textanalys'}
+        </span>
+      </div>
+    ` : '';
+
     return `
+      ${sureScoreHTML}
+      ${analysisTypeIndicator}
       <div class="parsed-fields">
         ${this.generateFieldPreview('title', 'Titel', data.title, data.confidence?.title)}
         ${this.generateFieldPreview('description', 'Beskrivning', data.description, data.confidence?.description)}

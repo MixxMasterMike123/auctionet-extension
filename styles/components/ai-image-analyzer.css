@@ -1,0 +1,395 @@
+/**
+ * AI Image Analyzer Component Styles
+ * Following .cursorrules modular CSS architecture
+ * Uses BEM naming convention and CSS custom properties
+ */
+
+/* Main component container */
+.ai-image-analyzer {
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Upload section */
+.ai-image-analyzer__upload-section {
+  margin-bottom: var(--spacing-md);
+}
+
+.ai-image-analyzer__upload-zone {
+  border: 2px dashed var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-xl);
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  background: var(--bg-light);
+  position: relative;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-image-analyzer__upload-zone:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-primary-light);
+}
+
+.ai-image-analyzer__upload-zone--dragover {
+  border-color: var(--color-primary);
+  background: var(--bg-primary-light);
+  border-style: solid;
+}
+
+.ai-image-analyzer__upload-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--spacing-sm);
+  opacity: 0.7;
+}
+
+.ai-image-analyzer__upload-text h4 {
+  margin: 0 0 var(--spacing-xs) 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ai-image-analyzer__upload-text p {
+  margin: 0 0 var(--spacing-xs) 0;
+  color: var(--text-secondary);
+}
+
+.ai-image-analyzer__upload-text small {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.ai-image-analyzer__file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Preview section */
+.ai-image-analyzer__preview {
+  background: var(--bg-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.ai-image-analyzer__preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.ai-image-analyzer__preview-header h5 {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ai-image-analyzer__remove-btn {
+  background: var(--color-danger);
+  color: var(--bg-white);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition-normal);
+}
+
+.ai-image-analyzer__remove-btn:hover {
+  background: var(--color-danger-dark);
+}
+
+.ai-image-analyzer__preview-content {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: flex-start;
+}
+
+.ai-image-analyzer__preview-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--border-light);
+}
+
+.ai-image-analyzer__file-info {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* Analysis section */
+.ai-image-analyzer__analysis-section {
+  border-top: 1px solid var(--border-light);
+  padding-top: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+/* Processing state */
+.ai-image-analyzer__processing {
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.ai-image-analyzer__spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-light);
+  border-top: 4px solid var(--color-primary);
+  border-radius: 50%;
+  animation: ai-image-analyzer-spin 1s linear infinite;
+  margin: 0 auto var(--spacing-md) auto;
+}
+
+@keyframes ai-image-analyzer-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.ai-image-analyzer__processing-text h4 {
+  margin: 0 0 var(--spacing-xs) 0;
+  color: var(--text-primary);
+}
+
+.ai-image-analyzer__processing-text p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Results section */
+.ai-image-analyzer__results {
+  padding: var(--spacing-lg);
+  background: var(--bg-light);
+  border-radius: var(--radius-md);
+}
+
+/* Sure Score display */
+.ai-image-analyzer__sure-score {
+  background: var(--bg-white);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  text-align: center;
+}
+
+.ai-image-analyzer__sure-score h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 1.5rem;
+  color: var(--color-primary);
+}
+
+.sure-score-level {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: var(--spacing-sm);
+}
+
+.sure-score-level--mycket-hög {
+  background: var(--color-success);
+  color: var(--bg-white);
+}
+
+.sure-score-level--hög {
+  background: var(--color-success-light);
+  color: var(--color-success-dark);
+}
+
+.sure-score-level--medel {
+  background: var(--color-warning);
+  color: var(--bg-white);
+}
+
+.sure-score-level--låg {
+  background: var(--color-danger);
+  color: var(--bg-white);
+}
+
+.sure-score-recommendation {
+  margin: 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Analysis fields */
+.ai-image-analyzer__analysis-fields {
+  display: grid;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.analysis-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.analysis-field label {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.analysis-field input,
+.analysis-field textarea {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background: var(--bg-white);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.analysis-field input[readonly],
+.analysis-field textarea[readonly] {
+  background: var(--bg-light);
+  color: var(--text-secondary);
+}
+
+.analysis-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* Visual observations */
+.ai-image-analyzer__visual-observations {
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.ai-image-analyzer__visual-observations h5 {
+  margin: 0 0 var(--spacing-sm) 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ai-image-analyzer__visual-observations ul {
+  margin: 0;
+  padding-left: var(--spacing-lg);
+  color: var(--text-secondary);
+}
+
+.ai-image-analyzer__visual-observations li {
+  margin-bottom: var(--spacing-xs);
+  line-height: 1.4;
+}
+
+.ai-image-analyzer__visual-observations li strong {
+  color: var(--text-primary);
+}
+
+/* AI reasoning */
+.ai-image-analyzer__reasoning {
+  background: var(--bg-primary-light);
+  border: 1px solid var(--color-primary-light);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-md);
+}
+
+.ai-image-analyzer__reasoning h5 {
+  margin: 0 0 var(--spacing-sm) 0;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.ai-image-analyzer__reasoning p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .ai-image-analyzer {
+    padding: var(--spacing-md);
+  }
+  
+  .ai-image-analyzer__upload-zone {
+    padding: var(--spacing-lg);
+    min-height: 100px;
+  }
+  
+  .ai-image-analyzer__upload-icon {
+    font-size: 2rem;
+  }
+  
+  .ai-image-analyzer__preview-content {
+    flex-direction: column;
+  }
+  
+  .ai-image-analyzer__preview-image {
+    max-width: 100%;
+    align-self: center;
+  }
+  
+  .ai-image-analyzer__sure-score h4 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Integration with FreetextParser modal */
+.freetext-parser-modal .ai-image-analyzer {
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+
+.freetext-parser-modal .ai-image-analyzer__upload-zone {
+  background: var(--bg-white);
+  border-color: var(--border-light);
+}
+
+.freetext-parser-modal .ai-image-analyzer__upload-zone:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-primary-light);
+}
+
+/* Accessibility improvements */
+.ai-image-analyzer__upload-zone:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.ai-image-analyzer__remove-btn:focus {
+  outline: 2px solid var(--color-danger);
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .ai-image-analyzer__upload-section,
+  .ai-image-analyzer__processing {
+    display: none;
+  }
+  
+  .ai-image-analyzer__results {
+    background: white;
+    border: 1px solid #000;
+  }
+} 
