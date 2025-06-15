@@ -1464,11 +1464,16 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
-   * Show processing state in modal
+   * Show dynamic processing state with step-by-step progress
    */
   showProcessingState(title = '🤖 AI analyserar...', description = 'Extraherar strukturerad data') {
     const modal = this.currentModal;
     if (!modal) return;
+
+    // Initialize progress tracking
+    this.progressSteps = this.getProgressSteps();
+    this.currentStepIndex = 0;
+    this.isProcessing = true;
 
     // Hide input section
     const inputSection = modal.querySelector('.freetext-input-section');
@@ -1477,15 +1482,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     // Show processing section with dynamic content
     const processingSection = modal.querySelector('.ai-processing-section');
     if (processingSection) {
-      // Update the processing text dynamically
-      const titleElement = processingSection.querySelector('.processing-status h4');
-      const stepElement = processingSection.querySelector('.processing-step');
-      
-      if (titleElement) titleElement.textContent = title;
-      if (stepElement) stepElement.textContent = description;
-      
+      // Update the processing content with advanced UI
+      processingSection.innerHTML = this.generateAdvancedProcessingHTML();
       processingSection.style.display = 'block';
-      this.animateProcessingProgress();
+      
+      // Start the dynamic progress animation
+      this.startAdvancedProgressAnimation();
     }
 
     // Update buttons
@@ -1497,25 +1499,263 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
-   * Animate processing progress bar
+   * Get progress steps based on analysis type and model capabilities
    */
-  animateProcessingProgress() {
-    const progressFill = this.currentModal.querySelector('.progress-fill');
-    if (!progressFill) return;
+  getProgressSteps() {
+    const currentModel = this.apiManager.getCurrentModel().id;
+    const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
+    const isAdvancedModel = valuationRules.enableDeepReasoning;
 
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 15;
-      if (progress > 90) progress = 90; // Don't complete until actually done
+    if (isAdvancedModel) {
+      return [
+        { icon: '🔍', text: 'Identifierar objekt och märke...', duration: 2000 },
+        { icon: '🧠', text: 'Analyserar stilperiod och äkthet...', duration: 2500 },
+        { icon: '📊', text: 'Undersöker marknadsdata...', duration: 3000 },
+        { icon: '💰', text: 'Beräknar marknadsvärde...', duration: 2000 },
+        { icon: '🎯', text: 'Optimerar katalogisering...', duration: 1500 },
+        { icon: '✨', text: 'Slutför expertanalys...', duration: 1000 }
+      ];
+    } else {
+      return [
+        { icon: '🔍', text: 'Analyserar innehåll...', duration: 1500 },
+        { icon: '📝', text: 'Extraherar strukturerad data...', duration: 2000 },
+        { icon: '💰', text: 'Beräknar värdering...', duration: 1500 },
+        { icon: '✅', text: 'Slutför analys...', duration: 1000 }
+      ];
+    }
+  }
+
+  /**
+   * Generate advanced processing HTML with cool animations
+   */
+  generateAdvancedProcessingHTML() {
+    const currentModel = this.apiManager.getCurrentModel().id;
+    const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
+    const isAdvancedModel = valuationRules.enableDeepReasoning;
+
+    return `
+      <div class="advanced-processing-container">
+        <div class="processing-header">
+          <div class="ai-brain-animation">
+            <div class="brain-core"></div>
+            <div class="brain-pulse"></div>
+            <div class="brain-waves">
+              <div class="wave wave-1"></div>
+              <div class="wave wave-2"></div>
+              <div class="wave wave-3"></div>
+            </div>
+          </div>
+          <h3 class="processing-title">
+            ${isAdvancedModel ? '🚀 Claude 4 Expertanalys' : '🤖 AI-analys pågår'}
+          </h3>
+          <p class="processing-subtitle">
+            ${isAdvancedModel ? 'Djupgående marknadsresearch med 4-stegs analys' : 'Extraherar strukturerad data från fritext'}
+          </p>
+        </div>
+
+        <div class="progress-steps-container">
+          ${this.progressSteps.map((step, index) => `
+            <div class="progress-step" data-step="${index}">
+              <div class="step-icon">${step.icon}</div>
+              <div class="step-content">
+                <div class="step-text">${step.text}</div>
+                <div class="step-progress">
+                  <div class="step-progress-fill"></div>
+                </div>
+              </div>
+              <div class="step-status">
+                <div class="status-pending">⏳</div>
+                <div class="status-active">🔄</div>
+                <div class="status-complete">✅</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="overall-progress">
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+            <div class="progress-glow"></div>
+          </div>
+          <div class="progress-text">
+            <span class="current-step">0</span> / <span class="total-steps">${this.progressSteps.length}</span> steg
+          </div>
+        </div>
+
+        <div class="processing-stats">
+          <div class="stat">
+            <span class="stat-label">Modell:</span>
+            <span class="stat-value">${isAdvancedModel ? 'Claude 4 Sonnet' : 'Claude 3.5 Sonnet'}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Tokens:</span>
+            <span class="stat-value">${valuationRules.maxTokens || 2000}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Analys:</span>
+            <span class="stat-value">${isAdvancedModel ? 'Expert' : 'Standard'}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Start advanced progress animation with step-by-step progression
+   */
+  startAdvancedProgressAnimation() {
+    if (!this.currentModal) return;
+    
+    this.currentStepIndex = 0;
+    this.progressIntervals = [];
+    
+    // Start the step progression
+    this.progressToNextStep();
+    
+    // Add some visual flair with floating particles
+    this.startParticleAnimation();
+  }
+
+  /**
+   * Progress to the next step in the analysis
+   */
+  progressToNextStep() {
+    if (!this.isProcessing || this.currentStepIndex >= this.progressSteps.length) {
+      return;
+    }
+
+    const modal = this.currentModal;
+    const currentStep = this.progressSteps[this.currentStepIndex];
+    
+    // Update step status to active
+    const stepElement = modal.querySelector(`[data-step="${this.currentStepIndex}"]`);
+    if (stepElement) {
+      stepElement.classList.add('step-active');
+      stepElement.classList.remove('step-pending');
       
-      progressFill.style.width = `${progress}%`;
-      
-      if (!this.isProcessing) {
-        progress = 100;
+      // Animate the step progress bar
+      const progressFill = stepElement.querySelector('.step-progress-fill');
+      if (progressFill) {
         progressFill.style.width = '100%';
-        clearInterval(interval);
       }
-    }, 500);
+    }
+
+    // Update overall progress
+    const overallProgress = modal.querySelector('.progress-fill');
+    const currentStepSpan = modal.querySelector('.current-step');
+    if (overallProgress && currentStepSpan) {
+      const progressPercent = ((this.currentStepIndex + 1) / this.progressSteps.length) * 100;
+      overallProgress.style.width = `${progressPercent}%`;
+      currentStepSpan.textContent = this.currentStepIndex + 1;
+    }
+
+    // Schedule completion of this step
+    const timeout = setTimeout(() => {
+      if (stepElement) {
+        stepElement.classList.add('step-complete');
+        stepElement.classList.remove('step-active');
+      }
+      
+      this.currentStepIndex++;
+      
+      // Continue to next step if still processing
+      if (this.isProcessing && this.currentStepIndex < this.progressSteps.length) {
+        setTimeout(() => this.progressToNextStep(), 300);
+      }
+    }, currentStep.duration);
+    
+    this.progressIntervals.push(timeout);
+  }
+
+  /**
+   * Start particle animation for visual flair
+   */
+  startParticleAnimation() {
+    const modal = this.currentModal;
+    const container = modal.querySelector('.advanced-processing-container');
+    if (!container) return;
+
+    // Create particle container if it doesn't exist
+    let particleContainer = container.querySelector('.particle-container');
+    if (!particleContainer) {
+      particleContainer = document.createElement('div');
+      particleContainer.className = 'particle-container';
+      container.appendChild(particleContainer);
+    }
+
+    // Generate particles periodically
+    const particleInterval = setInterval(() => {
+      if (!this.isProcessing) {
+        clearInterval(particleInterval);
+        return;
+      }
+      
+      this.createParticle(particleContainer);
+    }, 200);
+    
+    this.progressIntervals.push(particleInterval);
+  }
+
+  /**
+   * Create a floating particle
+   */
+  createParticle(container) {
+    const particle = document.createElement('div');
+    particle.className = 'floating-particle';
+    
+    // Random properties
+    const size = Math.random() * 6 + 2;
+    const left = Math.random() * 100;
+    const animationDuration = Math.random() * 3 + 2;
+    const opacity = Math.random() * 0.7 + 0.3;
+    
+    particle.style.cssText = `
+      left: ${left}%;
+      width: ${size}px;
+      height: ${size}px;
+      animation-duration: ${animationDuration}s;
+      opacity: ${opacity};
+    `;
+    
+    container.appendChild(particle);
+    
+    // Remove particle after animation
+    setTimeout(() => {
+      if (particle.parentNode) {
+        particle.parentNode.removeChild(particle);
+      }
+    }, animationDuration * 1000);
+  }
+
+  /**
+   * Complete the progress animation
+   */
+  completeProgressAnimation() {
+    this.isProcessing = false;
+    
+    // Clear all intervals
+    if (this.progressIntervals) {
+      this.progressIntervals.forEach(interval => clearTimeout(interval));
+      this.progressIntervals = [];
+    }
+    
+    // Mark all steps as complete
+    const modal = this.currentModal;
+    if (modal) {
+      const steps = modal.querySelectorAll('.progress-step');
+      steps.forEach(step => {
+        step.classList.add('step-complete');
+        step.classList.remove('step-active', 'step-pending');
+      });
+      
+      // Complete overall progress
+      const overallProgress = modal.querySelector('.progress-fill');
+      const currentStepSpan = modal.querySelector('.current-step');
+      if (overallProgress && currentStepSpan) {
+        overallProgress.style.width = '100%';
+        currentStepSpan.textContent = this.progressSteps.length;
+      }
+    }
   }
 
   /**
@@ -1536,12 +1776,17 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       hasData: !!data
     });
 
+    // Complete the progress animation
+    this.completeProgressAnimation();
+
     // Store parsed data for later use
     this.parsedData = data;
 
-    // Hide processing section
-    const processingSection = modal.querySelector('.ai-processing-section');
-    if (processingSection) processingSection.style.display = 'none';
+    // Add a brief delay to show completion, then hide processing section
+    setTimeout(() => {
+      const processingSection = modal.querySelector('.ai-processing-section');
+      if (processingSection) processingSection.style.display = 'none';
+    }, 1000);
 
     // Show preview section
     const previewSection = modal.querySelector('.parsed-preview-section');
