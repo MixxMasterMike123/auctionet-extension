@@ -440,10 +440,10 @@ await window.switchAuctionetSystem(true); // Dynamic switching
 // AI IMAGE ANALYZER: Claude Vision-powered image analysis for auction items
 // STRUCTURE: /modules/refactored/components/ai-image-analyzer.js
 
-// Three analysis modes integration with FreetextParser:
-// 1. Text-only (original freetext parsing)
-// 2. Image-only (Claude Vision analysis)  
-// 3. Combined (image + text for maximum accuracy)
+// SIMPLIFIED UNIFIED INTERFACE: Single interface with smart analysis logic
+// - Upload 1-5 images (front, back, markings, signature, condition)
+// - Add text description (optional)
+// - Smart analysis: text-only, image-only, or combined based on inputs
 
 import { AIImageAnalyzer } from './refactored/components/ai-image-analyzer.js';
 const imageAnalyzer = new AIImageAnalyzer(apiManager, {
@@ -508,8 +508,15 @@ const {
   getCategoryRules,
   getFieldRules,
   getForbiddenWords,
-  isForbiddenWord
+  isForbiddenWord,
+  getModelSpecificValuationRules
 } = window;
+
+// Model-specific valuation rules (NEW PATTERN):
+const currentModel = this.apiManager.getCurrentModel().id;
+const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
+// Claude 4 Sonnet: "Ge realistiska värderingar baserat på marknadsdata"
+// Claude 3.5 Sonnet: "Var konservativ med värderingar"
 
 // AI parsing using AI Rules System v2.0 (NO MORE HARDCODED PROMPTS):
 const systemPrompt = getSystemPrompt('freetextParser');
@@ -528,7 +535,7 @@ await freetextParser.init(); // Properly extracts APIManager with API key
 chrome.runtime.sendMessage({
   type: 'anthropic-fetch',
   apiKey: this.apiManager.apiKey, // Correctly accessed from APIManager
-  body: { model: 'claude-3-5-sonnet-20241022', ... }
+  body: { model: this.apiManager.getCurrentModel().id, ... } // Respects user's model choice
 });
 
 // Form application with direct field mapping:
@@ -562,6 +569,7 @@ applyToFormField('item_artist_name_sv', parsedData.artist);
 // ✅ Integration with existing 3.5M auction dataset for accurate estimates/reserves
 // ✅ CRITICAL: Proper search query building with quoted artist names ("Gunnar Nylund")
 // ✅ Intelligent fallback strategy - removes least important keywords when no results found
+// ✅ NEW: Model-specific valuation rules - Claude 4 gets realistic, Claude 3.5 gets conservative
 ```
 
 ### Artist Detection System Pattern (PHASE 3B COMPLETED)

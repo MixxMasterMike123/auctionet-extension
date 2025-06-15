@@ -160,6 +160,42 @@ class AIRulesManager {
         return rules?.antiHallucination === true;
     }
     
+    /**
+     * Get model-specific valuation rules for a category
+     * @param {string} category - Category identifier (e.g., 'freetextParser')
+     * @param {string} modelId - Model identifier (e.g., 'claude-4-sonnet')
+     * @returns {object} Model-specific valuation rules
+     */
+    getModelSpecificValuationRules(category, modelId) {
+        this.ensureLoaded();
+        
+        const cacheKey = `valuationRules_${category}_${modelId}`;
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+        
+        const categoryRules = this.getCategoryRules(category);
+        if (!categoryRules?.valuationRules) {
+            console.log(`ℹ️ No valuation rules for category '${category}', using defaults`);
+            return { approach: 'conservative', instruction: 'Var konservativ med värderingar' };
+        }
+        
+        // Try to get model-specific rules
+        let rules = categoryRules.valuationRules[modelId];
+        
+        // Fallback to default if model-specific rules not found
+        if (!rules) {
+            rules = categoryRules.valuationRules.default || {
+                approach: 'conservative',
+                instruction: 'Var konservativ med värderingar'
+            };
+            console.log(`ℹ️ No specific valuation rules for model '${modelId}', using default`);
+        }
+        
+        this.cache.set(cacheKey, rules);
+        return rules;
+    }
+    
     // ==================== FIELD RULES ====================
     
     /**
@@ -522,6 +558,7 @@ const getAddItemsPrompt = () => getSystemPrompt('addItems');
 const getCategoryRules = (category) => getAIRulesManager().getCategoryRules(category);
 const getCategoryPrompt = (category) => getAIRulesManager().getCategoryPrompt(category);
 const hasAntiHallucination = (category) => getAIRulesManager().hasAntiHallucinationRules(category);
+const getModelSpecificValuationRules = (category, modelId) => getAIRulesManager().getModelSpecificValuationRules(category, modelId);
 
 // Field rules
 const getFieldRules = (field) => getAIRulesManager().getFieldRules(field);
@@ -556,6 +593,7 @@ if (typeof module !== 'undefined' && module.exports) {
         getCategoryRules,
         getCategoryPrompt,
         hasAntiHallucination,
+        getModelSpecificValuationRules,
         getFieldRules,
         getTitleRules,
         getForbiddenWords,
@@ -581,6 +619,7 @@ if (typeof module !== 'undefined' && module.exports) {
     window.getCategoryRules = getCategoryRules;
     window.getCategoryPrompt = getCategoryPrompt;
     window.hasAntiHallucination = hasAntiHallucination;
+    window.getModelSpecificValuationRules = getModelSpecificValuationRules;
     window.getFieldRules = getFieldRules;
     window.getTitleRules = getTitleRules;
     window.getForbiddenWords = getForbiddenWords;

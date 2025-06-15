@@ -1,5 +1,6 @@
 /* Freetext Parser Component Styles */
 /* Following .cursorrules - CSS in CSS files, not JavaScript */
+/* Updated: 2024-12-19 - All buttons now match AI enhance button styling with !important declarations */
 
 .freetext-parser-container {
   margin: 20px 0;
@@ -9,43 +10,45 @@
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
 }
 
+/* Main freetext parser button - Consistent with AI enhance button pattern */
 .btn--freetext-parser {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.95);
-  color: #4a5568;
-  border: none;
-  border-radius: 8px;
-  padding: 16px 20px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  width: 100% !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  background: #006ccc !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-weight: 300 !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 4px !important;
+  min-height: 60px !important;
+  justify-content: center !important;
 }
 
 .btn--freetext-parser:hover {
-  background: rgba(255, 255, 255, 1);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+  background: #0056b3 !important;
+  transform: translateY(-1px) !important;
 }
 
 .btn__icon {
-  font-size: 24px;
-  margin-bottom: 4px;
+  font-size: 16px;
+  margin-bottom: 2px;
 }
 
 .btn__text {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 300;
 }
 
 .btn__subtitle {
-  font-size: 13px;
-  color: #718096;
-  font-weight: 400;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 300;
 }
 
 /* Modal Styles - Following existing popup patterns */
@@ -70,7 +73,9 @@
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -79,6 +84,7 @@
   padding: 24px 24px 16px;
   border-bottom: 1px solid #e2e8f0;
   position: relative;
+  flex-shrink: 0;
 }
 
 .popup-header h3 {
@@ -94,31 +100,105 @@
   font-size: 14px;
 }
 
+/* Close button - Red styling matching AI enhance button pattern */
 .popup-close {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: #a0aec0;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+  position: absolute !important;
+  top: 20px !important;
+  right: 20px !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  background: #dc3545 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-weight: 300 !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 32px !important;
+  height: 32px !important;
 }
 
 .popup-close:hover {
-  background: #f7fafc;
-  color: #4a5568;
+  background: #c82333 !important;
+  transform: translateY(-1px) !important;
 }
 
 .popup-content {
   padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Unified input section layout */
+.unified-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.images-section, .text-section {
+  flex: 1;
+}
+
+.images-section h4, .text-section .freetext-label strong {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 16px;
+}
+
+.section-hint {
+  margin: 0 0 16px 0;
+  color: #718096;
+  font-size: 14px;
+}
+
+.analysis-mode-indicator {
+  background: #f7fafc;
+  border: 2px dashed #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  margin-top: 16px;
+}
+
+.mode-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mode-icon {
+  font-size: 20px;
+}
+
+.mode-text {
+  color: #718096;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* AI Image Analyzer integration within modal */
+#multiple-images-analyzer-container {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#multiple-images-analyzer {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#multiple-images-analyzer .ai-image-analyzer__upload-zone {
+  min-height: 120px;
+  max-height: 200px;
 }
 
 .freetext-input-section {
@@ -143,6 +223,7 @@
 .freetext-textarea {
   width: 100%;
   min-height: 120px;
+  max-height: 200px;
   padding: 12px;
   border: 2px solid #e2e8f0;
   border-radius: 8px;
@@ -150,6 +231,7 @@
   line-height: 1.5;
   resize: vertical;
   transition: border-color 0.2s ease;
+  box-sizing: border-box;
 }
 
 .freetext-textarea:focus {
@@ -366,35 +448,48 @@
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
+/* Force button styles to override any cached styles */
 .btn {
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  font-size: 14px;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-weight: 300 !important;
+  transition: all 0.2s ease !important;
 }
 
 .btn--secondary {
-  background: #e2e8f0;
-  color: #4a5568;
+  background: #dc3545 !important;
+  color: white !important;
 }
 
 .btn--secondary:hover {
-  background: #cbd5e0;
+  background: #c82333 !important;
+  transform: translateY(-1px) !important;
 }
 
 .btn--primary {
-  background: #667eea;
-  color: white;
+  background: #006ccc !important;
+  color: white !important;
 }
 
 .btn--primary:hover {
-  background: #5a67d8;
-  transform: translateY(-1px);
+  background: #0056b3 !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn--success {
+  background: #28a745 !important;
+  color: white !important;
+}
+
+.btn--success:hover {
+  background: #218838 !important;
+  transform: translateY(-1px) !important;
 }
 
 /* Animations */
@@ -424,10 +519,35 @@
   .freetext-parser-modal {
     width: 95%;
     max-height: 95vh;
+    margin: 10px;
+  }
+  
+  .popup-header {
+    padding: 16px 16px 12px;
   }
   
   .popup-content {
     padding: 16px;
+  }
+  
+  .modal-footer {
+    padding: 12px 16px 16px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .unified-input-section {
+    gap: 16px;
+  }
+  
+  .freetext-textarea {
+    min-height: 100px;
+    max-height: 150px;
   }
   
   .parsed-fields {
@@ -444,30 +564,30 @@
   padding-bottom: 8px;
 }
 
+/* Tab buttons - Consistent styling with AI enhance button pattern */
 .tab-btn {
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  padding: 8px 16px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #718096;
-  position: relative;
-  top: 1px;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  background: #006ccc !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-weight: 300 !important;
+  transition: all 0.2s ease !important;
+  position: relative !important;
+  top: 0 !important;
 }
 
 .tab-btn:hover {
-  background: white;
-  color: #2d3748;
+  background: #0056b3 !important;
+  transform: translateY(-1px) !important;
 }
 
 .tab-btn--active {
-  background: white;
-  color: #667eea;
-  font-weight: 600;
-  border-color: #e2e8f0;
+  background: #28a745 !important;
+  color: white !important;
+  font-weight: 300 !important;
 }
 
 /* Combined input notice */
@@ -580,8 +700,8 @@
   }
   
   .tab-btn {
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    border: none;
     top: 0;
   }
   

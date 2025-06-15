@@ -124,28 +124,12 @@ export class AIImageAnalyzer {
   async analyzeMultipleImages(additionalContext = '') {
     console.log('🔍 Starting multiple image analysis:', {
       imageCount: this.currentImages.size,
-      categories: Array.from(this.currentImages.keys()),
+      imageKeys: Array.from(this.currentImages.keys()),
       hasContext: !!additionalContext
     });
 
     if (this.currentImages.size === 0) {
       throw new Error('Inga bilder valda för analys');
-    }
-
-    // Check minimum requirements
-    const requiredCategories = this.config.imageCategories.filter(cat => cat.required);
-    const hasAllRequired = requiredCategories.every(cat => this.currentImages.has(cat.id));
-    
-    if (!hasAllRequired) {
-      const missingRequired = requiredCategories
-        .filter(cat => !this.currentImages.has(cat.id))
-        .map(cat => cat.label)
-        .join(', ');
-      throw new Error(`Obligatoriska bilder saknas: ${missingRequired}`);
-    }
-
-    if (this.currentImages.size < 2) {
-      throw new Error('Minimum 2 bilder krävs (framsida + baksida)');
     }
 
     if (!this.apiManager.apiKey) {
@@ -157,13 +141,12 @@ export class AIImageAnalyzer {
       
       // Convert all images to base64
       const imageData = new Map();
-      for (const [categoryId, file] of this.currentImages) {
-        console.log(`🔄 Converting ${categoryId} image to base64...`);
+      for (const [imageId, file] of this.currentImages) {
+        console.log(`🔄 Converting ${imageId} image to base64...`);
         const base64 = await this.convertToBase64(file);
-        imageData.set(categoryId, {
+        imageData.set(imageId, {
           file,
-          base64,
-          category: this.config.imageCategories.find(cat => cat.id === categoryId)
+          base64
         });
       }
       
@@ -178,24 +161,20 @@ export class AIImageAnalyzer {
       // Build content array with all images
       const content = [];
       
-      // Add images in order of importance (front first, then others)
-      const orderedCategories = ['front', 'back', 'markings', 'signature', 'condition'];
-      for (const categoryId of orderedCategories) {
-        if (imageData.has(categoryId)) {
-          const data = imageData.get(categoryId);
-          content.push({
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: data.file.type,
-              data: data.base64
-            }
-          });
-          content.push({
-            type: 'text',
-            text: `[${data.category.label}] ${data.category.icon}`
-          });
-        }
+      // Add all images in order
+      for (const [imageId, data] of imageData) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: data.file.type,
+            data: data.base64
+          }
+        });
+        content.push({
+          type: 'text',
+          text: `[Bild ${imageId.replace('image-', '')}]`
+        });
       }
       
       // Add the main analysis prompt
@@ -205,7 +184,7 @@ export class AIImageAnalyzer {
       });
       
       const requestBody = {
-        model: 'claude-3-5-sonnet-20241022',
+        model: this.apiManager.getCurrentModel().id, // Use user's selected model
         max_tokens: 3000, // More tokens for multiple images
         temperature: 0.1,
         system: systemPrompt,
@@ -314,7 +293,7 @@ export class AIImageAnalyzer {
       
       // Debug the request being sent
       const requestBody = {
-        model: 'claude-3-5-sonnet-20241022',
+        model: this.apiManager.getCurrentModel().id, // Use user's selected model
         max_tokens: 2000,
         temperature: 0.1,
         system: systemPrompt,
@@ -479,16 +458,15 @@ Kombinera observationer från olika bilder för bästa möjliga bedömning.`;
    * Build multiple image analysis prompt
    */
   buildMultipleImageAnalysisPrompt(imageData, additionalContext = '') {
-    const imageDescriptions = Array.from(imageData.entries())
-      .map(([categoryId, data]) => `${data.category.icon} ${data.category.label}`)
-      .join(', ');
+    const imageCount = imageData.size;
+    const imageDescriptions = `${imageCount} bilder av objektet från olika vinklar`;
 
     const contextSection = additionalContext ? `
 TILLÄGGSKONTEXT:
 "${additionalContext}"
 ` : '';
 
-    return `Analysera dessa ${imageData.size} bilder av samma auktionsobjekt: ${imageDescriptions}
+    return `Analysera dessa ${imageCount} bilder av samma auktionsobjekt: ${imageDescriptions}
 
 ${contextSection}
 🎯 TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
@@ -545,7 +523,7 @@ INSTRUKTIONER:
 - Använd konfidenspoäng för att markera osäkerhet
 - Lämna fält som null om information inte kan bestämmas från bilderna
 - Var extra försiktig med konstnärsattribueringar - kräver tydliga signaturer
-- Var konservativ med värderingar baserat på synligt skick och stil
+- ${this.getModelSpecificValuationInstruction()}
 - Bedöm bildkvalitet baserat på den bästa bilden i serien`;
   }
 
@@ -617,8 +595,29 @@ INSTRUKTIONER:
 - Använd konfidenspoäng för att markera osäkerhet
 - Lämna fält som null om information inte kan bestämmas från bilden
 - Var extra försiktig med konstnärsattribueringar - kräver tydliga signaturer
-- Var konservativ med värderingar baserat på synligt skick och stil
+- ${this.getModelSpecificValuationInstruction()}
 - Bedöm bildkvalitet för att påverka slutlig "sure score"`;
+  }
+
+  /**
+   * Get model-specific valuation instruction
+   */
+  getModelSpecificValuationInstruction() {
+    try {
+      const currentModel = this.apiManager.getCurrentModel().id;
+      const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
+      
+      console.log('🎯 Using model-specific valuation rules for image analysis:', {
+        model: currentModel,
+        approach: valuationRules.approach,
+        instruction: valuationRules.instruction
+      });
+      
+      return valuationRules.instruction;
+    } catch (error) {
+      console.warn('⚠️ Could not get model-specific valuation rules, using default:', error);
+      return 'Var konservativ med värderingar baserat på synligt skick och stil';
+    }
   }
 
   /**
@@ -980,80 +979,44 @@ INSTRUKTIONER:
   }
 
   /**
-   * Generate multiple image upload UI HTML
+   * Generate unified multiple image upload UI HTML
    */
   generateMultipleImageUploadUI(containerId, options = {}) {
     const config = {
       showPreview: true,
       dragAndDrop: true,
-      minImages: 2, // Minimum 2 images (front + back)
+      maxImages: 5,
       ...options
     };
 
-    const categories = this.config.imageCategories;
-    const requiredCategories = categories.filter(cat => cat.required);
-    const optionalCategories = categories.filter(cat => !cat.required);
-
     return `
-      <div class="ai-image-analyzer ai-image-analyzer--multiple" id="${containerId}">
-        <div class="ai-image-analyzer__header">
-          <h4>📸 Ladda upp bilder för AI-analys</h4>
-          <p>Minimum ${config.minImages} bilder krävs (framsida + baksida). Fler bilder ger bättre analys.</p>
-          <small>Stödda format: JPG, PNG, WebP • Max storlek: 10MB per bild</small>
-        </div>
-        
-        <div class="ai-image-analyzer__upload-grid">
-          ${categories.map(category => `
-            <div class="ai-image-analyzer__upload-slot" data-category="${category.id}">
-              <div class="ai-image-analyzer__slot-header">
-                <span class="ai-image-analyzer__slot-icon">${category.icon}</span>
-                <span class="ai-image-analyzer__slot-label">${category.label}</span>
-                ${category.required ? '<span class="ai-image-analyzer__required">*</span>' : ''}
-              </div>
-              
-              <div class="ai-image-analyzer__upload-zone ai-image-analyzer__upload-zone--slot" 
-                   id="${containerId}-${category.id}-drop-zone">
-                <div class="ai-image-analyzer__upload-placeholder">
-                  <div class="ai-image-analyzer__upload-icon">+</div>
-                  <div class="ai-image-analyzer__upload-text">
-                    <p>Klicka eller dra hit</p>
-                  </div>
-                </div>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  id="${containerId}-${category.id}-input"
-                  class="ai-image-analyzer__file-input"
-                  data-category="${category.id}"
-                >
-              </div>
-              
-              <div class="ai-image-analyzer__slot-preview" 
-                   id="${containerId}-${category.id}-preview" 
-                   style="display: none;">
-                <img id="${containerId}-${category.id}-preview-img" 
-                     class="ai-image-analyzer__preview-image" 
-                     alt="${category.label}">
-                <div class="ai-image-analyzer__preview-overlay">
-                  <button type="button" 
-                          class="ai-image-analyzer__remove-btn" 
-                          id="${containerId}-${category.id}-remove">
-                    ✕
-                  </button>
-                </div>
-                <div class="ai-image-analyzer__file-info" 
-                     id="${containerId}-${category.id}-file-info"></div>
-              </div>
+      <div class="ai-image-analyzer ai-image-analyzer--unified" id="${containerId}">
+        <div class="ai-image-analyzer__upload-zone ai-image-analyzer__upload-zone--unified" 
+             id="${containerId}-drop-zone">
+          <div class="ai-image-analyzer__upload-content">
+            <div class="ai-image-analyzer__upload-icon">📸</div>
+            <div class="ai-image-analyzer__upload-text">
+              <h4>Dra och släpp bilder här eller klicka för att välja</h4>
+              <p>Ladda upp 1-${config.maxImages} bilder av objektet</p>
+              <small>Stödda format: JPG, PNG, WebP • Max storlek: 10MB per bild</small>
             </div>
-          `).join('')}
+            <input 
+              type="file" 
+              accept="image/*" 
+              multiple
+              id="${containerId}-input"
+              class="ai-image-analyzer__file-input"
+            >
+          </div>
         </div>
         
-        <div class="ai-image-analyzer__upload-status" id="${containerId}-status">
+        <div class="ai-image-analyzer__preview-grid" id="${containerId}-preview-grid" style="display: none;">
+          <!-- Image previews will be added here dynamically -->
+        </div>
+        
+        <div class="ai-image-analyzer__upload-status" id="${containerId}-status" style="display: none;">
           <div class="ai-image-analyzer__progress">
-            <span id="${containerId}-uploaded-count">0</span> av ${categories.length} bilder uppladdade
-            <span class="ai-image-analyzer__required-note">
-              (${requiredCategories.length} obligatoriska, ${optionalCategories.length} valfria)
-            </span>
+            <span id="${containerId}-uploaded-count">0</span> av ${config.maxImages} bilder uppladdade
           </div>
         </div>
         
@@ -1063,7 +1026,6 @@ INSTRUKTIONER:
             <div class="ai-image-analyzer__processing-text">
               <h4>🤖 AI analyserar bilderna...</h4>
               <p>Detta kan ta upp till 60 sekunder för flera bilder</p>
-              <div class="ai-image-analyzer__processing-progress" id="${containerId}-processing-progress"></div>
             </div>
           </div>
           
@@ -1139,7 +1101,7 @@ INSTRUKTIONER:
   }
 
   /**
-   * Attach event listeners to multiple image upload UI
+   * Attach event listeners to unified multiple image upload UI
    */
   attachMultipleImageUploadListeners(containerId, callback) {
     const container = document.getElementById(containerId);
@@ -1148,64 +1110,52 @@ INSTRUKTIONER:
       return;
     }
 
-    const categories = this.config.imageCategories;
-    
-    categories.forEach(category => {
-      const dropZone = container.querySelector(`#${containerId}-${category.id}-drop-zone`);
-      const fileInput = container.querySelector(`#${containerId}-${category.id}-input`);
-      const preview = container.querySelector(`#${containerId}-${category.id}-preview`);
-      const previewImg = container.querySelector(`#${containerId}-${category.id}-preview-img`);
-      const fileInfo = container.querySelector(`#${containerId}-${category.id}-file-info`);
-      const removeBtn = container.querySelector(`#${containerId}-${category.id}-remove`);
+    const dropZone = container.querySelector(`#${containerId}-drop-zone`);
+    const fileInput = container.querySelector(`#${containerId}-input`);
+    const previewGrid = container.querySelector(`#${containerId}-preview-grid`);
+    const uploadStatus = container.querySelector(`#${containerId}-status`);
+    const uploadedCount = container.querySelector(`#${containerId}-uploaded-count`);
 
-      if (!dropZone || !fileInput) {
-        console.error(`❌ Required elements not found for category ${category.id}`);
-        return;
-      }
+    if (!dropZone || !fileInput || !previewGrid) {
+      console.error('❌ Required elements not found in unified container');
+      return;
+    }
 
-      // File input change
-      fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          this.handleMultipleImageSelection(category.id, file, preview, previewImg, fileInfo, containerId, callback);
-        }
-      });
-
-      // Drop zone click
-      dropZone.addEventListener('click', () => {
-        fileInput.click();
-      });
-
-      // Drag and drop
-      dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('ai-image-analyzer__upload-zone--dragover');
-      });
-
-      dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('ai-image-analyzer__upload-zone--dragover');
-      });
-
-      dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('ai-image-analyzer__upload-zone--dragover');
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-          this.handleMultipleImageSelection(category.id, files[0], preview, previewImg, fileInfo, containerId, callback);
-        }
-      });
-
-      // Remove button
-      if (removeBtn) {
-        removeBtn.addEventListener('click', () => {
-          this.clearMultipleImageSelection(category.id, fileInput, preview, containerId, callback);
-        });
+    // File input change (handles multiple files)
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length > 0) {
+        this.handleUnifiedImageSelection(files, previewGrid, uploadStatus, uploadedCount, containerId, callback);
       }
     });
 
-    console.log('✅ Multiple image upload listeners attached to:', containerId);
+    // Drop zone click
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    // Drag and drop (handles multiple files)
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('ai-image-analyzer__upload-zone--dragover');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('ai-image-analyzer__upload-zone--dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('ai-image-analyzer__upload-zone--dragover');
+      
+      const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+      if (files.length > 0) {
+        this.handleUnifiedImageSelection(files, previewGrid, uploadStatus, uploadedCount, containerId, callback);
+      }
+    });
+
+    console.log('✅ Unified multiple image upload listeners attached to:', containerId);
   }
 
   /**
@@ -1275,7 +1225,143 @@ INSTRUKTIONER:
   }
 
   /**
-   * Handle multiple image selection
+   * Handle unified multiple image selection
+   */
+  handleUnifiedImageSelection(files, previewGrid, uploadStatus, uploadedCount, containerId, callback) {
+    console.log('📸 Unified images selected:', files.length, 'files');
+
+    // Validate files
+    const validFiles = [];
+    const maxImages = 5;
+    
+    for (let i = 0; i < Math.min(files.length, maxImages); i++) {
+      const file = files[i];
+      const validation = this.validateImageFile(file);
+      if (validation.isValid) {
+        validFiles.push(file);
+      } else {
+        alert(`Bildfel (${file.name}): ${validation.errors.join('. ')}`);
+      }
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    // Clear existing images and store new ones
+    this.currentImages.clear();
+    
+    // Store images with simple numeric IDs
+    validFiles.forEach((file, index) => {
+      this.currentImages.set(`image-${index}`, file);
+    });
+
+    // Update preview grid
+    this.updateUnifiedPreviewGrid(validFiles, previewGrid, containerId, callback);
+    
+    // Show upload status
+    if (uploadStatus) {
+      uploadStatus.style.display = 'block';
+    }
+    if (uploadedCount) {
+      uploadedCount.textContent = validFiles.length;
+    }
+
+    // Call callback with all current images
+    if (callback && typeof callback === 'function') {
+      callback(this.currentImages);
+    }
+  }
+
+  /**
+   * Update unified preview grid
+   */
+  updateUnifiedPreviewGrid(files, previewGrid, containerId, callback) {
+    // Clear existing previews
+    previewGrid.innerHTML = '';
+    
+    // Show preview grid
+    previewGrid.style.display = 'grid';
+    
+    files.forEach((file, index) => {
+      const previewItem = document.createElement('div');
+      previewItem.className = 'ai-image-analyzer__preview-item';
+      previewItem.innerHTML = `
+        <div class="ai-image-analyzer__preview-image-container">
+          <img class="ai-image-analyzer__preview-image" alt="Preview ${index + 1}">
+          <div class="ai-image-analyzer__preview-overlay">
+            <button type="button" class="ai-image-analyzer__remove-btn" data-index="${index}">
+              ✕
+            </button>
+          </div>
+        </div>
+        <div class="ai-image-analyzer__preview-info">
+          <div class="ai-image-analyzer__file-name">${file.name}</div>
+          <div class="ai-image-analyzer__file-size">${this.formatFileSize(file.size)}</div>
+        </div>
+      `;
+      
+      // Load image preview
+      const img = previewItem.querySelector('img');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      
+      // Add remove button listener
+      const removeBtn = previewItem.querySelector('.ai-image-analyzer__remove-btn');
+      removeBtn.addEventListener('click', () => {
+        this.removeUnifiedImage(index, previewGrid, containerId, callback);
+      });
+      
+      previewGrid.appendChild(previewItem);
+    });
+  }
+
+  /**
+   * Remove image from unified selection
+   */
+  removeUnifiedImage(index, previewGrid, containerId, callback) {
+    // Remove from currentImages map
+    this.currentImages.delete(`image-${index}`);
+    
+    // Rebuild the map with sequential keys
+    const remainingFiles = Array.from(this.currentImages.values());
+    this.currentImages.clear();
+    remainingFiles.forEach((file, newIndex) => {
+      if (newIndex !== index) {
+        const adjustedIndex = newIndex > index ? newIndex - 1 : newIndex;
+        this.currentImages.set(`image-${adjustedIndex}`, file);
+      }
+    });
+    
+    // Update preview grid
+    this.updateUnifiedPreviewGrid(Array.from(this.currentImages.values()), previewGrid, containerId, callback);
+    
+    // Update status
+    const uploadedCount = document.querySelector(`#${containerId}-uploaded-count`);
+    if (uploadedCount) {
+      uploadedCount.textContent = this.currentImages.size;
+    }
+    
+    // Hide preview grid if no images
+    if (this.currentImages.size === 0) {
+      previewGrid.style.display = 'none';
+      const uploadStatus = document.querySelector(`#${containerId}-status`);
+      if (uploadStatus) {
+        uploadStatus.style.display = 'none';
+      }
+    }
+    
+    // Call callback
+    if (callback && typeof callback === 'function') {
+      callback(this.currentImages);
+    }
+  }
+
+  /**
+   * Handle multiple image selection (legacy method for backward compatibility)
    */
   handleMultipleImageSelection(categoryId, file, preview, previewImg, fileInfo, containerId, callback) {
     console.log('📸 Multiple image selected:', {

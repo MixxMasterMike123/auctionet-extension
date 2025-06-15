@@ -252,21 +252,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       const result = await chrome.storage.sync.get(['selectedModel']);
       if (result.selectedModel) {
         modelSelect.value = result.selectedModel;
-        updateModelDescription();
+      } else {
+        // Default to Claude 4 Sonnet (same cost as 3.5, better performance)
+        modelSelect.value = 'claude-4-sonnet';
       }
+      updateModelDescription();
     } catch (error) {
       console.error('Error loading model selection:', error);
+      // Default to Claude 4 on error
+      modelSelect.value = 'claude-4-sonnet';
+      updateModelDescription();
     }
   }
 
   async function saveModelSelection() {
     const selectedModel = modelSelect.value;
     
+    // No confirmation needed for Claude 4 - same cost as 3.5!
+    
     try {
       saveModelButton.disabled = true;
       saveModelButton.textContent = 'Saving...';
 
       await chrome.storage.sync.set({ selectedModel: selectedModel });
+      
       showStatus('Model selection saved successfully!', 'success');
       
       // Notify all tabs to refresh their model selection
@@ -291,12 +300,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateModelDescription() {
     const selectedModel = modelSelect.value;
+    const costWarning = document.getElementById('cost-warning');
+    
     const descriptions = {
-      'claude-3-5-sonnet': 'Cost-effective, good for most cataloging tasks. Recommended for regular use.',
-      'claude-4-sonnet': 'Premium model with enhanced capabilities. 5x more expensive - use for complex items.'
+      'claude-3-5-sonnet': 'Cost-effective, excellent for most cataloging tasks. Good for regular use.',
+      'claude-4-sonnet': '🚀 RECOMMENDED: Same cost as 3.5, but better performance! Superior rule compliance.'
     };
     
     modelDescription.textContent = descriptions[selectedModel] || 'Unknown model';
+    
+    // Update cost warning styling based on selection
+    if (selectedModel === 'claude-4-sonnet') {
+      costWarning.style.background = '#d4edda';
+      costWarning.style.border = '1px solid #c3e6cb';
+      costWarning.innerHTML = `
+        <strong style="color: #155724;">🚀 RECOMMENDED CHOICE:</strong><br>
+        • Claude 3.5: $3 input / $15 output per 1M tokens<br>
+        • Claude 4: $3 input / $15 output per 1M tokens<br>
+        <br>
+        <strong style="color: #28a745;">Same cost, better performance!</strong><br>
+        Claude 4 offers superior rule compliance and reasoning<br>
+        <strong>Monthly cost for 1,200 requests:</strong><br>
+        • Both models: ~$31/month
+      `;
+    } else {
+      costWarning.style.background = '#f8f9fa';
+      costWarning.style.border = 'none';
+      costWarning.innerHTML = `
+        <strong>Cost Comparison (per request):</strong><br>
+        • Claude 3.5: ~$0.026<br>
+        • Claude 4: ~$0.026 (<strong style="color: #28a745;">Same cost, better performance!</strong>)
+      `;
+    }
   }
 
   async function loadArtistInfoSetting() {

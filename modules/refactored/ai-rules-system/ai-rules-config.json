@@ -78,6 +78,25 @@
         "excludeFromTitle": true,
         "titleFormat": "[FÖREMÅL], [Material], [Period]"
       },
+      "valuationRules": {
+        "claude-4-sonnet": {
+          "approach": "realistic",
+          "instruction": "Ge realistiska värderingar baserat på marknadsdata och objektets beskrivning",
+          "confidence": "higher",
+          "reasoning": "Claude 4 Sonnet har bättre regelefterlevnad och kan hantera mer nyanserade värderingar"
+        },
+        "claude-3-5-sonnet": {
+          "approach": "conservative", 
+          "instruction": "Var konservativ med värderingar",
+          "confidence": "standard",
+          "reasoning": "Claude 3.5 Sonnet fungerar bäst med konservativa riktlinjer"
+        },
+        "default": {
+          "approach": "conservative",
+          "instruction": "Var konservativ med värderingar",
+          "confidence": "standard"
+        }
+      },
       "forbiddenAdditions": [
         "Säljande språk och värdeord",
         "Spekulationer om ålder eller ursprung",

@@ -597,4 +597,257 @@
   .ai-image-analyzer__slot-preview {
     height: 100px;
   }
+}
+
+/* Unified multiple image upload styles */
+.ai-image-analyzer--unified .ai-image-analyzer__upload-zone--unified {
+  min-height: 200px;
+  border: 3px dashed var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  margin-bottom: var(--spacing-lg);
+}
+
+.ai-image-analyzer--unified .ai-image-analyzer__upload-zone--unified:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  transform: translateY(-2px);
+}
+
+.ai-image-analyzer--unified .ai-image-analyzer__upload-zone--unified.ai-image-analyzer__upload-zone--dragover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-style: solid;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+}
+
+.ai-image-analyzer__upload-content {
+  text-align: center;
+  padding: var(--spacing-lg);
+}
+
+.ai-image-analyzer__upload-content .ai-image-analyzer__upload-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+  display: block;
+}
+
+.ai-image-analyzer__upload-content h4 {
+  margin: 0 0 var(--spacing-xs) 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.ai-image-analyzer__upload-content p {
+  margin: 0 0 var(--spacing-xs) 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.ai-image-analyzer__upload-content small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* Preview grid for multiple images */
+.ai-image-analyzer__preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.ai-image-analyzer__preview-item {
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: var(--transition-normal);
+}
+
+.ai-image-analyzer__preview-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.ai-image-analyzer__preview-image-container {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+}
+
+.ai-image-analyzer__preview-image-container .ai-image-analyzer__preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: var(--transition-normal);
+}
+
+.ai-image-analyzer__preview-image-container:hover .ai-image-analyzer__preview-image {
+  transform: scale(1.05);
+}
+
+.ai-image-analyzer__preview-item .ai-image-analyzer__preview-overlay {
+  position: absolute;
+  top: var(--spacing-xs);
+  right: var(--spacing-xs);
+  opacity: 0;
+  transition: var(--transition-normal);
+}
+
+.ai-image-analyzer__preview-item:hover .ai-image-analyzer__preview-overlay {
+  opacity: 1;
+}
+
+.ai-image-analyzer__preview-item .ai-image-analyzer__preview-overlay .ai-image-analyzer__remove-btn {
+  background: var(--color-danger);
+  color: var(--bg-white);
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-normal);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.ai-image-analyzer__preview-item .ai-image-analyzer__preview-overlay .ai-image-analyzer__remove-btn:hover {
+  background: var(--color-danger-dark);
+  transform: scale(1.1);
+}
+
+.ai-image-analyzer__preview-info {
+  padding: var(--spacing-sm);
+}
+
+.ai-image-analyzer__file-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-image-analyzer__file-size {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Unified upload status */
+.ai-image-analyzer--unified .ai-image-analyzer__upload-status {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-light);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.ai-image-analyzer--unified .ai-image-analyzer__progress {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Unified Interface Styles */
+.unified-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.images-section,
+.text-section {
+  background: var(--bg-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+
+.images-section h4,
+.text-section h4 {
+  margin: 0 0 var(--spacing-sm) 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.section-hint {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.analysis-mode-indicator {
+  background: var(--bg-white);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  text-align: center;
+  transition: var(--transition-normal);
+}
+
+.analysis-mode-indicator.mode-empty {
+  border-color: var(--border-light);
+  background: var(--bg-light);
+}
+
+.analysis-mode-indicator.mode-text {
+  border-color: var(--color-info);
+  background: var(--bg-info-light);
+}
+
+.analysis-mode-indicator.mode-images {
+  border-color: var(--color-primary);
+  background: var(--bg-primary-light);
+}
+
+.analysis-mode-indicator.mode-combined {
+  border-color: var(--color-success);
+  background: var(--bg-success-light);
+}
+
+.mode-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.mode-icon {
+  font-size: 1.2rem;
+}
+
+.mode-text {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Responsive unified interface */
+@media (max-width: 768px) {
+  .unified-input-section {
+    gap: var(--spacing-md);
+  }
+  
+  .images-section,
+  .text-section {
+    padding: var(--spacing-md);
+  }
+  
+  .mode-status {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
 } 

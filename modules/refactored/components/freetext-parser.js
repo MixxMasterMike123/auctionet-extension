@@ -230,60 +230,51 @@ export class FreetextParser {
         </div>
         
         <div class="popup-content">
-          <div class="input-method-tabs">
-            <button type="button" class="tab-btn tab-btn--active" id="text-tab">📝 Fritext</button>
-            <button type="button" class="tab-btn" id="image-tab">📸 Bild</button>
-            <button type="button" class="tab-btn" id="combined-tab">🔄 Bild + Text</button>
-          </div>
+          <!-- Unified interface - no tabs needed -->
           
-          <div class="freetext-input-section" id="text-input-section">
-            <label for="freetext-input" class="freetext-label">
-              <strong>Fritext (skriv allt du vet om objektet):</strong>
-              <span class="freetext-hint">Inkludera märke, konstnär, material, mått, skick, värdering, etc.</span>
-            </label>
-            <textarea 
-              id="freetext-input" 
-              class="freetext-textarea"
-              placeholder="Exempel: Kruka höganäs troligen 1960tal brun stengods 28cm höjd 22cm omkrets två nagg i överkant lisa larson 500 kronor bevakning 300:- märkt CBGBs under"
-              rows="6"
-            ></textarea>
-            <div class="freetext-examples">
-              <strong>Exempel på bra fritext:</strong>
-              <div class="example-item">
-                "Vas rörstrand gunnar nylund 1950-tal blå glasyr 25cm hög märkt R tre små nagg i kanten uppskattat värde 800kr"
+          <!-- Unified Input Section -->
+          <div class="unified-input-section">
+            <!-- Multiple Images Upload -->
+            <div class="images-section">
+              <h4>📸 Bilder av objektet (valfritt)</h4>
+              <p class="section-hint">Ladda upp 1-5 bilder för bästa AI-analys. Fler bilder = högre precision.</p>
+              <div id="multiple-images-analyzer-container"></div>
+            </div>
+            
+            <!-- Text Input -->
+            <div class="text-section">
+              <label for="freetext-input" class="freetext-label">
+                <strong>📝 Beskrivning av objektet (valfritt):</strong>
+                <span class="freetext-hint">Skriv allt du vet: märke, konstnär, material, mått, skick, värdering, etc.</span>
+              </label>
+              <textarea 
+                id="freetext-input" 
+                class="freetext-textarea"
+                placeholder="Exempel: Kruka höganäs troligen 1960tal brun stengods 28cm höjd 22cm omkrets två nagg i överkant lisa larson 500 kronor bevakning 300:- märkt CBGBs under"
+                rows="6"
+              ></textarea>
+              <div class="freetext-examples">
+                <strong>Exempel på bra beskrivning:</strong>
+                <div class="example-item">
+                  "Vas rörstrand gunnar nylund 1950-tal blå glasyr 25cm hög märkt R tre små nagg i kanten uppskattat värde 800kr"
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div class="image-input-section" id="image-input-section" style="display: none;">
-            <div id="image-analyzer-container"></div>
-          </div>
-          
-          <div class="combined-input-section" id="combined-input-section" style="display: none;">
-            <div class="combined-notice">
-              <h4>🚀 Maximal noggrannhet med bild + text!</h4>
-              <p>Kombinera en bild av objektet med beskrivande text för bästa AI-analys och högsta "Sure Score".</p>
+            
+            <!-- Analysis Mode Indicator -->
+            <div class="analysis-mode-indicator" id="analysis-mode-indicator">
+              <div class="mode-status">
+                <span class="mode-icon">🤖</span>
+                <span class="mode-text">Fyll i bilder och/eller text för AI-analys</span>
+              </div>
             </div>
-            
-            <div id="combined-image-analyzer-container"></div>
-            
-            <label for="combined-text-input" class="freetext-label">
-              <strong>Tilläggstext (valfritt):</strong>
-              <span class="freetext-hint">Lägg till extra information som inte syns på bilden</span>
-            </label>
-            <textarea 
-              id="combined-text-input" 
-              class="freetext-textarea"
-              placeholder="T.ex: Köpt på auktion 1995, signerad på undersidan, liten spricka som inte syns på bilden..."
-              rows="4"
-            ></textarea>
           </div>
           
           <div class="ai-processing-section" style="display: none;">
             <div class="processing-spinner"></div>
             <div class="processing-status">
-              <h4>🤖 AI analyserar din fritext...</h4>
-              <p class="processing-step">Extraherar strukturerad data från fritext</p>
+              <h4>🤖 AI analyserar...</h4>
+              <p class="processing-step">Förbereder analys...</p>
               <div class="processing-progress">
                 <div class="progress-bar">
                   <div class="progress-fill"></div>
@@ -364,11 +355,16 @@ export class FreetextParser {
       applyBtn.addEventListener('click', () => this.applyParsedDataToForm());
     }
 
-    // Initialize tab switching
-    this.initializeTabSwitching(modal);
-    
-    // Initialize image analyzers
+    // Initialize image analyzer
     this.initializeImageAnalyzers(modal);
+    
+    // Add text change listener for dynamic mode indicator
+    const textarea = modal.querySelector('#freetext-input');
+    if (textarea) {
+      textarea.addEventListener('input', () => {
+        this.updateAnalysisModeIndicator(modal);
+      });
+    }
   }
 
   /**
@@ -377,15 +373,17 @@ export class FreetextParser {
   initializeTabSwitching(modal) {
     const textTab = modal.querySelector('#text-tab');
     const imageTab = modal.querySelector('#image-tab');
+    const multipleImagesTab = modal.querySelector('#multiple-images-tab');
     const combinedTab = modal.querySelector('#combined-tab');
     
     const textSection = modal.querySelector('#text-input-section');
     const imageSection = modal.querySelector('#image-input-section');
+    const multipleImagesSection = modal.querySelector('#multiple-images-input-section');
     const combinedSection = modal.querySelector('#combined-input-section');
     
     const analyzeBtn = modal.querySelector('#analyze-btn');
 
-    if (!textTab || !imageTab || !combinedTab) {
+    if (!textTab || !imageTab || !multipleImagesTab || !combinedTab) {
       console.error('❌ Tab buttons not found');
       return;
     }
@@ -399,6 +397,11 @@ export class FreetextParser {
     imageTab.addEventListener('click', () => {
       this.switchToTab('image', modal);
       analyzeBtn.textContent = '🤖 Analysera bild med AI';
+    });
+
+    multipleImagesTab.addEventListener('click', () => {
+      this.switchToTab('multiple-images', modal);
+      analyzeBtn.textContent = '📸📸 Analysera flera bilder med AI';
     });
 
     combinedTab.addEventListener('click', () => {
@@ -429,61 +432,90 @@ export class FreetextParser {
   }
 
   /**
-   * Initialize image analyzers for image and combined tabs
+   * Initialize unified image analyzer with multiple image support
    */
   initializeImageAnalyzers(modal) {
     try {
-      // Wait for DOM to be ready before initializing image analyzers
+      // Wait for DOM to be ready before initializing image analyzer
       setTimeout(() => {
-        // Initialize image analyzer for image-only tab
-        const imageContainer = modal.querySelector('#image-analyzer-container');
-        if (imageContainer) {
-          console.log('🔍 Initializing image-only analyzer...');
-          imageContainer.innerHTML = this.imageAnalyzer.generateImageUploadUI('image-analyzer', {
+        // Initialize multiple images analyzer
+        const multipleImagesContainer = modal.querySelector('#multiple-images-analyzer-container');
+        if (multipleImagesContainer) {
+          console.log('🔍 Initializing multiple images analyzer...');
+          
+          // Configure for unified multiple images
+          this.imageAnalyzer.config.allowMultipleImages = true;
+          
+          multipleImagesContainer.innerHTML = this.imageAnalyzer.generateMultipleImageUploadUI('multiple-images-analyzer', {
             showPreview: true,
-            dragAndDrop: true
+            dragAndDrop: true,
+            maxImages: 5
           });
           
           // Wait a bit more for the HTML to be inserted
           setTimeout(() => {
-            this.imageAnalyzer.attachImageUploadListeners('image-analyzer', (file) => {
-              console.log('📸 Image selected for image-only analysis:', file?.name);
-              this.selectedImageFile = file;
+            this.imageAnalyzer.attachMultipleImageUploadListeners('multiple-images-analyzer', (imagesMap) => {
+              console.log('📸 Images updated:', imagesMap?.size || 0, 'images');
+              this.selectedImages = imagesMap;
+              this.updateAnalysisModeIndicator(modal);
             });
           }, 100);
         } else {
-          console.warn('⚠️ Image analyzer container not found');
+          console.warn('⚠️ Multiple images analyzer container not found');
         }
 
-        // Initialize image analyzer for combined tab
-        const combinedContainer = modal.querySelector('#combined-image-analyzer-container');
-        if (combinedContainer) {
-          console.log('🔍 Initializing combined analyzer...');
-          combinedContainer.innerHTML = this.imageAnalyzer.generateImageUploadUI('combined-image-analyzer', {
-            showPreview: true,
-            dragAndDrop: true
-          });
-          
-          // Wait a bit more for the HTML to be inserted
-          setTimeout(() => {
-            this.imageAnalyzer.attachImageUploadListeners('combined-image-analyzer', (file) => {
-              console.log('📸 Image selected for combined analysis:', file?.name);
-              this.selectedCombinedImageFile = file;
-            });
-          }, 100);
-        } else {
-          console.warn('⚠️ Combined analyzer container not found');
-        }
-
-        console.log('✅ Image analyzers initialization started');
+        console.log('✅ Unified image analyzer initialization started');
       }, 50);
     } catch (error) {
-      console.error('❌ Failed to initialize image analyzers:', error);
+      console.error('❌ Failed to initialize image analyzer:', error);
     }
   }
 
   /**
-   * Process freetext using AI Rules System v2.0
+   * Update analysis mode indicator based on current inputs
+   */
+  updateAnalysisModeIndicator(modal) {
+    const indicator = modal.querySelector('#analysis-mode-indicator');
+    const analyzeBtn = modal.querySelector('#analyze-btn');
+    const textarea = modal.querySelector('#freetext-input');
+    
+    if (!indicator || !analyzeBtn) return;
+    
+    const hasImages = this.selectedImages && this.selectedImages.size > 0;
+    const hasText = textarea && textarea.value.trim().length > 0;
+    
+    const modeIcon = indicator.querySelector('.mode-icon');
+    const modeText = indicator.querySelector('.mode-text');
+    
+    if (hasImages && hasText) {
+      // Combined analysis
+      modeIcon.textContent = '🚀';
+      modeText.textContent = `Redo för kombinerad analys: ${this.selectedImages.size} bilder + text`;
+      analyzeBtn.textContent = '🚀 Analysera bilder + text med AI';
+      indicator.className = 'analysis-mode-indicator mode-combined';
+    } else if (hasImages) {
+      // Image-only analysis
+      modeIcon.textContent = '📸';
+      modeText.textContent = `Redo för bildanalys: ${this.selectedImages.size} bilder`;
+      analyzeBtn.textContent = this.selectedImages.size > 1 ? '📸📸 Analysera flera bilder med AI' : '📸 Analysera bild med AI';
+      indicator.className = 'analysis-mode-indicator mode-images';
+    } else if (hasText) {
+      // Text-only analysis
+      modeIcon.textContent = '📝';
+      modeText.textContent = 'Redo för textanalys';
+      analyzeBtn.textContent = '📝 Analysera text med AI';
+      indicator.className = 'analysis-mode-indicator mode-text';
+    } else {
+      // No input
+      modeIcon.textContent = '🤖';
+      modeText.textContent = 'Fyll i bilder och/eller text för AI-analys';
+      analyzeBtn.textContent = '🤖 Analysera med AI';
+      indicator.className = 'analysis-mode-indicator mode-empty';
+    }
+  }
+
+  /**
+   * Process input using AI Rules System v2.0 (unified logic)
    */
   async processFreetextWithAI() {
     console.log('🔄 processFreetextWithAI called');
@@ -493,29 +525,62 @@ export class FreetextParser {
       return;
     }
 
-    // Determine processing method based on current tab
-    const currentTab = this.currentTab || 'text';
-    console.log('🔍 Processing method:', currentTab);
+    // Determine processing method based on available inputs
+    const textarea = this.currentModal.querySelector('#freetext-input');
+    const hasText = textarea && textarea.value.trim().length > 0;
+    const hasImages = this.selectedImages && this.selectedImages.size > 0;
+    
+    console.log('🔍 Input analysis:', {
+      hasText,
+      hasImages,
+      imageCount: this.selectedImages?.size || 0,
+      textLength: textarea?.value?.trim()?.length || 0
+    });
+
+    if (!hasText && !hasImages) {
+      this.showError('Vänligen fyll i text och/eller ladda upp bilder för analys.');
+      return;
+    }
 
     try {
       this.isProcessing = true;
-      this.showProcessingState();
+      
+      // Show dynamic processing state based on analysis type
+      let processingTitle, processingDescription;
+      if (hasImages && hasText) {
+        processingTitle = '🚀 AI analyserar bilder + text...';
+        processingDescription = 'Kombinerar visuell och textbaserad analys för bästa resultat';
+      } else if (hasImages) {
+        const imageCount = this.selectedImages?.size || 0;
+        if (imageCount > 1) {
+          processingTitle = '📸📸 AI analyserar flera bilder...';
+          processingDescription = `Analyserar ${imageCount} bilder för komplett objektbedömning`;
+        } else {
+          processingTitle = '📸 AI analyserar bild...';
+          processingDescription = 'Extraherar objektinformation från bildanalys';
+        }
+      } else {
+        processingTitle = '📝 AI analyserar fritext...';
+        processingDescription = 'Extraherar strukturerad data från fritext';
+      }
+      
+      this.showProcessingState(processingTitle, processingDescription);
 
       let analysisResult;
       let sureScore;
 
-      switch (currentTab) {
-        case 'text':
-          analysisResult = await this.processTextOnly();
-          break;
-        case 'image':
-          analysisResult = await this.processImageOnly();
-          break;
-        case 'combined':
-          analysisResult = await this.processCombinedImageAndText();
-          break;
-        default:
-          throw new Error('Unknown processing method');
+      if (hasImages && hasText) {
+        // Combined analysis
+        console.log('🚀 Running combined image + text analysis');
+        analysisResult = await this.processCombinedImageAndText();
+      } else if (hasImages) {
+        // Image-only analysis
+        console.log('📸 Running image-only analysis');
+        analysisResult = await this.processImageOnly();
+      } else {
+        // Text-only analysis
+        console.log('📝 Running text-only analysis');
+        analysisResult = await this.processTextOnly();
       }
 
       // Calculate sure score and market validation (non-blocking)
@@ -604,14 +669,22 @@ export class FreetextParser {
   async processImageOnly() {
     console.log('📸 Processing image-only input...');
     
-    if (!this.selectedImageFile) {
-      throw new Error('Vänligen välj en bild att analysera först.');
+    if (!this.selectedImages || this.selectedImages.size === 0) {
+      throw new Error('Vänligen ladda upp bilder att analysera först.');
     }
 
-    console.log('🤖 Starting image analysis:', this.selectedImageFile.name);
+    console.log('🤖 Starting image analysis:', this.selectedImages.size, 'images');
     
-    // Analyze image using AIImageAnalyzer component
-    const imageAnalysis = await this.imageAnalyzer.analyzeImage(this.selectedImageFile);
+    // Analyze images using AIImageAnalyzer component
+    let imageAnalysis;
+    if (this.selectedImages.size === 1) {
+      // Single image analysis
+      const singleImage = Array.from(this.selectedImages.values())[0];
+      imageAnalysis = await this.imageAnalyzer.analyzeImage(singleImage);
+    } else {
+      // Multiple images analysis
+      imageAnalysis = await this.imageAnalyzer.analyzeMultipleImages();
+    }
     
     // Convert image analysis to freetext parser format for consistency
     const parsedData = {
@@ -648,24 +721,29 @@ export class FreetextParser {
   async processCombinedImageAndText() {
     console.log('🔄 Processing combined image + text input...');
     
-    if (!this.selectedCombinedImageFile) {
-      throw new Error('Vänligen välj en bild för kombinerad analys först.');
+    if (!this.selectedImages || this.selectedImages.size === 0) {
+      throw new Error('Vänligen ladda upp bilder för kombinerad analys först.');
     }
 
-    const combinedTextarea = this.currentModal.querySelector('#combined-text-input');
-    const additionalText = combinedTextarea ? combinedTextarea.value.trim() : '';
+    const textarea = this.currentModal.querySelector('#freetext-input');
+    const additionalText = textarea ? textarea.value.trim() : '';
 
     console.log('🤖 Starting combined analysis:', {
-      imageName: this.selectedCombinedImageFile.name,
+      imageCount: this.selectedImages.size,
       hasAdditionalText: !!additionalText,
       additionalTextLength: additionalText.length
     });
 
-    // Analyze image with additional text context
-    const imageAnalysis = await this.imageAnalyzer.analyzeImage(
-      this.selectedCombinedImageFile, 
-      additionalText
-    );
+    // Analyze images with additional text context
+    let imageAnalysis;
+    if (this.selectedImages.size === 1) {
+      // Single image analysis with text context
+      const singleImage = Array.from(this.selectedImages.values())[0];
+      imageAnalysis = await this.imageAnalyzer.analyzeImage(singleImage, additionalText);
+    } else {
+      // Multiple images analysis with text context
+      imageAnalysis = await this.imageAnalyzer.analyzeMultipleImages(additionalText);
+    }
 
     // Enhanced combined processing with both visual and textual data
     const parsedData = {
@@ -743,7 +821,7 @@ export class FreetextParser {
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022',
+            model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: 2000,
             temperature: 0.1,
             system: systemPrompt,
@@ -838,6 +916,16 @@ export class FreetextParser {
       artistCorrectionsCount: Object.keys(artistCorrections || {}).length
     });
 
+    // Get model-specific valuation rules from AI Rules System v2.0
+    const currentModel = this.apiManager.getCurrentModel().id;
+    const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
+    
+    console.log('🎯 Using model-specific valuation rules:', {
+      model: currentModel,
+      approach: valuationRules.approach,
+      instruction: valuationRules.instruction
+    });
+
     const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
 
 FRITEXT:
@@ -878,7 +966,7 @@ INSTRUKTIONER:
 - confidence-värden mellan 0.0-1.0
 - shouldDisposeIfUnsold: true endast om fritexten nämner skänkning/återvinning
 - Lämna fält som null om information saknas
-- Var konservativ med värderingar`;
+- ${valuationRules.instruction}`;
 
     try {
       console.log('🚀 Making AI API call with:', {
@@ -901,7 +989,7 @@ INSTRUKTIONER:
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022',
+            model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: 2000,
             temperature: 0.1, // Low temperature for consistent parsing
             system: systemPrompt,
@@ -992,7 +1080,7 @@ INSTRUKTIONER:
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022',
+            model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: 2000,
             temperature: 0.1,
             system: systemPrompt,
@@ -1300,7 +1388,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   /**
    * Show processing state in modal
    */
-  showProcessingState() {
+  showProcessingState(title = '🤖 AI analyserar...', description = 'Extraherar strukturerad data') {
     const modal = this.currentModal;
     if (!modal) return;
 
@@ -1308,9 +1396,16 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const inputSection = modal.querySelector('.freetext-input-section');
     if (inputSection) inputSection.style.display = 'none';
 
-    // Show processing section
+    // Show processing section with dynamic content
     const processingSection = modal.querySelector('.ai-processing-section');
     if (processingSection) {
+      // Update the processing text dynamically
+      const titleElement = processingSection.querySelector('.processing-status h4');
+      const stepElement = processingSection.querySelector('.processing-step');
+      
+      if (titleElement) titleElement.textContent = title;
+      if (stepElement) stepElement.textContent = description;
+      
       processingSection.style.display = 'block';
       this.animateProcessingProgress();
     }
@@ -2382,7 +2477,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022', // Same as blue button
+            model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: 2000, // Same as blue button
             temperature: 0.2, // Same as blue button
             messages: [
