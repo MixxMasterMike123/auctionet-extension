@@ -141,7 +141,12 @@ export class FreetextParser {
     buttonContainer.className = 'freetext-parser-container';
     buttonContainer.innerHTML = `
       <button type="button" class="btn btn--primary btn--freetext-parser" id="freetext-parser-btn">
-        <span class="btn__icon">🤖</span>
+        <span class="btn__icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-6.5l-4.24 4.24M7.76 16.24l-4.24 4.24M20.5 20.5l-4.24-4.24M7.76 7.76L3.52 3.52" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+        </span>
         <span class="btn__text">AI Snabbkatalogisering från fritext</span>
         <span class="btn__subtitle">Skriv allt du vet - AI skapar perfekt katalogpost</span>
       </button>
@@ -225,7 +230,13 @@ export class FreetextParser {
     modal.innerHTML = `
       <div class="freetext-parser-modal">
         <div class="popup-header">
-          <h3>🤖 AI Snabbkatalogisering från fritext</h3>
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 8px; vertical-align: text-bottom;">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-6.5l-4.24 4.24M7.76 16.24l-4.24 4.24M20.5 20.5l-4.24-4.24M7.76 7.76L3.52 3.52" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            AI Snabbkatalogisering från fritext
+          </h3>
           <p>Skriv all information du har om objektet - AI analyserar och skapar perfekt katalogpost</p>
           <button class="popup-close" type="button">✕</button>
         </div>
@@ -237,7 +248,14 @@ export class FreetextParser {
           <div class="unified-input-section">
             <!-- Multiple Images Upload -->
             <div class="images-section">
-              <h4>📸 Bilder av objektet (valfritt)</h4>
+              <h4>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              Bilder av objektet (valfritt)
+            </h4>
               <p class="section-hint">Ladda upp 1-5 bilder för bästa AI-analys. Fler bilder = högre precision.</p>
               <div id="multiple-images-analyzer-container"></div>
             </div>
@@ -245,7 +263,15 @@ export class FreetextParser {
             <!-- Text Input -->
             <div class="text-section">
               <label for="freetext-input" class="freetext-label">
-                <strong>📝 Beskrivning av objektet (valfritt):</strong>
+                <strong>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/>
+                  <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/>
+                  <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
+                  <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+                Beskrivning av objektet (valfritt):
+              </strong>
                 <span class="freetext-hint">Skriv allt du vet: märke, konstnär, material, mått, skick, värdering, etc.</span>
               </label>
               <textarea 
@@ -265,7 +291,12 @@ export class FreetextParser {
             <!-- Analysis Mode Indicator -->
             <div class="analysis-mode-indicator" id="analysis-mode-indicator">
               <div class="mode-status">
-                <span class="mode-icon">🤖</span>
+                <span class="mode-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              </span>
                 <span class="mode-text">Fyll i bilder och/eller text för AI-analys</span>
               </div>
             </div>
@@ -274,7 +305,13 @@ export class FreetextParser {
           <div class="ai-processing-section" style="display: none;">
             <div class="processing-spinner"></div>
             <div class="processing-status">
-              <h4>🤖 AI analyserar...</h4>
+              <h4>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+              AI analyserar...
+            </h4>
               <p class="processing-step">Förbereder analys...</p>
               <div class="processing-progress">
                 <div class="progress-bar">
@@ -285,7 +322,12 @@ export class FreetextParser {
           </div>
           
           <div class="parsed-preview-section" style="display: none;">
-            <h4>✨ AI-genererad katalogpost</h4>
+            <h4>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
+                <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              AI-genererad katalogpost
+            </h4>
             <div class="preview-content">
               <!-- Parsed data will be inserted here -->
             </div>
@@ -297,10 +339,17 @@ export class FreetextParser {
             Avbryt
           </button>
           <button class="btn btn--primary" id="analyze-btn">
-            🤖 Analysera med AI
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            Analysera med AI
           </button>
           <button class="btn btn--success" id="apply-btn" style="display: none;">
-            ✅ Använd denna katalogpost
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Använd denna katalogpost
           </button>
         </div>
       </div>
@@ -392,22 +441,50 @@ export class FreetextParser {
     // Tab click handlers
     textTab.addEventListener('click', () => {
       this.switchToTab('text', modal);
-      analyzeBtn.textContent = '🤖 Analysera fritext med AI';
+      analyzeBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera fritext med AI
+      `;
     });
 
     imageTab.addEventListener('click', () => {
       this.switchToTab('image', modal);
-      analyzeBtn.textContent = '🤖 Analysera bild med AI';
+      analyzeBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera bild med AI
+      `;
     });
 
     multipleImagesTab.addEventListener('click', () => {
       this.switchToTab('multiple-images', modal);
-      analyzeBtn.textContent = '📸📸 Analysera flera bilder med AI';
+      analyzeBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="14" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="2" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="14" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera flera bilder med AI
+      `;
     });
 
     combinedTab.addEventListener('click', () => {
       this.switchToTab('combined', modal);
-      analyzeBtn.textContent = '🚀 Analysera bild + text med AI';
+      analyzeBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <path d="M4.5 16.5c-1.5 1.5-1.5 4.5 0 6s4.5 1.5 6 0l1-1" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera bild + text med AI
+      `;
     });
 
     console.log('✅ Tab switching initialized');
@@ -456,7 +533,7 @@ export class FreetextParser {
           // Wait a bit more for the HTML to be inserted
           setTimeout(() => {
             this.imageAnalyzer.attachMultipleImageUploadListeners('multiple-images-analyzer', (imagesMap) => {
-              console.log('📸 Images updated:', imagesMap?.size || 0, 'images');
+              console.log('[IMAGES] Images updated:', imagesMap?.size || 0, 'images');
               this.selectedImages = imagesMap;
               this.updateAnalysisModeIndicator(modal);
             });
@@ -490,27 +567,87 @@ export class FreetextParser {
     
     if (hasImages && hasText) {
       // Combined analysis
-      modeIcon.textContent = '🚀';
+      modeIcon.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M4.5 16.5c-1.5 1.5-1.5 4.5 0 6s4.5 1.5 6 0l1-1" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      `;
       modeText.textContent = `Redo för kombinerad analys: ${this.selectedImages.size} bilder + text`;
-      analyzeBtn.textContent = '🚀 Analysera bilder + text med AI';
+      analyzeBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <path d="M4.5 16.5c-1.5 1.5-1.5 4.5 0 6s4.5 1.5 6 0l1-1" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera bilder + text med AI
+      `;
       indicator.className = 'analysis-mode-indicator mode-combined';
     } else if (hasImages) {
       // Image-only analysis
-      modeIcon.textContent = '📸';
+      modeIcon.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      `;
       modeText.textContent = `Redo för bildanalys: ${this.selectedImages.size} bilder`;
-      analyzeBtn.textContent = this.selectedImages.size > 1 ? '📸📸 Analysera flera bilder med AI' : '📸 Analysera bild med AI';
+      analyzeBtn.innerHTML = this.selectedImages.size > 1 ? `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="14" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="2" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="14" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera flera bilder med AI
+      ` : `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera bild med AI
+      `;
       indicator.className = 'analysis-mode-indicator mode-images';
     } else if (hasText) {
       // Text-only analysis
-      modeIcon.textContent = '📝';
+      modeIcon.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/>
+          <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      `;
       modeText.textContent = 'Redo för textanalys';
-      analyzeBtn.textContent = '📝 Analysera text med AI';
+      analyzeBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/>
+          <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera text med AI
+      `;
       indicator.className = 'analysis-mode-indicator mode-text';
     } else {
       // No input
-      modeIcon.textContent = '🤖';
+      modeIcon.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+      `;
       modeText.textContent = 'Fyll i bilder och/eller text för AI-analys';
-      analyzeBtn.textContent = '🤖 Analysera med AI';
+      analyzeBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Analysera med AI
+      `;
       indicator.className = 'analysis-mode-indicator mode-empty';
     }
   }
@@ -549,19 +686,19 @@ export class FreetextParser {
       // Show dynamic processing state based on analysis type
       let processingTitle, processingDescription;
       if (hasImages && hasText) {
-        processingTitle = '🚀 AI analyserar bilder + text...';
+        processingTitle = 'AI analyserar bilder + text...';
         processingDescription = 'Kombinerar visuell och textbaserad analys för bästa resultat';
       } else if (hasImages) {
         const imageCount = this.selectedImages?.size || 0;
         if (imageCount > 1) {
-          processingTitle = '📸📸 AI analyserar flera bilder...';
+          processingTitle = 'AI analyserar flera bilder...';
           processingDescription = `Analyserar ${imageCount} bilder för komplett objektbedömning`;
         } else {
-          processingTitle = '📸 AI analyserar bild...';
+          processingTitle = 'AI analyserar bild...';
           processingDescription = 'Extraherar objektinformation från bildanalys';
         }
       } else {
-        processingTitle = '📝 AI analyserar fritext...';
+        processingTitle = 'AI analyserar fritext...';
         processingDescription = 'Extraherar strukturerad data från fritext';
       }
       
@@ -572,20 +709,20 @@ export class FreetextParser {
 
       if (hasImages && hasText) {
         // Combined analysis
-        console.log('🚀 Running combined image + text analysis');
+        console.log('[ANALYSIS] Running combined image + text analysis');
         analysisResult = await this.processCombinedImageAndText();
       } else if (hasImages) {
         // Image-only analysis
-        console.log('📸 Running image-only analysis');
+        console.log('[ANALYSIS] Running image-only analysis');
         analysisResult = await this.processImageOnly();
       } else {
         // Text-only analysis
-        console.log('📝 Running text-only analysis');
+        console.log('[ANALYSIS] Running text-only analysis');
         analysisResult = await this.processTextOnly();
       }
 
       // Calculate sure score and market validation (non-blocking)
-      console.log('📊 Calculating Sure Score and market validation...');
+      console.log('[ANALYSIS] Calculating Sure Score and market validation...');
       let marketData = null;
       try {
         marketData = await this.imageAnalyzer.validateWithMarketData(analysisResult);
@@ -615,12 +752,12 @@ export class FreetextParser {
    * Process text-only input (original functionality)
    */
   async processTextOnly() {
-    console.log('📝 Processing text-only input...');
+          console.log('[TEXT] Processing text-only input...');
     
     const textarea = this.currentModal.querySelector('#freetext-input');
     const freetext = textarea.value.trim();
 
-    console.log('📝 Freetext validation:', {
+          console.log('[TEXT] Freetext validation:', {
       hasTextarea: !!textarea,
       freetextLength: freetext?.length || 0,
       freetext: freetext?.substring(0, 100) + '...'
@@ -641,7 +778,7 @@ export class FreetextParser {
       throw new Error('Fritexten verkar innehålla debug-information. Vänligen ange riktig auktionstext för att analysera.');
     }
 
-    console.log('🤖 Starting text analysis:', freetext.substring(0, 100) + '...');
+          console.log('[AI] Starting text analysis:', freetext.substring(0, 100) + '...');
 
     // Step 1: Parse freetext using AI Rules System v2.0
     const parsedData = await this.parseFreetextWithAI(freetext);
@@ -668,13 +805,13 @@ export class FreetextParser {
    * Process image-only input using AIImageAnalyzer
    */
   async processImageOnly() {
-    console.log('📸 Processing image-only input...');
+          console.log('[IMAGE] Processing image-only input...');
     
     if (!this.selectedImages || this.selectedImages.size === 0) {
       throw new Error('Vänligen ladda upp bilder att analysera först.');
     }
 
-    console.log('🤖 Starting image analysis:', this.selectedImages.size, 'images');
+          console.log('[AI] Starting image analysis:', this.selectedImages.size, 'images');
     
     // Analyze images using AIImageAnalyzer component
     let imageAnalysis;
@@ -729,7 +866,7 @@ export class FreetextParser {
     const textarea = this.currentModal.querySelector('#freetext-input');
     const additionalText = textarea ? textarea.value.trim() : '';
 
-    console.log('🤖 Starting combined analysis:', {
+          console.log('[AI] Starting combined analysis:', {
       imageCount: this.selectedImages.size,
       hasAdditionalText: !!additionalText,
       additionalTextLength: additionalText.length
@@ -922,7 +1059,7 @@ export class FreetextParser {
     const currentModel = this.apiManager.getCurrentModel().id;
     const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
     
-    console.log('🎯 Using model-specific valuation rules:', {
+          console.log('[RULES] Using model-specific valuation rules:', {
       model: currentModel,
       approach: valuationRules.approach,
       instruction: valuationRules.instruction,
@@ -934,7 +1071,7 @@ export class FreetextParser {
     // For Claude 4, add extra context about realistic pricing based on your data
     let valuationContext = '';
     if (currentModel === 'claude-4-sonnet') {
-      valuationContext = `\n\n💰 VÄRDERINGSKONTEXT FÖR CLAUDE 4:
+      valuationContext = `\n\nVÄRDERINGSKONTEXT FÖR CLAUDE 4:
 Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
 - Genomsnittligt slutpris: 1,592 SEK
 - Nuvarande AI-värderingar är ofta 25-30% för höga
@@ -946,28 +1083,28 @@ Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
     // Add advanced reasoning instructions for Claude 4
     let reasoningInstructions = '';
     if (valuationRules.enableDeepReasoning) {
-      reasoningInstructions = `\n\n🧠 AVANCERAD ANALYS (Claude 4 Deep Reasoning):
+      reasoningInstructions = `\n\nAVANCERAD ANALYS (Claude 4 Deep Reasoning):
 Utför djupgående analys i flera steg:
 
-1️⃣ OBJEKTIDENTIFIERING:
+1. OBJEKTIDENTIFIERING:
 • Identifiera exakt föremålstyp, märke, modell
 • Analysera stilperiod och designerepok
 • Bedöm materialens kvalitet och äkthet
 • Notera unika kännetecken och signaturer
 
-2️⃣ KONDITIONSBEDÖMNING:
+2. KONDITIONSBEDÖMNING:
 • Analysera synligt slitage och skador
 • Bedöm originalitet vs restaurering
 • Värdera kompletthet (alla delar kvar?)
 • Uppskatta servicehistorik om relevant
 
-3️⃣ MARKNADSKONTEXTUALISERING:
+3. MARKNADSKONTEXTUALISERING:
 • Jämför med liknande objekt på svenska auktioner
 • Analysera efterfrågan för denna typ/märke
 • Överväg regional marknadsdynamik (Sundsvall)
 • Bedöm säsongsvariationer och trender
 
-4️⃣ VÄRDERINGSLOGIK:
+4. VÄRDERINGSLOGIK:
 • Basera på faktiska slutpriser (inte utrop)
 • Justera för kondition och sällsynthet
 • Inkludera proveniensbonus om relevant
@@ -979,7 +1116,7 @@ Utför djupgående analys i flera steg:
 FRITEXT:
 "${freetext}"${reasoningInstructions}
 
-🎯 TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
+TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
 • TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
 • Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
 • Format: [Föremål], [Material], [Märke], [Period]
@@ -1017,7 +1154,7 @@ INSTRUKTIONER:
 - ${valuationRules.instruction}${valuationContext}`;
 
     try {
-      console.log('🚀 Making AI API call with:', {
+      console.log('[API] Making AI API call with:', {
         hasApiKey: !!this.apiManager.apiKey,
         apiKeyLength: this.apiManager.apiKey?.length,
         freetextLength: freetext.length
@@ -1025,7 +1162,7 @@ INSTRUKTIONER:
 
       // Call AI API directly using Chrome runtime messaging (same pattern as other components)
       const response = await new Promise((resolve, reject) => {
-        console.log('📤 Sending Chrome runtime message for AI parsing...');
+        console.log('[API] Sending Chrome runtime message for AI parsing...');
         
         // Add timeout to catch hanging requests
         const timeout = setTimeout(() => {
@@ -1037,7 +1174,7 @@ INSTRUKTIONER:
         const maxTokens = valuationRules.maxTokens || 2000;
         const temperature = valuationRules.temperature || 0.1;
         
-        console.log('🚀 Enhanced AI parameters:', {
+        console.log('[API] Enhanced AI parameters:', {
           model: currentModel,
           maxTokens,
           temperature,
@@ -1059,7 +1196,7 @@ INSTRUKTIONER:
           }
         }, (response) => {
           clearTimeout(timeout);
-          console.log('📥 Chrome runtime response received:', response);
+          console.log('[API] Chrome runtime response received:', response);
           
           if (chrome.runtime.lastError) {
             console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
@@ -1073,7 +1210,7 @@ INSTRUKTIONER:
           }
         });
         
-        console.log('⏳ Chrome runtime message sent, waiting for response...');
+                  console.log('[API] Chrome runtime message sent, waiting for response...');
       });
 
       console.log('🔍 Processing AI response:', {
@@ -1103,7 +1240,7 @@ INSTRUKTIONER:
    * This is the "cheat" step that gives us perfect results!
    */
   async autoEnhanceFields(parsedData) {
-    console.log('🎯 Auto-enhancing fields with EXACT edit page logic...');
+          console.log('[ENHANCE] Auto-enhancing fields with EXACT edit page logic...');
     
     try {
       // Convert parsed data to edit page format
@@ -1123,7 +1260,7 @@ INSTRUKTIONER:
       // Use ADD ITEM page specific user prompt (NOT edit page!)
       const userPrompt = this.getAddItemPageUserPrompt(itemData, 'all');
 
-      console.log('🚀 Using ADD ITEM page enhancement logic:', {
+      console.log('[ENHANCE] Using ADD ITEM page enhancement logic:', {
         hasSystemPrompt: !!systemPrompt,
         hasUserPrompt: !!userPrompt,
         systemPromptLength: systemPrompt.length,
@@ -1236,7 +1373,7 @@ INSTRUKTIONER:
     // For Claude 4, add extra context about realistic pricing based on your data
     let valuationContext = '';
     if (currentModel === 'claude-4-sonnet') {
-      valuationContext = `\n\n💰 VÄRDERINGSKONTEXT FÖR CLAUDE 4:
+      valuationContext = `\n\nVÄRDERINGSKONTEXT FÖR CLAUDE 4:
 Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
 - Genomsnittligt slutpris: 1,592 SEK
 - Nuvarande AI-värderingar är ofta 25-30% för höga
@@ -1257,7 +1394,7 @@ Kondition: ${itemData.condition}
 Konstnär/Formgivare: ${itemData.artist}
 Värdering: ${itemData.estimate} SEK
 
-🎯 KRITISKA ADD ITEM TITEL-FORMATERINGSREGLER:
+KRITISKA ADD ITEM TITEL-FORMATERINGSREGLER:
 ${itemData.artist ? 
   '• KONSTNÄR I FÄLT: [Föremål], [Material], [Period]. - Första ordet stor bokstav, PUNKT i slutet' : 
   '• INGEN KONSTNÄR I FÄLT: [OBJEKT], [modell], [material], [period]. - FÖRSTA ORDET VERSALER, KOMMA EFTER, PUNKT I SLUTET'}
@@ -1466,7 +1603,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   /**
    * Show dynamic processing state with step-by-step progress
    */
-  showProcessingState(title = '🤖 AI analyserar...', description = 'Extraherar strukturerad data') {
+  showProcessingState(title = 'AI analyserar...', description = 'Extraherar strukturerad data') {
     const modal = this.currentModal;
     if (!modal) return;
 
@@ -1508,19 +1645,59 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
     if (isAdvancedModel) {
       return [
-        { icon: '🔍', text: 'Identifierar objekt och märke...', duration: 2000 },
-        { icon: '🧠', text: 'Analyserar stilperiod och äkthet...', duration: 2500 },
-        { icon: '📊', text: 'Undersöker marknadsdata...', duration: 3000 },
-        { icon: '💰', text: 'Beräknar marknadsvärde...', duration: 2000 },
-        { icon: '🎯', text: 'Optimerar katalogisering...', duration: 1500 },
-        { icon: '✨', text: 'Slutför expertanalys...', duration: 1000 }
+                  { 
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.5"/></svg>', 
+            text: 'Identifierar objekt och märke...', 
+            duration: 2000 
+          },
+          { 
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-5 0V4.5A2.5 2.5 0 0 1 9.5 2z" stroke="currentColor" stroke-width="1.5"/><path d="M14.5 8.5a2.5 2.5 0 0 1 5 0v11a2.5 2.5 0 0 1-5 0v-11z" stroke="currentColor" stroke-width="1.5"/></svg>', 
+            text: 'Analyserar stilperiod och äkthet...', 
+            duration: 2500 
+          },
+        { 
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5"/></svg>', 
+          text: 'Undersöker marknadsdata...', 
+          duration: 3000 
+        },
+        { 
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="1.5"/></svg>', 
+          text: 'Beräknar marknadsvärde...', 
+          duration: 2000 
+        },
+        { 
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/></svg>', 
+          text: 'Optimerar katalogisering...', 
+          duration: 1500 
+        },
+                 { 
+           icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', 
+           text: 'Slutför expertanalys...', 
+           duration: 1000 
+         }
       ];
     } else {
       return [
-        { icon: '🔍', text: 'Analyserar innehåll...', duration: 1500 },
-        { icon: '📝', text: 'Extraherar strukturerad data...', duration: 2000 },
-        { icon: '💰', text: 'Beräknar värdering...', duration: 1500 },
-        { icon: '✅', text: 'Slutför analys...', duration: 1000 }
+                  { 
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.5"/></svg>', 
+            text: 'Analyserar innehåll...', 
+            duration: 1500 
+          },
+        { 
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/><polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/><line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/></svg>', 
+          text: 'Extraherar strukturerad data...', 
+          duration: 2000 
+        },
+        { 
+          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="1.5"/></svg>', 
+          text: 'Beräknar värdering...', 
+          duration: 1500 
+        },
+                                     { 
+             icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', 
+             text: 'Slutför analys...', 
+             duration: 1000 
+           }
       ];
     }
   }
@@ -1546,7 +1723,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
             </div>
           </div>
           <h3 class="processing-title">
-            ${isAdvancedModel ? '🚀 Claude 4 Expertanalys' : '🤖 AI-analys pågår'}
+            ${isAdvancedModel ? 'Claude 4 Expertanalys' : 'AI-analys pågår'}
           </h3>
           <p class="processing-subtitle">
             ${isAdvancedModel ? 'Djupgående marknadsresearch med 4-stegs analys' : 'Extraherar strukturerad data från fritext'}
@@ -1564,9 +1741,22 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
                 </div>
               </div>
               <div class="step-status">
-                <div class="status-pending">⏳</div>
-                <div class="status-active">🔄</div>
-                <div class="status-complete">✅</div>
+                                  <div class="status-pending">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                  </div>
+                  <div class="status-active">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                      <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/>
+                    </svg>
+                  </div>
+                <div class="status-complete">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
               </div>
             </div>
           `).join('')}
@@ -1787,14 +1977,28 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   generatePreviewHTML(data, sureScore = null) {
     const sureScoreHTML = sureScore ? `
       <div class="freetext-sure-score">
-        <h4>🎯 Sure Score: ${Math.round(sureScore.sureScore * 100)}%</h4>
+        <h4>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="2" fill="currentColor"/>
+          </svg>
+          Sure Score: ${Math.round(sureScore.sureScore * 100)}%
+        </h4>
         <div class="sure-score-level sure-score-level--${sureScore.confidenceLevel.toLowerCase().replace(' ', '-')}">
           ${sureScore.confidenceLevel} säkerhet
         </div>
         <p class="sure-score-recommendation">${sureScore.recommendation}</p>
         
         <div class="sure-score-breakdown">
-          <h5>📊 Säkerhetsanalys:</h5>
+          <h5>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
+              <rect x="3" y="3" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5"/>
+              <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            Säkerhetsanalys:
+          </h5>
           <div class="breakdown-items">
             <div class="breakdown-item">
               <span class="breakdown-label">Bildkvalitet:</span>
@@ -1820,9 +2024,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const analysisTypeIndicator = data.analysisType ? `
       <div class="analysis-type-indicator">
         <span class="analysis-type analysis-type--${data.analysisType}">
-          ${data.analysisType === 'image' ? '📸 Bildanalys' : 
-            data.analysisType === 'combined' ? '🔄 Bild + Text' : 
-            '📝 Textanalys'}
+          ${data.analysisType === 'image' ? 'Bildanalys' : 
+            data.analysisType === 'combined' ? 'Bild + Text' : 
+            'Textanalys'}
         </span>
       </div>
     ` : '';
@@ -1842,7 +2046,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       
       ${(data.estimate || data.reserve) ? `
         <div class="market-analysis">
-          <h5>💰 Värdering</h5>
+          <h5>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            Värdering
+          </h5>
           ${data.estimate ? `<p><strong>Uppskattat värde:</strong> ${data.estimate} SEK ${this.getConfidenceBadge(data.confidence?.estimate)}</p>` : ''}
           ${data.reserve ? `<p><strong>Föreslaget bevakningspris:</strong> ${data.reserve} SEK</p>` : ''}
           ${data.shouldDisposeIfUnsold ? '<p><strong>⚠️ Ska skänkas/återvinnas om osålt</strong></p>' : ''}
@@ -1851,7 +2060,13 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       
       ${data.reasoning ? `
         <div class="ai-reasoning">
-          <h5>🤖 AI-analys</h5>
+          <h5>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            AI-analys
+          </h5>
           <p><em>${data.reasoning}</em></p>
         </div>
       ` : ''}
@@ -2018,7 +2233,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     notification.className = 'freetext-success-notification';
     notification.innerHTML = `
       <div class="alert alert-success" style="position: fixed; top: 20px; right: 20px; z-index: 10000; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-        <strong>✅ Klart!</strong> ${message}
+        <strong>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 4px; vertical-align: text-bottom;">
+            <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Klart!
+        </strong> ${message}
       </div>
     `;
     
@@ -2208,14 +2428,14 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     if (data.artist && data.artist.trim()) {
       const formattedArtist = this.formatArtistForSearch(data.artist);
       queryTerms.push(formattedArtist);
-      console.log(`🎯 ARTIST: Added "${formattedArtist}" as primary search term`);
+      console.log(`[SEARCH] ARTIST: Added "${formattedArtist}" as primary search term`);
     }
     
     // PRIORITY 2: Object type (CRITICAL for relevance)
     const objectType = this.extractObjectType(data.title);
     if (objectType && !queryTerms.some(term => term.toLowerCase().includes(objectType.toLowerCase()))) {
       queryTerms.push(objectType);
-      console.log(`🎯 OBJECT: Added "${objectType}" as object type`);
+      console.log(`[SEARCH] OBJECT: Added "${objectType}" as object type`);
     }
     
     // PRIORITY 3: Brand/Designer (if different from artist)
@@ -2223,7 +2443,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     if (brand && !queryTerms.some(term => term.toLowerCase().includes(brand.toLowerCase()))) {
       const formattedBrand = this.formatBrandForSearch(brand);
       queryTerms.push(formattedBrand);
-      console.log(`🎯 BRAND: Added "${formattedBrand}" as brand/designer`);
+      console.log(`[SEARCH] BRAND: Added "${formattedBrand}" as brand/designer`);
     }
     
     // PRIORITY 4: Material (if distinctive)
@@ -2231,14 +2451,14 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       const material = data.materials.toLowerCase();
       if (!queryTerms.some(term => term.toLowerCase().includes(material))) {
         queryTerms.push(material);
-        console.log(`🎯 MATERIAL: Added "${material}" as distinctive material`);
+        console.log(`[SEARCH] MATERIAL: Added "${material}" as distinctive material`);
       }
     }
     
     // PRIORITY 5: Period (if decade format)
     if (data.period && data.period.includes('-tal')) {
       queryTerms.push(data.period);
-      console.log(`🎯 PERIOD: Added "${data.period}" as time period`);
+      console.log(`[SEARCH] PERIOD: Added "${data.period}" as time period`);
     }
     
     // Build final query (limit to 4-5 terms for optimal results)
@@ -2674,7 +2894,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * This uses regular title enhancement but with ADD ITEM page formatting rules
    */
   async autoEnhanceParsedData(parsedData) {
-    console.log('🚀 Auto-enhancing parsed data with ADD ITEM page rules...');
+          console.log('[ENHANCE] Auto-enhancing parsed data with ADD ITEM page rules...');
     
     try {
       // Use regular enhancement with ADD ITEM page formatting
@@ -2682,7 +2902,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       
       // Enhance title using ADD ITEM page rules (not title-correct)
       if (parsedData.title) {
-        console.log('🎯 Enhancing title with ADD ITEM page rules...');
+        console.log('[ENHANCE] Enhancing title with ADD ITEM page rules...');
         const titleResult = await this.enhanceFieldWithAddItemRules('title', parsedData.title, parsedData);
         if (titleResult && titleResult.title) {
           enhancedFields.title = titleResult.title;
@@ -2705,7 +2925,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         }
       }
       
-      console.log('🎯 Enhanced fields:', enhancedFields);
+      console.log('[ENHANCE] Enhanced fields:', enhancedFields);
       return enhancedFields;
       
     } catch (error) {
@@ -2737,9 +2957,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       const systemPrompt = getSystemPrompt('addItems');
       const userPrompt = this.getAddItemPageUserPrompt(itemData, fieldType);
       
-      console.log(`🎯 Using model-specific valuation rules for ${fieldType} enhancement`);
+      console.log(`[RULES] Using model-specific valuation rules for ${fieldType} enhancement`);
       
-      console.log(`📝 ${fieldType} ADD ITEM page prompt (blue button logic):`, userPrompt.substring(0, 200) + '...');
+              console.log(`[PROMPT] ${fieldType} ADD ITEM page prompt (blue button logic):`, userPrompt.substring(0, 200) + '...');
       
       // Call Claude API with regular enhancement settings (same as blue button)
       const response = await new Promise((resolve, reject) => {
