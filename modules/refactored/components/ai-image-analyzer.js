@@ -42,12 +42,23 @@ export class AIImageAnalyzer {
       maxImageDimensions: { width: 4096, height: 4096 },
       enableMarketValidation: true,
       confidenceThreshold: 0.6,
+      allowMultipleImages: false, // Default to single image for backward compatibility
+      maxImages: 5, // Maximum number of images
+      imageCategories: [
+        { id: 'front', label: 'Framsida', icon: '📸', required: true },
+        { id: 'back', label: 'Baksida', icon: '🔄', required: false },
+        { id: 'markings', label: 'Märkningar', icon: '🏷️', required: false },
+        { id: 'signature', label: 'Signatur', icon: '✍️', required: false },
+        { id: 'condition', label: 'Skick/Detaljer', icon: '🔍', required: false }
+      ],
       ...options
     };
     
     // State
-    this.currentImage = null;
+    this.currentImage = null; // For backward compatibility
+    this.currentImages = new Map(); // For multiple images: category -> file
     this.analysisResult = null;
+    this.multipleAnalysisResults = new Map(); // For multiple image results
     this.isProcessing = false;
     
     console.log('✅ AIImageAnalyzer: Initialized with config:', this.config);
@@ -108,7 +119,167 @@ export class AIImageAnalyzer {
   }
 
   /**
-   * Analyze image using Claude Vision API
+   * Analyze multiple images using Claude Vision API
+   */
+  async analyzeMultipleImages(additionalContext = '') {
+    console.log('🔍 Starting multiple image analysis:', {
+      imageCount: this.currentImages.size,
+      categories: Array.from(this.currentImages.keys()),
+      hasContext: !!additionalContext
+    });
+
+    if (this.currentImages.size === 0) {
+      throw new Error('Inga bilder valda för analys');
+    }
+
+    // Check minimum requirements
+    const requiredCategories = this.config.imageCategories.filter(cat => cat.required);
+    const hasAllRequired = requiredCategories.every(cat => this.currentImages.has(cat.id));
+    
+    if (!hasAllRequired) {
+      const missingRequired = requiredCategories
+        .filter(cat => !this.currentImages.has(cat.id))
+        .map(cat => cat.label)
+        .join(', ');
+      throw new Error(`Obligatoriska bilder saknas: ${missingRequired}`);
+    }
+
+    if (this.currentImages.size < 2) {
+      throw new Error('Minimum 2 bilder krävs (framsida + baksida)');
+    }
+
+    if (!this.apiManager.apiKey) {
+      throw new Error('API key not configured. Please set your Anthropic API key.');
+    }
+
+    try {
+      this.isProcessing = true;
+      
+      // Convert all images to base64
+      const imageData = new Map();
+      for (const [categoryId, file] of this.currentImages) {
+        console.log(`🔄 Converting ${categoryId} image to base64...`);
+        const base64 = await this.convertToBase64(file);
+        imageData.set(categoryId, {
+          file,
+          base64,
+          category: this.config.imageCategories.find(cat => cat.id === categoryId)
+        });
+      }
+      
+      console.log('✅ All images converted to base64');
+      
+      // Get AI Rules System v2.0 prompts for multiple image analysis
+      const systemPrompt = this.getMultipleImageAnalysisSystemPrompt();
+      const userPrompt = this.buildMultipleImageAnalysisPrompt(imageData, additionalContext);
+      
+      console.log('🤖 Calling Claude Vision API for multiple images...');
+      
+      // Build content array with all images
+      const content = [];
+      
+      // Add images in order of importance (front first, then others)
+      const orderedCategories = ['front', 'back', 'markings', 'signature', 'condition'];
+      for (const categoryId of orderedCategories) {
+        if (imageData.has(categoryId)) {
+          const data = imageData.get(categoryId);
+          content.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: data.file.type,
+              data: data.base64
+            }
+          });
+          content.push({
+            type: 'text',
+            text: `[${data.category.label}] ${data.category.icon}`
+          });
+        }
+      }
+      
+      // Add the main analysis prompt
+      content.push({
+        type: 'text',
+        text: userPrompt
+      });
+      
+      const requestBody = {
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 3000, // More tokens for multiple images
+        temperature: 0.1,
+        system: systemPrompt,
+        messages: [{
+          role: 'user',
+          content: content
+        }]
+      };
+      
+      console.log('📤 Sending multiple image request to Claude Vision API:', {
+        model: requestBody.model,
+        max_tokens: requestBody.max_tokens,
+        imageCount: this.currentImages.size,
+        contentItems: content.length,
+        systemPromptLength: systemPrompt.length,
+        userPromptLength: userPrompt.length
+      });
+      
+      // Call Claude Vision API using Chrome runtime messaging
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Multiple image analysis timeout after 90 seconds'));
+        }, 90000); // Longer timeout for multiple images
+        
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: requestBody
+        }, (response) => {
+          clearTimeout(timeout);
+          console.log('📥 Chrome runtime response for multiple image analysis:', response);
+          
+          if (chrome.runtime.lastError) {
+            console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response && response.success) {
+            console.log('✅ Multiple image analysis API call successful');
+            resolve(response);
+          } else {
+            console.error('❌ Multiple image analysis API call failed:', response);
+            reject(new Error(response?.error || 'Multiple image analysis failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const analysisText = response.data.content[0].text;
+        console.log('✅ Multiple image analysis completed');
+        
+        // Parse and validate the response
+        const analysisResult = this.parseImageAnalysisResponse(analysisText);
+        
+        // Store results
+        this.multipleAnalysisResults.set('combined', analysisResult);
+        this.analysisResult = analysisResult; // For backward compatibility
+        
+        console.log('✅ Multiple image analysis stored');
+        return analysisResult;
+        
+      } else {
+        console.error('❌ Invalid multiple image analysis response:', response);
+        throw new Error('Invalid response format from multiple image analysis');
+      }
+      
+    } catch (error) {
+      console.error('❌ Multiple image analysis failed:', error);
+      throw error;
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Analyze image using Claude Vision API (original single image method)
    */
   async analyzeImage(imageFile, additionalContext = '') {
     console.log('🔍 Starting image analysis:', {
@@ -283,7 +454,103 @@ BILDANALYS UPPGIFT: Analysera bilder med din svenska auktionsexpertis och identi
   }
 
   /**
-   * Build user prompt for image analysis
+   * Get system prompt for multiple image analysis
+   */
+  getMultipleImageAnalysisSystemPrompt() {
+    // Use the same AI Rules System v2.0 prompt but enhanced for multiple images
+    const { getSystemPrompt } = window;
+    const basePrompt = getSystemPrompt('freetextParser') || this.getImageAnalysisSystemPrompt();
+    
+    return basePrompt + `
+
+MULTIPLE IMAGE ANALYSIS ENHANCEMENT:
+Du får flera bilder av samma auktionsobjekt från olika vinklar och detaljer:
+- Framsida: Huvudbild som visar objektets framsida/primära vy
+- Baksida: Visar objektets baksida, ofta med märkningar eller signaturer
+- Märkningar: Fokuserar på etiketter, stämplar, eller märken
+- Signatur: Visar konstnärssignaturer eller signering
+- Skick/Detaljer: Visar konditionsdetaljer, skador, eller specifika egenskaper
+
+Använd ALL tillgänglig information från ALLA bilder för att göra en komplett analys. 
+Kombinera observationer från olika bilder för bästa möjliga bedömning.`;
+  }
+
+  /**
+   * Build multiple image analysis prompt
+   */
+  buildMultipleImageAnalysisPrompt(imageData, additionalContext = '') {
+    const imageDescriptions = Array.from(imageData.entries())
+      .map(([categoryId, data]) => `${data.category.icon} ${data.category.label}`)
+      .join(', ');
+
+    const contextSection = additionalContext ? `
+TILLÄGGSKONTEXT:
+"${additionalContext}"
+` : '';
+
+    return `Analysera dessa ${imageData.size} bilder av samma auktionsobjekt: ${imageDescriptions}
+
+${contextSection}
+🎯 TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
+• TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
+• Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
+• Format: [Föremål], [Material], [Märke], [Period]
+• Exempel: "Figurin, stengods, Gustavsberg"
+• Bevara citattecken runt modellnamn: "Viktoria", "Prince"
+• Max 60 tecken
+
+Returnera data i exakt detta JSON-format:
+{
+  "title": "Föremål först, utan konstnär om artist-fält fylls (max 60 tecken)",
+  "description": "Detaljerad beskrivning baserad på alla bilder",
+  "condition": "Konditionsbedömning baserad på alla synliga detaljer",
+  "artist": "Konstnär/formgivare om identifierad från signatur/stil, annars null",
+  "keywords": "relevanta sökord för marknadsanalys separerade med mellanslag",
+  "estimate": 500,
+  "reserve": 300,
+  "materials": "huvudmaterial identifierat från bilderna",
+  "period": "uppskattad tidsperiod baserad på stil",
+  "visualObservations": {
+    "objectType": "objekttyp",
+    "primaryMaterial": "huvudmaterial",
+    "colorScheme": "färgschema",
+    "condition": "konditionsbedömning",
+    "markings": "synliga märken/signaturer från alla bilder",
+    "dimensions": "uppskattade proportioner",
+    "style": "identifierad stil/period",
+    "multiImageFindings": "specifika fynd från flera bilder"
+  },
+  "confidence": {
+    "objectIdentification": 0.9,
+    "materialAssessment": 0.8,
+    "conditionAssessment": 0.7,
+    "artistAttribution": 0.6,
+    "periodEstimation": 0.5,
+    "estimate": 0.4
+  },
+  "reasoning": "Förklaring av analysen baserad på alla bilder",
+  "imageQuality": {
+    "clarity": 0.8,
+    "lighting": 0.9,
+    "angle": 0.7,
+    "completeness": 0.8
+  }
+}
+
+INSTRUKTIONER:
+- Analysera ALLA bilder tillsammans för komplett bedömning
+- Använd information från baksida/märkningar för konstnärsidentifiering
+- Kombinera konditionsobservationer från alla vinklar
+- estimate/reserve ska vara numeriska värden i SEK baserat på komplett visuell bedömning
+- Använd konfidenspoäng för att markera osäkerhet
+- Lämna fält som null om information inte kan bestämmas från bilderna
+- Var extra försiktig med konstnärsattribueringar - kräver tydliga signaturer
+- Var konservativ med värderingar baserat på synligt skick och stil
+- Bedöm bildkvalitet baserat på den bästa bilden i serien`;
+  }
+
+  /**
+   * Build user prompt for image analysis (original single image method)
    */
   buildImageAnalysisPrompt(additionalContext = '') {
     const contextSection = additionalContext ? 
@@ -713,7 +980,103 @@ INSTRUKTIONER:
   }
 
   /**
-   * Generate image upload UI HTML
+   * Generate multiple image upload UI HTML
+   */
+  generateMultipleImageUploadUI(containerId, options = {}) {
+    const config = {
+      showPreview: true,
+      dragAndDrop: true,
+      minImages: 2, // Minimum 2 images (front + back)
+      ...options
+    };
+
+    const categories = this.config.imageCategories;
+    const requiredCategories = categories.filter(cat => cat.required);
+    const optionalCategories = categories.filter(cat => !cat.required);
+
+    return `
+      <div class="ai-image-analyzer ai-image-analyzer--multiple" id="${containerId}">
+        <div class="ai-image-analyzer__header">
+          <h4>📸 Ladda upp bilder för AI-analys</h4>
+          <p>Minimum ${config.minImages} bilder krävs (framsida + baksida). Fler bilder ger bättre analys.</p>
+          <small>Stödda format: JPG, PNG, WebP • Max storlek: 10MB per bild</small>
+        </div>
+        
+        <div class="ai-image-analyzer__upload-grid">
+          ${categories.map(category => `
+            <div class="ai-image-analyzer__upload-slot" data-category="${category.id}">
+              <div class="ai-image-analyzer__slot-header">
+                <span class="ai-image-analyzer__slot-icon">${category.icon}</span>
+                <span class="ai-image-analyzer__slot-label">${category.label}</span>
+                ${category.required ? '<span class="ai-image-analyzer__required">*</span>' : ''}
+              </div>
+              
+              <div class="ai-image-analyzer__upload-zone ai-image-analyzer__upload-zone--slot" 
+                   id="${containerId}-${category.id}-drop-zone">
+                <div class="ai-image-analyzer__upload-placeholder">
+                  <div class="ai-image-analyzer__upload-icon">+</div>
+                  <div class="ai-image-analyzer__upload-text">
+                    <p>Klicka eller dra hit</p>
+                  </div>
+                </div>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  id="${containerId}-${category.id}-input"
+                  class="ai-image-analyzer__file-input"
+                  data-category="${category.id}"
+                >
+              </div>
+              
+              <div class="ai-image-analyzer__slot-preview" 
+                   id="${containerId}-${category.id}-preview" 
+                   style="display: none;">
+                <img id="${containerId}-${category.id}-preview-img" 
+                     class="ai-image-analyzer__preview-image" 
+                     alt="${category.label}">
+                <div class="ai-image-analyzer__preview-overlay">
+                  <button type="button" 
+                          class="ai-image-analyzer__remove-btn" 
+                          id="${containerId}-${category.id}-remove">
+                    ✕
+                  </button>
+                </div>
+                <div class="ai-image-analyzer__file-info" 
+                     id="${containerId}-${category.id}-file-info"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div class="ai-image-analyzer__upload-status" id="${containerId}-status">
+          <div class="ai-image-analyzer__progress">
+            <span id="${containerId}-uploaded-count">0</span> av ${categories.length} bilder uppladdade
+            <span class="ai-image-analyzer__required-note">
+              (${requiredCategories.length} obligatoriska, ${optionalCategories.length} valfria)
+            </span>
+          </div>
+        </div>
+        
+        <div class="ai-image-analyzer__analysis-section" id="${containerId}-analysis" style="display: none;">
+          <div class="ai-image-analyzer__processing" id="${containerId}-processing" style="display: none;">
+            <div class="ai-image-analyzer__spinner"></div>
+            <div class="ai-image-analyzer__processing-text">
+              <h4>🤖 AI analyserar bilderna...</h4>
+              <p>Detta kan ta upp till 60 sekunder för flera bilder</p>
+              <div class="ai-image-analyzer__processing-progress" id="${containerId}-processing-progress"></div>
+            </div>
+          </div>
+          
+          <div class="ai-image-analyzer__results" id="${containerId}-results" style="display: none;">
+            <!-- Results will be populated here -->
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Generate image upload UI HTML (original single image method)
    */
   generateImageUploadUI(containerId, options = {}) {
     const config = {
@@ -776,7 +1139,77 @@ INSTRUKTIONER:
   }
 
   /**
-   * Attach event listeners to image upload UI
+   * Attach event listeners to multiple image upload UI
+   */
+  attachMultipleImageUploadListeners(containerId, callback) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+      console.error('❌ Container not found:', containerId);
+      return;
+    }
+
+    const categories = this.config.imageCategories;
+    
+    categories.forEach(category => {
+      const dropZone = container.querySelector(`#${containerId}-${category.id}-drop-zone`);
+      const fileInput = container.querySelector(`#${containerId}-${category.id}-input`);
+      const preview = container.querySelector(`#${containerId}-${category.id}-preview`);
+      const previewImg = container.querySelector(`#${containerId}-${category.id}-preview-img`);
+      const fileInfo = container.querySelector(`#${containerId}-${category.id}-file-info`);
+      const removeBtn = container.querySelector(`#${containerId}-${category.id}-remove`);
+
+      if (!dropZone || !fileInput) {
+        console.error(`❌ Required elements not found for category ${category.id}`);
+        return;
+      }
+
+      // File input change
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          this.handleMultipleImageSelection(category.id, file, preview, previewImg, fileInfo, containerId, callback);
+        }
+      });
+
+      // Drop zone click
+      dropZone.addEventListener('click', () => {
+        fileInput.click();
+      });
+
+      // Drag and drop
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('ai-image-analyzer__upload-zone--dragover');
+      });
+
+      dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('ai-image-analyzer__upload-zone--dragover');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('ai-image-analyzer__upload-zone--dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          this.handleMultipleImageSelection(category.id, files[0], preview, previewImg, fileInfo, containerId, callback);
+        }
+      });
+
+      // Remove button
+      if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+          this.clearMultipleImageSelection(category.id, fileInput, preview, containerId, callback);
+        });
+      }
+    });
+
+    console.log('✅ Multiple image upload listeners attached to:', containerId);
+  }
+
+  /**
+   * Attach event listeners to image upload UI (original single image method)
    */
   attachImageUploadListeners(containerId, callback) {
     const container = document.getElementById(containerId);
@@ -842,7 +1275,94 @@ INSTRUKTIONER:
   }
 
   /**
-   * Handle image selection
+   * Handle multiple image selection
+   */
+  handleMultipleImageSelection(categoryId, file, preview, previewImg, fileInfo, containerId, callback) {
+    console.log('📸 Multiple image selected:', {
+      category: categoryId,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size
+    });
+
+    // Validate file
+    const validation = this.validateImageFile(file);
+    if (!validation.isValid) {
+      alert('Bildfel: ' + validation.errors.join('. '));
+      return;
+    }
+
+    // Store image in the map
+    this.currentImages.set(categoryId, file);
+
+    // Show preview
+    if (preview && previewImg && fileInfo) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        fileInfo.innerHTML = `
+          <strong>${file.name}</strong><br>
+          ${this.formatFileSize(file.size)}
+        `;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Update upload status
+    this.updateMultipleImageStatus(containerId);
+
+    // Call callback with all current images
+    if (callback && typeof callback === 'function') {
+      callback(this.currentImages);
+    }
+  }
+
+  /**
+   * Clear multiple image selection
+   */
+  clearMultipleImageSelection(categoryId, fileInput, preview, containerId, callback) {
+    fileInput.value = '';
+    if (preview) {
+      preview.style.display = 'none';
+    }
+    
+    // Remove from map
+    this.currentImages.delete(categoryId);
+    
+    // Update upload status
+    this.updateMultipleImageStatus(containerId);
+    
+    if (callback && typeof callback === 'function') {
+      callback(this.currentImages);
+    }
+  }
+
+  /**
+   * Update multiple image upload status
+   */
+  updateMultipleImageStatus(containerId) {
+    const uploadedCountElement = document.getElementById(`${containerId}-uploaded-count`);
+    if (uploadedCountElement) {
+      uploadedCountElement.textContent = this.currentImages.size;
+    }
+
+    // Check if minimum requirements are met
+    const requiredCategories = this.config.imageCategories.filter(cat => cat.required);
+    const hasAllRequired = requiredCategories.every(cat => this.currentImages.has(cat.id));
+    const hasMinimumImages = this.currentImages.size >= 2; // Front + back minimum
+
+    console.log('📊 Multiple image status:', {
+      uploadedCount: this.currentImages.size,
+      totalSlots: this.config.imageCategories.length,
+      hasAllRequired,
+      hasMinimumImages,
+      readyForAnalysis: hasAllRequired && hasMinimumImages
+    });
+  }
+
+  /**
+   * Handle image selection (original single image method)
    */
   handleImageSelection(file, preview, previewImg, fileInfo, callback) {
     console.log('📸 Image selected:', file.name, file.type, file.size);
