@@ -1668,63 +1668,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
-   * Start particle animation for visual flair
+   * Start subtle professional animation (no flying particles!)
    */
   startParticleAnimation() {
-    const modal = this.currentModal;
-    const container = modal.querySelector('.advanced-processing-container');
-    if (!container) return;
-
-    // Create particle container if it doesn't exist
-    let particleContainer = container.querySelector('.particle-container');
-    if (!particleContainer) {
-      particleContainer = document.createElement('div');
-      particleContainer.className = 'particle-container';
-      container.appendChild(particleContainer);
-    }
-
-    // Generate particles periodically
-    const particleInterval = setInterval(() => {
-      if (!this.isProcessing) {
-        clearInterval(particleInterval);
-        return;
-      }
-      
-      this.createParticle(particleContainer);
-    }, 200);
-    
-    this.progressIntervals.push(particleInterval);
-  }
-
-  /**
-   * Create a floating particle
-   */
-  createParticle(container) {
-    const particle = document.createElement('div');
-    particle.className = 'floating-particle';
-    
-    // Random properties
-    const size = Math.random() * 6 + 2;
-    const left = Math.random() * 100;
-    const animationDuration = Math.random() * 3 + 2;
-    const opacity = Math.random() * 0.7 + 0.3;
-    
-    particle.style.cssText = `
-      left: ${left}%;
-      width: ${size}px;
-      height: ${size}px;
-      animation-duration: ${animationDuration}s;
-      opacity: ${opacity};
-    `;
-    
-    container.appendChild(particle);
-    
-    // Remove particle after animation
-    setTimeout(() => {
-      if (particle.parentNode) {
-        particle.parentNode.removeChild(particle);
-      }
-    }, animationDuration * 1000);
+    // Professional catalogers don't need disco balls! 
+    // Just keep the subtle progress indicators
+    return;
   }
 
   /**

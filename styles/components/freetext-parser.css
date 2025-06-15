@@ -720,94 +720,64 @@
 
 .advanced-processing-container {
   position: relative;
-  padding: 40px 30px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
-  color: white;
+  padding: 30px 24px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #2d3748;
   overflow: hidden;
-  min-height: 400px;
-}
-
-.advanced-processing-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
-  pointer-events: none;
+  min-height: 300px;
 }
 
 .processing-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
   position: relative;
-  z-index: 2;
 }
 
-/* AI Brain Animation */
+/* Subtle AI indicator */
 .ai-brain-animation {
   position: relative;
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 20px;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 16px;
 }
 
 .brain-core {
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+  width: 32px;
+  height: 32px;
+  background: #4299e1;
   border-radius: 50%;
   position: absolute;
-  top: 10px;
-  left: 10px;
-  animation: brainPulse 2s ease-in-out infinite;
-  box-shadow: 0 0 30px rgba(255, 107, 107, 0.5);
+  top: 4px;
+  left: 4px;
+  animation: subtlePulse 3s ease-in-out infinite;
 }
 
 .brain-pulse {
-  width: 80px;
-  height: 80px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e2e8f0;
   border-radius: 50%;
   position: absolute;
-  animation: brainRipple 2s ease-out infinite;
+  animation: subtleRipple 3s ease-out infinite;
 }
 
-.brain-waves {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-}
-
-.wave {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  animation: waveExpand 3s ease-out infinite;
-}
-
-.wave-1 { animation-delay: 0s; }
-.wave-2 { animation-delay: 1s; }
-.wave-3 { animation-delay: 2s; }
+/* Remove the flashy waves */
+.brain-waves, .wave { display: none; }
 
 .processing-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  color: #2d3748;
 }
 
 .processing-subtitle {
-  font-size: 16px;
-  opacity: 0.9;
+  font-size: 14px;
+  color: #718096;
   margin: 0;
-  font-weight: 300;
+  font-weight: 400;
 }
 
 /* Progress Steps */
@@ -820,27 +790,27 @@
 .progress-step {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
-  padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  opacity: 0.6;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+  opacity: 0.7;
 }
 
 .progress-step.step-active {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateX(8px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  background: #f7fafc;
+  border-color: #4299e1;
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(66, 153, 225, 0.1);
 }
 
 .progress-step.step-complete {
-  opacity: 0.8;
-  background: rgba(76, 175, 80, 0.2);
-  border-color: rgba(76, 175, 80, 0.4);
+  opacity: 0.9;
+  background: #f0fff4;
+  border-color: #68d391;
 }
 
 .step-icon {
@@ -927,26 +897,14 @@
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1);
-  background-size: 200% 100%;
-  animation: progressShimmer 2s ease-in-out infinite;
+  background: #4299e1;
   width: 0%;
-  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.6s ease;
   border-radius: 4px;
-  position: relative;
 }
 
-.progress-glow {
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-  border-radius: 6px;
-  opacity: 0;
-  animation: progressGlow 2s ease-in-out infinite;
-}
+/* Remove flashy glow effect */
+.progress-glow { display: none; }
 
 .progress-text {
   text-align: center;
@@ -987,57 +945,30 @@
   font-weight: 600;
 }
 
-/* Floating Particles */
-.particle-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  overflow: hidden;
+/* No more floating particles - professional catalogers don't need disco */
+.particle-container, .floating-particle { display: none; }
+
+/* Subtle Professional Animations */
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
-.floating-particle {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 50%;
-  animation: floatUp linear infinite;
-  pointer-events: none;
-}
-
-/* Animations */
-@keyframes brainPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
-}
-
-@keyframes brainRipple {
+@keyframes subtleRipple {
   0% {
-    transform: scale(0.8);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1.4);
-    opacity: 0;
-  }
-}
-
-@keyframes waveExpand {
-  0% {
-    transform: scale(0.8);
+    transform: scale(0.9);
     opacity: 0.8;
   }
   100% {
-    transform: scale(2);
+    transform: scale(1.1);
     opacity: 0;
   }
 }
 
 @keyframes stepIconBounce {
-  0% { transform: scale(0.8) rotate(-10deg); }
-  50% { transform: scale(1.2) rotate(5deg); }
-  100% { transform: scale(1) rotate(0deg); }
+  0% { transform: scale(0.95); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 @keyframes stepIconSpin {
@@ -1047,36 +978,11 @@
 
 @keyframes stepIconSuccess {
   0% { transform: scale(1); }
-  50% { transform: scale(1.3); }
+  50% { transform: scale(1.1); }
   100% { transform: scale(1); }
 }
 
-@keyframes progressShimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@keyframes progressGlow {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 1; }
-}
-
-@keyframes floatUp {
-  0% {
-    transform: translateY(100vh) rotate(0deg);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-100px) rotate(360deg);
-    opacity: 0;
-  }
-}
+/* Removed flashy animations - keeping it professional */
 
 /* Responsive Design */
 @media (max-width: 768px) {
