@@ -80,16 +80,22 @@
       },
       "valuationRules": {
         "claude-4-sonnet": {
-          "approach": "market-based",
-          "instruction": "Ge marknadsbaserade värderingar som reflekterar verkliga auktionspriser. Använd objektets beskrivning, kondition och marknadskontext för att uppskatta realistiska värden som köpare faktiskt betalar",
-          "confidence": "higher",
-          "reasoning": "Claude 4 Sonnet har bättre regelefterlevnad och kan hantera mer nyanserade marknadsbaserade värderingar"
+          "approach": "advanced-research-based",
+          "instruction": "AVANCERAD MARKNADSANALYS - Utför djupgående värderingsanalys i flera steg:\n\n🔍 STEG 1 - OBJEKTANALYS:\n• Identifiera exakt modell, årsmodell, variant\n• Analysera kondition detaljerat (original delar, service, slitage)\n• Bedöm sällsynthet och efterfrågan på marknaden\n• Identifiera unika egenskaper som påverkar värdet\n\n📊 STEG 2 - MARKNADSRESEARCH:\n• Jämför med liknande objekt på svenska auktioner\n• Analysera pristrender för märket/modellen\n• Bedöm regional marknadsdynamik (Stadsauktion Sundsvall kontext)\n• Överväg säsongsvariationer och marknadscykler\n\n💰 STEG 3 - VÄRDERINGSLOGIK:\n• Basera på faktiska slutpriser, inte utropspriser\n• Justera för kondition och kompletthet\n• Inkludera proveniensbonus om relevant\n• Balansera mellan optimistisk och realistisk värdering\n\n🎯 STEG 4 - SLUTSATS:\n• Ge både konservativ och optimistisk uppskattning\n• Förklara värderingsfaktorer tydligt\n• Rekommendera utropspris baserat på 60-80% av uppskattning\n• Inkludera marknadskontext i resonemang",
+          "confidence": "expert",
+          "reasoning": "Claude 4 Sonnet kan hantera komplex multi-steg marknadsanalys med djup reasoning",
+          "maxTokens": 4000,
+          "temperature": 0.1,
+          "enableDeepReasoning": true
         },
         "claude-sonnet-4-20250514": {
-          "approach": "market-based",
-          "instruction": "Ge marknadsbaserade värderingar som reflekterar verkliga auktionspriser. Använd objektets beskrivning, kondition och marknadskontext för att uppskatta realistiska värden som köpare faktiskt betalar",
-          "confidence": "higher",
-          "reasoning": "Claude 4 Sonnet har bättre regelefterlevnad och kan hantera mer nyanserade marknadsbaserade värderingar"
+          "approach": "advanced-research-based",
+          "instruction": "AVANCERAD MARKNADSANALYS - Utför djupgående värderingsanalys i flera steg:\n\n🔍 STEG 1 - OBJEKTANALYS:\n• Identifiera exakt modell, årsmodell, variant\n• Analysera kondition detaljerat (original delar, service, slitage)\n• Bedöm sällsynthet och efterfrågan på marknaden\n• Identifiera unika egenskaper som påverkar värdet\n\n📊 STEG 2 - MARKNADSRESEARCH:\n• Jämför med liknande objekt på svenska auktioner\n• Analysera pristrender för märket/modellen\n• Bedöm regional marknadsdynamik (Stadsauktion Sundsvall kontext)\n• Överväg säsongsvariationer och marknadscykler\n\n💰 STEG 3 - VÄRDERINGSLOGIK:\n• Basera på faktiska slutpriser, inte utropspriser\n• Justera för kondition och kompletthet\n• Inkludera proveniensbonus om relevant\n• Balansera mellan optimistisk och realistisk värdering\n\n🎯 STEG 4 - SLUTSATS:\n• Ge både konservativ och optimistisk uppskattning\n• Förklara värderingsfaktorer tydligt\n• Rekommendera utropspris baserat på 60-80% av uppskattning\n• Inkludera marknadskontext i resonemang",
+          "confidence": "expert",
+          "reasoning": "Claude 4 Sonnet kan hantera komplex multi-steg marknadsanalys med djup reasoning",
+          "maxTokens": 4000,
+          "temperature": 0.1,
+          "enableDeepReasoning": true
         },
         "claude-3-5-sonnet": {
           "approach": "conservative", 

@@ -925,7 +925,10 @@ export class FreetextParser {
     console.log('🎯 Using model-specific valuation rules:', {
       model: currentModel,
       approach: valuationRules.approach,
-      instruction: valuationRules.instruction
+      instruction: valuationRules.instruction,
+      maxTokens: valuationRules.maxTokens,
+      temperature: valuationRules.temperature,
+      enableDeepReasoning: valuationRules.enableDeepReasoning
     });
     
     // For Claude 4, add extra context about realistic pricing based on your data
@@ -940,10 +943,41 @@ Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
 - Undvik överdrivet konservativa uppskattningar`;
     }
 
+    // Add advanced reasoning instructions for Claude 4
+    let reasoningInstructions = '';
+    if (valuationRules.enableDeepReasoning) {
+      reasoningInstructions = `\n\n🧠 AVANCERAD ANALYS (Claude 4 Deep Reasoning):
+Utför djupgående analys i flera steg:
+
+1️⃣ OBJEKTIDENTIFIERING:
+• Identifiera exakt föremålstyp, märke, modell
+• Analysera stilperiod och designerepok
+• Bedöm materialens kvalitet och äkthet
+• Notera unika kännetecken och signaturer
+
+2️⃣ KONDITIONSBEDÖMNING:
+• Analysera synligt slitage och skador
+• Bedöm originalitet vs restaurering
+• Värdera kompletthet (alla delar kvar?)
+• Uppskatta servicehistorik om relevant
+
+3️⃣ MARKNADSKONTEXTUALISERING:
+• Jämför med liknande objekt på svenska auktioner
+• Analysera efterfrågan för denna typ/märke
+• Överväg regional marknadsdynamik (Sundsvall)
+• Bedöm säsongsvariationer och trender
+
+4️⃣ VÄRDERINGSLOGIK:
+• Basera på faktiska slutpriser (inte utrop)
+• Justera för kondition och sällsynthet
+• Inkludera proveniensbonus om relevant
+• Balansera optimism med realism`;
+    }
+
     const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
 
 FRITEXT:
-"${freetext}"
+"${freetext}"${reasoningInstructions}
 
 🎯 TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
 • TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
@@ -999,13 +1033,24 @@ INSTRUKTIONER:
           reject(new Error('API request timeout - no response from background script'));
         }, 30000);
         
+        // Use model-specific parameters for enhanced analysis
+        const maxTokens = valuationRules.maxTokens || 2000;
+        const temperature = valuationRules.temperature || 0.1;
+        
+        console.log('🚀 Enhanced AI parameters:', {
+          model: currentModel,
+          maxTokens,
+          temperature,
+          deepReasoning: valuationRules.enableDeepReasoning
+        });
+        
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
             model: this.apiManager.getCurrentModel().id, // Use user's selected model
-            max_tokens: 2000,
-            temperature: 0.1, // Low temperature for consistent parsing
+            max_tokens: maxTokens, // Dynamic token limit based on model capabilities
+            temperature: temperature, // Model-specific temperature for optimal reasoning
             system: systemPrompt,
             messages: [{
               role: 'user',

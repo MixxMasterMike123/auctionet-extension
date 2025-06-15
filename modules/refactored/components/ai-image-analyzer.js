@@ -183,10 +183,25 @@ export class AIImageAnalyzer {
         text: userPrompt
       });
       
+      // Get model-specific parameters for enhanced multiple image analysis
+      const currentModel = this.apiManager.getCurrentModel().id;
+      const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
+      const maxTokens = Math.max(valuationRules.maxTokens || 3000, 3000); // At least 3000 for multiple images
+      const temperature = valuationRules.temperature || 0.1;
+      
+      console.log('🚀 Enhanced multiple image analysis parameters:', {
+        model: currentModel,
+        maxTokens,
+        temperature,
+        deepReasoning: valuationRules.enableDeepReasoning,
+        approach: valuationRules.approach,
+        imageCount: this.currentImages.size
+      });
+      
       const requestBody = {
         model: this.apiManager.getCurrentModel().id, // Use user's selected model
-        max_tokens: 3000, // More tokens for multiple images
-        temperature: 0.1,
+        max_tokens: maxTokens, // Enhanced token limit for deeper multi-image analysis
+        temperature: temperature, // Model-specific temperature
         system: systemPrompt,
         messages: [{
           role: 'user',
@@ -291,11 +306,25 @@ export class AIImageAnalyzer {
       
       console.log('🤖 Calling Claude Vision API...');
       
+      // Get model-specific parameters for enhanced analysis
+      const currentModel = this.apiManager.getCurrentModel().id;
+      const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
+      const maxTokens = valuationRules.maxTokens || 2000;
+      const temperature = valuationRules.temperature || 0.1;
+      
+      console.log('🚀 Using enhanced AI parameters for image analysis:', {
+        model: currentModel,
+        maxTokens,
+        temperature,
+        deepReasoning: valuationRules.enableDeepReasoning,
+        approach: valuationRules.approach
+      });
+      
       // Debug the request being sent
       const requestBody = {
         model: this.apiManager.getCurrentModel().id, // Use user's selected model
-        max_tokens: 2000,
-        temperature: 0.1,
+        max_tokens: maxTokens, // Enhanced token limit for deeper analysis
+        temperature: temperature, // Model-specific temperature
         system: systemPrompt,
         messages: [{
           role: 'user',
