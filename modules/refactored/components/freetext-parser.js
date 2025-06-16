@@ -274,6 +274,29 @@ export class FreetextParser {
               </strong>
                 <span class="freetext-hint">Skriv allt du vet: märke, konstnär, material, mått, skick, värdering, etc.</span>
               </label>
+              
+              <!-- Description Mode Toggle -->
+              <div class="description-mode-toggle">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="extended-descriptions-toggle">
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 4px; vertical-align: text-bottom;">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/>
+                      <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/>
+                      <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
+                      <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
+                      <line x1="12" y1="9" x2="12" y2="15" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                    Utökade beskrivningar
+                  </span>
+                </label>
+                <div class="toggle-description">
+                  <span class="mode-description" id="description-mode-text">
+                    <strong>Standard:</strong> Kort, faktabaserad beskrivning med mått och tekniska detaljer
+                  </span>
+                </div>
+              </div>
               <textarea 
                 id="freetext-input" 
                 class="freetext-textarea"
@@ -413,6 +436,19 @@ export class FreetextParser {
     if (textarea) {
       textarea.addEventListener('input', () => {
         this.updateAnalysisModeIndicator(modal);
+      });
+    }
+
+    // Add toggle listener for description mode
+    const toggle = modal.querySelector('#extended-descriptions-toggle');
+    const modeText = modal.querySelector('#description-mode-text');
+    if (toggle && modeText) {
+      toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+          modeText.innerHTML = '<strong>Utökad:</strong> Detaljerad beskrivning med konstnärsbiografi och designhistoria';
+        } else {
+          modeText.innerHTML = '<strong>Standard:</strong> Kort, faktabaserad beskrivning med mått och tekniska detaljer';
+        }
       });
     }
   }
@@ -1123,10 +1159,34 @@ Utför djupgående analys i flera steg:
 • Balansera optimism med realism`;
     }
 
+    // Check description mode toggle
+    const modal = this.currentModal;
+    const extendedToggle = modal?.querySelector('#extended-descriptions-toggle');
+    const useExtendedDescriptions = extendedToggle?.checked || false;
+    
+    console.log('📝 Description mode:', useExtendedDescriptions ? 'Extended' : 'Standard (facts only)');
+
     const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
 
 FRITEXT:
 "${freetext}"${reasoningInstructions}
+
+📝 BESKRIVNINGSREGLER (${useExtendedDescriptions ? 'UTÖKAD' : 'STANDARD'} MODE):
+${useExtendedDescriptions ? 
+  `• UTÖKAD BESKRIVNING: Skriv detaljerat med konstnärsbiografi, designhistoria, kulturell kontext
+• Inkludera bakgrundsinformation om konstnär/formgivare om känd
+• Beskriv stilperiod och teknisk bakgrund
+• Längre, mer omfattande beskrivningar tillåtna` :
+  `• STANDARD BESKRIVNING: Endast fakta - inga beskrivande ord
+• Exempel: "3 draglådor", "Längd 100 Bredd 36.5 Tjocklek kropp 6cm", "Ståke medföljer"
+• FÖRBJUDET: Beskrivande adjektiv, värdeord, subjektiva bedömningar
+• Kort, faktabaserad, tekniska detaljer endast`}
+
+🚨 KONDITIONSREGLER (ALLTID STRIKTA):
+• Kort och koncis - max 50 tecken
+• Endast faktabaserade observationer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
+• FÖRBJUDET: Värdeord som "fantastisk", "vacker", "fin", "bra", "dålig"
+• Realistisk bedömning av skick med formell auktionsterminologi
 
 🚨 KRITISKA TITEL-STRUKTURREGLER - FÖLJ EXAKT:
 
@@ -1393,6 +1453,13 @@ INSTRUKTIONER:
     
     // CRITICAL: Use ADD ITEM page rules, not edit page rules!
     
+    // Check description mode toggle
+    const modal = this.currentModal;
+    const extendedToggle = modal?.querySelector('#extended-descriptions-toggle');
+    const useExtendedDescriptions = extendedToggle?.checked || false;
+    
+    console.log('📝 Enhancement description mode:', useExtendedDescriptions ? 'Extended' : 'Standard (facts only)');
+    
     // Get model-specific valuation rules from AI Rules System v2.0
     const currentModel = this.apiManager.getCurrentModel().id;
     const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
@@ -1459,6 +1526,23 @@ ANTI-HALLUCINATION INSTRUKTIONER:
     return baseInfo + `
 
 UPPGIFT: Förbättra titel enligt AI Rules System v2.0 strukturregler.
+
+📝 BESKRIVNINGSREGLER (${useExtendedDescriptions ? 'UTÖKAD' : 'STANDARD'} MODE):
+${useExtendedDescriptions ? 
+  `• UTÖKAD BESKRIVNING: Skriv detaljerat med konstnärsbiografi, designhistoria, kulturell kontext
+• Inkludera bakgrundsinformation om konstnär/formgivare om känd
+• Beskriv stilperiod och teknisk bakgrund
+• Längre, mer omfattande beskrivningar tillåtna` :
+  `• STANDARD BESKRIVNING: Endast fakta - inga beskrivande ord
+• Exempel: "3 draglådor", "Längd 100 Bredd 36.5 Tjocklek kropp 6cm", "Ståke medföljer"
+• FÖRBJUDET: Beskrivande adjektiv, värdeord, subjektiva bedömningar
+• Kort, faktabaserad, tekniska detaljer endast`}
+
+🚨 KONDITIONSREGLER (ALLTID STRIKTA):
+• Kort och koncis - max 50 tecken
+• Endast faktabaserade observationer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
+• FÖRBJUDET: Värdeord som "fantastisk", "vacker", "fin", "bra", "dålig"
+• Realistisk bedömning av skick med formell auktionsterminologi
 
 FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation

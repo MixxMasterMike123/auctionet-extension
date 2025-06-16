@@ -175,44 +175,113 @@
     },
     
     "description": {
+      "defaultMode": "formal-facts-only",
+      "extendedMode": "detailed-with-biography",
       "excludeConditionInfo": true,
       "preserveMeasurements": true,
       "preserveQuantities": true,
-      "allowedContent": [
-        "material",
-        "teknik", 
-        "mått",
-        "stil",
-        "ursprung",
-        "märkningar",
-        "funktion"
-      ],
-      "forbiddenContent": [
-        "slitage",
-        "repor",
-        "märken",
-        "skador",
-        "nagg",
-        "sprickor",
-        "fläckar"
-      ]
+      "formalFactsOnly": {
+        "allowedContent": [
+          "material",
+          "teknik", 
+          "mått",
+          "antal komponenter",
+          "märkningar",
+          "funktion",
+          "tillbehör"
+        ],
+        "forbiddenContent": [
+          "beskrivande adjektiv",
+          "värdeord",
+          "subjektiva bedömningar",
+          "slitage",
+          "repor",
+          "märken",
+          "skador",
+          "nagg",
+          "sprickor",
+          "fläckar"
+        ],
+        "examples": [
+          "3 draglådor",
+          "Stålsträngad. Sunburstfärgad kropp. Längd 100 Bredd 36.5 Tjocklek kropp 6cm",
+          "Ståke medföljer",
+          "Signerad på undersidan",
+          "Märkt med fabriksstämpel"
+        ],
+        "style": "Kort, faktabaserad, inga beskrivande ord"
+      },
+      "extendedMode": {
+        "allowedContent": [
+          "konstnärsbiografi",
+          "designhistoria",
+          "kulturell kontext",
+          "stilperiod",
+          "teknisk bakgrund",
+          "produktionshistoria"
+        ],
+        "style": "Utförlig beskrivning med bakgrundsinformation"
+      }
     },
     
     "condition": {
+      "style": "short-formal-realistic",
       "focusOnPhysicalState": true,
-      "specificTerms": [
-        "repor",
-        "nagg", 
+      "maxLength": 50,
+      "forbiddenValueWords": [
+        "fantastisk",
+        "vacker",
+        "utsökt",
+        "magnifik",
+        "underbar",
+        "exceptionell",
+        "perfekt",
+        "ovanlig",
+        "sällsynt",
+        "extraordinär",
+        "unik",
+        "spektakulär",
+        "enastående",
+        "otrolig",
+        "utmärkt",
+        "fin",
+        "bra",
+        "dålig",
+        "hemsk"
+      ],
+      "allowedTerms": [
+        "välbevarat",
+        "gott skick",
+        "mindre repor",
+        "nagg",
         "sprickor",
         "fläckar",
-        "välbevarat",
-        "mindre skador"
+        "slitage",
+        "skador",
+        "lagning",
+        "restaurering"
+      ],
+      "examples": [
+        "Välbevarat",
+        "Mindre repor",
+        "Nagg vid kanter",
+        "Spricka i glaset",
+        "Normalt åldersslitage",
+        "Lagning vid fot"
       ],
       "antiHallucination": {
         "noSpecificPlacements": true,
         "noInventedDamage": true,
-        "noMeasurements": true
-      }
+        "noMeasurements": true,
+        "noSubjectiveAssessments": true
+      },
+      "rules": [
+        "Kort och koncis - max 50 tecken",
+        "Endast faktabaserade observationer",
+        "Inga värdeord eller subjektiva bedömningar",
+        "Realistisk bedömning av skick",
+        "Formell auktionsterminologi"
+      ]
     },
     
     "keywords": {
