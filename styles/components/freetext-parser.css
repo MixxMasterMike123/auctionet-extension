@@ -1091,4 +1091,26 @@
 
 .mode-description strong {
   color: #2d3748;
+}
+
+/* Research suggestion for low confidence valuations */
+.research-suggestion {
+  margin-top: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  border-left: 4px solid #f39c12;
+}
+
+.research-suggestion small {
+  color: #856404;
+  font-size: 13px;
+  line-height: 1.4;
+  display: block;
+}
+
+.research-suggestion strong {
+  color: #6c5ce7;
+  font-weight: 600;
 } 

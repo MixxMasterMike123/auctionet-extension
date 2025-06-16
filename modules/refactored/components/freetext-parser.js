@@ -2247,7 +2247,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
             </svg>
             Värdering
           </h5>
-          ${data.estimate ? `<p><strong>Uppskattat värde:</strong> ${data.estimate} SEK ${this.getConfidenceBadge(data.confidence?.estimate)}</p>` : ''}
+          ${data.estimate ? `<p><strong>Uppskattat värde:</strong> ${data.estimate} SEK ${this.getConfidenceBadge(data.confidence?.estimate, 'estimate')}</p>` : ''}
           ${data.reserve ? `<p><strong>Föreslaget bevakningspris:</strong> ${data.reserve} SEK</p>` : ''}
           ${data.shouldDisposeIfUnsold ? '<p><strong>⚠️ Ska skänkas/återvinnas om osålt</strong></p>' : ''}
         </div>
@@ -2301,15 +2301,19 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
-   * Get confidence badge HTML
+   * Get confidence badge HTML with research suggestions for low confidence
    */
-  getConfidenceBadge(confidence) {
+  getConfidenceBadge(confidence, fieldType = null) {
     if (confidence >= 0.9) {
       return '<span class="confidence-badge confidence-high">Hög säkerhet</span>';
     } else if (confidence >= 0.7) {
       return '<span class="confidence-badge confidence-medium">Medel säkerhet</span>';
     } else {
-      return '<span class="confidence-badge confidence-low">Låg säkerhet</span>';
+      // Add research suggestion for low confidence valuations
+      const researchSuggestion = fieldType === 'estimate' ? 
+        '<div class="research-suggestion"><small>💡 <strong>Rekommendation:</strong> Gör manuell marknadsundersökning för mer exakt värdering</small></div>' : '';
+      
+      return `<span class="confidence-badge confidence-low">Låg säkerhet</span>${researchSuggestion}`;
     }
   }
 

@@ -570,6 +570,23 @@ const iconHTML = `
 // - Proper alignment with vertical-align: text-bottom
 // - Clean, minimal designs without overlapping elements
 
+// DESCRIPTION MODE TOGGLE (DECEMBER 2024 - CRITICAL UX FEATURE):
+// ✅ STANDARD MODE (Toggle OFF): Pure factual descriptions only
+//     - Forbidden words: "traditionellt", "klassisk", "elegant", "autentisk", "karaktäristisk"
+//     - Format: "Furu. 3 bockar. Längd 138 cm, bredd 105 cm, höjd 105 cm. Transporthjul."
+//     - Condition: MAX 30 chars, only "Välbevarat", "Mindre repor", "Nagg vid kanter"
+// ✅ EXTENDED MODE (Toggle ON): Formal professional descriptions
+//     - Avoid selling language: "fantastisk", "exceptionell", "unik"
+//     - Use formal terminology: "representerar", "tillhör perioden", "utförd i"
+//     - Include biographical context with professional tone
+//     - Applied across all three functions: enhanceWithAdditionalText, parseFreetextWithAI, getAddItemPageUserPrompt
+
+// PROGRESS ANIMATION TIMING (DECEMBER 2024 - CRITICAL UX FIX):
+// ✅ PROBLEM SOLVED: "Slutför expertanalys..." step no longer finishes after 1 second
+// ✅ SOLUTION: Progress animation waits for actual AI completion (5-10 seconds)
+// ✅ IMPLEMENTATION: Modified progressToNextStep() to not auto-complete final step
+// ✅ RESULT: Eliminated confusing 5-10 second gap with no user feedback
+
 // Business Value:
 // ✅ Rapid cataloging for high-volume, low-value items (<500 SEK)
 // ✅ AI-powered extraction from unstructured Swedish freetext
@@ -578,6 +595,7 @@ const iconHTML = `
 // ✅ Comprehensive error handling and input validation
 // ✅ Eliminates spelling errors and standardizes language
 // ✅ PROFESSIONAL APPEARANCE: No more childish emoji elements
+// ✅ DUAL MODE FLEXIBILITY: Factual for rapid cataloging, formal for premium items
 
 // Technical Achievements:
 // ✅ Fixed API key access pattern for APIBridge compatibility
@@ -598,6 +616,8 @@ const iconHTML = `
 // ✅ Intelligent fallback strategy - removes least important keywords when no results found
 // ✅ NEW: Model-specific valuation rules - Claude 4 gets realistic, Claude 3.5 gets conservative
 // ✅ NEW: Professional emoji-free UI with clean SVG icons (December 2024)
+// ✅ NEW: Description mode toggle with Standard/Extended modes (December 2024)
+// ✅ NEW: Progress animation timing matches actual AI processing duration (December 2024)
 ```
 
 ### Combined Image+Text Analysis Pattern (PRODUCTION READY - DECEMBER 2024)

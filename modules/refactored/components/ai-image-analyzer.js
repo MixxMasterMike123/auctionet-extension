@@ -1709,6 +1709,11 @@ INSTRUKTIONER:
           ${sureScore.confidenceLevel} säkerhet
         </div>
         <p class="sure-score-recommendation">${sureScore.recommendation}</p>
+        ${sureScore.confidenceLevel === 'Låg' && (analysis.estimate || analysis.reserve) ? `
+          <div class="research-suggestion">
+            <small>💡 <strong>Rekommendation:</strong> Gör manuell marknadsundersökning för mer exakt värdering</small>
+          </div>
+        ` : ''}
       </div>
     ` : '';
 
