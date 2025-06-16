@@ -944,7 +944,19 @@ export class FreetextParser {
         
         Använd tilläggstext för att förbättra och komplettera bildanalysen. Behåll originalstruktur men lägg till värdefull information från tilläggstext.
         
-        Returnera förbättrad data i samma JSON-format som originalanalys.
+        Returnera förbättrad data i exakt detta JSON-format:
+        {
+          "title": "Förbättrad titel här",
+          "description": "Förbättrad beskrivning här",
+          "condition": "Förbättrat skick här",
+          "artist": "Konstnär eller null",
+          "keywords": "nyckelord separerade med mellanslag",
+          "materials": "material/teknik",
+          "period": "tidsperiod",
+          "estimate": 500,
+          "reserve": 300,
+          "reasoning": "Kort förklaring av förbättringarna"
+        }
       `;
 
       // Call AI to enhance with text context
@@ -1522,16 +1534,17 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * Validate and normalize parsed data
    */
   validateAndNormalizeParsedData(data) {
+    // Handle both Swedish and English field names
     const normalized = {
-      title: data.title || '',
-      description: data.description || '',
-      condition: data.condition || '',
-      artist: data.artist || null,
-      keywords: data.keywords || '',
-      materials: data.materials || '',
-      period: data.period || '',
-      estimate: this.parseNumericValue(data.estimate),
-      reserve: this.parseNumericValue(data.reserve),
+      title: data.title || data.titel || '',
+      description: data.description || data.beskrivning || '',
+      condition: data.condition || data.skick || '',
+      artist: (data.artist === 'Ej identifierad' || data.konstnär === 'Ej identifierad') ? null : (data.artist || data.konstnär || null),
+      keywords: data.keywords || data.nyckelord || '',
+      materials: data.materials || data.material || '',
+      period: data.period || data.årtal || '',
+      estimate: this.parseNumericValue(data.estimate || data.värdering),
+      reserve: this.parseNumericValue(data.reserve || data.utrop),
       shouldDisposeIfUnsold: Boolean(data.shouldDisposeIfUnsold),
       confidence: {
         title: this.normalizeConfidence(data.confidence?.title),
@@ -1540,7 +1553,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         artist: this.normalizeConfidence(data.confidence?.artist),
         estimate: this.normalizeConfidence(data.confidence?.estimate)
       },
-      reasoning: data.reasoning || ''
+      reasoning: data.reasoning || data.motivering || ''
     };
 
     console.log('✅ Normalized parsed data:', normalized);

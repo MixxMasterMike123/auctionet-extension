@@ -740,6 +740,14 @@ INSTRUKTIONER:
    */
   calculateSureScore(imageAnalysis, marketData = null) {
     console.log('🎯 Calculating Sure Score for image analysis...');
+    console.log('🔍 Input data for Sure Score:', {
+      hasImageAnalysis: !!imageAnalysis,
+      hasConfidence: !!imageAnalysis?.confidence,
+      confidenceKeys: imageAnalysis?.confidence ? Object.keys(imageAnalysis.confidence) : [],
+      hasImageQuality: !!imageAnalysis?.imageQuality,
+      imageQualityKeys: imageAnalysis?.imageQuality ? Object.keys(imageAnalysis.imageQuality) : [],
+      hasMarketData: !!marketData
+    });
     
     const scores = {
       // Image analysis confidence (40% weight)
@@ -749,11 +757,23 @@ INSTRUKTIONER:
       imageQuality: this.calculateImageQualityScore(imageAnalysis.imageQuality),
       
       // Object identification confidence (20% weight)
-      objectIdentification: imageAnalysis.confidence.objectIdentification,
+      objectIdentification: this.normalizeConfidence(imageAnalysis.confidence?.objectIdentification),
       
       // Market validation (15% weight - if available)
       marketValidation: marketData ? this.calculateMarketValidationScore(imageAnalysis, marketData) : 0.5
     };
+    
+    console.log('🔍 Individual scores before validation:', scores);
+    
+    // Ensure all scores are valid numbers
+    Object.keys(scores).forEach(key => {
+      if (isNaN(scores[key]) || scores[key] === null || scores[key] === undefined) {
+        console.warn(`⚠️ Invalid score for ${key}:`, scores[key], 'using default 0.5');
+        scores[key] = 0.5;
+      }
+    });
+    
+    console.log('🔍 Individual scores after validation:', scores);
     
     // Weighted composite score
     const sureScore = (
@@ -762,6 +782,8 @@ INSTRUKTIONER:
       scores.objectIdentification * 0.20 +
       scores.marketValidation * 0.15
     );
+    
+    console.log('🔍 Calculated sureScore before final validation:', sureScore);
     
     // Determine confidence level
     let confidenceLevel;
@@ -781,8 +803,12 @@ INSTRUKTIONER:
       recommendation = 'Kräver expertbedömning eller bättre bild';
     }
     
+        // Final safety check for NaN
+    const finalSureScore = isNaN(sureScore) ? 0.5 : sureScore;
+    console.log('🔍 Final sureScore after NaN check:', finalSureScore);
+    
     const result = {
-      sureScore: Math.round(sureScore * 100) / 100,
+      sureScore: Math.round(finalSureScore * 100) / 100,
       confidenceLevel,
       recommendation,
       breakdown: scores,
@@ -793,7 +819,7 @@ INSTRUKTIONER:
         marketSupport: scores.marketValidation
       }
     };
-    
+
     console.log('✅ Sure Score calculated:', result);
     return result;
   }
@@ -802,7 +828,9 @@ INSTRUKTIONER:
    * Calculate image analysis reliability score
    */
   calculateImageAnalysisScore(analysis) {
-    const confidenceValues = Object.values(analysis.confidence || {});
+    const confidenceValues = Object.values(analysis.confidence || {})
+      .filter(val => typeof val === 'number' && !isNaN(val)); // Filter out invalid values
+    
     const averageConfidence = confidenceValues.length > 0 
       ? confidenceValues.reduce((sum, val) => sum + val, 0) / confidenceValues.length 
       : 0.5;
@@ -813,23 +841,37 @@ INSTRUKTIONER:
     if (analysis.artist) bonus += 0.15;
     if (analysis.visualObservations?.style) bonus += 0.05;
     
-    return Math.min(1.0, averageConfidence + bonus);
+    const result = Math.min(1.0, averageConfidence + bonus);
+    
+    // Ensure result is a valid number
+    return isNaN(result) ? 0.5 : result;
   }
 
   /**
    * Calculate image quality score
    */
   calculateImageQualityScore(imageQuality) {
+    console.log('🔍 calculateImageQualityScore input:', imageQuality);
+    
     if (!imageQuality || typeof imageQuality !== 'object') {
+      console.log('🔍 No image quality data, using default 0.7');
       return 0.7; // Default quality score
     }
     
-    const qualityValues = Object.values(imageQuality);
+    const qualityValues = Object.values(imageQuality)
+      .filter(val => typeof val === 'number' && !isNaN(val)); // Filter out invalid values
+    
+    console.log('🔍 Quality values after filtering:', qualityValues);
+    
     if (qualityValues.length === 0) {
+      console.log('🔍 No valid quality values, using default 0.7');
       return 0.7; // Default quality score
     }
     
-    return qualityValues.reduce((sum, val) => sum + val, 0) / qualityValues.length;
+    const result = qualityValues.reduce((sum, val) => sum + val, 0) / qualityValues.length;
+    console.log('🔍 Calculated image quality score:', result);
+    
+    return isNaN(result) ? 0.7 : result;
   }
 
   /**

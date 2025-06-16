@@ -598,6 +598,10 @@ const isForbiddenWord = (word) => getAIRulesManager().isForbiddenWord(word);
 const isForbiddenPhrase = (phrase) => getAIRulesManager().isForbiddenPhrase(phrase);
 const applyBrandCorrections = (text) => getAIRulesManager().applyBrandCorrections(text);
 
+// Brand and artist corrections
+const getBrandCorrections = () => getAIRulesManager().getBrandCorrections();
+const getArtistCorrections = () => getAIRulesManager().getBrandCorrections(); // Use same data for now
+
 // Extracted rules access
 const getExtractedRules = (source) => getAIRulesManager().getExtractedRules(source);
 const getQualityValidationRules = () => getAIRulesManager().getQualityValidationRules();
@@ -632,6 +636,8 @@ if (typeof module !== 'undefined' && module.exports) {
         isForbiddenWord,
         isForbiddenPhrase,
         applyBrandCorrections,
+        getBrandCorrections,
+        getArtistCorrections,
         getExtractedRules,
         getQualityValidationRules,
         getFuzzyMatchingRules,
@@ -658,6 +664,8 @@ if (typeof module !== 'undefined' && module.exports) {
     window.isForbiddenWord = isForbiddenWord;
     window.isForbiddenPhrase = isForbiddenPhrase;
     window.applyBrandCorrections = applyBrandCorrections;
+    window.getBrandCorrections = getBrandCorrections;
+    window.getArtistCorrections = getArtistCorrections;
     window.getExtractedRules = getExtractedRules;
     window.getQualityValidationRules = getQualityValidationRules;
     window.getFuzzyMatchingRules = getFuzzyMatchingRules;
