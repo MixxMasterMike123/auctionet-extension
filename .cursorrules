@@ -766,4 +766,44 @@ If any of these happen, STOP and ask for guidance:
 - Consistency is more important than perfection
 - When in doubt, ask before implementing
 - Always update .cursorrules after major architectural decisions
-- Document patterns so future work stays consistent 
+- Document patterns so future work stays consistent
+
+### Tightened Title Structure Rules (DECEMBER 2024 - CRITICAL)
+```javascript
+// CRITICAL FIX: Tightened title structure rules to prevent AI mistakes
+// PROBLEM: AI was making errors in title formatting and artist field content
+// SOLUTION: Crystal-clear, non-negotiable rules in AI Rules System v2.0
+
+// ARTIST FIELD RULES (ABSOLUTE CRITICAL):
+// ✅ CORRECT: "Lisa Larson"
+// ❌ WRONG: "Lisa Larson, Gustavsberg" or "Lisa Larson 1960-tal" or "Lisa Larson (Gustavsberg)"
+// Rule: Artist field can ONLY contain the NAME - NEVER company name, year, or anything else!
+
+// TITLE STRUCTURE RULES:
+// NO ARTIST DETECTED: "<OBJECT>, <Model>, <Brand>, <Material>, <Period>"
+// Examples:
+// - "ARMBANDSUR, Submariner, Rolex, stål, 1970-tal"
+// - "FIGURIN, Viktoria, Gustavsberg, stengods, 1960-tal"
+// - FIRST WORD ALWAYS UPPERCASE
+
+// WITH ARTIST IN FIELD: "<Object>, <Model>, <Brand>, <Material>, <Period>"
+// Examples:
+// - "Figurin, Viktoria, Gustavsberg, stengods, 1960-tal" (Lisa Larson in artist field)
+// - First word normal capitalization
+
+// ABSOLUTELY FORBIDDEN:
+// ❌ Artist name in title when artist field is filled
+// ❌ Company names in artist field (Gustavsberg, Rolex etc. belong in title)
+// ❌ Years or time periods in artist field
+
+// Implementation in AI Rules System v2.0:
+const { getSystemPrompt, getCategoryPrompt } = window;
+const systemPrompt = getSystemPrompt('freetextParser'); // Contains tightened rules
+const categoryPrompt = getCategoryPrompt('freetextParser'); // Enforces structure
+
+// Business Impact:
+// ✅ Consistent title formatting across all Freetext Parser methods
+// ✅ Clean artist field data for proper search functionality
+// ✅ Eliminates AI confusion about where information belongs
+// ✅ Professional catalog structure matching Swedish auction standards
+``` 

@@ -964,9 +964,22 @@ export class FreetextParser {
     console.log('🔧 Enhancing image analysis with additional text...');
     
     try {
-      // Create combined prompt for text enhancement
-      const enhancementPrompt = `
-        Förbättra denna AI-bildanalys med hjälp av användarens tilläggstext:
+      // CRITICAL: Check toggle state for description mode
+      const modal = this.currentModal;
+      const extendedToggle = modal?.querySelector('#extended-descriptions-toggle');
+      const useExtendedDescriptions = extendedToggle?.checked || false;
+      
+      console.log('🔍 Enhancement toggle state:', {
+        hasModal: !!modal,
+        hasToggle: !!extendedToggle,
+        useExtendedDescriptions,
+        mode: useExtendedDescriptions ? 'Extended' : 'Standard (facts only)'
+      });
+
+      // Create combined prompt for text enhancement with toggle-aware rules
+      const enhancementPrompt = `🚨 KRITISKT: TOGGLE ÄR ${useExtendedDescriptions ? 'PÅ' : 'AV'} - FÖLJ EXAKT BESKRIVNINGSREGLERNA NEDAN!
+
+Förbättra denna AI-bildanalys med hjälp av användarens tilläggstext:
         
         BILDANALYS:
         Titel: ${imageData.title}
@@ -977,6 +990,27 @@ export class FreetextParser {
         
         TILLÄGGSTEXT FRÅN ANVÄNDARE:
         "${additionalText}"
+
+📝 BESKRIVNINGSREGLER (${useExtendedDescriptions ? 'UTÖKAD' : 'STANDARD'} MODE):
+${useExtendedDescriptions ? 
+  `• UTÖKAD BESKRIVNING: Formell, informativ text med historisk kontext
+• Inkludera konstnärs-/formgivarbiografi om känd (födelseår, verksamhetsperiod)
+• Beskriv stilperiod, teknik och kulturhistorisk betydelse
+• UNDVIK: Säljande språk, överdrifter, "fantastisk", "exceptionell", "unik"
+• ANVÄND: Faktabaserad terminologi, "representerar", "tillhör perioden", "utförd i"
+• Längre beskrivningar tillåtna men behåll formell auktionston` :
+  `• STANDARD BESKRIVNING: Endast fakta - inga beskrivande ord
+• FÖRBJUDNA ORD: "traditionellt", "klassisk", "elegant", "autentisk", "karaktäristisk", "tydliga spår", "vittnar om", "ursprunglig", "strukturellt stabilt", "estetik", "allmoge", "typiskt", "förväntas"
+• EXEMPEL KORREKT: "Furu. 3 bockar. Längd 138 cm, bredd 105 cm, höjd 105 cm. Transporthjul."
+• EXEMPEL FEL: "Traditionellt svenskt allmoge-bockbord med klassisk konstruktion"
+• MAX 50 ORD - kort och koncis`}
+
+🚨 KONDITIONSREGLER (ALLTID STRIKTA):
+• MAX 30 TECKEN - extremt kort
+• ENDAST: "Välbevarat", "Mindre repor", "Nagg vid kanter", "Spricka", "Lagning"
+• FÖRBJUDET: Långa meningar, beskrivningar, "enligt tilläggstext", "som bekräftas", "förväntas", "autentiskt", "tidsrelaterat"
+• EXEMPEL KORREKT: "Välbevarat", "Repor och nagg"
+• EXEMPEL FEL: "Begagnat skick med åldersenligt slitage enligt tilläggstext"
         
         Använd tilläggstext för att förbättra och komplettera bildanalysen. Behåll originalstruktur men lägg till värdefull information från tilläggstext.
         
@@ -1164,29 +1198,44 @@ Utför djupgående analys i flera steg:
     const extendedToggle = modal?.querySelector('#extended-descriptions-toggle');
     const useExtendedDescriptions = extendedToggle?.checked || false;
     
+    console.log('🔴 TOGGLE DEBUG:', {
+      hasModal: !!modal,
+      hasToggle: !!extendedToggle,
+      toggleChecked: extendedToggle?.checked,
+      useExtendedDescriptions,
+      toggleElement: extendedToggle
+    });
     console.log('📝 Description mode:', useExtendedDescriptions ? 'Extended' : 'Standard (facts only)');
 
-    const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
+    const userPrompt = `🚨 KRITISKT: TOGGLE ÄR ${useExtendedDescriptions ? 'PÅ' : 'AV'} - FÖLJ EXAKT BESKRIVNINGSREGLERNA NEDAN!
+
+Analysera denna svenska auktionsfritext och extrahera strukturerad data:
 
 FRITEXT:
 "${freetext}"${reasoningInstructions}
 
 📝 BESKRIVNINGSREGLER (${useExtendedDescriptions ? 'UTÖKAD' : 'STANDARD'} MODE):
 ${useExtendedDescriptions ? 
-  `• UTÖKAD BESKRIVNING: Skriv detaljerat med konstnärsbiografi, designhistoria, kulturell kontext
-• Inkludera bakgrundsinformation om konstnär/formgivare om känd
-• Beskriv stilperiod och teknisk bakgrund
-• Längre, mer omfattande beskrivningar tillåtna` :
-  `• STANDARD BESKRIVNING: Endast fakta - inga beskrivande ord
-• Exempel: "3 draglådor", "Längd 100 Bredd 36.5 Tjocklek kropp 6cm", "Ståke medföljer"
-• FÖRBJUDET: Beskrivande adjektiv, värdeord, subjektiva bedömningar
-• Kort, faktabaserad, tekniska detaljer endast`}
+  `• UTÖKAD BESKRIVNING: Formell, informativ text med historisk kontext
+• Inkludera konstnärs-/formgivarbiografi om känd (födelseår, verksamhetsperiod)
+• Beskriv stilperiod, teknik och kulturhistorisk betydelse
+• UNDVIK: Säljande språk, överdrifter, "fantastisk", "exceptionell", "unik"
+• ANVÄND: Faktabaserad terminologi, "representerar", "tillhör perioden", "utförd i"
+• Längre beskrivningar tillåtna men behåll formell auktionston` :
+  `🚨 STANDARD MODE - ENDAST TEKNISKA FAKTA:
+• FÖRBJUDET: "traditionellt", "klassisk", "elegant", "autentisk", "karaktäristisk", "tydliga spår"
+• FÖRBJUDET: "vittnar om", "ursprunglig", "strukturellt stabilt", "estetik", "allmoge"
+• TILLÅTET: Endast mått, antal, material, märkningar, tillbehör
+• EXEMPEL KORREKT: "Furu. 3 bockar. Längd 138 cm, bredd 105 cm, höjd 105 cm. Transporthjul."
+• EXEMPEL FEL: "Traditionellt svenskt allmoge-bockbord med klassisk konstruktion"
+• MAX 50 ORD - kort och koncis`}
 
 🚨 KONDITIONSREGLER (ALLTID STRIKTA):
-• Kort och koncis - max 50 tecken
-• Endast faktabaserade observationer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
-• FÖRBJUDET: Värdeord som "fantastisk", "vacker", "fin", "bra", "dålig"
-• Realistisk bedömning av skick med formell auktionsterminologi
+• MAX 30 TECKEN - extremt kort
+• ENDAST: "Välbevarat", "Mindre repor", "Nagg vid kanter", "Spricka", "Lagning"
+• FÖRBJUDET: Långa meningar, beskrivningar, "enligt tilläggstext", "som bekräftas"
+• EXEMPEL KORREKT: "Välbevarat", "Repor och nagg"
+• EXEMPEL FEL: "Begagnat skick med åldersenligt slitage enligt tilläggstext"
 
 🚨 KRITISKA TITEL-STRUKTURREGLER - FÖLJ EXAKT:
 
@@ -1525,24 +1574,32 @@ ANTI-HALLUCINATION INSTRUKTIONER:
 
     return baseInfo + `
 
+🚨 KRITISKT: TOGGLE ÄR ${useExtendedDescriptions ? 'PÅ' : 'AV'} - FÖLJ EXAKT BESKRIVNINGSREGLERNA NEDAN!
+
 UPPGIFT: Förbättra titel enligt AI Rules System v2.0 strukturregler.
 
 📝 BESKRIVNINGSREGLER (${useExtendedDescriptions ? 'UTÖKAD' : 'STANDARD'} MODE):
 ${useExtendedDescriptions ? 
-  `• UTÖKAD BESKRIVNING: Skriv detaljerat med konstnärsbiografi, designhistoria, kulturell kontext
-• Inkludera bakgrundsinformation om konstnär/formgivare om känd
-• Beskriv stilperiod och teknisk bakgrund
-• Längre, mer omfattande beskrivningar tillåtna` :
-  `• STANDARD BESKRIVNING: Endast fakta - inga beskrivande ord
-• Exempel: "3 draglådor", "Längd 100 Bredd 36.5 Tjocklek kropp 6cm", "Ståke medföljer"
-• FÖRBJUDET: Beskrivande adjektiv, värdeord, subjektiva bedömningar
-• Kort, faktabaserad, tekniska detaljer endast`}
+  `• UTÖKAD BESKRIVNING: Formell, informativ text med historisk kontext
+• Inkludera konstnärs-/formgivarbiografi om känd (födelseår, verksamhetsperiod)
+• Beskriv stilperiod, teknik och kulturhistorisk betydelse
+• UNDVIK: Säljande språk, överdrifter, "fantastisk", "exceptionell", "unik"
+• ANVÄND: Faktabaserad terminologi, "representerar", "tillhör perioden", "utförd i"
+• Längre beskrivningar tillåtna men behåll formell auktionston` :
+  `🚨 STANDARD MODE - ENDAST TEKNISKA FAKTA:
+• FÖRBJUDET: "traditionellt", "klassisk", "elegant", "autentisk", "karaktäristisk", "tydliga spår"
+• FÖRBJUDET: "vittnar om", "ursprunglig", "strukturellt stabilt", "estetik", "allmoge"
+• TILLÅTET: Endast mått, antal, material, märkningar, tillbehör
+• EXEMPEL KORREKT: "Furu. 3 bockar. Längd 138 cm, bredd 105 cm, höjd 105 cm. Transporthjul."
+• EXEMPEL FEL: "Traditionellt svenskt allmoge-bockbord med klassisk konstruktion"
+• MAX 50 ORD - kort och koncis`}
 
 🚨 KONDITIONSREGLER (ALLTID STRIKTA):
-• Kort och koncis - max 50 tecken
-• Endast faktabaserade observationer: "Välbevarat", "Mindre repor", "Nagg vid kanter"
-• FÖRBJUDET: Värdeord som "fantastisk", "vacker", "fin", "bra", "dålig"
-• Realistisk bedömning av skick med formell auktionsterminologi
+• MAX 30 TECKEN - extremt kort
+• ENDAST: "Välbevarat", "Mindre repor", "Nagg vid kanter", "Spricka", "Lagning"
+• FÖRBJUDET: Långa meningar, beskrivningar, "enligt tilläggstext", "som bekräftas"
+• EXEMPEL KORREKT: "Välbevarat", "Repor och nagg"
+• EXEMPEL FEL: "Begagnat skick med åldersenligt slitage enligt tilläggstext"
 
 FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
@@ -1788,12 +1845,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         { 
           icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/></svg>', 
           text: 'Optimerar katalogisering...', 
-          duration: 1500 
+          duration: 2000 
         },
                  { 
            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', 
            text: 'Slutför expertanalys...', 
-           duration: 1000 
+           duration: 0 // Will wait for actual AI completion
          }
       ];
     } else {
@@ -1811,12 +1868,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         { 
           icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="1.5"/></svg>', 
           text: 'Beräknar värdering...', 
-          duration: 1500 
+          duration: 2000 
         },
                                      { 
              icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', 
              text: 'Slutför analys...', 
-             duration: 1000 
+             duration: 0 // Will wait for actual AI completion
            }
       ];
     }
@@ -1959,7 +2016,16 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       currentStepSpan.textContent = this.currentStepIndex + 1;
     }
 
-    // Schedule completion of this step
+    // CRITICAL FIX: Don't auto-complete the last step - wait for actual AI completion
+    const isLastStep = this.currentStepIndex === this.progressSteps.length - 1;
+    
+    if (isLastStep) {
+      // For the last step, just mark as active and wait for manual completion
+      console.log('🔄 Last step reached - waiting for AI completion...');
+      return;
+    }
+
+    // Schedule completion of this step (only for non-final steps)
     const timeout = setTimeout(() => {
       if (stepElement) {
         stepElement.classList.add('step-complete');
@@ -1990,6 +2056,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * Complete the progress animation
    */
   completeProgressAnimation() {
+    console.log('✅ Completing progress animation - AI analysis finished');
     this.isProcessing = false;
     
     // Clear all intervals
@@ -2002,9 +2069,17 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const modal = this.currentModal;
     if (modal) {
       const steps = modal.querySelectorAll('.progress-step');
-      steps.forEach(step => {
+      steps.forEach((step, index) => {
         step.classList.add('step-complete');
         step.classList.remove('step-active', 'step-pending');
+        
+        // Add a small delay for visual effect
+        setTimeout(() => {
+          const progressFill = step.querySelector('.step-progress-fill');
+          if (progressFill) {
+            progressFill.style.width = '100%';
+          }
+        }, index * 100);
       });
       
       // Complete overall progress

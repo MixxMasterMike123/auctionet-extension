@@ -495,9 +495,45 @@ TILLÄGGSKONTEXT:
 "${additionalContext}"
 ` : '';
 
-    return `Analysera dessa ${imageCount} bilder av samma auktionsobjekt: ${imageDescriptions}
+    // CRITICAL: Check FreetextParser toggle state for description mode
+    const modal = document.querySelector('.freetext-parser-modal');
+    const extendedToggle = modal?.querySelector('#extended-descriptions-toggle');
+    const useExtendedDescriptions = extendedToggle?.checked || false;
+    
+    console.log('🔍 AIImageAnalyzer: Toggle state detected:', {
+      hasModal: !!modal,
+      hasToggle: !!extendedToggle,
+      useExtendedDescriptions
+    });
+
+    const descriptionRules = useExtendedDescriptions ? 
+      `📝 BESKRIVNINGSREGLER (UTÖKAD MODE):
+• UTÖKAD BESKRIVNING: Skriv detaljerat med konstnärsbiografi, designhistoria, kulturell kontext
+• Inkludera bakgrundsinformation om konstnär/formgivare om känd
+• Beskriv stilperiod och teknisk bakgrund
+• Längre, mer omfattande beskrivningar tillåtna` :
+      `🚨 BESKRIVNINGSREGLER (STANDARD MODE - ENDAST TEKNISKA FAKTA):
+• FÖRBJUDET: "traditionellt", "klassisk", "elegant", "autentisk", "karaktäristisk", "tydliga spår"
+• FÖRBJUDET: "vittnar om", "ursprunglig", "strukturellt stabilt", "estetik", "allmoge"
+• TILLÅTET: Endast mått, antal, material, märkningar, tillbehör
+• EXEMPEL KORREKT: "Furu. 3 bockar. Längd 138 cm, bredd 105 cm, höjd 105 cm. Transporthjul."
+• EXEMPEL FEL: "Traditionellt svenskt allmoge-bockbord med klassisk konstruktion"
+• MAX 50 ORD - kort och koncis`;
+
+    return `🚨 KRITISKT: TOGGLE ÄR ${useExtendedDescriptions ? 'PÅ' : 'AV'} - FÖLJ EXAKT BESKRIVNINGSREGLERNA NEDAN!
+
+Analysera dessa ${imageCount} bilder av samma auktionsobjekt: ${imageDescriptions}
 
 ${contextSection}
+${descriptionRules}
+
+🚨 KONDITIONSREGLER (ALLTID STRIKTA):
+• MAX 30 TECKEN - extremt kort
+• ENDAST: "Välbevarat", "Mindre repor", "Nagg vid kanter", "Spricka", "Lagning"
+• FÖRBJUDET: Långa meningar, beskrivningar, "enligt tilläggstext", "som bekräftas"
+• EXEMPEL KORREKT: "Välbevarat", "Repor och nagg"
+• EXEMPEL FEL: "Begagnat skick med åldersenligt slitage enligt tilläggstext"
+
 🎯 TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
 • TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
 • Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
@@ -563,8 +599,44 @@ INSTRUKTIONER:
     const contextSection = additionalContext ? 
       `\nTILLÄGGSKONTEXT från användaren:\n"${additionalContext}"\n` : '';
 
-    return `Analysera denna bild av ett auktionsföremål och extrahera strukturerad data:
+    // CRITICAL: Check FreetextParser toggle state for description mode
+    const modal = document.querySelector('.freetext-parser-modal');
+    const extendedToggle = modal?.querySelector('#extended-descriptions-toggle');
+    const useExtendedDescriptions = extendedToggle?.checked || false;
+    
+    console.log('🔍 AIImageAnalyzer (single): Toggle state detected:', {
+      hasModal: !!modal,
+      hasToggle: !!extendedToggle,
+      useExtendedDescriptions
+    });
+
+    const descriptionRules = useExtendedDescriptions ? 
+      `📝 BESKRIVNINGSREGLER (UTÖKAD MODE):
+• UTÖKAD BESKRIVNING: Skriv detaljerat med konstnärsbiografi, designhistoria, kulturell kontext
+• Inkludera bakgrundsinformation om konstnär/formgivare om känd
+• Beskriv stilperiod och teknisk bakgrund
+• Längre, mer omfattande beskrivningar tillåtna` :
+      `🚨 BESKRIVNINGSREGLER (STANDARD MODE - ENDAST TEKNISKA FAKTA):
+• FÖRBJUDET: "traditionellt", "klassisk", "elegant", "autentisk", "karaktäristisk", "tydliga spår"
+• FÖRBJUDET: "vittnar om", "ursprunglig", "strukturellt stabilt", "estetik", "allmoge"
+• TILLÅTET: Endast mått, antal, material, märkningar, tillbehör
+• EXEMPEL KORREKT: "Furu. 3 bockar. Längd 138 cm, bredd 105 cm, höjd 105 cm. Transporthjul."
+• EXEMPEL FEL: "Traditionellt svenskt allmoge-bockbord med klassisk konstruktion"
+• MAX 50 ORD - kort och koncis`;
+
+    return `🚨 KRITISKT: TOGGLE ÄR ${useExtendedDescriptions ? 'PÅ' : 'AV'} - FÖLJ EXAKT BESKRIVNINGSREGLERNA NEDAN!
+
+Analysera denna bild av ett auktionsföremål och extrahera strukturerad data:
 ${contextSection}
+${descriptionRules}
+
+🚨 KONDITIONSREGLER (ALLTID STRIKTA):
+• MAX 30 TECKEN - extremt kort
+• ENDAST: "Välbevarat", "Mindre repor", "Nagg vid kanter", "Spricka", "Lagning"
+• FÖRBJUDET: Långa meningar, beskrivningar, "enligt tilläggstext", "som bekräftas"
+• EXEMPEL KORREKT: "Välbevarat", "Repor och nagg"
+• EXEMPEL FEL: "Begagnat skick med åldersenligt slitage enligt tilläggstext"
+
 🎯 KRITISKA TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
 • TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
 • Om konstnär/formgivare identifieras: PLACERA i artist-fält, EXKLUDERA från titel
