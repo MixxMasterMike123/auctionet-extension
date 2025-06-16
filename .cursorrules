@@ -653,6 +653,7 @@ const iconHTML = `
 // ✅ NEW: Progress animation timing matches actual AI processing duration (December 2024)
 // ✅ NEW: Research suggestions for low confidence valuations (December 2024)
 // ✅ NEW: Description formatting guidelines for better readability (December 2024)
+// ✅ NEW: Auto-scroll functionality for modal UX improvement (December 2024)
 ```
 
 ### Combined Image+Text Analysis Pattern (PRODUCTION READY - DECEMBER 2024)
@@ -954,4 +955,108 @@ const categoryPrompt = getCategoryPrompt('freetextParser'); // Enforces structur
 // ✅ Clean artist field data for proper search functionality
 // ✅ Eliminates AI confusion about where information belongs
 // ✅ Professional catalog structure matching Swedish auction standards
-``` 
+```
+
+### Auto-Scroll Modal UX Pattern (DECEMBER 2024 - CRITICAL UX IMPROVEMENT)
+```javascript
+// AUTO-SCROLL FUNCTIONALITY: Solves poor UX where users had to manually scroll between modal sections
+// PROBLEM: Multi-step modals (input → processing → results) required manual scrolling between sections
+// SOLUTION: Automatic smooth scrolling with section highlighting for guided user experience
+
+// CORE AUTO-SCROLL METHOD:
+autoScrollToSection(targetElement, statusMessage = '') {
+  const modal = this.currentModal;
+  if (!modal || !targetElement) return;
+
+  // Get scrollable container
+  const modalContent = modal.querySelector('.popup-content');
+  if (!modalContent) return;
+
+  // Calculate target position with padding
+  const targetOffset = targetElement.offsetTop;
+  const padding = 20;
+  const targetScrollPosition = Math.max(0, targetOffset - padding);
+
+  // Smooth scroll animation with requestAnimationFrame
+  const startPosition = modalContent.scrollTop;
+  const distance = targetScrollPosition - startPosition;
+  const duration = 800; // 800ms for smooth scroll
+  let startTime = null;
+
+  const animateScroll = (currentTime) => {
+    if (startTime === null) startTime = currentTime;
+    const timeElapsed = currentTime - startTime;
+    const progress = Math.min(timeElapsed / duration, 1);
+    
+    // Easing function for smooth animation (ease-out)
+    const easeOut = 1 - Math.pow(1 - progress, 3);
+    
+    modalContent.scrollTop = startPosition + (distance * easeOut);
+    
+    if (progress < 1) {
+      requestAnimationFrame(animateScroll);
+    }
+  };
+
+  requestAnimationFrame(animateScroll);
+  this.highlightSection(targetElement); // Add subtle highlight effect
+}
+
+// SECTION HIGHLIGHTING:
+highlightSection(element) {
+  element.classList.add('section-highlight');
+  setTimeout(() => element.classList.remove('section-highlight'), 1500);
+}
+
+// CSS ANIMATION:
+.section-highlight {
+  animation: sectionHighlight 1.5s ease-out;
+}
+
+@keyframes sectionHighlight {
+  0% { background-color: rgba(102, 126, 234, 0.1); transform: scale(1); }
+  50% { background-color: rgba(102, 126, 234, 0.05); transform: scale(1.01); }
+  100% { background-color: transparent; transform: scale(1); }
+}
+
+// IMPLEMENTATION PATTERN:
+// 1. Analysis starts → Auto-scroll to processing section
+showProcessingState() {
+  // ... show processing section
+  this.autoScrollToSection(processingSection, 'Analyserar...');
+}
+
+// 2. Analysis completes → Auto-scroll to Sure Score (smart targeting)
+showParsedPreview(data, sureScore) {
+  // ... show results
+  setTimeout(() => {
+    const sureScoreSection = modal.querySelector('.freetext-sure-score');
+    const targetElement = sureScoreSection || previewSection; // Smart fallback
+    this.autoScrollToSection(targetElement, 'Resultat klart!');
+  }, 100); // DOM update delay
+}
+
+// 3. Reload analysis → Auto-scroll back to input
+reloadAnalysis() {
+  // ... reset to input state
+  this.autoScrollToSection(inputSection, 'Tillbaka till inmatning');
+}
+
+// BUSINESS VALUE:
+// ✅ Eliminates manual scrolling between modal sections
+// ✅ Guided user experience through multi-step processes
+// ✅ Professional smooth animations (800ms ease-out)
+// ✅ Smart targeting (Sure Score section vs full results)
+// ✅ Maintains user control - can still scroll manually
+// ✅ Subtle visual feedback with section highlighting
+// ✅ Works across all screen sizes and modal types
+
+// TECHNICAL IMPLEMENTATION:
+// ✅ Uses requestAnimationFrame for smooth 60fps animation
+// ✅ Cubic ease-out easing function for natural feel
+// ✅ Smart DOM targeting with fallback options
+// ✅ Proper cleanup and CSS class management
+// ✅ Console logging for debugging and status tracking
+// ✅ Modular CSS with keyframe animations
+// ✅ Zero breaking changes to existing functionality
+```
