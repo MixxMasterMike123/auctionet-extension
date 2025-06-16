@@ -1792,6 +1792,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       processingSection.innerHTML = this.generateAdvancedProcessingHTML();
       processingSection.style.display = 'block';
       
+      // Auto-scroll to processing section
+      this.autoScrollToSection(processingSection, 'Analyserar...');
+      
       // Start the dynamic progress animation
       this.startAdvancedProgressAnimation();
     }
@@ -2181,6 +2184,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       previewContent.innerHTML = htmlContent;
       previewSection.style.display = 'block';
       
+      // Auto-scroll to results section
+      this.autoScrollToSection(previewSection, 'Resultat klart!');
+      
       console.log('✅ Preview content updated in DOM');
       
       // DEBUG: Check what's actually in the DOM after update
@@ -2411,7 +2417,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const inputSection = modal.querySelector('.freetext-input-section');
     
     if (previewSection) previewSection.style.display = 'none';
-    if (inputSection) inputSection.style.display = 'block';
+    if (inputSection) {
+      inputSection.style.display = 'block';
+      
+      // Auto-scroll back to input section
+      this.autoScrollToSection(inputSection, 'Tillbaka till inmatning');
+    }
 
     // Reset button states
     const analyzeBtn = modal.querySelector('#analyze-btn');
@@ -2443,6 +2454,75 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     if (processingSection) processingSection.style.display = 'none';
 
     console.log('✅ Analysis reload prepared - user can modify settings and re-analyze');
+  }
+
+  /**
+   * Auto-scroll to a specific section within the modal
+   */
+  autoScrollToSection(targetElement, statusMessage = '') {
+    const modal = this.currentModal;
+    if (!modal || !targetElement) return;
+
+    console.log(`🔄 Auto-scrolling to section: ${statusMessage}`);
+
+    // Get the modal content container (scrollable area)
+    const modalContent = modal.querySelector('.popup-content');
+    if (!modalContent) {
+      console.warn('⚠️ Modal content container not found for auto-scroll');
+      return;
+    }
+
+    // Calculate target scroll position
+    const targetOffset = targetElement.offsetTop;
+    const modalContentTop = modalContent.scrollTop;
+    const modalHeight = modalContent.clientHeight;
+    
+    // Add some padding to center the section nicely
+    const padding = 20;
+    const targetScrollPosition = Math.max(0, targetOffset - padding);
+
+    // Smooth scroll animation
+    const startPosition = modalContent.scrollTop;
+    const distance = targetScrollPosition - startPosition;
+    const duration = 800; // 800ms for smooth scroll
+    let startTime = null;
+
+    const animateScroll = (currentTime) => {
+      if (startTime === null) startTime = currentTime;
+      const timeElapsed = currentTime - startTime;
+      const progress = Math.min(timeElapsed / duration, 1);
+      
+      // Easing function for smooth animation (ease-out)
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      
+      modalContent.scrollTop = startPosition + (distance * easeOut);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animateScroll);
+      } else {
+        console.log(`✅ Auto-scroll completed: ${statusMessage}`);
+      }
+    };
+
+    requestAnimationFrame(animateScroll);
+
+    // Optional: Add a subtle highlight effect to the target section
+    this.highlightSection(targetElement);
+  }
+
+  /**
+   * Add subtle highlight effect to a section
+   */
+  highlightSection(element) {
+    if (!element) return;
+
+    // Add highlight class
+    element.classList.add('section-highlight');
+    
+    // Remove highlight after animation
+    setTimeout(() => {
+      element.classList.remove('section-highlight');
+    }, 1500);
   }
 
   /**

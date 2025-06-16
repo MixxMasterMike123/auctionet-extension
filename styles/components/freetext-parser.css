@@ -1102,3 +1102,23 @@
   color: #6c5ce7;
   font-weight: 600;
 } 
+
+/* Section highlight animation for auto-scroll */
+.section-highlight {
+  animation: sectionHighlight 1.5s ease-out;
+}
+
+@keyframes sectionHighlight {
+  0% {
+    background-color: rgba(102, 126, 234, 0.1);
+    transform: scale(1);
+  }
+  50% {
+    background-color: rgba(102, 126, 234, 0.05);
+    transform: scale(1.01);
+  }
+  100% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+}
