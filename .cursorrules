@@ -823,6 +823,99 @@ If any of these happen, STOP and ask for guidance:
 - Always update .cursorrules after major architectural decisions
 - Document patterns so future work stays consistent
 
+### "Shadowing" UI/UX Strategy Pattern (DECEMBER 2024 - CRITICAL)
+```javascript
+// SHADOWING STRATEGY: "Invisible helper" approach for AI adoption
+// PROBLEM: Cataloger resistance to prominent AI branding and complex interfaces
+// SOLUTION: Subtle integration that feels like native Auctionet functionality
+
+// CORE PRINCIPLES:
+// ✅ Single unified interface (FreetextParser) instead of multiple AI buttons
+// ✅ Professional system button styling (btn btn-primary) matching Auctionet design
+// ✅ No prominent AI branding - "Snabbkatalogisering" instead of "AI Snabbkatalogisering"
+// ✅ Remove intimidating elements (quality scoring, multiple field buttons)
+// ✅ Seamless SPA detection for automatic activation
+
+// IMPLEMENTATION PATTERN:
+// 1. QUALITY INDICATOR REMOVAL: Complete elimination of scoring systems
+//    - Remove addQualityIndicator() method and all quality UI
+//    - Delete quality analysis calls from field improvement methods
+//    - Clean up 100+ lines of quality-related CSS and event listeners
+
+// 2. INDIVIDUAL FIELD BUTTONS REMOVAL: Eliminate visual clutter
+//    - Remove all field-specific AI buttons (AI-korrigera, AI-förbättra, etc.)
+//    - Delete improveField() and improveAllFields() methods
+//    - Simplify event handling and button state management
+
+// 3. FREETEXT PARSER REFINEMENT: Professional system integration
+//    - Change button text: Remove "AI" prefix from all user-facing text
+//    - Update styling: Use native Auctionet classes (btn btn-primary)
+//    - Add proper spacing: margin: 20px 0 for visual alignment
+
+// 4. SPA DETECTION SYSTEM: Automatic activation without user intervention
+//    - MutationObserver watching for AddItem form elements
+//    - Hash change detection for SPA navigation (#new_item)
+//    - Smart re-initialization with duplicate prevention
+//    - Proper cleanup and component lifecycle management
+
+// SPA Detection Implementation:
+class AddItemsIntegrationManager {
+  constructor() {
+    this.mutationObserver = null;
+    this.lastInitializedHash = null;
+    this.isInitialized = false;
+  }
+
+  setupSPADetection() {
+    // Hash change detection for SPA navigation
+    window.addEventListener('hashchange', () => {
+      if (window.location.hash.includes('new_item')) {
+        setTimeout(() => this.tryInitialize(), 500);
+      }
+    });
+
+    // MutationObserver for dynamic content loading
+    this.mutationObserver = new MutationObserver((mutations) => {
+      const hasAddItemElements = document.querySelector('#item_title_sv') || 
+                                document.querySelector('.item_form') || 
+                                document.querySelector('#new_item');
+      if (hasAddItemElements && !this.isInitialized) {
+        setTimeout(() => this.tryInitialize(), 1000);
+      }
+    });
+
+    this.mutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  tryInitialize() {
+    const currentHash = window.location.hash;
+    if (this.lastInitializedHash === currentHash && this.isInitialized) {
+      return; // Prevent duplicate initialization
+    }
+    
+    this.lastInitializedHash = currentHash;
+    this.init(); // Re-initialize components
+  }
+}
+
+// BUSINESS IMPACT:
+// ✅ Addresses cataloger resistance (Jan, Martin, Peter) through subtle approach
+// ✅ Tool feels like "just there to help" rather than prominent AI showcase
+// ✅ Eliminates intimidation factor while preserving all functionality
+// ✅ Seamless user experience without manual page refreshes
+// ✅ Professional appearance matching Swedish auction house standards
+
+// ADOPTION STRATEGY:
+// ✅ "Invisible helper" - users discover features gradually
+// ✅ No flashy AI branding that creates disclosure concerns
+// ✅ Single point of entry reduces cognitive load
+// ✅ Native styling creates trust through familiarity
+// ✅ Automatic activation removes friction
+```
+
 ### Tightened Title Structure Rules (DECEMBER 2024 - CRITICAL)
 ```javascript
 // CRITICAL FIX: Tightened title structure rules to prevent AI mistakes
