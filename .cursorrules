@@ -587,6 +587,16 @@ const iconHTML = `
 // ✅ IMPLEMENTATION: Modified progressToNextStep() to not auto-complete final step
 // ✅ RESULT: Eliminated confusing 5-10 second gap with no user feedback
 
+// RESEARCH SUGGESTIONS (DECEMBER 2024 - PROFESSIONAL GUIDANCE):
+// ✅ LOW CONFIDENCE VALUATIONS: Automatic research recommendations when confidence < 0.7
+//     - Message: "💡 Rekommendation: Gör manuell marknadsundersökning för mer exakt värdering"
+//     - Applied to both FreetextParser estimate field and AIImageAnalyzer Sure Score
+//     - Professional CSS styling with gradient background and clear typography
+// ✅ BUSINESS RATIONALE: Prevents over-reliance on AI for high-stakes pricing decisions
+//     - Guides catalogers to do additional research for uncertain valuations
+//     - Improves valuation accuracy through human-AI collaboration
+//     - Professional workflow integration for auction house standards
+
 // Business Value:
 // ✅ Rapid cataloging for high-volume, low-value items (<500 SEK)
 // ✅ AI-powered extraction from unstructured Swedish freetext
@@ -618,6 +628,7 @@ const iconHTML = `
 // ✅ NEW: Professional emoji-free UI with clean SVG icons (December 2024)
 // ✅ NEW: Description mode toggle with Standard/Extended modes (December 2024)
 // ✅ NEW: Progress animation timing matches actual AI processing duration (December 2024)
+// ✅ NEW: Research suggestions for low confidence valuations (December 2024)
 ```
 
 ### Combined Image+Text Analysis Pattern (PRODUCTION READY - DECEMBER 2024)
