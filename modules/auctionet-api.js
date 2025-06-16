@@ -1220,18 +1220,41 @@ export class AuctionetAPI {
         const titleLower = item.title.toLowerCase();
         const descLower = (item.description || '').toLowerCase();
         
-        // IMPROVED: For artist searches, require stricter matching to prevent irrelevant results
-        // Check if this appears to be an artist search (person names)
-        const hasPersonName = keyTerms.some(term => 
-          term.length > 3 && /^[a-zåäöü]+$/.test(term) && 
-          (keyTerms.includes(term + 's') || keyTerms.some(other => other !== term && other.length > 3))
-        );
+        // IMPROVED: Detect actual artist searches vs object/material searches
+        // Check if this appears to be an artist search (quoted artist names or clear person names)
+        const isQuotedArtistSearch = query.includes('"') && query.match(/"[^"]*"/);
+        const hasPersonName = !isQuotedArtistSearch && keyTerms.some(term => {
+          // More sophisticated person name detection
+          // Must be longer than 3 chars, alphabetic, and paired with another name term
+          if (term.length <= 3 || !/^[a-zåäöü]+$/.test(term)) return false;
+          
+          // Check if it's a common object/material term (not a person name)
+          const commonObjectTerms = ['byrå', 'teak', 'glas', 'keramik', 'silver', 'guld', 'koppar', 'mässing', 
+                                   'järn', 'stål', 'trä', 'ek', 'furu', 'björk', 'mahogny', 'valnöt',
+                                   'porslin', 'stengods', 'fajans', 'kristall', 'målning', 'tavla', 
+                                   'skulptur', 'lampa', 'vas', 'skål', 'tallrik', 'kopp', 'kanna'];
+          if (commonObjectTerms.includes(term)) return false;
+          
+          // Check if paired with another potential name term
+          return keyTerms.some(other => other !== term && other.length > 3 && /^[a-zåäöü]+$/.test(other) && !commonObjectTerms.includes(other));
+        });
         
-        if (hasPersonName) {
+        if (isQuotedArtistSearch || hasPersonName) {
           // For artist searches: require ALL person name terms to be in the title
-          const personNameTerms = keyTerms.filter(term => 
-            term.length > 3 && /^[a-zåäöü]+$/.test(term)
-          );
+          let personNameTerms;
+          if (isQuotedArtistSearch) {
+            // Extract quoted artist name
+            const quotedMatch = query.match(/"([^"]+)"/);
+            personNameTerms = quotedMatch ? quotedMatch[1].toLowerCase().split(' ') : [];
+          } else {
+            personNameTerms = keyTerms.filter(term => 
+              term.length > 3 && /^[a-zåäöü]+$/.test(term) && 
+              !['byrå', 'teak', 'glas', 'keramik', 'silver', 'guld', 'koppar', 'mässing', 
+                'järn', 'stål', 'trä', 'ek', 'furu', 'björk', 'mahogny', 'valnöt',
+                'porslin', 'stengods', 'fajans', 'kristall', 'målning', 'tavla', 
+                'skulptur', 'lampa', 'vas', 'skål', 'tallrik', 'kopp', 'kanna'].includes(term)
+            );
+          }
           
           const hasAllNameTermsInTitle = personNameTerms.every(term => titleLower.includes(term));
           
@@ -1257,15 +1280,27 @@ export class AuctionetAPI {
           
           return true;
         } else {
-          // For non-artist searches: use the existing logic (at least one term anywhere)
+          // For object/material searches: use flexible matching with case insensitivity
           const fullText = `${titleLower} ${descLower}`;
-          const hasKeyTerm = keyTerms.some(term => fullText.includes(term));
           
-          if (!hasKeyTerm) {
-            console.log(`🚫 Title mismatch: ${item.title.substring(0, 50)}... (missing: ${keyTerms.join(', ')})`);
+          // For furniture/object searches, be more flexible - require at least 50% of key terms
+          const matchingTerms = keyTerms.filter(term => {
+            // Handle period terms like "1960-tal" vs "1960 tal"
+            if (term.includes('-tal')) {
+              const periodVariants = [term, term.replace('-tal', ' tal'), term.replace('-tal', 'tal')];
+              return periodVariants.some(variant => fullText.includes(variant));
+            }
+            return fullText.includes(term);
+          });
+          
+          const matchRatio = matchingTerms.length / keyTerms.length;
+          const hasGoodMatch = matchRatio >= 0.5; // At least 50% of terms must match
+          
+          if (!hasGoodMatch) {
+            console.log(`🚫 Object search mismatch: ${item.title.substring(0, 50)}... (matched ${matchingTerms.length}/${keyTerms.length} terms: ${matchingTerms.join(', ')})`);
           }
           
-          return hasKeyTerm;
+          return hasGoodMatch;
         }
       });
       
