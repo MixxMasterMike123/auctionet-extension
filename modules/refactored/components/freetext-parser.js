@@ -1409,8 +1409,8 @@ Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
 - Undvik överdrivet konservativa uppskattningar`;
     }
     
-    // Final fallback - use EXACT edit page logic hardcoded
-    console.log('⚠️ Using fallback user prompt with EXACT edit page logic');
+    // Use AI Rules System v2.0 title structure rules for consistency
+    console.log('✅ Using AI Rules System v2.0 title structure rules for enhancement');
     
     const baseInfo = `
 FÖREMÅLSINFORMATION:
@@ -1421,20 +1421,28 @@ Kondition: ${itemData.condition}
 Konstnär/Formgivare: ${itemData.artist}
 Värdering: ${itemData.estimate} SEK
 
-KRITISKA ADD ITEM TITEL-FORMATERINGSREGLER:
-${itemData.artist ? 
-  '• KONSTNÄR I FÄLT: [Föremål], [Material], [Period]. - Första ordet stor bokstav, PUNKT i slutet' : 
-  '• INGEN KONSTNÄR I FÄLT: [OBJEKT], [modell], [material], [period]. - FÖRSTA ORDET VERSALER, KOMMA EFTER, PUNKT I SLUTET'}
+🚨 KRITISKA TITEL-STRUKTURREGLER (AI Rules System v2.0) - FÖLJ EXAKT:
 
-EXEMPEL KORREKT FORMATERING:
-• Med konstnär i fält: "Skulptur, brons, 1960-tal."
-• Utan konstnär i fält: "SKÅL, \"Sofiero\", klarglas, 1900-talets andra hälft."
+📝 ARTIST-FÄLT REGLER (ABSOLUT KRITISKA):
+• Artist-fält får ENDAST innehålla NAMNET - ALDRIG företag, år eller annat!
+• RÄTT: "Lisa Larson" 
+• FEL: "Lisa Larson, Gustavsberg" eller "Lisa Larson 1960-tal"
+• Om konstnär identifieras: PLACERA ENDAST NAMNET i artist-fält
 
-KRITISKA REGLER:
-• FÖRSTA ORDET: ${itemData.artist ? 'Proper case (Skulptur)' : 'VERSALER (SKÅL)'}
-• INTERPUNKTION: ${itemData.artist ? 'Punkt efter första ordet (.)' : 'Komma efter första ordet (,)'}
-• SLUTPUNKT: ALLTID avsluta med punkt (.)
-• MODELLNAMN: Citattecken runt modeller ("Sofiero", "Prince", "Egg")
+📝 TITEL-STRUKTURREGLER:
+• OM INGEN KONSTNÄR IDENTIFIERAD: "<OBJEKT>, <Modell>, <Märke>, <Material>, <Tidsperiod>"
+  - Exempel: "ARMBANDSUR, Submariner, Rolex, stål, 1970-tal"
+  - Exempel: "FIGURIN, Viktoria, Gustavsberg, stengods, 1960-tal"
+  - FÖRSTA ORDET ALLTID VERSALER
+
+• OM KONSTNÄR FINNS I ARTIST-FÄLT: "<Objekt>, <Modell>, <Märke>, <Material>, <Tidsperiod>"
+  - Exempel: "Figurin, Viktoria, Gustavsberg, stengods, 1960-tal" (Lisa Larson i artist-fält)
+  - Första ordet normal stor bokstav
+
+🚨 ABSOLUT FÖRBJUDET:
+• Konstnärnamn i titel när artist-fält är ifyllt
+• Företagsnamn i artist-fält (Gustavsberg, Rolex etc. hör till titel)
+• År eller tidsperiod i artist-fält
 
 KONSTNÄRSINFORMATION FÖR TIDSPERIOD:
 ${itemData.artist ? 
@@ -1450,7 +1458,7 @@ ANTI-HALLUCINATION INSTRUKTIONER:
 
     return baseInfo + `
 
-UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder för ADD ITEM sidan.
+UPPGIFT: Förbättra titel enligt AI Rules System v2.0 strukturregler.
 
 FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
@@ -1461,7 +1469,7 @@ VÄRDERINGSREGLER:
 • ${valuationRules.instruction}${valuationContext}
 
 Returnera EXAKT i detta format:
-TITEL: [förbättrad titel enligt ADD ITEM regler - VERSALER första ordet, KOMMA efter, PUNKT i slutet]
+TITEL: [förbättrad titel enligt AI Rules System v2.0 - ${itemData.artist ? 'första ordet normal stor bokstav' : 'FÖRSTA ORDET VERSALER'}]
 BESKRIVNING: [förbättrad beskrivning]
 KONDITION: [förbättrad konditionsrapport]
 SÖKORD: [kompletterande sökord separerade med mellanslag]`;
@@ -2980,9 +2988,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         keywords: fullData.keywords || ''
       };
       
-      // Use the blue "AI-förbättra titel" button logic (fieldType: 'title', NOT 'title-correct')
-      // This does proper title enhancement with ADD ITEM page formatting rules
-      const systemPrompt = getSystemPrompt('addItems');
+      // Use AI Rules System v2.0 for consistent title structure rules
+      // This ensures both initial parsing and enhancement follow the same rules
+      const systemPrompt = getSystemPrompt('freetextParser') || getSystemPrompt('addItems');
       const userPrompt = this.getAddItemPageUserPrompt(itemData, fieldType);
       
       console.log(`[RULES] Using model-specific valuation rules for ${fieldType} enhancement`);
