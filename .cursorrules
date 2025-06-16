@@ -1,6 +1,15 @@
 # Auctionet Extension - Architectural Rules
 # These rules MUST be followed at all times during development
 
+## 🤖 AI ASSISTANT INSTRUCTIONS - READ FIRST
+# CRITICAL: Always reference this entire file before making ANY code changes
+# 1. READ the architecture overview and current priorities
+# 2. CHECK the implementation checklist for your change type  
+# 3. FOLLOW the established patterns in MEMORY SNIPPETS
+# 4. UPDATE documentation when adding new patterns
+# 5. NEVER violate the CRITICAL VIOLATIONS section
+# 6. ALWAYS use the modular architecture (orchestrators + components + CSS modules)
+
 ## 🏗️ ARCHITECTURE OVERVIEW
 # Current System: Orchestrator-based architecture with modular components
 # - EditPageOrchestrator: Handles /admin/*/items/*/edit pages
