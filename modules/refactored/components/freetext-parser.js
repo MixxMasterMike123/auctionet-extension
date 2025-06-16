@@ -113,66 +113,64 @@ export class FreetextParser {
       return;
     }
 
-    // Find the form container (following existing patterns)
-    const formContainer = document.querySelector('.item_form, #new_item, .add-item-form, form, .form-container') || 
-                         document.querySelector('main') || 
-                         document.body;
+    // Find the best location - look for the quality indicator section in the right column
+    const qualityIndicator = document.querySelector('.quality-indicator');
+    let insertionPoint = null;
     
-    console.log('🔍 Form container search results:', {
-      '.item_form': !!document.querySelector('.item_form'),
-      '#new_item': !!document.querySelector('#new_item'),
-      '.add-item-form': !!document.querySelector('.add-item-form'),
-      'form': !!document.querySelector('form'),
-      '.form-container': !!document.querySelector('.form-container'),
-      'main': !!document.querySelector('main'),
-      'body': !!document.body,
-      'selected': formContainer?.tagName,
-      'selectedClass': formContainer?.className,
-      'selectedId': formContainer?.id
-    });
+    if (qualityIndicator) {
+      // Insert after the quality indicator for natural placement
+      insertionPoint = qualityIndicator.parentNode;
+      console.log('📍 Found quality indicator, will insert after it');
+    } else {
+      // Fallback: look for the right column (grid-col4)
+      const rightColumn = document.querySelector('.grid-col4');
+      if (rightColumn) {
+        insertionPoint = rightColumn;
+        console.log('📍 Found right column, will insert at top');
+      } else {
+        // Final fallback: insert near form top
+        const formContainer = document.querySelector('.item_form, #new_item');
+        if (formContainer) {
+          insertionPoint = formContainer;
+          console.log('📍 Using form container as fallback');
+        }
+      }
+    }
     
-    if (!formContainer) {
-      console.error('❌ Could not find form container for freetext button');
+    if (!insertionPoint) {
+      console.error('❌ Could not find suitable insertion point for freetext button');
       return;
     }
 
-    // Create the button following existing UI patterns
+    // Create a subtle button that matches existing AI assist buttons
     const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'freetext-parser-container';
+    buttonContainer.className = 'ai-button-wrapper';
     buttonContainer.innerHTML = `
-      <button type="button" class="btn btn--primary btn--freetext-parser" id="freetext-parser-btn">
-        <span class="btn__icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-6.5l-4.24 4.24M7.76 16.24l-4.24 4.24M20.5 20.5l-4.24-4.24M7.76 7.76L3.52 3.52" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-        </span>
-        <span class="btn__text">AI Snabbkatalogisering från fritext</span>
-        <span class="btn__subtitle">Skriv allt du vet - AI skapar perfekt katalogpost</span>
+      <button class="ai-assist-button ai-freetext-parser-btn" type="button" id="freetext-parser-btn">
+        AI Snabbkatalogisering
       </button>
     `;
 
-    // Insert before the form for maximum visibility, avoiding disrupting form structure
-    if (formContainer.id === 'new_item' || formContainer.className.includes('item_form')) {
-      // For the AddItem form, insert before the form
-      formContainer.parentNode.insertBefore(buttonContainer, formContainer);
-      console.log('📍 Button placed before AddItem form');
+    // Insert the button in the most appropriate location
+    if (qualityIndicator) {
+      // Insert after quality indicator
+      qualityIndicator.parentNode.insertBefore(buttonContainer, qualityIndicator.nextSibling);
+      console.log('📍 Button placed after quality indicator');
+    } else if (insertionPoint.classList.contains('grid-col4')) {
+      // Insert at top of right column
+      insertionPoint.insertBefore(buttonContainer, insertionPoint.firstChild);
+      console.log('📍 Button placed at top of right column');
     } else {
-      // For other containers, insert at the top
-      const firstChild = formContainer.firstChild;
-      if (firstChild) {
-        formContainer.insertBefore(buttonContainer, firstChild);
-      } else {
-        formContainer.appendChild(buttonContainer);
-      }
-      console.log('📍 Button placed inside container');
+      // Insert at top of form
+      insertionPoint.insertBefore(buttonContainer, insertionPoint.firstChild);
+      console.log('📍 Button placed at top of form');
     }
 
     // Attach event listener with error handling
     const button = buttonContainer.querySelector('#freetext-parser-btn');
     if (button) {
       button.addEventListener('click', () => this.openFreetextModal());
-      console.log('✅ Freetext parser button added to AddItem page');
+      console.log('✅ Subtle freetext parser button added to page');
     } else {
       console.error('❌ Failed to find freetext parser button after creation');
     }
@@ -230,14 +228,8 @@ export class FreetextParser {
     modal.innerHTML = `
       <div class="freetext-parser-modal">
         <div class="popup-header">
-          <h3>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 8px; vertical-align: text-bottom;">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-6.5l-4.24 4.24M7.76 16.24l-4.24 4.24M20.5 20.5l-4.24-4.24M7.76 7.76L3.52 3.52" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-            AI Snabbkatalogisering från fritext
-          </h3>
-          <p>Skriv all information du har om objektet - AI analyserar och skapar perfekt katalogpost</p>
+          <h3>Snabbkatalogisering</h3>
+          <p>Skriv information om objektet eller ladda upp bilder för automatisk katalogisering</p>
           <button class="popup-close" type="button">✕</button>
         </div>
         
@@ -320,7 +312,7 @@ export class FreetextParser {
                   <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
               </span>
-                <span class="mode-text">Fyll i bilder och/eller text för AI-analys</span>
+                <span class="mode-text">Fyll i bilder och/eller text för analys</span>
               </div>
             </div>
           </div>
@@ -328,13 +320,7 @@ export class FreetextParser {
           <div class="ai-processing-section" style="display: none;">
             <div class="processing-spinner"></div>
             <div class="processing-status">
-              <h4>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
-                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
-              AI analyserar...
-            </h4>
+              <h4>Analyserar...</h4>
               <p class="processing-step">Förbereder analys...</p>
               <div class="processing-progress">
                 <div class="progress-bar">
@@ -345,12 +331,7 @@ export class FreetextParser {
           </div>
           
           <div class="parsed-preview-section" style="display: none;">
-            <h4>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
-                <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              AI-genererad katalogpost
-            </h4>
+            <h4>Katalogpost</h4>
             <div class="preview-content">
               <!-- Parsed data will be inserted here -->
             </div>
@@ -362,17 +343,10 @@ export class FreetextParser {
             Avbryt
           </button>
           <button class="btn btn--primary" id="analyze-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-            Analysera med AI
+            Analysera
           </button>
           <button class="btn btn--success" id="apply-btn" style="display: none;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
-              <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Använd denna katalogpost
+            Använd resultat
           </button>
         </div>
       </div>
@@ -477,50 +451,22 @@ export class FreetextParser {
     // Tab click handlers
     textTab.addEventListener('click', () => {
       this.switchToTab('text', modal);
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera fritext med AI
-      `;
+      analyzeBtn.innerHTML = 'Analysera fritext';
     });
 
     imageTab.addEventListener('click', () => {
       this.switchToTab('image', modal);
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera bild med AI
-      `;
+      analyzeBtn.innerHTML = 'Analysera bild';
     });
 
     multipleImagesTab.addEventListener('click', () => {
       this.switchToTab('multiple-images', modal);
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="14" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="2" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="14" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera flera bilder med AI
-      `;
+      analyzeBtn.innerHTML = 'Analysera bilder';
     });
 
     combinedTab.addEventListener('click', () => {
       this.switchToTab('combined', modal);
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <path d="M4.5 16.5c-1.5 1.5-1.5 4.5 0 6s4.5 1.5 6 0l1-1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera bild + text med AI
-      `;
+      analyzeBtn.innerHTML = 'Analysera bild + text';
     });
 
     console.log('✅ Tab switching initialized');
@@ -722,19 +668,19 @@ export class FreetextParser {
       // Show dynamic processing state based on analysis type
       let processingTitle, processingDescription;
       if (hasImages && hasText) {
-        processingTitle = 'AI analyserar bilder + text...';
+        processingTitle = 'Analyserar bilder och text...';
         processingDescription = 'Kombinerar visuell och textbaserad analys för bästa resultat';
       } else if (hasImages) {
         const imageCount = this.selectedImages?.size || 0;
         if (imageCount > 1) {
-          processingTitle = 'AI analyserar flera bilder...';
+          processingTitle = 'Analyserar flera bilder...';
           processingDescription = `Analyserar ${imageCount} bilder för komplett objektbedömning`;
         } else {
-          processingTitle = 'AI analyserar bild...';
+          processingTitle = 'Analyserar bild...';
           processingDescription = 'Extraherar objektinformation från bildanalys';
         }
       } else {
-        processingTitle = 'AI analyserar fritext...';
+        processingTitle = 'Analyserar text...';
         processingDescription = 'Extraherar strukturerad data från fritext';
       }
       
@@ -3077,9 +3023,11 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   destroy() {
     this.closeModal();
     
-    // Remove button
-    const button = document.querySelector('.freetext-parser-container');
-    if (button) button.remove();
+    // Remove button (updated to look for new subtle button)
+    const button = document.querySelector('#freetext-parser-btn');
+    if (button && button.parentNode) {
+      button.parentNode.remove();
+    }
     
     // Remove styles
     const styles = document.querySelector('#freetext-parser-styles');

@@ -73,6 +73,9 @@ class AuctionetCatalogingAssistant {
     this.currentPage = null;
     this.tooltipManager = null;
     this.isProgrammaticUpdate = false; // Track when we're updating fields programmatically
+    this.mutationObserver = null;
+    this.lastInitializedHash = null;
+    this.isInitialized = false;
     
     // Initialize asynchronously to prevent blocking
     this.init().catch(error => {
@@ -106,15 +109,38 @@ class AuctionetCatalogingAssistant {
     // Additional wait to ensure dynamic content is loaded
     await new Promise(resolve => setTimeout(resolve, 1000));
 
+    // Set up SPA detection for dynamic content changes
+    this.setupSPADetection();
+
+    // Try to initialize on current page
+    await this.tryInitialize();
+  }
+
+  async tryInitialize() {
     // Check if we're on the right page and determine page type
     const pageInfo = this.detectPageType();
     
     if (!pageInfo.isSupported) {
+      console.log('🔍 Not on supported page, waiting for SPA navigation...');
       return;
     }
 
+    // Prevent duplicate initialization
+    const currentHash = window.location.hash;
+    if (this.isInitialized && this.lastInitializedHash === currentHash) {
+      console.log('✅ Already initialized for this hash:', currentHash);
+      return;
+    }
+
+    // Clean up previous initialization if switching page types
+    if (this.isInitialized && this.currentPage !== pageInfo.type) {
+      console.log('🔄 Page type changed, cleaning up previous initialization...');
+      this.cleanup();
+    }
+
     this.currentPage = pageInfo.type;
-    console.log('✅ Auctionet AI Assistant: On supported page, type:', this.currentPage);
+    this.lastInitializedHash = currentHash;
+    console.log('✅ Auctionet AI Assistant: On supported page, type:', this.currentPage, 'hash:', currentHash);
     
     await this.loadApiKey();
     
@@ -124,6 +150,85 @@ class AuctionetCatalogingAssistant {
     } else if (this.currentPage === 'add') {
       await this.initializeAddItemsTooltips();
     }
+
+    this.isInitialized = true;
+    console.log('✅ Initialization complete for', this.currentPage, 'page');
+  }
+
+  setupSPADetection() {
+    console.log('🔍 Setting up SPA detection for dynamic content...');
+
+    // Watch for hash changes (SPA navigation)
+    window.addEventListener('hashchange', () => {
+      console.log('🔄 Hash changed to:', window.location.hash);
+      setTimeout(() => this.tryInitialize(), 500); // Small delay for content to load
+    });
+
+    // Watch for DOM changes that might indicate new content
+    this.mutationObserver = new MutationObserver((mutations) => {
+      let shouldCheck = false;
+      
+      mutations.forEach((mutation) => {
+        // Check if new nodes were added that might be the AddItem form
+        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+          for (let node of mutation.addedNodes) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              // Look for AddItem form elements
+              if (node.querySelector && (
+                node.querySelector('#item_title_sv') ||
+                node.querySelector('.item_form') ||
+                node.querySelector('#new_item')
+              )) {
+                console.log('🎯 Detected AddItem form in DOM changes');
+                shouldCheck = true;
+                break;
+              }
+            }
+          }
+        }
+      });
+
+      if (shouldCheck) {
+        // Delay to ensure content is fully rendered
+        setTimeout(() => this.tryInitialize(), 1000);
+      }
+    });
+
+    // Start observing
+    this.mutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    console.log('✅ SPA detection set up successfully');
+  }
+
+  cleanup() {
+    console.log('🧹 Cleaning up previous initialization...');
+    
+    // Clean up AddItems components
+    if (this.integrationManager) {
+      this.integrationManager.destroy();
+      this.integrationManager = null;
+    }
+    
+    if (this.tooltipSystemManager) {
+      this.tooltipSystemManager.destroy();
+      this.tooltipSystemManager = null;
+    }
+    
+    if (this.fieldMonitorManager) {
+      this.fieldMonitorManager.destroy();
+      this.fieldMonitorManager = null;
+    }
+    
+    if (this.apiBridge) {
+      this.apiBridge.destroy();
+      this.apiBridge = null;
+    }
+
+    this.isInitialized = false;
+    console.log('✅ Cleanup complete');
   }
 
   detectPageType() {
