@@ -1222,7 +1222,15 @@ export class AuctionetAPI {
         
         // IMPROVED: Detect actual artist searches vs object/material searches
         // Check if this appears to be an artist search (quoted artist names or clear person names)
-        const isQuotedArtistSearch = query.includes('"') && query.match(/"[^"]*"/);
+        const isQuotedArtistSearch = query.includes('"') && query.match(/"[^"]*"/) && 
+          // But exclude object searches that happen to be quoted
+          !keyTerms.some(term => ['byrå', 'teak', 'glas', 'keramik', 'silver', 'guld', 'koppar', 'mässing', 
+                                 'järn', 'stål', 'trä', 'ek', 'furu', 'björk', 'mahogny', 'valnöt',
+                                 'porslin', 'stengods', 'fajans', 'kristall', 'målning', 'tavla', 
+                                 'skulptur', 'lampa', 'vas', 'skål', 'tallrik', 'kopp', 'kanna'].includes(term));
+        
+        console.log(`🔍 Search type detection for "${query}": isQuoted=${query.includes('"')}, hasObjectTerms=${keyTerms.some(term => ['byrå', 'teak'].includes(term))}, isQuotedArtistSearch=${isQuotedArtistSearch}`);
+        
         const hasPersonName = !isQuotedArtistSearch && keyTerms.some(term => {
           // More sophisticated person name detection
           // Must be longer than 3 chars, alphabetic, and paired with another name term
