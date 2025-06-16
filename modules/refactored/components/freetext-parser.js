@@ -345,6 +345,13 @@ export class FreetextParser {
           <button class="btn btn--primary" id="analyze-btn">
             Analysera
           </button>
+          <button class="btn btn--primary" id="reload-analysis-btn" style="display: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
+              <path d="M1 4v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Analysera igen
+          </button>
           <button class="btn btn--success" id="apply-btn" style="display: none;">
             Använd resultat
           </button>
@@ -402,6 +409,12 @@ export class FreetextParser {
       applyBtn.addEventListener('click', () => this.applyParsedDataToForm());
     }
 
+    // Reload analysis button
+    const reloadBtn = modal.querySelector('#reload-analysis-btn');
+    if (reloadBtn) {
+      reloadBtn.addEventListener('click', () => this.reloadAnalysis());
+    }
+
     // Initialize image analyzer
     this.initializeImageAnalyzers(modal);
     
@@ -422,6 +435,12 @@ export class FreetextParser {
           modeText.innerHTML = '<strong>Utökad:</strong> Detaljerad beskrivning med konstnärsbiografi och designhistoria';
         } else {
           modeText.innerHTML = '<strong>Standard:</strong> Kort, faktabaserad beskrivning med mått och tekniska detaljer';
+        }
+        
+        // Show hint about reloading if analysis has been completed
+        const reloadBtn = modal.querySelector('#reload-analysis-btn');
+        if (reloadBtn && reloadBtn.style.display !== 'none') {
+          this.showToggleChangeHint();
         }
       });
     }
@@ -2000,8 +2019,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const isLastStep = this.currentStepIndex === this.progressSteps.length - 1;
     
     if (isLastStep) {
-      // For the last step, just mark as active and wait for manual completion
-      console.log('🔄 Last step reached - waiting for AI completion...');
+      // For the last step, show active processing state with visual feedback
+      console.log('🔄 Last step reached - showing AI processing state...');
+      this.showFinalStepProcessing();
       return;
     }
 
@@ -2033,6 +2053,47 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
+   * Show final step processing with visual feedback
+   */
+  showFinalStepProcessing() {
+    const modal = this.currentModal;
+    if (!modal) return;
+
+    const finalStepElement = modal.querySelector(`[data-step="${this.currentStepIndex}"]`);
+    if (!finalStepElement) return;
+
+    // Add pulsing animation to show active processing
+    finalStepElement.classList.add('step-processing');
+    
+    // Update step text to show it's actively processing
+    const stepText = finalStepElement.querySelector('.step-text');
+    if (stepText) {
+      const originalText = stepText.textContent;
+      stepText.textContent = originalText + ' (AI bearbetar...)';
+    }
+
+    // Add animated dots to show ongoing processing
+    this.startProcessingDots(finalStepElement);
+  }
+
+  /**
+   * Start animated dots for processing indication
+   */
+  startProcessingDots(stepElement) {
+    const stepText = stepElement.querySelector('.step-text');
+    if (!stepText) return;
+
+    let dotCount = 0;
+    const baseText = stepText.textContent.replace(/ \(AI bearbetar.*\)/, '');
+    
+    this.processingDotsInterval = setInterval(() => {
+      dotCount = (dotCount + 1) % 4;
+      const dots = '.'.repeat(dotCount);
+      stepText.textContent = `${baseText} (AI bearbetar${dots})`;
+    }, 500);
+  }
+
+  /**
    * Complete the progress animation
    */
   completeProgressAnimation() {
@@ -2043,6 +2104,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     if (this.progressIntervals) {
       this.progressIntervals.forEach(interval => clearTimeout(interval));
       this.progressIntervals = [];
+    }
+
+    // Clear processing dots animation
+    if (this.processingDotsInterval) {
+      clearInterval(this.processingDotsInterval);
+      this.processingDotsInterval = null;
     }
     
     // Mark all steps as complete
@@ -2133,10 +2200,15 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
     // Update buttons
     const analyzeBtn = modal.querySelector('#analyze-btn');
+    const reloadBtn = modal.querySelector('#reload-analysis-btn');
     const applyBtn = modal.querySelector('#apply-btn');
     
     if (analyzeBtn) {
       analyzeBtn.style.display = 'none';
+    }
+    
+    if (reloadBtn) {
+      reloadBtn.style.display = 'inline-block';
     }
     
     if (applyBtn) {
@@ -2320,6 +2392,109 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
+  }
+
+  /**
+   * Reload analysis with current settings
+   */
+  async reloadAnalysis() {
+    console.log('🔄 Reloading analysis with current settings...');
+    
+    const modal = this.currentModal;
+    if (!modal) {
+      console.error('❌ No modal found for reload');
+      return;
+    }
+
+    // Hide preview section and show input section again
+    const previewSection = modal.querySelector('.parsed-preview-section');
+    const inputSection = modal.querySelector('.freetext-input-section');
+    
+    if (previewSection) previewSection.style.display = 'none';
+    if (inputSection) inputSection.style.display = 'block';
+
+    // Reset button states
+    const analyzeBtn = modal.querySelector('#analyze-btn');
+    const reloadBtn = modal.querySelector('#reload-analysis-btn');
+    const applyBtn = modal.querySelector('#apply-btn');
+    
+    if (analyzeBtn) {
+      analyzeBtn.style.display = 'inline-block';
+      analyzeBtn.disabled = false;
+      analyzeBtn.textContent = 'Analysera';
+    }
+    
+    if (reloadBtn) reloadBtn.style.display = 'none';
+    if (applyBtn) applyBtn.style.display = 'none';
+
+    // Clear any previous processing state
+    this.isProcessing = false;
+    if (this.progressIntervals) {
+      this.progressIntervals.forEach(interval => clearTimeout(interval));
+      this.progressIntervals = [];
+    }
+    if (this.processingDotsInterval) {
+      clearInterval(this.processingDotsInterval);
+      this.processingDotsInterval = null;
+    }
+
+    // Clear processing section
+    const processingSection = modal.querySelector('.ai-processing-section');
+    if (processingSection) processingSection.style.display = 'none';
+
+    console.log('✅ Analysis reload prepared - user can modify settings and re-analyze');
+  }
+
+  /**
+   * Show hint when toggle is changed after analysis
+   */
+  showToggleChangeHint() {
+    const modal = this.currentModal;
+    if (!modal) return;
+
+    // Create or update hint message
+    let hintElement = modal.querySelector('.toggle-change-hint');
+    if (!hintElement) {
+      hintElement = document.createElement('div');
+      hintElement.className = 'toggle-change-hint';
+      hintElement.style.cssText = `
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-left: 4px solid #f39c12;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin: 16px 0;
+        font-size: 14px;
+        color: #856404;
+        animation: fadeIn 0.3s ease-out;
+      `;
+      
+      const reloadBtn = modal.querySelector('#reload-analysis-btn');
+      if (reloadBtn && reloadBtn.parentNode) {
+        reloadBtn.parentNode.insertBefore(hintElement, reloadBtn);
+      }
+    }
+
+    hintElement.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 8px; vertical-align: text-bottom;">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M12 16v-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M12 8h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <strong>Beskrivningsläge ändrat!</strong> Klicka på "Analysera igen" för att uppdatera resultatet med nya inställningar.
+    `;
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      if (hintElement && hintElement.parentNode) {
+        hintElement.style.animation = 'fadeOut 0.3s ease-out';
+        setTimeout(() => {
+          if (hintElement.parentNode) {
+            hintElement.parentNode.removeChild(hintElement);
+          }
+        }, 300);
+      }
+    }, 5000);
   }
 
   /**

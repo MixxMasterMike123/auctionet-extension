@@ -455,6 +455,11 @@
   to { opacity: 1; }
 }
 
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 @keyframes slideIn {
   from { 
     opacity: 0;
@@ -770,6 +775,16 @@
   border-color: #68d391;
 }
 
+.progress-step.step-processing {
+  background: #fffbeb;
+  border-color: #f6ad55;
+  animation: processingPulse 2s ease-in-out infinite;
+}
+
+.progress-step.step-processing .step-icon {
+  animation: processingRotate 2s linear infinite;
+}
+
 .step-icon {
   font-size: 24px;
   margin-right: 16px;
@@ -937,6 +952,22 @@
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
   100% { transform: scale(1); }
+}
+
+@keyframes processingPulse {
+  0%, 100% { 
+    background: #fffbeb;
+    border-color: #f6ad55;
+  }
+  50% { 
+    background: #fef5e7;
+    border-color: #ed8936;
+  }
+}
+
+@keyframes processingRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Removed flashy animations - keeping it professional */
