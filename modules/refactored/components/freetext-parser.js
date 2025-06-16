@@ -2184,8 +2184,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       previewContent.innerHTML = htmlContent;
       previewSection.style.display = 'block';
       
-      // Auto-scroll to results section
-      this.autoScrollToSection(previewSection, 'Resultat klart!');
+      // Auto-scroll to Sure Score section (or beginning of results if no Sure Score)
+      setTimeout(() => {
+        const sureScoreSection = modal.querySelector('.freetext-sure-score');
+        const targetElement = sureScoreSection || previewSection;
+        this.autoScrollToSection(targetElement, 'Resultat klart!');
+      }, 100); // Small delay to ensure DOM is updated
       
       console.log('✅ Preview content updated in DOM');
       
