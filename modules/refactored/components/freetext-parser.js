@@ -724,7 +724,34 @@ export class FreetextParser {
 
     } catch (error) {
       console.error('❌ Analysis failed:', error);
-      this.showError(`AI-analys misslyckades: ${error.message}`);
+      
+      // Special handling for vision timeout errors
+      if (error.message.includes('Vision analysis timed out') || 
+          error.message.includes('timed out after 60 seconds')) {
+        this.showError(`🕐 Bildanalys tog för lång tid (60s timeout)
+        
+Detta beror troligen på hög belastning på Anthropics servrar just nu.
+
+💡 Förslag:
+• Vänta några minuter och försök igen
+• Prova med färre/mindre bilder
+• Använd endast text-analys tillfälligt
+
+Teknisk info: ${error.message}`);
+      } else if (error.message.includes('Request timed out')) {
+        this.showError(`⏰ AI-analys tog för lång tid
+        
+Detta kan bero på:
+• Hög belastning på AI-servrar
+• Stora bilder som tar tid att bearbeta
+• Nätverksproblem
+
+💡 Försök igen om några minuter.
+
+Teknisk info: ${error.message}`);
+      } else {
+        this.showError(`AI-analys misslyckades: ${error.message}`);
+      }
     } finally {
       this.isProcessing = false;
     }
@@ -1765,18 +1792,21 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const currentModel = this.apiManager.getCurrentModel().id;
     const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
     const isAdvancedModel = valuationRules.enableDeepReasoning;
+    
+    // Check if this is a vision analysis (has images)
+    const hasImages = this.selectedImages && this.selectedImages.size > 0;
 
     if (isAdvancedModel) {
       return [
                   { 
             icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.5"/></svg>', 
-            text: 'Identifierar objekt och märke...', 
-            duration: 2000 
+            text: hasImages ? 'Analyserar bilder med Claude Vision...' : 'Identifierar objekt och märke...', 
+            duration: hasImages ? 4000 : 2000 
           },
           { 
             icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-5 0V4.5A2.5 2.5 0 0 1 9.5 2z" stroke="currentColor" stroke-width="1.5"/><path d="M14.5 8.5a2.5 2.5 0 0 1 5 0v11a2.5 2.5 0 0 1-5 0v-11z" stroke="currentColor" stroke-width="1.5"/></svg>', 
-            text: 'Analyserar stilperiod och äkthet...', 
-            duration: 2500 
+            text: hasImages ? 'Identifierar märken och signaturer...' : 'Analyserar stilperiod och äkthet...', 
+            duration: hasImages ? 3000 : 2500 
           },
         { 
           icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5"/></svg>', 
@@ -1832,6 +1862,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const currentModel = this.apiManager.getCurrentModel().id;
     const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel);
     const isAdvancedModel = valuationRules.enableDeepReasoning;
+    const hasImages = this.selectedImages && this.selectedImages.size > 0;
 
     return `
       <div class="advanced-processing-container">
@@ -1849,7 +1880,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
             ${isAdvancedModel ? 'Claude 4 Expertanalys' : 'AI-analys pågår'}
           </h3>
           <p class="processing-subtitle">
-            ${isAdvancedModel ? 'Djupgående marknadsresearch med 4-stegs analys' : 'Extraherar strukturerad data från fritext'}
+            ${hasImages ? 
+              (isAdvancedModel ? 'Claude Vision bildanalys + djupgående marknadsresearch (kan ta upp till 60s)' : 'Claude Vision bildanalys + dataextraktion (kan ta upp till 60s)') :
+              (isAdvancedModel ? 'Djupgående marknadsresearch med 4-stegs analys' : 'Extraherar strukturerad data från fritext')
+            }
           </p>
         </div>
 

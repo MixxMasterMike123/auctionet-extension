@@ -32,9 +32,13 @@ async function handleAnthropicRequest(request, sendResponse) {
 
     console.log('Making request to Anthropic API...');
     
-    // Add timeout to prevent hanging
+    // Add timeout to prevent hanging - longer for vision requests
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const isVisionRequest = request.body?.model?.includes('claude') && 
+                           request.body?.messages?.some(msg => 
+                             msg.content?.some(content => content.type === 'image'));
+    const timeoutDuration = isVisionRequest ? 60000 : 30000; // 60s for vision, 30s for text
+    const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
     
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -67,8 +71,11 @@ async function handleAnthropicRequest(request, sendResponse) {
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        console.error('Request timed out');
-        sendResponse({ success: false, error: 'Request timed out after 30 seconds' });
+        const timeoutMessage = isVisionRequest ? 
+          'Vision analysis timed out after 60 seconds - Anthropic servers may be experiencing high load' :
+          'Request timed out after 30 seconds';
+        console.error('Request timed out:', timeoutMessage);
+        sendResponse({ success: false, error: timeoutMessage });
       } else {
         throw fetchError;
       }
