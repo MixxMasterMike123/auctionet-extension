@@ -597,6 +597,20 @@ const iconHTML = `
 //     - Improves valuation accuracy through human-AI collaboration
 //     - Professional workflow integration for auction house standards
 
+// DESCRIPTION FORMATTING GUIDELINES (DECEMBER 2024 - READABILITY ENHANCEMENT):
+// ✅ PROBLEM SOLVED: Wall-of-text descriptions that are hard to read for humans
+// ✅ SOLUTION: Comprehensive formatting rules in AI Rules System v2.0
+//     - Paragraph breaks for logical grouping (max 3-4 sentences per paragraph)
+//     - HTML formatting support: <b>fetstil</b> for important markings/signatures
+//     - <i>kursiv</i> for model names, serial numbers, or quotes
+//     - Auctionet HTML support: [123] (internal links), [text](https://url) (external links)
+//     - Structured approach: 1) Basic description, 2) Technical details, 3) Historical context, 4) Provenance
+// ✅ IMPLEMENTATION: Updated core and freetextParser system prompts with formatting guidelines
+// ✅ BUSINESS VALUE: Improved readability for auction catalogers and bidders
+//     - Professional presentation matching auction house standards
+//     - Better information hierarchy and visual organization
+//     - Proper emphasis on important details (signatures, markings, specifications)
+
 // Business Value:
 // ✅ Rapid cataloging for high-volume, low-value items (<500 SEK)
 // ✅ AI-powered extraction from unstructured Swedish freetext
@@ -629,6 +643,7 @@ const iconHTML = `
 // ✅ NEW: Description mode toggle with Standard/Extended modes (December 2024)
 // ✅ NEW: Progress animation timing matches actual AI processing duration (December 2024)
 // ✅ NEW: Research suggestions for low confidence valuations (December 2024)
+// ✅ NEW: Description formatting guidelines for better readability (December 2024)
 ```
 
 ### Combined Image+Text Analysis Pattern (PRODUCTION READY - DECEMBER 2024)
