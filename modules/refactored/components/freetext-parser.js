@@ -959,8 +959,8 @@ export class FreetextParser {
         }
       `;
 
-      // Call AI to enhance with text context
-      const systemPrompt = getSystemPrompt('textEnhancement') || this.getEditPageSystemPrompt();
+      // Call AI to enhance with text context - use freetextParser prompt for title structure rules
+      const systemPrompt = getSystemPrompt('freetextParser') || this.getEditPageSystemPrompt();
       
       const response = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -1128,13 +1128,28 @@ Utför djupgående analys i flera steg:
 FRITEXT:
 "${freetext}"${reasoningInstructions}
 
-TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
-• TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
-• Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
-• Format: [Föremål], [Material], [Märke], [Period]
-• Exempel: "Figurin, stengods, Gustavsberg"
-• Bevara citattecken runt modellnamn: "Viktoria", "Prince"
-• Max 60 tecken
+🚨 KRITISKA TITEL-STRUKTURREGLER - FÖLJ EXAKT:
+
+📝 ARTIST-FÄLT REGLER (ABSOLUT KRITISKA):
+• Artist-fält får ENDAST innehålla NAMNET - ALDRIG företag, år eller annat!
+• RÄTT: "Lisa Larson" 
+• FEL: "Lisa Larson, Gustavsberg" eller "Lisa Larson 1960-tal"
+• Om konstnär identifieras: PLACERA ENDAST NAMNET i artist-fält
+
+📝 TITEL-STRUKTURREGLER:
+• OM INGEN KONSTNÄR IDENTIFIERAD: "<OBJEKT>, <Modell>, <Märke>, <Material>, <Tidsperiod>"
+  - Exempel: "ARMBANDSUR, Submariner, Rolex, stål, 1970-tal"
+  - Exempel: "FIGURIN, Viktoria, Gustavsberg, stengods, 1960-tal"
+  - FÖRSTA ORDET ALLTID VERSALER
+
+• OM KONSTNÄR FINNS I ARTIST-FÄLT: "<Objekt>, <Modell>, <Märke>, <Material>, <Tidsperiod>"
+  - Exempel: "Figurin, Viktoria, Gustavsberg, stengods, 1960-tal" (Lisa Larson i artist-fält)
+  - Första ordet normal stor bokstav
+
+🚨 ABSOLUT FÖRBJUDET:
+• Konstnärnamn i titel när artist-fält är ifyllt
+• Företagsnamn i artist-fält (Gustavsberg, Rolex etc. hör till titel)
+• År eller tidsperiod i artist-fält
 
 Returnera data i exakt detta JSON-format:
 {

@@ -1293,12 +1293,20 @@ export class AuctionetAPI {
           
           // For furniture/object searches, be more flexible - require at least 50% of key terms
           const matchingTerms = keyTerms.filter(term => {
+            const termLower = term.toLowerCase();
             // Handle period terms like "1960-tal" vs "1960 tal"
-            if (term.includes('-tal')) {
-              const periodVariants = [term, term.replace('-tal', ' tal'), term.replace('-tal', 'tal')];
+            if (termLower.includes('-tal') || termLower.includes(' tal')) {
+              const periodVariants = [
+                termLower, 
+                termLower.replace('-tal', ' tal'), 
+                termLower.replace(' tal', '-tal'),
+                termLower.replace('-tal', 'tal'),
+                termLower.replace(' tal', 'tal')
+              ];
               return periodVariants.some(variant => fullText.includes(variant));
             }
-            return fullText.includes(term);
+            // Case-insensitive matching for all terms
+            return fullText.includes(termLower);
           });
           
           const matchRatio = matchingTerms.length / keyTerms.length;
