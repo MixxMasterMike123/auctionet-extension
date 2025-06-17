@@ -36,7 +36,7 @@ async function handleAnthropicRequest(request, sendResponse) {
     const controller = new AbortController();
     const isVisionRequest = request.body?.model?.includes('claude') && 
                            request.body?.messages?.some(msg => 
-                             msg.content?.some(content => content.type === 'image'));
+                             Array.isArray(msg.content) && msg.content.some(content => content.type === 'image'));
     const timeoutDuration = isVisionRequest ? 60000 : 30000; // 60s for vision, 30s for text
     const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
     

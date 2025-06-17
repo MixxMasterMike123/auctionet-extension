@@ -277,7 +277,27 @@
       "name": "Fritext Parser för Snabbkatalogisering",
       "auctionetCompliant": true,
       "titleStructureSource": "Official Auctionet Guidelines",
-      "prompt": "FÖLJ AUCTIONETS OFFICIELLA TITEL-STRUKTURREGLER EXAKT - se auctionetTitleRules för detaljer."
+      "prompt": "FÖLJ AUCTIONETS OFFICIELLA TITEL-STRUKTURREGLER EXAKT - se auctionetTitleRules för detaljer.",
+      "valuationRules": {
+        "claude-sonnet-4-20250514": {
+          "approach": "market-based",
+          "instruction": "Ge realistiska värderingar baserat på marknadsdata",
+          "confidence": "medium-high",
+          "reasoning": "Claude 4 Sonnet has superior reasoning capabilities for market analysis",
+          "enableDeepReasoning": true,
+          "maxTokens": 4000,
+          "temperature": 0.1
+        },
+        "claude-3-5-sonnet-20241022": {
+          "approach": "conservative",
+          "instruction": "Var konservativ med värderingar",
+          "confidence": "medium",
+          "reasoning": "Claude 3.5 Sonnet uses proven conservative approach",
+          "enableDeepReasoning": false,
+          "maxTokens": 2000,
+          "temperature": 0.3
+        }
+      }
     }
   },
   
@@ -461,6 +481,135 @@
         }
       },
       "extractedLines": 300
+    }
+  },
+  
+  "auctionetTitleRules": {
+    "furniture": {
+      "structure": "OBJEKT, stil, period",
+      "rules": [
+        "Never include wood type in title",
+        "Style and period required",
+        "First word UPPERCASE when no artist field",
+        "First word lowercase when artist field filled"
+      ],
+      "examples": [
+        "STOL, Gustaviansk stil, 1700-tal",
+        "BORD, empire, 1800-tal",
+        "stol, Gustaviansk stil, 1700-tal (when artist field filled)"
+      ],
+      "forbiddenInTitle": ["träslag", "ek", "furu", "björk", "mahogny"]
+    },
+    "smallItems": {
+      "structure": "OBJEKT, material, stil, tillverkare, period",
+      "rules": [
+        "No compound words like GLASVAS",
+        "Separate object and material",
+        "Include manufacturer when known",
+        "First word UPPERCASE when no artist field"
+      ],
+      "examples": [
+        "VAS, glas, jugend, Orrefors, 1900-tal",
+        "SKÅL, silver, nyrokoko, GAB, 1800-tal",
+        "vas, glas, jugend, Orrefors, 1900-tal (when artist field filled)"
+      ],
+      "forbiddenCompounds": ["GLASVAS", "SILVERFÖREMÅL", "KERAMIKSKÅL"]
+    },
+    "services": {
+      "structure": "SERVISTYP, antal delar, material, mönster, tillverkare",
+      "rules": [
+        "Always specify number of pieces",
+        "Include pattern name when known",
+        "Manufacturer required",
+        "First word UPPERCASE when no artist field"
+      ],
+      "examples": [
+        "KAFFESERVIS, 15 delar, porslin, blå flintör, Rörstrand",
+        "MATSERVIS, 24 delar, porslin, Ostindia, Rörstrand"
+      ]
+    },
+    "carpets": {
+      "structure": "MATTA, typ, ålder, mått",
+      "rules": [
+        "Measurements required in title",
+        "Age specification required",
+        "Type (Persisk, Orientalisk, etc.) required",
+        "Format: length x width cm"
+      ],
+      "examples": [
+        "MATTA, Persisk, semiantik, 200x300 cm",
+        "MATTA, Orientalisk, antik, 150x100 cm"
+      ]
+    },
+    "silver": {
+      "structure": "OBJEKT, material, stil, tillverkare, ort, period, vikt",
+      "rules": [
+        "Weight required in title",
+        "Location (Stockholm, etc.) when known",
+        "Style period required",
+        "Manufacturer marks important"
+      ],
+      "examples": [
+        "SOCKERSKÅL, silver, nyrokoko, GAB, Stockholm, 1900-tal, 150g",
+        "TEKANNA, silver, empire, Stockholm, 1800-tal, 400g"
+      ]
+    },
+    "art": {
+      "structure": "KONSTNÄR/OIDENTIFIERAD, titel, teknik, signering, period",
+      "rules": [
+        "Use OIDENTIFIERAD when artist unknown",
+        "Technique required (olja på duk, akvarell, etc.)",
+        "Signature status required",
+        "Period when determinable"
+      ],
+      "examples": [
+        "OIDENTIFIERAD, Landskap, olja på duk, osignerad, 1800-tal",
+        "CARL LARSSON, Sommarmotiv, akvarell, signerad, 1900-tal"
+      ]
+    },
+    "lighting": {
+      "structure": "OBJEKT, material, stil, mått",
+      "rules": [
+        "Measurements required in title",
+        "Material specification required",
+        "Style when determinable",
+        "Height most important measurement"
+      ],
+      "examples": [
+        "TAKLAMPA, mässing, jugend, höjd 45 cm",
+        "BORDSLAMPOR, par, keramik, 1960-tal, höjd 35 cm"
+      ]
+    },
+    "universalRules": {
+      "ageSpecification": [
+        "1700-tal (not 18th century)",
+        "1800-tal (not 19th century)", 
+        "1900-tal (not 20th century)",
+        "1900-talets mitt",
+        "1900-talets början/slut"
+      ],
+      "googleOptimization": [
+        "Full names: Carl Malmsten (not C. Malmsten)",
+        "Complete manufacturer names",
+        "Proper Swedish terminology"
+      ],
+      "forbiddenSubjectiveWords": [
+        "fin", "vacker", "värdefull", "ovanlig",
+        "fantastisk", "utsökt", "magnifik", "underbar",
+        "exceptionell", "perfekt", "sällsynt"
+      ],
+      "swedishTerminology": [
+        "jugend (not art nouveau)",
+        "nyrokoko (not neo-rococo)",
+        "gustaviansk (not Gustavian)",
+        "empirestil (not Empire style)"
+      ],
+      "measurementRequirements": {
+        "carpets": "Always include length x width",
+        "lighting": "Always include height",
+        "silver": "Always include weight when known",
+        "art": "Height x width cm, specify if with/without frame"
+      }
     }
   },
   

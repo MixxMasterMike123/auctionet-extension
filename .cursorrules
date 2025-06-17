@@ -1060,3 +1060,92 @@ reloadAnalysis() {
 // ✅ Modular CSS with keyframe animations
 // ✅ Zero breaking changes to existing functionality
 ```
+
+### Official Auctionet Cataloging Guidelines Pattern (DECEMBER 2024 - CRITICAL BUSINESS COMPLIANCE)
+```javascript
+// OFFICIAL AUCTIONET CATALOGING GUIDELINES: Systematic title generation following official standards
+// STRUCTURE: AI Rules System v2.0 integration with auctionetTitleRules section
+
+// OBJECT-SPECIFIC TITLE FORMATS (OFFICIAL AUCTIONET STANDARDS):
+// 1. FURNITURE: "OBJEKT, stil, period" (never wood type in title)
+//    Example: "STOL, Gustaviansk stil, 1700-tal" (not "STOL, ek, Gustaviansk stil")
+// 2. SMALL ITEMS: "OBJEKT, material, stil, tillverkare, period" (no compound words)
+//    Example: "VAS, glas, jugend, Orrefors, 1900-tal" (not "GLASVAS")
+// 3. SERVICES: "SERVISTYP, antal delar, material, mönster, tillverkare"
+//    Example: "KAFFESERVIS, 15 delar, porslin, blå flintör, Rörstrand"
+// 4. CARPETS: "MATTA, typ, ålder, mått" (measurements required in title)
+//    Example: "MATTA, Persisk, semiantik, 200x300 cm"
+// 5. SILVER: "OBJEKT, material, stil, tillverkare, ort, period, vikt" (weight required)
+//    Example: "SOCKERSKÅL, silver, nyrokoko, GAB, Stockholm, 1900-tal, 150g"
+// 6. ART: "KONSTNÄR/OIDENTIFIERAD, titel, teknik, signering, period"
+//    Example: "OIDENTIFIERAD, Landskap, olja på duk, osignerad, 1800-tal"
+// 7. LIGHTING: Measurements required in title
+//    Example: "TAKLAMPA, mässing, jugend, höjd 45 cm"
+
+// CRITICAL ARTIST FIELD AUTO-PREPENDING RULE:
+// When artist field is filled, Auctionet automatically prepends "ARTIST NAME." to title
+// Example: Artist field "Folke Ohlsson" + title "fåtölj samt fotpall" = "FOLKE OHLSSON. fåtölj samt fotpall"
+// IMPLEMENTATION: Use lowercase first word when artist field filled, UPPERCASE when empty
+
+// AI RULES SYSTEM v2.0 INTEGRATION:
+const { getAuctionetTitleRules, generateAuctionetTitle, validateAuctionetTitle } = window;
+
+// Get object-specific formatting rules
+const titleRules = getAuctionetTitleRules();
+const furnitureRules = titleRules.furniture; // { structure: "OBJEKT, stil, period", examples: [...] }
+
+// Generate title following official standards
+const title = generateAuctionetTitle(itemData, 'furniture', hasArtistField);
+// Returns: "STOL, Gustaviansk stil, 1700-tal" or "stol, Gustaviansk stil, 1700-tal" (if artist field filled)
+
+// Validate title compliance
+const validation = validateAuctionetTitle(title, 'furniture');
+// Returns: { isValid: true, violations: [], suggestions: [] }
+
+// UNIVERSAL RULES (APPLIED TO ALL OBJECTS):
+// ✅ Age specification: "1700-tal", "1800-tal", "1900-tal" (not "18th century")
+// ✅ Google optimization: Full names "Carl Malmsten" not "C. Malmsten"
+// ✅ Forbidden subjective words: Never use "fin", "vacker", "värdefull", "ovanlig"
+// ✅ Swedish terminology: "jugend" not "art nouveau", "nyrokoko" not "neo-rococo"
+// ✅ Measurements: Always include when relevant (carpets, lighting, silver weight)
+
+// IMPLEMENTATION IN AI RULES SYSTEM v2.0:
+// File: modules/refactored/ai-rules-system/ai-rules-config.json
+{
+  "auctionetTitleRules": {
+    "furniture": {
+      "structure": "OBJEKT, stil, period",
+      "rules": ["Never include wood type in title", "Style and period required"],
+      "examples": ["STOL, Gustaviansk stil, 1700-tal", "BORD, empire, 1800-tal"]
+    },
+    "smallItems": {
+      "structure": "OBJEKT, material, stil, tillverkare, period",
+      "rules": ["No compound words like GLASVAS", "Separate object and material"],
+      "examples": ["VAS, glas, jugend, Orrefors, 1900-tal"]
+    }
+    // ... all object types with official formatting
+  }
+}
+
+// GLOBAL CONVENIENCE FUNCTIONS:
+window.getAuctionetTitleRules = () => getAIRulesManager().getAuctionetTitleRules();
+window.generateAuctionetTitle = (itemData, objectType, hasArtistField) => { /* implementation */ };
+window.validateAuctionetTitle = (title, objectType) => { /* validation logic */ };
+
+// BUSINESS IMPACT:
+// ✅ Systematic compliance with official Auctionet cataloging standards
+// ✅ Consistent professional title formatting across all AI-generated content
+// ✅ Proper handling of artist field auto-prepending behavior
+// ✅ Object-specific formatting rules eliminate cataloging errors
+// ✅ Integration with existing AI Rules System v2.0 architecture
+// ✅ Zero breaking changes to existing functionality
+
+// TECHNICAL ACHIEVEMENTS:
+// ✅ Centralized official guidelines in AI Rules System v2.0
+// ✅ Object type detection and appropriate rule application
+// ✅ Artist field awareness for proper capitalization
+// ✅ Validation system for rule compliance checking
+// ✅ Global convenience functions for easy access
+// ✅ Complete integration with FreetextParser and other components
+// ✅ Production-ready systematic title generation
+```

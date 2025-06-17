@@ -85,7 +85,7 @@ export class APIManager {
       throw new Error('API key not configured. Please set your Anthropic API key in the extension popup.');
     }
 
-    const systemPrompt = this.getSystemPrompt();
+    const systemPrompt = this.getSystemPrompt(fieldType);
     const userPrompt = this.getUserPrompt(itemData, fieldType);
 
     // Field-specific model selection
@@ -618,10 +618,16 @@ ENDAST FÖRBÄTTRA:
     );
   }
 
-  getSystemPrompt() {
+  getSystemPrompt(fieldType = null) {
     // 🚀 NEW: Using centralized AI Rules System v2.0
     // OLD: ~100 lines of hardcoded rules
-    // NEW: Single call to global system
+    // NEW: Single call to global system with field-specific prompts
+    
+    if (fieldType === 'title-correct') {
+      return getSystemPrompt('titleCorrect');
+    }
+    
+    // Default to core prompt for other field types
     return getSystemPrompt('core', 'apiManager');
   }
 
