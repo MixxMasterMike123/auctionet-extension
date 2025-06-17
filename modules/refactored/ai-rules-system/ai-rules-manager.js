@@ -367,6 +367,219 @@ class AIRulesManager {
         
         return correctedText;
     }
+
+    // ==================== AUCTIONET TITLE GENERATION ====================
+
+    /**
+     * Get Auctionet title rules for specific object type
+     * @param {string} objectType - Type of object (furniture, smallItems, services, etc.)
+     * @returns {object} Title rules for the object type
+     */
+    getAuctionetTitleRules(objectType = null) {
+        this.ensureLoaded();
+        
+        const titleRules = this.rules.auctionetTitleRules;
+        if (!titleRules) {
+            console.warn('⚠️ Auctionet title rules not found in config');
+            return null;
+        }
+
+        if (objectType) {
+            return titleRules.objectTypes[objectType] || null;
+        }
+
+        return titleRules;
+    }
+
+    /**
+     * Generate title according to Auctionet guidelines
+     * @param {Object} itemData - Item data with object, material, style, etc.
+     * @param {string} objectType - Type of object (furniture, smallItems, services, etc.)
+     * @returns {string} - Properly formatted title
+     */
+    generateAuctionetTitle(itemData, objectType) {
+        const rules = this.getAuctionetTitleRules(objectType);
+        if (!rules) {
+            console.warn(`⚠️ No Auctionet rules found for object type: ${objectType}`);
+            return itemData.title || '';
+        }
+
+        const {
+            object = '',
+            material = '',
+            style = '',
+            manufacturer = '',
+            period = '',
+            measurements = '',
+            weight = '',
+            pieceCount = '',
+            pattern = '',
+            artist = '',
+            technique = '',
+            signature = ''
+        } = itemData;
+
+        let titleParts = [];
+
+        // Apply object-specific formatting rules
+        switch (objectType) {
+            case 'furniture':
+                // Format: "OBJECT, style, period"
+                titleParts = [
+                    object.toUpperCase(),
+                    style,
+                    period
+                ].filter(Boolean);
+                break;
+
+            case 'smallItems':
+                // Format: "OBJECT, material, style, manufacturer, period"
+                titleParts = [
+                    object.toUpperCase(),
+                    material,
+                    style,
+                    manufacturer,
+                    period
+                ].filter(Boolean);
+                
+                // Add signature notation if present
+                if (signature) {
+                    titleParts.push('sign.');
+                }
+                break;
+
+            case 'services':
+                // Format: "SERVICE_TYPE, piece_count, material, pattern, manufacturer, period"
+                titleParts = [
+                    object.toUpperCase(),
+                    pieceCount ? `${pieceCount} delar` : '',
+                    material,
+                    pattern ? `"${pattern}"` : '',
+                    manufacturer,
+                    period
+                ].filter(Boolean);
+                break;
+
+            case 'carpets':
+                // Format: "MATTA, type, age, measurements"
+                titleParts = [
+                    'MATTA',
+                    style,
+                    period,
+                    measurements ? `ca ${measurements}` : ''
+                ].filter(Boolean);
+                break;
+
+            case 'silver':
+                // Format: "OBJECT, material, style, manufacturer, place, period, weight"
+                titleParts = [
+                    object.toUpperCase(),
+                    material,
+                    style,
+                    manufacturer,
+                    period,
+                    weight ? `ca ${weight} gram` : ''
+                ].filter(Boolean);
+                break;
+
+            case 'art':
+                // Format: "ARTIST_OR_UNIDENTIFIED, title, technique, signature_info, period"
+                const artistName = artist || 'OIDENTIFIERAD KONSTNÄR';
+                titleParts = [
+                    artistName.toUpperCase(),
+                    object ? `"${object}"` : '',
+                    technique,
+                    signature ? `signerad ${signature}` : '',
+                    period
+                ].filter(Boolean);
+                break;
+
+            case 'lighting':
+                // Format: "OBJECT, material, style, manufacturer, measurements"
+                titleParts = [
+                    object.toUpperCase(),
+                    material,
+                    style,
+                    manufacturer,
+                    measurements ? `höjd ${measurements}` : ''
+                ].filter(Boolean);
+                break;
+
+            default:
+                // Fallback to smallItems format
+                titleParts = [
+                    object.toUpperCase(),
+                    material,
+                    style,
+                    manufacturer,
+                    period
+                ].filter(Boolean);
+        }
+
+        // Join with commas and clean up
+        let title = titleParts.join(', ');
+        
+        // Apply brand corrections
+        title = this.applyBrandCorrections(title);
+
+        return title;
+    }
+
+    /**
+     * Validate title against Auctionet rules
+     * @param {string} title - Title to validate
+     * @param {string} objectType - Type of object
+     * @returns {Object} - Validation result with errors and suggestions
+     */
+    validateAuctionetTitle(title, objectType) {
+        const rules = this.getAuctionetTitleRules(objectType);
+        const universalRules = this.getAuctionetTitleRules()?.universalRules;
+        
+        const errors = [];
+        const warnings = [];
+        const suggestions = [];
+
+        // Check for forbidden subjective words
+        if (universalRules?.forbiddenSubjectiveWords) {
+            universalRules.forbiddenSubjectiveWords.forEach(word => {
+                const regex = new RegExp(`\\b${word}\\b`, 'gi');
+                if (regex.test(title)) {
+                    errors.push(`Forbidden subjective word found: "${word}"`);
+                }
+            });
+        }
+
+        // Check object-specific rules
+        if (rules) {
+            // Check compound words for smallItems
+            if (objectType === 'smallItems' && rules.noCompoundWords) {
+                const compoundPatterns = ['GLASVAS', 'KERAMIKTOMTE', 'MAJOLIKAVAS'];
+                compoundPatterns.forEach(compound => {
+                    if (title.includes(compound)) {
+                        errors.push(`Compound word not allowed: ${compound}`);
+                        suggestions.push(`Use separate words instead: ${compound.replace('GLAS', 'VAS, glas').replace('KERAMIK', 'TOMTE, keramik')}`);
+                    }
+                });
+            }
+
+            // Check required measurements
+            if (rules.measurementsRequired && !title.includes('cm')) {
+                warnings.push('Measurements should be included in title for this object type');
+            }
+
+            // Check weight for silver
+            if (objectType === 'silver' && rules.weightRequired && !title.includes('gram')) {
+                warnings.push('Weight should be included in title for silver items');
+            }
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+            warnings,
+            suggestions
+        };
+    }
     
     // ==================== EXTRACTED RULES ACCESS ====================
     
@@ -602,6 +815,11 @@ const applyBrandCorrections = (text) => getAIRulesManager().applyBrandCorrection
 const getBrandCorrections = () => getAIRulesManager().getBrandCorrections();
 const getArtistCorrections = () => getAIRulesManager().getBrandCorrections(); // Use same data for now
 
+// Auctionet title generation functions
+const getAuctionetTitleRules = (objectType) => getAIRulesManager().getAuctionetTitleRules(objectType);
+const generateAuctionetTitle = (itemData, objectType) => getAIRulesManager().generateAuctionetTitle(itemData, objectType);
+const validateAuctionetTitle = (title, objectType) => getAIRulesManager().validateAuctionetTitle(title, objectType);
+
 // Extracted rules access
 const getExtractedRules = (source) => getAIRulesManager().getExtractedRules(source);
 const getQualityValidationRules = () => getAIRulesManager().getQualityValidationRules();
@@ -638,6 +856,9 @@ if (typeof module !== 'undefined' && module.exports) {
         applyBrandCorrections,
         getBrandCorrections,
         getArtistCorrections,
+        getAuctionetTitleRules,
+        generateAuctionetTitle,
+        validateAuctionetTitle,
         getExtractedRules,
         getQualityValidationRules,
         getFuzzyMatchingRules,
@@ -666,6 +887,9 @@ if (typeof module !== 'undefined' && module.exports) {
     window.applyBrandCorrections = applyBrandCorrections;
     window.getBrandCorrections = getBrandCorrections;
     window.getArtistCorrections = getArtistCorrections;
+    window.getAuctionetTitleRules = getAuctionetTitleRules;
+    window.generateAuctionetTitle = generateAuctionetTitle;
+    window.validateAuctionetTitle = validateAuctionetTitle;
     window.getExtractedRules = getExtractedRules;
     window.getQualityValidationRules = getQualityValidationRules;
     window.getFuzzyMatchingRules = getFuzzyMatchingRules;

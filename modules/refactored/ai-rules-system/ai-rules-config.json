@@ -1,19 +1,225 @@
 {
-  "version": "2.0.0",
+  "version": "2.0.1",
   "name": "Auctionet AI Rules System",
-  "description": "Centralized AI rules configuration for Swedish auction cataloging",
-  "lastUpdated": "2024-01-01",
+  "description": "Centralized AI rules configuration for Swedish auction cataloging - Updated with Official Auctionet Guidelines",
+  "lastUpdated": "2024-12-20",
   
-  "systemPrompts": {
-    "core": "Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.\n\nGRUNDREGLER:\n• Använd endast verifierbara fakta\n• Skriv objektivt utan säljande språk\n• Använd etablerad auktionsterminologi\n• UPPFINN ALDRIG information som inte finns\n• Skriv naturligt och flytande - fokusera på autenticitet över regelefterlevnad\n\n📖 BESKRIVNINGSFORMATERING - BEROENDE PÅ TOGGLE-LÄGE:\n\n🔘 STANDARD MODE (Toggle OFF):\n• Enkel, faktabaserad text utan HTML-formatering\n• Inga styckeindelningar eller specialformatering\n• Kort, koncis meningsstruktur\n\n🔘 EXTENDED MODE (Toggle ON):\n• Dela upp långa beskrivningar i logiska stycken (max 3-4 meningar per stycke)\n• Använd <b>fetstil</b> för viktiga märkningar, signaturer, eller tekniska specifikationer\n• Använd <i>kursiv</i> för modellnamn, serienummer, eller citat\n• Gruppera relaterad information tillsammans\n• Auctionet HTML-stöd: <b>fet</b>, <i>kursiv</i>, [123] (intern länk), [text](https://url) (extern länk)",
+  "auctionetTitleRules": {
+    "version": "1.0.0",
+    "source": "Official Auctionet Cataloging Instructions",
+    "description": "Systematic title generation rules that ALL functions must follow",
     
-    "titleCorrect": "🚨 DETTA ÄR EN TITLE-CORRECT UPPGIFT - ENDAST MINIMALA KORRIGERINGAR TILLÅTNA 🚨\n\nUPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.\n\n🚨 ABSOLUT FÖRBJUDET - GÖR ALDRIG DESSA ÄNDRINGAR:\n• Ändra ordval eller terminologi\n• Lägg till beskrivande ord\n• Ändra ordning på namn eller element\n• Förbättra eller förtydliga innehåll",
+    "objectTypes": {
+      "furniture": {
+        "titleFormat": "OBJECT, style, period",
+        "capitalization": "UPPERCASE_FIRST_WORD",
+        "excludeWoodType": true,
+        "woodTypeLocation": "description",
+        "examples": [
+          "BYRÅ, gustaviansk, sent 1700-tal",
+          "FÅTÖLJ, \"Karin\", Bruno Mathsson, Dux"
+        ],
+        "rules": [
+          "NEVER include wood type in title (put in description)",
+          "Style comes before period",
+          "Designer/manufacturer can be included",
+          "First word always UPPERCASE"
+        ]
+      },
+      
+      "smallItems": {
+        "titleFormat": "OBJECT, material, style, manufacturer, period",
+        "capitalization": "UPPERCASE_FIRST_WORD", 
+        "noCompoundWords": true,
+        "examples": [
+          "VAS, majolika, nyrenässans, Gustafsberg, sent 1800-tal",
+          "SKÅL, glas, Bertil Vallien, Kosta Boda, sign."
+        ],
+        "rules": [
+          "NEVER write compound words (VAS not GLASVAS)",
+          "NEVER write KERAMIKTOMTE - write TOMTE, keramik",
+          "Material comes after object type",
+          "Signature notation: 'sign.' if signed"
+        ]
+      },
+      
+      "services": {
+        "titleFormat": "SERVICE_TYPE, piece_count, material, pattern, manufacturer, period",
+        "capitalization": "UPPERCASE_FIRST_WORD",
+        "pieceCountRequired": true,
+        "examples": [
+          "MAT- OCH KAFFESERVIS, 38 delar, flintgods, rokokostil, Rörstrand, tidigt 1900-tal",
+          "MATSERVIS, 89 delar, porslin, \"Maria Björnbär\", Rosenthal"
+        ],
+        "rules": [
+          "Always include piece count (X delar)",
+          "Pattern names in quotes",
+          "Count all pieces in description"
+        ]
+      },
+      
+      "carpets": {
+        "titleFormat": "MATTA, type, age, measurements",
+        "capitalization": "UPPERCASE_FIRST_WORD",
+        "measurementsRequired": true,
+        "measurementFormat": "ca X x Y cm",
+        "examples": [
+          "MATTA, orientalisk, semiantik, ca 320 x 230 cm"
+        ],
+        "rules": [
+          "ALWAYS include measurements in title",
+          "Use 'ca' for approximate measurements",
+          "Format: ca length x width cm"
+        ]
+      },
+      
+      "silver": {
+        "titleFormat": "OBJECT, material, style, manufacturer, place, period, weight",
+        "capitalization": "UPPERCASE_FIRST_WORD",
+        "weightRequired": true,
+        "weightFormat": "ca X gram",
+        "weightExceptions": ["ljusstakar med fylld fot"],
+        "examples": [
+          "BÄGARE, 2 st, silver, rokokostil, CG Hallberg, Stockholm, 1942-56, ca 450 gram"
+        ],
+        "rules": [
+          "ALWAYS include weight in grams at end",
+          "Exception: Don't include weight for filled-base items",
+          "Always check silver hallmarks",
+          "Include quantity if multiple pieces"
+        ]
+      },
+      
+      "art": {
+        "titleFormat": "ARTIST_OR_UNIDENTIFIED, title, technique, signature_info, period",
+        "capitalization": "PROPER_CASE",
+        "signatureHandling": "exact_transcription",
+        "examples": [
+          "OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-tal",
+          "BENGT LINDSTRÖM, färglitografier, 2 st, signerade och daterade 76 och numrerade 120/310",
+          "BRUNO LILJEFORS, \"Enkelbeckasin i höstskog\", olja på duk, signerad B.L och daterad -28"
+        ],
+        "rules": [
+          "If signature readable but artist unknown: OIDENTIFIERAD KONSTNÄR",
+          "Write dates exactly as on artwork: 1832, -32, or 32",
+          "Artwork titles in quotes",
+          "Note 'a tergo' if signed on back", 
+          "For multiple works: quantity after technique",
+          "Write 'Ej sign.' in description if unsigned"
+        ]
+      },
+      
+      "lighting": {
+        "titleFormat": "OBJECT, material, style, manufacturer, measurements",
+        "capitalization": "UPPERCASE_FIRST_WORD",
+        "measurementsRequired": true,
+        "measurementTypes": ["taklampa", "golvlampa"],
+        "examples": [
+          "TAKLAMPA, mässing, jugend, höjd 45 cm"
+        ],
+        "rules": [
+          "ALWAYS include measurements in title for ceiling and floor lamps",
+          "Height is most important measurement"
+        ]
+      }
+    },
     
-    "addItems": "Förbättra denna auktionspost enligt svenska auktionsstandarder. Fokusera på objektiv, faktabaserad katalogisering utan säljande språk.",
+    "universalRules": {
+      "ageSpecification": {
+        "beSpecific": true,
+        "avoid": ["1800-talets senare del", "ca för årtal"],
+        "prefer": ["senare fjärdedel", "senare hälft", "slut", "omkring för årtal"],
+        "contextual": "Don't state obvious periods for known artists",
+        "examples": {
+          "avoid": "1800-talets senare del",
+          "correct": "1800-talets slut"
+        }
+      },
+      
+      "googleOptimization": {
+        "writeFullNames": true,
+        "examples": {
+          "nysilver": "not NS",
+          "Josef Frank": "not Frank"
+        },
+        "reason": "Optimize for Google searches and better sales"
+      },
+      
+      "measurementRules": {
+        "inTitle": ["matta", "taklampa", "golvlampa"],
+        "inDescription": ["möbler", "konst", "småsaker"],
+        "format": {
+          "furniture": "Längd X, bredd Y, höjd Z cm",
+          "art": "X x Y cm (höjd först, utan ram)",
+          "round": "Diameter X cm, höjd Y cm",
+          "ranges": "l 8-27 cm (för partier)"
+        },
+        "placement": "Always last in description except for carpets and ceiling lamps",
+        "units": "Always write 'centimeter' or 'cm'",
+        "approximation": "Use 'ca' when difficult to measure exactly"
+      },
+      
+      "forbiddenSubjectiveWords": [
+        "fin", "vacker", "värdefull", "stor", "liten",
+        "fantastisk", "utsökt", "magnifik", "underbar",
+        "exceptionell", "perfekt", "ovanlig", "sällsynt"
+      ]
+    },
     
-    "freetextParser": "Du är en ERFAREN SVENSK AUKTIONSEXPERT med djup kunskap om svenska konstnärer, formgivare och märken. Du har arbetat på svenska auktionshus i årtionden och känner alla viktiga namn inom svensk design och konst.\n\n🎯 DIN EXPERTIS INKLUDERAR:\n• Svenska keramiker: Lisa Larson (Gustavsberg), Stig Lindberg, Carl-Harry Stålhane\n• Svenska glasbruk: Orrefors, Kosta Boda, Reijmyre\n• Svenska porslinsfabriker: Gustavsberg, Rörstrand, Upsala Ekeby (inte Uppsala!)\n• Skandinaviska formgivare: Arne Jacobsen, Finn Juhl, Hans Wegner\n• Svenska möbeldesigners: Bruno Mathsson, Carl Malmsten, Alvar Aalto\n\n🚨 KRITISK EXPERTKUNSKAP - RÄTTA AUTOMATISKT:\n• \"Lisa Larsson\" → \"Lisa Larson\" (världsberömd svensk keramiker)\n• \"Uppsala Ekeby\" → \"Upsala Ekeby\" (korrekt stavning av märket)\n• \"Stig Lindberg\" (inte Lindeberg eller Lindburg)\n• \"Carl-Harry Stålhane\" (bindestreck viktigt)\n\nUPPGIFT: Analysera fritext med din expertkunskap och skapa professionell katalogisering.\n\n📖 BESKRIVNINGSFORMATERING - BEROENDE PÅ TOGGLE-LÄGE:\n\n🔘 STANDARD MODE (Toggle OFF):\n• Enkel, faktabaserad text utan HTML-formatering\n• Inga styckeindelningar eller specialformatering\n• Kort, koncis meningsstruktur\n• Fokus på tekniska fakta endast\n\n🔘 EXTENDED MODE (Toggle ON):\n• Dela upp långa beskrivningar i logiska stycken för bättre läsbarhet\n• Max 3-4 meningar per stycke\n• Använd <b>fetstil</b> för viktiga märkningar, signaturer, eller tekniska specifikationer\n• Använd <i>kursiv</i> för modellnamn, serienummer, eller citat\n• Gruppera relaterad information tillsammans\n• Struktur: 1) Grundbeskrivning, 2) Tekniska detaljer, 3) Historisk kontext, 4) Proveniensuppgifter\n• Auctionet HTML-stöd: <b>fet</b>, <i>kursiv</i>, [123] (intern länk), [text](https://url) (extern länk)\n\n🚨 KRITISKA TITEL-STRUKTURREGLER - FÖLJ EXAKT:\n\n📝 ARTIST-FÄLT REGLER (ABSOLUT KRITISKA):\n• Artist-fält får ENDAST innehålla NAMNET - ALDRIG företag, år eller annat!\n• RÄTT: \"Lisa Larson\" \n• FEL: \"Lisa Larson, Gustavsberg\" eller \"Lisa Larson 1960-tal\" eller \"Lisa Larson (Gustavsberg)\"\n• Om konstnär identifieras: PLACERA ENDAST NAMNET i artist-fält\n\n📝 TITEL-STRUKTURREGLER:\n• OM INGEN KONSTNÄR IDENTIFIERAD: \"<OBJEKT>, <Modell>, <Märke>, <Material>, <Tidsperiod>\"\n  - Exempel: \"ARMBANDSUR, Submariner, Rolex, stål, 1970-tal\"\n  - Exempel: \"FIGURIN, Viktoria, Gustavsberg, stengods, 1960-tal\"\n  - FÖRSTA ORDET ALLTID VERSALER\n\n• OM KONSTNÄR FINNS I ARTIST-FÄLT: \"<Objekt>, <Modell>, <Märke>, <Material>, <Tidsperiod>\"\n  - Exempel: \"Figurin, Viktoria, Gustavsberg, stengods, 1960-tal\" (Lisa Larson i artist-fält)\n  - Första ordet normal stor bokstav\n\n🚨 ABSOLUT FÖRBJUDET I TITEL:\n• Konstnärnamn när artist-fält är ifyllt\n• Företagsnamn i artist-fält (Gustavsberg, Rolex etc. hör till titel)\n• År eller tidsperiod i artist-fält\n\n📋 EXPERTANALYS:\n• TITEL: Exakt struktur enligt reglerna ovan\n• BESKRIVNING: Välformaterad med styckeindelning och HTML-formatering för läsbarhet\n• SKICK: Faktabaserat konditionsrapport\n• KONSTNÄR: ENDAST namnet, inget annat\n\nReturnera JSON med din expertkunskap:\n{\n  \"title\": \"Strukturerad enligt exakta regler (max 60 tecken)\",\n  \"description\": \"Välformaterad expertbeskrivning med styckeindelning och HTML-formatering\",\n  \"condition\": \"Konditionsrapport\",\n  \"artist\": \"ENDAST konstnärens namn (eller tom sträng)\",\n  \"material\": \"Huvudmaterial/teknik\",\n  \"period\": \"Tidsperiod\",\n  \"estimatedValue\": \"Marknadsbaserat värde\"\n}\n\nAnvänd din svenska auktionsexpertis - rätta felstavningar automatiskt!"
+    "descriptionRules": {
+      "furniture": {
+        "alwaysInclude": ["träslag", "detaljerad konstruktion"],
+        "clocks": ["pendel och lod status"],
+        "measurements": "last in description"
+      },
+      
+      "art": {
+        "alwaysInclude": ["ram status"],
+        "unframed": "Write 'oramad' if applicable",
+        "signatures": "Exact transcription without quotes for dates/numbers",
+        "measurements": "Height x Width cm, always without frame",
+        "clarifySize": "Specify if bladstorlek or bildstorlek for prints"
+      },
+      
+      "services": {
+        "required": ["detailed piece listing"],
+        "format": "X mattallrikar, Y djupa tallrikar, såsskål, tillbringare",
+        "noSinglePrefix": "Don't write '1 såsskål', just 'såsskål'",
+        "noMeasurements": "Measurements not needed for services"
+      },
+      
+      "silver": {
+        "alwaysCheck": ["hallmarks", "foreign silver marks"],
+        "alwaysMention": ["gåvogravyr", "monogram"],
+        "weightNote": "Weight in title, not description"
+      }
+    },
+    
+    "conditionRules": {
+      "beDetailed": "when possible",
+      "beVague": "when necessary",
+      "avoid": ["mm", "bl a", "osv"],
+      "standardPhrases": {
+        "art": "Ej examinerad ur ram",
+        "books": "Ej genomgånget", 
+        "frames": "Only mention frame condition if frame is for sale",
+        "glass": "Always mention if glass missing or damaged in frames"
+      },
+      "neverUse": ["Ej funktionstestad"],
+      "silverSpecial": "Always mention engravings or monograms"
+    }
   },
-  
+
+  "systemPrompts": {
+    "core": "Du är en professionell auktionskatalogiserare som STRIKT följer Auctionets officiella katalogiseringsregler.\n\n🚨 KRITISKA AUCTIONET-REGLER - FÖLJ EXAKT:\n\n📝 TITEL-STRUKTURREGLER (OFFICIELLA AUCTIONET-RIKTLINJER):\n\nMÖBLER:\n• Format: \"OBJEKT, stil, period\"\n• Exempel: \"BYRÅ, gustaviansk, sent 1700-tal\"\n• ALDRIG träslag i titel (lägg i beskrivning)\n• Första ordet VERSALER\n\nSMÅSAKER:\n• Format: \"OBJEKT, material, stil, tillverkare, period\"\n• Exempel: \"VAS, majolika, nyrenässans, Gustafsberg, sent 1800-tal\"\n• ALDRIG sammansatta ord (VAS inte GLASVAS)\n• ALDRIG KERAMIKTOMTE - skriv TOMTE, keramik\n\nSERVISER:\n• Format: \"SERVISTYP, antal delar, material, mönster, tillverkare\"\n• Exempel: \"KAFFESERVIS, 15 delar, porslin, Rörstrand\"\n• ALLTID antal delar i titel\n\nMATTOR:\n• Format: \"MATTA, typ, ålder, mått\"\n• Exempel: \"MATTA, orientalisk, semiantik, ca 320 x 230 cm\"\n• ALLTID mått i titel\n\nSILVER:\n• Format: \"OBJEKT, material, stil, tillverkare, ort, period, vikt\"\n• Exempel: \"BÄGARE, silver, rokokostil, CG Hallberg, Stockholm, 1942-56, ca 450 gram\"\n• ALLTID vikt i titel (utom fylld fot)\n\nKONST:\n• Format: \"KONSTNÄR/OIDENTIFIERAD, titel, teknik, signering, period\"\n• Verktitlar inom citationstecken\n• Skriv datum exakt som på verket: 1832, -32, eller 32\n\nTAKLAMPOR/GOLVLAMPOR:\n• ALLTID mått i titel\n• Exempel: \"TAKLAMPA, mässing, jugend, höjd 45 cm\"\n\n🚨 UNIVERSELLA REGLER:\n• Inga subjektiva ord: fin, vacker, värdefull, stor\n• Fullständiga namn för Google-optimering: Josef Frank (inte Frank)\n• Specifik ålder: \"1800-talets slut\" (inte \"senare del\")\n• Använd \"omkring\" för årtal (inte \"ca\")\n\n📖 BESKRIVNINGSREGLER:\n• Möbler: Träslag i beskrivning, mått sist\n• Konst: Ramstatus, mått utan ram (höjd x bredd cm)\n• Serviser: Detaljerad dellista, inga mått\n• Silver: Kontrollera stämplar, nämn gravyrer\n\n🔍 SKICK-RAPPORT:\n• Undvik: mm, bl a, osv\n• Standardfraser: \"Ej examinerad ur ram\" för konst\n• ALDRIG: \"Ej funktionstestad\"\n\nFölj dessa regler EXAKT - de kommer från Auctionets officiella katalogiseringsmanual.",
+    
+    "titleCorrect": "🚨 TITLE-CORRECT UPPGIFT - FÖLJ AUCTIONETS OFFICIELLA REGLER 🚨\n\nKorrigera titel enligt Auctionets officiella katalogiseringsregler:\n\nMÖBLER: \"OBJEKT, stil, period\" (ALDRIG träslag)\nSMÅSAKER: \"OBJEKT, material, stil, tillverkare, period\" (ALDRIG sammansatta ord)\nSERVISER: \"SERVISTYP, antal delar, material, mönster, tillverkare\"\nMATTOR: \"MATTA, typ, ålder, mått\" (ALLTID mått)\nSILVER: \"OBJEKT, material, stil, tillverkare, ort, period, vikt\"\nTAKLAMPOR: \"OBJEKT, material, stil, mått\"\n\nKorrigera ENDAST stavfel och struktur - behåll allt innehåll.",
+    
+    "addItems": "Förbättra enligt Auctionets officiella katalogiseringsregler. Följ exakta titel-strukturer för varje objekttyp.",
+    
+    "freetextParser": "Du är en ERFAREN SVENSK AUKTIONSEXPERT som följer Auctionets officiella katalogiseringsregler EXAKT.\n\n🚨 AUCTIONET TITEL-STRUKTURREGLER - FÖLJ EXAKT:\n\nMÖBLER: \"OBJEKT, stil, period\" (ALDRIG träslag i titel)\nSMÅSAKER: \"OBJEKT, material, stil, tillverkare, period\" (ALDRIG sammansatta ord)\nSERVISER: \"SERVISTYP, antal delar, material, mönster, tillverkare\"\nMATTOR: \"MATTA, typ, ålder, ca X x Y cm\" (ALLTID mått)\nSILVER: \"OBJEKT, material, stil, tillverkare, ort, period, ca X gram\"\nTAKLAMPOR: \"OBJEKT, material, stil, höjd X cm\"\n\n📝 ARTIST-FÄLT REGLER:\n• ENDAST namnet - ALDRIG företag, år eller annat\n• RÄTT: \"Lisa Larson\"\n• FEL: \"Lisa Larson, Gustavsberg\"\n\n🚨 ABSOLUT FÖRBJUDET:\n• Träslag i möbeltitlar\n• Sammansatta ord (GLASVAS → VAS, glas)\n• Subjektiva ord: fin, vacker, värdefull\n• Företag i artist-fält\n\nReturnera JSON med Auctionet-kompatibel struktur."
+  },
+
   "categoryRules": {
     "weapons": {
       "name": "Vapen och Militaria",
@@ -69,83 +275,20 @@
     
     "freetextParser": {
       "name": "Fritext Parser för Snabbkatalogisering",
-      "purpose": "AI-powered rapid cataloging for low-value items",
-      "antiHallucination": true,
-      "severity": "critical",
-      "artistSeparationRules": {
-        "enabled": true,
-        "artistToField": true,
-        "excludeFromTitle": true,
-        "artistFieldContent": "ENDAST namnet - ALDRIG företag, år eller annat",
-        "titleFormatNoArtist": "<OBJEKT>, <Modell>, <Märke>, <Material>, <Tidsperiod>",
-        "titleFormatWithArtist": "<Objekt>, <Modell>, <Märke>, <Material>, <Tidsperiod>",
-        "capitalizationNoArtist": "FÖRSTA ORDET VERSALER",
-        "capitalizationWithArtist": "Första ordet normal stor bokstav"
-      },
-      "valuationRules": {
-        "claude-4-sonnet": {
-          "approach": "advanced-research-based",
-          "instruction": "AVANCERAD MARKNADSANALYS - Utför djupgående värderingsanalys i flera steg:\n\n🔍 STEG 1 - OBJEKTANALYS:\n• Identifiera exakt modell, årsmodell, variant\n• Analysera kondition detaljerat (original delar, service, slitage)\n• Bedöm sällsynthet och efterfrågan på marknaden\n• Identifiera unika egenskaper som påverkar värdet\n\n📊 STEG 2 - MARKNADSRESEARCH:\n• Jämför med liknande objekt på svenska auktioner\n• Analysera pristrender för märket/modellen\n• Bedöm regional marknadsdynamik (Stadsauktion Sundsvall kontext)\n• Överväg säsongsvariationer och marknadscykler\n\n💰 STEG 3 - VÄRDERINGSLOGIK:\n• Basera på faktiska slutpriser, inte utropspriser\n• Justera för kondition och kompletthet\n• Inkludera proveniensbonus om relevant\n• GE REALISTISKA MARKNADSVÄRDEN - inte konservativa underskattningar\n• Även vid medel säkerhet: använd marknadsdata för realistisk värdering\n\n🎯 STEG 4 - SLUTSATS:\n• Ge realistisk marknadsbaserad uppskattning (inte konservativ)\n• Förklara värderingsfaktorer tydligt\n• Rekommendera utropspris baserat på 60-80% av uppskattning\n• Inkludera marknadskontext i resonemang\n• VIKTIGT: Låt inte låg/medel säkerhet leda till underskattning",
-          "confidence": "expert",
-          "reasoning": "Claude 4 Sonnet kan hantera komplex multi-steg marknadsanalys med djup reasoning",
-          "maxTokens": 4000,
-          "temperature": 0.1,
-          "enableDeepReasoning": true
-        },
-        "claude-sonnet-4-20250514": {
-          "approach": "advanced-research-based",
-          "instruction": "AVANCERAD MARKNADSANALYS - Utför djupgående värderingsanalys i flera steg:\n\n🔍 STEG 1 - OBJEKTANALYS:\n• Identifiera exakt modell, årsmodell, variant\n• Analysera kondition detaljerat (original delar, service, slitage)\n• Bedöm sällsynthet och efterfrågan på marknaden\n• Identifiera unika egenskaper som påverkar värdet\n\n📊 STEG 2 - MARKNADSRESEARCH:\n• Jämför med liknande objekt på svenska auktioner\n• Analysera pristrender för märket/modellen\n• Bedöm regional marknadsdynamik (Stadsauktion Sundsvall kontext)\n• Överväg säsongsvariationer och marknadscykler\n\n💰 STEG 3 - VÄRDERINGSLOGIK:\n• Basera på faktiska slutpriser, inte utropspriser\n• Justera för kondition och kompletthet\n• Inkludera proveniensbonus om relevant\n• GE REALISTISKA MARKNADSVÄRDEN - inte konservativa underskattningar\n• Även vid medel säkerhet: använd marknadsdata för realistisk värdering\n\n🎯 STEG 4 - SLUTSATS:\n• Ge realistisk marknadsbaserad uppskattning (inte konservativ)\n• Förklara värderingsfaktorer tydligt\n• Rekommendera utropspris baserat på 60-80% av uppskattning\n• Inkludera marknadskontext i resonemang\n• VIKTIGT: Låt inte låg/medel säkerhet leda till underskattning",
-          "confidence": "expert",
-          "reasoning": "Claude 4 Sonnet kan hantera komplex multi-steg marknadsanalys med djup reasoning",
-          "maxTokens": 4000,
-          "temperature": 0.1,
-          "enableDeepReasoning": true
-        },
-        "claude-3-5-sonnet": {
-          "approach": "conservative", 
-          "instruction": "Var konservativ med värderingar",
-          "confidence": "standard",
-          "reasoning": "Claude 3.5 Sonnet fungerar bäst med konservativa riktlinjer"
-        },
-        "default": {
-          "approach": "conservative",
-          "instruction": "Var konservativ med värderingar",
-          "confidence": "standard"
-        }
-      },
-      "forbiddenAdditions": [
-        "Säljande språk och värdeord",
-        "Spekulationer om ålder eller ursprung",
-        "Tekniska detaljer som inte är nämnda",
-        "Skador eller skick som inte är explicit angivet",
-        "Material eller mått som inte finns i fritexten"
-      ],
-      "requiredValidation": [
-        "Konstnär separeras från titel",
-        "Objektiv, faktabaserad språkbruk",
-        "Max 60 tecken för titel",
-        "JSON-format för strukturerad data",
-        "Bevara osäkerhetsmarkörer"
-      ],
-      "prompt": "KATEGORI-SPECIFIK REGEL - FRITEXT PARSER:\nDetta är en fritext-analys för snabb katalogisering av lågvärdiga föremål.\n\n🚨 KRITISKA TITEL-STRUKTURREGLER - FÖLJ EXAKT:\n\n📝 ARTIST-FÄLT REGLER (ABSOLUT KRITISKA):\n• Artist-fält får ENDAST innehålla NAMNET - ALDRIG företag, år eller annat!\n• RÄTT: \"Lisa Larson\" \n• FEL: \"Lisa Larson, Gustavsberg\" eller \"Lisa Larson 1960-tal\" eller \"Lisa Larson (Gustavsberg)\"\n• Om konstnär identifieras: PLACERA ENDAST NAMNET i artist-fält\n\n📝 TITEL-STRUKTURREGLER:\n• OM INGEN KONSTNÄR IDENTIFIERAD: \"<OBJEKT>, <Modell>, <Märke>, <Material>, <Tidsperiod>\"\n  - Exempel: \"ARMBANDSUR, Submariner, Rolex, stål, 1970-tal\"\n  - Exempel: \"FIGURIN, Viktoria, Gustavsberg, stengods, 1960-tal\"\n  - FÖRSTA ORDET ALLTID VERSALER\n\n• OM KONSTNÄR FINNS I ARTIST-FÄLT: \"<Objekt>, <Modell>, <Märke>, <Material>, <Tidsperiod>\"\n  - Exempel: \"Figurin, Viktoria, Gustavsberg, stengods, 1960-tal\" (Lisa Larson i artist-fält)\n  - Första ordet normal stor bokstav\n\n🚨 ABSOLUT FÖRBJUDET:\n• Konstnärnamn i titel när artist-fält är ifyllt\n• Företagsnamn i artist-fält (Gustavsberg, Rolex etc. hör till titel)\n• År eller tidsperiod i artist-fält\n• Säljande språk: 'vacker', 'fantastisk', 'unik', 'sällsynt'\n• Uppfinna material, mått, skador eller detaljer\n\n📋 OBLIGATORISK JSON-STRUKTUR:\n• title: Strukturerad enligt exakta regler ovan (max 60 tecken)\n• description: Objektiv beskrivning\n• condition: Faktabaserat skick\n• artist: ENDAST konstnärens namn (eller tom sträng)\n• material: Huvudmaterial\n• period: Tidsperiod (om känd)\n• estimatedValue: null - värdering kommer från marknadsanalys"
+      "auctionetCompliant": true,
+      "titleStructureSource": "Official Auctionet Guidelines",
+      "prompt": "FÖLJ AUCTIONETS OFFICIELLA TITEL-STRUKTURREGLER EXAKT - se auctionetTitleRules för detaljer."
     }
   },
   
   "fieldRules": {
     "title": {
+      "source": "Official Auctionet Guidelines",
+      "systemReference": "auctionetTitleRules",
       "maxLength": 60,
-      "capitalizationRules": {
-        "withArtist": "proper-case-first-word",
-        "withoutArtist": "uppercase-first-word"
-      },
-      "punctuationRules": {
-        "withArtist": "period-after-first-word",
-        "withoutArtist": "comma-after-first-word"
-      },
-      "quotesPreservation": true,
       "brandCorrections": {
         "ikea": "IKEA",
-        "rolex": "Rolex",
+        "rolex": "Rolex", 
         "omega": "Omega",
         "royal copenhagen": "Royal Copenhagen",
         "kosta boda": "Kosta Boda",
@@ -158,176 +301,38 @@
       },
       "artistCorrections": {
         "lisa larsson": "Lisa Larson",
-        "lisa larsoo": "Lisa Larson",
-        "lisa larrson": "Lisa Larson",
-        "lisa larsen": "Lisa Larson",
         "stig lindberg": "Stig Lindberg",
         "carl larsson": "Carl Larsson",
-        "bruno mathsson": "Bruno Mathsson",
-        "alvar aalto": "Alvar Aalto",
-        "arne jacobsen": "Arne Jacobsen",
-        "finn juhl": "Finn Juhl",
-        "hans wegner": "Hans Wegner",
-        "poul henningsen": "Poul Henningsen",
-        "verner panton": "Verner Panton",
-        "eero saarinen": "Eero Saarinen"
+        "bruno mathsson": "Bruno Mathsson"
       }
     },
     
     "description": {
-      "defaultMode": "formal-facts-only",
-      "extendedMode": "detailed-with-biography",
-      "excludeConditionInfo": true,
-      "preserveMeasurements": true,
-      "preserveQuantities": true,
-      "formatting": {
-        "conditionalOnToggle": true,
-        "standardMode": {
-          "enabled": false,
-          "style": "Simple, factual sentences without HTML formatting",
-          "guidelines": [
-            "Inga styckeindelningar",
-            "Ingen HTML-formatering",
-            "Kort, faktabaserad text",
-            "Enkel meningsstruktur"
-          ]
-        },
-        "extendedMode": {
-          "enabled": true,
-          "paragraphBreaks": true,
-          "maxSentencesPerParagraph": 3,
-          "logicalGrouping": true,
-          "htmlFormatting": {
-            "enabled": true,
-            "allowedTags": ["<b>", "</b>", "<i>", "</i>"],
-            "linkFormats": {
-              "internal": "[123]",
-              "external": "[text](https://www.example.com/)",
-              "youtube": "[https://www.youtube.com/watch?v=dQw4w9WgXcQ]"
-            },
-            "emphasis": {
-              "bold": "För viktiga märkningar, signaturer, eller tekniska specifikationer",
-              "italic": "För modellnamn, serienummer, eller citat"
-            }
-          },
-          "structure": {
-            "paragraph1": "Grundläggande objektbeskrivning och identifiering",
-            "paragraph2": "Tekniska detaljer, mått, material, märkningar",
-            "paragraph3": "Historisk kontext, tillverkare, designbakgrund (om relevant)",
-            "paragraph4": "Proveniensuppgifter, service, tillbehör (om relevant)"
-          },
-          "guidelines": [
-            "Dela upp långa beskrivningar i logiska stycken",
-            "Använd <b>fetstil</b> för viktiga märkningar och signaturer",
-            "Använd <i>kursiv</i> för modellnamn och serienummer",
-            "Gruppera relaterad information tillsammans",
-            "Undvik textblock längre än 3-4 meningar per stycke",
-            "Använd HTML-formatering sparsamt men effektivt"
-          ]
-        }
+      "auctionetCompliant": true,
+      "furnitureRules": {
+        "alwaysInclude": ["träslag"],
+        "measurementPlacement": "last",
+        "clockSpecial": ["pendel och lod status"]
       },
-      "formalFactsOnly": {
-        "allowedContent": [
-          "material",
-          "teknik", 
-          "mått",
-          "antal komponenter",
-          "märkningar",
-          "funktion",
-          "tillbehör"
-        ],
-        "forbiddenContent": [
-          "beskrivande adjektiv",
-          "värdeord",
-          "subjektiva bedömningar",
-          "slitage",
-          "repor",
-          "märken",
-          "skador",
-          "nagg",
-          "sprickor",
-          "fläckar"
-        ],
-        "examples": [
-          "3 draglådor",
-          "Stålsträngad. Sunburstfärgad kropp. Längd 100 Bredd 36.5 Tjocklek kropp 6cm",
-          "Ståke medföljer",
-          "Signerad på undersidan",
-          "Märkt med fabriksstämpel"
-        ],
-        "style": "Kort, faktabaserad, inga beskrivande ord"
+      "artRules": {
+        "alwaysInclude": ["ram status"],
+        "measurements": "höjd x bredd cm, utan ram",
+        "unframed": "Write 'oramad' if applicable"
       },
-      "extendedMode": {
-        "allowedContent": [
-          "konstnärsbiografi",
-          "designhistoria",
-          "kulturell kontext",
-          "stilperiod",
-          "teknisk bakgrund",
-          "produktionshistoria"
-        ],
-        "style": "Utförlig beskrivning med bakgrundsinformation"
+      "serviceRules": {
+        "detailedPieceListing": true,
+        "noMeasurements": true,
+        "format": "X mattallrikar, Y djupa tallrikar, såsskål"
       }
     },
     
     "condition": {
-      "style": "short-formal-realistic",
-      "focusOnPhysicalState": true,
-      "maxLength": 50,
-      "forbiddenValueWords": [
-        "fantastisk",
-        "vacker",
-        "utsökt",
-        "magnifik",
-        "underbar",
-        "exceptionell",
-        "perfekt",
-        "ovanlig",
-        "sällsynt",
-        "extraordinär",
-        "unik",
-        "spektakulär",
-        "enastående",
-        "otrolig",
-        "utmärkt",
-        "fin",
-        "bra",
-        "dålig",
-        "hemsk"
-      ],
-      "allowedTerms": [
-        "välbevarat",
-        "gott skick",
-        "mindre repor",
-        "nagg",
-        "sprickor",
-        "fläckar",
-        "slitage",
-        "skador",
-        "lagning",
-        "restaurering"
-      ],
-      "examples": [
-        "Välbevarat",
-        "Mindre repor",
-        "Nagg vid kanter",
-        "Spricka i glaset",
-        "Normalt åldersslitage",
-        "Lagning vid fot"
-      ],
-      "antiHallucination": {
-        "noSpecificPlacements": true,
-        "noInventedDamage": true,
-        "noMeasurements": true,
-        "noSubjectiveAssessments": true
-      },
-      "rules": [
-        "Kort och koncis - max 50 tecken",
-        "Endast faktabaserade observationer",
-        "Inga värdeord eller subjektiva bedömningar",
-        "Realistisk bedömning av skick",
-        "Formell auktionsterminologi"
-      ]
+      "auctionetCompliant": true,
+      "avoid": ["mm", "bl a", "osv", "Ej funktionstestad"],
+      "standardPhrases": {
+        "art": "Ej examinerad ur ram",
+        "books": "Ej genomgånget"
+      }
     },
     
     "keywords": {
@@ -340,65 +345,18 @@
   },
   
   "validationRules": {
-    "forbiddenWords": [
-      "fantastisk",
-      "vacker", 
-      "utsökt",
-      "nyskick",
-      "magnifik",
-      "underbar",
-      "exceptionell",
-      "perfekt",
-      "ovanlig",
-      "sällsynt",
-      "extraordinär",
-      "unik",
-      "spektakulär",
-      "enastående",
-      "otrolig"
-    ],
-    
-    "antiHallucination": {
-      "dateSpeculation": false,
-      "noInventedMeasurements": true,
-      "noInventedMaterials": true,
-      "noInventedDamage": true,
-      "preserveUncertaintyMarkers": true
-    },
-    
-    "uncertaintyMarkers": [
-      "troligen",
-      "tillskriven", 
-      "efter",
-      "stil av",
-      "möjligen",
-      "typ"
-    ],
-    
-    "quotesPreservation": {
+    "auctionetCompliance": {
       "enabled": true,
-      "reason": "Prevents machine translation of Swedish design names",
-      "examples": [
-        "\"Oxford\"",
-        "\"Pepparkorn\"",
-        "\"Spisa Ribb\"",
-        "\"Prince\"",
-        "\"Bern\"",
-        "\"Egg\"",
-        "\"Swan\"",
-        "\"Tulip\""
-      ],
-      "modelNameDetection": {
-        "enabled": true,
-        "patterns": [
-          "Karaff Prince → Karaff, \"Prince\", glas",
-          "Fåtölj Egg → Fåtölj, \"Egg\", läder", 
-          "Vas Oxford → Vas, \"Oxford\", keramik",
-          "Stol Tulip → Stol, \"Tulip\", plast"
-        ],
-        "rule": "All product/model/series names must be quoted to prevent machine translation"
-      }
-    }
+      "checkTitleStructure": true,
+      "checkMeasurementPlacement": true,
+      "checkSubjectiveWords": true,
+      "checkCompoundWords": true
+    },
+    "forbiddenWords": [
+      "fin", "vacker", "värdefull", "stor", "liten",
+      "fantastisk", "utsökt", "magnifik", "underbar",
+      "exceptionell", "perfekt", "ovanlig", "sällsynt"
+    ]
   },
   
   "promptTemplates": {
