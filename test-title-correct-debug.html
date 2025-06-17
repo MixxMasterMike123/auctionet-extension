@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Title-Correct Debug Test</title>
+</head>
+<body>
+    <h1>Title-Correct Debug Test</h1>
+    <p>Open browser console to see the debug output</p>
+    
+    <!-- Load AI Rules System scripts like the content script does -->
+    <script src="modules/refactored/ai-rules-system/ai-rules-manager.js"></script>
+    <script src="modules/refactored/ai-rules-system/complete-migration.js"></script>
+    
+    <script>
+        // Simulate the exact same flow as the EDIT PAGE
+        async function testTitleCorrect() {
+            try {
+                console.log('🔍 TITLE-CORRECT DEBUG TEST');
+                
+                // Initialize AI Rules System like content-script.js does
+                console.log('🔄 Initializing AI Rules System v2.0...');
+                await initializeAIRulesSystem();
+                console.log('✅ AI Rules System v2.0 initialized successfully');
+                
+                // Test if global functions are available
+                console.log('🔍 Testing global functions:');
+                console.log('  - getSystemPrompt available:', typeof getSystemPrompt);
+                console.log('  - getTitleCorrectPrompt available:', typeof getTitleCorrectPrompt);
+                
+                if (typeof getSystemPrompt === 'function') {
+                    // Test the titleCorrect prompt specifically
+                    const titleCorrectPrompt = getSystemPrompt('titleCorrect');
+                    console.log('✅ titleCorrect prompt retrieved');
+                    console.log('📋 titleCorrect prompt:', titleCorrectPrompt);
+                    console.log('📏 Prompt length:', titleCorrectPrompt.length, 'characters');
+                    
+                    // Check if the comma rule is in the prompt
+                    const hasCommaRule = titleCorrectPrompt.includes('komma före citerade modellnamn');
+                    const hasExampleRule = titleCorrectPrompt.includes('RÄTT: "MATTA, Rölakan, "Alvine", IKEA"');
+                    
+                    console.log('✅ Has comma rule:', hasCommaRule);
+                    console.log('✅ Has example:', hasExampleRule);
+                    
+                    if (hasCommaRule && hasExampleRule) {
+                        console.log('✅ AI Rules System is working correctly!');
+                        console.log('🎯 The problem might be elsewhere...');
+                    } else {
+                        console.log('❌ AI Rules System prompt is missing critical rules!');
+                    }
+                } else {
+                    console.log('❌ getSystemPrompt function not available!');
+                    console.log('Available window functions:', Object.keys(window).filter(k => k.includes('System') || k.includes('getS')));
+                }
+                
+                // Test the exact input that's failing
+                const testInput = 'MATTA, Rölakan "Alvine", Ikea, 173 x 236 cm';
+                const expectedOutput = 'MATTA, Rölakan, "Alvine", IKEA, 173 x 236 cm.';
+                
+                console.log('🔍 Test input:', testInput);
+                console.log('🎯 Expected output:', expectedOutput);
+                
+                // Test if the pattern is detected
+                const hasQuotedPattern = testInput.includes('"') && testInput.match(/\w+\s*"/);
+                console.log('🔍 Input has quoted pattern:', hasQuotedPattern);
+                
+                if (hasQuotedPattern) {
+                    const matches = testInput.match(/(\w+)\s*"([^"]+)"/g);
+                    console.log('🎯 Quoted patterns found:', matches);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+            }
+        }
+        
+        // Run the test when page loads
+        document.addEventListener('DOMContentLoaded', testTitleCorrect);
+    </script>
+</body>
+</html> 

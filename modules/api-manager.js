@@ -285,6 +285,22 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
         delete result[fieldType];
       }
       
+      // CLEANUP: Remove unwanted outer quotes from title field
+      if (result.title && typeof result.title === 'string') {
+        // Remove outer quotes if the entire title is wrapped in them
+        let cleanTitle = result.title.trim();
+        if (cleanTitle.startsWith('"') && cleanTitle.endsWith('"') && cleanTitle.length > 2) {
+          // Make sure it's not just quoted content like "Alvine" but the whole title wrapped
+          const innerContent = cleanTitle.slice(1, -1);
+          // Only remove outer quotes if there are other quotes inside (indicating wrapped title)
+          if (innerContent.includes('"')) {
+            cleanTitle = innerContent;
+            console.log('🧹 Removed unwanted outer quotes from title');
+          }
+        }
+        result.title = cleanTitle;
+      }
+      
       console.log('Single field parsed result:', result);
       return result;
     }
@@ -623,12 +639,130 @@ ENDAST FÖRBÄTTRA:
     // OLD: ~100 lines of hardcoded rules
     // NEW: Single call to global system with field-specific prompts
     
-    if (fieldType === 'title-correct') {
-      return getSystemPrompt('titleCorrect');
+    try {
+      if (fieldType === 'title-correct') {
+        console.log('🔍 DEBUG: Getting titleCorrect prompt from AI Rules System');
+        
+        // Check if the global function exists
+        if (typeof getSystemPrompt !== 'function') {
+          console.error('❌ getSystemPrompt function not available! Available functions:', Object.keys(window).filter(k => k.includes('getS')));
+          throw new Error('AI Rules System not initialized');
+        }
+        
+        const prompt = getSystemPrompt('titleCorrect');
+        console.log('✅ DEBUG: titleCorrect prompt retrieved, length:', prompt?.length);
+        console.log('🔍 DEBUG: Has comma rule:', prompt?.includes('komma före citerade modellnamn'));
+        
+        if (!prompt || prompt.length < 100) {
+          console.error('❌ titleCorrect prompt is empty or too short:', prompt);
+          throw new Error('Invalid titleCorrect prompt');
+        }
+        
+        return prompt;
+      }
+      
+      if (fieldType === 'title') {
+        console.log('🔍 DEBUG: Getting enhanced title prompt with comma rules');
+        
+        // Enhanced title gets core prompt PLUS comma rules
+        const corePrompt = getSystemPrompt('core', 'apiManager');
+        const commaRules = `
+
+⚠️ KRITISK KOMMAREGEL - FÖLJ ALLTID ⚠️
+När ett ord följs DIREKT av citationstecken, lägg ALLTID till komma mellan ordet och citatet.
+
+EXEMPEL SOM MÅSTE FÖLJAS:
+Input:  "MATTA, Rölakan "Alvine", IKEA"
+Output: "MATTA, Rölakan, "Alvine", IKEA"
+                    ↑ DENNA KOMMA ÄR OBLIGATORISK
+
+Input:  "VAS, Graal "Ariel", Orrefors"  
+Output: "VAS, Graal, "Ariel", Orrefors"
+                  ↑ DENNA KOMMA ÄR OBLIGATORISK
+
+🔥 ABSOLUT KRITISKT: Lägg ALLTID till komma före citationstecken! 🔥`;
+
+        const enhancedPrompt = corePrompt + commaRules;
+        console.log('✅ DEBUG: Enhanced title prompt with comma rules, total length:', enhancedPrompt?.length);
+        
+        return enhancedPrompt;
+      }
+      
+      // Default to core prompt for other field types
+      const corePrompt = getSystemPrompt('core', 'apiManager');
+      console.log('✅ DEBUG: Core prompt retrieved for fieldType:', fieldType);
+      return corePrompt;
+      
+    } catch (error) {
+      console.error('❌ Error getting system prompt:', error);
+      console.error('Falling back to emergency titleCorrect prompt');
+      
+                    // EMERGENCY FALLBACK for title-correct and title
+       if (fieldType === 'title-correct') {
+         return `🚨🚨🚨 TITLE-CORRECT UPPGIFT - MINIMALA KORRIGERINGAR 🚨🚨🚨
+
+⚠️ KRITISK KOMMAREGEL - FÖLJ EXAKT ⚠️
+När ett ord följs DIREKT av citationstecken, lägg ALLTID till komma mellan ordet och citatet.
+
+EXEMPEL SOM MÅSTE FÖLJAS:
+Input:  "MATTA, Rölakan "Alvine", IKEA"
+Output: "MATTA, Rölakan, "Alvine", IKEA"
+                    ↑ DENNA KOMMA ÄR OBLIGATORISK
+
+Input:  "VAS, Graal "Ariel", Orrefors"  
+Output: "VAS, Graal, "Ariel", Orrefors"
+                  ↑ DENNA KOMMA ÄR OBLIGATORISK
+
+🔥 ABSOLUT KRITISKT: Lägg ALLTID till komma före citationstecken! 🔥
+
+Korrigera också:
+• Stavfel och grammatik
+• Kända varumärken till korrekt kapitalisering (IKEA, ROLEX, BMW)
+• Lägg till avslutande punkt (.) om den saknas
+
+🚨 ÄNDRA ALDRIG:
+• Ordval eller terminologi
+• Innehåll eller struktur
+• Beskrivande ord
+
+Behåll EXAKT samma innehåll - korrigera bara uppenbara fel.`;
+       }
+       
+       if (fieldType === 'title') {
+         return `🚨 FÖRBÄTTRA TITEL - SVENSKA AUKTIONSSTANDARDER 🚨
+
+⚠️ KRITISK KOMMAREGEL - FÖLJ ALLTID ⚠️
+När ett ord följs DIREKT av citationstecken, lägg ALLTID till komma mellan ordet och citatet.
+
+EXEMPEL SOM MÅSTE FÖLJAS:
+Input:  "MATTA, Rölakan "Alvine", IKEA"
+Output: "MATTA, Rölakan, "Alvine", IKEA"
+                    ↑ DENNA KOMMA ÄR OBLIGATORISK
+
+Input:  "VAS, Graal "Ariel", Orrefors"  
+Output: "VAS, Graal, "Ariel", Orrefors"
+                  ↑ DENNA KOMMA ÄR OBLIGATORISK
+
+🔥 ABSOLUT KRITISKT: Lägg ALLTID till komma före citationstecken! 🔥
+
+FÖRBÄTTRA OCKSÅ:
+• Titel struktur enligt Auctionet standarder
+• Korrekt kapitalisering (IKEA, ROLEX, BMW)
+• Lägg till avslutande punkt (.) om den saknas
+• Förbättra terminologi och ordning
+• Max 60 tecken
+
+FÖLJ AUCTIONET TITELFORMAT:
+• MÖBLER: "OBJEKT, stil, period"
+• SMÅSAKER: "OBJEKT, material, stil, tillverkare, period"
+• MATTOR: "MATTA, typ, ålder, mått"
+
+Returnera endast den förbättrade titeln.`;
+       }
+      
+      // For other field types, throw the error
+      throw error;
     }
-    
-    // Default to core prompt for other field types
-    return getSystemPrompt('core', 'apiManager');
   }
 
   getUserPrompt(itemData, fieldType) {
