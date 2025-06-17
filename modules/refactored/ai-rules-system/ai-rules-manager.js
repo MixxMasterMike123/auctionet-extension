@@ -395,9 +395,10 @@ class AIRulesManager {
      * Generate title according to Auctionet guidelines
      * @param {Object} itemData - Item data with object, material, style, etc.
      * @param {string} objectType - Type of object (furniture, smallItems, services, etc.)
+     * @param {boolean} hasArtistField - Whether artist field is filled (affects capitalization)
      * @returns {string} - Properly formatted title
      */
-    generateAuctionetTitle(itemData, objectType) {
+    generateAuctionetTitle(itemData, objectType, hasArtistField = false) {
         const rules = this.getAuctionetTitleRules(objectType);
         if (!rules) {
             console.warn(`⚠️ No Auctionet rules found for object type: ${objectType}`);
@@ -422,11 +423,16 @@ class AIRulesManager {
         let titleParts = [];
 
         // Apply object-specific formatting rules
+        // CRITICAL: Handle artist field capitalization
+        const firstWordCapitalization = hasArtistField ? 
+            (word) => word.toLowerCase() : // Auctionet system handles capitalization
+            (word) => word.toUpperCase();   // Standard uppercase when no artist field
+
         switch (objectType) {
             case 'furniture':
-                // Format: "OBJECT, style, period"
+                // Format: "OBJECT, style, period" (or "object, style, period" if artist field filled)
                 titleParts = [
-                    object.toUpperCase(),
+                    firstWordCapitalization(object),
                     style,
                     period
                 ].filter(Boolean);
@@ -435,7 +441,7 @@ class AIRulesManager {
             case 'smallItems':
                 // Format: "OBJECT, material, style, manufacturer, period"
                 titleParts = [
-                    object.toUpperCase(),
+                    firstWordCapitalization(object),
                     material,
                     style,
                     manufacturer,
@@ -451,7 +457,7 @@ class AIRulesManager {
             case 'services':
                 // Format: "SERVICE_TYPE, piece_count, material, pattern, manufacturer, period"
                 titleParts = [
-                    object.toUpperCase(),
+                    firstWordCapitalization(object),
                     pieceCount ? `${pieceCount} delar` : '',
                     material,
                     pattern ? `"${pattern}"` : '',
@@ -461,9 +467,9 @@ class AIRulesManager {
                 break;
 
             case 'carpets':
-                // Format: "MATTA, type, age, measurements"
+                // Format: "MATTA, type, age, measurements" (or "matta..." if artist field filled)
                 titleParts = [
-                    'MATTA',
+                    firstWordCapitalization('matta'),
                     style,
                     period,
                     measurements ? `ca ${measurements}` : ''
@@ -473,7 +479,7 @@ class AIRulesManager {
             case 'silver':
                 // Format: "OBJECT, material, style, manufacturer, place, period, weight"
                 titleParts = [
-                    object.toUpperCase(),
+                    firstWordCapitalization(object),
                     material,
                     style,
                     manufacturer,
@@ -484,20 +490,30 @@ class AIRulesManager {
 
             case 'art':
                 // Format: "ARTIST_OR_UNIDENTIFIED, title, technique, signature_info, period"
-                const artistName = artist || 'OIDENTIFIERAD KONSTNÄR';
-                titleParts = [
-                    artistName.toUpperCase(),
-                    object ? `"${object}"` : '',
-                    technique,
-                    signature ? `signerad ${signature}` : '',
-                    period
-                ].filter(Boolean);
+                // NOTE: Art handling is special - if hasArtistField, don't include artist in title
+                if (hasArtistField) {
+                    titleParts = [
+                        object ? `"${object}"` : '',
+                        technique,
+                        signature ? `signerad ${signature}` : '',
+                        period
+                    ].filter(Boolean);
+                } else {
+                    const artistName = artist || 'OIDENTIFIERAD KONSTNÄR';
+                    titleParts = [
+                        artistName.toUpperCase(),
+                        object ? `"${object}"` : '',
+                        technique,
+                        signature ? `signerad ${signature}` : '',
+                        period
+                    ].filter(Boolean);
+                }
                 break;
 
             case 'lighting':
                 // Format: "OBJECT, material, style, manufacturer, measurements"
                 titleParts = [
-                    object.toUpperCase(),
+                    firstWordCapitalization(object),
                     material,
                     style,
                     manufacturer,
@@ -508,7 +524,7 @@ class AIRulesManager {
             default:
                 // Fallback to smallItems format
                 titleParts = [
-                    object.toUpperCase(),
+                    firstWordCapitalization(object),
                     material,
                     style,
                     manufacturer,
@@ -817,7 +833,7 @@ const getArtistCorrections = () => getAIRulesManager().getBrandCorrections(); //
 
 // Auctionet title generation functions
 const getAuctionetTitleRules = (objectType) => getAIRulesManager().getAuctionetTitleRules(objectType);
-const generateAuctionetTitle = (itemData, objectType) => getAIRulesManager().generateAuctionetTitle(itemData, objectType);
+const generateAuctionetTitle = (itemData, objectType, hasArtistField) => getAIRulesManager().generateAuctionetTitle(itemData, objectType, hasArtistField);
 const validateAuctionetTitle = (title, objectType) => getAIRulesManager().validateAuctionetTitle(title, objectType);
 
 // Extracted rules access

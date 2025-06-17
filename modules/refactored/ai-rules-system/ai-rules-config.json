@@ -217,7 +217,7 @@
     
     "addItems": "Förbättra enligt Auctionets officiella katalogiseringsregler. Följ exakta titel-strukturer för varje objekttyp.",
     
-    "freetextParser": "Du är en ERFAREN SVENSK AUKTIONSEXPERT som följer Auctionets officiella katalogiseringsregler EXAKT.\n\n🚨 AUCTIONET TITEL-STRUKTURREGLER - FÖLJ EXAKT:\n\nMÖBLER: \"OBJEKT, stil, period\" (ALDRIG träslag i titel)\nSMÅSAKER: \"OBJEKT, material, stil, tillverkare, period\" (ALDRIG sammansatta ord)\nSERVISER: \"SERVISTYP, antal delar, material, mönster, tillverkare\"\nMATTOR: \"MATTA, typ, ålder, ca X x Y cm\" (ALLTID mått)\nSILVER: \"OBJEKT, material, stil, tillverkare, ort, period, ca X gram\"\nTAKLAMPOR: \"OBJEKT, material, stil, höjd X cm\"\n\n📝 ARTIST-FÄLT REGLER:\n• ENDAST namnet - ALDRIG företag, år eller annat\n• RÄTT: \"Lisa Larson\"\n• FEL: \"Lisa Larson, Gustavsberg\"\n\n🚨 ABSOLUT FÖRBJUDET:\n• Träslag i möbeltitlar\n• Sammansatta ord (GLASVAS → VAS, glas)\n• Subjektiva ord: fin, vacker, värdefull\n• Företag i artist-fält\n\nReturnera JSON med Auctionet-kompatibel struktur."
+    "freetextParser": "Du är en ERFAREN SVENSK AUKTIONSEXPERT som följer Auctionets officiella katalogiseringsregler EXAKT.\n\n🚨 KRITISK AUCTIONET-REGEL - ARTIST-FÄLT HANTERING:\n\n📝 NÄR ARTIST-FÄLT ÄR IFYLLT:\n• Auctionet-systemet lägger automatiskt till \"KONSTNÄR.\" först i titeln\n• Exempel: Artist-fält \"Folke Ohlsson\" → Auctionet visar \"FOLKE OHLSSON. fåtölj samt fotpall...\"\n• DÄRFÖR: Inkludera ALDRIG konstnärnamn i titel när artist-fält är ifyllt\n• DÄRFÖR: Börja titel med liten bokstav (systemet hanterar versaler)\n\n📝 NÄR ARTIST-FÄLT ÄR TOMT:\n• Inkludera konstnärnamn i titel om känt\n• Börja med VERSAL första ordet\n\n🚨 AUCTIONET TITEL-STRUKTURREGLER:\n\nMÖBLER: \"objekt, stil, period\" (ALDRIG träslag i titel)\nSMÅSAKER: \"objekt, material, stil, tillverkare, period\" (ALDRIG sammansatta ord)\nSERVISER: \"servistyp, antal delar, material, mönster, tillverkare\"\nMATTOR: \"matta, typ, ålder, ca X x Y cm\" (ALLTID mått)\nSILVER: \"objekt, material, stil, tillverkare, ort, period, ca X gram\"\nTAKLAMPOR: \"objekt, material, stil, höjd X cm\"\n\n📝 ARTIST-FÄLT REGLER:\n• ENDAST namnet - ALDRIG företag, år eller annat\n• RÄTT: \"Lisa Larson\"\n• FEL: \"Lisa Larson, Gustavsberg\"\n\n🚨 ABSOLUT FÖRBJUDET:\n• Konstnärnamn i titel när artist-fält är ifyllt\n• Träslag i möbeltitlar\n• Sammansatta ord (GLASVAS → VAS, glas)\n• Subjektiva ord: fin, vacker, värdefull\n• Företag i artist-fält\n\nReturnera JSON med Auctionet-kompatibel struktur."
   },
 
   "categoryRules": {
@@ -373,19 +373,27 @@
   "contextRules": {
     "artistFieldFilled": {
       "titleBehavior": "exclude-artist-from-title",
-      "capitalization": "proper-case-first-word",
-      "punctuation": "period-after-first-word"
+      "capitalization": "lowercase-first-word",
+      "punctuation": "no-period",
+      "reasoning": "Auctionet system automatically prepends 'ARTIST NAME.' to title",
+      "example": {
+        "artistField": "Folke Ohlsson",
+        "ourTitle": "fåtölj samt fotpall, Dux, valnöt, svart skinnklädsel",
+        "auctionetDisplay": "FOLKE OHLSSON. fåtölj samt fotpall, Dux, valnöt, svart skinnklädsel"
+      }
     },
     
     "artistFieldEmpty": {
       "titleBehavior": "include-artist-if-known",
       "capitalization": "uppercase-first-word", 
-      "punctuation": "comma-after-first-word"
+      "punctuation": "comma-after-first-word",
+      "reasoning": "Standard title format when no artist field"
     },
     
-    "artistInMiddleOfTitle": {
-      "behavior": "preserve-position",
-      "reasoning": "Object is primary, not artist"
+    "criticalRule": {
+      "description": "Auctionet system automatically prepends artist name in CAPS with period",
+      "whenArtistFieldFilled": "NEVER include artist name in title - system handles it",
+      "whenArtistFieldEmpty": "Include artist name in title if known"
     }
   },
   
