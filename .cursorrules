@@ -1237,11 +1237,20 @@ Behåll EXAKT samma innehåll - korrigera bara uppenbara fel."
 // CORRECT: "Star-Wars Return-of-the-Jedi Kenner actionfigurer leksaker 1980-tal vintage Luke-Skywalker"
 // WRONG: "Star Wars, Return of the Jedi, Luke Skywalker" (spaces in phrases, commas)
 
+// CRITICAL ARCHITECTURAL LESSON - ANALYSIS FLOW COVERAGE:
+// ⚠️ PROBLEM: Keywords enhancement was only applied to text-only analysis flow
+// ⚠️ IMPACT: Combined image+text analysis bypassed keywords fix entirely
+// ✅ SOLUTION: Ensure enhancement applies to ALL analysis flows:
+//    - processTextOnly() → autoEnhanceFields() ✅
+//    - processImageOnly() → autoEnhanceFields() ✅ (ADDED)
+//    - processCombinedImageAndText() → autoEnhanceFields() ✅ (ADDED)
+
 // IMPLEMENTATION PATTERN:
 // 1. IDENTIFY working system (edit page keywords button)
 // 2. TRACE the exact API call path (api-manager.js callClaudeAPI with fieldType 'keywords')
 // 3. USE same system in new component (FreetextParser enhanceKeywordsWithEditPageSystem)
-// 4. VERIFY format matches business requirements
+// 4. ENSURE coverage across ALL analysis flows (not just one!)
+// 5. VERIFY format matches business requirements
 
 // EDIT PAGE KEYWORDS SYSTEM (WORKING):
 // - Uses api-manager.js callClaudeAPI(itemData, 'keywords')
@@ -1249,33 +1258,31 @@ Behåll EXAKT samma innehåll - korrigera bara uppenbara fel."
 // - Includes proper format: "VIKTIGT FÖR SÖKORD: Använd Auctionets format med mellanslag mellan sökord och '-' för flerordsfraser"
 // - Generates: "science-fiction rymdleksaker actionfigurer Kenner Hasbro vintage retro samlarobjekt"
 
-// FREETEXT PARSER INTEGRATION (FIXED):
+// FREETEXT PARSER INTEGRATION (COMPLETE SUCCESS):
 async enhanceKeywordsWithEditPageSystem(itemData) {
   // Use EXACT same API call as edit page keywords button
-  const keywordsResult = await new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({
-      type: 'anthropic-fetch',
-      apiKey: this.apiManager.apiKey,
-      body: {
-        model: this.apiManager.getCurrentModel().id,
-        max_tokens: 1000,
-        temperature: 0.3,
-        system: window.getSystemPrompt ? window.getSystemPrompt('keywords') : 'Default keywords prompt',
-        messages: [{
-          role: 'user',
-          content: `OBJEKTDATA:\nTitel: ${itemData.title}\nBeskrivning: ${itemData.description}\n\nVIKTIGT FÖR SÖKORD: Använd Auctionets format med mellanslag mellan sökord och "-" för flerordsfraser.\nEXEMPEL: "konstglas mundblåst svensk-design 1960-tal samlarobjekt"`
-        }]
-      }
-    }, (response) => {
-      if (response.success) {
-        resolve(response.data.content[0].text.trim());
-      } else {
-        reject(new Error(response.error));
-      }
-    });
-  });
-  
-  return keywordsResult;
+  const keywordsResult = await this.apiManager.callClaudeAPI(itemData, 'keywords');
+  // This automatically uses getSystemPrompt('keywords') and proper Auctionet format
+  return keywordsResult?.keywords || null;
+}
+
+// ALL ANALYSIS FLOWS NOW COVERED:
+async processTextOnly() {
+  // ... processing logic
+  const enhancedData = await this.autoEnhanceFields(finalData); // ✅ Already had this
+  return enhancedData;
+}
+
+async processImageOnly() {
+  // ... processing logic
+  const finalData = await this.autoEnhanceFields(parsedData); // ✅ ADDED - was missing!
+  return finalData;
+}
+
+async processCombinedImageAndText() {
+  // ... processing logic
+  const finalData = await this.autoEnhanceFields(enhancedData); // ✅ ADDED - was missing!
+  return finalData;
 }
 
 // ARCHITECTURAL BENEFITS:
@@ -1285,6 +1292,7 @@ async enhanceKeywordsWithEditPageSystem(itemData) {
 // ✅ Follows business format requirements
 // ✅ Leverages existing AI Rules System v2.0
 // ✅ Zero breaking changes to existing functionality
+// ✅ CRITICAL: Complete coverage across all analysis flows
 
 // BUSINESS COMPLIANCE:
 // ✅ Proper hyphenation for multi-word phrases
@@ -1292,4 +1300,8 @@ async enhanceKeywordsWithEditPageSystem(itemData) {
 // ✅ Max 10-12 keywords per item
 // ✅ Complementary terms not already in title/description
 // ✅ Swedish auction terminology and format standards
+
+// DEBUGGING LESSON:
+// When a fix "doesn't work", check if it's applied to ALL code paths!
+// Multi-modal components (text/image/combined) need fixes in ALL flows.
 ```
