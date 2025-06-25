@@ -301,8 +301,8 @@ export class MultiModelProcessor {
           reject(new Error(chrome.runtime.lastError.message));
         } else if (response && response.error) {
           reject(new Error(response.error));
-        } else if (response && response.content && response.content[0] && response.content[0].text) {
-          resolve(response.content[0].text.trim());
+        } else if (response && response.success && response.data && response.data.content && response.data.content[0] && response.data.content[0].text) {
+          resolve(response.data.content[0].text.trim());
         } else {
           console.error('[MULTI-MODEL] Unexpected response format:', response);
           reject(new Error(`Unexpected response format for model ${model}`));
