@@ -328,6 +328,12 @@ export class ProgressiveUIManager {
   updatePerformanceMetrics(metrics) {
     if (!this.options.enablePerformanceMetrics) return;
     
+    // Check if modal and metrics container are still available
+    if (!this.currentModal || !this.metricsContainer) {
+      console.warn('[PROGRESSIVE-UI] Cannot update metrics - modal or container not available');
+      return;
+    }
+    
     const { totalDuration, stageCount, averageConfidence } = metrics;
     this.state.performanceMetrics = { totalDuration, stageCount, averageConfidence };
     

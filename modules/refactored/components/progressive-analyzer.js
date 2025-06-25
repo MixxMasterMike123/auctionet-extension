@@ -131,11 +131,20 @@ export class ProgressiveAnalyzer {
     } catch (error) {
       console.error('[PROGRESSIVE-ANALYZER] Analysis failed:', error);
       
-      // Handle error in UI
-      await this.handleAnalysisError(error);
+      // Handle error in UI (but don't close modal yet if we're falling back)
+      if (!this.options.fallbackToStandardAnalysis) {
+        await this.handleAnalysisError(error);
+      }
       
       if (this.options.fallbackToStandardAnalysis) {
-        return await this.fallbackToStandardAnalysis(inputData, options);
+        console.log('[PROGRESSIVE-ANALYZER] Falling back to standard analysis...');
+        // Close progressive UI before fallback
+        if (this.uiManager && this.uiManager.currentModal) {
+          await this.uiManager.closeModal();
+        }
+        // Reset processing state for fallback
+        this.state.isAnalyzing = false;
+        return null; // Signal fallback needed
       }
       
       throw error;
@@ -178,6 +187,12 @@ export class ProgressiveAnalyzer {
    * Update real-time performance metrics
    */
   updateRealTimeMetrics(stage, result) {
+    // Check if UI manager is still available
+    if (!this.uiManager || !this.uiManager.currentModal) {
+      console.warn('[PROGRESSIVE-ANALYZER] Cannot update metrics - UI manager not available');
+      return;
+    }
+    
     // Calculate current metrics
     const currentTime = Date.now();
     const analysisStartTime = this.state.currentAnalysis;

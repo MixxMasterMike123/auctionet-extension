@@ -18,7 +18,7 @@ export class MultiModelProcessor {
     this.models = {
       fast: 'claude-3-5-haiku-20241022',      // 0.5-2s - Quick identification
       standard: 'claude-3-5-sonnet-20241022', // 2-4s - Detailed analysis
-      premium: 'claude-3-sonnet-20240229'     // 4-8s - Expert analysis
+      premium: 'claude-sonnet-4-20250514'     // 4-8s - Expert analysis (Claude 4)
     };
     
     // Task-to-model mapping for optimal speed/quality balance
@@ -299,10 +299,13 @@ export class MultiModelProcessor {
         
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
-        } else if (response && response.success) {
-          resolve(response.data.content[0].text.trim());
+        } else if (response && response.error) {
+          reject(new Error(response.error));
+        } else if (response && response.content && response.content[0] && response.content[0].text) {
+          resolve(response.content[0].text.trim());
         } else {
-          reject(new Error(response?.error || 'API call failed'));
+          console.error('[MULTI-MODEL] Unexpected response format:', response);
+          reject(new Error(`Unexpected response format for model ${model}`));
         }
       });
     });

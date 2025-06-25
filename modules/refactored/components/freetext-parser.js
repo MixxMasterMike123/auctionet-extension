@@ -736,6 +736,8 @@ export class FreetextParser {
       } else {
         // Fallback to standard analysis
         console.log('🔄 Progressive analysis returned no results, falling back...');
+        // Reset processing state before fallback
+        this.isProcessing = false;
         return await this.processFreetextWithAI();
       }
       
@@ -744,6 +746,8 @@ export class FreetextParser {
       
       // Always fallback to standard analysis on error
       console.log('🔄 Falling back to standard analysis due to error...');
+      // Reset processing state before fallback
+      this.isProcessing = false;
       return await this.processFreetextWithAI();
       
     } finally {
