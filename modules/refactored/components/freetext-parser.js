@@ -28,6 +28,9 @@ const {
 // Import AIImageAnalyzer component (modular architecture)
 import { AIImageAnalyzer } from './ai-image-analyzer.js';
 
+// Import Progressive Analysis System (2025 Multi-Model System)
+import { ProgressiveAnalyzer } from './progressive-analyzer.js';
+
 export class FreetextParser {
   constructor(apiManager, addItemsManager) {
     // Handle both direct APIManager and APIBridge patterns
@@ -52,11 +55,19 @@ export class FreetextParser {
       confidenceThreshold: 0.6
     });
     
+    // Initialize Progressive Analysis System (2025 Multi-Model System)
+    this.progressiveAnalyzer = new ProgressiveAnalyzer(this.apiManager, {
+      enableProgressiveAnalysis: true,
+      enablePerformanceOptimization: true,
+      fallbackToStandardAnalysis: true
+    });
+    
     // Configuration
     this.config = {
       enableHistoricalValidation: false, // Future feature
       enableMarketDataEnrichment: true,
-      confidenceThreshold: 0.6
+      confidenceThreshold: 0.6,
+      enableProgressiveAnalysis: true  // Enable 2025 multi-model system
     };
     
     console.log('✅ FreetextParser: Initialized with config:', this.config);
@@ -77,6 +88,9 @@ export class FreetextParser {
       
       // Add a small delay to ensure page controllers are fully loaded
       await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Initialize Progressive Analysis System
+      await this.progressiveAnalyzer.init();
       
       this.injectStyles();
       // Note: Button is now added by AddItemsIntegrationManager
@@ -147,7 +161,7 @@ export class FreetextParser {
     buttonContainer.className = 'ai-button-wrapper';
     buttonContainer.innerHTML = `
       <button class="ai-assist-button ai-freetext-parser-btn" type="button" id="freetext-parser-btn">
-        AI Snabbkatalogisering
+        Progressiv AI-analys
       </button>
     `;
 
@@ -228,7 +242,7 @@ export class FreetextParser {
     modal.innerHTML = `
       <div class="freetext-parser-modal">
         <div class="popup-header">
-          <h3>Snabbkatalogisering</h3>
+          <h3>Progressiv AI-analys</h3>
           <p>Skriv information om objektet eller ladda upp bilder för automatisk katalogisering</p>
           <button class="popup-close" type="button">✕</button>
         </div>
@@ -394,13 +408,13 @@ export class FreetextParser {
     // Store reference for cleanup
     modal._escapeHandler = handleEscape;
 
-    // Analyze button
+    // Analyze button - Use Progressive Analysis System by default
     const analyzeBtn = modal.querySelector('#analyze-btn');
     if (analyzeBtn) {
-              analyzeBtn.addEventListener('click', () => {
-          console.log('🔴 ANALYZE BUTTON CLICKED - processFreetextWithAI starting...');
-          this.processFreetextWithAI();
-        });
+      analyzeBtn.addEventListener('click', () => {
+        console.log('🚀 ANALYZE BUTTON CLICKED - Starting Progressive Analysis System...');
+        this.processWithProgressiveAnalysis();
+      });
     }
 
     // Apply button
@@ -409,10 +423,15 @@ export class FreetextParser {
       applyBtn.addEventListener('click', () => this.applyParsedDataToForm());
     }
 
-    // Reload analysis button
+    // Reload analysis button - Use Progressive Analysis
     const reloadBtn = modal.querySelector('#reload-analysis-btn');
     if (reloadBtn) {
-      reloadBtn.addEventListener('click', () => this.reloadAnalysis());
+      reloadBtn.addEventListener('click', () => {
+        console.log('🔄 RELOAD ANALYSIS CLICKED - Using Progressive Analysis...');
+        this.reloadAnalysis();
+        // After UI reset, trigger progressive analysis
+        setTimeout(() => this.processWithProgressiveAnalysis(), 100);
+      });
     }
 
     // Initialize image analyzer
@@ -654,7 +673,165 @@ export class FreetextParser {
   }
 
   /**
-   * Process input using AI Rules System v2.0 (unified logic)
+   * Process input with Progressive Analysis System (2025 Multi-Model)
+   */
+  async processWithProgressiveAnalysis() {
+    console.log('🚀 Starting Progressive Analysis System (2025 Multi-Model)...');
+    
+    if (this.isProcessing) {
+      console.warn('⚠️ Progressive analysis already in progress');
+      return;
+    }
+    
+    // Check if progressive analysis is enabled and supported
+    if (!this.config.enableProgressiveAnalysis || !this.progressiveAnalyzer.isSupported()) {
+      console.log('🔄 Progressive analysis not available, using standard analysis...');
+      return await this.processFreetextWithAI();
+    }
+    
+    this.isProcessing = true;
+    
+    try {
+      // Gather input data
+      const textarea = this.currentModal.querySelector('#freetext-input');
+      const freetext = textarea?.value?.trim() || '';
+      const hasImages = this.selectedImages && this.selectedImages.size > 0;
+      
+      // Prepare input data for progressive analysis
+      const inputData = {
+        freetext,
+        images: hasImages ? Array.from(this.selectedImages) : [],
+        analysisType: hasImages && freetext ? 'combined' : hasImages ? 'image' : 'text',
+        userPreferences: {
+          enableMarketValidation: true,
+          confidenceThreshold: this.config.confidenceThreshold
+        }
+      };
+      
+      console.log('📊 Progressive analysis input:', {
+        hasText: !!freetext,
+        textLength: freetext.length,
+        imageCount: inputData.images.length,
+        analysisType: inputData.analysisType
+      });
+      
+      // Start progressive analysis with real-time UI updates
+      const results = await this.progressiveAnalyzer.startProgressiveAnalysis(inputData, {
+        includeMarketValidation: true,
+        enableRealTimeUpdates: true,
+        showPerformanceMetrics: true
+      });
+      
+      if (results && results.analysisResults) {
+        // Progressive analysis succeeded
+        console.log('✅ Progressive analysis completed:', results);
+        
+        // Setup event listeners for UI integration
+        this.setupProgressiveEventListeners();
+        
+        // Close our modal since progressive UI is handling display
+        this.closeModal();
+        
+        return results;
+      } else {
+        // Fallback to standard analysis
+        console.log('🔄 Progressive analysis returned no results, falling back...');
+        return await this.processFreetextWithAI();
+      }
+      
+    } catch (error) {
+      console.error('❌ Progressive analysis failed:', error);
+      
+      // Always fallback to standard analysis on error
+      console.log('🔄 Falling back to standard analysis due to error...');
+      return await this.processFreetextWithAI();
+      
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Setup event listeners for progressive analysis integration
+   */
+  setupProgressiveEventListeners() {
+    // Remove existing listeners to avoid duplicates
+    document.removeEventListener('progressive-apply-results', this.handleProgressiveResults);
+    document.removeEventListener('progressive-modal-closed', this.handleProgressiveClose);
+    
+    // Add new listeners
+    this.handleProgressiveResults = (event) => {
+      const results = event.detail;
+      console.log('📥 Received progressive analysis results:', results);
+      this.applyProgressiveResults(results);
+    };
+    
+    this.handleProgressiveClose = () => {
+      console.log('🔒 Progressive analysis modal closed');
+      this.isProcessing = false;
+    };
+    
+    document.addEventListener('progressive-apply-results', this.handleProgressiveResults);
+    document.addEventListener('progressive-modal-closed', this.handleProgressiveClose);
+  }
+
+  /**
+   * Apply progressive analysis results to form
+   */
+  async applyProgressiveResults(progressiveResults) {
+    try {
+      // Convert progressive results to standard FreetextParser format
+      const standardData = this.convertProgressiveResults(progressiveResults);
+      
+      // Apply to form using existing method
+      this.parsedData = standardData;
+      this.applyParsedDataToForm();
+      
+      // Show success message
+      this.showSuccessMessage('Progressive Analysis Applied Successfully! 🚀');
+      
+      console.log('✅ Progressive results applied to form:', standardData);
+      
+    } catch (error) {
+      console.error('❌ Failed to apply progressive results:', error);
+      this.showError('Failed to apply analysis results');
+    }
+  }
+
+  /**
+   * Convert progressive analysis results to standard format
+   */
+  convertProgressiveResults(progressiveResults) {
+    // Map progressive results to FreetextParser expected format
+    const results = progressiveResults.analysisResults || {};
+    
+    const converted = {
+      title: results.title || results['preliminary-title'] || '',
+      description: results.description || results['detailed-description'] || '',
+      condition: results.condition || results['basic-condition-assessment'] || '',
+      artist: results.artist || results['artist-attribution'] || null,
+      keywords: results.keywords || results['keyword-generation'] || '',
+      materials: results.materials || results['material-detection'] || '',
+      period: results.period || results['period-identification'] || '',
+      estimate: results.estimate || results['basic-valuation'] || results['expert-valuation'] || null,
+      reserve: results.reserve || null
+    };
+    
+    // Clean up null/undefined values
+    Object.keys(converted).forEach(key => {
+      if (converted[key] === null || converted[key] === undefined || converted[key] === '') {
+        if (key !== 'artist' && key !== 'estimate' && key !== 'reserve') {
+          converted[key] = '';
+        }
+      }
+    });
+    
+    console.log('🔄 Converted progressive results to standard format:', converted);
+    return converted;
+  }
+
+  /**
+   * Process input using AI Rules System v2.0 (Standard Method)
    */
   async processFreetextWithAI() {
     console.log('🔄 processFreetextWithAI called');
@@ -3375,7 +3552,20 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const styles = document.querySelector('#freetext-parser-styles');
     if (styles) styles.remove();
     
-    console.log('✅ FreetextParser component destroyed');
+    // Clean up progressive analyzer
+    if (this.progressiveAnalyzer) {
+      this.progressiveAnalyzer.destroy();
+    }
+    
+    // Remove progressive event listeners
+    if (this.handleProgressiveResults) {
+      document.removeEventListener('progressive-apply-results', this.handleProgressiveResults);
+    }
+    if (this.handleProgressiveClose) {
+      document.removeEventListener('progressive-modal-closed', this.handleProgressiveClose);
+    }
+    
+    console.log('✅ FreetextParser component destroyed with Progressive Analysis cleanup');
   }
 
   /**

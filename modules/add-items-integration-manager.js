@@ -47,7 +47,7 @@ export class AddItemsIntegrationManager {
    * Inject AI improvement buttons for all fields
    */
   injectAIButtons() {
-    console.log('🎨 Adding Snabbkatalogisering button...');
+    console.log('🎨 Adding Progressive AI Analysis button...');
     
     // Only add FreetextParser button for clean, minimal interface
     this.addFreetextParserButton();
@@ -106,7 +106,7 @@ export class AddItemsIntegrationManager {
     buttonContainer.style.margin = '20px 0';
     buttonContainer.innerHTML = `
       <button class="btn btn-primary" type="button" id="freetext-parser-btn">
-        Snabbkatalogisering
+        Progressiv AI-analys
       </button>
     `;
 
