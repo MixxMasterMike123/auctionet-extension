@@ -44,20 +44,20 @@ export class MultiModelProcessor {
       'confidence-scoring': 'premium'
     };
     
-    // Performance optimization settings
+    // Performance optimization settings - REDUCED to avoid token overflow
     this.optimizedParams = {
       fast: {
-        max_tokens: 400,     // Very short responses for speed
+        max_tokens: 200,     // Very short responses for speed
         temperature: 0.3,    // Slightly higher for faster generation
         top_p: 0.9
       },
       standard: {
-        max_tokens: 800,     // Moderate responses
+        max_tokens: 400,     // Moderate responses
         temperature: 0.2,    // Balanced accuracy/speed
         top_p: 0.95
       },
       premium: {
-        max_tokens: 1200,    // Detailed but not excessive
+        max_tokens: 600,     // Detailed but conservative
         temperature: 0.1,    // High accuracy for expert analysis
         top_p: 1.0
       }
@@ -95,11 +95,16 @@ export class MultiModelProcessor {
       // Build task-specific prompt
       const prompt = this.buildTaskPrompt(taskType, data);
       
-      // Prepare options with images if available
+      // CRITICAL FIX: Smart image selection to avoid token overflow
+      const selectedImages = this.selectImagesForTask(taskType, data.images || []);
+      
+      // Prepare options with optimized images
       const apiOptions = {
         ...options,
-        images: data.images || []
+        images: selectedImages
       };
+      
+      console.log(`[MULTI-MODEL] Task ${taskType} using ${selectedImages.length} images (${data.images?.length || 0} available)`);
       
       // Make optimized API call
       const result = await this.callModelAPI(model, prompt, params, apiOptions);
@@ -429,6 +434,49 @@ Text: ${data.freetext}`;
 
   buildFallbackPrompt(data) {
     return `Analyze the provided data and give a brief response: ${JSON.stringify(data).substring(0, 200)}...`;
+  }
+
+  /**
+   * Smart image selection to avoid token overflow
+   */
+  selectImagesForTask(taskType, allImages) {
+    if (!allImages || allImages.length === 0) {
+      return [];
+    }
+
+    // Define which tasks actually need images and how many
+    const imageRequirements = {
+      // STAGE 1: Quick analysis - minimal images
+      'quick-object-identification': { needsImages: true, maxImages: 1 },
+      'basic-condition-assessment': { needsImages: true, maxImages: 1 },
+      'material-detection': { needsImages: true, maxImages: 1 },
+      'preliminary-title': { needsImages: false, maxImages: 0 }, // Can work from text/metadata
+      
+      // STAGE 2: Detailed analysis - moderate images
+      'detailed-description': { needsImages: true, maxImages: 2 },
+      'keyword-generation': { needsImages: false, maxImages: 0 }, // Works better from text
+      'basic-valuation': { needsImages: true, maxImages: 2 },
+      'period-identification': { needsImages: true, maxImages: 2 },
+      
+      // STAGE 3: Expert analysis - more images but still limited
+      'artist-attribution': { needsImages: true, maxImages: 3 }, // Needs detail for signatures
+      'market-analysis': { needsImages: true, maxImages: 2 },
+      'expert-valuation': { needsImages: true, maxImages: 3 },
+      'confidence-scoring': { needsImages: false, maxImages: 0 } // Works from previous results
+    };
+
+    const requirement = imageRequirements[taskType] || { needsImages: true, maxImages: 1 };
+    
+    if (!requirement.needsImages || requirement.maxImages === 0) {
+      console.log(`[IMAGE-SELECTION] Task ${taskType} doesn't need images`);
+      return [];
+    }
+
+    // Select best images for the task (prioritize first images as they're usually most important)
+    const selectedImages = allImages.slice(0, requirement.maxImages);
+    
+    console.log(`[IMAGE-SELECTION] Task ${taskType} selected ${selectedImages.length}/${allImages.length} images`);
+    return selectedImages;
   }
 
   /**
