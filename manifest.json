@@ -39,7 +39,8 @@
       ],
       "css": [
         "styles/components/freetext-parser.css",
-        "styles/components/ai-image-analyzer.css"
+        "styles/components/ai-image-analyzer.css",
+        "styles/components/progressive-analysis.css"
       ],
       "run_at": "document_end"
     }
