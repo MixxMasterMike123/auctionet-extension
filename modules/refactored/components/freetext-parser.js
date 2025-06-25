@@ -697,10 +697,16 @@ export class FreetextParser {
       const freetext = textarea?.value?.trim() || '';
       const hasImages = this.selectedImages && this.selectedImages.size > 0;
       
-      // Prepare input data for progressive analysis
+      // Prepare input data for progressive analysis with properly converted images
+      let convertedImages = [];
+      if (hasImages) {
+        console.log('🔄 Converting images for progressive analysis...');
+        convertedImages = await this.convertImagesForProgressiveAnalysis();
+      }
+      
       const inputData = {
         freetext,
-        images: hasImages ? Array.from(this.selectedImages) : [],
+        images: convertedImages,
         analysisType: hasImages && freetext ? 'combined' : hasImages ? 'image' : 'text',
         userPreferences: {
           enableMarketValidation: true,
@@ -753,6 +759,65 @@ export class FreetextParser {
     } finally {
       this.isProcessing = false;
     }
+  }
+
+  /**
+   * Convert images for progressive analysis system
+   */
+  async convertImagesForProgressiveAnalysis() {
+    if (!this.selectedImages || this.selectedImages.size === 0) {
+      return [];
+    }
+    
+    const convertedImages = [];
+    
+    for (const [key, imageFile] of this.selectedImages) {
+      try {
+        console.log(`🔄 Converting image ${key} to base64...`);
+        
+        // Convert to base64
+        const base64 = await this.convertImageToBase64(imageFile);
+        
+        convertedImages.push({
+          key: key,
+          type: imageFile.type,
+          size: imageFile.size,
+          name: imageFile.name,
+          base64: base64,
+          file: imageFile // Keep original file reference if needed
+        });
+        
+        console.log(`✅ Image ${key} converted successfully`);
+        
+      } catch (error) {
+        console.error(`❌ Failed to convert image ${key}:`, error);
+        // Continue with other images even if one fails
+      }
+    }
+    
+    console.log(`✅ Converted ${convertedImages.length} images for progressive analysis`);
+    return convertedImages;
+  }
+
+  /**
+   * Convert single image file to base64
+   */
+  async convertImageToBase64(imageFile) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        // Remove data:image/jpeg;base64, prefix to get just the base64 data
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read image file'));
+      };
+      
+      reader.readAsDataURL(imageFile);
+    });
   }
 
   /**

@@ -95,8 +95,14 @@ export class MultiModelProcessor {
       // Build task-specific prompt
       const prompt = this.buildTaskPrompt(taskType, data);
       
+      // Prepare options with images if available
+      const apiOptions = {
+        ...options,
+        images: data.images || []
+      };
+      
       // Make optimized API call
-      const result = await this.callModelAPI(model, prompt, params, options);
+      const result = await this.callModelAPI(model, prompt, params, apiOptions);
       
       // Track performance
       const duration = Date.now() - startTime;
@@ -244,42 +250,224 @@ export class MultiModelProcessor {
   }
 
   /**
-   * Build task-specific prompts optimized for each model
+   * Build task-specific prompts using AI Rules System v2.0
    */
   buildTaskPrompt(taskType, data) {
-    const prompts = {
-      'quick-object-identification': `Identify the main object in this image/text quickly. One word answer: ${JSON.stringify(data)}`,
-      
-      'basic-condition-assessment': `Assess condition briefly. Options: Välbevarat, Mindre repor, Nagg vid kanter, Spricka, Lagning. Data: ${JSON.stringify(data)}`,
-      
-      'material-detection': `Identify primary material. One word: glas, keramik, metall, trä, textil, etc. Data: ${JSON.stringify(data)}`,
-      
-      'preliminary-title': `Create basic Swedish auction title: OBJEKT, material. Data: ${JSON.stringify(data)}`,
-      
-      'detailed-description': `Write detailed Swedish auction description following Auctionet standards. Data: ${JSON.stringify(data)}`,
-      
-      'keyword-generation': `Generate Swedish auction keywords with hyphens for phrases (Star-Wars not Star Wars). Data: ${JSON.stringify(data)}`,
-      
-      'basic-valuation': `Estimate value in SEK for Swedish auction. Conservative approach. Data: ${JSON.stringify(data)}`,
-      
-      'artist-attribution': `Identify artist/designer if possible. Swedish ceramics/glass expertise. Data: ${JSON.stringify(data)}`,
-      
-      'market-analysis': `Analyze Swedish auction market for this item type. Data: ${JSON.stringify(data)}`,
-      
-      'expert-valuation': `Expert valuation with market context and reasoning. Data: ${JSON.stringify(data)}`
+    // Access AI Rules System v2.0 functions
+    const { getSystemPrompt, getCategoryPrompt, buildPrompt } = window;
+    
+    // Check if we have images or text
+    const hasImages = data.images && data.images.length > 0;
+    const hasText = data.freetext && data.freetext.trim().length > 0;
+    
+    // Build proper prompt based on task type and data
+    const taskPrompts = {
+      'quick-object-identification': this.buildQuickIdentificationPrompt(data, hasImages, hasText),
+      'basic-condition-assessment': this.buildConditionPrompt(data, hasImages, hasText),
+      'material-detection': this.buildMaterialPrompt(data, hasImages, hasText),
+      'preliminary-title': this.buildTitlePrompt(data, hasImages, hasText),
+      'detailed-description': this.buildDescriptionPrompt(data, hasImages, hasText),
+      'keyword-generation': this.buildKeywordPrompt(data, hasImages, hasText),
+      'basic-valuation': this.buildValuationPrompt(data, hasImages, hasText),
+      'artist-attribution': this.buildArtistPrompt(data, hasImages, hasText),
+      'market-analysis': this.buildMarketPrompt(data, hasImages, hasText),
+      'expert-valuation': this.buildExpertValuationPrompt(data, hasImages, hasText)
     };
     
-    return prompts[taskType] || `Analyze this data: ${JSON.stringify(data)}`;
+    return taskPrompts[taskType] || this.buildFallbackPrompt(data);
+  }
+
+  buildQuickIdentificationPrompt(data, hasImages, hasText) {
+    if (hasImages && hasText) {
+      return `Identify the main object quickly from these images and text. Give one word answer only.
+
+Text: ${data.freetext}
+
+Analyze the images and text to identify the primary object type.`;
+    } else if (hasImages) {
+      return `Look at these images and identify the main object. Give one word answer only (e.g., "vas", "stol", "lampa", "skål").`;
+    } else if (hasText) {
+      return `From this text, identify the main object. Give one word answer only.
+
+Text: ${data.freetext}`;
+    }
+    return `Unable to identify object - no images or text provided.`;
+  }
+
+  buildConditionPrompt(data, hasImages, hasText) {
+    const conditionOptions = "Välbevarat, Mindre repor, Nagg vid kanter, Spricka, Lagning";
+    
+    if (hasImages) {
+      return `Assess the condition from the images. Choose ONLY from these options: ${conditionOptions}
+
+Look for: scratches, chips, cracks, repairs, overall wear.
+Answer with just the condition term.`;
+    } else if (hasText) {
+      return `From this description, determine condition. Choose ONLY from: ${conditionOptions}
+
+Text: ${data.freetext}
+
+Answer with just the condition term.`;
+    }
+    return `Cannot assess condition - no visual or textual information provided.`;
+  }
+
+  buildMaterialPrompt(data, hasImages, hasText) {
+    if (hasImages) {
+      return `Identify the primary material from the images. Give one word only: glas, keramik, metall, trä, textil, porslin, stengods, silver, etc.`;
+    } else if (hasText) {
+      return `From this text, identify the primary material. One word only: glas, keramik, metall, trä, textil, etc.
+
+Text: ${data.freetext}`;
+    }
+    return `Cannot identify material - no images or text provided.`;
+  }
+
+  buildTitlePrompt(data, hasImages, hasText) {
+    // Use AI Rules System for title generation
+    const { getSystemPrompt } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || 'Generate Swedish auction title following Auctionet standards.';
+    
+    let prompt = `${systemPrompt}\n\nCreate a preliminary Swedish auction title. Format: OBJEKT, material, stil/period if applicable.\n\n`;
+    
+    if (hasText) {
+      prompt += `Text: ${data.freetext}\n\n`;
+    }
+    if (hasImages) {
+      prompt += `Analyze the images to determine object type, material, and style.\n\n`;
+    }
+    
+    prompt += `Give ONLY the title, no explanation.`;
+    return prompt;
+  }
+
+  buildDescriptionPrompt(data, hasImages, hasText) {
+    const { getSystemPrompt } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || 'Write detailed Swedish auction descriptions following Auctionet standards.';
+    
+    let prompt = `${systemPrompt}\n\nWrite a detailed Swedish auction description.\n\n`;
+    
+    if (hasText) {
+      prompt += `Text: ${data.freetext}\n\n`;
+    }
+    if (hasImages) {
+      prompt += `Analyze the images for details about condition, materials, style, and craftsmanship.\n\n`;
+    }
+    
+    return prompt;
+  }
+
+  buildKeywordPrompt(data, hasImages, hasText) {
+    let prompt = `Generate Swedish auction keywords with hyphens for multi-word phrases (Star-Wars not Star Wars).\n\n`;
+    
+    if (hasText) {
+      prompt += `Text: ${data.freetext}\n\n`;
+    }
+    if (hasImages) {
+      prompt += `Analyze images for relevant keywords.\n\n`;
+    }
+    
+    prompt += `Format: keyword1 keyword2 multi-word-phrase another-keyword\nMax 10-12 keywords.`;
+    return prompt;
+  }
+
+  buildValuationPrompt(data, hasImages, hasText) {
+    let prompt = `Estimate conservative value in SEK for Swedish auction market.\n\n`;
+    
+    if (hasText) {
+      prompt += `Text: ${data.freetext}\n\n`;
+    }
+    if (hasImages) {
+      prompt += `Analyze images for condition and quality indicators.\n\n`;
+    }
+    
+    prompt += `Give estimate range in SEK. Be conservative.`;
+    return prompt;
+  }
+
+  buildArtistPrompt(data, hasImages, hasText) {
+    let prompt = `Identify artist/designer if possible. Focus on Swedish ceramics, glass, and design.\n\n`;
+    
+    if (hasText) {
+      prompt += `Text: ${data.freetext}\n\n`;
+    }
+    if (hasImages) {
+      prompt += `Look for signatures, marks, or stylistic indicators in images.\n\n`;
+    }
+    
+    prompt += `If uncertain, say "Ej identifierad". If identified, give name only.`;
+    return prompt;
+  }
+
+  buildMarketPrompt(data, hasImages, hasText) {
+    let prompt = `Analyze Swedish auction market for this item type.\n\n`;
+    
+    if (hasText) {
+      prompt += `Text: ${data.freetext}\n\n`;
+    }
+    if (hasImages) {
+      prompt += `Analyze images to determine market category.\n\n`;
+    }
+    
+    prompt += `Brief market analysis for Swedish auction platforms.`;
+    return prompt;
+  }
+
+  buildExpertValuationPrompt(data, hasImages, hasText) {
+    let prompt = `Expert valuation with market context and reasoning.\n\n`;
+    
+    if (hasText) {
+      prompt += `Text: ${data.freetext}\n\n`;
+    }
+    if (hasImages) {
+      prompt += `Detailed analysis of images for expert assessment.\n\n`;
+    }
+    
+    prompt += `Provide expert valuation with reasoning in Swedish market context.`;
+    return prompt;
+  }
+
+  buildFallbackPrompt(data) {
+    return `Analyze the provided data and give a brief response: ${JSON.stringify(data).substring(0, 200)}...`;
   }
 
   /**
    * Make optimized API call with model-specific parameters
    */
   async callModelAPI(model, prompt, params, options = {}) {
+    const hasImages = options.images && options.images.length > 0;
+    
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error(`Model ${model} timeout after 15 seconds`));
       }, 15000);
+      
+      // Build message content based on whether we have images
+      let messageContent;
+      
+      if (hasImages) {
+        // Vision API call with images
+        messageContent = [
+          { type: 'text', text: prompt }
+        ];
+        
+        // Add images to content
+        options.images.forEach((imageFile, index) => {
+          if (imageFile && imageFile.base64) {
+            messageContent.push({
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: imageFile.type || 'image/jpeg',
+                data: imageFile.base64
+              }
+            });
+          }
+        });
+      } else {
+        // Text-only API call
+        messageContent = prompt;
+      }
       
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
@@ -291,7 +479,7 @@ export class MultiModelProcessor {
           top_p: params.top_p,
           messages: [{
             role: 'user',
-            content: prompt
+            content: messageContent
           }]
         }
       }, (response) => {
