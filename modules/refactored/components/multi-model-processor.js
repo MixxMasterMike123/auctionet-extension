@@ -283,152 +283,207 @@ export class MultiModelProcessor {
   }
 
   buildQuickIdentificationPrompt(data, hasImages, hasText) {
+    // Use AI Rules System v2.0 for proper Swedish auction standards
+    const { getSystemPrompt } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
+    
     if (hasImages && hasText) {
-      return `Identify the main object quickly from these images and text. Give one word answer only.
+      return `${systemPrompt}
+
+Identifiera huvudobjektet snabbt från bilderna och texten. Ge endast ett ord som svar (t.ex. "vas", "stol", "lampa", "leksaker").
 
 Text: ${data.freetext}
 
-Analyze the images and text to identify the primary object type.`;
+Analysera bilderna och texten för att identifiera den primära objekttypen.`;
     } else if (hasImages) {
-      return `Look at these images and identify the main object. Give one word answer only (e.g., "vas", "stol", "lampa", "skål").`;
+      return `${systemPrompt}
+
+Titta på bilderna och identifiera huvudobjektet. Ge endast ett ord som svar (t.ex. "vas", "stol", "lampa", "leksaker", "skål").`;
     } else if (hasText) {
-      return `From this text, identify the main object. Give one word answer only.
+      return `${systemPrompt}
+
+Från denna text, identifiera huvudobjektet. Ge endast ett ord som svar.
 
 Text: ${data.freetext}`;
     }
-    return `Unable to identify object - no images or text provided.`;
+    return `Kan inte identifiera objekt - inga bilder eller text tillhandahållna.`;
   }
 
   buildConditionPrompt(data, hasImages, hasText) {
+    // Use AI Rules System v2.0 for proper Swedish auction standards
+    const { getSystemPrompt } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
     const conditionOptions = "Välbevarat, Mindre repor, Nagg vid kanter, Spricka, Lagning";
     
     if (hasImages) {
-      return `Assess the condition from the images. Choose ONLY from these options: ${conditionOptions}
+      return `${systemPrompt}
 
-Look for: scratches, chips, cracks, repairs, overall wear.
-Answer with just the condition term.`;
+Bedöm skicket från bilderna. Välj ENDAST från dessa alternativ: ${conditionOptions}
+
+Leta efter: repor, nagg, sprickor, lagningar, allmänt slitage.
+Svara endast med skickbeteckningen.`;
     } else if (hasText) {
-      return `From this description, determine condition. Choose ONLY from: ${conditionOptions}
+      return `${systemPrompt}
+
+Från denna beskrivning, bestäm skick. Välj ENDAST från: ${conditionOptions}
 
 Text: ${data.freetext}
 
-Answer with just the condition term.`;
+Svara endast med skickbeteckningen.`;
     }
-    return `Cannot assess condition - no visual or textual information provided.`;
+    return `Kan inte bedöma skick - ingen visuell eller textinformation tillhandahållen.`;
   }
 
   buildMaterialPrompt(data, hasImages, hasText) {
+    // Use AI Rules System v2.0 for proper Swedish auction standards
+    const { getSystemPrompt } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
+    
     if (hasImages) {
-      return `Identify the primary material from the images. Give one word only: glas, keramik, metall, trä, textil, porslin, stengods, silver, etc.`;
+      return `${systemPrompt}
+
+Identifiera primärt material från bilderna. Ge endast ett ord: glas, keramik, metall, trä, textil, porslin, stengods, silver, plast, etc.`;
     } else if (hasText) {
-      return `From this text, identify the primary material. One word only: glas, keramik, metall, trä, textil, etc.
+      return `${systemPrompt}
+
+Från denna text, identifiera primärt material. Endast ett ord: glas, keramik, metall, trä, textil, plast, etc.
 
 Text: ${data.freetext}`;
     }
-    return `Cannot identify material - no images or text provided.`;
+    return `Kan inte identifiera material - inga bilder eller text tillhandahållna.`;
   }
 
   buildTitlePrompt(data, hasImages, hasText) {
-    // Use AI Rules System for title generation
+    // Use AI Rules System v2.0 for proper Swedish auction standards
     const { getSystemPrompt } = window;
-    const systemPrompt = getSystemPrompt('freetextParser') || 'Generate Swedish auction title following Auctionet standards.';
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
     
-    let prompt = `${systemPrompt}\n\nCreate a preliminary Swedish auction title. Format: OBJEKT, material, stil/period if applicable.\n\n`;
+    let prompt = `${systemPrompt}\n\nSkapa en preliminär svensk auktionstitel enligt Auctionets standarder. Format: OBJEKT, material, stil/period om tillämpligt.\n\n`;
     
     if (hasText) {
       prompt += `Text: ${data.freetext}\n\n`;
     }
     if (hasImages) {
-      prompt += `Analyze the images to determine object type, material, and style.\n\n`;
+      prompt += `Analysera bilderna för att bestämma objekttyp, material och stil.\n\n`;
     }
     
-    prompt += `Give ONLY the title, no explanation.`;
+    prompt += `Ge ENDAST titeln, ingen förklaring. Ren text utan markdown eller formatering.`;
     return prompt;
   }
 
   buildDescriptionPrompt(data, hasImages, hasText) {
+    // Use AI Rules System v2.0 for proper Swedish auction standards
     const { getSystemPrompt } = window;
-    const systemPrompt = getSystemPrompt('freetextParser') || 'Write detailed Swedish auction descriptions following Auctionet standards.';
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
     
-    let prompt = `${systemPrompt}\n\nWrite a detailed Swedish auction description.\n\n`;
+    let prompt = `${systemPrompt}\n\nSkriv en detaljerad svensk auktionsbeskrivning enligt Auctionets standarder. Du är en erfaren auktionsexpert med djup kunskap om svenska auktionsmarknaden.\n\n`;
     
     if (hasText) {
       prompt += `Text: ${data.freetext}\n\n`;
     }
     if (hasImages) {
-      prompt += `Analyze the images for details about condition, materials, style, and craftsmanship.\n\n`;
+      prompt += `Analysera bilderna för detaljer om skick, material, stil och hantverk.\n\n`;
     }
     
+    prompt += `Ge ENDAST beskrivningen, ren text utan markdown, JSON eller formatering.`;
     return prompt;
   }
 
   buildKeywordPrompt(data, hasImages, hasText) {
-    let prompt = `Generate Swedish auction keywords with hyphens for multi-word phrases (Star-Wars not Star Wars).\n\n`;
+    // Use AI Rules System v2.0 for proper Swedish auction standards
+    const { getSystemPrompt } = window;
+    const keywordsSystemPrompt = getSystemPrompt('keywords') || '';
+    
+    let prompt = `${keywordsSystemPrompt}\n\nGenerera svenska auktionssökord med bindestreck för flerordsfraser (Star-Wars inte Star Wars).\n\n`;
     
     if (hasText) {
       prompt += `Text: ${data.freetext}\n\n`;
     }
     if (hasImages) {
-      prompt += `Analyze images for relevant keywords.\n\n`;
+      prompt += `Analysera bilder för relevanta sökord.\n\n`;
     }
     
-    prompt += `Format: keyword1 keyword2 multi-word-phrase another-keyword\nMax 10-12 keywords.`;
+    prompt += `Format: sökord1 sökord2 flerordsfraser annat-sökord\nMax 10-12 sökord. Ge ENDAST sökorden, ren text utan markdown eller formatering.`;
     return prompt;
   }
 
   buildValuationPrompt(data, hasImages, hasText) {
-    let prompt = `Estimate conservative value in SEK for Swedish auction market.\n\n`;
+    // Use AI Rules System v2.0 for proper Swedish auction standards
+    const { getSystemPrompt, getModelSpecificValuationRules } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
+    
+    // Get model-specific valuation approach
+    const currentModel = 'claude-sonnet-4-20250514'; // Progressive uses Claude 4
+    const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel) || {};
+    
+    let prompt = `${systemPrompt}\n\nSkatta värde i SEK för svenska auktionsmarknaden. ${valuationRules.instruction || 'Ge realistiska värderingar baserat på marknadsdata.'}\n\n`;
     
     if (hasText) {
       prompt += `Text: ${data.freetext}\n\n`;
     }
     if (hasImages) {
-      prompt += `Analyze images for condition and quality indicators.\n\n`;
+      prompt += `Analysera bilder för skick och kvalitetsindikatorer.\n\n`;
     }
     
-    prompt += `Give estimate range in SEK. Be conservative.`;
+    prompt += `Ge endast uppskattning i SEK, ren text utan markdown eller formatering.`;
     return prompt;
   }
 
   buildArtistPrompt(data, hasImages, hasText) {
-    let prompt = `Identify artist/designer if possible. Focus on Swedish ceramics, glass, and design.\n\n`;
+    // Use AI Rules System v2.0 for proper Swedish auction standards
+    const { getSystemPrompt } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
+    
+    let prompt = `${systemPrompt}\n\nIdentifiera konstnär/designer om möjligt. Fokusera på svenska keramiker, glas och design. Du är en erfaren auktionsexpert.\n\n`;
     
     if (hasText) {
       prompt += `Text: ${data.freetext}\n\n`;
     }
     if (hasImages) {
-      prompt += `Look for signatures, marks, or stylistic indicators in images.\n\n`;
+      prompt += `Leta efter signaturer, märken eller stilistiska indikatorer i bilderna.\n\n`;
     }
     
-    prompt += `If uncertain, say "Ej identifierad". If identified, give name only.`;
+    prompt += `Om osäker, säg "Ej identifierad". Om identifierad, ge endast namnet. Ren text utan markdown eller formatering.`;
     return prompt;
   }
 
   buildMarketPrompt(data, hasImages, hasText) {
-    let prompt = `Analyze Swedish auction market for this item type.\n\n`;
+    // Use AI Rules System v2.0 for proper Swedish auction standards
+    const { getSystemPrompt } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
+    
+    let prompt = `${systemPrompt}\n\nAnalysera svenska auktionsmarknaden för denna objekttyp. Du är en erfaren auktionsexpert med djup kunskap om svenska auktionsmarknaden.\n\n`;
     
     if (hasText) {
       prompt += `Text: ${data.freetext}\n\n`;
     }
     if (hasImages) {
-      prompt += `Analyze images to determine market category.\n\n`;
+      prompt += `Analysera bilder för att bestämma marknadskategori.\n\n`;
     }
     
-    prompt += `Brief market analysis for Swedish auction platforms.`;
+    prompt += `Kort marknadsanalys för svenska auktionsplattformar. Ren text utan markdown eller formatering.`;
     return prompt;
   }
 
   buildExpertValuationPrompt(data, hasImages, hasText) {
-    let prompt = `Expert valuation with market context and reasoning.\n\n`;
+    // Use AI Rules System v2.0 for proper Swedish auction standards
+    const { getSystemPrompt, getModelSpecificValuationRules } = window;
+    const systemPrompt = getSystemPrompt('freetextParser') || '';
+    
+    // Get model-specific valuation approach for Claude 4
+    const currentModel = 'claude-sonnet-4-20250514';
+    const valuationRules = getModelSpecificValuationRules('freetextParser', currentModel) || {};
+    
+    let prompt = `${systemPrompt}\n\nExpertvärdering med marknadskontext och resonemang. ${valuationRules.instruction || 'Ge realistiska värderingar baserat på marknadsdata.'} Du är en erfaren auktionsexpert med djup kunskap om svenska auktionsmarknaden.\n\n`;
     
     if (hasText) {
       prompt += `Text: ${data.freetext}\n\n`;
     }
     if (hasImages) {
-      prompt += `Detailed analysis of images for expert assessment.\n\n`;
+      prompt += `Detaljerad analys av bilder för expertbedömning.\n\n`;
     }
     
-    prompt += `Provide expert valuation with reasoning in Swedish market context.`;
+    prompt += `Ge expertvärdering med resonemang i svensk marknadskontext. Ren text utan markdown eller formatering.`;
     return prompt;
   }
 
