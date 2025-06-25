@@ -728,17 +728,22 @@ export class FreetextParser {
         showPerformanceMetrics: true
       });
       
-      if (results && results.analysisResults) {
+      if (results && results.results && Object.keys(results.results).length > 0) {
         // Progressive analysis succeeded
         console.log('✅ Progressive analysis completed:', results);
+        
+        // Convert progressive results to standard format
+        const convertedResults = this.convertProgressiveToStandardFormat(results.results);
+        console.log('🔄 Converted progressive results:', convertedResults);
         
         // Setup event listeners for UI integration
         this.setupProgressiveEventListeners();
         
-        // Close our modal since progressive UI is handling display
-        this.closeModal();
+        // Store the converted results for when apply button is clicked
+        this.progressiveResults = convertedResults;
         
-        return results;
+        // Don't close our modal - let the progressive UI handle the apply process
+        return convertedResults;
       } else {
         // Fallback to standard analysis
         console.log('🔄 Progressive analysis returned no results, falling back...');
@@ -825,14 +830,21 @@ export class FreetextParser {
    */
   setupProgressiveEventListeners() {
     // Remove existing listeners to avoid duplicates
-    document.removeEventListener('progressive-apply-results', this.handleProgressiveResults);
-    document.removeEventListener('progressive-modal-closed', this.handleProgressiveClose);
+    document.removeEventListener('progressiveAnalysisComplete', this.handleProgressiveComplete);
+    document.removeEventListener('progressiveAnalysisClose', this.handleProgressiveClose);
     
-    // Add new listeners
-    this.handleProgressiveResults = (event) => {
-      const results = event.detail;
-      console.log('📥 Received progressive analysis results:', results);
-      this.applyProgressiveResults(results);
+    // Add new listeners with proper event names
+    this.handleProgressiveComplete = (event) => {
+      const { results, success, cancelled } = event.detail;
+      console.log('📥 Progressive analysis complete event:', { results, success, cancelled });
+      
+      if (success && results && !cancelled) {
+        // Apply the stored progressive results
+        this.applyProgressiveResults(this.progressiveResults);
+      } else if (cancelled) {
+        console.log('🔒 Progressive analysis was cancelled');
+        this.isProcessing = false;
+      }
     };
     
     this.handleProgressiveClose = () => {
@@ -840,26 +852,36 @@ export class FreetextParser {
       this.isProcessing = false;
     };
     
-    document.addEventListener('progressive-apply-results', this.handleProgressiveResults);
-    document.addEventListener('progressive-modal-closed', this.handleProgressiveClose);
+    document.addEventListener('progressiveAnalysisComplete', this.handleProgressiveComplete);
+    document.addEventListener('progressiveAnalysisClose', this.handleProgressiveClose);
+    
+    console.log('✅ Progressive event listeners setup');
   }
 
   /**
    * Apply progressive analysis results to form
    */
-  async applyProgressiveResults(progressiveResults) {
+  async applyProgressiveResults(convertedResults) {
     try {
-      // Convert progressive results to standard FreetextParser format
-      const standardData = this.convertProgressiveResults(progressiveResults);
+      if (!convertedResults) {
+        console.error('❌ No progressive results to apply');
+        this.showError('No analysis results available');
+        return;
+      }
       
-      // Apply to form using existing method
-      this.parsedData = standardData;
+      console.log('🔄 Applying progressive results to form:', convertedResults);
+      
+      // Store the results and apply to form
+      this.parsedData = convertedResults;
       this.applyParsedDataToForm();
       
       // Show success message
       this.showSuccessMessage('Progressive Analysis Applied Successfully! 🚀');
       
-      console.log('✅ Progressive results applied to form:', standardData);
+      // Close the modal
+      this.closeModal();
+      
+      console.log('✅ Progressive results applied to form successfully');
       
     } catch (error) {
       console.error('❌ Failed to apply progressive results:', error);
@@ -868,7 +890,55 @@ export class FreetextParser {
   }
 
   /**
-   * Convert progressive analysis results to standard format
+   * Convert progressive analysis results to standard FreetextParser format
+   */
+  convertProgressiveToStandardFormat(progressiveResults) {
+    console.log('🔄 Converting progressive results:', progressiveResults);
+    
+    // Extract results from the progressive structure
+    const converted = {
+      title: this.extractProgressiveResult(progressiveResults, ['preliminary-title', 'title']),
+      description: this.extractProgressiveResult(progressiveResults, ['detailed-description', 'description']),
+      condition: this.extractProgressiveResult(progressiveResults, ['basic-condition-assessment', 'condition']),
+      artist: this.extractProgressiveResult(progressiveResults, ['artist-attribution', 'artist']),
+      keywords: this.extractProgressiveResult(progressiveResults, ['keyword-generation', 'keywords']),
+      materials: this.extractProgressiveResult(progressiveResults, ['material-detection', 'materials']),
+      period: this.extractProgressiveResult(progressiveResults, ['period-identification', 'period']),
+      estimate: this.extractProgressiveResult(progressiveResults, ['expert-valuation', 'basic-valuation', 'estimate']),
+      reserve: null // Not typically provided by progressive analysis
+    };
+    
+    // Clean up and normalize values
+    Object.keys(converted).forEach(key => {
+      if (converted[key] === null || converted[key] === undefined || converted[key] === '') {
+        if (key !== 'artist' && key !== 'estimate' && key !== 'reserve') {
+          converted[key] = '';
+        }
+      }
+      // Handle special cases
+      if (key === 'artist' && (converted[key] === 'Ej identifierad' || converted[key] === 'Unknown')) {
+        converted[key] = null;
+      }
+    });
+    
+    console.log('✅ Progressive results converted to standard format:', converted);
+    return converted;
+  }
+
+  /**
+   * Extract result from progressive analysis by trying multiple field names
+   */
+  extractProgressiveResult(results, fieldNames) {
+    for (const fieldName of fieldNames) {
+      if (results[fieldName] && results[fieldName].trim && results[fieldName].trim() !== '') {
+        return results[fieldName].trim();
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Convert progressive analysis results to standard format (legacy method)
    */
   convertProgressiveResults(progressiveResults) {
     // Map progressive results to FreetextParser expected format
