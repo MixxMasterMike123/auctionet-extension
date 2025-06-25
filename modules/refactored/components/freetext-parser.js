@@ -877,8 +877,12 @@ Teknisk info: ${error.message}`);
       imageAnalysis: imageAnalysis // Store original image analysis
     };
 
+    // CRITICAL FIX: Apply keywords enhancement to image-only analysis too!
+    console.log('[KEYWORDS] Applying keywords fix to image-only analysis...');
+    const finalData = await this.autoEnhanceFields(parsedData);
+    
     console.log('✅ Image-only processing completed');
-    return parsedData;
+    return finalData;
   }
 
   /**
@@ -941,12 +945,21 @@ Teknisk info: ${error.message}`);
     if (additionalText && additionalText.length > 10) {
       console.log('🔧 Enhancing with additional text context...');
       const enhancedData = await this.enhanceWithAdditionalText(parsedData, additionalText);
+      
+      // CRITICAL FIX: Apply keywords enhancement to combined analysis too!
+      console.log('[KEYWORDS] Applying keywords fix to combined analysis...');
+      const finalData = await this.autoEnhanceFields(enhancedData);
+      
       console.log('✅ Combined processing with text enhancement completed');
-      return enhancedData;
+      return finalData;
     }
 
+    // CRITICAL FIX: Apply keywords enhancement to image-only combined analysis too!
+    console.log('[KEYWORDS] Applying keywords fix to image-only combined analysis...');
+    const finalData = await this.autoEnhanceFields(parsedData);
+    
     console.log('✅ Combined processing completed');
-    return parsedData;
+    return finalData;
   }
 
   /**
@@ -1258,7 +1271,7 @@ Returnera data i exakt detta JSON-format:
   "description": "Detaljerad beskrivning med mått, material, teknik, period",
   "condition": "Konditionsbeskrivning på svenska",
   "artist": "Konstnär/formgivare om identifierad, annars null",
-  "keywords": "relevanta sökord separerade med mellanslag",
+  "keywords": "kompletterande sökord med bindestreck för flerordsfraser (Star-Wars Return-of-the-Jedi)",
   "estimate": 500,
   "reserve": 300,
   "materials": "material/teknik",
@@ -1433,7 +1446,7 @@ INSTRUKTIONER:
         const enhancedFields = this.parseEditPageResponse(enhancedText, 'all');
         
         // Merge enhanced fields with original data (preserve non-enhanced fields)
-        const result = {
+        let result = {
           ...parsedData,
           title: enhancedFields.title || parsedData.title,
           description: enhancedFields.description || parsedData.description,
@@ -1441,6 +1454,16 @@ INSTRUKTIONER:
           artist: enhancedFields.artist || parsedData.artist,
           keywords: enhancedFields.keywords || parsedData.keywords
         };
+        
+        // CRITICAL FIX: Use EXACT same keywords system as edit page "AI-generera sökord" button
+        console.log('[KEYWORDS] Enhancing keywords with EXACT edit page system...');
+        try {
+          const keywordsEnhanced = await this.enhanceKeywordsWithEditPageSystem(result);
+          result.keywords = keywordsEnhanced || result.keywords;
+          console.log('✅ Keywords enhanced with edit page system:', result.keywords);
+        } catch (error) {
+          console.log('⚠️ Keywords enhancement failed, keeping original:', error.message);
+        }
         
         console.log('✅ Edit page enhancement successful:', result);
         return result;
@@ -1453,6 +1476,32 @@ INSTRUKTIONER:
       console.error('❌ Edit page enhancement error:', error);
       console.log('⚠️ Falling back to original parsed data');
       return parsedData;
+    }
+  }
+
+  /**
+   * Enhance keywords using EXACT same system as edit page "AI-generera sökord" button
+   */
+  async enhanceKeywordsWithEditPageSystem(itemData) {
+    console.log('[KEYWORDS] Using EXACT edit page keywords system...');
+    
+    try {
+      // Use the EXACT same API call path as edit page: api-manager.js callClaudeAPI(itemData, 'keywords')
+      const keywordsResult = await this.apiManager.callClaudeAPI(itemData, 'keywords');
+      
+      console.log('[KEYWORDS] Edit page API response:', keywordsResult);
+      
+      if (keywordsResult && keywordsResult.keywords) {
+        console.log('[KEYWORDS] Extracted keywords from edit page system:', keywordsResult.keywords);
+        return keywordsResult.keywords;
+      } else {
+        console.log('[KEYWORDS] No keywords in response, using fallback');
+        return null;
+      }
+      
+    } catch (error) {
+      console.error('[KEYWORDS] Edit page enhancement failed:', error);
+      return null;
     }
   }
 

@@ -1217,3 +1217,79 @@ Behåll EXAKT samma innehåll - korrigera bara uppenbara fel."
 // ❌ Swedish auction terminology: AI needs guidance
 // ❌ Anti-hallucination: AI needs strict constraints
 ```
+
+### Keywords System Integration Pattern (DECEMBER 2024 - CRITICAL BUSINESS COMPLIANCE)
+```javascript
+// KEYWORDS SYSTEM INTEGRATION: Use existing working systems instead of duplicating functionality
+// PRINCIPLE: When edit page has working keywords system, use SAME system for add page
+
+// ❌ WRONG APPROACH - Duplicate Keywords Logic:
+// // In FreetextParser - hardcoded keywords instruction
+// "keywords": "relevanta sökord separerade med mellanslag",
+
+// ✅ RIGHT APPROACH - Use Edit Page Keywords System:
+// // Make FreetextParser use EXACT same API call as edit page "AI-generera sökord" button
+// const keywordsResult = await this.apiManager.callClaudeAPI(itemData, 'keywords');
+// // This calls getSystemPrompt('keywords') and uses proper Auctionet format
+
+// CRITICAL BUSINESS RULE - AUCTIONET KEYWORDS FORMAT:
+// "Sökbara på Auctionet men visas ej. Separera flera sökord med mellanslag och använd '-' för flerordsfraser"
+// CORRECT: "Star-Wars Return-of-the-Jedi Kenner actionfigurer leksaker 1980-tal vintage Luke-Skywalker"
+// WRONG: "Star Wars, Return of the Jedi, Luke Skywalker" (spaces in phrases, commas)
+
+// IMPLEMENTATION PATTERN:
+// 1. IDENTIFY working system (edit page keywords button)
+// 2. TRACE the exact API call path (api-manager.js callClaudeAPI with fieldType 'keywords')
+// 3. USE same system in new component (FreetextParser enhanceKeywordsWithEditPageSystem)
+// 4. VERIFY format matches business requirements
+
+// EDIT PAGE KEYWORDS SYSTEM (WORKING):
+// - Uses api-manager.js callClaudeAPI(itemData, 'keywords')
+// - Calls getSystemPrompt('keywords') from AI Rules System v2.0
+// - Includes proper format: "VIKTIGT FÖR SÖKORD: Använd Auctionets format med mellanslag mellan sökord och '-' för flerordsfraser"
+// - Generates: "science-fiction rymdleksaker actionfigurer Kenner Hasbro vintage retro samlarobjekt"
+
+// FREETEXT PARSER INTEGRATION (FIXED):
+async enhanceKeywordsWithEditPageSystem(itemData) {
+  // Use EXACT same API call as edit page keywords button
+  const keywordsResult = await new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({
+      type: 'anthropic-fetch',
+      apiKey: this.apiManager.apiKey,
+      body: {
+        model: this.apiManager.getCurrentModel().id,
+        max_tokens: 1000,
+        temperature: 0.3,
+        system: window.getSystemPrompt ? window.getSystemPrompt('keywords') : 'Default keywords prompt',
+        messages: [{
+          role: 'user',
+          content: `OBJEKTDATA:\nTitel: ${itemData.title}\nBeskrivning: ${itemData.description}\n\nVIKTIGT FÖR SÖKORD: Använd Auctionets format med mellanslag mellan sökord och "-" för flerordsfraser.\nEXEMPEL: "konstglas mundblåst svensk-design 1960-tal samlarobjekt"`
+        }]
+      }
+    }, (response) => {
+      if (response.success) {
+        resolve(response.data.content[0].text.trim());
+      } else {
+        reject(new Error(response.error));
+      }
+    });
+  });
+  
+  return keywordsResult;
+}
+
+// ARCHITECTURAL BENEFITS:
+// ✅ Consistency across edit and add pages
+// ✅ No duplicate keywords logic to maintain
+// ✅ Uses proven working system
+// ✅ Follows business format requirements
+// ✅ Leverages existing AI Rules System v2.0
+// ✅ Zero breaking changes to existing functionality
+
+// BUSINESS COMPLIANCE:
+// ✅ Proper hyphenation for multi-word phrases
+// ✅ Space separation between keywords
+// ✅ Max 10-12 keywords per item
+// ✅ Complementary terms not already in title/description
+// ✅ Swedish auction terminology and format standards
+```
