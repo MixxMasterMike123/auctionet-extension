@@ -486,9 +486,11 @@ Text: ${data.freetext}`;
     const hasImages = options.images && options.images.length > 0;
     
     return new Promise((resolve, reject) => {
+      // Longer timeout for premium models with images
+      const timeoutDuration = hasImages && model.includes('claude-sonnet-4') ? 30000 : 15000;
       const timeout = setTimeout(() => {
-        reject(new Error(`Model ${model} timeout after 15 seconds`));
-      }, 15000);
+        reject(new Error(`Model ${model} timeout after ${timeoutDuration/1000} seconds`));
+      }, timeoutDuration);
       
       // Build message content based on whether we have images
       let messageContent;
