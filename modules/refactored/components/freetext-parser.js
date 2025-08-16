@@ -144,16 +144,18 @@ export class FreetextParser {
     // Create the button following existing UI patterns
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'freetext-parser-container';
-    // Subtle, native-looking styling
-    buttonContainer.style.cssText = 'margin: 15px 0; z-index: 9999; position: relative;';
+    // Match native Auctionet button styling exactly
+    buttonContainer.style.cssText = 'margin: 10px 0; z-index: 9999; position: relative;';
     buttonContainer.innerHTML = `
-      <button type="button" class="btn btn-default btn--freetext-parser" id="freetext-parser-btn" style="width: 100%; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px 16px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;" onmouseover="this.style.background='#e9ecef'; this.style.borderColor='#adb5bd';" onmouseout="this.style.background='#f8f9fa'; this.style.borderColor='#dee2e6';">
-        <span class="btn__icon" style="font-size: 16px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+      <button type="button" class="btn btn-info btn--freetext-parser" id="freetext-parser-btn" style="background: #5bc0de; color: #fff; border: 1px solid #46b8da; border-radius: 4px; padding: 8px 12px; font-size: 13px; font-weight: normal; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease;" onmouseover="this.style.background='#46b8da'; this.style.borderColor='#398aa4';" onmouseout="this.style.background='#5bc0de'; this.style.borderColor='#46b8da';">
+        <span class="btn__icon" style="font-size: 13px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M16 10a4 4 0 0 1-8 0" stroke="currentColor" stroke-width="1.5"/>
           </svg>
         </span>
-        <span class="btn__text" style="font-size: 14px; font-weight: 500;">Snabbkatalogisering</span>
+        <span class="btn__text" style="font-size: 13px; font-weight: normal;">Snabbkatalogisering</span>
       </button>
     `;
 
