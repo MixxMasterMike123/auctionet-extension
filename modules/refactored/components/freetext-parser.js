@@ -13,17 +13,8 @@
  * Dependencies: AI Rules System v2.0, existing popup patterns
  */
 
-// Import AI Rules System v2.0 functions (global access)
-const { 
-  getSystemPrompt, 
-  getCategoryPrompt, 
-  buildPrompt,
-  getCategoryRules,
-  getFieldRules,
-  getForbiddenWords,
-  isForbiddenWord,
-  getModelSpecificValuationRules
-} = window;
+// Note: AI Rules System v2.0 functions accessed via window.getAIRulesManager() 
+// to ensure we use the singleton instance loaded in content.js
 
 // Import AIImageAnalyzer component (modular architecture)
 import { AIImageAnalyzer } from './ai-image-analyzer.js';
@@ -1274,8 +1265,8 @@ export class FreetextParser {
         }
       `;
 
-      // Call AI to enhance with text context
-      const systemPrompt = getSystemPrompt('textEnhancement') || this.getEditPageSystemPrompt();
+      // Call AI to enhance with text context  
+      const systemPrompt = window.getAIRulesManager().getSystemPrompt('textEnhancement') || this.getEditPageSystemPrompt();
       
       const response = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {

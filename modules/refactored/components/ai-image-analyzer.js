@@ -13,16 +13,8 @@
  * Dependencies: AI Rules System v2.0, Chrome runtime messaging
  */
 
-// Import AI Rules System v2.0 functions (global access)
-const { 
-  getSystemPrompt, 
-  getCategoryPrompt, 
-  buildPrompt,
-  getCategoryRules,
-  getFieldRules,
-  getForbiddenWords,
-  isForbiddenWord
-} = window;
+// Note: AI Rules System v2.0 functions accessed via window.getAIRulesManager() 
+// to ensure we use the singleton instance loaded in content.js
 
 export class AIImageAnalyzer {
   constructor(apiManager, options = {}) {
