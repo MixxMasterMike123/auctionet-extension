@@ -144,10 +144,10 @@ export class FreetextParser {
     // Create the button following existing UI patterns
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'freetext-parser-container';
-    // Clean, subtle button matching native Auctionet style
-    buttonContainer.style.cssText = 'margin: 10px 0; z-index: 9999; position: relative;';
+    // Simple, small CTA button
+    buttonContainer.style.cssText = 'margin: 10px 0;';
     buttonContainer.innerHTML = `
-      <button type="button" class="btn btn-default btn--freetext-parser" id="freetext-parser-btn" style="background: #fff; color: #333; border: 1px solid #ccc; border-radius: 3px; padding: 6px 12px; font-size: 12px; font-weight: normal; cursor: pointer; display: inline-block; transition: all 0.15s ease; box-shadow: 0 1px 1px rgba(0,0,0,0.05);" onmouseover="this.style.background='#f8f8f8'; this.style.borderColor='#999';" onmouseout="this.style.background='#fff'; this.style.borderColor='#ccc';">
+      <button type="button" id="freetext-parser-btn" style="background: #007cba; color: white; border: none; border-radius: 4px; padding: 8px 16px; font-size: 14px; cursor: pointer;">
         Snabbkatalogisering
       </button>
     `;
