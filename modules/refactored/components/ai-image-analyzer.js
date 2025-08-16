@@ -708,22 +708,42 @@ INSTRUKTIONER:
       imageQuality: this.calculateImageQualityScore(imageAnalysis.imageQuality),
       
       // Object identification confidence (20% weight)
-      objectIdentification: imageAnalysis.confidence.objectIdentification,
+      objectIdentification: imageAnalysis.confidence?.objectIdentification || 0.5,
       
       // Market validation (15% weight - if available)
       marketValidation: marketData ? this.calculateMarketValidationScore(imageAnalysis, marketData) : 0.5
     };
     
+    console.log('🔍 Sure Score component breakdown:', {
+      imageAnalysis: scores.imageAnalysis,
+      imageQuality: scores.imageQuality,
+      objectIdentification: scores.objectIdentification,
+      marketValidation: scores.marketValidation,
+      imageAnalysisInput: imageAnalysis,
+      imageQualityInput: imageAnalysis.imageQuality,
+      confidenceInput: imageAnalysis.confidence
+    });
+    
+    // Ensure all scores are valid numbers
+    const validScores = {
+      imageAnalysis: isNaN(scores.imageAnalysis) ? 0.5 : scores.imageAnalysis,
+      imageQuality: isNaN(scores.imageQuality) ? 0.5 : scores.imageQuality,
+      objectIdentification: isNaN(scores.objectIdentification) ? 0.5 : scores.objectIdentification,
+      marketValidation: isNaN(scores.marketValidation) ? 0.5 : scores.marketValidation
+    };
+    
+    console.log('🔍 Validated scores (NaN protection):', validScores);
+    
     // Weighted composite score
     const sureScore = (
-      scores.imageAnalysis * 0.40 +
-      scores.imageQuality * 0.25 +
-      scores.objectIdentification * 0.20 +
-      scores.marketValidation * 0.15
+      validScores.imageAnalysis * 0.40 +
+      validScores.imageQuality * 0.25 +
+      validScores.objectIdentification * 0.20 +
+      validScores.marketValidation * 0.15
     );
     
     // Calculate market support percentage for conservative scaling
-    const marketSupportPercentage = marketData ? Math.round(scores.marketValidation * 100) : 30;
+    const marketSupportPercentage = marketData ? Math.round(validScores.marketValidation * 100) : 30;
     
     // Determine confidence level (influenced by market support)
     let confidenceLevel;
@@ -752,12 +772,12 @@ INSTRUKTIONER:
       confidenceLevel,
       recommendation,
       marketSupportPercentage,
-      breakdown: scores,
+      breakdown: validScores,
       factors: {
-        imageQuality: scores.imageQuality,
-        analysisReliability: scores.imageAnalysis,
-        objectCertainty: scores.objectIdentification,
-        marketSupport: scores.marketValidation
+        imageQuality: validScores.imageQuality,
+        analysisReliability: validScores.imageAnalysis,
+        objectCertainty: validScores.objectIdentification,
+        marketSupport: validScores.marketValidation
       }
     };
     
