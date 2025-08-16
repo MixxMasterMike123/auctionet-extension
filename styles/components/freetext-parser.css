@@ -8,7 +8,12 @@
 /* Hide unwanted UI elements - keep only progress bar and stats */
 .processing-title,
 .processing-subtitle,
-.processing-step {
+.processing-step,
+.progress-steps-container,
+.progress-step,
+.step-icon,
+.step-text,
+.step-content {
   display: none !important;
 }
 
