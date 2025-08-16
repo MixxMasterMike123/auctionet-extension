@@ -421,6 +421,13 @@ export class FreetextParser {
             </svg>
             Använd denna katalogpost
           </button>
+          <button class="btn btn--secondary" id="restart-btn" style="display: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
+              <path d="M1 4v6h6M23 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Starta om
+          </button>
         </div>
       </div>
     `;
@@ -475,6 +482,12 @@ export class FreetextParser {
       applyBtn.addEventListener('click', () => this.applyParsedDataToForm());
     }
 
+    // Restart button
+    const restartBtn = modal.querySelector('#restart-btn');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => this.restartAnalysis());
+    }
+
     // Initialize image analyzer
     this.initializeImageAnalyzers(modal);
     
@@ -485,6 +498,137 @@ export class FreetextParser {
         this.updateAnalysisModeIndicator(modal);
       });
     }
+  }
+
+  /**
+   * Close modal and reset all state for fresh start
+   */
+  closeModal() {
+    console.log('🔄 Closing modal and resetting all state...');
+    
+    if (this.currentModal) {
+      // Clean up escape key listener
+      if (this.currentModal._escapeHandler) {
+        document.removeEventListener('keydown', this.currentModal._escapeHandler);
+      }
+      
+      // Remove modal from DOM
+      this.currentModal.remove();
+      this.currentModal = null;
+    }
+    
+    // Reset all internal state for fresh start
+    this.parsedData = null;
+    this.currentSureScore = null;
+    this.currentMarketData = null;
+    this.isProcessing = false;
+    
+    // Clear selected images
+    if (this.selectedImages) {
+      this.selectedImages.clear();
+    }
+    
+    // Reset image analyzer state
+    if (this.imageAnalyzer) {
+      this.imageAnalyzer.currentImages.clear();
+      this.imageAnalyzer.isProcessing = false;
+      this.imageAnalyzer.analysisResult = null;
+    }
+    
+    console.log('✅ Modal closed and all state reset for fresh start');
+  }
+
+  /**
+   * Enforce minimum reserve price (400 SEK business rule)
+   */
+  enforceMinimumReserve(reservePrice) {
+    const MINIMUM_RESERVE_SEK = 400; // Business rule: minimum bevakning 400 SEK
+    
+    if (!reservePrice || reservePrice < MINIMUM_RESERVE_SEK) {
+      console.log(`🏛️ Enforcing minimum reserve: ${reservePrice || 0} SEK → ${MINIMUM_RESERVE_SEK} SEK`);
+      return MINIMUM_RESERVE_SEK;
+    }
+    
+    return reservePrice;
+  }
+
+  /**
+   * Restart analysis - reset to input section with fresh state
+   */
+  restartAnalysis() {
+    console.log('🔄 Restarting analysis - resetting to input section...');
+    
+    if (!this.currentModal) return;
+    
+    // Reset all internal state
+    this.parsedData = null;
+    this.currentSureScore = null;
+    this.currentMarketData = null;
+    this.isProcessing = false;
+    
+    // Clear selected images
+    if (this.selectedImages) {
+      this.selectedImages.clear();
+    }
+    
+    // Reset image analyzer state
+    if (this.imageAnalyzer) {
+      this.imageAnalyzer.currentImages.clear();
+      this.imageAnalyzer.isProcessing = false;
+      this.imageAnalyzer.analysisResult = null;
+    }
+    
+    // Clear all form inputs
+    const textarea = this.currentModal.querySelector('#freetext-input');
+    if (textarea) {
+      textarea.value = '';
+    }
+    
+    // Clear image previews
+    const imagePreviewGrid = this.currentModal.querySelector('#image-preview-grid');
+    if (imagePreviewGrid) {
+      imagePreviewGrid.innerHTML = '';
+      imagePreviewGrid.style.display = 'none';
+    }
+    
+    // Reset upload status
+    const uploadStatus = this.currentModal.querySelector('#upload-status');
+    if (uploadStatus) {
+      uploadStatus.textContent = 'Inga bilder uppladdade • Bilder är valfria (AI kan analysera endast text)';
+    }
+    
+    // Show upload area again
+    const uploadArea = this.currentModal.querySelector('.simple-upload-area');
+    if (uploadArea) {
+      uploadArea.style.display = 'block';
+    }
+    
+    // Hide all sections except input
+    const sections = this.currentModal.querySelectorAll('.modal-section');
+    sections.forEach(section => {
+      section.style.display = 'none';
+    });
+    
+    // Show input section
+    const inputSection = this.currentModal.querySelector('#input-section');
+    if (inputSection) {
+      inputSection.style.display = 'block';
+    }
+    
+    // Hide action buttons
+    const applyBtn = this.currentModal.querySelector('#apply-btn');
+    const restartBtn = this.currentModal.querySelector('#restart-btn');
+    if (applyBtn) applyBtn.style.display = 'none';
+    if (restartBtn) restartBtn.style.display = 'none';
+    
+    // Show analyze button
+    const analyzeBtn = this.currentModal.querySelector('#analyze-btn');
+    if (analyzeBtn) analyzeBtn.style.display = 'inline-block';
+    
+    // Scroll back to input section
+    this.scrollToSection('input-section');
+    
+    console.log('✅ Analysis restarted - ready for fresh input');
   }
 
   /**
@@ -842,6 +986,11 @@ export class FreetextParser {
         });
       }
 
+      // Final safety check: Enforce minimum reserve even if no scaling was applied
+      if (analysisResult.reserve) {
+        analysisResult.reserve = this.enforceMinimumReserve(analysisResult.reserve);
+      }
+
       // Store results
       this.parsedData = analysisResult;
       this.currentSureScore = sureScore;
@@ -947,11 +1096,15 @@ export class FreetextParser {
       // First, populate the AIImageAnalyzer's currentImages from our selectedImages
       this.imageAnalyzer.currentImages.clear();
       let categoryIndex = 0;
-      const categories = ['front', 'back', 'markings', 'detail', 'overview'];
+      const categoryIds = ['front', 'back', 'markings', 'signature', 'condition'];
       
       for (const [imageId, imageData] of this.selectedImages) {
-        const category = categories[categoryIndex] || 'detail';
-        this.imageAnalyzer.currentImages.set(category, imageData.file);
+        const categoryId = categoryIds[categoryIndex] || 'condition';
+        const categoryObject = this.imageAnalyzer.config.imageCategories.find(cat => cat.id === categoryId);
+        
+        // Store the file with proper category reference
+        this.imageAnalyzer.currentImages.set(categoryId, imageData.file);
+        
         categoryIndex++;
       }
       
@@ -1029,11 +1182,11 @@ export class FreetextParser {
       // First, populate the AIImageAnalyzer's currentImages from our selectedImages
       this.imageAnalyzer.currentImages.clear();
       let categoryIndex = 0;
-      const categories = ['front', 'back', 'markings', 'detail', 'overview'];
+      const categoryIds = ['front', 'back', 'markings', 'signature', 'condition'];
       
       for (const [imageId, imageData] of this.selectedImages) {
-        const category = categories[categoryIndex] || 'detail';
-        this.imageAnalyzer.currentImages.set(category, imageData.file);
+        const categoryId = categoryIds[categoryIndex] || 'condition';
+        this.imageAnalyzer.currentImages.set(categoryId, imageData.file);
         categoryIndex++;
       }
       
@@ -2573,7 +2726,8 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
           const aiReserve = data.reserve;   // Store original AI reserve
           
           data.estimate = marketMid;
-          data.reserve = Math.round(marketLow * 0.7); // 70% of market low
+          const calculatedReserve = Math.round(marketLow * 0.7); // 70% of market low
+          data.reserve = this.enforceMinimumReserve(calculatedReserve);
           
           // Add note about AI vs market estimates
           if (aiEstimate && Math.abs(aiEstimate - marketMid) > marketMid * 0.3) {

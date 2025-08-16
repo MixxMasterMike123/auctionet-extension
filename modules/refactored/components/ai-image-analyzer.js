@@ -843,6 +843,20 @@ INSTRUKTIONER:
   }
 
   /**
+   * Enforce minimum reserve price (400 SEK business rule)
+   */
+  enforceMinimumReserve(reservePrice) {
+    const MINIMUM_RESERVE_SEK = 400; // Business rule: minimum bevakning 400 SEK
+    
+    if (!reservePrice || reservePrice < MINIMUM_RESERVE_SEK) {
+      console.log(`🏛️ Enforcing minimum reserve: ${reservePrice || 0} SEK → ${MINIMUM_RESERVE_SEK} SEK`);
+      return MINIMUM_RESERVE_SEK;
+    }
+    
+    return reservePrice;
+  }
+
+  /**
    * Apply conservative scaling based on market support percentage
    */
   applyConservativeScaling(estimate, reserve, marketSupportPercentage) {
@@ -878,7 +892,8 @@ INSTRUKTIONER:
     
     // Apply scaling
     const scaledEstimate = estimate ? Math.round(estimate * multiplier) : null;
-    const scaledReserve = reserve ? Math.round(reserve * multiplier) : null;
+    const scaledReserveBeforeMin = reserve ? Math.round(reserve * multiplier) : null;
+    const scaledReserve = this.enforceMinimumReserve(scaledReserveBeforeMin);
     
     console.log('🎯 Conservative scaling applied:', {
       multiplier: multiplier,
