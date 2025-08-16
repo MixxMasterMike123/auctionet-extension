@@ -808,6 +808,40 @@ export class FreetextParser {
       }
       sureScore = this.imageAnalyzer.calculateSureScore(analysisResult, marketData);
 
+      // Apply conservative scaling based on market support percentage
+      if ((analysisResult.estimate || analysisResult.reserve)) {
+        // Use market support percentage if available, otherwise default to 60% for text-only
+        const marketSupportPercentage = sureScore.marketSupportPercentage !== undefined 
+          ? sureScore.marketSupportPercentage 
+          : 60; // Default for text-only analysis
+        const scalingResult = this.imageAnalyzer.applyConservativeScaling(
+          analysisResult.estimate,
+          analysisResult.reserve,
+          marketSupportPercentage
+        );
+        
+        // Update estimates with conservative scaling
+        if (scalingResult.estimate !== null) analysisResult.estimate = scalingResult.estimate;
+        if (scalingResult.reserve !== null) analysisResult.reserve = scalingResult.reserve;
+        
+        // Override confidence level if market support is low
+        if (scalingResult.confidenceLevel && marketSupportPercentage < 70) {
+          sureScore.confidenceLevel = scalingResult.confidenceLevel;
+        }
+        
+        // Add scaling info to reasoning
+        if (scalingResult.reasoning) {
+          analysisResult.reasoning = (analysisResult.reasoning || '') + ' ' + scalingResult.reasoning;
+        }
+        
+        console.log('🎯 Conservative scaling applied to estimates:', {
+          marketSupport: marketSupportPercentage + '%',
+          multiplier: scalingResult.multiplier,
+          originalConfidence: sureScore.confidenceLevel,
+          adjustedConfidence: scalingResult.confidenceLevel
+        });
+      }
+
       // Store results
       this.parsedData = analysisResult;
       this.currentSureScore = sureScore;
@@ -818,7 +852,8 @@ export class FreetextParser {
         hasEstimate: !!analysisResult.estimate,
         estimateValue: analysisResult.estimate,
         hasReserve: !!analysisResult.reserve,
-        reserveValue: analysisResult.reserve
+        reserveValue: analysisResult.reserve,
+        marketSupport: (sureScore.marketSupportPercentage || marketSupportPercentage) + '%'
       });
       this.showParsedPreview(analysisResult, sureScore);
       console.log('✅ Analysis completed successfully');

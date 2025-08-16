@@ -722,14 +722,21 @@ INSTRUKTIONER:
       scores.marketValidation * 0.15
     );
     
-    // Determine confidence level
+    // Calculate market support percentage for conservative scaling
+    const marketSupportPercentage = marketData ? Math.round(scores.marketValidation * 100) : 30;
+    
+    // Determine confidence level (influenced by market support)
     let confidenceLevel;
     let recommendation;
     
-    if (sureScore >= 0.85) {
+    // Market support overrides confidence if it's significantly low
+    if (marketSupportPercentage < 50) {
+      confidenceLevel = marketSupportPercentage < 30 ? 'Mycket låg' : 'Låg';
+      recommendation = 'Lågt marknadsstöd - kräver expertbedömning';
+    } else if (sureScore >= 0.85 && marketSupportPercentage >= 70) {
       confidenceLevel = 'Mycket hög';
       recommendation = 'Katalogisera med hög säkerhet';
-    } else if (sureScore >= 0.70) {
+    } else if (sureScore >= 0.70 && marketSupportPercentage >= 60) {
       confidenceLevel = 'Hög';
       recommendation = 'Katalogisera med rimlig säkerhet';
     } else if (sureScore >= 0.55) {
@@ -744,6 +751,7 @@ INSTRUKTIONER:
       sureScore: Math.round(sureScore * 100) / 100,
       confidenceLevel,
       recommendation,
+      marketSupportPercentage,
       breakdown: scores,
       factors: {
         imageQuality: scores.imageQuality,
@@ -812,6 +820,60 @@ INSTRUKTIONER:
     if (this.checkMarketAlignement(imageAnalysis, marketData)) score += 0.1;
     
     return Math.min(1.0, score);
+  }
+
+  /**
+   * Apply conservative scaling based on market support percentage
+   */
+  applyConservativeScaling(estimate, reserve, marketSupportPercentage) {
+    console.log('🎯 Applying conservative scaling:', {
+      originalEstimate: estimate,
+      originalReserve: reserve,
+      marketSupport: marketSupportPercentage + '%'
+    });
+
+    // Convert market validation score to percentage (0.0-1.0 → 0-100%)
+    const supportPercent = marketSupportPercentage;
+    
+    // Conservative scaling multipliers based on market support
+    let multiplier;
+    let confidenceAdjustment;
+    
+    if (supportPercent >= 90) {
+      multiplier = 1.0;           // Full market value
+      confidenceAdjustment = 'Hög'; // High confidence
+    } else if (supportPercent >= 70) {
+      multiplier = 0.85;          // Slightly conservative  
+      confidenceAdjustment = 'Medel'; // Medium confidence
+    } else if (supportPercent >= 50) {
+      multiplier = 0.70;          // More conservative
+      confidenceAdjustment = 'Medel'; // Medium confidence
+    } else if (supportPercent >= 30) {
+      multiplier = 0.55;          // Very conservative
+      confidenceAdjustment = 'Låg'; // Low confidence
+    } else {
+      multiplier = 0.40;          // Extremely conservative
+      confidenceAdjustment = 'Mycket låg'; // Very low confidence
+    }
+    
+    // Apply scaling
+    const scaledEstimate = estimate ? Math.round(estimate * multiplier) : null;
+    const scaledReserve = reserve ? Math.round(reserve * multiplier) : null;
+    
+    console.log('🎯 Conservative scaling applied:', {
+      multiplier: multiplier,
+      scaledEstimate: scaledEstimate,
+      scaledReserve: scaledReserve,
+      confidenceAdjustment: confidenceAdjustment
+    });
+    
+    return {
+      estimate: scaledEstimate,
+      reserve: scaledReserve,
+      multiplier: multiplier,
+      confidenceLevel: confidenceAdjustment,
+      reasoning: `Marknadsstöd: ${supportPercent}% - ${multiplier < 1.0 ? 'konservativ värdering tillämpad' : 'full marknadsvärdering'}`
+    };
   }
 
   /**
