@@ -5,6 +5,13 @@
   margin: 10px 0;
 }
 
+/* Hide unwanted UI elements - keep only progress bar and stats */
+.processing-title,
+.processing-subtitle,
+.processing-step {
+  display: none !important;
+}
+
 .btn--freetext-parser {
   width: 100%;
   background: rgba(255, 255, 255, 0.95);
