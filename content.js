@@ -40,21 +40,68 @@ import('./modules/add-items-integration-manager.js').then(module => {
   console.error('❌ Failed to load AddItemsIntegrationManager:', error);
 });
 
-// Monitor for DOM changes to detect page transitions
-const observer = new MutationObserver((mutations) => {
-  mutations.forEach((mutation) => {
-    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-      // Check if we're now on a supported page
-      setTimeout(() => {
-        if (!window.auctionetAssistantInitialized) {
-          window.auctionetAssistant?.tryInitialize?.();
-        }
-      }, 500);
-    }
-  });
+// Import the FreetextParser component
+import('./modules/refactored/components/freetext-parser.js').then(module => {
+  window.FreetextParser = module.FreetextParser;
+}).catch(error => {
+  console.error('❌ Failed to load FreetextParser:', error);
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
+// Import the AIImageAnalyzer component
+import('./modules/refactored/components/ai-image-analyzer.js').then(module => {
+  window.AIImageAnalyzer = module.AIImageAnalyzer;
+}).catch(error => {
+  console.error('❌ Failed to load AIImageAnalyzer:', error);
+});
+
+// Import the AI Rules System
+import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module => {
+  window.AIRulesManager = module.AIRulesManager;
+  // Initialize AI Rules System and make functions globally available
+  const aiRulesManager = new module.AIRulesManager();
+  
+  // Wait for rules to load (they auto-load in constructor)
+  const waitForRules = () => {
+    if (aiRulesManager.loaded) {
+      // CRITICAL: Override ALL global functions to use our loaded instance
+      window.getAIRulesManager = () => aiRulesManager;
+      window.getSystemPrompt = aiRulesManager.getSystemPrompt.bind(aiRulesManager);
+      window.getCategoryPrompt = aiRulesManager.getCategoryPrompt.bind(aiRulesManager);
+      window.buildPrompt = aiRulesManager.buildPrompt.bind(aiRulesManager);
+      window.getCategoryRules = aiRulesManager.getCategoryRules.bind(aiRulesManager);
+      window.getFieldRules = aiRulesManager.getFieldRules.bind(aiRulesManager);
+      window.getForbiddenWords = aiRulesManager.getForbiddenWords.bind(aiRulesManager);
+      window.isForbiddenWord = aiRulesManager.isForbiddenWord.bind(aiRulesManager);
+      window.getModelSpecificValuationRules = aiRulesManager.getModelSpecificValuationRules.bind(aiRulesManager);
+      window.getBrandCorrections = aiRulesManager.getBrandCorrections.bind(aiRulesManager);
+      window.getArtistCorrections = aiRulesManager.getBrandCorrections.bind(aiRulesManager);
+      console.log('🔗 Overrode ALL global AI Rules functions with loaded instance');
+      console.log('✅ AI Rules System initialized and functions made globally available');
+      
+      // Debug: Test that functions work
+      try {
+        const testPrompt = window.getSystemPrompt('core');
+        const testRules = window.getModelSpecificValuationRules('freetextParser', 'claude-3-5-sonnet');
+        console.log('🧪 AI Rules functions tested successfully:', {
+          hasSystemPrompt: !!testPrompt,
+          hasValuationRules: !!testRules
+        });
+      } catch (error) {
+        console.error('❌ AI Rules functions test failed:', error);
+      }
+    } else {
+      console.log('⏳ Waiting for AI Rules to load... Current state:', aiRulesManager.loaded);
+      setTimeout(waitForRules, 200); // Check every 200ms
+    }
+  };
+  
+  // Start checking after a small delay to let constructor complete
+  setTimeout(waitForRules, 100);
+}).catch(error => {
+  console.error('❌ Failed to load AI Rules System:', error);
+});
+
+// SPA detection will be handled by the AuctionetCatalogingAssistant class
 
 class AuctionetCatalogingAssistant {
   constructor() {
@@ -63,10 +110,18 @@ class AuctionetCatalogingAssistant {
     this.tooltipManager = null;
     this.isProgrammaticUpdate = false; // Track when we're updating fields programmatically
     
+    // SPA detection properties
+    this.isInitialized = false;
+    this.lastInitializedHash = '';
+    this.mutationObserver = null;
+    
     // Initialize asynchronously to prevent blocking
     this.init().catch(error => {
       console.error('❌ Failed to initialize AuctionetCatalogingAssistant:', error);
     });
+    
+    // Set up SPA detection
+    this.setupSPADetection();
     
     // Listen for API key changes
     chrome.storage.onChanged.addListener((changes, namespace) => {
@@ -82,6 +137,9 @@ class AuctionetCatalogingAssistant {
         sendResponse({ success: true });
       }
     });
+    
+    // Make globally accessible for SPA detection
+    window.auctionetAssistant = this;
   }
 
   async init() {
@@ -99,10 +157,24 @@ class AuctionetCatalogingAssistant {
     const pageInfo = this.detectPageType();
     
     if (!pageInfo.isSupported) {
+      console.log('❌ Page not supported:', window.location.href, window.location.hash);
+      return;
+    }
+
+    // If page needs retry (form elements not ready), schedule a retry
+    if (pageInfo.needsRetry) {
+      console.log('⏳ Page needs retry, scheduling retry in 2 seconds...');
+      setTimeout(() => {
+        this.tryInitialize();
+      }, 2000);
       return;
     }
 
     this.currentPage = pageInfo.type;
+    this.isInitialized = true;
+    this.lastInitializedHash = window.location.hash;
+    window.auctionetAssistantInitialized = true;
+    
     console.log('✅ Auctionet AI Assistant: On supported page, type:', this.currentPage);
     
     await this.loadApiKey();
@@ -111,51 +183,227 @@ class AuctionetCatalogingAssistant {
       this.injectUI();
       this.attachEventListeners();
     } else if (this.currentPage === 'add') {
-      await this.initializeAddItemsTooltips();
+      await this.initializeFreetextParser();
     }
+  }
+
+  // SPA detection system
+  setupSPADetection() {
+    console.log('🔄 Setting up SPA detection system...');
+    
+    // Hash change listener for SPA navigation
+    window.addEventListener('hashchange', () => {
+      console.log('🔄 Hash changed to:', window.location.hash);
+      setTimeout(() => {
+        this.tryInitialize();
+      }, 500);
+    });
+    
+    // MutationObserver to watch for DOM changes (AddItem form appearance)
+    this.mutationObserver = new MutationObserver((mutations) => {
+      let shouldCheck = false;
+      
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+          // Check if AddItem form elements were added
+          for (const node of mutation.addedNodes) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              if (node.querySelector?.('#item_title_sv, .item_form, #new_item') ||
+                  node.id === 'item_title_sv' ||
+                  node.classList?.contains('item_form')) {
+                shouldCheck = true;
+                break;
+              }
+            }
+          }
+        }
+      });
+      
+      if (shouldCheck) {
+        console.log('🔄 DOM change detected, checking for AddItem form...');
+        setTimeout(() => {
+          this.tryInitialize();
+        }, 500);
+      }
+    });
+    
+    this.mutationObserver.observe(document.body, { 
+      childList: true, 
+      subtree: true 
+    });
+    
+    console.log('✅ SPA detection system set up successfully');
+  }
+
+  // Try to initialize - called by SPA detection
+  async tryInitialize() {
+    try {
+      console.log('🔄 Trying to initialize...', {
+        url: window.location.href,
+        hash: window.location.hash,
+        isInitialized: this.isInitialized,
+        lastHash: this.lastInitializedHash
+      });
+      
+      // Prevent duplicate initialization for same hash
+      if (this.isInitialized && this.lastInitializedHash === window.location.hash) {
+        console.log('⏭️ Already initialized for this hash, skipping...');
+        return;
+      }
+      
+      // Clean up previous initialization if switching pages
+      if (this.isInitialized) {
+        console.log('🧹 Cleaning up previous initialization...');
+        this.cleanup();
+      }
+      
+      // Wait a bit for dynamic content to load
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Try to initialize
+      await this.init();
+      
+    } catch (error) {
+      console.error('❌ Error in tryInitialize:', error);
+    }
+  }
+
+  // Cleanup method for switching between pages
+  cleanup() {
+    console.log('🧹 Cleaning up extension components...');
+    
+    // Reset initialization flags
+    this.isInitialized = false;
+    window.auctionetAssistantInitialized = false;
+    this.currentPage = null;
+    
+    // Clean up any existing UI elements
+    const existingElements = document.querySelectorAll('.ai-assist-button, .ai-tooltip, .add-items-tooltip');
+    existingElements.forEach(el => el.remove());
+    
+    // Clean up tooltip manager if exists
+    if (this.tooltipManager) {
+      try {
+        this.tooltipManager.destroy?.();
+      } catch (error) {
+        console.warn('⚠️ Error cleaning up tooltip manager:', error);
+      }
+      this.tooltipManager = null;
+    }
+    
+    console.log('✅ Cleanup completed');
   }
 
   detectPageType() {
     const url = window.location.href;
     const hash = window.location.hash;
     
+    console.log('🔍 Detecting page type:', {
+      url,
+      hash,
+      hasItemTitle: !!document.querySelector('#item_title_sv'),
+      itemTitleElement: document.querySelector('#item_title_sv')
+    });
+    
     // Check for edit page
     if (url.includes('auctionet.com/admin/') && 
         url.includes('/items/') && 
         url.includes('/edit') &&
         document.querySelector('#item_title_sv')) {
+      console.log('✅ Detected EDIT page');
       return { isSupported: true, type: 'edit' };
     }
     
     // Check for add items page - NEW URL PATTERN
     if (url.includes('auctionet.com/admin/sas/sellers/') && 
         url.includes('/contracts/') &&
-        hash === '#new_item' &&
-        document.querySelector('#item_title_sv')) {
-      return { isSupported: true, type: 'add' };
+        hash === '#new_item') {
+      // For new item pages, we don't require #item_title_sv to be present immediately
+      // as it might be loaded dynamically. The SPA detection will retry.
+      const hasFormElements = document.querySelector('#item_title_sv') || 
+                             document.querySelector('#new_item') ||
+                             document.querySelector('.item_form') ||
+                             document.querySelector('form[action*="items"]');
+      
+      if (hasFormElements || document.readyState === 'loading') {
+        console.log('✅ Detected ADD page (new pattern)', hasFormElements ? 'with form elements' : 'loading');
+        return { isSupported: true, type: 'add' };
+      } else {
+        console.log('⏳ ADD page detected but form not ready, will retry...');
+        // Return supported but mark for retry
+        return { isSupported: true, type: 'add', needsRetry: true };
+      }
     }
     
     // Legacy check for old add items URL pattern (fallback)
     if (url.includes('auctionet.com/admin/') && 
         url.includes('/items/new') &&
         document.querySelector('#item_title_sv')) {
+      console.log('✅ Detected ADD page (legacy pattern)');
       return { isSupported: true, type: 'add' };
     }
+    
+    // Debug why page wasn't detected
+    console.log('❌ Page not supported. Checking conditions:');
+    console.log('  - URL contains admin:', url.includes('auctionet.com/admin/'));
+    console.log('  - URL contains sellers:', url.includes('admin/sas/sellers/'));
+    console.log('  - URL contains contracts:', url.includes('/contracts/'));
+    console.log('  - Hash is #new_item:', hash === '#new_item');
+    console.log('  - Has #item_title_sv element:', !!document.querySelector('#item_title_sv'));
+    
+    // Check for alternative form elements that might indicate an add item page
+    const alternativeElements = [
+      '#new_item',
+      '.item_form',
+      'form[action*="items"]',
+      'input[name*="item"]'
+    ];
+    
+    console.log('🔍 Checking for alternative form elements:');
+    alternativeElements.forEach(selector => {
+      const element = document.querySelector(selector);
+      console.log(`  - ${selector}:`, !!element, element);
+    });
     
     return { isSupported: false, type: null };
   }
 
-  async initializeAddItemsTooltips() {
+  async initializeFreetextParser() {
     try {
-      console.log('🎯 Initializing Add Items with new modular components...');
+      console.log('🎯 Initializing FreetextParser for Add Items page...');
       
-      // Wait for all required classes to be loaded via dynamic imports
-      if (!window.AddItemsAPIBridge || !window.TooltipSystemManager || !window.FieldQualityAnalyzer || !window.FieldMonitorManager || !window.AddItemsIntegrationManager) {
-        await new Promise(resolve => {
+      // Wait for required components AND AI Rules to be loaded
+      if (!window.FreetextParser || !window.AIImageAnalyzer || !window.AddItemsAPIBridge || !window.getSystemPrompt || !window.getModelSpecificValuationRules) {
+        console.log('⏳ Waiting for components and AI Rules to load...');
+        await new Promise((resolve, reject) => {
+          let attempts = 0;
+          const maxAttempts = 150; // 15 seconds timeout (increased for AI Rules loading)
+          
           const checkForClasses = () => {
-            if (window.AddItemsAPIBridge && window.TooltipSystemManager && window.FieldQualityAnalyzer && window.FieldMonitorManager && window.AddItemsIntegrationManager) {
-              console.log('✅ Dynamic imports loaded successfully');
+            attempts++;
+            const allReady = window.FreetextParser && 
+                           window.AIImageAnalyzer && 
+                           window.AddItemsAPIBridge && 
+                           window.getSystemPrompt && 
+                           window.getModelSpecificValuationRules &&
+                           window.getBrandCorrections &&
+                           window.getArtistCorrections;
+                           
+            if (allReady) {
+              console.log('✅ All components and AI Rules loaded successfully');
               resolve();
+            } else if (attempts >= maxAttempts) {
+              console.error('❌ Timeout waiting for components to load');
+              console.log('Missing components:', {
+                FreetextParser: !!window.FreetextParser,
+                AIImageAnalyzer: !!window.AIImageAnalyzer,
+                AddItemsAPIBridge: !!window.AddItemsAPIBridge,
+                getSystemPrompt: !!window.getSystemPrompt,
+                getModelSpecificValuationRules: !!window.getModelSpecificValuationRules,
+                getBrandCorrections: !!window.getBrandCorrections,
+                getArtistCorrections: !!window.getArtistCorrections
+              });
+              reject(new Error('Timeout waiting for components'));
             } else {
               setTimeout(checkForClasses, 100);
             }
@@ -164,46 +412,23 @@ class AuctionetCatalogingAssistant {
         });
       }
 
-      // 🎯 NEW: Use API Bridge that connects to edit page API manager
-      console.log('🚀 Creating API Bridge with edit page integration...');
+      // Create API Bridge for FreetextParser
+      console.log('🚀 Creating API Bridge for FreetextParser...');
       const apiBridge = new window.AddItemsAPIBridge();
       await apiBridge.init();
 
-      // Initialize new modular components
-      console.log('🎯 Initializing modular tooltip system components...');
-      
-      // Create the tooltip system manager
-      this.tooltipSystemManager = new window.TooltipSystemManager();
-      this.tooltipSystemManager.init();
-      
-      // Create the field quality analyzer
-      this.fieldQualityAnalyzer = new window.FieldQualityAnalyzer();
-      this.fieldQualityAnalyzer.setApiManager(apiBridge.getAPIManager());
-      
-      // Create the field monitor manager
-      this.fieldMonitorManager = new window.FieldMonitorManager();
-      this.fieldMonitorManager.init({
-        tooltipSystemManager: this.tooltipSystemManager,
-        fieldQualityAnalyzer: this.fieldQualityAnalyzer,
-        apiBridge: apiBridge
-      });
-      
-      // Create the integration manager to handle UI features
-      this.integrationManager = new window.AddItemsIntegrationManager();
-      this.integrationManager.init({
-        apiBridge: apiBridge,
-        tooltipSystemManager: this.tooltipSystemManager,
-        fieldQualityAnalyzer: this.fieldQualityAnalyzer,
-        fieldMonitorManager: this.fieldMonitorManager
-      });
+      // Initialize FreetextParser with API Manager
+      console.log('🎯 Initializing FreetextParser component...');
+      this.freetextParser = new window.FreetextParser(apiBridge.getAPIManager());
+      this.freetextParser.init();
       
       // Store the bridge for potential future use
       this.apiBridge = apiBridge;
       
-      console.log('✅ Add items system initialized with new modular components');
+      console.log('✅ FreetextParser initialized successfully');
       
     } catch (error) {
-      console.error('❌ Failed to initialize add items with modular components:', error);
+      console.error('❌ Failed to initialize FreetextParser:', error);
     }
   }
 

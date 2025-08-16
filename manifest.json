@@ -29,6 +29,7 @@
         "https://auctionet.com/admin/*/items/*/edit"
       ],
       "js": ["content.js"],
+      "css": ["styles/components/freetext-parser.css", "styles/components/ai-image-analyzer.css"],
       "run_at": "document_end"
     }
   ],
@@ -42,7 +43,10 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "modules/*.js"
+        "modules/*.js",
+        "modules/refactored/components/*.js",
+        "modules/refactored/ai-rules-system/*.js",
+        "modules/refactored/ai-rules-system/*.json"
       ],
       "matches": ["https://auctionet.com/*"]
     }
