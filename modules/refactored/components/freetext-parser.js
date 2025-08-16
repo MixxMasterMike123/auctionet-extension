@@ -144,18 +144,16 @@ export class FreetextParser {
     // Create the button following existing UI patterns
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'freetext-parser-container';
-    // Add inline styles to ensure visibility
-    buttonContainer.style.cssText = 'margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3); z-index: 9999; position: relative;';
+    // Subtle, native-looking styling
+    buttonContainer.style.cssText = 'margin: 15px 0; z-index: 9999; position: relative;';
     buttonContainer.innerHTML = `
-      <button type="button" class="btn btn--primary btn--freetext-parser" id="freetext-parser-btn" style="width: 100%; background: rgba(255, 255, 255, 0.95); color: #4a5568; border: none; border-radius: 8px; padding: 16px 20px; font-size: 16px; font-weight: 600; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;">
-        <span class="btn__icon" style="font-size: 24px; margin-bottom: 4px;">
+      <button type="button" class="btn btn-default btn--freetext-parser" id="freetext-parser-btn" style="width: 100%; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px 16px; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;" onmouseover="this.style.background='#e9ecef'; this.style.borderColor='#adb5bd';" onmouseout="this.style.background='#f8f9fa'; this.style.borderColor='#dee2e6';">
+        <span class="btn__icon" style="font-size: 16px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-6.5l-4.24 4.24M7.76 16.24l-4.24 4.24M20.5 20.5l-4.24-4.24M7.76 7.76L3.52 3.52" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="1.5" fill="none"/>
           </svg>
         </span>
-        <span class="btn__text" style="font-size: 16px; font-weight: 600;">AI Snabbkatalogisering från fritext</span>
-        <span class="btn__subtitle" style="font-size: 13px; color: #718096; font-weight: 400;">Skriv allt du vet - AI skapar perfekt katalogpost</span>
+        <span class="btn__text" style="font-size: 14px; font-weight: 500;">Snabbkatalogisering</span>
       </button>
     `;
 
@@ -286,9 +284,9 @@ export class FreetextParser {
               <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
               <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-6.5l-4.24 4.24M7.76 16.24l-4.24 4.24M20.5 20.5l-4.24-4.24M7.76 7.76L3.52 3.52" stroke="currentColor" stroke-width="1.5"/>
             </svg>
-            AI Snabbkatalogisering från fritext
+            Snabbkatalogisering
           </h3>
-          <p>Skriv all information du har om objektet - AI analyserar och skapar perfekt katalogpost</p>
+          <p>Skriv all information du har om objektet - systemet analyserar och skapar katalogpost</p>
           <button class="popup-close" type="button">✕</button>
         </div>
         
@@ -370,7 +368,7 @@ export class FreetextParser {
           <div id="processing-section" class="modal-section ai-processing-section" style="display: none;">
             <div class="section-title">
               <div class="section-icon">⚡</div>
-              <span>AI analyserar</span>
+              <span>Analyserar</span>
             </div>
             <div class="processing-spinner"></div>
             <div class="processing-status">
@@ -898,19 +896,19 @@ export class FreetextParser {
       // Show dynamic processing state based on analysis type
       let processingTitle, processingDescription;
       if (hasImages && hasText) {
-        processingTitle = 'AI analyserar bilder + text...';
+        processingTitle = 'Analyserar bilder + text...';
         processingDescription = 'Kombinerar visuell och textbaserad analys för bästa resultat';
       } else if (hasImages) {
         const imageCount = this.selectedImages?.size || 0;
         if (imageCount > 1) {
-          processingTitle = 'AI analyserar flera bilder...';
+          processingTitle = 'Analyserar flera bilder...';
           processingDescription = `Analyserar ${imageCount} bilder för komplett objektbedömning`;
         } else {
-          processingTitle = 'AI analyserar bild...';
+          processingTitle = 'Analyserar bild...';
           processingDescription = 'Extraherar objektinformation från bildanalys';
         }
       } else {
-        processingTitle = 'AI analyserar fritext...';
+        processingTitle = 'Analyserar fritext...';
         processingDescription = 'Extraherar strukturerad data från fritext';
       }
       
@@ -1933,7 +1931,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   /**
    * Show dynamic processing state with step-by-step progress
    */
-  showProcessingState(title = 'AI analyserar...', description = 'Extraherar strukturerad data') {
+  showProcessingState(title = 'Analyserar...', description = 'Extraherar strukturerad data') {
     const modal = this.currentModal;
     if (!modal) return;
 
