@@ -144,18 +144,11 @@ export class FreetextParser {
     // Create the button following existing UI patterns
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'freetext-parser-container';
-    // Match native Auctionet button styling exactly
+    // Clean, subtle button matching native Auctionet style
     buttonContainer.style.cssText = 'margin: 10px 0; z-index: 9999; position: relative;';
     buttonContainer.innerHTML = `
-      <button type="button" class="btn btn-info btn--freetext-parser" id="freetext-parser-btn" style="background: #5bc0de; color: #fff; border: 1px solid #46b8da; border-radius: 4px; padding: 8px 12px; font-size: 13px; font-weight: normal; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease;" onmouseover="this.style.background='#46b8da'; this.style.borderColor='#398aa4';" onmouseout="this.style.background='#5bc0de'; this.style.borderColor='#46b8da';">
-        <span class="btn__icon" style="font-size: 13px;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M16 10a4 4 0 0 1-8 0" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-        </span>
-        <span class="btn__text" style="font-size: 13px; font-weight: normal;">Snabbkatalogisering</span>
+      <button type="button" class="btn btn-default btn--freetext-parser" id="freetext-parser-btn" style="background: #fff; color: #333; border: 1px solid #ccc; border-radius: 3px; padding: 6px 12px; font-size: 12px; font-weight: normal; cursor: pointer; display: inline-block; transition: all 0.15s ease; box-shadow: 0 1px 1px rgba(0,0,0,0.05);" onmouseover="this.style.background='#f8f8f8'; this.style.borderColor='#999';" onmouseout="this.style.background='#fff'; this.style.borderColor='#ccc';">
+        Snabbkatalogisering
       </button>
     `;
 
