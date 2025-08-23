@@ -213,12 +213,21 @@ export class FreetextParser {
     if (sectionId === 'results-section') {
       const sectionTitle = section.querySelector('.section-title');
       if (sectionTitle) {
-        // Scroll to the title specifically, with some padding
+        // Scroll to the title specifically, with generous padding to ensure visibility
         sectionTitle.scrollIntoView({ 
           behavior: 'smooth', 
-          block: 'start',
+          block: 'center', // Changed from 'start' to 'center' for better positioning
           inline: 'nearest'
         });
+        
+        // Additional adjustment to ensure title is not cut off
+        setTimeout(() => {
+          const titleRect = sectionTitle.getBoundingClientRect();
+          if (titleRect.top < 20) { // If title is too close to top
+            window.scrollBy({ top: -60, behavior: 'smooth' }); // Scroll up a bit more
+          }
+        }, 600); // After smooth scroll completes
+        
         console.log(`📍 Auto-scrolled to section title: ${sectionId}`);
         return;
       }
@@ -1099,8 +1108,11 @@ export class FreetextParser {
       this.showParsedPreview(analysisResult, sureScore);
       console.log('✅ Analysis completed successfully');
       
-      // Auto-scroll to results section when analysis completes
-      setTimeout(() => this.scrollToSection('results-section'), 500);
+      // Auto-scroll to results section when analysis completes - with longer delay for better positioning
+      setTimeout(() => {
+        console.log('📍 Starting auto-scroll to results section...');
+        this.scrollToSection('results-section');
+      }, 800); // Increased delay to ensure content is fully rendered
 
     } catch (error) {
       console.error('❌ Analysis failed:', error);

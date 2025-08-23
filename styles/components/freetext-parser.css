@@ -864,7 +864,24 @@
 
 /* Ensure the section title is visible during scroll */
 .section-title {
-  scroll-margin-top: 20px;
+  scroll-margin-top: 40px;
+  scroll-margin-bottom: 20px;
+}
+
+/* Ensure the results section has proper scroll margins */
+#results-section {
+  scroll-margin-top: 60px;
+}
+
+/* Add extra padding to results section for better visibility */
+.parsed-preview-section {
+  padding-top: 20px;
+}
+
+.parsed-preview-section .section-title {
+  margin-bottom: 24px;
+  padding: 16px 0;
+  position: relative;
 }
 
 /* Continuous Progress System */
