@@ -209,7 +209,22 @@ export class FreetextParser {
     // Add highlight to target section
     section.classList.add('highlighted');
 
-    // Scroll to section
+    // Special handling for results section to show the title
+    if (sectionId === 'results-section') {
+      const sectionTitle = section.querySelector('.section-title');
+      if (sectionTitle) {
+        // Scroll to the title specifically, with some padding
+        sectionTitle.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+        console.log(`📍 Auto-scrolled to section title: ${sectionId}`);
+        return;
+      }
+    }
+
+    // Default scroll behavior for other sections
     section.scrollIntoView({ 
       behavior: 'smooth', 
       block: 'start',
@@ -2274,11 +2289,14 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
     // Special handling for final step - don't auto-complete, wait for actual AI completion
     if (isFinalStep) {
+      console.log('🔄 Final step detected - setting up continuous loading animation');
+      
       // Add continuous loading animation to final step
       if (stepElement) {
         stepElement.classList.add('step-final-processing');
         const stepIcon = stepElement.querySelector('.step-icon');
         if (stepIcon) {
+          console.log('🔄 Replacing final step icon with spinner');
           stepIcon.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="spinner-icon">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416">
@@ -2292,12 +2310,14 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         // Update step text to indicate AI processing
         const stepTextEl = stepElement.querySelector('.step-text');
         if (stepTextEl) {
+          console.log('🔄 Updating final step text to show AI processing');
           stepTextEl.textContent = 'AI bearbetar... (detta kan ta några sekunder)';
         }
       }
       
       // Don't schedule auto-completion for final step - let completeProgressAnimation() handle it
       this.currentStepIndex++;
+      console.log('🔄 Final step setup complete - waiting for actual AI completion');
       return;
     }
 

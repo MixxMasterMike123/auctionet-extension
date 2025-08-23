@@ -820,19 +820,30 @@
 /* Final step loading animation */
 .step-final-processing {
   position: relative;
+  background: rgba(59, 130, 246, 0.05) !important;
+  border-left: 3px solid #3b82f6 !important;
 }
 
 .step-final-processing .step-icon {
   animation: pulse-glow 2s ease-in-out infinite;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 50%;
+  padding: 4px;
 }
 
 .step-final-processing .step-text {
   color: #3b82f6 !important;
-  font-weight: 600;
+  font-weight: 600 !important;
+  font-size: 14px !important;
 }
 
 .spinner-icon {
   animation: spin 2s linear infinite;
+  color: #3b82f6 !important;
+}
+
+.spinner-icon circle {
+  stroke: #3b82f6 !important;
 }
 
 @keyframes spin {
@@ -842,11 +853,16 @@
 
 @keyframes pulse-glow {
   0%, 100% { 
-    box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
     transform: scale(1);
   }
   50% { 
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.7);
     transform: scale(1.05);
   }
+}
+
+/* Ensure the section title is visible during scroll */
+.section-title {
+  scroll-margin-top: 20px;
 } 
