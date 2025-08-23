@@ -481,67 +481,78 @@
   transform: none !important;
 }
 
-/* Cancel Button - Subtle Gray */
+/* Cancel Button - Subtle Gray - High specificity */
+.modal-footer .btn.btn--secondary,
 .btn--secondary {
-  background: #f1f5f9;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
+.modal-footer .btn.btn--secondary:hover:not(:disabled),
 .btn--secondary:hover:not(:disabled) {
-  background: #e2e8f0;
-  color: #475569;
+  background: #e2e8f0 !important;
+  color: #475569 !important;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Success Button - Apply/Use (Green) */
+/* Success Button - Apply/Use (Green) - High specificity */
+.modal-footer .btn.btn--success,
 .btn--success {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  border: 1px solid #059669;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: white !important;
+  border: 1px solid #059669 !important;
 }
 
+.modal-footer .btn.btn--success:hover:not(:disabled),
 .btn--success:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
 }
 
+.modal-footer .btn.btn--success:active,
 .btn--success:active {
   transform: translateY(0);
 }
 
-/* Primary Button - Re-analyze (Blue) */
+/* Primary Button - Re-analyze (Blue) - High specificity */
+.modal-footer .btn.btn--primary,
 .btn--primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: 1px solid #2563eb;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  color: white !important;
+  border: 1px solid #2563eb !important;
 }
 
+.modal-footer .btn.btn--primary:hover:not(:disabled),
 .btn--primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
 }
 
+.modal-footer .btn.btn--primary:active,
 .btn--primary:active {
   transform: translateY(0);
 }
 
-/* Warning Button - Restart (Orange) */
+/* Warning Button - Restart (Orange) - High specificity */
+.modal-footer .btn.btn--warning,
 .btn--warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-  border: 1px solid #d97706;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  color: white !important;
+  border: 1px solid #d97706 !important;
 }
 
+.modal-footer .btn.btn--warning:hover:not(:disabled),
 .btn--warning:hover:not(:disabled) {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
 }
 
+.modal-footer .btn.btn--warning:active,
 .btn--warning:active {
   transform: translateY(0);
 }
