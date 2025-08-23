@@ -662,4 +662,31 @@
   .parsed-fields {
     gap: 16px;
   }
+}
+
+/* Re-analyze button styling */
+#reanalyze-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+#reanalyze-btn:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+#reanalyze-btn:active {
+  transform: translateY(0);
+}
+
+/* Add a subtle animation to the re-analyze icon */
+#reanalyze-btn svg {
+  transition: transform 0.2s ease;
+}
+
+#reanalyze-btn:hover svg {
+  transform: rotate(180deg);
 } 

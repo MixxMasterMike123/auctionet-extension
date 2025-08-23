@@ -481,24 +481,36 @@ TILLÄGGSKONTEXT:
 "${additionalContext}"
 ` : '';
 
+    // Get keyword rules from centralized AI Rules System
+    const keywordRules = window.getAIRulesManager().getFieldRules('keywords');
+    const keywordInstructions = keywordRules ? `
+
+SÖKORD-REGLER (AI Rules System v2.0):
+• Format: ${keywordRules.format === 'space-separated' ? 'Separera med MELLANSLAG (ALDRIG kommatecken)' : 'Använd kommatecken'}
+• ${keywordRules.hyphenateMultiWord ? 'Använd "-" för flerordsfraser: "svensk-design", "1970-tal"' : 'Inga bindestreck'}
+• ${keywordRules.complementaryOnly ? 'Endast KOMPLETTERANDE sökord som INTE redan finns i titel/beskrivning' : 'Alla relevanta sökord'}
+• ${keywordRules.avoidDuplication ? 'UNDVIK alla upprepningar från titel/beskrivning' : 'Upprepningar tillåtna'}
+• Max ${keywordRules.maxTerms || 12} termer
+` : '';
+
+    // Use AI Rules System v2.0 for multiple image analysis
+    const aiRules = window.getAIRulesManager();
+    const builtPrompt = aiRules.buildPrompt({
+      type: 'freetextParser', // Reuse freetextParser rules for image analysis
+      fields: ['title', 'description', 'condition', 'keywords']
+    });
+
     return `Analysera dessa ${imageData.size} bilder av samma auktionsobjekt: ${imageDescriptions}
 
 ${contextSection}
-🎯 TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
-• TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
-• Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
-• Format: [Föremål], [Material], [Märke], [Period]
-• Exempel: "Figurin, stengods, Gustavsberg"
-• Bevara citattecken runt modellnamn: "Viktoria", "Prince"
-• Max 60 tecken
-
-Returnera data i exakt detta JSON-format:
+${keywordInstructions}
+Returnera data i exakt detta JSON-format (följ AI Rules System v2.0 fieldRules):
 {
-  "title": "Föremål först, utan konstnär om artist-fält fylls (max 60 tecken)",
-  "description": "Detaljerad beskrivning baserad på alla bilder",
-  "condition": "Konditionsbedömning baserad på alla synliga detaljer",
-  "artist": "Konstnär/formgivare om identifierad från signatur/stil, annars null",
-  "keywords": "relevanta sökord för marknadsanalys separerade med mellanslag",
+  "title": "titel enligt AI Rules System fieldRules",
+  "description": "beskrivning enligt AI Rules System fieldRules",
+  "condition": "kondition enligt AI Rules System fieldRules",
+  "artist": "konstnär om identifierad från signatur/stil, annars null",
+  "keywords": "sökord enligt AI Rules System fieldRules",
   "estimate": 500,
   "reserve": 300,
   "materials": "huvudmaterial identifierat från bilderna",
@@ -549,17 +561,28 @@ INSTRUKTIONER:
     const contextSection = additionalContext ? 
       `\nTILLÄGGSKONTEXT från användaren:\n"${additionalContext}"\n` : '';
 
+    // Get keyword rules from centralized AI Rules System
+    const keywordRules = window.getAIRulesManager().getFieldRules('keywords');
+    const keywordInstructions = keywordRules ? `
+
+SÖKORD-REGLER (AI Rules System v2.0):
+• Format: ${keywordRules.format === 'space-separated' ? 'Separera med MELLANSLAG (ALDRIG kommatecken)' : 'Använd kommatecken'}
+• ${keywordRules.hyphenateMultiWord ? 'Använd "-" för flerordsfraser: "svensk-design", "1970-tal"' : 'Inga bindestreck'}
+• ${keywordRules.complementaryOnly ? 'Endast KOMPLETTERANDE sökord som INTE redan finns i titel/beskrivning' : 'Alla relevanta sökord'}
+• ${keywordRules.avoidDuplication ? 'UNDVIK alla upprepningar från titel/beskrivning' : 'Upprepningar tillåtna'}
+• Max ${keywordRules.maxTerms || 12} termer
+` : '';
+
+    // Use AI Rules System v2.0 for image analysis prompts
+    const aiRules = window.getAIRulesManager();
+    const builtPrompt = aiRules.buildPrompt({
+      type: 'freetextParser', // Reuse freetextParser rules for image analysis
+      fields: ['title', 'description', 'condition', 'keywords']
+    });
+
     return `Analysera denna bild av ett auktionsföremål och extrahera strukturerad data:
 ${contextSection}
-🎯 KRITISKA TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
-• TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
-• Om konstnär/formgivare identifieras: PLACERA i artist-fält, EXKLUDERA från titel
-• VERSALER första ordet om INGEN konstnär i artist-fält: "ARMBANDSUR, stål, Rolex"
-• Vanlig stor bokstav om konstnär FINNS i artist-fält: "Figurin, stengods, Gustavsberg"
-• Format: [Föremål], [Material], [Märke/Stil], [Period]
-• Bevara citattecken runt modellnamn: "Viktoria", "Prince"
-• Max 60 tecken
-
+${keywordInstructions}
 BILDANALYS UPPGIFTER:
 1. Identifiera objekttyp och huvudmaterial
 2. Bedöm kondition och synliga skador
@@ -567,13 +590,13 @@ BILDANALYS UPPGIFTER:
 4. Uppskatta stil, period och ursprung
 5. Föreslå söktermer för marknadsanalys
 
-Returnera data i exakt detta JSON-format:
+Returnera data i exakt detta JSON-format (följ AI Rules System v2.0 fieldRules):
 {
-  "title": "Föremål först, utan konstnär om artist-fält fylls (max 60 tecken)",
-  "description": "Detaljerad beskrivning baserad på visuella detaljer",
-  "condition": "Konditionsbedömning baserad på synligt skick",
-  "artist": "Konstnär/formgivare om identifierad från signatur/stil, annars null",
-  "keywords": "relevanta sökord för marknadsanalys separerade med mellanslag",
+  "title": "titel enligt AI Rules System fieldRules",
+  "description": "beskrivning enligt AI Rules System fieldRules",
+  "condition": "kondition enligt AI Rules System fieldRules", 
+  "artist": "konstnär om identifierad från signatur/stil, annars null",
+  "keywords": "sökord enligt AI Rules System fieldRules",
   "estimate": 500,
   "reserve": 300,
   "materials": "huvudmaterial identifierat från bilden",

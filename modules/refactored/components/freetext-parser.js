@@ -405,6 +405,14 @@ export class FreetextParser {
             </svg>
             Använd denna katalogpost
           </button>
+          <button class="btn btn--primary" id="reanalyze-btn" style="display: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
+              <path d="M12 2v6l3-3M12 2l-3 3 3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 22v-6l3 3M12 22l-3-3 3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Förbättra analys
+          </button>
           <button class="btn btn--secondary" id="restart-btn" style="display: none;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
               <path d="M1 4v6h6M23 20v-6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -466,7 +474,13 @@ export class FreetextParser {
       applyBtn.addEventListener('click', () => this.applyParsedDataToForm());
     }
 
-    // Restart button
+    // Re-analyze button (preserves input data)
+    const reanalyzeBtn = modal.querySelector('#reanalyze-btn');
+    if (reanalyzeBtn) {
+      reanalyzeBtn.addEventListener('click', () => this.goBackToInput());
+    }
+
+    // Restart button (full reset)
     const restartBtn = modal.querySelector('#restart-btn');
     if (restartBtn) {
       restartBtn.addEventListener('click', () => this.restartAnalysis());
@@ -537,6 +551,68 @@ export class FreetextParser {
   }
 
   /**
+   * Go back to input section while preserving existing data for re-analysis
+   */
+  goBackToInput() {
+    console.log('🔄 Going back to input section - preserving existing data...');
+    
+    if (!this.currentModal) return;
+    
+    // Reset only analysis state, preserve input data
+    this.parsedData = null;
+    this.currentSureScore = null;
+    this.currentMarketData = null;
+    this.isProcessing = false;
+
+    // Hide all sections except input
+    const sections = this.currentModal.querySelectorAll('.modal-section');
+    sections.forEach(section => {
+      section.style.display = 'none';
+    });
+    
+    // Show input section
+    const inputSection = this.currentModal.querySelector('#input-section');
+    if (inputSection) {
+      inputSection.style.display = 'block';
+    }
+    
+    // Update buttons for input mode
+    const analyzeBtn = this.currentModal.querySelector('#analyze-btn');
+    const applyBtn = this.currentModal.querySelector('#apply-btn');
+    const reanalyzeBtn = this.currentModal.querySelector('#reanalyze-btn');
+    const restartBtn = this.currentModal.querySelector('#restart-btn');
+    
+    if (analyzeBtn) {
+      analyzeBtn.style.display = 'inline-block';
+      analyzeBtn.disabled = false; // Re-enable the button
+    }
+    if (applyBtn) applyBtn.style.display = 'none';
+    if (reanalyzeBtn) reanalyzeBtn.style.display = 'none';
+    if (restartBtn) restartBtn.style.display = 'none';
+    
+    // Update modal header to show that user can add more info
+    const headerP = this.currentModal.querySelector('.popup-header p');
+    if (headerP) {
+      headerP.textContent = 'Lägg till mer information för en förbättrad analys';
+      headerP.style.color = '#2563eb';
+      headerP.style.fontWeight = '500';
+    }
+    
+    // Focus on text area to encourage adding more information
+    const textarea = this.currentModal.querySelector('#freetext-input');
+    if (textarea) {
+      textarea.focus();
+      // Place cursor at end of existing text
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }
+    
+    // Update analysis mode indicator to refresh button state
+    this.updateAnalysisModeIndicator(this.currentModal);
+    
+    console.log('✅ Returned to input section with preserved data');
+  }
+
+  /**
    * Restart analysis - reset to input section with fresh state
    */
   restartAnalysis() {
@@ -601,13 +677,26 @@ export class FreetextParser {
     
     // Hide action buttons
     const applyBtn = this.currentModal.querySelector('#apply-btn');
+    const reanalyzeBtn = this.currentModal.querySelector('#reanalyze-btn');
     const restartBtn = this.currentModal.querySelector('#restart-btn');
     if (applyBtn) applyBtn.style.display = 'none';
+    if (reanalyzeBtn) reanalyzeBtn.style.display = 'none';
     if (restartBtn) restartBtn.style.display = 'none';
     
-    // Show analyze button
+    // Show and re-enable analyze button
     const analyzeBtn = this.currentModal.querySelector('#analyze-btn');
-    if (analyzeBtn) analyzeBtn.style.display = 'inline-block';
+    if (analyzeBtn) {
+      analyzeBtn.style.display = 'inline-block';
+      analyzeBtn.disabled = false; // Re-enable the button
+    }
+    
+    // Reset modal header to original text
+    const headerP = this.currentModal.querySelector('.popup-header p');
+    if (headerP) {
+      headerP.textContent = 'Skriv all information du har om objektet - systemet analyserar och skapar katalogpost';
+      headerP.style.color = '';
+      headerP.style.fontWeight = '';
+    }
     
     // Scroll back to input section
     this.scrollToSection('input-section');
@@ -756,6 +845,9 @@ export class FreetextParser {
     const textarea = modal.querySelector('#freetext-input');
     
     if (!indicator || !analyzeBtn) return;
+    
+    // Always ensure button is enabled when updating mode
+    analyzeBtn.disabled = false;
     
     const hasImages = this.selectedImages && this.selectedImages.size > 0;
     const hasText = textarea && textarea.value.trim().length > 0;
@@ -1227,9 +1319,14 @@ export class FreetextParser {
     console.log('🔧 Enhancing image analysis with additional text...');
     
     try {
-      // Create combined prompt for text enhancement
-      const enhancementPrompt = `
-        Förbättra denna AI-bildanalys med hjälp av användarens tilläggstext:
+      // Use AI Rules System v2.0 for text enhancement
+      const aiRules = window.getAIRulesManager();
+      const builtPrompt = aiRules.buildPrompt({
+        type: 'textEnhancement',
+        fields: ['all']
+      });
+
+      const enhancementPrompt = `${builtPrompt.userPrompt}
         
         BILDANALYS:
         Titel: ${imageData.title}
@@ -1241,20 +1338,20 @@ export class FreetextParser {
         TILLÄGGSTEXT FRÅN ANVÄNDARE:
         "${additionalText}"
         
-        Använd tilläggstext för att förbättra och komplettera bildanalysen. Behåll originalstruktur men lägg till värdefull information från tilläggstext.
+        Använd tilläggstext för att förbättra och komplettera bildanalysen enligt AI Rules System v2.0 regler.
         
         Returnera förbättrad data i exakt detta JSON-format:
         {
-          "title": "Förbättrad titel här",
-          "description": "Förbättrad beskrivning här",
-          "condition": "Förbättrat skick här",
-          "artist": "Konstnär eller null",
-          "keywords": "nyckelord separerade med mellanslag",
+          "title": "titel enligt AI Rules System fieldRules",
+          "description": "förbättrad beskrivning här",
+          "condition": "förbättrat skick här",
+          "artist": "konstnär eller null",
+          "keywords": "sökord enligt AI Rules System fieldRules",
           "materials": "material/teknik",
           "period": "tidsperiod",
           "estimate": 500,
           "reserve": 300,
-          "reasoning": "Kort förklaring av förbättringarna"
+          "reasoning": "kort förklaring av förbättringarna"
         }
       `;
 
@@ -1359,6 +1456,7 @@ export class FreetextParser {
     const categoryPrompt = aiRules.getCategoryPrompt('freetextParser');
     const brandCorrections = aiRules.getBrandCorrections();
     const artistCorrections = aiRules.getBrandCorrections();
+    const keywordRules = aiRules.getFieldRules('keywords');
     
     console.log('✅ Using AI Rules System v2.0:', {
       hasSystemPrompt: !!systemPrompt,
@@ -1423,26 +1521,34 @@ Utför djupgående analys i flera steg:
 • Balansera optimism med realism`;
     }
 
-    const userPrompt = `Analysera denna svenska auktionsfritext och extrahera strukturerad data:
+    // Build keyword rules from centralized system
+    const keywordInstructions = keywordRules ? `
+SÖKORD-REGLER (AI Rules System v2.0):
+• Format: ${keywordRules.format === 'space-separated' ? 'Separera med MELLANSLAG (ALDRIG kommatecken)' : 'Använd kommatecken'}
+• ${keywordRules.hyphenateMultiWord ? 'Använd "-" för flerordsfraser: "svensk-design", "1970-tal"' : 'Inga bindestreck'}
+• ${keywordRules.complementaryOnly ? 'Endast KOMPLETTERANDE sökord som INTE redan finns i titel/beskrivning' : 'Alla relevanta sökord'}
+• ${keywordRules.avoidDuplication ? 'UNDVIK alla upprepningar från titel/beskrivning' : 'Upprepningar tillåtna'}
+• Max ${keywordRules.maxTerms || 12} termer
+` : '';
+
+    // Use AI Rules System v2.0 to build the complete prompt
+    const builtPrompt = aiRules.buildPrompt({
+      type: 'freetextParser',
+      fields: ['freetextParser']
+    });
+    
+    const userPrompt = `${builtPrompt.userPrompt}
 
 FRITEXT:
 "${freetext}"${reasoningInstructions}
-
-TITEL-FORMATERINGSREGLER (AI Rules System v2.0):
-• TITEL ska börja med FÖREMÅL (Figurin, Vas, Karaff, etc.)
-• Om konstnär identifieras: PLACERA i artist-fält, EXKLUDERA från titel
-• Format: [Föremål], [Material], [Märke], [Period]
-• Exempel: "Figurin, stengods, Gustavsberg"
-• Bevara citattecken runt modellnamn: "Viktoria", "Prince"
-• Max 60 tecken
-
+${keywordInstructions}
 Returnera data i exakt detta JSON-format:
 {
-  "title": "Föremål först, utan konstnär om artist-fält fylls (max 60 tecken)",
-  "description": "Detaljerad beskrivning med mått, material, teknik, period",
-  "condition": "Konditionsbeskrivning på svenska",
-  "artist": "Konstnär/formgivare om identifierad, annars null",
-  "keywords": "relevanta sökord separerade med mellanslag",
+  "title": "titel enligt AI Rules System fieldRules",
+  "description": "beskrivning enligt AI Rules System fieldRules", 
+  "condition": "kondition enligt AI Rules System fieldRules",
+  "artist": "konstnär om identifierad, annars null",
+  "keywords": "sökord enligt AI Rules System fieldRules",
   "estimate": 500,
   "reserve": 300,
   "materials": "material/teknik",
@@ -1455,14 +1561,14 @@ Returnera data i exakt detta JSON-format:
     "artist": 0.6,
     "estimate": 0.5
   },
-  "reasoning": "Kort förklaring av analysen på svenska"
+  "reasoning": "kort förklaring på svenska"
 }
 
 INSTRUKTIONER:
-- estimate/reserve ska vara numeriska värden i SEK
+- Följ AI Rules System v2.0 fieldRules för alla fält
+- estimate/reserve ska vara numeriska värden i SEK  
 - confidence-värden mellan 0.0-1.0
 - shouldDisposeIfUnsold: true endast om fritexten nämner skänkning/återvinning
-- Lämna fält som null om information saknas
 - ${valuationRules.instruction}${valuationContext}`;
 
     try {
@@ -2281,9 +2387,11 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       });
     }
 
-    // Update buttons
+    // Update buttons for results view
     const analyzeBtn = modal.querySelector('#analyze-btn');
     const applyBtn = modal.querySelector('#apply-btn');
+    const reanalyzeBtn = modal.querySelector('#reanalyze-btn');
+    const restartBtn = modal.querySelector('#restart-btn');
     
     if (analyzeBtn) {
       analyzeBtn.style.display = 'none';
@@ -2291,6 +2399,14 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     
     if (applyBtn) {
       applyBtn.style.display = 'inline-block';
+    }
+    
+    if (reanalyzeBtn) {
+      reanalyzeBtn.style.display = 'inline-block';
+    }
+    
+    if (restartBtn) {
+      restartBtn.style.display = 'inline-block';
     }
 
     console.log('✅ Parsed preview displayed with data:', data);
