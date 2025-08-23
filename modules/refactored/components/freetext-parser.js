@@ -386,7 +386,11 @@ export class FreetextParser {
           <!-- Processing Section -->
           <div id="processing-section" class="modal-section ai-processing-section" style="display: none;">
             <div class="section-title">
-              <div class="section-icon">⚡</div>
+              <div class="section-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/>
+                </svg>
+              </div>
               <span>Analyserar</span>
             </div>
             <div class="processing-spinner"></div>
@@ -403,7 +407,11 @@ export class FreetextParser {
           <!-- Results Section -->
           <div id="results-section" class="modal-section parsed-preview-section" style="display: none;">
             <div class="section-title">
-              <div class="section-icon">✅</div>
+              <div class="section-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
               <span>AI-genererad katalogpost</span>
             </div>
             <div class="preview-content">
@@ -2295,20 +2303,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
           </div>
         </div>
 
-        <div class="processing-stats">
-          <div class="stat">
-            <div class="stat-icon">⚡</div>
-            <div class="stat-text">Hög precision</div>
-          </div>
-          <div class="stat">
-            <div class="stat-icon">🎯</div>
-            <div class="stat-text">Marknadsbaserad</div>
-          </div>
-          <div class="stat">
-            <div class="stat-icon">🔒</div>
-            <div class="stat-text">Säker analys</div>
-          </div>
-        </div>
+
       </div>
     `;
   }

@@ -962,31 +962,4 @@
   color: #374151;
 }
 
-/* Processing stats styling (reuse existing) */
-.continuous-processing-container .processing-stats {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin-top: 24px;
-}
-
-.continuous-processing-container .stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
-  min-width: 80px;
-}
-
-.continuous-processing-container .stat-icon {
-  font-size: 20px;
-}
-
-.continuous-processing-container .stat-text {
-  font-size: 12px;
-  font-weight: 500;
-  color: #6b7280;
-} 
+ 
