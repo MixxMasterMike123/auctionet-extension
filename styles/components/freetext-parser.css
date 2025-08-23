@@ -815,4 +815,38 @@
 
 .btn--secondary:focus {
   box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+}
+
+/* Final step loading animation */
+.step-final-processing {
+  position: relative;
+}
+
+.step-final-processing .step-icon {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.step-final-processing .step-text {
+  color: #3b82f6 !important;
+  font-weight: 600;
+}
+
+.spinner-icon {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+    transform: scale(1.05);
+  }
 } 

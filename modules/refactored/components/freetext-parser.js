@@ -2248,6 +2248,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
     const modal = this.currentModal;
     const currentStep = this.progressSteps[this.currentStepIndex];
+    const isFinalStep = this.currentStepIndex === this.progressSteps.length - 1;
     
     // Update step status to active
     const stepElement = modal.querySelector(`[data-step="${this.currentStepIndex}"]`);
@@ -2271,7 +2272,36 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       currentStepSpan.textContent = this.currentStepIndex + 1;
     }
 
-    // Schedule completion of this step
+    // Special handling for final step - don't auto-complete, wait for actual AI completion
+    if (isFinalStep) {
+      // Add continuous loading animation to final step
+      if (stepElement) {
+        stepElement.classList.add('step-final-processing');
+        const stepIcon = stepElement.querySelector('.step-icon');
+        if (stepIcon) {
+          stepIcon.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="spinner-icon">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+                <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
+                <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+          `;
+        }
+        
+        // Update step text to indicate AI processing
+        const stepTextEl = stepElement.querySelector('.step-text');
+        if (stepTextEl) {
+          stepTextEl.textContent = 'AI bearbetar... (detta kan ta några sekunder)';
+        }
+      }
+      
+      // Don't schedule auto-completion for final step - let completeProgressAnimation() handle it
+      this.currentStepIndex++;
+      return;
+    }
+
+    // Schedule completion for non-final steps
     const timeout = setTimeout(() => {
       if (stepElement) {
         stepElement.classList.add('step-complete');
@@ -2314,9 +2344,21 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const modal = this.currentModal;
     if (modal) {
       const steps = modal.querySelectorAll('.progress-step');
-      steps.forEach(step => {
+      steps.forEach((step, index) => {
         step.classList.add('step-complete');
-        step.classList.remove('step-active', 'step-pending');
+        step.classList.remove('step-active', 'step-pending', 'step-final-processing');
+        
+        // Reset final step icon and text
+        if (index === this.progressSteps.length - 1) {
+          const stepIcon = step.querySelector('.step-icon');
+          const stepText = step.querySelector('.step-text');
+          if (stepIcon) {
+            stepIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+          }
+          if (stepText) {
+            stepText.textContent = this.progressSteps[index].text;
+          }
+        }
       });
       
       // Complete overall progress
