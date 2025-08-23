@@ -506,7 +506,7 @@ ${contextSection}
 ${keywordInstructions}
 Returnera data i exakt detta JSON-format (följ AI Rules System v2.0 fieldRules):
 {
-  "title": "titel enligt AI Rules System fieldRules",
+  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period (max 60 tecken)",
   "description": "beskrivning enligt AI Rules System fieldRules",
   "condition": "kondition enligt AI Rules System fieldRules",
   "artist": "konstnär om identifierad från signatur/stil, annars null",
@@ -546,6 +546,7 @@ INSTRUKTIONER:
 - Analysera ALLA bilder tillsammans för komplett bedömning
 - Använd information från baksida/märkningar för konstnärsidentifiering
 - Kombinera konditionsobservationer från alla vinklar
+- TITEL: ALLTID börja med FÖREMÅLSTYP i VERSALER, sedan komma, märke/tillverkare, modell, material, period
 - estimate/reserve ska vara numeriska värden i SEK baserat på komplett visuell bedömning
 - Använd konfidenspoäng för att markera osäkerhet
 - Lämna fält som null om information inte kan bestämmas från bilderna
@@ -592,7 +593,7 @@ BILDANALYS UPPGIFTER:
 
 Returnera data i exakt detta JSON-format (följ AI Rules System v2.0 fieldRules):
 {
-  "title": "titel enligt AI Rules System fieldRules",
+  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period (max 60 tecken)",
   "description": "beskrivning enligt AI Rules System fieldRules",
   "condition": "kondition enligt AI Rules System fieldRules", 
   "artist": "konstnär om identifierad från signatur/stil, annars null",
@@ -629,6 +630,7 @@ Returnera data i exakt detta JSON-format (följ AI Rules System v2.0 fieldRules)
 
 INSTRUKTIONER:
 - Basera alla bedömningar endast på vad som är synligt i bilden
+- TITEL: ALLTID börja med FÖREMÅLSTYP i VERSALER, sedan komma, märke/tillverkare, modell, material, period
 - estimate/reserve ska vara numeriska värden i SEK baserat på visuell bedömning
 - Använd konfidenspoäng för att markera osäkerhet
 - Lämna fält som null om information inte kan bestämmas från bilden

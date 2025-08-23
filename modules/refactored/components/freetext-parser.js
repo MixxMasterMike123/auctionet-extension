@@ -1405,9 +1405,11 @@ export class FreetextParser {
         
         Använd tilläggstext för att förbättra och komplettera bildanalysen enligt AI Rules System v2.0 regler.
         
+        TITEL-REGEL: ALLTID börja med FÖREMÅLSTYP i VERSALER, sedan komma, märke/tillverkare, modell, material, period.
+        
         Returnera förbättrad data i exakt detta JSON-format:
         {
-          "title": "titel enligt AI Rules System fieldRules",
+          "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period (max 60 tecken)",
           "description": "förbättrad beskrivning här",
           "condition": "förbättrat skick här",
           "artist": "konstnär eller null",
@@ -1609,7 +1611,7 @@ FRITEXT:
 ${keywordInstructions}
 Returnera data i exakt detta JSON-format:
 {
-  "title": "titel enligt AI Rules System fieldRules",
+  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period (max 60 tecken)",
   "description": "beskrivning enligt AI Rules System fieldRules", 
   "condition": "kondition enligt AI Rules System fieldRules",
   "artist": "konstnär om identifierad, annars null",
@@ -1631,6 +1633,7 @@ Returnera data i exakt detta JSON-format:
 
 INSTRUKTIONER:
 - Följ AI Rules System v2.0 fieldRules för alla fält
+- TITEL: ALLTID börja med FÖREMÅLSTYP i VERSALER, sedan komma, märke/tillverkare, modell, material, period
 - estimate/reserve ska vara numeriska värden i SEK  
 - confidence-värden mellan 0.0-1.0
 - shouldDisposeIfUnsold: true endast om fritexten nämner skänkning/återvinning
