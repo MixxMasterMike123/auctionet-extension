@@ -865,4 +865,111 @@
 /* Ensure the section title is visible during scroll */
 .section-title {
   scroll-margin-top: 20px;
+}
+
+/* Continuous Progress System */
+.continuous-processing-container {
+  padding: 32px;
+  text-align: center;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  margin: 20px;
+}
+
+.continuous-progress-container {
+  margin: 24px 0;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.continuous-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.continuous-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8, #3b82f6);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.3s ease;
+  animation: gradient-flow 3s ease-in-out infinite;
+}
+
+.continuous-progress-runner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 20%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  border-radius: 4px;
+}
+
+@keyframes progress-runner {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(500%); }
+}
+
+@keyframes gradient-flow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.progress-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.status-icon {
+  color: #3b82f6;
+}
+
+.status-spinner {
+  animation: spin 2s linear infinite;
+}
+
+.status-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* Processing stats styling (reuse existing) */
+.continuous-processing-container .processing-stats {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.continuous-processing-container .stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  min-width: 80px;
+}
+
+.continuous-processing-container .stat-icon {
+  font-size: 20px;
+}
+
+.continuous-processing-container .stat-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
 } 

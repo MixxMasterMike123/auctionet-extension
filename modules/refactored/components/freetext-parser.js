@@ -2064,12 +2064,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     // Show processing section with dynamic content
     const processingSection = modal.querySelector('.ai-processing-section');
     if (processingSection) {
-      // Update the processing content with advanced UI
-      processingSection.innerHTML = this.generateAdvancedProcessingHTML();
+      // Update the processing content with continuous progress UI
+      processingSection.innerHTML = this.generateContinuousProgressHTML();
       processingSection.style.display = 'block';
       
-      // Start the dynamic progress animation
-      this.startAdvancedProgressAnimation();
+      // Start the continuous progress animation
+      this.startContinuousProgressAnimation();
     }
 
     // Update buttons
@@ -2238,19 +2238,128 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
-   * Start advanced progress animation with step-by-step progression
+   * Generate continuous progress HTML with running line
    */
-  startAdvancedProgressAnimation() {
+  generateContinuousProgressHTML() {
+    const currentModel = this.apiManager.getCurrentModel().id;
+    const valuationRules = window.getAIRulesManager().getModelSpecificValuationRules('freetextParser', currentModel);
+    const isAdvancedModel = valuationRules.enableDeepReasoning;
+
+    return `
+      <div class="continuous-processing-container">
+        <div class="processing-header">
+          <div class="ai-brain-animation">
+            <div class="brain-core"></div>
+            <div class="brain-pulse"></div>
+            <div class="brain-waves">
+              <div class="wave wave-1"></div>
+              <div class="wave wave-2"></div>
+              <div class="wave wave-3"></div>
+            </div>
+          </div>
+          <h3 class="processing-title">
+            ${isAdvancedModel ? 'Claude 4 Expertanalys' : 'AI-analys pågår'}
+          </h3>
+          <p class="processing-subtitle">
+            ${isAdvancedModel ? 'Djupgående marknadsresearch med kontinuerlig analys' : 'Extraherar strukturerad data från fritext'}
+          </p>
+        </div>
+
+        <div class="continuous-progress-container">
+          <div class="continuous-progress-bar">
+            <div class="continuous-progress-fill"></div>
+            <div class="continuous-progress-runner"></div>
+          </div>
+          <div class="progress-status">
+            <div class="status-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="status-spinner">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+                  <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
+                  <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
+                </circle>
+              </svg>
+            </div>
+            <div class="status-text" id="current-status">Förbereder analys...</div>
+          </div>
+        </div>
+
+        <div class="processing-stats">
+          <div class="stat">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-text">Hög precision</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-text">Marknadsbaserad</div>
+          </div>
+          <div class="stat">
+            <div class="stat-icon">🔒</div>
+            <div class="stat-text">Säker analys</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Start continuous progress animation with running line
+   */
+  startContinuousProgressAnimation() {
     if (!this.currentModal) return;
     
     this.currentStepIndex = 0;
     this.progressIntervals = [];
     
-    // Start the step progression
-    this.progressToNextStep();
+    // Start the continuous progress bar
+    const progressFill = this.currentModal.querySelector('.continuous-progress-fill');
+    const progressRunner = this.currentModal.querySelector('.continuous-progress-runner');
     
-    // Add some visual flair with floating particles
-    this.startParticleAnimation();
+    if (progressFill && progressRunner) {
+      // Animate the fill to grow continuously
+      progressFill.style.transition = 'width 8s linear';
+      progressFill.style.width = '95%'; // Stop at 95% until AI completes
+      
+      // Animate the runner to move continuously
+      progressRunner.style.animation = 'progress-runner 2s linear infinite';
+    }
+    
+    // Start cycling through status messages
+    this.startProgressTextCycling();
+  }
+
+  /**
+   * Start advanced progress animation with step-by-step progression (legacy)
+   */
+  startAdvancedProgressAnimation() {
+    // Use the new continuous progress system
+    this.startContinuousProgressAnimation();
+  }
+
+  /**
+   * Cycle through progress status messages
+   */
+  startProgressTextCycling() {
+    if (!this.currentModal) return;
+    
+    const statusText = this.currentModal.querySelector('#current-status');
+    if (!statusText) return;
+    
+    const messages = this.getProgressSteps().map(step => step.text);
+    let messageIndex = 0;
+    
+    const cycleMessages = () => {
+      if (!this.isProcessing) return;
+      
+      statusText.textContent = messages[messageIndex];
+      messageIndex = (messageIndex + 1) % messages.length;
+      
+      // Schedule next message update
+      const timeout = setTimeout(cycleMessages, 2500); // Change message every 2.5 seconds
+      this.progressIntervals.push(timeout);
+    };
+    
+    // Start cycling
+    cycleMessages();
   }
 
   /**
@@ -2360,28 +2469,39 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       this.progressIntervals = [];
     }
     
-    // Mark all steps as complete
     const modal = this.currentModal;
     if (modal) {
+      // Complete continuous progress bar
+      const progressFill = modal.querySelector('.continuous-progress-fill');
+      const progressRunner = modal.querySelector('.continuous-progress-runner');
+      const statusText = modal.querySelector('#current-status');
+      const statusIcon = modal.querySelector('.status-spinner');
+      
+      if (progressFill) {
+        progressFill.style.transition = 'width 0.5s ease-out';
+        progressFill.style.width = '100%';
+      }
+      
+      if (progressRunner) {
+        progressRunner.style.animation = 'none';
+        progressRunner.style.opacity = '0';
+      }
+      
+      if (statusText) {
+        statusText.textContent = 'Analys slutförd!';
+      }
+      
+      if (statusIcon) {
+        statusIcon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      }
+      
+      // Legacy support - complete step-based progress if it exists
       const steps = modal.querySelectorAll('.progress-step');
       steps.forEach((step, index) => {
         step.classList.add('step-complete');
         step.classList.remove('step-active', 'step-pending', 'step-final-processing');
-        
-        // Reset final step icon and text
-        if (index === this.progressSteps.length - 1) {
-          const stepIcon = step.querySelector('.step-icon');
-          const stepText = step.querySelector('.step-text');
-          if (stepIcon) {
-            stepIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-          }
-          if (stepText) {
-            stepText.textContent = this.progressSteps[index].text;
-          }
-        }
       });
       
-      // Complete overall progress
       const overallProgress = modal.querySelector('.progress-fill');
       const currentStepSpan = modal.querySelector('.current-step');
       if (overallProgress && currentStepSpan) {
