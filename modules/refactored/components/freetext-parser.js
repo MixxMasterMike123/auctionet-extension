@@ -559,11 +559,13 @@ export class FreetextParser {
       this.selectedImages.clear();
     }
     
-    // Reset image analyzer state
+    // Reset image analyzer state completely
     if (this.imageAnalyzer) {
       this.imageAnalyzer.currentImages.clear();
+      this.imageAnalyzer.multipleAnalysisResults.clear(); // Clear multiple results cache
       this.imageAnalyzer.isProcessing = false;
       this.imageAnalyzer.analysisResult = null;
+      this.imageAnalyzer.currentImage = null; // Clear single image cache
     }
     
     console.log('✅ Modal closed and all state reset for fresh start');
@@ -659,16 +661,33 @@ export class FreetextParser {
     this.currentMarketData = null;
     this.isProcessing = false;
     
+    // Clear any progress intervals
+    if (this.progressIntervals) {
+      this.progressIntervals.forEach(interval => clearTimeout(interval));
+      this.progressIntervals = [];
+    }
+    
     // Clear selected images
     if (this.selectedImages) {
       this.selectedImages.clear();
     }
     
-    // Reset image analyzer state
+    // Reset image analyzer state completely
     if (this.imageAnalyzer) {
+      console.log('🔄 Clearing image analyzer cache:', {
+        currentImagesCount: this.imageAnalyzer.currentImages.size,
+        multipleResultsCount: this.imageAnalyzer.multipleAnalysisResults.size,
+        hasAnalysisResult: !!this.imageAnalyzer.analysisResult,
+        hasCurrentImage: !!this.imageAnalyzer.currentImage
+      });
+      
       this.imageAnalyzer.currentImages.clear();
+      this.imageAnalyzer.multipleAnalysisResults.clear(); // Clear multiple results cache
       this.imageAnalyzer.isProcessing = false;
       this.imageAnalyzer.analysisResult = null;
+      this.imageAnalyzer.currentImage = null; // Clear single image cache
+      
+      console.log('✅ Image analyzer cache cleared completely');
     }
     
     // Clear all form inputs
@@ -980,6 +999,16 @@ export class FreetextParser {
    */
   async processFreetextWithAI() {
     console.log('🔄 processFreetextWithAI called');
+    
+    // Debug: Check if we have any cached data that shouldn't be there
+    console.log('🔍 Analysis starting with state:', {
+      hasParsedData: !!this.parsedData,
+      hasCurrentSureScore: !!this.currentSureScore,
+      hasCurrentMarketData: !!this.currentMarketData,
+      selectedImagesCount: this.selectedImages?.size || 0,
+      imageAnalyzerHasResult: !!this.imageAnalyzer?.analysisResult,
+      imageAnalyzerHasCurrentImage: !!this.imageAnalyzer?.currentImage
+    });
     
     if (this.isProcessing) {
       console.log('⚠️ Already processing');
