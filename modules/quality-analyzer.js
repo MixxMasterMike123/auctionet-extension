@@ -551,17 +551,23 @@ export class QualityAnalyzer {
 
           
           // Generate SSoT WITH the detected artist for comprehensive market analysis
+          console.log('🔧 Debug - searchQuerySSoT:', !!this.searchQuerySSoT, 'searchFilterManager:', !!this.searchFilterManager);
           if (this.searchQuerySSoT && this.searchFilterManager) {
             
             // Extract candidate terms WITH the detected artist for market analysis
             console.log('🎯 Using AI-detected artist for market analysis:', aiArtistForMarketAnalysis.detectedArtist);
-            const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
-              data.title,
-              data.description,
-              { artist: aiArtistForMarketAnalysis.detectedArtist }, // Use AI-detected artist for market analysis
-              aiArtistForMarketAnalysis.detectedArtist || '' // Pass AI-detected artist as context
-            );
-            console.log('🔍 Generated search terms:', candidateSearchTerms);
+            let candidateSearchTerms = null;
+            try {
+              candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
+                data.title,
+                data.description,
+                { artist: aiArtistForMarketAnalysis.detectedArtist }, // Use AI-detected artist for market analysis
+                aiArtistForMarketAnalysis.detectedArtist || '' // Pass AI-detected artist as context
+              );
+              console.log('🔍 Generated search terms:', candidateSearchTerms);
+            } catch (error) {
+              console.error('❌ Error in extractCandidateSearchTerms:', error);
+            }
             
             if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
               
