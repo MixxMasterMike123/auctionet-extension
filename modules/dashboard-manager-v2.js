@@ -142,7 +142,6 @@ export class DashboardManagerV2 {
     this.addMarketDashboardStyles();
     
     // Check if we're updating existing dropdown or creating new one
-    const existingContainer = document.querySelector('.market-dropdown-container');
     if (shouldStayOpen && existingContainer) {
       // Update existing dropdown content
       this.updateExistingDropdownContent(dashboard, existingContainer);
@@ -1152,9 +1151,9 @@ export class DashboardManagerV2 {
     
     // Remove any existing dropdown elements
     const existingButton = document.querySelector('.minimal-market-toggle');
-    const existingContainer = document.querySelector('.market-dropdown-container');
+    const existingDropdownContainer = document.querySelector('.market-dropdown-container');
     if (existingButton) existingButton.remove();
-    if (existingContainer) existingContainer.remove();
+    if (existingDropdownContainer) existingDropdownContainer.remove();
 
     // Find the main container to insert dropdown content above
     const mainContainer = document.querySelector('.container');
