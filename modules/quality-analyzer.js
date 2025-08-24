@@ -1844,8 +1844,16 @@ export class QualityAnalyzer {
         const cleanedTitle = this.cleanTitleAfterArtistRemoval(originalTitle, artistName);
         
         if (cleanedTitle !== originalTitle) {
+          // CRITICAL FIX: Apply AI Rules System context rules for "artistFieldFilled"
+          const restructuredTitle = await this.applyArtistFieldFilledRules(cleanedTitle);
+          
+          console.log('🎯 Title restructuring:', {
+            original: originalTitle,
+            cleaned: cleanedTitle,
+            restructured: restructuredTitle
+          });
 
-          titleField.value = cleanedTitle;
+          titleField.value = restructuredTitle;
           titleWasModified = true;
           
           // Trigger events for title field
@@ -2016,6 +2024,53 @@ export class QualityAnalyzer {
     
     
     return cleanedTitle;
+  }
+
+  // Apply AI Rules System context rules for when artist field is filled
+  async applyArtistFieldFilledRules(title) {
+    try {
+      if (!this.apiManager) {
+        console.warn('⚠️ No API manager available, returning title unchanged');
+        return title;
+      }
+
+      // Import AI Rules Manager
+      const { AIRulesManager } = await import('./refactored/ai-rules-system/ai-rules-manager.js');
+      const aiRulesManager = AIRulesManager.getInstance();
+      
+      // Get context rules for when artist field is filled
+      const titleRules = aiRulesManager.getTitleRules(true); // hasArtist = true
+      
+      console.log('🎯 Applying artist field filled rules:', titleRules);
+      
+      // Apply capitalization rules: "proper-case-first-word"
+      let restructuredTitle = title;
+      
+      if (titleRules.capitalization === 'proper-case-first-word') {
+        // Change "SKRIVBORD" → "Skrivbord" (first word proper case)
+        restructuredTitle = restructuredTitle.replace(/^([A-ZÅÄÖÜ]+)/, (match) => {
+          return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
+        });
+      }
+      
+      // Apply punctuation rules: "period-after-first-word"  
+      if (titleRules.punctuation === 'period-after-first-word') {
+        // Change "Skrivbord, teak" → "Skrivbord. teak"
+        restructuredTitle = restructuredTitle.replace(/^([^,]+),\s*/, '$1. ');
+      }
+      
+      console.log('🎯 Title restructuring applied:', {
+        original: title,
+        restructured: restructuredTitle,
+        rules: titleRules
+      });
+      
+      return restructuredTitle;
+      
+    } catch (error) {
+      console.error('❌ Error applying artist field filled rules:', error);
+      return title; // Return original title if rules application fails
+    }
   }
 
   // NEW: Add click-to-move functionality for artist names (copy to artist field + remove from title)
