@@ -36,6 +36,27 @@ export class SearchFilterManager {
     this.searchQuerySSoT = searchQuerySSoT;
   }
 
+  // Format artist name for search with proper quoting
+  formatArtistForSearch(artistName) {
+    if (!artistName || typeof artistName !== 'string') {
+      return '';
+    }
+    
+    // Remove any existing quotes and clean
+    const cleanArtist = artistName.trim().replace(/^["']|["']$/g, '').replace(/,\s*$/, '');
+    
+    // Check if multi-word name (most artist names)
+    const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
+    
+    if (words.length > 1) {
+      // Multi-word: Always quote for exact matching
+      return `"${cleanArtist}"`;
+    } else {
+      // Single word: Also quote for consistency in artist searches
+      return `"${cleanArtist}"`;
+    }
+  }
+
   // USE SSoT: Build search query from selected candidates
   buildQueryFromCandidates(selectedCandidates) {
     if (this.searchQuerySSoT) {
@@ -267,12 +288,21 @@ export class SearchFilterManager {
     if (artistInfo && artistInfo.artist) {
       // NORMALIZE artist name to match AI Rules processing (remove trailing comma/spaces)
       const normalizedArtist = artistInfo.artist.trim().replace(/,\s*$/, '');
-      const preSelected = shouldBePreSelected(normalizedArtist);
+      
+      // CRITICAL FIX: Ensure multi-word artist names are properly quoted for exact search matching
+      const quotedArtist = this.formatArtistForSearch(normalizedArtist);
+      const preSelected = shouldBePreSelected(quotedArtist);
+      
+      console.log('🎨 Artist formatting:', {
+        original: artistInfo.artist,
+        normalized: normalizedArtist, 
+        quoted: quotedArtist
+      });
       
       // CRITICAL FIX: Detect if this is an AI-detected artist
       // If the artistInfo is passed with a quoted name and it's not in the DOM artist field, it's likely AI-detected
       const isDOMFieldEmpty = !artistFieldFromDOM || artistFieldFromDOM.trim() === '';
-      const isQuotedArtist = normalizedArtist.includes('"');
+      const isQuotedArtist = quotedArtist.includes('"');
       const isLikelyAIDetected = isDOMFieldEmpty && isQuotedArtist;
       
       // ENHANCED DETECTION: Also check if this artist was recently set by AI by comparing against known AI patterns
@@ -281,7 +311,7 @@ export class SearchFilterManager {
       
       
       candidates.push({
-        term: normalizedArtist,
+        term: quotedArtist, // Use properly quoted artist name
         type: 'artist',
         priority: 1,
         description: 'Konstnär/Märke',
@@ -325,6 +355,7 @@ export class SearchFilterManager {
     
     // 2. OBJECT TYPE (with deduplication check)
     const objectType = this.qualityAnalyzer.extractObjectType(title);
+    console.log('🏷️ Object type extraction result:', objectType);
     if (objectType) {
       // Check if we already have this term (case-insensitive)
       const alreadyExists = candidates.some(c => 
@@ -333,6 +364,7 @@ export class SearchFilterManager {
       
       if (!alreadyExists) {
         const preSelected = shouldBePreSelected(objectType);
+        console.log('🏷️ Adding object type to candidates:', objectType);
         candidates.push({
           term: objectType,
           type: 'object_type',
