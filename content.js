@@ -40,6 +40,13 @@ import('./modules/add-items-integration-manager.js').then(module => {
   console.error('❌ Failed to load AddItemsIntegrationManager:', error);
 });
 
+// Import the ArtistDetectionManager for edit page artist detection
+import('./modules/artist-detection-manager.js').then(module => {
+  window.ArtistDetectionManager = module.ArtistDetectionManager;
+}).catch(error => {
+  console.error('❌ Failed to load ArtistDetectionManager:', error);
+});
+
 // Import the FreetextParser component
 import('./modules/refactored/components/freetext-parser.js').then(module => {
   window.FreetextParser = module.FreetextParser;
@@ -1457,15 +1464,41 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
   }
 
   checkArtistDetection(data, warnings) {
+    console.log('🔍 checkArtistDetection called with data:', {
+      title: data.title,
+      artist: data.artist,
+      titleLength: data.title?.length || 0,
+      artistLength: data.artist?.trim()?.length || 0
+    });
+    
     // Skip if artist field is already filled or title is too short
     if ((data.artist && data.artist.trim().length > 2) || !data.title || data.title.length < 15) {
+      console.log('⏭️ Skipping artist detection:', {
+        artistFilled: data.artist && data.artist.trim().length > 2,
+        titleTooShort: !data.title || data.title.length < 15,
+        title: data.title
+      });
       return;
     }
+    
+    console.log('✅ Running artist detection for title:', data.title);
 
+    // Check if required components are available
+    if (!window.ArtistDetectionManager) {
+      console.log('⚠️ ArtistDetectionManager not available, skipping artist detection');
+      return;
+    }
+    
     // Run artist detection asynchronously (non-blocking)
-    const simpleQualityAnalyzer = this.createSimpleQualityAnalyzer();
+    const simpleAPIManager = this.createSimpleAPIManager();
+    const simpleQualityAnalyzer = this.createSimpleQualityAnalyzer(simpleAPIManager);
+    
+    console.log('🔧 Created quality analyzer:', !!simpleQualityAnalyzer);
+    console.log('🔧 API manager has API key:', !!simpleAPIManager.apiKey);
     simpleQualityAnalyzer.detectMisplacedArtist(data.title, data.artist, false)
       .then(artistDetection => {
+        console.log('🎨 Artist detection result:', artistDetection);
+        
         if (artistDetection && artistDetection.detectedArtist) {
           // Add interactive warning with buttons for artist detection
           const artistWarning = {
@@ -1507,6 +1540,11 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       })
       .catch(error => {
         console.log('⚠️ Artist detection failed (non-critical):', error);
+        console.log('🔧 Error details:', {
+          message: error.message,
+          stack: error.stack,
+          title: data.title
+        });
         // Don't add warning for failed detection - it's optional
       });
   }
