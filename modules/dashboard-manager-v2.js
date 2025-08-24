@@ -102,22 +102,24 @@ export class DashboardManagerV2 {
   createDashboardStructure(salesData, terms) {
 
     
-    // Check if we should preserve the open state from existing dropdown
+    // Check if we should preserve the existing dropdown to avoid flickering
     const STORAGE_KEY = 'auctionet_market_analysis_visible';
     const shouldStayOpen = localStorage.getItem(STORAGE_KEY) === 'true';
-    
-    // Remove existing dropdown elements but remember if they were open
-    const existingButton = document.querySelector('.minimal-market-toggle');
     const existingContainer = document.querySelector('.market-dropdown-container');
-    const existingDashboard = document.querySelector('.market-data-dashboard');
     
-    if (existingButton) existingButton.remove();
-    if (existingContainer) existingContainer.remove();
-    if (existingDashboard) existingDashboard.remove();
-    
-    // Show loading state if dropdown should stay open
-    if (shouldStayOpen) {
-      this.showMarketAnalysisLoading();
+    // If dropdown should stay open and exists, just update content with spinner
+    if (shouldStayOpen && existingContainer) {
+      console.log('🔄 Preserving existing dropdown, adding spinner overlay');
+      this.showSpinnerOverlay(existingContainer);
+      // Don't remove existing elements, just update them
+    } else {
+      // Normal flow - remove existing elements
+      const existingButton = document.querySelector('.minimal-market-toggle');
+      const existingDashboard = document.querySelector('.market-data-dashboard');
+      
+      if (existingButton) existingButton.remove();
+      if (existingContainer) existingContainer.remove();
+      if (existingDashboard) existingDashboard.remove();
     }
     
     // Create new dashboard container
@@ -139,8 +141,15 @@ export class DashboardManagerV2 {
     // Add styles
     this.addMarketDashboardStyles();
     
-    // NEW: Create smooth dropdown that pushes content down instead of overlaying
-    this.createSmoothDropdownDashboard(dashboard);
+    // Check if we're updating existing dropdown or creating new one
+    const existingContainer = document.querySelector('.market-dropdown-container');
+    if (shouldStayOpen && existingContainer) {
+      // Update existing dropdown content
+      this.updateExistingDropdownContent(dashboard, existingContainer);
+    } else {
+      // Create new dropdown
+      this.createSmoothDropdownDashboard(dashboard);
+    }
     
     this.dashboardCreated = true;
   }
@@ -1491,5 +1500,115 @@ export class DashboardManagerV2 {
     } else {
       console.log('✅ State verification passed - button and dropdown are synchronized');
     }
+  }
+
+  // Show spinner overlay on existing dropdown (no flickering)
+  showSpinnerOverlay(existingContainer) {
+    // Remove any existing overlay
+    const existingOverlay = existingContainer.querySelector('.dropdown-spinner-overlay');
+    if (existingOverlay) existingOverlay.remove();
+
+    // Create spinner overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'dropdown-spinner-overlay';
+    overlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      z-index: 10;
+      border-radius: 8px;
+    `;
+
+    // Create spinner
+    const spinner = document.createElement('div');
+    spinner.style.cssText = `
+      width: 32px;
+      height: 32px;
+      border: 3px solid #f0f0f0;
+      border-top: 3px solid #4A90E2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    `;
+
+    // Create loading text
+    const loadingText = document.createElement('div');
+    loadingText.textContent = 'Uppdaterar marknadsanalys...';
+    loadingText.style.cssText = `
+      color: #666;
+      font-size: 16px;
+      font-weight: 500;
+    `;
+
+    // Assemble overlay
+    overlay.appendChild(spinner);
+    overlay.appendChild(loadingText);
+
+    // Add overlay to existing container
+    existingContainer.style.position = 'relative';
+    existingContainer.appendChild(overlay);
+
+    // Update button to loading state
+    const button = document.querySelector('.minimal-market-toggle');
+    if (button) {
+      const svg = button.querySelector('svg');
+      if (svg) {
+        svg.innerHTML = `<div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #4A90E2; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>`;
+      }
+      button.disabled = true;
+      button.style.cursor = 'not-allowed';
+      button.title = 'Uppdaterar marknadsanalys...';
+    }
+
+    console.log('🔄 Added spinner overlay to existing dropdown');
+  }
+
+  // Update existing dropdown content (no flickering)
+  updateExistingDropdownContent(newDashboard, existingContainer) {
+    // Find the existing dashboard inside the container
+    const existingDashboard = existingContainer.querySelector('.market-data-dashboard');
+    if (!existingDashboard) {
+      console.error('❌ Could not find existing dashboard to update');
+      return;
+    }
+
+    // Remove spinner overlay
+    const overlay = existingContainer.querySelector('.dropdown-spinner-overlay');
+    if (overlay) overlay.remove();
+
+    // Replace content smoothly
+    existingDashboard.innerHTML = newDashboard.innerHTML;
+    existingDashboard.className = newDashboard.className;
+
+    // Restore button to normal state
+    const button = document.querySelector('.minimal-market-toggle');
+    if (button) {
+      button.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="transition: transform 0.3s ease;">
+          <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+      button.disabled = false;
+      button.style.cursor = 'pointer';
+      
+      // Ensure button shows correct state (should be open)
+      const svg = button.querySelector('svg');
+      if (svg) {
+        svg.style.transform = 'rotate(180deg)';
+      }
+      button.style.background = '#f8f9fa';
+      button.style.borderColor = '#4A90E2';
+      button.style.color = '#4A90E2';
+      button.title = 'Marknadsanalys (synlig - klicka för att dölja)';
+    }
+
+    console.log('✅ Updated existing dropdown content without flickering');
   }
 } 
