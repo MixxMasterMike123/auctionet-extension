@@ -526,12 +526,20 @@ export class QualityAnalyzer {
         new Promise(resolve => setTimeout(() => resolve(null), 8000)) // 8s timeout
       ]);
       
+      console.log('🎯 AI artist analysis result:', {
+        hasResult: !!aiArtistForMarketAnalysis,
+        detectedArtist: aiArtistForMarketAnalysis?.detectedArtist,
+        confidence: aiArtistForMarketAnalysis?.confidence,
+        foundIn: aiArtistForMarketAnalysis?.foundIn
+      });
+      
       // NEW: Handle brand validation in parallel
       this.updateAILoadingMessage('🏷️ Kontrollerar märkesnamn...');
       
       // CRITICAL FIX: Show artist detection UI for ALL detected artists, regardless of where found
       
       if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist) {
+        console.log('🎯 Entering artist detection UI flow...');
         
 
         
@@ -652,6 +660,12 @@ export class QualityAnalyzer {
         // Clean up pending analysis since we already handled UI above
         this.pendingAnalyses.delete('artist');
       } else {
+        console.log('🚫 No artist detected or condition failed:', {
+          hasResult: !!aiArtistForMarketAnalysis,
+          detectedArtist: aiArtistForMarketAnalysis?.detectedArtist,
+          condition1: !!aiArtistForMarketAnalysis,
+          condition2: !!(aiArtistForMarketAnalysis?.detectedArtist)
+        });
         // Standard flow for non-artist items
         await this.triggerDashboardForNonArtItems(data);
         this.pendingAnalyses.delete('artist');
