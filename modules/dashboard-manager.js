@@ -532,16 +532,8 @@ export class DashboardManager {
     // Apply styles and inject into DOM
     this.addMarketDashboardStyles();
     
-    // Find the main container and insert the dashboard above it
-    const mainContainer = document.querySelector('.container');
-    if (mainContainer) {
-      console.log('📍 Inserting dashboard above main container: container');
-      mainContainer.parentNode.insertBefore(dashboard, mainContainer);
-    } else {
-      // Fallback to body if container not found
-      console.log('⚠️ Main container not found, appending to body');
-      document.body.appendChild(dashboard);
-    }
+    // NEW: Create floating dropdown instead of directly inserting dashboard
+    this.createFloatingMarketDropdown(dashboard);
     
     
     // Setup interactive search filter if quality analyzer is available
@@ -2990,5 +2982,145 @@ export class DashboardManager {
     
     
     return headerSuggestions;
+  }
+
+  // Create floating dropdown for market analysis
+  createFloatingMarketDropdown(dashboardElement) {
+    // Remove any existing floating dropdown
+    const existingDropdown = document.querySelector('.floating-market-dropdown');
+    if (existingDropdown) {
+      existingDropdown.remove();
+    }
+
+    // Create floating container
+    const floatingContainer = document.createElement('div');
+    floatingContainer.className = 'floating-market-dropdown';
+    floatingContainer.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      background: transparent;
+      pointer-events: none;
+    `;
+
+    // Create toggle button (always visible)
+    const toggleButton = document.createElement('button');
+    toggleButton.className = 'market-dropdown-toggle';
+    toggleButton.innerHTML = `
+      <div class="toggle-content">
+        <span class="toggle-icon">📊</span>
+        <span class="toggle-text">Marknadsanalys</span>
+        <span class="toggle-arrow">▼</span>
+      </div>
+    `;
+    toggleButton.style.cssText = `
+      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+      transition: all 0.3s ease;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 180px;
+      justify-content: center;
+    `;
+
+    // Create dropdown content container
+    const dropdownContent = document.createElement('div');
+    dropdownContent.className = 'market-dropdown-content';
+    dropdownContent.style.cssText = `
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 95vw;
+      max-width: 1200px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-origin: top center;
+      transform: translateX(-50%) translateY(-20px) scale(0.95);
+      pointer-events: auto;
+      overflow: hidden;
+    `;
+
+    // Style the dashboard element for dropdown
+    dashboardElement.style.cssText = `
+      margin: 0;
+      border-radius: 12px;
+      box-shadow: none;
+      background: white;
+    `;
+
+    // Add dashboard to dropdown content
+    dropdownContent.appendChild(dashboardElement);
+
+    // Add toggle functionality
+    let isOpen = false;
+    toggleButton.addEventListener('click', () => {
+      isOpen = !isOpen;
+      
+      if (isOpen) {
+        // Open dropdown
+        dropdownContent.style.opacity = '1';
+        dropdownContent.style.visibility = 'visible';
+        dropdownContent.style.transform = 'translateX(-50%) translateY(0) scale(1)';
+        toggleButton.querySelector('.toggle-arrow').style.transform = 'rotate(180deg)';
+        toggleButton.style.background = 'linear-gradient(135deg, #357ABD 0%, #2968A3 100%)';
+        
+        // Smooth scroll to accommodate dropdown
+        setTimeout(() => {
+          const dropdownHeight = dropdownContent.offsetHeight;
+          window.scrollBy({
+            top: Math.min(dropdownHeight * 0.3, 200),
+            behavior: 'smooth'
+          });
+        }, 200);
+        
+      } else {
+        // Close dropdown
+        dropdownContent.style.opacity = '0';
+        dropdownContent.style.visibility = 'hidden';
+        dropdownContent.style.transform = 'translateX(-50%) translateY(-20px) scale(0.95)';
+        toggleButton.querySelector('.toggle-arrow').style.transform = 'rotate(0deg)';
+        toggleButton.style.background = 'linear-gradient(135deg, #4A90E2 0%, #357ABD 100%)';
+      }
+    });
+
+    // Add hover effects
+    toggleButton.addEventListener('mouseenter', () => {
+      if (!isOpen) {
+        toggleButton.style.transform = 'scale(1.05)';
+        toggleButton.style.boxShadow = '0 6px 20px rgba(74, 144, 226, 0.4)';
+      }
+    });
+
+    toggleButton.addEventListener('mouseleave', () => {
+      if (!isOpen) {
+        toggleButton.style.transform = 'scale(1)';
+        toggleButton.style.boxShadow = '0 4px 15px rgba(74, 144, 226, 0.3)';
+      }
+    });
+
+    // Assemble floating container
+    floatingContainer.appendChild(toggleButton);
+    floatingContainer.appendChild(dropdownContent);
+
+    // Add to page
+    document.body.appendChild(floatingContainer);
+
+    console.log('📊 Created floating market analysis dropdown');
   }
 } 
