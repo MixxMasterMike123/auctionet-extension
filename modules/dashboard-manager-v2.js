@@ -102,10 +102,22 @@ export class DashboardManagerV2 {
   createDashboardStructure(salesData, terms) {
 
     
-    // Remove existing dashboard
+    // Check if we should preserve the open state from existing dropdown
+    const STORAGE_KEY = 'auctionet_market_analysis_visible';
+    const shouldStayOpen = localStorage.getItem(STORAGE_KEY) === 'true';
+    
+    // Remove existing dropdown elements but remember if they were open
+    const existingButton = document.querySelector('.minimal-market-toggle');
+    const existingContainer = document.querySelector('.market-dropdown-container');
     const existingDashboard = document.querySelector('.market-data-dashboard');
-    if (existingDashboard) {
-      existingDashboard.remove();
+    
+    if (existingButton) existingButton.remove();
+    if (existingContainer) existingContainer.remove();
+    if (existingDashboard) existingDashboard.remove();
+    
+    // Show loading state if dropdown should stay open
+    if (shouldStayOpen) {
+      this.showMarketAnalysisLoading();
     }
     
     // Create new dashboard container
@@ -1126,6 +1138,9 @@ export class DashboardManagerV2 {
 
   // Create minimal floating toggle with smooth dropdown content
   createSmoothDropdownDashboard(dashboardElement) {
+    // Remove loading state first
+    this.removeMarketAnalysisLoading();
+    
     // Remove any existing dropdown elements
     const existingButton = document.querySelector('.minimal-market-toggle');
     const existingContainer = document.querySelector('.market-dropdown-container');
@@ -1299,5 +1314,125 @@ export class DashboardManagerV2 {
     }
     
     console.log(`📊 Market analysis dropdown ${isOpen ? 'opened' : 'closed'} ${animate ? 'with animation' : 'instantly'}`);
+  }
+
+  // Show loading spinner when market analysis is refreshing
+  showMarketAnalysisLoading() {
+    // Remove any existing loading
+    const existingLoading = document.querySelector('.market-analysis-loading');
+    if (existingLoading) existingLoading.remove();
+
+    // Find main container
+    const mainContainer = document.querySelector('.container');
+    if (!mainContainer) return;
+
+    // Create loading container
+    const loadingContainer = document.createElement('div');
+    loadingContainer.className = 'market-analysis-loading';
+    loadingContainer.style.cssText = `
+      width: 100%;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 40px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    `;
+
+    // Create spinner
+    const spinner = document.createElement('div');
+    spinner.style.cssText = `
+      width: 32px;
+      height: 32px;
+      border: 3px solid #f0f0f0;
+      border-top: 3px solid #4A90E2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    `;
+
+    // Create loading text
+    const loadingText = document.createElement('div');
+    loadingText.textContent = 'Uppdaterar marknadsanalys...';
+    loadingText.style.cssText = `
+      color: #666;
+      font-size: 16px;
+      font-weight: 500;
+    `;
+
+    // Add spinner animation if not already present
+    if (!document.getElementById('market-loading-spin')) {
+      const style = document.createElement('style');
+      style.id = 'market-loading-spin';
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Assemble loading container
+    loadingContainer.appendChild(spinner);
+    loadingContainer.appendChild(loadingText);
+
+    // Insert loading container
+    mainContainer.parentNode.insertBefore(loadingContainer, mainContainer);
+
+    // Create floating toggle button in loading state
+    this.createLoadingToggleButton();
+
+    console.log('📊 Showing market analysis loading state');
+  }
+
+  // Create floating toggle button in loading state
+  createLoadingToggleButton() {
+    // Remove any existing button
+    const existingButton = document.querySelector('.minimal-market-toggle');
+    if (existingButton) existingButton.remove();
+
+    // Create loading toggle button
+    const loadingToggle = document.createElement('button');
+    loadingToggle.className = 'minimal-market-toggle';
+    loadingToggle.innerHTML = `
+      <div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #4A90E2; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+    `;
+    loadingToggle.style.cssText = `
+      position: fixed;
+      right: 20px;
+      top: 20px;
+      z-index: 9999;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #f8f9fa;
+      border: 1px solid #4A90E2;
+      cursor: not-allowed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #4A90E2;
+      transition: all 0.3s ease;
+      font-size: 0;
+    `;
+    
+    loadingToggle.title = 'Uppdaterar marknadsanalys...';
+    loadingToggle.disabled = true;
+
+    document.body.appendChild(loadingToggle);
+  }
+
+  // Remove loading state
+  removeMarketAnalysisLoading() {
+    const loadingContainer = document.querySelector('.market-analysis-loading');
+    if (loadingContainer) {
+      loadingContainer.remove();
+    }
+    console.log('📊 Removed market analysis loading state');
   }
 } 
