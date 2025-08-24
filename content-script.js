@@ -1213,7 +1213,7 @@
           // For "all" - show loading on master button AND all individual fields
           const masterButton = document.querySelector('.ai-master-button');
           if (masterButton) {
-            masterButton.textContent = '🧠 AI arbetar...';
+            masterButton.textContent = 'AI arbetar...';
             masterButton.disabled = true;
             masterButton.style.opacity = '0.7';
           }
@@ -1293,7 +1293,7 @@
           if (masterButton) {
             masterButton.textContent = '✅ Klart!';
             setTimeout(() => {
-              masterButton.textContent = '🧠 Förbättra alla fält';
+              masterButton.textContent = 'Förbättra alla fält';
               masterButton.disabled = false;
               masterButton.style.opacity = '1';
             }, 2000);
@@ -1341,7 +1341,7 @@
             masterButton.disabled = false;
             masterButton.style.opacity = '1';
             setTimeout(() => {
-              masterButton.textContent = '🧠 Förbättra alla fält';
+              masterButton.textContent = 'Förbättra alla fält';
             }, 3000);
           }
         }

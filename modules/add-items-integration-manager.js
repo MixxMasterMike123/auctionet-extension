@@ -112,7 +112,7 @@ export class AddItemsIntegrationManager {
           <span class="quality-score">Analyserar...</span>
           <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
         </div>
-        <button class="ai-assist-button ai-master-button" type="button">⚡ Förbättra alla</button>
+        <button class="ai-assist-button ai-master-button" type="button">Förbättra alla fält</button>
       </div>
     `;
     

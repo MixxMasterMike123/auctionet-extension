@@ -78,7 +78,7 @@
         "withoutArtist": "uppercase-first-word"
       },
       "punctuationRules": {
-        "withArtist": "period-after-first-word",
+        "withArtist": "comma-after-first-word",
         "withoutArtist": "comma-after-first-word"
       },
       "quotesPreservation": true,
