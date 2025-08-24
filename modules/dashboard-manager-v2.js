@@ -127,14 +127,8 @@ export class DashboardManagerV2 {
     // Add styles
     this.addMarketDashboardStyles();
     
-    // Insert into DOM
-    const mainContainer = document.querySelector('.container');
-    if (mainContainer) {
-      mainContainer.parentNode.insertBefore(dashboard, mainContainer);
-    } else {
-      document.body.appendChild(dashboard);
-      console.log('⚠️ Dashboard appended to body (container not found)');
-    }
+    // NEW: Create smooth dropdown that pushes content down instead of overlaying
+    this.createSmoothDropdownDashboard(dashboard);
     
     this.dashboardCreated = true;
   }
@@ -1128,5 +1122,138 @@ export class DashboardManagerV2 {
       dashboard.classList.remove('dashboard-loading');
     }
     
+  }
+
+  // Create smooth dropdown that pushes content down (not overlay)
+  createSmoothDropdownDashboard(dashboardElement) {
+    // Remove any existing dropdown
+    const existingContainer = document.querySelector('.smooth-market-dropdown');
+    if (existingContainer) {
+      existingContainer.remove();
+    }
+
+    // Find the main container to insert above
+    const mainContainer = document.querySelector('.container');
+    if (!mainContainer) {
+      console.error('❌ Main container not found, cannot create smooth dropdown');
+      return;
+    }
+
+    // Create container that will be inserted into the normal document flow
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.className = 'smooth-market-dropdown';
+    dropdownContainer.style.cssText = `
+      width: 100%;
+      overflow: hidden;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-bottom: 20px;
+    `;
+
+    // Create toggle bar (always visible, compact)
+    const toggleBar = document.createElement('div');
+    toggleBar.className = 'market-toggle-bar';
+    toggleBar.style.cssText = `
+      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+      color: white;
+      padding: 15px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(74, 144, 226, 0.2);
+      transition: all 0.3s ease;
+      user-select: none;
+    `;
+
+    toggleBar.innerHTML = `
+      <span class="toggle-icon">📊</span>
+      <span class="toggle-text">Marknadsanalys</span>
+      <span class="toggle-arrow" style="transition: transform 0.3s ease;">▼</span>
+    `;
+
+    // Create content container (initially hidden)
+    const contentContainer = document.createElement('div');
+    contentContainer.className = 'market-content-container';
+    contentContainer.style.cssText = `
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                  opacity 0.3s ease 0.1s, 
+                  transform 0.3s ease 0.1s;
+    `;
+
+    // Style the dashboard element to fit nicely
+    dashboardElement.style.cssText = `
+      margin: 0;
+      border-radius: 0 0 8px 8px;
+      box-shadow: none;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-top: none;
+    `;
+
+    // Add dashboard to content container
+    contentContainer.appendChild(dashboardElement);
+
+    // Add toggle functionality
+    let isOpen = false;
+    toggleBar.addEventListener('click', () => {
+      isOpen = !isOpen;
+      
+      if (isOpen) {
+        // Open - expand content
+        const contentHeight = dashboardElement.scrollHeight;
+        contentContainer.style.maxHeight = `${contentHeight}px`;
+        contentContainer.style.opacity = '1';
+        contentContainer.style.transform = 'translateY(0)';
+        
+        // Update toggle bar
+        toggleBar.querySelector('.toggle-arrow').style.transform = 'rotate(180deg)';
+        toggleBar.style.background = 'linear-gradient(135deg, #357ABD 0%, #2968A3 100%)';
+        toggleBar.style.borderRadius = '8px 8px 0 0';
+        
+      } else {
+        // Close - collapse content
+        contentContainer.style.maxHeight = '0';
+        contentContainer.style.opacity = '0';
+        contentContainer.style.transform = 'translateY(-10px)';
+        
+        // Update toggle bar
+        toggleBar.querySelector('.toggle-arrow').style.transform = 'rotate(0deg)';
+        toggleBar.style.background = 'linear-gradient(135deg, #4A90E2 0%, #357ABD 100%)';
+        toggleBar.style.borderRadius = '8px';
+      }
+    });
+
+    // Add hover effects
+    toggleBar.addEventListener('mouseenter', () => {
+      if (!isOpen) {
+        toggleBar.style.transform = 'translateY(-2px)';
+        toggleBar.style.boxShadow = '0 4px 15px rgba(74, 144, 226, 0.3)';
+      }
+    });
+
+    toggleBar.addEventListener('mouseleave', () => {
+      if (!isOpen) {
+        toggleBar.style.transform = 'translateY(0)';
+        toggleBar.style.boxShadow = '0 2px 10px rgba(74, 144, 226, 0.2)';
+      }
+    });
+
+    // Assemble dropdown
+    dropdownContainer.appendChild(toggleBar);
+    dropdownContainer.appendChild(contentContainer);
+
+    // Insert into normal document flow (pushes content down)
+    mainContainer.parentNode.insertBefore(dropdownContainer, mainContainer);
+
+    console.log('📊 DashboardManagerV2: Created smooth dropdown that pushes content down');
   }
 } 
