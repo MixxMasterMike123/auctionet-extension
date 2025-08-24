@@ -1149,9 +1149,8 @@ export class DashboardManagerV2 {
     `;
     floatingToggle.style.cssText = `
       position: fixed;
-      left: 20px;
-      top: 50%;
-      transform: translateY(-50%);
+      right: 20px;
+      top: 20px;
       z-index: 9999;
       width: 44px;
       height: 44px;
@@ -1234,7 +1233,7 @@ export class DashboardManagerV2 {
     // Add hover effects to button
     floatingToggle.addEventListener('mouseenter', () => {
       if (!isOpen) {
-        floatingToggle.style.transform = 'translateY(-50%) scale(1.1)';
+        floatingToggle.style.transform = 'scale(1.1)';
         floatingToggle.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.15)';
         floatingToggle.style.borderColor = '#4A90E2';
       }
@@ -1242,7 +1241,7 @@ export class DashboardManagerV2 {
 
     floatingToggle.addEventListener('mouseleave', () => {
       if (!isOpen) {
-        floatingToggle.style.transform = 'translateY(-50%) scale(1)';
+        floatingToggle.style.transform = 'scale(1)';
         floatingToggle.style.boxShadow = '0 2px 12px rgba(0, 0, 0, 0.1)';
         floatingToggle.style.borderColor = '#e0e0e0';
       }
