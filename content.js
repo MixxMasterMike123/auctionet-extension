@@ -1114,6 +1114,187 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           border: 2px solid #28a745 !important;
           transition: all 0.3s ease;
         }
+        
+        /* Artist Detection Styles */
+        .warning-artist-detection {
+          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+          border: 1px solid #2196f3;
+          border-radius: 8px;
+          padding: 12px;
+          margin: 8px 0;
+        }
+        
+        .artist-detection-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+        
+        .confidence-badge {
+          background: #2196f3;
+          color: white;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: bold;
+        }
+        
+        .artist-reasoning {
+          font-style: italic;
+          color: #666;
+          margin: 8px 0;
+          font-size: 13px;
+        }
+        
+        .artist-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 10px;
+        }
+        
+        .artist-actions button {
+          padding: 6px 12px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          transition: all 0.2s ease;
+        }
+        
+        .btn-artist-move {
+          background: #4caf50;
+          color: white;
+        }
+        
+        .btn-artist-move:hover {
+          background: #45a049;
+          transform: translateY(-1px);
+        }
+        
+        .btn-artist-bio {
+          background: #2196f3;
+          color: white;
+        }
+        
+        .btn-artist-bio:hover {
+          background: #1976d2;
+          transform: translateY(-1px);
+        }
+        
+        .btn-artist-ignore {
+          background: #f44336;
+          color: white;
+        }
+        
+        .btn-artist-ignore:hover {
+          background: #d32f2f;
+          transform: translateY(-1px);
+        }
+        
+        /* Artist Biography Modal */
+        .artist-bio-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 10000;
+          backdrop-filter: blur(4px);
+        }
+        
+        .artist-bio-modal {
+          background: white;
+          border-radius: 12px;
+          max-width: 500px;
+          width: 90%;
+          max-height: 80vh;
+          overflow-y: auto;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .artist-bio-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px;
+          border-bottom: 1px solid #eee;
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border-radius: 12px 12px 0 0;
+        }
+        
+        .artist-bio-header h3 {
+          margin: 0;
+          color: #333;
+        }
+        
+        .close-bio-modal {
+          background: none;
+          border: none;
+          font-size: 24px;
+          cursor: pointer;
+          color: #666;
+          padding: 0;
+          width: 30px;
+          height: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .close-bio-modal:hover {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 50%;
+        }
+        
+        .artist-bio-content {
+          padding: 20px;
+        }
+        
+        .artist-bio-content p {
+          line-height: 1.6;
+          color: #333;
+          margin-bottom: 20px;
+        }
+        
+        .bio-actions {
+          display: flex;
+          gap: 10px;
+          justify-content: flex-end;
+        }
+        
+        .bio-actions button {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+        
+        .btn-add-bio-to-description {
+          background: #4caf50;
+          color: white;
+        }
+        
+        .btn-add-bio-to-description:hover {
+          background: #45a049;
+          transform: translateY(-1px);
+        }
+        
+        .btn-close-bio {
+          background: #f5f5f5;
+          color: #333;
+        }
+        
+        .btn-close-bio:hover {
+          background: #e0e0e0;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -1268,8 +1449,66 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       }
     }
 
+    // ARTIST DETECTION - Check if artist name is in title but not in artist field
+    this.checkArtistDetection(data, warnings);
+
     // Update UI
     this.updateQualityIndicator(score, warnings);
+  }
+
+  checkArtistDetection(data, warnings) {
+    // Skip if artist field is already filled or title is too short
+    if ((data.artist && data.artist.trim().length > 2) || !data.title || data.title.length < 15) {
+      return;
+    }
+
+    // Run artist detection asynchronously (non-blocking)
+    const simpleQualityAnalyzer = this.createSimpleQualityAnalyzer();
+    simpleQualityAnalyzer.detectMisplacedArtist(data.title, data.artist, false)
+      .then(artistDetection => {
+        if (artistDetection && artistDetection.detectedArtist) {
+          // Add interactive warning with buttons for artist detection
+          const artistWarning = {
+            field: 'Konstnär',
+            issue: `"${artistDetection.detectedArtist}" upptäckt i titel`,
+            severity: 'artist-detection',
+            artistData: artistDetection,
+            interactive: true
+          };
+          
+          // Re-run quality analysis to include artist detection
+          const currentWarnings = Array.from(document.querySelectorAll('.quality-warnings li')).map(li => ({
+            field: li.textContent.split(':')[0],
+            issue: li.textContent.split(':').slice(1).join(':').trim(),
+            severity: 'medium'
+          }));
+          
+          currentWarnings.push(artistWarning);
+          
+          // Update UI with artist detection
+          const warningsElement = document.querySelector('.quality-warnings');
+          if (warningsElement) {
+            warningsElement.innerHTML = '<ul>' + 
+              currentWarnings.map(w => {
+                if (w.interactive && w.severity === 'artist-detection') {
+                  return this.createArtistDetectionWarning(w);
+                } else {
+                  return `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`;
+                }
+              }).join('') +
+              '</ul>';
+            
+            // Add event listeners for interactive buttons
+            this.attachArtistDetectionListeners(warningsElement);
+          }
+          
+          console.log('🎨 Artist detected in title:', artistDetection);
+        }
+      })
+      .catch(error => {
+        console.log('⚠️ Artist detection failed (non-critical):', error);
+        // Don't add warning for failed detection - it's optional
+      });
   }
 
   updateQualityIndicator(score, warnings) {
@@ -1295,12 +1534,215 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     if (warningsElement) {
       if (warnings.length > 0) {
         warningsElement.innerHTML = '<ul>' + 
-          warnings.map(w => `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`).join('') +
+          warnings.map(w => {
+            if (w.interactive && w.severity === 'artist-detection') {
+              return this.createArtistDetectionWarning(w);
+            } else {
+              return `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`;
+            }
+          }).join('') +
           '</ul>';
+        
+        // Add event listeners for interactive buttons
+        this.attachArtistDetectionListeners(warningsElement);
       } else {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
       }
     }
+  }
+
+  createArtistDetectionWarning(warning) {
+    const artistData = warning.artistData;
+    const confidence = Math.round((artistData.confidence || 0.8) * 100);
+    
+    return `
+      <li class="warning-artist-detection">
+        <div class="artist-detection-header">
+          <strong>🎨 ${warning.field}:</strong> ${warning.issue}
+          <span class="confidence-badge">${confidence}% säkerhet</span>
+        </div>
+        <div class="artist-detection-body">
+          ${artistData.reasoning ? `<p class="artist-reasoning">${artistData.reasoning}</p>` : ''}
+          <div class="artist-actions">
+            <button class="btn-artist-move" data-artist="${artistData.detectedArtist}" data-suggested-title="${artistData.suggestedTitle || ''}">
+              📝 Flytta till konstnärsfält
+            </button>
+            <button class="btn-artist-bio" data-artist="${artistData.detectedArtist}">
+              ℹ️ Visa biografi
+            </button>
+            <button class="btn-artist-ignore" data-artist="${artistData.detectedArtist}">
+              ❌ Ignorera
+            </button>
+          </div>
+        </div>
+      </li>
+    `;
+  }
+
+  attachArtistDetectionListeners(warningsElement) {
+    // Move artist to artist field
+    const moveButtons = warningsElement.querySelectorAll('.btn-artist-move');
+    moveButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const artistName = e.target.dataset.artist;
+        const suggestedTitle = e.target.dataset.suggestedTitle;
+        this.moveArtistToField(artistName, suggestedTitle);
+      });
+    });
+
+    // Show artist biography
+    const bioButtons = warningsElement.querySelectorAll('.btn-artist-bio');
+    bioButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const artistName = e.target.dataset.artist;
+        this.showArtistBiography(artistName);
+      });
+    });
+
+    // Ignore artist detection
+    const ignoreButtons = warningsElement.querySelectorAll('.btn-artist-ignore');
+    ignoreButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const artistName = e.target.dataset.artist;
+        this.ignoreArtistDetection(artistName);
+      });
+    });
+  }
+
+  async moveArtistToField(artistName, suggestedTitle) {
+    try {
+      // Move artist to artist field
+      const artistField = document.querySelector('#item_artist_name_sv');
+      if (artistField) {
+        artistField.value = artistName;
+        artistField.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Update title with suggested title if available
+      if (suggestedTitle && suggestedTitle.trim()) {
+        const titleField = document.querySelector('#item_title_sv');
+        if (titleField) {
+          titleField.value = suggestedTitle;
+          titleField.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+
+      // Re-analyze quality to update warnings
+      setTimeout(() => this.analyzeQuality(), 500);
+      
+      console.log('✅ Artist moved to field:', artistName);
+    } catch (error) {
+      console.error('❌ Error moving artist:', error);
+    }
+  }
+
+  async showArtistBiography(artistName) {
+    try {
+      // Create a simple API call to get biography
+      if (!this.apiKey) {
+        alert('API-nyckel saknas för att hämta biografi');
+        return;
+      }
+
+      const prompt = `Skriv en kort biografi (max 200 ord) på svenska om konstnären "${artistName}". Fokusera på viktiga datum, stil och kända verk. Svara endast med biografin, inga extra kommentarer.`;
+
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiKey,
+          body: {
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 300,
+            temperature: 0.3,
+            system: 'Du är en konstexpert. Skriv korta, faktabaserade biografier på svenska.',
+            messages: [{
+              role: 'user',
+              content: prompt
+            }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response && response.success) {
+            resolve(response);
+          } else {
+            reject(new Error('Biography fetch failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const biography = response.data.content[0].text;
+        this.showBiographyModal(artistName, biography);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching biography:', error);
+      alert('Kunde inte hämta biografi för ' + artistName);
+    }
+  }
+
+  showBiographyModal(artistName, biography) {
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.className = 'artist-bio-modal-overlay';
+    modal.innerHTML = `
+      <div class="artist-bio-modal">
+        <div class="artist-bio-header">
+          <h3>🎨 ${artistName}</h3>
+          <button class="close-bio-modal">&times;</button>
+        </div>
+        <div class="artist-bio-content">
+          <p>${biography}</p>
+          <div class="bio-actions">
+            <button class="btn-add-bio-to-description">📝 Lägg till i beskrivning</button>
+            <button class="btn-close-bio">Stäng</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    const closeButtons = modal.querySelectorAll('.close-bio-modal, .btn-close-bio');
+    closeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+      });
+    });
+
+    const addToDescBtn = modal.querySelector('.btn-add-bio-to-description');
+    addToDescBtn.addEventListener('click', () => {
+      this.addBiographyToDescription(biography);
+      document.body.removeChild(modal);
+    });
+
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    });
+  }
+
+  addBiographyToDescription(biography) {
+    const descriptionField = document.querySelector('#item_description_sv');
+    if (descriptionField) {
+      const currentDesc = descriptionField.value || '';
+      const newDesc = currentDesc + (currentDesc ? '\n\n' : '') + biography;
+      descriptionField.value = newDesc;
+      descriptionField.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      // Re-analyze quality
+      setTimeout(() => this.analyzeQuality(), 500);
+    }
+  }
+
+  ignoreArtistDetection(artistName) {
+    // For now, just re-analyze to remove the warning
+    // In a more advanced implementation, we could store ignored artists
+    setTimeout(() => this.analyzeQuality(), 100);
+    console.log('🚫 Ignored artist detection for:', artistName);
   }
 
   setupLiveQualityUpdates() {
