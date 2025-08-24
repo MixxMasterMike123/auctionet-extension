@@ -1024,14 +1024,18 @@ export class QualityAnalyzer {
       if (issueSpan) {
         const originalText = issueSpan.textContent;
         
-        // Create clickable artist span
+        // Create clickable artist span with biography hover
         const clickableSpan = document.createElement('strong');
         clickableSpan.className = 'clickable-artist';
         clickableSpan.textContent = `"${artistName}"`;
         clickableSpan.style.cursor = 'pointer';
         clickableSpan.style.color = '#1976d2';
         clickableSpan.style.textDecoration = 'underline';
-        clickableSpan.title = `Klicka för att flytta "${artistName}" till konstnärsfält`;
+        clickableSpan.style.position = 'relative';
+        clickableSpan.title = `Klicka för att flytta "${artistName}" till konstnärsfält. Håll muspekaren över för biografi.`;
+        
+        // Add biography hover functionality
+        this.addBiographyHover(clickableSpan, artistName);
         
         // NEW: Use Biography Manager SSoT component for biography handling
         let biographySpan = null;
@@ -1099,6 +1103,8 @@ export class QualityAnalyzer {
         fontWeight: '300'
       });
       
+      // Biography will be handled via hover on the artist name, not as a button
+
       // Create move button
       const moveButton = document.createElement('button');
       moveButton.className = 'move-artist-btn';
@@ -1109,7 +1115,7 @@ export class QualityAnalyzer {
       Object.assign(moveButton.style, {
         padding: '6px 12px',
         fontSize: '12px',
-        background: '#3E3E3E',
+        background: '#4caf50',
         color: 'white',
         border: 'none',
         borderRadius: '4px',
@@ -1125,14 +1131,18 @@ export class QualityAnalyzer {
         ignoreButton.style.background = '#dc3545';
       });
       
+      // Biography hover will be handled on the artist name span
+      
       // Add hover effects for move button
       moveButton.addEventListener('mouseenter', () => {
-        moveButton.style.background = '#525252';
+        moveButton.style.background = '#45a049';
       });
       moveButton.addEventListener('mouseleave', () => {
-        moveButton.style.background = '#3E3E3E';
+        moveButton.style.background = '#4caf50';
       });
       
+      // Biography will be shown on hover of the artist name
+
       // Add click handler for ignore
       ignoreButton.addEventListener('click', async (e) => {
         e.preventDefault();
@@ -2482,6 +2492,11 @@ export class QualityAnalyzer {
             warningItem.warningData = warning; // Store the full warning data
           }
         });
+        
+        // Set up artist detection handlers after DOM is updated
+        setTimeout(() => {
+          this.setupIgnoreArtistHandlers();
+        }, 100);
       } else {
         warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
       }
@@ -2493,6 +2508,381 @@ export class QualityAnalyzer {
   // Helper method to escape regex special characters
   escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Add biography hover functionality to an element
+   */
+  addBiographyHover(element, artistName) {
+    let biographyTooltip = null;
+    let hoverTimeout = null;
+    
+    element.addEventListener('mouseenter', async () => {
+      // Clear any existing timeout
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+      }
+      
+      // Delay showing tooltip to avoid flickering
+      hoverTimeout = setTimeout(async () => {
+        try {
+          // Check if tooltip already exists
+          if (biographyTooltip) {
+            biographyTooltip.style.display = 'block';
+            return;
+          }
+          
+          // Fetch biography
+          const biography = await this.fetchArtistBiography(artistName);
+          if (biography) {
+            // Create tooltip
+            biographyTooltip = this.createBiographyTooltip(element, artistName, biography);
+          }
+        } catch (error) {
+          console.log('⚠️ Could not fetch biography for hover:', error.message);
+        }
+      }, 800); // 800ms delay before showing
+    });
+    
+    element.addEventListener('mouseleave', () => {
+      // Clear timeout
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+      }
+      
+      // Hide tooltip with delay
+      setTimeout(() => {
+        if (biographyTooltip) {
+          biographyTooltip.style.display = 'none';
+        }
+      }, 200);
+    });
+  }
+
+  /**
+   * Fetch artist biography (separate from modal version)
+   */
+  async fetchArtistBiography(artistName) {
+    if (!this.apiManager?.apiKey) {
+      return null;
+    }
+
+    const prompt = `Skriv en mycket kort biografi (max 100 ord) på svenska om konstnären "${artistName}". Fokusera på födelse/död, stil och 1-2 kända verk. Svara endast med biografin.`;
+
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: {
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 150,
+            temperature: 0.3,
+            system: 'Du är en konstexpert. Skriv mycket korta biografier på svenska för tooltips.',
+            messages: [{
+              role: 'user',
+              content: prompt
+            }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response && response.success) {
+            resolve(response);
+          } else {
+            reject(new Error('Biography fetch failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        return response.data.content[0].text;
+      }
+    } catch (error) {
+      console.log('⚠️ Biography fetch failed:', error.message);
+    }
+    
+    return null;
+  }
+
+  /**
+   * Create biography tooltip
+   */
+  createBiographyTooltip(parentElement, artistName, biography) {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'artist-biography-tooltip';
+    tooltip.innerHTML = `
+      <div class="tooltip-header">
+        <strong>🎨 ${artistName}</strong>
+      </div>
+      <div class="tooltip-content">
+        ${biography}
+      </div>
+    `;
+    
+    // Style the tooltip
+    tooltip.style.cssText = `
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      background: rgba(20, 20, 30, 0.95);
+      backdrop-filter: blur(12px);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      width: 280px;
+      white-space: normal;
+      word-wrap: break-word;
+      box-shadow: 
+        0 4px 32px rgba(0, 0, 0, 0.12),
+        0 2px 8px rgba(0, 0, 0, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      z-index: 99999;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      margin-bottom: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-weight: 400;
+      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    `;
+    
+    const header = tooltip.querySelector('.tooltip-header');
+    header.style.cssText = `
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      font-size: 14px;
+    `;
+    
+    const content = tooltip.querySelector('.tooltip-content');
+    content.style.cssText = `
+      font-size: 12px;
+      line-height: 1.4;
+      color: rgba(255, 255, 255, 0.9);
+    `;
+    
+    // Create arrow
+    const arrow = document.createElement('div');
+    arrow.style.cssText = `
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: rgba(20, 20, 30, 0.95);
+      margin-bottom: -6px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    `;
+    tooltip.appendChild(arrow);
+    
+    // Add to parent and show
+    parentElement.appendChild(tooltip);
+    
+    // Show with animation
+    setTimeout(() => {
+      tooltip.style.opacity = '1';
+      tooltip.style.visibility = 'visible';
+      tooltip.style.transform = 'translateX(-50%) translateY(-4px)';
+    }, 100);
+    
+    return tooltip;
+  }
+
+  /**
+   * Show artist biography modal
+   */
+  async showArtistBiography(artistName) {
+    try {
+      if (!this.apiManager?.apiKey) {
+        alert('API-nyckel saknas för att hämta biografi');
+        return;
+      }
+
+      const prompt = `Skriv en kort biografi (max 200 ord) på svenska om konstnären "${artistName}". Fokusera på viktiga datum, stil och kända verk. Svara endast med biografin, inga extra kommentarer.`;
+
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: {
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 300,
+            temperature: 0.3,
+            system: 'Du är en konstexpert. Skriv korta, faktabaserade biografier på svenska.',
+            messages: [{
+              role: 'user',
+              content: prompt
+            }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response && response.success) {
+            resolve(response);
+          } else {
+            reject(new Error('Biography fetch failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const biography = response.data.content[0].text;
+        this.showBiographyModal(artistName, biography);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching biography:', error);
+      alert('Kunde inte hämta biografi för ' + artistName);
+    }
+  }
+
+  /**
+   * Show biography in modal
+   */
+  showBiographyModal(artistName, biography) {
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.className = 'artist-bio-modal-overlay';
+    modal.innerHTML = `
+      <div class="artist-bio-modal">
+        <div class="artist-bio-header">
+          <h3>🎨 ${artistName}</h3>
+          <button class="close-bio-modal">&times;</button>
+        </div>
+        <div class="artist-bio-content">
+          <p>${biography}</p>
+          <div class="bio-actions">
+            <button class="btn-add-bio-to-description">📝 Lägg till i beskrivning</button>
+            <button class="btn-close-bio">Stäng</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add modal styles
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    `;
+
+    const modalContent = modal.querySelector('.artist-bio-modal');
+    modalContent.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    `;
+
+    const header = modal.querySelector('.artist-bio-header');
+    header.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #eee;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 12px 12px 0 0;
+    `;
+
+    const closeBtn = modal.querySelector('.close-bio-modal');
+    closeBtn.style.cssText = `
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    const content = modal.querySelector('.artist-bio-content');
+    content.style.cssText = `padding: 20px;`;
+
+    const actions = modal.querySelector('.bio-actions');
+    actions.style.cssText = `
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    `;
+
+    const buttons = modal.querySelectorAll('.bio-actions button');
+    buttons.forEach(btn => {
+      btn.style.cssText = `
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s ease;
+      `;
+    });
+
+    const addBtn = modal.querySelector('.btn-add-bio-to-description');
+    addBtn.style.cssText += `background: #4caf50; color: white;`;
+
+    const closeActionBtn = modal.querySelector('.btn-close-bio');
+    closeActionBtn.style.cssText += `background: #f5f5f5; color: #333;`;
+
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    const closeButtons = modal.querySelectorAll('.close-bio-modal, .btn-close-bio');
+    closeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+      });
+    });
+
+    const addToDescBtn = modal.querySelector('.btn-add-bio-to-description');
+    addToDescBtn.addEventListener('click', () => {
+      this.addBiographyToDescription(biography);
+      document.body.removeChild(modal);
+    });
+
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    });
+  }
+
+  /**
+   * Add biography to description field
+   */
+  addBiographyToDescription(biography) {
+    const descriptionField = document.querySelector('#item_description_sv');
+    if (descriptionField) {
+      const currentDesc = descriptionField.value || '';
+      const newDesc = currentDesc + (currentDesc ? '\n\n' : '') + biography;
+      descriptionField.value = newDesc;
+      descriptionField.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      // Re-analyze quality
+      setTimeout(() => this.analyzeQuality(), 500);
+    }
   }
 
   checkAndHideLoadingIndicator() {
