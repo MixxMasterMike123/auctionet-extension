@@ -1196,38 +1196,23 @@ export class DashboardManagerV2 {
     // Add dashboard to dropdown container
     dropdownContainer.appendChild(dashboardElement);
 
-    // Add toggle functionality
-    let isOpen = false;
+    // Add toggle functionality with persistent state
+    const STORAGE_KEY = 'auctionet_market_analysis_visible';
+    
+    // Load saved state from localStorage
+    let isOpen = localStorage.getItem(STORAGE_KEY) === 'true';
+    
+    // Apply initial state
+    this.applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, false);
+    
     floatingToggle.addEventListener('click', () => {
       isOpen = !isOpen;
       
-      if (isOpen) {
-        // Open - expand content
-        const contentHeight = dashboardElement.scrollHeight;
-        dropdownContainer.style.maxHeight = `${contentHeight}px`;
-        dropdownContainer.style.opacity = '1';
-        dropdownContainer.style.transform = 'translateY(0)';
-        dropdownContainer.style.marginBottom = '20px';
-        
-        // Update button
-        floatingToggle.querySelector('svg').style.transform = 'rotate(180deg)';
-        floatingToggle.style.background = '#f8f9fa';
-        floatingToggle.style.borderColor = '#4A90E2';
-        floatingToggle.style.color = '#4A90E2';
-        
-      } else {
-        // Close - collapse content
-        dropdownContainer.style.maxHeight = '0';
-        dropdownContainer.style.opacity = '0';
-        dropdownContainer.style.transform = 'translateY(-10px)';
-        dropdownContainer.style.marginBottom = '0';
-        
-        // Update button
-        floatingToggle.querySelector('svg').style.transform = 'rotate(0deg)';
-        floatingToggle.style.background = 'white';
-        floatingToggle.style.borderColor = '#e0e0e0';
-        floatingToggle.style.color = '#333';
-      }
+      // Save state to localStorage
+      localStorage.setItem(STORAGE_KEY, isOpen.toString());
+      
+      // Apply visual state
+      this.applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, true);
     });
 
     // Add hover effects to button
@@ -1254,5 +1239,65 @@ export class DashboardManagerV2 {
     mainContainer.parentNode.insertBefore(dropdownContainer, mainContainer);
 
     console.log('📊 DashboardManagerV2: Created minimal floating toggle with smooth dropdown');
+  }
+
+  // Apply dropdown state (open/closed) with optional animation
+  applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, animate = true) {
+    if (isOpen) {
+      // Open - expand content
+      const contentHeight = dashboardElement.scrollHeight;
+      dropdownContainer.style.maxHeight = `${contentHeight}px`;
+      dropdownContainer.style.opacity = '1';
+      dropdownContainer.style.transform = 'translateY(0)';
+      dropdownContainer.style.marginBottom = '20px';
+      
+      // Update button
+      floatingToggle.querySelector('svg').style.transform = 'rotate(180deg)';
+      floatingToggle.style.background = '#f8f9fa';
+      floatingToggle.style.borderColor = '#4A90E2';
+      floatingToggle.style.color = '#4A90E2';
+      
+      // Add visual indicator that it's pinned open
+      floatingToggle.title = 'Marknadsanalys (synlig - klicka för att dölja)';
+      
+    } else {
+      // Close - collapse content
+      dropdownContainer.style.maxHeight = '0';
+      dropdownContainer.style.opacity = '0';
+      dropdownContainer.style.transform = 'translateY(-10px)';
+      dropdownContainer.style.marginBottom = '0';
+      
+      // Update button
+      floatingToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+      floatingToggle.style.background = 'white';
+      floatingToggle.style.borderColor = '#e0e0e0';
+      floatingToggle.style.color = '#333';
+      
+      floatingToggle.title = 'Marknadsanalys (dold - klicka för att visa)';
+    }
+    
+    // If this is initial load (no animation), ensure immediate display
+    if (!animate) {
+      // Temporarily disable transitions for instant state
+      const originalTransition = dropdownContainer.style.transition;
+      const originalSvgTransition = floatingToggle.querySelector('svg').style.transition;
+      const originalButtonTransition = floatingToggle.style.transition;
+      
+      dropdownContainer.style.transition = 'none';
+      floatingToggle.querySelector('svg').style.transition = 'none';
+      floatingToggle.style.transition = 'none';
+      
+      // Force reflow
+      dropdownContainer.offsetHeight;
+      
+      // Restore transitions after a brief moment
+      setTimeout(() => {
+        dropdownContainer.style.transition = originalTransition;
+        floatingToggle.querySelector('svg').style.transition = originalSvgTransition;
+        floatingToggle.style.transition = originalButtonTransition;
+      }, 50);
+    }
+    
+    console.log(`📊 Market analysis dropdown ${isOpen ? 'opened' : 'closed'} ${animate ? 'with animation' : 'instantly'}`);
   }
 } 
