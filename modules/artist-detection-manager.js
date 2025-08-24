@@ -180,7 +180,16 @@ export class ArtistDetectionManager {
     // If no all-caps match, try to match capitalized word at start (like "Figurin")
     match = title.match(/^([A-ZÅÄÖÜ][a-zåäöü]+)/);
     if (match && match[1].length > 1) {
-      return match[1].toUpperCase(); // Convert to uppercase for consistency
+      const potentialObjectType = match[1];
+      
+      // CRITICAL FIX: Don't treat artist names as object types
+      // Check if this looks like a person's name (common artist name pattern)
+      if (this.looksLikePersonName(potentialObjectType)) {
+        console.log(`🎨 Skipping "${potentialObjectType}" - looks like artist name, not object type`);
+        return null;
+      }
+      
+      return potentialObjectType.toUpperCase(); // Convert to uppercase for consistency
     }
     
     console.log(`❌ No object type found in title: "${title}"`);
