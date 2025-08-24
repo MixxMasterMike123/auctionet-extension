@@ -547,7 +547,7 @@ export class QualityAnalyzer {
         await this.handleArtistDetectionResult(aiArtistForMarketAnalysis, data, currentWarnings, currentScore);
         
         // SECOND: Handle market analysis based on where artist was found
-        if (aiArtistForMarketAnalysis.foundIn === 'title') {
+        if (aiArtistForMarketAnalysis.foundIn === 'title' || aiArtistForMarketAnalysis.foundIn === 'titel') {
 
           
           // Generate SSoT WITH the detected artist for comprehensive market analysis
