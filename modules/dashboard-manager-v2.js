@@ -1589,22 +1589,31 @@ export class DashboardManagerV2 {
     console.log('🔍 newDashboard:', newDashboard);
     console.log('🔍 existingContainer:', existingContainer);
     
-    // Find the existing dashboard inside the container
-    const existingDashboard = existingContainer.querySelector('.market-data-dashboard');
-    console.log('🔍 existingDashboard found:', existingDashboard);
-    
-    if (!existingDashboard) {
-      console.error('❌ Could not find existing dashboard to update');
-      console.log('🔍 Container children:', existingContainer.children);
-      return;
-    }
-
-    // Remove spinner overlay
+    // FIRST: Remove spinner overlay
     const overlay = existingContainer.querySelector('.dropdown-spinner-overlay');
     console.log('🔍 Overlay found:', overlay);
     if (overlay) {
       console.log('🗑️ Removing spinner overlay');
       overlay.remove();
+    }
+    
+    // THEN: Find the existing dashboard inside the container
+    const existingDashboard = existingContainer.querySelector('.market-data-dashboard');
+    console.log('🔍 existingDashboard found:', existingDashboard);
+    console.log('🔍 All container children after overlay removal:', Array.from(existingContainer.children).map(child => child.className));
+    
+    if (!existingDashboard) {
+      console.error('❌ Could not find existing dashboard to update');
+      console.log('🔍 Container innerHTML:', existingContainer.innerHTML);
+      
+      // FALLBACK: Create new dashboard inside existing container
+      console.log('🔄 Fallback: Adding new dashboard to existing container');
+      existingContainer.appendChild(newDashboard);
+      
+      // Restore button to normal state
+      this.restoreToggleButtonState();
+      console.log('✅ Fallback dashboard creation completed');
+      return;
     }
 
     // Replace content smoothly
@@ -1634,5 +1643,22 @@ export class DashboardManagerV2 {
     }
 
     console.log('✅ Updated existing dropdown content without flickering');
+  }
+
+  // Restore toggle button to normal open state
+  restoreToggleButtonState() {
+    const button = document.querySelector('.minimal-market-toggle');
+    if (button) {
+      const svg = button.querySelector('svg');
+      if (svg) {
+        // Restore arrow up (open state)
+        svg.innerHTML = `<path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+      }
+      button.disabled = false;
+      button.style.cursor = 'pointer';
+      button.style.backgroundColor = '#4A90E2';
+      button.style.color = 'white';
+      button.title = 'Dölj marknadsanalys';
+    }
   }
 } 
