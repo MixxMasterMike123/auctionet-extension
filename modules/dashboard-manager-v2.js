@@ -1517,9 +1517,25 @@ export class DashboardManagerV2 {
 
   // Show spinner overlay on existing dropdown (no flickering)
   showSpinnerOverlay(existingContainer) {
+    console.log('🔄 showSpinnerOverlay called');
+    console.log('🔍 existingContainer:', existingContainer);
+    console.log('🔍 Container position:', getComputedStyle(existingContainer).position);
+    console.log('🔍 Container dimensions:', {
+      width: existingContainer.offsetWidth,
+      height: existingContainer.offsetHeight
+    });
+    
+    // Ensure container has position relative for absolute positioning
+    if (getComputedStyle(existingContainer).position === 'static') {
+      existingContainer.style.position = 'relative';
+    }
+    
     // Remove any existing overlay
     const existingOverlay = existingContainer.querySelector('.dropdown-spinner-overlay');
-    if (existingOverlay) existingOverlay.remove();
+    if (existingOverlay) {
+      console.log('🗑️ Removing existing overlay');
+      existingOverlay.remove();
+    }
 
     // Create spinner overlay
     const overlay = document.createElement('div');
@@ -1530,14 +1546,15 @@ export class DashboardManagerV2 {
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.95);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 15px;
-      z-index: 10;
+      z-index: 1000;
       border-radius: 8px;
+      min-height: 150px;
     `;
 
     // Create spinner
@@ -1565,12 +1582,14 @@ export class DashboardManagerV2 {
     overlay.appendChild(loadingText);
 
     // Add overlay to existing container
-    existingContainer.style.position = 'relative';
     existingContainer.appendChild(overlay);
+    console.log('✅ Overlay appended to container');
+    console.log('🔍 Container children after overlay add:', Array.from(existingContainer.children).map(child => child.className));
 
     // Update button to loading state
     const button = document.querySelector('.minimal-market-toggle');
     if (button) {
+      console.log('🔄 Updating button to loading state');
       const svg = button.querySelector('svg');
       if (svg) {
         svg.innerHTML = `<div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #4A90E2; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>`;
@@ -1581,6 +1600,9 @@ export class DashboardManagerV2 {
     }
 
     console.log('🔄 Added spinner overlay to existing dropdown');
+    
+    // Force a repaint to ensure overlay is visible
+    existingContainer.offsetHeight;
   }
 
   // Update existing dropdown content (no flickering)
@@ -1598,13 +1620,23 @@ export class DashboardManagerV2 {
     }
     
     // THEN: Find the existing dashboard inside the container
-    const existingDashboard = existingContainer.querySelector('.market-data-dashboard');
+    let existingDashboard = existingContainer.querySelector('.market-data-dashboard');
     console.log('🔍 existingDashboard found:', existingDashboard);
-    console.log('🔍 All container children after overlay removal:', Array.from(existingContainer.children).map(child => child.className));
+    console.log('🔍 All container children after overlay removal:', Array.from(existingContainer.children).map(child => ({
+      className: child.className,
+      tagName: child.tagName,
+      id: child.id
+    })));
+    
+    // Try alternative selectors if not found
+    if (!existingDashboard) {
+      existingDashboard = existingContainer.querySelector('div[class*="market"]');
+      console.log('🔍 Alternative dashboard search result:', existingDashboard);
+    }
     
     if (!existingDashboard) {
       console.error('❌ Could not find existing dashboard to update');
-      console.log('🔍 Container innerHTML:', existingContainer.innerHTML);
+      console.log('🔍 Container innerHTML (first 500 chars):', existingContainer.innerHTML.substring(0, 500));
       
       // FALLBACK: Create new dashboard inside existing container
       console.log('🔄 Fallback: Adding new dashboard to existing container');
