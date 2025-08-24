@@ -183,12 +183,37 @@ JSON:
       
       // Try a more aggressive fallback parsing
       try {
-        // Look for artist name in any format
+        // First try to extract the JSON part and parse it properly
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const jsonStr = jsonMatch[0];
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.hasArtist && parsed.artistName) {
+              console.log('🎯 Fallback JSON parsing found artist:', parsed.artistName);
+              return {
+                hasArtist: true,
+                artistName: parsed.artistName,
+                isVerified: parsed.isVerified || false,
+                foundIn: 'title',
+                suggestedTitle: parsed.suggestedTitle || null,
+                suggestedDescription: parsed.suggestedDescription || null,
+                confidence: parsed.confidence || 0.7,
+                reasoning: parsed.reasoning || 'Fallback JSON parsing från AI-svar',
+                source: 'ai'
+              };
+            }
+          } catch (jsonParseError) {
+            console.log('🔧 JSON parsing failed, trying regex fallback');
+          }
+        }
+        
+        // Fallback to regex patterns
         const nameMatch = responseText.match(/(?:artistName|artist|name)['":\s]*["']([^"']+)["']/i) ||
                          responseText.match(/(?:detected|found|upptäckt)[^"']*["']([^"']+)["']/i);
         
         if (nameMatch && nameMatch[1]) {
-          console.log('🎯 Fallback parsing found artist:', nameMatch[1]);
+          console.log('🎯 Fallback regex parsing found artist:', nameMatch[1]);
           return {
             hasArtist: true,
             artistName: nameMatch[1],
@@ -197,7 +222,7 @@ JSON:
             suggestedTitle: null,
             suggestedDescription: null,
             confidence: 0.7,
-            reasoning: 'Fallback parsing från AI-svar',
+            reasoning: 'Fallback regex parsing från AI-svar',
             source: 'ai'
           };
         }
