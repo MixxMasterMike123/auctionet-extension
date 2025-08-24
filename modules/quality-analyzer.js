@@ -550,24 +550,26 @@ export class QualityAnalyzer {
         if (aiArtistForMarketAnalysis.foundIn === 'title') {
 
           
-          // Generate SSoT WITHOUT the detected artist (conservative approach)
+          // Generate SSoT WITH the detected artist for comprehensive market analysis
           if (this.searchQuerySSoT && this.searchFilterManager) {
             
-            // Extract candidate terms WITHOUT the detected artist
+            // Extract candidate terms WITH the detected artist for market analysis
+            console.log('🎯 Using AI-detected artist for market analysis:', aiArtistForMarketAnalysis.detectedArtist);
             const candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
               data.title,
               data.description,
-              { artist: data.artist }, // Use only existing artist field (not AI detected)
-              data.artist || '' // Pass existing artist as context
+              { artist: aiArtistForMarketAnalysis.detectedArtist }, // Use AI-detected artist for market analysis
+              aiArtistForMarketAnalysis.detectedArtist || '' // Pass AI-detected artist as context
             );
+            console.log('🔍 Generated search terms:', candidateSearchTerms);
             
             if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
               
-              // Initialize SSoT with terms EXCLUDING detected artist
+              // Initialize SSoT with terms INCLUDING detected artist
               this.searchQuerySSoT.initialize(
                 candidateSearchTerms.currentQuery, 
                 candidateSearchTerms, 
-                'conservative_no_title_artist'
+                'comprehensive_with_detected_artist'
               );
               
               // Trigger market analysis with conservative search context
@@ -578,13 +580,13 @@ export class QualityAnalyzer {
                 this.apiManager.analyzeSales(searchContext).then(salesData => {
                   if (salesData && salesData.hasComparableData) {
                     
-                    // Update dashboard with conservative results
+                    // Update dashboard with comprehensive results
                     if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
-                      this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'conservative_no_title_artist');
+                      this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'comprehensive_with_detected_artist');
                     }
                   }
                 }).catch(error => {
-                  console.error('❌ Conservative market analysis failed:', error);
+                  console.error('❌ Comprehensive market analysis failed:', error);
                 });
               }
             } else {
