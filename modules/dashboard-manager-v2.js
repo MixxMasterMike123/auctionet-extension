@@ -1124,136 +1124,136 @@ export class DashboardManagerV2 {
     
   }
 
-  // Create smooth dropdown that pushes content down (not overlay)
+  // Create minimal floating toggle with smooth dropdown content
   createSmoothDropdownDashboard(dashboardElement) {
-    // Remove any existing dropdown
-    const existingContainer = document.querySelector('.smooth-market-dropdown');
-    if (existingContainer) {
-      existingContainer.remove();
-    }
+    // Remove any existing dropdown elements
+    const existingButton = document.querySelector('.minimal-market-toggle');
+    const existingContainer = document.querySelector('.market-dropdown-container');
+    if (existingButton) existingButton.remove();
+    if (existingContainer) existingContainer.remove();
 
-    // Find the main container to insert above
+    // Find the main container to insert dropdown content above
     const mainContainer = document.querySelector('.container');
     if (!mainContainer) {
       console.error('❌ Main container not found, cannot create smooth dropdown');
       return;
     }
 
-    // Create container that will be inserted into the normal document flow
-    const dropdownContainer = document.createElement('div');
-    dropdownContainer.className = 'smooth-market-dropdown';
-    dropdownContainer.style.cssText = `
-      width: 100%;
-      overflow: hidden;
-      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      margin-bottom: 20px;
+    // Create minimal floating toggle button (far left, non-intrusive)
+    const floatingToggle = document.createElement('button');
+    floatingToggle.className = 'minimal-market-toggle';
+    floatingToggle.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="transition: transform 0.3s ease;">
+        <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
     `;
-
-    // Create toggle bar (always visible, compact)
-    const toggleBar = document.createElement('div');
-    toggleBar.className = 'market-toggle-bar';
-    toggleBar.style.cssText = `
-      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
-      color: white;
-      padding: 15px 20px;
+    floatingToggle.style.cssText = `
+      position: fixed;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 9999;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: white;
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      font-weight: 600;
-      font-size: 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(74, 144, 226, 0.2);
+      color: #333;
       transition: all 0.3s ease;
-      user-select: none;
+      font-size: 0;
     `;
 
-    toggleBar.innerHTML = `
-      <span class="toggle-icon">📊</span>
-      <span class="toggle-text">Marknadsanalys</span>
-      <span class="toggle-arrow" style="transition: transform 0.3s ease;">▼</span>
-    `;
-
-    // Create content container (initially hidden)
-    const contentContainer = document.createElement('div');
-    contentContainer.className = 'market-content-container';
-    contentContainer.style.cssText = `
+    // Create dropdown content container (hidden initially, in document flow)
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.className = 'market-dropdown-container';
+    dropdownContainer.style.cssText = `
+      width: 100%;
       max-height: 0;
       overflow: hidden;
       transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-bottom: 0;
       opacity: 0;
       transform: translateY(-10px);
       transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
                   opacity 0.3s ease 0.1s, 
-                  transform 0.3s ease 0.1s;
+                  transform 0.3s ease 0.1s,
+                  margin-bottom 0.5s ease;
     `;
 
-    // Style the dashboard element to fit nicely
+    // Style the dashboard element (original design)
     dashboardElement.style.cssText = `
       margin: 0;
-      border-radius: 0 0 8px 8px;
-      box-shadow: none;
+      border-radius: 8px;
       background: white;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
       border: 1px solid #e0e0e0;
-      border-top: none;
     `;
 
-    // Add dashboard to content container
-    contentContainer.appendChild(dashboardElement);
+    // Add dashboard to dropdown container
+    dropdownContainer.appendChild(dashboardElement);
 
     // Add toggle functionality
     let isOpen = false;
-    toggleBar.addEventListener('click', () => {
+    floatingToggle.addEventListener('click', () => {
       isOpen = !isOpen;
       
       if (isOpen) {
         // Open - expand content
         const contentHeight = dashboardElement.scrollHeight;
-        contentContainer.style.maxHeight = `${contentHeight}px`;
-        contentContainer.style.opacity = '1';
-        contentContainer.style.transform = 'translateY(0)';
+        dropdownContainer.style.maxHeight = `${contentHeight}px`;
+        dropdownContainer.style.opacity = '1';
+        dropdownContainer.style.transform = 'translateY(0)';
+        dropdownContainer.style.marginBottom = '20px';
         
-        // Update toggle bar
-        toggleBar.querySelector('.toggle-arrow').style.transform = 'rotate(180deg)';
-        toggleBar.style.background = 'linear-gradient(135deg, #357ABD 0%, #2968A3 100%)';
-        toggleBar.style.borderRadius = '8px 8px 0 0';
+        // Update button
+        floatingToggle.querySelector('svg').style.transform = 'rotate(180deg)';
+        floatingToggle.style.background = '#f8f9fa';
+        floatingToggle.style.borderColor = '#4A90E2';
+        floatingToggle.style.color = '#4A90E2';
         
       } else {
         // Close - collapse content
-        contentContainer.style.maxHeight = '0';
-        contentContainer.style.opacity = '0';
-        contentContainer.style.transform = 'translateY(-10px)';
+        dropdownContainer.style.maxHeight = '0';
+        dropdownContainer.style.opacity = '0';
+        dropdownContainer.style.transform = 'translateY(-10px)';
+        dropdownContainer.style.marginBottom = '0';
         
-        // Update toggle bar
-        toggleBar.querySelector('.toggle-arrow').style.transform = 'rotate(0deg)';
-        toggleBar.style.background = 'linear-gradient(135deg, #4A90E2 0%, #357ABD 100%)';
-        toggleBar.style.borderRadius = '8px';
+        // Update button
+        floatingToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+        floatingToggle.style.background = 'white';
+        floatingToggle.style.borderColor = '#e0e0e0';
+        floatingToggle.style.color = '#333';
       }
     });
 
-    // Add hover effects
-    toggleBar.addEventListener('mouseenter', () => {
+    // Add hover effects to button
+    floatingToggle.addEventListener('mouseenter', () => {
       if (!isOpen) {
-        toggleBar.style.transform = 'translateY(-2px)';
-        toggleBar.style.boxShadow = '0 4px 15px rgba(74, 144, 226, 0.3)';
+        floatingToggle.style.transform = 'translateY(-50%) scale(1.1)';
+        floatingToggle.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.15)';
+        floatingToggle.style.borderColor = '#4A90E2';
       }
     });
 
-    toggleBar.addEventListener('mouseleave', () => {
+    floatingToggle.addEventListener('mouseleave', () => {
       if (!isOpen) {
-        toggleBar.style.transform = 'translateY(0)';
-        toggleBar.style.boxShadow = '0 2px 10px rgba(74, 144, 226, 0.2)';
+        floatingToggle.style.transform = 'translateY(-50%) scale(1)';
+        floatingToggle.style.boxShadow = '0 2px 12px rgba(0, 0, 0, 0.1)';
+        floatingToggle.style.borderColor = '#e0e0e0';
       }
     });
 
-    // Assemble dropdown
-    dropdownContainer.appendChild(toggleBar);
-    dropdownContainer.appendChild(contentContainer);
+    // Add floating button to page
+    document.body.appendChild(floatingToggle);
 
-    // Insert into normal document flow (pushes content down)
+    // Insert dropdown content into normal document flow (pushes content down when expanded)
     mainContainer.parentNode.insertBefore(dropdownContainer, mainContainer);
 
-    console.log('📊 DashboardManagerV2: Created smooth dropdown that pushes content down');
+    console.log('📊 DashboardManagerV2: Created minimal floating toggle with smooth dropdown');
   }
 } 
