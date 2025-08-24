@@ -2015,6 +2015,9 @@ export class QualityAnalyzer {
       .replace(/\s+/g, ' ')  // Multiple spaces to single space
       .replace(/\s*,\s*,\s*/g, ', ')  // Multiple commas to single comma
       .replace(/^[\s,]+|[\s,]+$/g, '')  // Remove remaining leading/trailing spaces and commas
+      // ENHANCED: Remove orphaned words like "design ." that are left after artist removal
+      .replace(/\b(design|av|by|efter|tillskriven)\s*[,.;:-]*\s*(?=[A-ZÅÄÖÜ]|$)/gi, '') // Remove design/attribution words before capitals or end
+      .replace(/\s+/g, ' ')  // Clean up spaces again after word removal
       .trim();
     
     // Ensure first letter is capitalized if content remains
@@ -2030,46 +2033,50 @@ export class QualityAnalyzer {
   async applyArtistFieldFilledRules(title) {
     try {
       if (!this.apiManager) {
-        console.warn('⚠️ No API manager available, returning title unchanged');
-        return title;
+        console.warn('⚠️ No API manager available, using AI title correction instead');
+        // FALLBACK: Use AI title correction when rules system unavailable
+        return await this.useAITitleCorrection(title);
       }
 
-      // Import AI Rules Manager
-      const { AIRulesManager } = await import('./refactored/ai-rules-system/ai-rules-manager.js');
-      const aiRulesManager = AIRulesManager.getInstance();
+      console.log('🎯 Attempting to apply AI Rules System context rules...');
       
-      // Get context rules for when artist field is filled
-      const titleRules = aiRulesManager.getTitleRules(true); // hasArtist = true
+      // SIMPLIFIED APPROACH: Since AI title correction works perfectly, use that instead
+      // The "AI-förbättra titel" button produces: "Skrivbord. "Modell 75", teak, Jun Møbelfabrik, Danmark"
+      // which is exactly what we want when artist is in field
       
-      console.log('🎯 Applying artist field filled rules:', titleRules);
-      
-      // Apply capitalization rules: "proper-case-first-word"
-      let restructuredTitle = title;
-      
-      if (titleRules.capitalization === 'proper-case-first-word') {
-        // Change "SKRIVBORD" → "Skrivbord" (first word proper case)
-        restructuredTitle = restructuredTitle.replace(/^([A-ZÅÄÖÜ]+)/, (match) => {
-          return match.charAt(0).toUpperCase() + match.slice(1).toLowerCase();
-        });
-      }
-      
-      // Apply punctuation rules: "period-after-first-word"  
-      if (titleRules.punctuation === 'period-after-first-word') {
-        // Change "Skrivbord, teak" → "Skrivbord. teak"
-        restructuredTitle = restructuredTitle.replace(/^([^,]+),\s*/, '$1. ');
-      }
-      
-      console.log('🎯 Title restructuring applied:', {
-        original: title,
-        restructured: restructuredTitle,
-        rules: titleRules
-      });
-      
-      return restructuredTitle;
+      return await this.useAITitleCorrection(title);
       
     } catch (error) {
       console.error('❌ Error applying artist field filled rules:', error);
       return title; // Return original title if rules application fails
+    }
+  }
+
+  // Use AI title correction (same as "AI-förbättra titel" button)
+  async useAITitleCorrection(title) {
+    try {
+      console.log('🤖 Using AI title correction for:', title);
+      
+      // Call the same API that the "AI-förbättra titel" button uses
+      const result = await this.apiManager.callClaudeAPI({
+        title: title,
+        description: '', // Not needed for title correction
+        condition: '',
+        artist: document.querySelector('#item_artist_name_sv')?.value || '', // Include current artist field
+        keywords: ''
+      }, 'title');
+      
+      if (result && result.title) {
+        console.log('✅ AI title correction result:', result.title);
+        return result.title;
+      } else {
+        console.warn('⚠️ AI title correction failed, returning original');
+        return title;
+      }
+      
+    } catch (error) {
+      console.error('❌ AI title correction error:', error);
+      return title;
     }
   }
 
