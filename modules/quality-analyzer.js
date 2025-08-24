@@ -2057,6 +2057,9 @@ export class QualityAnalyzer {
     try {
       console.log('🤖 Using AI title correction for:', title);
       
+      // Show loading spinner over title field (same as "AI-förbättra titel" button)
+      this.showTitleLoadingSpinner();
+      
       // Call the same API that the "AI-förbättra titel" button uses
       const result = await this.apiManager.callClaudeAPI({
         title: title,
@@ -2066,17 +2069,139 @@ export class QualityAnalyzer {
         keywords: ''
       }, 'title');
       
+      // Remove loading spinner
+      this.removeTitleLoadingSpinner();
+      
       if (result && result.title) {
         console.log('✅ AI title correction result:', result.title);
+        // Show success flash (same as "AI-förbättra titel" button)
+        this.showTitleSuccessFlash();
         return result.title;
       } else {
         console.warn('⚠️ AI title correction failed, returning original');
+        this.showTitleErrorFlash();
         return title;
       }
       
     } catch (error) {
       console.error('❌ AI title correction error:', error);
+      // Remove loading spinner on error
+      this.removeTitleLoadingSpinner();
+      this.showTitleErrorFlash();
       return title;
+    }
+  }
+
+  // Show loading spinner over title field (same as AI buttons)
+  showTitleLoadingSpinner() {
+    const targetField = document.querySelector('#item_title_sv');
+    if (!targetField) return;
+    
+    // Remove any existing spinner
+    this.removeTitleLoadingSpinner();
+    
+    // Find the field container
+    let fieldContainer = targetField.parentElement;
+    if (fieldContainer.classList.contains('ai-button-wrapper') || fieldContainer.tagName === 'LABEL') {
+      fieldContainer = fieldContainer.parentElement;
+    }
+    
+    // Add loading class to container
+    fieldContainer.classList.add('field-loading');
+    
+    // Create spinner overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'field-spinner-overlay title-correction-spinner';
+    overlay.innerHTML = `
+      <div class="ai-spinner"></div>
+      <div class="ai-processing-text">AI förbättrar titel...</div>
+    `;
+    
+    // Position overlay over the field
+    const fieldRect = targetField.getBoundingClientRect();
+    const containerRect = fieldContainer.getBoundingClientRect();
+    
+    overlay.style.position = 'absolute';
+    overlay.style.top = `${fieldRect.top - containerRect.top}px`;
+    overlay.style.left = `${fieldRect.left - containerRect.left}px`;
+    overlay.style.width = `${fieldRect.width}px`;
+    overlay.style.height = `${fieldRect.height}px`;
+    overlay.style.backgroundColor = 'rgba(74, 144, 226, 0.9)';
+    overlay.style.color = 'white';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.borderRadius = '4px';
+    overlay.style.zIndex = '1000';
+    
+    // Add spinner styles
+    const spinnerStyle = overlay.querySelector('.ai-spinner');
+    if (spinnerStyle) {
+      spinnerStyle.style.width = '20px';
+      spinnerStyle.style.height = '20px';
+      spinnerStyle.style.border = '2px solid rgba(255,255,255,0.3)';
+      spinnerStyle.style.borderTop = '2px solid white';
+      spinnerStyle.style.borderRadius = '50%';
+      spinnerStyle.style.animation = 'spin 1s linear infinite';
+      spinnerStyle.style.marginBottom = '8px';
+    }
+    
+    // Add spin animation if not already present
+    if (!document.getElementById('title-spinner-styles')) {
+      const style = document.createElement('style');
+      style.id = 'title-spinner-styles';
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    fieldContainer.appendChild(overlay);
+    console.log('🔄 Title loading spinner shown');
+  }
+
+  // Remove loading spinner from title field
+  removeTitleLoadingSpinner() {
+    const overlay = document.querySelector('.title-correction-spinner');
+    if (overlay) {
+      const container = overlay.parentElement;
+      container.classList.remove('field-loading');
+      overlay.remove();
+      console.log('✅ Title loading spinner removed');
+    }
+  }
+
+  // Show success flash on title field
+  showTitleSuccessFlash() {
+    const targetField = document.querySelector('#item_title_sv');
+    if (targetField) {
+      targetField.style.transition = 'background-color 0.3s ease';
+      targetField.style.backgroundColor = '#d4edda';
+      targetField.style.borderColor = '#28a745';
+      
+      setTimeout(() => {
+        targetField.style.backgroundColor = '';
+        targetField.style.borderColor = '';
+      }, 2000);
+    }
+  }
+
+  // Show error flash on title field
+  showTitleErrorFlash() {
+    const targetField = document.querySelector('#item_title_sv');
+    if (targetField) {
+      targetField.style.transition = 'background-color 0.3s ease';
+      targetField.style.backgroundColor = '#f8d7da';
+      targetField.style.borderColor = '#dc3545';
+      
+      setTimeout(() => {
+        targetField.style.backgroundColor = '';
+        targetField.style.borderColor = '';
+      }, 3000);
     }
   }
 
