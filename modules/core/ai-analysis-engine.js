@@ -176,9 +176,35 @@ JSON:
       
       return null;
     } catch (error) {
-      // Silently handle parsing errors to avoid console noise
-      // Artist analysis is a background feature, errors shouldn't be prominent
+      // Enhanced debugging for parsing errors
       console.log('⚠️ AI artist analysis: parsing issue (non-critical)', error.message);
+      console.log('🔧 Raw AI response that failed to parse:', responseText);
+      console.log('🔧 JSON match found:', responseText.match(/\{[\s\S]*\}/));
+      
+      // Try a more aggressive fallback parsing
+      try {
+        // Look for artist name in any format
+        const nameMatch = responseText.match(/(?:artistName|artist|name)['":\s]*["']([^"']+)["']/i) ||
+                         responseText.match(/(?:detected|found|upptäckt)[^"']*["']([^"']+)["']/i);
+        
+        if (nameMatch && nameMatch[1]) {
+          console.log('🎯 Fallback parsing found artist:', nameMatch[1]);
+          return {
+            hasArtist: true,
+            artistName: nameMatch[1],
+            isVerified: false,
+            foundIn: 'title',
+            suggestedTitle: null,
+            suggestedDescription: null,
+            confidence: 0.7,
+            reasoning: 'Fallback parsing från AI-svar',
+            source: 'ai'
+          };
+        }
+      } catch (fallbackError) {
+        console.log('⚠️ Even fallback parsing failed:', fallbackError.message);
+      }
+      
       return null;
     }
   }
