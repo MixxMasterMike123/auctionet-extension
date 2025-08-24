@@ -429,13 +429,25 @@ export class SearchFilterManager {
       const normalizedArtist = artistInfo.artist.trim().replace(/,\s*$/, '');
       const artistWords = normalizedArtist.toLowerCase().split(/\s+/);
       
+      console.log('🧹 Deduplicating artist words from text:', {
+        originalText: textForSignificantWords.substring(0, 100) + '...',
+        normalizedArtist,
+        artistWords
+      });
+      
       // Remove artist words from the text to prevent duplication
       artistWords.forEach(artistWord => {
         if (artistWord.length > 2) { // Only remove meaningful words
           const wordRegex = new RegExp(`\\b${artistWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+          const beforeReplace = textForSignificantWords;
           textForSignificantWords = textForSignificantWords.replace(wordRegex, '');
+          if (beforeReplace !== textForSignificantWords) {
+            console.log(`🧹 Removed "${artistWord}" from text`);
+          }
         }
       });
+      
+      console.log('🧹 Text after artist deduplication:', textForSignificantWords.substring(0, 100) + '...');
     }
     
     const significantWords = this.extractSignificantWords(textForSignificantWords);
