@@ -759,8 +759,7 @@ export class QualityAnalyzer {
       const recalculatedScore = this.calculateCurrentQualityScore(latestData);
       this.updateQualityIndicator(recalculatedScore, currentWarnings, true);
       
-      // NEW: TRIGGER DASHBOARD FOR NON-ART ITEMS TOO!
-      await this.triggerDashboardForNonArtItems(data);
+      // Note: Dashboard will be triggered by artist-specific market analysis when artist is detected
       
       return {
         detectedArtist: null,
