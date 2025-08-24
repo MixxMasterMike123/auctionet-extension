@@ -1217,8 +1217,12 @@ export class DashboardManagerV2 {
     // Load saved state from localStorage
     let isOpen = localStorage.getItem(STORAGE_KEY) === 'true';
     
-    // Apply initial state
-    this.applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, false);
+    // CRITICAL FIX: Ensure button and dropdown are in sync
+    // Force a brief delay to ensure DOM is ready, then apply state
+    setTimeout(() => {
+      this.applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, false);
+      console.log(`🔄 Applied initial state: ${isOpen ? 'OPEN' : 'CLOSED'}`);
+    }, 10);
     
     floatingToggle.addEventListener('click', () => {
       isOpen = !isOpen;
@@ -1226,8 +1230,15 @@ export class DashboardManagerV2 {
       // Save state to localStorage
       localStorage.setItem(STORAGE_KEY, isOpen.toString());
       
+      console.log(`👆 User clicked toggle: ${isOpen ? 'OPENING' : 'CLOSING'}`);
+      
       // Apply visual state
       this.applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, true);
+      
+      // Verify state after a brief moment
+      setTimeout(() => {
+        this.verifyDropdownState(isOpen, floatingToggle, dropdownContainer);
+      }, 100);
     });
 
     // Add hover effects to button
@@ -1258,6 +1269,21 @@ export class DashboardManagerV2 {
 
   // Apply dropdown state (open/closed) with optional animation
   applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, animate = true) {
+    console.log(`🔄 applyDropdownState: ${isOpen ? 'OPENING' : 'CLOSING'} ${animate ? 'with animation' : 'instantly'}`);
+    
+    // Ensure we have valid elements
+    if (!floatingToggle || !dropdownContainer || !dashboardElement) {
+      console.error('❌ applyDropdownState: Missing required elements');
+      return;
+    }
+    
+    // Ensure SVG exists
+    const svg = floatingToggle.querySelector('svg');
+    if (!svg) {
+      console.error('❌ applyDropdownState: Button SVG not found');
+      return;
+    }
+    
     if (isOpen) {
       // Open - expand content
       const contentHeight = dashboardElement.scrollHeight;
@@ -1266,14 +1292,16 @@ export class DashboardManagerV2 {
       dropdownContainer.style.transform = 'translateY(0)';
       dropdownContainer.style.marginBottom = '20px';
       
-      // Update button
-      floatingToggle.querySelector('svg').style.transform = 'rotate(180deg)';
+      // Update button - FORCE the state
+      svg.style.transform = 'rotate(180deg)';
       floatingToggle.style.background = '#f8f9fa';
       floatingToggle.style.borderColor = '#4A90E2';
       floatingToggle.style.color = '#4A90E2';
       
       // Add visual indicator that it's pinned open
       floatingToggle.title = 'Marknadsanalys (synlig - klicka för att dölja)';
+      
+      console.log('✅ Applied OPEN state - arrow should be UP');
       
     } else {
       // Close - collapse content
@@ -1282,13 +1310,15 @@ export class DashboardManagerV2 {
       dropdownContainer.style.transform = 'translateY(-10px)';
       dropdownContainer.style.marginBottom = '0';
       
-      // Update button
-      floatingToggle.querySelector('svg').style.transform = 'rotate(0deg)';
+      // Update button - FORCE the state
+      svg.style.transform = 'rotate(0deg)';
       floatingToggle.style.background = 'white';
       floatingToggle.style.borderColor = '#e0e0e0';
       floatingToggle.style.color = '#333';
       
       floatingToggle.title = 'Marknadsanalys (dold - klicka för att visa)';
+      
+      console.log('✅ Applied CLOSED state - arrow should be DOWN');
     }
     
     // If this is initial load (no animation), ensure immediate display
@@ -1434,5 +1464,32 @@ export class DashboardManagerV2 {
       loadingContainer.remove();
     }
     console.log('📊 Removed market analysis loading state');
+  }
+
+  // Verify that button and dropdown states are synchronized
+  verifyDropdownState(expectedState, floatingToggle, dropdownContainer) {
+    const svg = floatingToggle?.querySelector('svg');
+    if (!svg || !dropdownContainer) return;
+    
+    const buttonRotation = svg.style.transform;
+    const containerMaxHeight = dropdownContainer.style.maxHeight;
+    const containerOpacity = dropdownContainer.style.opacity;
+    
+    const buttonLooksOpen = buttonRotation.includes('180deg');
+    const containerLooksOpen = containerMaxHeight !== '0px' && containerOpacity !== '0';
+    
+    console.log(`🔍 State verification:
+      Expected: ${expectedState ? 'OPEN' : 'CLOSED'}
+      Button rotation: ${buttonRotation} (looks ${buttonLooksOpen ? 'OPEN' : 'CLOSED'})
+      Container height: ${containerMaxHeight} (looks ${containerLooksOpen ? 'OPEN' : 'CLOSED'})
+      Container opacity: ${containerOpacity}`);
+    
+    if (expectedState !== buttonLooksOpen || expectedState !== containerLooksOpen) {
+      console.warn('⚠️ STATE MISMATCH DETECTED - forcing re-sync');
+      // Force re-sync
+      this.applyDropdownState(expectedState, floatingToggle, dropdownContainer, dropdownContainer.firstChild, false);
+    } else {
+      console.log('✅ State verification passed - button and dropdown are synchronized');
+    }
   }
 } 
