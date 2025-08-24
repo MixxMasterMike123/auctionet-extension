@@ -720,6 +720,13 @@ export class QualityAnalyzer {
   }
 
   async handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore) {
+    console.log('🎨 handleArtistDetectionResult called with:', {
+      hasAiArtist: !!aiArtist,
+      detectedArtist: aiArtist?.detectedArtist,
+      confidence: aiArtist?.confidence,
+      foundIn: aiArtist?.foundIn,
+      currentWarningsCount: currentWarnings?.length || 0
+    });
     
     // Check if aiArtist is null or undefined
     if (!aiArtist || !aiArtist.detectedArtist) {
@@ -777,13 +784,21 @@ export class QualityAnalyzer {
       dataAttributes: { 'data-artist-warning': 'true' } // NEW: Add data attribute for ignore button targeting
     };
 
+    console.log('🎨 Created artist warning:', {
+      field: artistWarning.field,
+      issue: artistWarning.issue?.substring(0, 100) + '...',
+      detectedArtist: artistWarning.detectedArtist,
+      isArtistWarning: artistWarning.isArtistWarning
+    });
     
     // CRITICAL FIX: Don't add duplicate artist warnings
     const existingArtistWarningIndex = currentWarnings.findIndex(w => w.isArtistWarning);
     if (existingArtistWarningIndex >= 0) {
       currentWarnings[existingArtistWarningIndex] = artistWarning;
+      console.log('🎨 Replaced existing artist warning at index:', existingArtistWarningIndex);
     } else {
       currentWarnings.unshift(artistWarning);
+      console.log('🎨 Added new artist warning. Total warnings:', currentWarnings.length);
     }
 
     // Update quality display with animation after AI analysis (recalculate score with latest data)
@@ -2449,14 +2464,21 @@ export class QualityAnalyzer {
   }
 
   updateQualityIndicator(score, warnings, shouldAnimate = false) {
+    console.log('🔍 updateQualityIndicator called with:', {
+      score,
+      warningsCount: warnings?.length || 0,
+      warnings: warnings?.map(w => ({ field: w.field, issue: w.issue?.substring(0, 50) + '...', isArtistWarning: w.isArtistWarning })) || []
+    });
     
     // Create or update circular progress indicators using reusable component
     const qualityIndicator = document.querySelector('.quality-indicator');
+    console.log('🔍 Quality indicator element found:', !!qualityIndicator);
     if (qualityIndicator) {
       this.circularProgressManager.createQualityCircles(qualityIndicator, score, warnings, shouldAnimate);
     }
     
     const warningsElement = document.querySelector('.quality-warnings');
+    console.log('🔍 Warnings element found:', !!warningsElement);
     
     if (warningsElement) {
       if (warnings.length > 0) {
