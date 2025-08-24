@@ -110,9 +110,14 @@ export class DashboardManagerV2 {
     // If dropdown should stay open and exists, just update content with spinner
     if (shouldStayOpen && existingContainer) {
       console.log('🔄 Preserving existing dropdown, adding spinner overlay');
+      console.log('🔍 existingContainer:', existingContainer);
+      console.log('🔍 shouldStayOpen:', shouldStayOpen);
       this.showSpinnerOverlay(existingContainer);
       // Don't remove existing elements, just update them
     } else {
+      console.log('🆕 Creating new dropdown (normal flow)');
+      console.log('🔍 shouldStayOpen:', shouldStayOpen);
+      console.log('🔍 existingContainer:', existingContainer);
       // Normal flow - remove existing elements
       const existingButton = document.querySelector('.minimal-market-toggle');
       const existingDashboard = document.querySelector('.market-data-dashboard');
@@ -143,9 +148,18 @@ export class DashboardManagerV2 {
     
     // Check if we're updating existing dropdown or creating new one
     if (shouldStayOpen && existingContainer) {
+      console.log('🔄 Updating existing dropdown content');
       // Update existing dropdown content
-      this.updateExistingDropdownContent(dashboard, existingContainer);
+      try {
+        this.updateExistingDropdownContent(dashboard, existingContainer);
+      } catch (error) {
+        console.error('❌ Failed to update existing dropdown, falling back to recreation:', error);
+        // Fallback: remove existing and create new
+        existingContainer.remove();
+        this.createSmoothDropdownDashboard(dashboard);
+      }
     } else {
+      console.log('🆕 Creating new smooth dropdown');
       // Create new dropdown
       this.createSmoothDropdownDashboard(dashboard);
     }
@@ -1571,16 +1585,27 @@ export class DashboardManagerV2 {
 
   // Update existing dropdown content (no flickering)
   updateExistingDropdownContent(newDashboard, existingContainer) {
+    console.log('🔄 updateExistingDropdownContent called');
+    console.log('🔍 newDashboard:', newDashboard);
+    console.log('🔍 existingContainer:', existingContainer);
+    
     // Find the existing dashboard inside the container
     const existingDashboard = existingContainer.querySelector('.market-data-dashboard');
+    console.log('🔍 existingDashboard found:', existingDashboard);
+    
     if (!existingDashboard) {
       console.error('❌ Could not find existing dashboard to update');
+      console.log('🔍 Container children:', existingContainer.children);
       return;
     }
 
     // Remove spinner overlay
     const overlay = existingContainer.querySelector('.dropdown-spinner-overlay');
-    if (overlay) overlay.remove();
+    console.log('🔍 Overlay found:', overlay);
+    if (overlay) {
+      console.log('🗑️ Removing spinner overlay');
+      overlay.remove();
+    }
 
     // Replace content smoothly
     existingDashboard.innerHTML = newDashboard.innerHTML;
