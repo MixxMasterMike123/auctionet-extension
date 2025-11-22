@@ -125,9 +125,20 @@ import('./modules/core/page-detector.js').then(module => {
 // Import UIController
 import('./modules/ui/ui-controller.js').then(module => {
   window.UIController = module.UIController;
-}).catch(error => {
-  console.error('❌ Failed to load UIController:', error);
-});
+  console.log('✅ UIController loaded');
+}).catch(error => console.error('❌ Failed to load UIController:', error));
+
+// Import TypingSimulator for artist autocomplete
+import('./modules/utils/typing-simulator.js').then(module => {
+  window.TypingSimulator = module.TypingSimulator;
+  console.log('✅ TypingSimulator loaded');
+}).catch(error => console.error('❌ Failed to load TypingSimulator:', error));
+
+// Import ArtistFieldManager for artist field operations
+import('./modules/core/artist-field-manager.js').then(module => {
+  window.ArtistFieldManager = module.ArtistFieldManager;
+  console.log('✅ ArtistFieldManager loaded');
+}).catch(error => console.error('❌ Failed to load ArtistFieldManager:', error));
 
 // SPA detection will be handled by the AuctionetCatalogingAssistant class
 
@@ -709,28 +720,30 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
   async moveArtistToField(artistName, suggestedTitle) {
     try {
-      // Move artist to artist field
-      const artistField = document.querySelector('#item_artist_name_sv');
-      if (artistField) {
-        artistField.value = artistName;
-        artistField.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      // Use ArtistFieldManager for all artist field operations
+      const artistFieldManager = new window.ArtistFieldManager();
 
-      // Update title with suggested title if available
-      if (suggestedTitle && suggestedTitle.trim()) {
-        const titleField = document.querySelector('#item_title_sv');
-        if (titleField) {
-          titleField.value = suggestedTitle;
-          titleField.dispatchEvent(new Event('input', { bubbles: true }));
+      const success = await artistFieldManager.moveArtistToField(artistName, suggestedTitle, {
+        onSuccess: () => {
+          // Highlight fields to show changes
+          artistFieldManager.highlightArtistField();
+          if (suggestedTitle) {
+            artistFieldManager.highlightTitleField();
+          }
+
+          // Re-analyze quality to update warnings
+          setTimeout(() => this.analyzeQuality(), 500);
+        },
+        onError: (error) => {
+          console.error('❌ Failed to move artist:', error);
         }
+      });
+
+      if (success) {
+        console.log('✅ Artist moved to field with autocomplete integration');
       }
-
-      // Re-analyze quality to update warnings
-      setTimeout(() => this.analyzeQuality(), 500);
-
-      console.log('✅ Artist moved to field:', artistName);
     } catch (error) {
-      console.error('❌ Error moving artist:', error);
+      console.error('❌ Error in moveArtistToField:', error);
     }
   }
 
