@@ -11,10 +11,10 @@ export class APIManager {
     this.currentModel = 'claude-3-5-sonnet'; // Set default model instead of null
     this.auctionetAPI = new AuctionetAPI();
     this.searchQuerySSoT = null; // NEW: AI-only SearchQuerySSoT support
-    
+
     // Initialize AI Analysis Engine
     this.aiAnalysisEngine = new AIAnalysisEngine(this);
-    
+
     this.loadSettings();
   }
 
@@ -24,29 +24,29 @@ export class APIManager {
       this.apiKey = result.anthropicApiKey;
       this.enableArtistInfo = result.enableArtistInfo !== false;
       this.showDashboard = result.showDashboard !== false; // Default to true if not set
-      
+
       // Load selected model from storage
       if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
         const previousModel = this.currentModel;
         this.currentModel = result.selectedModel;
-        
+
         // Always log which model is loaded, whether it changed or not
-        
+
         // Log if this was a change from the default
         if (previousModel !== this.currentModel) {
         }
       } else {
       }
-      
-      
-      
+
+
+
       // Sync settings with AI Analysis Engine
       if (this.aiAnalysisEngine) {
         this.aiAnalysisEngine.updateSettings({ enableArtistInfo: this.enableArtistInfo });
       }
-      
 
-      
+
+
       // Also refresh Auctionet API settings
       if (this.auctionetAPI) {
         await this.auctionetAPI.refreshExcludeCompanySetting();
@@ -63,7 +63,7 @@ export class APIManager {
       if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
         const previousModel = this.currentModel;
         this.currentModel = result.selectedModel;
-        
+
         // Always log the refresh action, even if model didn't change
         if (previousModel !== this.currentModel) {
         } else {
@@ -113,38 +113,38 @@ export class APIManager {
           }
         });
       });
-      
+
       return await this.processAPIResponse(response, systemPrompt, userPrompt, fieldType);
-      
+
     } catch (error) {
       if ((error.message.includes('Overloaded') || error.message.includes('rate limit') || error.message.includes('429')) && retryCount < 3) {
         const delay = Math.pow(2, retryCount) * 1000;
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.callClaudeAPI(itemData, fieldType, retryCount + 1);
       }
-      
+
       if (error.message.includes('Overloaded')) {
         throw new Error('Claude API är överbelastad just nu. Vänta en stund och försök igen.');
       }
-      
+
       throw error;
     }
   }
 
   async processAPIResponse(response, systemPrompt, userPrompt, fieldType) {
     const data = response.data;
-    
+
     if (!data || !data.content || !Array.isArray(data.content) || data.content.length === 0) {
       throw new Error('Invalid response format from API');
     }
-    
+
     if (!data.content[0] || !data.content[0].text) {
       throw new Error('No text content in API response');
     }
-    
+
     let result = this.parseClaudeResponse(data.content[0].text, fieldType);
-    
+
     if (result.needsCorrection && ['all', 'all-enhanced', 'all-sparse'].includes(fieldType)) {
       const correctionPrompt = `
 De föregående förslagen klarade inte kvalitetskontrollen:
@@ -158,7 +158,7 @@ ${result.validationWarnings.join('\n')}
 
 Vänligen korrigera dessa problem och returnera förbättrade versioner som följer alla svenska auktionsstandarder.
 `;
-      
+
       const correctionResponse = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
@@ -184,10 +184,10 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
           }
         });
       });
-      
+
       if (correctionResponse.success) {
         const correctionData = correctionResponse.data;
-        
+
         if (correctionData && correctionData.content && correctionData.content[0] && correctionData.content[0].text) {
           result = this.parseClaudeResponse(correctionData.content[0].text, fieldType);
         } else {
@@ -195,30 +195,30 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
         }
       }
     }
-    
+
     return result;
   }
 
   parseClaudeResponse(response, fieldType) {
-    
+
     if (!response || typeof response !== 'string') {
       console.error('Invalid response format:', response);
       throw new Error('Invalid response format from Claude');
     }
-    
+
     // SPECIAL CASE: Handle search_query field type - return raw JSON response
     if (fieldType === 'search_query') {
       return response.trim();
     }
-    
+
     // For single field requests
     if (['title', 'title-correct', 'description', 'condition', 'keywords'].includes(fieldType)) {
       const result = {};
       const lines = response.split('\n');
-      
+
       lines.forEach(line => {
         const trimmedLine = line.trim();
-        
+
         if (trimmedLine.match(/^\*?\*?TITEL\s*:?\*?\*?\s*/i)) {
           result.title = trimmedLine.replace(/^\*?\*?TITEL\s*:?\*?\*?\s*/i, '').trim();
         } else if (trimmedLine.match(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i)) {
@@ -229,34 +229,34 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
           result.keywords = trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim();
         }
       });
-      
+
       if (Object.keys(result).length === 0) {
         result[fieldType] = response.trim();
       }
-      
+
       // For title-correct, map the result to title field for field application
       if (fieldType === 'title-correct' && result[fieldType]) {
         result.title = result[fieldType];
         delete result[fieldType];
       }
-      
+
       console.log('Single field parsed result:', result);
       return result;
     }
-    
+
     // Parse multi-field responses with proper multi-line support
     const result = {};
     const lines = response.split('\n');
-    
+
     console.log('Parsing multi-field response, lines:', lines);
-    
+
     let currentField = null;
     let currentContent = [];
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmedLine = line.trim();
-      
+
       // Check if this line starts a new field
       if (trimmedLine.match(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i)) {
         // Save previous field if exists
@@ -335,17 +335,17 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
         currentContent.push(line); // Keep original formatting/indentation
       }
     }
-    
+
     // Save the last field
     if (currentField && currentContent.length > 0) {
       result[currentField] = currentContent.join('\n').trim();
     }
-    
+
     if (Object.keys(result).length === 0 && response.trim().length > 0) {
       console.log('No fields found, using entire response as title');
       result.title = response.trim();
     }
-    
+
     console.log('Multi-field parsed result:', result);
     console.log('Fields found:', Object.keys(result));
     return result;
@@ -355,30 +355,30 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     const category = itemData.category?.toLowerCase() || '';
     const title = itemData.title?.toLowerCase() || '';
     const description = itemData.description?.toLowerCase() || '';
-    
+
     // Detect weapons and militaria - expanded detection
-    const isWeapon = category.includes('vapen') || 
-                    category.includes('svärd') || 
-                    category.includes('kniv') || 
-                    category.includes('bajonett') || 
-                    category.includes('militaria') ||
-                    category.includes('krigshistoria') ||
-                    title.includes('svärd') || 
-                    title.includes('bajonett') || 
-                    title.includes('kniv') ||
-                    title.includes('dolk') ||
-                    title.includes('yxa') ||
-                    title.includes('spjut') ||
-                    title.includes('gevär') ||
-                    title.includes('pistol') ||
-                    title.includes('uniformsdelar') ||
-                    title.includes('hjälm') ||
-                    description.includes('vapen') ||
-                    description.includes('militär') ||
-                    description.includes('svärdsskola') ||
-                    description.includes('svärdsmed') ||
-                    description.includes('signerad') && (description.includes('fujiwara') || description.includes('takada'));
-    
+    const isWeapon = category.includes('vapen') ||
+      category.includes('svärd') ||
+      category.includes('kniv') ||
+      category.includes('bajonett') ||
+      category.includes('militaria') ||
+      category.includes('krigshistoria') ||
+      title.includes('svärd') ||
+      title.includes('bajonett') ||
+      title.includes('kniv') ||
+      title.includes('dolk') ||
+      title.includes('yxa') ||
+      title.includes('spjut') ||
+      title.includes('gevär') ||
+      title.includes('pistol') ||
+      title.includes('uniformsdelar') ||
+      title.includes('hjälm') ||
+      description.includes('vapen') ||
+      description.includes('militär') ||
+      description.includes('svärdsskola') ||
+      description.includes('svärdsmed') ||
+      description.includes('signerad') && (description.includes('fujiwara') || description.includes('takada'));
+
     if (isWeapon) {
       return `
 KATEGORI-SPECIFIK REGEL - VAPEN OCH MILITARIA:
@@ -428,15 +428,15 @@ FÖRBJUDEN FÖRBÄTTRING: "Traditionellt japanskt svärd från Takada-skolan i B
 
 VIKTIGASTE REGELN: När i tvivel - FÖRBÄTTRA MINDRE och bevara EXAKTHET.`;
     }
-    
+
     // Detect watches/timepieces
-    const isWatch = category.includes('armbandsur') || 
-                   category.includes('klocka') || 
-                   title.includes('armbandsur') || 
-                   title.includes('klocka') ||
-                   description.includes('armbandsur') ||
-                   description.includes('klocka');
-    
+    const isWatch = category.includes('armbandsur') ||
+      category.includes('klocka') ||
+      title.includes('armbandsur') ||
+      title.includes('klocka') ||
+      description.includes('armbandsur') ||
+      description.includes('klocka');
+
     if (isWatch) {
       return `
 KATEGORI-SPECIFIK REGEL - ARMBANDSUR:
@@ -469,24 +469,24 @@ KRITISKA REGLER FÖR ARMBANDSUR:
 
 ANTI-HALLUCINATION: Om storlek, urverk eller andra tekniska detaljer INTE finns i originalet - lägg INTE till dem.`;
     }
-    
+
     // Detect historical/cultural artifacts that need conservative handling
     const isHistoricalItem = category.includes('antikviteter') ||
-                            category.includes('arkeologi') ||
-                            category.includes('etnografika') ||
-                            category.includes('historiska') ||
-                            category.includes('kulturhistoria') ||
-                            title.includes('antik') ||
-                            title.includes('historisk') ||
-                            title.includes('forntid') ||
-                            title.includes('medeltid') ||
-                            title.includes('vikinga') ||
-                            title.includes('bronsålder') ||
-                            description.includes('antik') ||
-                            description.includes('historisk') ||
-                            description.includes('kulturell') ||
-                            description.includes('arkeologisk');
-    
+      category.includes('arkeologi') ||
+      category.includes('etnografika') ||
+      category.includes('historiska') ||
+      category.includes('kulturhistoria') ||
+      title.includes('antik') ||
+      title.includes('historisk') ||
+      title.includes('forntid') ||
+      title.includes('medeltid') ||
+      title.includes('vikinga') ||
+      title.includes('bronsålder') ||
+      description.includes('antik') ||
+      description.includes('historisk') ||
+      description.includes('kulturell') ||
+      description.includes('arkeologisk');
+
     if (isHistoricalItem) {
       return `
 KATEGORI-SPECIFIK REGEL - HISTORISKA FÖREMÅL OCH ANTIKVITETER:
@@ -505,24 +505,24 @@ ANTI-HALLUCINATION:
 • Lägg INTE till datering baserad på stilanalys
 • Behåll EXAKT samma historiska referenser som i källan`;
     }
-    
+
     // Detect jewelry that might have complex gemological terms
     const isJewelry = category.includes('smycken') ||
-                     category.includes('guld') ||
-                     category.includes('silver') ||
-                     category.includes('diamant') ||
-                     category.includes('ädelsten') ||
-                     title.includes('ring') ||
-                     title.includes('halsband') ||
-                     title.includes('armband') ||
-                     title.includes('brosch') ||
-                     title.includes('örhängen') ||
-                     description.includes('karat') ||
-                     description.includes('ädelsten') ||
-                     description.includes('rubin') ||
-                     description.includes('safir') ||
-                     description.includes('smaragd');
-    
+      category.includes('guld') ||
+      category.includes('silver') ||
+      category.includes('diamant') ||
+      category.includes('ädelsten') ||
+      title.includes('ring') ||
+      title.includes('halsband') ||
+      title.includes('armband') ||
+      title.includes('brosch') ||
+      title.includes('örhängen') ||
+      description.includes('karat') ||
+      description.includes('ädelsten') ||
+      description.includes('rubin') ||
+      description.includes('safir') ||
+      description.includes('smaragd');
+
     if (isJewelry) {
       return `
 KATEGORI-SPECIFIK REGEL - SMYCKEN OCH ÄDELMETALLER:
@@ -541,7 +541,7 @@ ENDAST FÖRBÄTTRA:
 • Korrekt smyckesterminologi
 • Språk och läsbarhet utan att lägga till tekniska detaljer`;
     }
-    
+
     return '';
   }
 
@@ -549,7 +549,7 @@ ENDAST FÖRBÄTTRA:
     const category = itemData.category?.toLowerCase() || '';
     const title = itemData.title?.toLowerCase() || '';
     const description = itemData.description?.toLowerCase() || '';
-    
+
     // Check for specialized categories that need conservative enhancement
     const specializedKeywords = [
       // Weapons and militaria
@@ -565,10 +565,10 @@ ENDAST FÖRBÄTTRA:
       'ring', 'halsband', 'armband', 'brosch', 'örhängen',
       'karat', 'rubin', 'safir', 'smaragd'
     ];
-    
-    return specializedKeywords.some(keyword => 
-      category.includes(keyword) || 
-      title.includes(keyword) || 
+
+    return specializedKeywords.some(keyword =>
+      category.includes(keyword) ||
+      title.includes(keyword) ||
       description.includes(keyword)
     );
   }
@@ -668,9 +668,9 @@ Kondition: ${itemData.condition}
 Konstnär/Formgivare: ${itemData.artist}
 Värdering: ${itemData.estimate} SEK
 
-VIKTIGT FÖR TITEL: ${itemData.artist ? 
-  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA PROPER KAPITALISERAT (första bokstaven versal, resten gemener) eftersom konstnären läggs till i versaler automatiskt. Exempel: "Skulpturer" INTE "SKULPTURER" och INTE "skulpturer".' : 
-  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
+VIKTIGT FÖR TITEL: ${itemData.artist ?
+        'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA PROPER KAPITALISERAT (första bokstaven versal, resten gemener) eftersom konstnären läggs till i versaler automatiskt. Exempel: "Skulpturer" INTE "SKULPTURER" och INTE "skulpturer".' :
+        'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
 
 KRITISKT - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • Om konstnärsnamn förekommer i MITTEN eller SLUTET av titeln (inte först) - BEHÅLL det där
@@ -681,9 +681,9 @@ KRITISKT - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • Konstnären stannar i titeln när den INTE är i början
 
 KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
-${itemData.artist && this.enableArtistInfo ? 
-  'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs verk för att lägga till KORT, RELEVANT kontext. Fokusera på specifika detaljer om denna modell/serie om du känner till dem (tillverkningsår, karakteristiska drag). Håll det koncist - max 1-2 meningar extra kontext. Om du inte är säker om specifika fakta, använd "troligen" eller "anses vara".' : 
-  'Lägg INTE till konstnärlig eller historisk kontext som inte redan finns i källdata.'}
+${itemData.artist && this.enableArtistInfo ?
+        'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs verk för att lägga till KORT, RELEVANT kontext. Fokusera på specifika detaljer om denna modell/serie om du känner till dem (tillverkningsår, karakteristiska drag). Håll det koncist - max 1-2 meningar extra kontext. Om du inte är säker om specifika fakta, använd "troligen" eller "anses vara".' :
+        'Lägg INTE till konstnärlig eller historisk kontext som inte redan finns i källdata.'}
 
 DEBUG INFO: Artist="${itemData.artist}", EnableArtistInfo=${this.enableArtistInfo}, ShouldAddArtistInfo=${!!(itemData.artist && this.enableArtistInfo)}
 
@@ -717,7 +717,7 @@ ${this.getCategorySpecificRules(itemData)}
 `;
 
     // Return field-specific prompts based on fieldType
-    switch(fieldType) {
+    switch (fieldType) {
       case 'all':
       case 'all-sparse':
         return baseInfo + `
@@ -727,9 +727,9 @@ VIKTIGT - ARBETSORDNING:
 1. Först förbättra titel, beskrivning och kondition
 2. Sedan generera sökord baserat på de FÖRBÄTTRADE fälten (inte originalfälten)
 
-${itemData.artist && this.enableArtistInfo ? 
-  'EXPERTKUNSKAP - KONSTNÄR KÄND: Eftersom konstnär/formgivare är angiven (' + itemData.artist + ') och konstnärsinformation är aktiverad, lägg till KORT, RELEVANT kontext om denna specifika modell/serie. Max 1-2 extra meningar. Fokusera på konkreta fakta, inte allmän konstnärsbiografi.' : 
-  'BEGRÄNSAD INFORMATION: Håll dig till befintlig information utan att lägga till konstnärlig kontext.'}
+${itemData.artist && this.enableArtistInfo ?
+            'EXPERTKUNSKAP - KONSTNÄR KÄND: Eftersom konstnär/formgivare är angiven (' + itemData.artist + ') och konstnärsinformation är aktiverad, lägg till KORT, RELEVANT kontext om denna specifika modell/serie. Max 1-2 extra meningar. Fokusera på konkreta fakta, inte allmän konstnärsbiografi.' :
+            'BEGRÄNSAD INFORMATION: Håll dig till befintlig information utan att lägga till konstnärlig kontext.'}
 
 FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
@@ -761,9 +761,9 @@ KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
 • Om osäker på exakt stavning, behåll originalet
 
 KRITISKA TITELFORMATREGLER:
-${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' : 
-  '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
+${itemData.artist ?
+            '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' :
+            '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
 
 SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • Om konstnärsnamn finns i MITTEN eller SLUTET av nuvarande titel (inte först) - BEHÅLL det där
@@ -794,9 +794,9 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 • TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
 
 VIKTIGT - PARAGRAFSTRUKTUR FÖR BESKRIVNING:
-${itemData.artist && this.enableArtistInfo ? 
-  '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer i beskrivningsfältet\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' : 
-  '• Returnera befintlig förbättrad beskrivning\n• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
+${itemData.artist && this.enableArtistInfo ?
+            '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer i beskrivningsfältet\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' :
+            '• Returnera befintlig förbättrad beskrivning\n• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
 • Lägg INTE till mått som inte är angivna
 • Lägg INTE till material som inte är nämnt (såvida det inte är känt från konstnärens typiska tekniker)
 • Lägg INTE till märkningar eller signaturer som inte finns
@@ -864,9 +864,9 @@ KRITISKT - BEVARA ALLA MÅTT OCH LISTOR I BESKRIVNINGEN:
 VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KRITISKT FEL!
 
 KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
-${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal)\n• Exempel: "Skulpturer" (blir "SVEN GUNNARSSON. Skulpturer") INTE "SKULPTURER" eller "skulpturer"\n• Auctionet lägger till: "KONSTNÄR. " så titeln ska vara "Skulpturer" inte "skulpturer"' : 
-  '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
+${itemData.artist ?
+            '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal)\n• Exempel: "Skulpturer" (blir "SVEN GUNNARSSON. Skulpturer") INTE "SKULPTURER" eller "skulpturer"\n• Auctionet lägger till: "KONSTNÄR. " så titeln ska vara "Skulpturer" inte "skulpturer"' :
+            '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
 
 Returnera EXAKT i detta format (en rad per fält):
 TITEL: [förbättrad titel]
@@ -906,9 +906,9 @@ KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
 • Om osäker på exakt stavning, behåll originalet
 
 KRITISKA TITELFORMATREGLER:
-${itemData.artist ? 
-  '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' : 
-  '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
+${itemData.artist ?
+            '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' :
+            '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
 
 SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • Om konstnärsnamn finns i MITTEN eller SLUTET av nuvarande titel (inte först) - BEHÅLL det där
@@ -956,9 +956,9 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 • TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
 
 VIKTIGT - PARAGRAFSTRUKTUR:
-${itemData.artist && this.enableArtistInfo ? 
-  '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' : 
-  '• Returnera befintlig förbättrad beskrivning\n• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
+${itemData.artist && this.enableArtistInfo ?
+            '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' :
+            '• Returnera befintlig förbättrad beskrivning\n• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
 • Lägg INTE till mått som inte är angivna
 • Lägg INTE till material som inte är nämnt (såvida det inte är känt från konstnärens typiska tekniker)
 • Lägg INTE till märkningar eller signaturer som inte finns
@@ -1066,23 +1066,23 @@ Return JSON only:
   validateTitle(title) {
     const errors = [];
     const warnings = [];
-    
+
     // Validate input
     if (!title || typeof title !== 'string') {
       errors.push('Titel saknas eller är ogiltig');
       return { errors, warnings };
     }
-    
+
     // Length check
     if (title.length > 60) {
       errors.push(`Titel för lång: ${title.length}/60 tecken`);
     }
-    
+
     // Structure check
     if (!title.match(/^[A-ZÅÄÖÜ]/)) {
       warnings.push('Titel bör börja med stor bokstav');
     }
-    
+
     // CRITICAL: Check for date speculation/hallucination
     const originalTitle = document.querySelector('#item_title_sv')?.value || '';
     const dateSpeculationCheck = this.detectDateSpeculation(originalTitle, title);
@@ -1091,28 +1091,28 @@ Return JSON only:
         errors.push(`DATUM HALLUCINATION: "${speculation.expanded}" - originalet säger bara "${speculation.original}". Expandera ALDRIG partiella årtal!`);
       });
     }
-    
+
     // Check for uncertainty markers preservation
     const uncertaintyMarkers = ['troligen', 'tillskriven', 'efter', 'stil av', 'möjligen', 'typ', 'skola av', 'krets kring'];
-    
+
     uncertaintyMarkers.forEach(marker => {
       if (originalTitle.toLowerCase().includes(marker) && !title.toLowerCase().includes(marker)) {
         errors.push(`Osäkerhetsmarkör "${marker}" får inte tas bort från titel`);
       }
     });
-    
+
     // Forbidden marketing terms
     const marketingTerms = [
       'fantastisk', 'vacker', 'underbar', 'magnifik', 'exceptional', 'stunning',
       'rare', 'unique', 'sällsynt', 'unik', 'perfekt', 'pristine'
     ];
-    
+
     marketingTerms.forEach(term => {
       if (title.toLowerCase().includes(term)) {
         errors.push(`Förbjuden marknadsföringsterm i titel: "${term}"`);
       }
     });
-    
+
     // Check for proper format
     if (title.includes(',')) {
       const parts = title.split(',').map(p => p.trim());
@@ -1120,34 +1120,34 @@ Return JSON only:
         warnings.push('Titel bör följa format: KONSTNÄR, Föremål, Material, Period');
       }
     }
-    
+
     return { errors, warnings };
   }
 
   // NEW: Detect date speculation and hallucination
   detectDateSpeculation(original, enhanced) {
     const speculations = [];
-    
+
     // Pattern to find partial dates in original (like "55", "daterad 55", "signerad 55")
     const partialDatePattern = /(daterad|signerad|märkt|stämplad)?\s*(\d{2})\b/gi;
-    
+
     let match;
     while ((match = partialDatePattern.exec(original)) !== null) {
       const [fullMatch, prefix, twoDigitYear] = match;
       const prefixPart = prefix ? prefix.trim() : '';
-      
+
       // Check if the enhanced version has expanded this to a full year
       const expandedPatterns = [
         new RegExp(`${prefixPart}\\s*1[6-9]${twoDigitYear}\\b`, 'i'), // 1655, 1755, 1855, 1955
         new RegExp(`${prefixPart}\\s*20${twoDigitYear}\\b`, 'i'),      // 2055 (unlikely but possible)
       ];
-      
+
       // Also check for cases where prefix is removed and just the year appears
       if (prefixPart) {
         expandedPatterns.push(new RegExp(`\\b1[6-9]${twoDigitYear}\\b`, 'i'));
         expandedPatterns.push(new RegExp(`\\b20${twoDigitYear}\\b`, 'i'));
       }
-      
+
       expandedPatterns.forEach(pattern => {
         const expandedMatch = enhanced.match(pattern);
         if (expandedMatch) {
@@ -1163,7 +1163,7 @@ Return JSON only:
         }
       });
     }
-    
+
     return {
       hasSpeculation: speculations.length > 0,
       speculations
@@ -1175,92 +1175,8 @@ Return JSON only:
     return await this.aiAnalysisEngine.analyzeForArtist(title, objectType, artistField, description, options);
   }
 
-  // LEGACY METHOD - kept for backward compatibility but delegates to engine
-  async analyzeForArtist_LEGACY(title, objectType, artistField, description = '') {
-    
-    if (!this.apiKey) {
-      console.log('❌ No API key available, skipping AI artist analysis');
-      return null;
-    }
-
-    // ORIGINAL BUG: Only analyze if artist field is empty or very short
-    if (artistField && artistField.trim().length > 2) {
-      return null;
-    }
-
-    if (!title || title.length < 10) {
-      return null;
-    }
-
-    // This was the legacy implementation with the bug - now delegates to AI Analysis Engine
-    return await this.aiAnalysisEngine.analyzeForArtist(title, objectType, artistField, description, { skipIfArtistExists: true });
-  }
-
   async verifyArtist(artistName, objectType, period) {
     return await this.aiAnalysisEngine.verifyArtist(artistName, objectType, period);
-  }
-
-  // LEGACY method for artist verification
-  async verifyArtist_LEGACY(artistName, objectType, period) {
-    if (!this.apiKey || !this.enableArtistInfo) {
-      return null;
-    }
-
-    try {
-      const prompt = `Verifiera denna potentiella konstnär/designer:
-
-NAMN: "${artistName}"
-OBJEKTTYP: ${objectType || 'Okänd'}
-PERIOD: ${period || 'Okänd'}
-
-UPPGIFT:
-Är detta en verklig konstnär, designer eller hantverkare? Ge biografisk kontext om möjligt.
-
-SVARA MED JSON:
-{
-  "isRealArtist": boolean,
-  "confidence": 0.0-1.0,
-  "biography": "kort biografisk information eller null",
-  "specialties": ["lista", "över", "specialiteter"] eller null,
-  "activeYears": "aktiva år eller null",
-  "relevanceToObject": "relevans till objekttyp eller null"
-}`;
-
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          type: 'anthropic-fetch',
-          apiKey: this.apiKey,
-          body: {
-            model: 'claude-3-haiku-20240307', // Use fast Haiku model for artist verification
-            max_tokens: 400,
-            temperature: 0.1,
-            messages: [{
-              role: 'user',
-              content: prompt
-            }]
-          }
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else if (response.success) {
-            resolve(response);
-          } else {
-            reject(new Error(response.error || 'API request failed'));
-          }
-        });
-      });
-
-      if (response.success && response.data?.content?.[0]?.text) {
-        const result = this.parseArtistVerificationResponse(response.data.content[0].text);
-        console.log('AI artist verification result:', result);
-        return result;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error in AI artist verification:', error);
-      return null;
-    }
   }
 
   parseArtistAnalysisResponse(responseText) {
@@ -1269,12 +1185,12 @@ SVARA MED JSON:
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        
+
         // Validate the response structure
-        if (typeof parsed.hasArtist === 'boolean' && 
-            typeof parsed.confidence === 'number' &&
-            parsed.confidence >= 0 && parsed.confidence <= 1) {
-          
+        if (typeof parsed.hasArtist === 'boolean' &&
+          typeof parsed.confidence === 'number' &&
+          parsed.confidence >= 0 && parsed.confidence <= 1) {
+
           return {
             hasArtist: parsed.hasArtist,
             artistName: parsed.artistName || null,
@@ -1287,13 +1203,13 @@ SVARA MED JSON:
           };
         }
       }
-      
+
       // Fallback parsing if JSON is malformed
       const hasArtist = /hasArtist['":\s]*true/i.test(responseText);
       const artistMatch = responseText.match(/artistName['":\s]*["']([^"']+)["']/i);
       const confidenceMatch = responseText.match(/confidence['":\s]*([0-9.]+)/i);
       const foundInMatch = responseText.match(/foundIn['":\s]*["']([^"']+)["']/i);
-      
+
       if (hasArtist && artistMatch && confidenceMatch) {
         return {
           hasArtist: true,
@@ -1306,7 +1222,7 @@ SVARA MED JSON:
           source: 'ai'
         };
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error parsing AI artist analysis response:', error);
@@ -1320,12 +1236,12 @@ SVARA MED JSON:
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        
+
         // Validate the response structure
-        if (typeof parsed.isRealArtist === 'boolean' && 
-            typeof parsed.confidence === 'number' &&
-            parsed.confidence >= 0 && parsed.confidence <= 1) {
-          
+        if (typeof parsed.isRealArtist === 'boolean' &&
+          typeof parsed.confidence === 'number' &&
+          parsed.confidence >= 0 && parsed.confidence <= 1) {
+
           return {
             isRealArtist: parsed.isRealArtist,
             confidence: parsed.confidence,
@@ -1336,7 +1252,7 @@ SVARA MED JSON:
           };
         }
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error parsing AI artist verification response:', error);
@@ -1346,38 +1262,38 @@ SVARA MED JSON:
 
   // Market analysis methods
   async analyzeComparableSales(artistName, objectType, period, technique, description, currentValuation = null) {
-    
+
     try {
-      
+
       // Run historical and live analysis in parallel
       const [historicalResult, liveResult] = await Promise.all([
         this.auctionetAPI.analyzeComparableSales(artistName, objectType, period, technique, currentValuation, this.searchQuerySSoT),
         this.auctionetAPI.analyzeLiveAuctions(artistName, objectType, period, technique, this.searchQuerySSoT)
       ]);
-      
+
       // Combine historical and live data intelligently
       if (historicalResult || liveResult) {
-        
+
         // Create SSoT for WORKING search queries (the ones that actually found data)
         const workingQueries = {
           historical: historicalResult?.actualSearchQuery || null,
           live: liveResult?.actualSearchQuery || null
         };
-        
+
         // Determine the best working query for dashboard links (prioritize historical)
         const bestWorkingQuery = workingQueries.historical || workingQueries.live;
-        
+
         if (workingQueries.historical !== workingQueries.live && workingQueries.historical && workingQueries.live) {
           console.log(`⚠️ SEARCH QUERY MISMATCH DETECTED:`);
           console.log(`   Historical query: "${workingQueries.historical}"`);
           console.log(`   Live query: "${workingQueries.live}"`);
         } else {
         }
-        
+
         const combinedResult = {
           hasComparableData: !!(historicalResult || liveResult),
           dataSource: 'auctionet_comprehensive',
-          
+
           // Historical data (if available)
           historical: historicalResult ? {
             priceRange: historicalResult.priceRange,
@@ -1392,7 +1308,7 @@ SVARA MED JSON:
             actualSearchQuery: historicalResult.actualSearchQuery, // NEW: Pass through actual search query
             searchStrategy: historicalResult.searchStrategy // NEW: Pass through search strategy
           } : null,
-          
+
           // Live data (if available)
           live: liveResult ? {
             currentEstimates: liveResult.currentEstimates,
@@ -1405,27 +1321,27 @@ SVARA MED JSON:
             actualSearchQuery: liveResult.actualSearchQuery, // NEW: Pass through actual search query
             searchStrategy: liveResult.searchStrategy // NEW: Pass through search strategy
           } : null,
-          
+
           // Combined insights
           insights: this.generateCombinedInsights(historicalResult, liveResult, currentValuation),
-          
+
           // Maintain backward compatibility
           priceRange: historicalResult?.priceRange || this.estimatePriceRangeFromLive(liveResult),
           confidence: this.calculateCombinedConfidence(historicalResult, liveResult),
           marketContext: this.generateCombinedMarketContext(historicalResult, liveResult)
         };
-        
+
         return combinedResult;
       } else {
         console.log('❌ No market data found (neither historical nor live)');
-        
+
         // Fallback to Claude analysis if no Auctionet data found
         return await this.analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description);
       }
-      
+
     } catch (error) {
       console.error('💥 Market analysis error, falling back to Claude:', error);
-      
+
       // Fallback to Claude analysis on error
       return await this.analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description);
     }
@@ -1433,7 +1349,7 @@ SVARA MED JSON:
 
   // NEW: Enhanced sales analysis that accepts search context for artist, brand, and freetext searches
   async analyzeSales(searchContext) {
-    
+
     const {
       primarySearch,
       objectType,
@@ -1444,12 +1360,12 @@ SVARA MED JSON:
       confidence,
       termCount
     } = searchContext;
-    
+
     // Store original SSoT query for logging purposes only
     const originalSSoTQuery = this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : null;
-    
+
     let analysisResult;
-    
+
     try {
       if (analysisType === 'artist') {
         analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
@@ -1461,10 +1377,10 @@ SVARA MED JSON:
         analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
       }
 
-      
+
       // Keep original SSoT query intact - NO OVERRIDES
 
-      
+
       return analysisResult;
 
     } catch (error) {
@@ -1476,7 +1392,7 @@ SVARA MED JSON:
   // NEW: Generate combined insights from historical and live data
   generateCombinedInsights(historicalResult, liveResult, currentValuation = null) {
     const insights = [];
-    
+
     if (historicalResult && liveResult) {
       // Get market activity context first to inform all other insights
       const marketActivity = liveResult.marketActivity;
@@ -1484,24 +1400,24 @@ SVARA MED JSON:
       const analyzedLiveItems = liveResult.analyzedLiveItems || 0;
       const totalBids = marketActivity ? marketActivity.totalBids : 0;
       const averageBidsPerItem = marketActivity ? marketActivity.averageBidsPerItem : 0;
-      
+
       // MINIMUM SAMPLE SIZE CHECK: Need at least 4 live auctions for reliable reserve percentage statistics
       const hasReliableMarketData = analyzedLiveItems >= 4;
       const isWeakMarket = hasReliableMarketData && reserveMetPercentage !== null && reserveMetPercentage < 40;
       const isStrongMarket = hasReliableMarketData && reserveMetPercentage !== null && reserveMetPercentage > 70;
-      
+
       // NEW: Create more specific bidding activity description
       function getBiddingActivityDescription() {
         const searchQuery = historicalResult.actualSearchQuery || liveResult.actualSearchQuery || '';
         let auctionText = `${analyzedLiveItems} auktioner`;
-        
+
         // Add clickable link if we have a search query (similar to "Pågående" link in data sources)
         if (searchQuery) {
           // SAFETY CHECK: Use fallback URL generation since this is a nested function
           const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodeURIComponent(searchQuery)}`;
           auctionText = `<a href="${liveUrl}" target="_blank" style="color: #e74c3c; text-decoration: none; font-weight: 500;" title="Visa alla pågående auktioner på Auctionet för '${searchQuery}'">${analyzedLiveItems} auktioner</a>`;
         }
-        
+
         if (totalBids === 0) {
           return `inga bud (${auctionText})`;
         } else if (reserveMetPercentage === 0) {
@@ -1510,31 +1426,31 @@ SVARA MED JSON:
           return `${reserveMetPercentage}% utrop nås (${auctionText})`;
         }
       }
-      
 
-      
+
+
       // CRITICAL FIX: Check if priceRange exists before accessing its properties
       if (!historicalResult.priceRange || !historicalResult.priceRange.low || !historicalResult.priceRange.high) {
         console.warn('⚠️ Historical result missing priceRange data, skipping price comparison insights');
         return insights; // Return early with empty insights
       }
-      
+
       // Compare historical vs live pricing WITH market context
       const histAvg = (historicalResult.priceRange.low + historicalResult.priceRange.high) / 2;
-      const liveAvg = liveResult.currentEstimates ? 
+      const liveAvg = liveResult.currentEstimates ?
         (liveResult.currentEstimates.low + liveResult.currentEstimates.high) / 2 : null;
-      
+
       if (liveAvg && currentValuation) {
         // SMART LOGIC: Consider cataloger's current valuation in context
         const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
         const catalogerVsHist = ((currentValuation - histAvg) / histAvg) * 100;
         const catalogerVsLive = ((currentValuation - liveAvg) / liveAvg) * 100;
-        
+
         // Only provide insights if the difference is significant
         if (Math.abs(priceDiff) > 15) {
           let message = '';
           let significance = 'medium';
-          
+
           // CONTEXT-AWARE LOGIC: Consider market strength AND cataloger's position
           if (isWeakMarket) {
             // WEAK MARKET: Be more conservative with all recommendations
@@ -1610,7 +1526,7 @@ SVARA MED JSON:
               }
             }
           }
-          
+
           if (message) {
             insights.push({
               type: 'price_comparison',
@@ -1625,7 +1541,7 @@ SVARA MED JSON:
         if (Math.abs(priceDiff) > 15) {
           let message = '';
           let significance = Math.abs(priceDiff) > 30 ? 'high' : 'medium';
-          
+
           if (isWeakMarket && priceDiff > 15) {
             // In weak market, be cautious about higher live estimates
             message = `KONFLIKT: Pågående auktioner värderas ${Math.round(priceDiff)}% högre än slutpriser, men marknaden är svag (${getBiddingActivityDescription()}) - höga utrop möter låg efterfrågan`;
@@ -1650,7 +1566,7 @@ SVARA MED JSON:
               message = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar - nuvarande marknad verkar svagare`;
             }
           }
-          
+
           if (message) {
             insights.push({
               type: 'price_comparison',
@@ -1660,7 +1576,7 @@ SVARA MED JSON:
           }
         }
       }
-      
+
       // Market activity insights - but don't duplicate if already mentioned in price comparison
       if (marketActivity && hasReliableMarketData && !insights.some(insight => insight.message.includes('utrop nås') || insight.message.includes('inga bud') || insight.message.includes('bud finns'))) {
         if (reserveMetPercentage > 70) {
@@ -1701,7 +1617,7 @@ SVARA MED JSON:
         }
       }
     }
-    
+
     return insights;
   }
 
@@ -1724,7 +1640,7 @@ SVARA MED JSON:
     if (!liveResult || !liveResult.currentEstimates) {
       return null;
     }
-    
+
     return {
       low: liveResult.currentEstimates.low,
       high: liveResult.currentEstimates.high,
@@ -1735,27 +1651,27 @@ SVARA MED JSON:
   // NEW: Generate combined market context
   generateCombinedMarketContext(historicalResult, liveResult) {
     const contexts = [];
-    
+
     if (historicalResult?.marketContext) {
       contexts.push(historicalResult.marketContext);
     }
-    
+
     if (liveResult?.marketSentiment) {
       const sentimentMap = {
         'strong': 'Stark efterfrågan i pågående auktioner',
-        'moderate': 'Måttlig aktivitet i pågående auktioner', 
+        'moderate': 'Måttlig aktivitet i pågående auktioner',
         'weak': 'Låg aktivitet i pågående auktioner',
         'neutral': 'Normal aktivitet i pågående auktioner'
       };
       contexts.push(sentimentMap[liveResult.marketSentiment] || 'Pågående auktionsaktivitet');
     }
-    
+
     return contexts.join(' • ');
   }
 
   // Fallback method using Claude AI (original implementation)
   async analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description) {
-    
+
     if (!this.apiKey) {
       console.log('❌ No API key available, skipping Claude sales analysis');
       return null;
@@ -1766,7 +1682,7 @@ SVARA MED JSON:
       return null;
     }
 
-    
+
     try {
       const prompt = `Analysera jämförbara försäljningar för denna svenska auktionspost:
 
@@ -1829,7 +1745,7 @@ Svara ENDAST med giltig JSON:
       // Use Chrome runtime messaging instead of direct fetch
       const response = await new Promise((resolve, reject) => {
         console.log('📨 Calling chrome.runtime.sendMessage for Claude sales analysis...');
-        
+
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
@@ -1844,7 +1760,7 @@ Svara ENDAST med giltig JSON:
           }
         }, (response) => {
           console.log('📥 Chrome runtime response received:', response);
-          
+
           if (chrome.runtime.lastError) {
             console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
@@ -1891,17 +1807,17 @@ Svara ENDAST med giltig JSON:
 
   // Fallback parser for sales data if JSON parsing fails
   fallbackParseSalesData(content) {
-    
+
     try {
       // Look for price ranges in the text
       const priceMatch = content.match(/(\d+[\s,]*\d*)\s*-\s*(\d+[\s,]*\d*)\s*(?:SEK|kr|kronor)/i);
       const confidenceMatch = content.match(/confidence["\s:]*(\d+\.?\d*)/i);
-      
+
       if (priceMatch) {
         const low = parseInt(priceMatch[1].replace(/[\s,]/g, ''));
         const high = parseInt(priceMatch[2].replace(/[\s,]/g, ''));
         const confidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : 0.3;
-        
+
         return {
           hasComparableData: true,
           priceRange: {
@@ -1929,7 +1845,7 @@ Svara ENDAST med giltig JSON:
     } catch (error) {
       console.error('Fallback parsing failed:', error);
     }
-    
+
     return null;
   }
 
@@ -1941,12 +1857,12 @@ Svara ENDAST med giltig JSON:
   // NEW: AI-powered search term extraction
   async generateAISearchTerms(prompt) {
     try {
-      
+
       const response = await this.callClaudeAPI({
         title: 'AI Search Term Extraction',
         description: prompt
       }, 'search_query');
-      
+
       // Parse the JSON response
       let parsedResponse;
       try {
@@ -1958,15 +1874,15 @@ Svara ENDAST med giltig JSON:
             .replace(/```\s*/g, '')
             .trim();
         }
-        
+
         parsedResponse = JSON.parse(cleanResponse);
-        
+
         return parsedResponse;
       } catch (parseError) {
         console.error('❌ AI Manager: Failed to parse JSON:', parseError);
         throw new Error('Invalid JSON in AI response');
       }
-      
+
     } catch (error) {
       console.error('❌ AI Manager: AI search term generation failed:', error);
       throw error;
