@@ -15,9 +15,22 @@ export class ArtistDetectionManager {
   async detectMisplacedArtist(title, artistField, forceReDetection = false) {
     // Track if artist field is already filled (will affect result processing but not prevent AI analysis)
     const artistFieldFilled = artistField && artistField.trim().length > 2;
+    
+    console.log('🔧 ArtistDetectionManager input:', {
+      title: title?.substring(0, 50) + '...',
+      artistField,
+      artistFieldFilled,
+      forceReDetection
+    });
 
     if (!title || title.length < 10) {
       return null; // Title too short to contain artist
+    }
+
+    // OPTIMIZATION: Skip AI analysis if artist field is properly filled (unless forced re-detection)
+    if (artistFieldFilled && !forceReDetection) {
+      console.log('⚡ SKIPPING AI analysis - artist field already filled:', artistField);
+      return null; // No need to detect artist - already in correct field
     }
 
     // ENHANCED: Quick pre-check for obvious informal patterns to boost AI confidence
@@ -57,7 +70,12 @@ export class ArtistDetectionManager {
         const artistForAnalysis = artistField || '';
         // UPDATED: Use the new AI Analysis Engine which doesn't skip prefilled artists by default
         const options = forceReDetection ? {} : {}; // No skipIfArtistExists for normal flow
+        
+        console.log('⚡ Starting Haiku artist detection...');
+        const startTime = Date.now();
         aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistForAnalysis, description, options);
+        const endTime = Date.now();
+        console.log(`⚡ Haiku artist detection completed in ${endTime - startTime}ms`);
         
       } catch (error) {
         console.error('AI artist detection failed, will try rule-based fallback:', error);
@@ -66,12 +84,29 @@ export class ArtistDetectionManager {
       
       // Process AI result if we got one (no error)
       if (!aiError && aiResult) {
+        console.log('🔧 Processing AI result - conditions check:', {
+          aiError,
+          hasAiResult: !!aiResult,
+          hasArtist: aiResult.hasArtist,
+          artistName: aiResult.artistName,
+          confidence: aiResult.confidence,
+          isInformalPattern,
+          requiredConfidence: isInformalPattern ? 0.5 : 0.6
+        });
+        
         // ENHANCED: Let AI handle misspelling detection and correction
         // Remove our strict validation - trust AI to detect and correct misspellings
         if (aiResult.hasArtist && aiResult.artistName) {
           
           // Basic validation that it looks like a person name
-          if (!this.looksLikePersonName(aiResult.artistName)) {
+          const looksLikeName = this.looksLikePersonName(aiResult.artistName);
+          console.log('🔧 Person name validation:', { 
+            artistName: aiResult.artistName, 
+            looksLikeName 
+          });
+          
+          if (!looksLikeName) {
+            console.log('🚫 Failed person name validation, marking as no artist');
             aiResult = { hasArtist: false };
           }
         }
@@ -79,20 +114,48 @@ export class ArtistDetectionManager {
         // ENHANCED: Use appropriate confidence threshold
         const requiredConfidence = isInformalPattern ? 0.5 : 0.6; // Lower thresholds to allow corrections
         
+        console.log('🔧 Final conditions check:', {
+          hasAiResult: !!aiResult,
+          hasArtist: aiResult?.hasArtist,
+          confidence: aiResult?.confidence,
+          requiredConfidence,
+          confidencePass: aiResult?.confidence > requiredConfidence
+        });
+        
         if (aiResult && aiResult.hasArtist && aiResult.confidence > requiredConfidence) {
           
-          // ALWAYS verify detected artists for user verification (biography tooltip)
-          // The enableArtistInfo setting should not disable basic verification functionality
+          // FAST RETURN: Return artist detection immediately, load biography in background
+          // This ensures UI appears instantly while biography loads asynchronously
           let verification = null;
+          let verificationPromise = null;
+          
           if (aiResult.artistName) {
+            console.log('⚡ Starting background artist verification for:', aiResult.artistName);
             const period = this.extractPeriod(title);
             const objectType = this.extractObjectType(title);
-            verification = await this.apiManager.verifyArtist(aiResult.artistName, objectType, period);
+            
+            // Start verification but don't wait for it - return immediately
+            verificationPromise = this.apiManager.verifyArtist(aiResult.artistName, objectType, period)
+              .then(result => {
+                console.log('⚡ Background verification completed for:', aiResult.artistName);
+                return result;
+              })
+              .catch(error => {
+                console.log('⚠️ Background verification failed:', error);
+                return null;
+              });
+            
+            // Set a placeholder that indicates verification is in progress
+            verification = { 
+              isLoading: true, 
+              artistName: aiResult.artistName,
+              promise: verificationPromise 
+            };
           }
           
           // If artist field is already filled, return verification result but don't suggest title changes
           if (artistFieldFilled && !forceReDetection) {
-            return {
+            const result = {
               detectedArtist: aiResult.artistName,
               suggestedTitle: null, // Don't suggest title changes when artist field is filled
               confidence: aiResult.confidence,
@@ -101,9 +164,11 @@ export class ArtistDetectionManager {
               source: 'ai-verification',
               foundIn: 'verification'
             };
+            console.log('🎯 ArtistDetectionManager returning (artist field filled):', result);
+            return result;
           }
           
-          return {
+          const result = {
             detectedArtist: aiResult.artistName,
             suggestedTitle: aiResult.suggestedTitle || this.generateSuggestedTitle(title, aiResult.artistName),
             confidence: aiResult.confidence,
@@ -112,6 +177,8 @@ export class ArtistDetectionManager {
             source: 'ai',
             foundIn: forceReDetection ? 'titel (upprepad sökning)' : 'titel'
           };
+          console.log('🎯 ArtistDetectionManager returning (main result):', result);
+          return result;
         } else if (aiResult && aiResult.hasArtist) {
           console.log('⚠️ AI detected artist but confidence too low:', aiResult.confidence, 'for artist:', aiResult.artistName);
           
@@ -543,7 +610,7 @@ export class ArtistDetectionManager {
     // Check individual words against common non-name terms (case-insensitive)
     const nonNameWords = [
       'stockholm', 'göteborg', 'malmö', 'gustavsberg', 'rörstrand', 'orrefors', 
-      'kosta', 'arabia', 'royal', 'napoleon', 'gustav', 'carl', 'louis', 'empire',
+      'kosta', 'arabia', 'royal', 'napoleon', 'louis', 'empire',
       // Company/Manufacturer names that might appear after artist names
       'ikea', 'tenn', 'lammhults', 'källemo', 'mathsson', 'malmsten', 
       'boda', 'artek', 'iittala', 'grondahl', 'axeco',

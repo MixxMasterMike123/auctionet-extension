@@ -627,7 +627,8 @@ export class AddItemsTooltipManager {
             ${isVerified ? '<span class="verification-badge">✓ Verifierad konstnär</span>' : ''}
           </div>
           ${reasoning ? `<div class="reasoning-text">${reasoning}</div>` : ''}
-          ${biography ? `<div class="artist-bio-preview">${biography.substring(0, 120)}${biography.length > 120 ? '...' : ''}</div>` : ''}
+          ${biography ? `<div class="artist-bio-preview">${biography.substring(0, 120)}${biography.length > 120 ? '...' : ''}</div>` : 
+            (verification?.isLoading ? `<div class="artist-bio-preview loading">📖 Laddar biografi...</div>` : '')}
           <div class="action-text">- flytta från titel till konstnärsfält
           ${options.isReplacement ? `, ersätta med "${options.existingArtist}"` : ''}
           </div>
@@ -644,12 +645,31 @@ export class AddItemsTooltipManager {
         }
       }];
 
-      // Add biography popup button if we have biography
+      // Add biography popup button - handle both loaded and loading states
       if (biography && biography.length > 120) {
         buttons.unshift({
           text: 'Info',
           className: 'btn-info',
           onclick: () => this.showArtistBiographyPopup(artistDetection.detectedArtist, biography)
+        });
+      } else if (verification?.isLoading && verification?.promise) {
+        // Biography is loading in background - add button that will wait for it
+        buttons.unshift({
+          text: 'Info (laddar...)',
+          className: 'btn-info btn-loading',
+          onclick: async () => {
+            try {
+              const loadedVerification = await verification.promise;
+              const loadedBiography = loadedVerification?.biography;
+              if (loadedBiography) {
+                this.showArtistBiographyPopup(artistDetection.detectedArtist, loadedBiography);
+              } else {
+                console.log('No biography available for:', artistDetection.detectedArtist);
+              }
+            } catch (error) {
+              console.error('Failed to load biography:', error);
+            }
+          }
         });
       }
 
@@ -1084,7 +1104,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022',
+            model: this.apiManager.getCurrentModel().id,
             max_tokens: 1000,
             temperature: 0.1, // Low temperature for consistent analysis
             messages: [{
@@ -1598,7 +1618,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: fieldType === 'title-correct' ? 'claude-3-haiku-20240307' : 'claude-3-5-sonnet-20241022',
+            model: this.apiManager.getCurrentModel().id, // Use current model for all operations
             max_tokens: fieldType === 'title-correct' ? 500 : 4000,
             temperature: fieldType === 'title-correct' ? 0.1 : 0.2,
             system: systemPrompt,

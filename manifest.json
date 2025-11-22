@@ -17,8 +17,12 @@
       "matches": [
         "https://auctionet.com/admin/*/items/*/edit"
       ],
-      "js": ["content-script.js"],
-      "css": ["styles.css"]
+      "js": [
+        "content-script.js"
+      ],
+      "css": [
+        "styles.css"
+      ]
     },
     {
       "matches": [
@@ -28,8 +32,13 @@
       "exclude_matches": [
         "https://auctionet.com/admin/*/items/*/edit"
       ],
-      "js": ["content.js"],
-      "css": ["styles/components/freetext-parser.css", "styles/components/ai-image-analyzer.css"],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles/components/freetext-parser.css",
+        "styles/components/ai-image-analyzer.css"
+      ],
       "run_at": "document_end"
     }
   ],
@@ -48,7 +57,9 @@
         "modules/refactored/ai-rules-system/*.js",
         "modules/refactored/ai-rules-system/*.json"
       ],
-      "matches": ["https://auctionet.com/*"]
+      "matches": [
+        "https://auctionet.com/*"
+      ]
     }
   ],
   "icons": {

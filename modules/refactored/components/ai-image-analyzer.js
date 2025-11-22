@@ -197,7 +197,7 @@ export class AIImageAnalyzer {
       });
       
       const requestBody = {
-        model: 'claude-3-5-sonnet-20241022',
+        model: this.apiManager.getCurrentModel().id,
         max_tokens: 3000, // More tokens for multiple images
         temperature: 0.1,
         system: systemPrompt,
@@ -306,7 +306,7 @@ export class AIImageAnalyzer {
       
       // Debug the request being sent
       const requestBody = {
-        model: 'claude-3-5-sonnet-20241022',
+        model: this.apiManager.getCurrentModel().id,
         max_tokens: 2000,
         temperature: 0.1,
         system: systemPrompt,

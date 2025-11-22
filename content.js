@@ -15,6 +15,13 @@ import('./modules/add-items-api-bridge.js').then(module => {
   console.error('❌ Failed to load AddItemsAPIBridge:', error);
 });
 
+// Import CONFIG for model selection
+import('./modules/config.js').then(module => {
+  window.CONFIG = module.CONFIG;
+}).catch(error => {
+  console.error('❌ Failed to load CONFIG:', error);
+});
+
 // Import the new modular tooltip system components
 import('./modules/ui/tooltip-system-manager.js').then(module => {
   window.TooltipSystemManager = module.TooltipSystemManager;
@@ -66,7 +73,7 @@ import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module =
   window.AIRulesManager = module.AIRulesManager;
   // Initialize AI Rules System and make functions globally available
   const aiRulesManager = new module.AIRulesManager();
-  
+
   // Wait for rules to load (they auto-load in constructor)
   const waitForRules = () => {
     if (aiRulesManager.loaded) {
@@ -84,11 +91,11 @@ import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module =
       window.getArtistCorrections = aiRulesManager.getBrandCorrections.bind(aiRulesManager);
       console.log('🔗 Overrode ALL global AI Rules functions with loaded instance');
       console.log('✅ AI Rules System initialized and functions made globally available');
-      
+
       // Debug: Test that functions work
       try {
         const testPrompt = window.getSystemPrompt('core');
-        const testRules = window.getModelSpecificValuationRules('freetextParser', 'claude-3-5-sonnet');
+        const testRules = window.getModelSpecificValuationRules('freetextParser', 'claude-4-sonnet');
         console.log('🧪 AI Rules functions tested successfully:', {
           hasSystemPrompt: !!testPrompt,
           hasValuationRules: !!testRules
@@ -101,11 +108,25 @@ import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module =
       setTimeout(waitForRules, 200); // Check every 200ms
     }
   };
-  
+
   // Start checking after a small delay to let constructor complete
   setTimeout(waitForRules, 100);
 }).catch(error => {
   console.error('❌ Failed to load AI Rules System:', error);
+});
+
+// Import PageDetector
+import('./modules/core/page-detector.js').then(module => {
+  window.PageDetector = module.PageDetector;
+}).catch(error => {
+  console.error('❌ Failed to load PageDetector:', error);
+});
+
+// Import UIController
+import('./modules/ui/ui-controller.js').then(module => {
+  window.UIController = module.UIController;
+}).catch(error => {
+  console.error('❌ Failed to load UIController:', error);
 });
 
 // SPA detection will be handled by the AuctionetCatalogingAssistant class
@@ -116,27 +137,24 @@ class AuctionetCatalogingAssistant {
     this.currentPage = null;
     this.tooltipManager = null;
     this.isProgrammaticUpdate = false; // Track when we're updating fields programmatically
-    
-    // SPA detection properties
-    this.isInitialized = false;
-    this.lastInitializedHash = '';
-    this.mutationObserver = null;
-    
+
+    // Modules
+    this.pageDetector = null;
+    this.uiController = null;
+    this.ignoredArtists = [];
+
     // Initialize asynchronously to prevent blocking
     this.init().catch(error => {
       console.error('❌ Failed to initialize AuctionetCatalogingAssistant:', error);
     });
-    
-    // Set up SPA detection
-    this.setupSPADetection();
-    
+
     // Listen for API key changes
     chrome.storage.onChanged.addListener((changes, namespace) => {
       if (namespace === 'sync' && changes.anthropicApiKey) {
         this.apiKey = changes.anthropicApiKey.newValue;
       }
     });
-    
+
     // Listen for messages from popup
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (request.type === 'refresh-api-key') {
@@ -144,12 +162,58 @@ class AuctionetCatalogingAssistant {
         sendResponse({ success: true });
       }
     });
-    
+
     // Make globally accessible for SPA detection
     window.auctionetAssistant = this;
   }
 
+  // Get current model for API calls
+  getCurrentModelId() {
+    try {
+      if (window.CONFIG && window.CONFIG.MODELS && window.CONFIG.CURRENT_MODEL) {
+        const model = window.CONFIG.MODELS[window.CONFIG.CURRENT_MODEL];
+        return model ? model.id : 'claude-sonnet-4-20250514'; // Fallback to Claude 4
+      }
+      return 'claude-sonnet-4-20250514'; // Default fallback to Claude 4
+    } catch (error) {
+      console.error('Error getting current model, using Claude 4 fallback:', error);
+      return 'claude-sonnet-4-20250514';
+    }
+  }
+
   async init() {
+    // Wait for modules to load
+    if (!window.PageDetector || !window.UIController) {
+      console.log('⏳ Waiting for modules to load...');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      if (!window.PageDetector || !window.UIController) {
+        // Retry init later
+        setTimeout(() => this.init(), 500);
+        return;
+      }
+    }
+
+    // Initialize PageDetector if not already done
+    if (!this.pageDetector) {
+      this.pageDetector = new window.PageDetector(() => this.handlePageChange());
+      this.pageDetector.setupSPADetection();
+    }
+
+    // Initialize UIController if not already done
+    if (!this.uiController) {
+      this.uiController = new window.UIController({
+        onImproveField: (fieldType) => this.improveField(fieldType),
+        onImproveAll: () => this.improveAllFields(),
+        onAnalyzeQuality: () => this.assessDataQuality(),
+        onArtistAction: (action, data) => this.handleArtistAction(action, data),
+        onGetItemData: () => this.extractItemData(),
+        onProcessWithInfo: (info) => this.processWithAdditionalInfo(info),
+        onProcessWithoutInfo: () => this.processWithoutAdditionalInfo(),
+        onForceImprove: (fieldType) => this.forceImproveField(fieldType),
+        onAddBioToDescription: (bio) => this.addBiographyToDescription(bio)
+      });
+    }
+
     // Wait for page to be fully loaded
     if (document.readyState === 'loading') {
       await new Promise(resolve => {
@@ -161,8 +225,8 @@ class AuctionetCatalogingAssistant {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Check if we're on the right page and determine page type
-    const pageInfo = this.detectPageType();
-    
+    const pageInfo = this.pageDetector.detectPageType();
+
     if (!pageInfo.isSupported) {
       console.log('❌ Page not supported:', window.location.href, window.location.hash);
       return;
@@ -172,230 +236,55 @@ class AuctionetCatalogingAssistant {
     if (pageInfo.needsRetry) {
       console.log('⏳ Page needs retry, scheduling retry in 2 seconds...');
       setTimeout(() => {
-        this.tryInitialize();
+        this.init();
       }, 2000);
       return;
     }
 
     this.currentPage = pageInfo.type;
-    this.isInitialized = true;
-    this.lastInitializedHash = window.location.hash;
     window.auctionetAssistantInitialized = true;
-    
+
     console.log('✅ Auctionet AI Assistant: On supported page, type:', this.currentPage);
-    
+
     await this.loadApiKey();
-    
+
     if (this.currentPage === 'edit') {
-      this.injectUI();
-      this.attachEventListeners();
+      this.uiController.injectUI();
+      // attachEventListeners is handled by UIController
     } else if (this.currentPage === 'add') {
       await this.initializeFreetextParser();
     }
   }
 
-  // SPA detection system
-  setupSPADetection() {
-    console.log('🔄 Setting up SPA detection system...');
-    
-    // Hash change listener for SPA navigation
-    window.addEventListener('hashchange', () => {
-      console.log('🔄 Hash changed to:', window.location.hash);
-      setTimeout(() => {
-        this.tryInitialize();
-      }, 500);
-    });
-    
-    // MutationObserver to watch for DOM changes (AddItem form appearance)
-    this.mutationObserver = new MutationObserver((mutations) => {
-      let shouldCheck = false;
-      
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-          // Check if AddItem form elements were added
-          for (const node of mutation.addedNodes) {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              if (node.querySelector?.('#item_title_sv, .item_form, #new_item') ||
-                  node.id === 'item_title_sv' ||
-                  node.classList?.contains('item_form')) {
-                shouldCheck = true;
-                break;
-              }
-            }
-          }
-        }
-      });
-      
-      if (shouldCheck) {
-        console.log('🔄 DOM change detected, checking for AddItem form...');
-        setTimeout(() => {
-          this.tryInitialize();
-        }, 500);
-      }
-    });
-    
-    this.mutationObserver.observe(document.body, { 
-      childList: true, 
-      subtree: true 
-    });
-    
-    console.log('✅ SPA detection system set up successfully');
+  handlePageChange() {
+    console.log('🔄 Page change detected, re-initializing...');
+    // Re-run init to detect page type and set up UI
+    this.init();
   }
 
-  // Try to initialize - called by SPA detection
-  async tryInitialize() {
-    try {
-      console.log('🔄 Trying to initialize...', {
-        url: window.location.href,
-        hash: window.location.hash,
-        isInitialized: this.isInitialized,
-        lastHash: this.lastInitializedHash
-      });
-      
-      // Prevent duplicate initialization for same hash
-      if (this.isInitialized && this.lastInitializedHash === window.location.hash) {
-        console.log('⏭️ Already initialized for this hash, skipping...');
-        return;
-      }
-      
-      // Clean up previous initialization if switching pages
-      if (this.isInitialized) {
-        console.log('🧹 Cleaning up previous initialization...');
-        this.cleanup();
-      }
-      
-      // Wait a bit for dynamic content to load
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Try to initialize
-      await this.init();
-      
-    } catch (error) {
-      console.error('❌ Error in tryInitialize:', error);
-    }
-  }
 
-  // Cleanup method for switching between pages
-  cleanup() {
-    console.log('🧹 Cleaning up extension components...');
-    
-    // Reset initialization flags
-    this.isInitialized = false;
-    window.auctionetAssistantInitialized = false;
-    this.currentPage = null;
-    
-    // Clean up any existing UI elements
-    const existingElements = document.querySelectorAll('.ai-assist-button, .ai-tooltip, .add-items-tooltip');
-    existingElements.forEach(el => el.remove());
-    
-    // Clean up tooltip manager if exists
-    if (this.tooltipManager) {
-      try {
-        this.tooltipManager.destroy?.();
-      } catch (error) {
-        console.warn('⚠️ Error cleaning up tooltip manager:', error);
-      }
-      this.tooltipManager = null;
-    }
-    
-    console.log('✅ Cleanup completed');
-  }
-
-  detectPageType() {
-    const url = window.location.href;
-    const hash = window.location.hash;
-    
-    console.log('🔍 Detecting page type:', {
-      url,
-      hash,
-      hasItemTitle: !!document.querySelector('#item_title_sv'),
-      itemTitleElement: document.querySelector('#item_title_sv')
-    });
-    
-    // Check for edit page
-    if (url.includes('auctionet.com/admin/') && 
-        url.includes('/items/') && 
-        url.includes('/edit') &&
-        document.querySelector('#item_title_sv')) {
-      console.log('✅ Detected EDIT page');
-      return { isSupported: true, type: 'edit' };
-    }
-    
-    // Check for add items page - NEW URL PATTERN
-    if (url.includes('auctionet.com/admin/sas/sellers/') && 
-        url.includes('/contracts/') &&
-        hash === '#new_item') {
-      // For new item pages, we don't require #item_title_sv to be present immediately
-      // as it might be loaded dynamically. The SPA detection will retry.
-      const hasFormElements = document.querySelector('#item_title_sv') || 
-                             document.querySelector('#new_item') ||
-                             document.querySelector('.item_form') ||
-                             document.querySelector('form[action*="items"]');
-      
-      if (hasFormElements || document.readyState === 'loading') {
-        console.log('✅ Detected ADD page (new pattern)', hasFormElements ? 'with form elements' : 'loading');
-        return { isSupported: true, type: 'add' };
-      } else {
-        console.log('⏳ ADD page detected but form not ready, will retry...');
-        // Return supported but mark for retry
-        return { isSupported: true, type: 'add', needsRetry: true };
-      }
-    }
-    
-    // Legacy check for old add items URL pattern (fallback)
-    if (url.includes('auctionet.com/admin/') && 
-        url.includes('/items/new') &&
-        document.querySelector('#item_title_sv')) {
-      console.log('✅ Detected ADD page (legacy pattern)');
-      return { isSupported: true, type: 'add' };
-    }
-    
-    // Debug why page wasn't detected
-    console.log('❌ Page not supported. Checking conditions:');
-    console.log('  - URL contains admin:', url.includes('auctionet.com/admin/'));
-    console.log('  - URL contains sellers:', url.includes('admin/sas/sellers/'));
-    console.log('  - URL contains contracts:', url.includes('/contracts/'));
-    console.log('  - Hash is #new_item:', hash === '#new_item');
-    console.log('  - Has #item_title_sv element:', !!document.querySelector('#item_title_sv'));
-    
-    // Check for alternative form elements that might indicate an add item page
-    const alternativeElements = [
-      '#new_item',
-      '.item_form',
-      'form[action*="items"]',
-      'input[name*="item"]'
-    ];
-    
-    console.log('🔍 Checking for alternative form elements:');
-    alternativeElements.forEach(selector => {
-      const element = document.querySelector(selector);
-      console.log(`  - ${selector}:`, !!element, element);
-    });
-    
-    return { isSupported: false, type: null };
-  }
 
   async initializeFreetextParser() {
     try {
       console.log('🎯 Initializing FreetextParser for Add Items page...');
-      
+
       // Wait for required components AND AI Rules to be loaded
       if (!window.FreetextParser || !window.AIImageAnalyzer || !window.AddItemsAPIBridge || !window.getSystemPrompt || !window.getModelSpecificValuationRules) {
         console.log('⏳ Waiting for components and AI Rules to load...');
         await new Promise((resolve, reject) => {
           let attempts = 0;
           const maxAttempts = 150; // 15 seconds timeout (increased for AI Rules loading)
-          
+
           const checkForClasses = () => {
             attempts++;
-            const allReady = window.FreetextParser && 
-                           window.AIImageAnalyzer && 
-                           window.AddItemsAPIBridge && 
-                           window.getSystemPrompt && 
-                           window.getModelSpecificValuationRules &&
-                           window.getBrandCorrections &&
-                           window.getArtistCorrections;
-                           
+            const allReady = window.FreetextParser &&
+              window.AIImageAnalyzer &&
+              window.AddItemsAPIBridge &&
+              window.getSystemPrompt &&
+              window.getModelSpecificValuationRules &&
+              window.getBrandCorrections &&
+              window.getArtistCorrections;
+
             if (allReady) {
               console.log('✅ All components and AI Rules loaded successfully');
               resolve();
@@ -428,12 +317,12 @@ class AuctionetCatalogingAssistant {
       console.log('🎯 Initializing FreetextParser component...');
       this.freetextParser = new window.FreetextParser(apiBridge.getAPIManager());
       this.freetextParser.init();
-      
+
       // Store the bridge for potential future use
       this.apiBridge = apiBridge;
-      
+
       console.log('✅ FreetextParser initialized successfully');
-      
+
     } catch (error) {
       console.error('❌ Failed to initialize FreetextParser:', error);
     }
@@ -442,19 +331,19 @@ class AuctionetCatalogingAssistant {
   createSimpleAPIManager() {
     // Capture reference to parent class for method calls
     const parentClass = this;
-    
+
     // Create a simplified API manager that provides just what the tooltip system needs
     return {
       apiKey: this.apiKey,
-      
+
       async callClaudeAPI(itemData, fieldType) {
         if (!parentClass.apiKey) {
           throw new Error('No API key available');
         }
-        
+
         // Generate the prompt based on the field type and item data
         const prompt = parentClass.generatePromptForAddItems(itemData, fieldType);
-        
+
         try {
           // Use background script communication (same as edit page)
           const response = await new Promise((resolve, reject) => {
@@ -462,7 +351,7 @@ class AuctionetCatalogingAssistant {
               type: 'anthropic-fetch',
               apiKey: parentClass.apiKey,
               body: {
-                model: 'claude-3-haiku-20240307',
+                model: parentClass.getCurrentModelId(),
                 max_tokens: fieldType === 'title-correct' ? 500 : 2000,
                 temperature: fieldType === 'title-correct' ? 0.1 : 0.7,
                 system: 'You are an expert Swedish auction cataloger. Follow Swedish auction standards.',
@@ -485,7 +374,7 @@ class AuctionetCatalogingAssistant {
           if (!response.data || !response.data.content || !Array.isArray(response.data.content) || response.data.content.length === 0) {
             throw new Error('Invalid response format from API');
           }
-          
+
           if (!response.data.content[0] || !response.data.content[0].text) {
             throw new Error('No text content in API response');
           }
@@ -501,12 +390,12 @@ class AuctionetCatalogingAssistant {
       // NEW: Add the analyzeForArtist method for AI artist detection
       async analyzeForArtist(title, objectType, artistField, description = '') {
         console.log('🤖 Simple API: Analyzing for artist in title:', title);
-        
+
         if (!parentClass.apiKey) {
           console.error('🤖 Simple API: No API key available');
           return { hasArtist: false };
         }
-        
+
         const prompt = `Analyze this Swedish auction title for potential artist names that should be moved to the artist field.
 
 IMPORTANT: If you detect a misspelled artist name, correct it and explain the correction. Do NOT reject misspellings - instead provide the correct spelling with reasoning.
@@ -550,7 +439,7 @@ RESPOND WITH VALID JSON:
               type: 'anthropic-fetch',
               apiKey: parentClass.apiKey,
               body: {
-                model: 'claude-3-haiku-20240307',
+                model: 'claude-3-5-haiku-20241022', // Use fast Haiku for artist detection
                 max_tokens: 1000,
                 temperature: 0.3,
                 system: 'You are an expert Swedish auction cataloger specializing in artist detection. Respond only with valid JSON.',
@@ -569,38 +458,38 @@ RESPOND WITH VALID JSON:
               }
             });
           });
-          
+
           // Validate response structure
           if (!response.data || !response.data.content || !Array.isArray(response.data.content) || response.data.content.length === 0) {
             console.error('🤖 Simple API: Invalid response format from API');
             return { hasArtist: false };
           }
-          
+
           if (!response.data.content[0] || !response.data.content[0].text) {
             console.error('🤖 Simple API: No text content in API response');
             return { hasArtist: false };
           }
-          
+
           const rawResponse = response.data.content[0].text;
           console.log('🤖 Simple API: Raw artist analysis response:', rawResponse);
-          
+
           // SAFETY CHECK: Ensure response is a string before processing
           if (typeof rawResponse !== 'string') {
             console.error('🤖 Simple API: Response is not a string:', typeof rawResponse, rawResponse);
             return { hasArtist: false };
           }
-          
+
           // Check for empty response
           if (!rawResponse || rawResponse.trim() === '') {
             console.error('🤖 Simple API: Empty response received');
             return { hasArtist: false };
           }
-          
+
           // Parse the response
           if (rawResponse.toLowerCase().includes('no_artist')) {
             return { hasArtist: false };
           }
-          
+
           // Try to parse JSON response
           let result;
           try {
@@ -608,17 +497,17 @@ RESPOND WITH VALID JSON:
           } catch (parseError) {
             console.error('🤖 Simple API: Failed to parse artist analysis JSON:', parseError);
             console.error('🤖 Simple API: Raw response that failed to parse:', rawResponse);
-            
+
             // ENHANCED: Try to fix common JSON issues and re-parse
             let fixedResponseText = rawResponse;
-            
+
             // Fix 1: Escape unescaped quotes in JSON string values
             // Look for patterns like "field": "value with "quotes" inside"
             fixedResponseText = fixedResponseText.replace(
-              /"([^"]+)"\s*:\s*"([^"]*)"([^"]*)"([^"]*)"/g, 
+              /"([^"]+)"\s*:\s*"([^"]*)"([^"]*)"([^"]*)"/g,
               '"$1": "$2\\"$3\\"$4"'
             );
-            
+
             // Fix 2: Handle more complex quote escaping in suggestedTitle and reasoning
             fixedResponseText = fixedResponseText.replace(
               /"(suggestedTitle|reasoning)"\s*:\s*"([^"]*""[^"]*"[^"]*)"/g,
@@ -627,21 +516,21 @@ RESPOND WITH VALID JSON:
                 return `"${field}": "${escapedValue}"`;
               }
             );
-            
+
             // Fix 3: Handle trailing commas
             fixedResponseText = fixedResponseText.replace(/,(\s*[}\]])/g, '$1');
-            
+
             // Fix 4: Ensure proper boolean formatting
             fixedResponseText = fixedResponseText.replace(/:\s*(true|false)([,\s}])/g, ': $1$2');
-            
+
             console.log('🔧 Simple API: Attempting to fix JSON:', fixedResponseText);
-            
+
             try {
               result = JSON.parse(fixedResponseText);
               console.log('✅ Simple API: Successfully parsed fixed JSON');
             } catch (secondParseError) {
               console.log('🤖 Simple API: Failed to parse fixed JSON:', secondParseError);
-              
+
               // FALLBACK: Try to extract JSON from response if it's wrapped in text
               const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
@@ -649,7 +538,7 @@ RESPOND WITH VALID JSON:
                   // Apply the same fixes to the extracted JSON
                   let extractedJson = jsonMatch[0];
                   extractedJson = extractedJson.replace(
-                    /"([^"]+)"\s*:\s*"([^"]*)"([^"]*)"([^"]*)"/g, 
+                    /"([^"]+)"\s*:\s*"([^"]*)"([^"]*)"([^"]*)"/g,
                     '"$1": "$2\\"$3\\"$4"'
                   );
                   extractedJson = extractedJson.replace(
@@ -659,12 +548,12 @@ RESPOND WITH VALID JSON:
                       return `"${field}": "${escapedValue}"`;
                     }
                   );
-                  
+
                   result = JSON.parse(extractedJson);
                   console.log('✅ Simple API: Successfully extracted and fixed JSON from wrapped response');
                 } catch (thirdParseError) {
                   console.log('🤖 Simple API: Failed to parse extracted JSON:', thirdParseError);
-                  
+
                   // FINAL FALLBACK: Extract data using regex
                   try {
                     const hasArtistMatch = rawResponse.match(/"hasArtist"\s*:\s*(true|false)/i);
@@ -672,7 +561,7 @@ RESPOND WITH VALID JSON:
                     const confidenceMatch = rawResponse.match(/"confidence"\s*:\s*([\d.]+)/);
                     const suggestedTitleMatch = rawResponse.match(/"suggestedTitle"\s*:\s*"([^"]*(?:\\"[^"]*)*[^"]*)"/);
                     const reasoningMatch = rawResponse.match(/"reasoning"\s*:\s*"([^"]*(?:\\"[^"]*)*[^"]*)"/);
-                    
+
                     if (hasArtistMatch) {
                       result = {
                         hasArtist: hasArtistMatch[1].toLowerCase() === 'true',
@@ -696,13 +585,13 @@ RESPOND WITH VALID JSON:
               }
             }
           }
-          
+
           // Validate the parsed result has expected structure
           if (typeof result !== 'object' || result === null) {
             console.error('🤖 Simple API: Parsed result is not an object:', result);
             return { hasArtist: false };
           }
-          
+
           // Ensure required fields exist with default values
           const validatedResult = {
             hasArtist: Boolean(result.hasArtist),
@@ -711,10 +600,10 @@ RESPOND WITH VALID JSON:
             suggestedTitle: result.suggestedTitle || null,
             reasoning: result.reasoning || 'No reasoning provided'
           };
-          
+
           console.log('🤖 Simple API: Validated artist analysis result:', validatedResult);
           return validatedResult;
-          
+
         } catch (error) {
           console.error('🤖 Simple API: Artist analysis failed:', error);
           return { hasArtist: false };
@@ -761,7 +650,7 @@ EXEMPEL KORRIGERINGAR:
 Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.
 `;
     }
-    
+
     return baseInfo + `
 UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 `;
@@ -770,7 +659,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
   parseClaudeResponseForAddItems(response, fieldType) {
     // Simple parsing for add items improvements
     const improvements = {};
-    
+
     if (fieldType === 'all') {
       improvements.title = response.match(/Titel:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
       improvements.description = response.match(/Beskrivning:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
@@ -782,7 +671,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     } else {
       improvements[fieldType] = response.trim();
     }
-    
+
     return improvements;
   }
 
@@ -791,7 +680,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     return {
       // Use ArtistDetectionManager SSoT for robust detection
       artistDetectionManager: new window.ArtistDetectionManager(apiManager),
-      
+
       async detectMisplacedArtist(title, artistField, forceReDetection = false) {
         console.log('🎯 Simple quality analyzer: Using ArtistDetectionManager SSoT for detection');
         return await this.artistDetectionManager.detectMisplacedArtist(title, artistField, forceReDetection);
@@ -816,836 +705,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     }
   }
 
-  injectUI() {
-    console.log('🎨 Injecting UI elements...');
-    
-    // Add AI assistance button next to each field
-    const titleField = document.querySelector('#item_title_sv');
-    const descriptionField = document.querySelector('#item_description_sv');
-    const conditionField = document.querySelector('#item_condition_sv');
-    const keywordsField = document.querySelector('#item_hidden_keywords');
 
-    console.log('🔍 Found fields:', {
-      title: !!titleField,
-      description: !!descriptionField,
-      condition: !!conditionField,
-      keywords: !!keywordsField
-    });
-    
-    console.log('📋 Field details:');
-    console.log('Title field element:', titleField);
-    console.log('Description field element:', descriptionField);
-    console.log('Condition field element:', conditionField);
-    console.log('Keywords field element:', keywordsField);
-
-    if (titleField) {
-      this.addAIButton(titleField, 'title', 'AI-förbättra titel');
-      this.addAIButton(titleField, 'title-correct', 'AI-korrigera stavning');
-    }
-    if (descriptionField) {
-      this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
-    }
-    if (conditionField) {
-      this.addAIButton(conditionField, 'condition', 'AI-förbättra kondition');
-    }
-    if (keywordsField) {
-      this.addAIButton(keywordsField, 'keywords', 'AI-generera sökord');
-    }
-
-    // Add master "Improve All" button
-    this.addMasterButton();
-
-  }
-
-  addMasterButton() {
-    // Add quality indicator first, then add button to it
-    this.addQualityIndicator();
-  }
-
-  addAIButton(field, type, buttonText) {
-    const button = document.createElement('button');
-    button.className = 'ai-assist-button';
-    button.textContent = buttonText;
-    button.type = 'button';
-    button.dataset.fieldType = type;
-    
-    const wrapper = document.createElement('div');
-    wrapper.className = 'ai-button-wrapper';
-    wrapper.appendChild(button);
-    
-    // Position right after the field element, not at the end of parent
-    field.parentNode.insertBefore(wrapper, field.nextSibling);
-  }
-
-  addQualityIndicator() {
-    const indicator = document.createElement('div');
-    indicator.className = 'quality-indicator';
-    indicator.innerHTML = `
-      <div class="quality-header">
-        <h4 class="quality-title">Katalogiseringskvalitet</h4>
-        <div class="quality-score-container">
-          <span class="quality-score">Analyserar...</span>
-          <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
-        </div>
-        <button class="ai-assist-button ai-master-button" type="button">Förbättra alla fält</button>
-      </div>
-      <div class="quality-warnings"></div>
-    `;
-    
-    // Add CSS for better layout
-    if (!document.getElementById('quality-indicator-styles')) {
-      const style = document.createElement('style');
-      style.id = 'quality-indicator-styles';
-      style.textContent = `
-        .quality-indicator {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border: 1px solid #dee2e6;
-          border-radius: 12px;
-          padding: 20px;
-          margin-bottom: 20px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .quality-header {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          width: 100%;
-        }
-        
-        .quality-title {
-          margin: 0 0 10px 0;
-          font-size: 14px;
-          font-weight: 600;
-          color: #333;
-          text-align: center;
-          width: 100%;
-        }
-        
-        .quality-score-container {
-          margin-bottom: 12px;
-          width: 100%;
-          text-align: center;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-        
-        .quality-score {
-          display: inline-block;
-          font-weight: bold;
-          padding: 6px 16px;
-          border-radius: 20px;
-          font-size: 14px;
-          min-width: 80px;
-          text-align: center;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          transition: all 0.3s ease;
-        }
-        
-        .refresh-quality-btn {
-          background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-          color: white;
-          border: none;
-          border-radius: 50%;
-          width: 28px;
-          height: 28px;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .refresh-quality-btn:hover {
-          background: linear-gradient(135deg, #495057 0%, #343a40 100%);
-          transform: rotate(180deg) scale(1.1);
-        }
-        
-        .refresh-quality-btn:active {
-          transform: rotate(180deg) scale(0.95);
-        }
-        
-        .quality-score.good { 
-          background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); 
-          color: #155724; 
-          border: 2px solid #b8dacc;
-        }
-        
-        .quality-score.medium { 
-          background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); 
-          color: #856404; 
-          border: 2px solid #f1c40f;
-        }
-        
-        .quality-score.poor { 
-          background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); 
-          color: #721c24; 
-          border: 2px solid #e74c3c;
-        }
-        
-        .ai-master-button {
-          width: 100%;
-          padding: 8px 16px;
-          font-size: 14px;
-          font-weight: 600;
-          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-          color: white;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
-        }
-        
-        .ai-master-button:hover {
-          background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
-        }
-        
-        .ai-master-button:active {
-          transform: translateY(0);
-          box-shadow: 0 1px 4px rgba(40, 167, 69, 0.3);
-        }
-        
-        .quality-warnings {
-          margin-top: 15px;
-          padding-top: 15px;
-          border-top: 1px solid #dee2e6;
-        }
-        
-        .quality-warnings ul {
-          margin: 0;
-          padding-left: 20px;
-        }
-        
-        .quality-warnings li {
-          margin-bottom: 8px;
-          font-size: 14px;
-        }
-        
-        .warning-high {
-          color: #721c24;
-          font-weight: 500;
-        }
-        
-        .warning-medium {
-          color: #856404;
-        }
-        
-        .warning-low {
-          color: #6c757d;
-          font-style: italic;
-        }
-        
-        .no-warnings {
-          color: #155724;
-          font-weight: 500;
-          text-align: center;
-          margin: 0;
-          font-size: 14px;
-        }
-        
-        /* AI Button Styles */
-        .ai-button-wrapper {
-          margin-top: 0px;
-          display: flex;
-          gap: 12px;
-          align-items: center;
-          flex-wrap: wrap;
-          margin-bottom: 12px;
-        }
-        
-        .ai-assist-button {
-          padding: 6px 12px;
-          font-size: 12px;
-          background: #006ccc;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-weight: 300;
-        }
-        
-        .ai-assist-button:hover {
-          background: #0056b3;
-        }
-        
-        .ai-assist-button:active {
-          background: #004085;
-        }
-        
-        .ai-assist-button[data-field-type="title-correct"] {
-          background: #D18300;
-        }
-        
-        .ai-assist-button[data-field-type="title-correct"]:hover {
-          background: #B17200;
-        }
-        
-        .ai-assist-button[data-field-type="title-correct"]:active {
-          background: #A16600;
-        }
-        
-        .ai-undo-button {
-          background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-          color: white;
-          border: none;
-          padding: 6px 12px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
-          margin-left: 12px;
-        }
-        
-        .ai-undo-button:hover {
-          background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 3px 6px rgba(220, 53, 69, 0.4);
-        }
-        
-        .ai-undo-button:active {
-          transform: translateY(0);
-          box-shadow: 0 1px 3px rgba(220, 53, 69, 0.3);
-        }
-        
-        .ai-updated {
-          background-color: #d4edda !important;
-          border: 2px solid #28a745 !important;
-          transition: all 0.3s ease;
-        }
-        
-        /* Artist Detection Styles */
-        .warning-artist-detection {
-          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-          border: 1px solid #2196f3;
-          border-radius: 8px;
-          padding: 12px;
-          margin: 8px 0;
-        }
-        
-        .artist-detection-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
-        }
-        
-        .confidence-badge {
-          background: #2196f3;
-          color: white;
-          padding: 2px 8px;
-          border-radius: 12px;
-          font-size: 11px;
-          font-weight: bold;
-        }
-        
-        .artist-reasoning {
-          font-style: italic;
-          color: #666;
-          margin: 8px 0;
-          font-size: 13px;
-        }
-        
-        .artist-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-top: 10px;
-        }
-        
-        .artist-actions button {
-          padding: 6px 12px;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 12px;
-          transition: all 0.2s ease;
-        }
-        
-        .btn-artist-move {
-          background: #4caf50;
-          color: white;
-        }
-        
-        .btn-artist-move:hover {
-          background: #45a049;
-          transform: translateY(-1px);
-        }
-        
-        .btn-artist-bio {
-          background: #2196f3;
-          color: white;
-        }
-        
-        .btn-artist-bio:hover {
-          background: #1976d2;
-          transform: translateY(-1px);
-        }
-        
-        .btn-artist-ignore {
-          background: #f44336;
-          color: white;
-        }
-        
-        .btn-artist-ignore:hover {
-          background: #d32f2f;
-          transform: translateY(-1px);
-        }
-        
-        /* Artist Biography Modal */
-        .artist-bio-modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 10000;
-          backdrop-filter: blur(4px);
-        }
-        
-        .artist-bio-modal {
-          background: white;
-          border-radius: 12px;
-          max-width: 500px;
-          width: 90%;
-          max-height: 80vh;
-          overflow-y: auto;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-        
-        .artist-bio-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 20px;
-          border-bottom: 1px solid #eee;
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-radius: 12px 12px 0 0;
-        }
-        
-        .artist-bio-header h3 {
-          margin: 0;
-          color: #333;
-        }
-        
-        .close-bio-modal {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #666;
-          padding: 0;
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        
-        .close-bio-modal:hover {
-          background: rgba(0, 0, 0, 0.1);
-          border-radius: 50%;
-        }
-        
-        .artist-bio-content {
-          padding: 20px;
-        }
-        
-        .artist-bio-content p {
-          line-height: 1.6;
-          color: #333;
-          margin-bottom: 20px;
-        }
-        
-        .bio-actions {
-          display: flex;
-          gap: 10px;
-          justify-content: flex-end;
-        }
-        
-        .bio-actions button {
-          padding: 8px 16px;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-weight: 500;
-          transition: all 0.2s ease;
-        }
-        
-        .btn-add-bio-to-description {
-          background: #4caf50;
-          color: white;
-        }
-        
-        .btn-add-bio-to-description:hover {
-          background: #45a049;
-          transform: translateY(-1px);
-        }
-        
-        .btn-close-bio {
-          background: #f5f5f5;
-          color: #333;
-        }
-        
-        .btn-close-bio:hover {
-          background: #e0e0e0;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-    
-    const sidebar = document.querySelector('.grid-col4');
-    console.log('🔍 Sidebar element found:', !!sidebar);
-    console.log('📋 Sidebar element:', sidebar);
-    
-    if (sidebar) {
-      console.log('✅ Adding quality indicator to sidebar');
-      sidebar.insertBefore(indicator, sidebar.firstChild);
-      
-      // Add event listener for manual refresh button
-      const refreshButton = indicator.querySelector('.refresh-quality-btn');
-      if (refreshButton) {
-        console.log('✅ Manual refresh button found, adding listener');
-        refreshButton.addEventListener('click', () => {
-          console.log('🔄 Manual quality refresh triggered');
-          this.analyzeQuality();
-        });
-      } else {
-        console.log('❌ Manual refresh button not found');
-      }
-      
-      // Set up live quality monitoring
-      console.log('🚀 Setting up live quality monitoring...');
-      this.setupLiveQualityUpdates();
-      console.log('✅ Live quality monitoring setup complete');
-      
-      // Initial quality analysis
-      console.log('📊 Running initial quality analysis...');
-      this.analyzeQuality();
-    } else {
-      console.log('❌ Sidebar not found - cannot add quality indicator');
-    }
-  }
-
-  analyzeQuality() {
-    console.log('🔍 analyzeQuality() called');
-    const data = this.extractItemData();
-    console.log('📊 Extracted data for quality analysis:', data);
-    const warnings = [];
-    let score = 100;
-    
-    // Check if "Inga anmärkningar" (No remarks) is checked
-    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
-    const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
-
-    // Title quality checks
-    if (data.title.length < 20) {
-      warnings.push({ field: 'Titel', issue: 'För kort - lägg till material och period', severity: 'high' });
-      score -= 20;
-    }
-    if (!data.title.includes(',')) {
-      warnings.push({ field: 'Titel', issue: 'Saknar korrekt struktur (KONSTNÄR, Objekt, Material)', severity: 'medium' });
-      score -= 15;
-    }
-
-    // Description quality checks
-    const descLength = data.description.replace(/<[^>]*>/g, '').length;
-    if (descLength < 50) {
-      warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, färg, märkningar', severity: 'high' });
-      score -= 25;
-    }
-    if (!data.description.match(/\d+[\s,]*(x|cm)/i)) {
-      warnings.push({ field: 'Beskrivning', issue: 'Saknar fullständiga mått', severity: 'high' });
-      score -= 20;
-    }
-
-    // Condition quality checks (skip if "Inga anmärkningar" is checked)
-    if (!noRemarksChecked) {
-      const condLength = data.condition.replace(/<[^>]*>/g, '').length;
-      if (condLength < 20) {
-        warnings.push({ field: 'Kondition', issue: 'För vag - specificera typ av slitage och skador', severity: 'high' });
-        score -= 20;
-      }
-      if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) {
-        warnings.push({ field: 'Kondition', issue: 'Endast "bruksslitage" är otillräckligt - specificera typ av slitage (repor, nagg, fläckar, etc.)', severity: 'high' });
-        score -= 25; // Increased penalty for lazy condition reports
-      }
-      
-      // Check for other vague condition terms
-      const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
-      const conditionText = data.condition.toLowerCase();
-      const hasVaguePhrase = vaguePhrases.some(phrase => 
-        conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 30
-      );
-      
-      if (hasVaguePhrase) {
-        warnings.push({ field: 'Kondition', issue: 'Vag konditionsbeskrivning - beskriv specifika skador och var de finns', severity: 'medium' });
-        score -= 15;
-      }
-    } else {
-      // "Inga anmärkningar" is checked - condition field gets full points
-      warnings.push({ field: 'Kondition', issue: '✓ "Inga anmärkningar" markerat - ingen konditionsrapport behövs', severity: 'low' });
-    }
-
-    // Keywords quality checks (HIGH IMPORTANCE for discoverability)
-    const keywordsLength = data.keywords.length;
-    // Support both comma-separated and Auctionet space-separated formats
-    const keywordCount = data.keywords ? 
-      (data.keywords.includes(',') ? 
-        data.keywords.split(',').filter(k => k.trim().length > 0).length :
-        data.keywords.split(/\s+/).filter(k => k.trim().length > 0).length
-      ) : 0;
-    
-    // Debug logging
-    console.log('Keywords debug:', {
-      keywords: data.keywords,
-      keywordsLength: keywordsLength,
-      keywordCount: keywordCount,
-      splitByComma: data.keywords ? data.keywords.split(',').filter(k => k.trim().length > 0) : []
-    });
-    
-    if (keywordsLength === 0 || !data.keywords || data.keywords.trim() === '') {
-      warnings.push({ field: 'Sökord', issue: 'Inga dolda sökord - kritiskt för sökbarhet', severity: 'high' });
-      score -= 30; // Heavy penalty for missing keywords
-    } else if (keywordCount < 2) {
-      warnings.push({ field: 'Sökord', issue: 'För få sökord - lägg till fler relevanta termer', severity: 'high' });
-      score -= 20;
-    } else if (keywordCount < 4) {
-      warnings.push({ field: 'Sökord', issue: 'Bra start - några fler sökord kan förbättra sökbarheten', severity: 'medium' });
-      score -= 10;
-    } else if (keywordCount >= 4 && keywordCount <= 12) {
-      // Sweet spot - no warnings, this is good
-      console.log('Keywords in sweet spot:', keywordCount, 'keywords');
-    } else if (keywordCount > 12) {
-      warnings.push({ field: 'Sökord', issue: 'För många sökord kan skada sökbarheten - fokusera på kvalitet över kvantitet', severity: 'medium' });
-      score -= 15;
-    }
-    
-    // Check for keyword quality - simplified approach
-    if (data.keywords) {
-      const keywords = data.keywords.toLowerCase();
-      const titleDesc = (data.title + ' ' + data.description + ' ' + data.condition).toLowerCase();
-      
-      // Check for keyword diversity (suggestion only, no penalty)
-      const keywordArray = data.keywords.includes(',') ? 
-        data.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0) :
-        data.keywords.split(/\s+/).map(k => k.trim()).filter(k => k.length > 0);
-      const uniqueKeywords = keywordArray.filter(keyword => 
-        !titleDesc.includes(keyword.toLowerCase().replace(/-/g, ' ')) || keyword.length <= 3
-      );
-      
-      const uniquePercentage = uniqueKeywords.length / keywordArray.length;
-      
-      if (uniquePercentage < 0.4) {
-        warnings.push({ field: 'Sökord', issue: 'Tips: Många sökord upprepar titel/beskrivning - kompletterande termer kan förbättra sökbarheten', severity: 'low' });
-        // No score penalty - just a suggestion
-      }
-    }
-
-    // ARTIST DETECTION - Check if artist name is in title but not in artist field
-    this.checkArtistDetection(data, warnings);
-
-    // Update UI
-    this.updateQualityIndicator(score, warnings);
-  }
-
-  checkArtistDetection(data, warnings) {
-    console.log('🔍 checkArtistDetection called with data:', {
-      title: data.title,
-      artist: data.artist,
-      titleLength: data.title?.length || 0,
-      artistLength: data.artist?.trim()?.length || 0
-    });
-    
-    // Skip if artist field is already filled or title is too short
-    if ((data.artist && data.artist.trim().length > 2) || !data.title || data.title.length < 15) {
-      console.log('⏭️ Skipping artist detection:', {
-        artistFilled: data.artist && data.artist.trim().length > 2,
-        titleTooShort: !data.title || data.title.length < 15,
-        title: data.title
-      });
-      return;
-    }
-    
-    console.log('✅ Running artist detection for title:', data.title);
-
-    // Check if required components are available
-    if (!window.ArtistDetectionManager) {
-      console.log('⚠️ ArtistDetectionManager not available, skipping artist detection');
-      return;
-    }
-    
-    // Run artist detection asynchronously (non-blocking)
-    const simpleAPIManager = this.createSimpleAPIManager();
-    const simpleQualityAnalyzer = this.createSimpleQualityAnalyzer(simpleAPIManager);
-    
-    console.log('🔧 Created quality analyzer:', !!simpleQualityAnalyzer);
-    console.log('🔧 API manager has API key:', !!simpleAPIManager.apiKey);
-    simpleQualityAnalyzer.detectMisplacedArtist(data.title, data.artist, false)
-      .then(artistDetection => {
-        console.log('🎨 Artist detection result:', artistDetection);
-        
-        if (artistDetection && artistDetection.detectedArtist) {
-          // Add interactive warning with buttons for artist detection
-          const artistWarning = {
-            field: 'Konstnär',
-            issue: `"${artistDetection.detectedArtist}" upptäckt i titel`,
-            severity: 'artist-detection',
-            artistData: artistDetection,
-            interactive: true
-          };
-          
-          // Re-run quality analysis to include artist detection
-          const currentWarnings = Array.from(document.querySelectorAll('.quality-warnings li')).map(li => ({
-            field: li.textContent.split(':')[0],
-            issue: li.textContent.split(':').slice(1).join(':').trim(),
-            severity: 'medium'
-          }));
-          
-          currentWarnings.push(artistWarning);
-          
-          // Update UI with artist detection
-          const warningsElement = document.querySelector('.quality-warnings');
-          if (warningsElement) {
-            warningsElement.innerHTML = '<ul>' + 
-              currentWarnings.map(w => {
-                if (w.interactive && w.severity === 'artist-detection') {
-                  return this.createArtistDetectionWarning(w);
-                } else {
-                  return `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`;
-                }
-              }).join('') +
-              '</ul>';
-            
-            // Add event listeners for interactive buttons
-            this.attachArtistDetectionListeners(warningsElement);
-          }
-          
-          console.log('🎨 Artist detected in title:', artistDetection);
-        }
-      })
-      .catch(error => {
-        console.log('⚠️ Artist detection failed (non-critical):', error);
-        console.log('🔧 Error details:', {
-          message: error.message,
-          stack: error.stack,
-          title: data.title
-        });
-        // Don't add warning for failed detection - it's optional
-      });
-  }
-
-  updateQualityIndicator(score, warnings) {
-    const scoreElement = document.querySelector('.quality-score');
-    const warningsElement = document.querySelector('.quality-warnings');
-    
-    if (scoreElement) {
-      // Add smooth transition effect for score changes
-      const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
-      const newScore = score;
-      
-      if (currentScore !== newScore) {
-        scoreElement.style.transform = 'scale(1.1)';
-        setTimeout(() => {
-          scoreElement.style.transform = 'scale(1)';
-        }, 200);
-      }
-      
-      scoreElement.textContent = `${score}/100`;
-      scoreElement.className = `quality-score ${score >= 80 ? 'good' : score >= 60 ? 'medium' : 'poor'}`;
-    }
-    
-    if (warningsElement) {
-      if (warnings.length > 0) {
-        warningsElement.innerHTML = '<ul>' + 
-          warnings.map(w => {
-            if (w.interactive && w.severity === 'artist-detection') {
-              return this.createArtistDetectionWarning(w);
-            } else {
-              return `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`;
-            }
-          }).join('') +
-          '</ul>';
-        
-        // Add event listeners for interactive buttons
-        this.attachArtistDetectionListeners(warningsElement);
-      } else {
-        warningsElement.innerHTML = '<p class="no-warnings">✓ Utmärkt katalogisering!</p>';
-      }
-    }
-  }
-
-  createArtistDetectionWarning(warning) {
-    const artistData = warning.artistData;
-    const confidence = Math.round((artistData.confidence || 0.8) * 100);
-    
-    return `
-      <li class="warning-artist-detection">
-        <div class="artist-detection-header">
-          <strong>🎨 ${warning.field}:</strong> ${warning.issue}
-          <span class="confidence-badge">${confidence}% säkerhet</span>
-        </div>
-        <div class="artist-detection-body">
-          ${artistData.reasoning ? `<p class="artist-reasoning">${artistData.reasoning}</p>` : ''}
-          <div class="artist-actions">
-            <button class="btn-artist-move" data-artist="${artistData.detectedArtist}" data-suggested-title="${artistData.suggestedTitle || ''}">
-              📝 Flytta till konstnärsfält
-            </button>
-            <button class="btn-artist-bio" data-artist="${artistData.detectedArtist}">
-              ℹ️ Visa biografi
-            </button>
-            <button class="btn-artist-ignore" data-artist="${artistData.detectedArtist}">
-              ❌ Ignorera
-            </button>
-          </div>
-        </div>
-      </li>
-    `;
-  }
-
-  attachArtistDetectionListeners(warningsElement) {
-    // Move artist to artist field
-    const moveButtons = warningsElement.querySelectorAll('.btn-artist-move');
-    moveButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const artistName = e.target.dataset.artist;
-        const suggestedTitle = e.target.dataset.suggestedTitle;
-        this.moveArtistToField(artistName, suggestedTitle);
-      });
-    });
-
-    // Show artist biography
-    const bioButtons = warningsElement.querySelectorAll('.btn-artist-bio');
-    bioButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const artistName = e.target.dataset.artist;
-        this.showArtistBiography(artistName);
-      });
-    });
-
-    // Ignore artist detection
-    const ignoreButtons = warningsElement.querySelectorAll('.btn-artist-ignore');
-    ignoreButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const artistName = e.target.dataset.artist;
-        this.ignoreArtistDetection(artistName);
-      });
-    });
-  }
 
   async moveArtistToField(artistName, suggestedTitle) {
     try {
@@ -1667,7 +727,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
       // Re-analyze quality to update warnings
       setTimeout(() => this.analyzeQuality(), 500);
-      
+
       console.log('✅ Artist moved to field:', artistName);
     } catch (error) {
       console.error('❌ Error moving artist:', error);
@@ -1689,7 +749,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: 'claude-3-haiku-20240307',
+            model: 'claude-3-5-haiku-20241022', // Use fast Haiku for biography generation
             max_tokens: 300,
             temperature: 0.3,
             system: 'Du är en konstexpert. Skriv korta, faktabaserade biografier på svenska.',
@@ -1719,49 +779,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     }
   }
 
-  showBiographyModal(artistName, biography) {
-    // Create modal overlay
-    const modal = document.createElement('div');
-    modal.className = 'artist-bio-modal-overlay';
-    modal.innerHTML = `
-      <div class="artist-bio-modal">
-        <div class="artist-bio-header">
-          <h3>🎨 ${artistName}</h3>
-          <button class="close-bio-modal">&times;</button>
-        </div>
-        <div class="artist-bio-content">
-          <p>${biography}</p>
-          <div class="bio-actions">
-            <button class="btn-add-bio-to-description">📝 Lägg till i beskrivning</button>
-            <button class="btn-close-bio">Stäng</button>
-          </div>
-        </div>
-      </div>
-    `;
 
-    document.body.appendChild(modal);
-
-    // Add event listeners
-    const closeButtons = modal.querySelectorAll('.close-bio-modal, .btn-close-bio');
-    closeButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.body.removeChild(modal);
-      });
-    });
-
-    const addToDescBtn = modal.querySelector('.btn-add-bio-to-description');
-    addToDescBtn.addEventListener('click', () => {
-      this.addBiographyToDescription(biography);
-      document.body.removeChild(modal);
-    });
-
-    // Close on overlay click
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        document.body.removeChild(modal);
-      }
-    });
-  }
 
   addBiographyToDescription(biography) {
     const descriptionField = document.querySelector('#item_description_sv');
@@ -1770,7 +788,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       const newDesc = currentDesc + (currentDesc ? '\n\n' : '') + biography;
       descriptionField.value = newDesc;
       descriptionField.dispatchEvent(new Event('input', { bubbles: true }));
-      
+
       // Re-analyze quality
       setTimeout(() => this.analyzeQuality(), 500);
     }
@@ -1783,141 +801,46 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     console.log('🚫 Ignored artist detection for:', artistName);
   }
 
-  setupLiveQualityUpdates() {
-    // Debounce function to prevent too frequent updates
-    let updateTimeout;
-    const debouncedUpdate = (event) => {
-      clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
-        console.log('⚡ Live quality update triggered by:', event?.target?.id || event?.target?.tagName || 'unknown field');
-        this.analyzeQuality();
-      }, 800); // Wait 800ms after user stops typing
-    };
 
-    // Use the exact same selectors as extractItemData()
-    const fieldsToMonitor = [
-      '#item_title_sv',
-      '#item_description_sv', 
-      '#item_condition_sv',
-      '#item_hidden_keywords',
-      'input[type="checkbox"][value="Inga anmärkningar"]',
-      'input[type="checkbox"]#item_no_remarks',
-      'input[type="checkbox"][name*="no_remarks"]'
-    ];
 
-    let monitoredCount = 0;
-    fieldsToMonitor.forEach(selector => {
-      const element = document.querySelector(selector);
-      if (element) {
-        console.log(`Setting up live monitoring for: ${selector}`);
-        monitoredCount++;
-        
-        // Add event listeners for different input types
-        if (element.type === 'checkbox') {
-          element.addEventListener('change', debouncedUpdate);
-          console.log(`✅ Added 'change' listener to checkbox: ${selector}`);
-        } else {
-          element.addEventListener('input', debouncedUpdate);
-          element.addEventListener('paste', debouncedUpdate);
-          element.addEventListener('keyup', debouncedUpdate);
-          console.log(`✅ Added 'input', 'paste', 'keyup' listeners to: ${selector}`);
-        }
-        
-        // Test immediate trigger
-        element.addEventListener('focus', () => {
-          console.log(`🎯 Field focused: ${selector}`);
-        });
-      } else {
-        console.warn(`Field not found for live monitoring: ${selector}`);
-      }
-    });
-
-    // Also monitor for changes in rich text editors (if any)
-    const richTextEditors = document.querySelectorAll('[contenteditable="true"]');
-    richTextEditors.forEach(editor => {
-      console.log('Setting up live monitoring for rich text editor');
-      editor.addEventListener('input', debouncedUpdate);
-      editor.addEventListener('paste', debouncedUpdate);
-      monitoredCount++;
-    });
-
-    console.log(`🎯 Live quality monitoring set up for ${monitoredCount} fields`);
-    
-    // Test if fields exist right now
-    console.log('🔍 Field existence check:');
-
-  }
-
-  attachEventListeners() {
-    // Individual field buttons (exclude master button)
-    const buttons = document.querySelectorAll('.ai-assist-button:not(.ai-master-button)');
-    console.log('Found AI assist buttons:', buttons.length);
-    
-    buttons.forEach(button => {
-      button.addEventListener('click', (e) => {
-        e.preventDefault();
-        const fieldType = e.target.dataset.fieldType;
-        console.log('Button clicked for field type:', fieldType);
-        if (fieldType) {
-          this.improveField(fieldType);
-        } else {
-          console.warn('Button clicked but no fieldType found:', e.target);
-        }
-      });
-    });
-
-    // Master button (separate handler)
-    const masterButton = document.querySelector('.ai-master-button');
-    if (masterButton) {
-      console.log('Master button found and event listener attached');
-      masterButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        console.log('Master button clicked');
-        this.improveAllFields();
-      });
-    } else {
-      console.warn('Master button not found');
-    }
-  }
-
-  async improveField(fieldType) {
+  async improveField(fieldType, force = false) {
     // Ensure API key is loaded
     if (!this.apiKey) {
       await this.loadApiKey();
     }
-    
+
     // Check if API key is still missing
     if (!this.apiKey) {
-      this.showFieldErrorIndicator(fieldType, 'API key not configured. Please set your Anthropic API key in the extension popup.');
+      this.uiController.showFieldErrorIndicator(fieldType, 'API key not configured. Please set your Anthropic API key in the extension popup.');
       return;
     }
-    
+
     const itemData = this.extractItemData();
-    
-    // Assess data quality for hallucination prevention (skip for title corrections)
-    if (fieldType !== 'title-correct') {
+
+    // Assess data quality for hallucination prevention (skip for title corrections or if forced)
+    if (fieldType !== 'title-correct' && !force) {
       const qualityAssessment = this.assessDataQuality(itemData, fieldType);
-      
+
       if (qualityAssessment.needsMoreInfo) {
-        this.showFieldSpecificInfoDialog(fieldType, qualityAssessment.missingInfo, itemData);
+        this.uiController.showFieldSpecificInfoDialog(fieldType, qualityAssessment.missingInfo, itemData);
         return;
       }
     }
-    
-    this.showFieldLoadingIndicator(fieldType);
-    
+
+    this.uiController.showFieldLoadingIndicator(fieldType);
+
     try {
       const improved = await this.callClaudeAPI(itemData, fieldType);
       console.log('Improved result for', fieldType, ':', improved);
-      
+
       // For single field improvements, extract the specific field value
       // Handle title-correct mapping to title field
       const responseField = fieldType === 'title-correct' ? 'title' : fieldType;
       const value = improved[responseField];
       if (value) {
         this.applyImprovement(fieldType, value);
-        this.showFieldSuccessIndicator(fieldType);
-        
+        this.uiController.showFieldSuccessIndicator(fieldType);
+
         // Re-analyze quality after improvement (with delay to ensure DOM is updated)
         console.log('Re-analyzing quality after single field improvement...');
         setTimeout(() => {
@@ -1929,7 +852,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       }
     } catch (error) {
       console.error('Error improving field:', error);
-      this.showFieldErrorIndicator(fieldType, error.message);
+      this.uiController.showFieldErrorIndicator(fieldType, error.message);
     }
   }
 
@@ -1938,99 +861,173 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     if (!this.apiKey) {
       await this.loadApiKey();
     }
-    
+
     // Check if API key is still missing
     if (!this.apiKey) {
-      this.showFieldErrorIndicator('all', 'API key not configured. Please set your Anthropic API key in the extension popup.');
+      this.uiController.showFieldErrorIndicator('all', 'API key not configured. Please set your Anthropic API key in the extension popup.');
       return;
     }
-    
+
     const itemData = this.extractItemData();
-    
+
     // Assess data quality for hallucination prevention
     const qualityAssessment = this.assessDataQuality(itemData, 'all');
-    
+
     if (qualityAssessment.needsMoreInfo) {
-      this.showFieldSpecificInfoDialog('all', qualityAssessment.missingInfo, itemData);
+      this.uiController.showFieldSpecificInfoDialog('all', qualityAssessment.missingInfo, itemData);
       return;
     }
-    
-    this.showFieldLoadingIndicator('all');
-    
+
+    this.uiController.showFieldLoadingIndicator('all');
+
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all');
-      
+
       // Apply improvements and show individual success indicators with slight delays for cascade effect
       let delay = 0;
-      
+
       if (improvements.title) {
         setTimeout(() => {
           this.applyImprovement('title', improvements.title);
-          this.showFieldSuccessIndicator('title');
+          this.uiController.showFieldSuccessIndicator('title');
         }, delay);
         delay += 300;
       }
-      
+
       if (improvements.description) {
         setTimeout(() => {
           this.applyImprovement('description', improvements.description);
-          this.showFieldSuccessIndicator('description');
+          this.uiController.showFieldSuccessIndicator('description');
         }, delay);
         delay += 300;
       }
-      
+
       if (improvements.condition) {
         setTimeout(() => {
           this.applyImprovement('condition', improvements.condition);
-          this.showFieldSuccessIndicator('condition');
+          this.uiController.showFieldSuccessIndicator('condition');
         }, delay);
         delay += 300;
       }
-      
+
       if (improvements.keywords) {
         setTimeout(() => {
           this.applyImprovement('keywords', improvements.keywords);
-          this.showFieldSuccessIndicator('keywords');
+          this.uiController.showFieldSuccessIndicator('keywords');
         }, delay);
         delay += 300;
       }
-      
+
       // Show final success on master button after all fields are done
       setTimeout(() => {
-        this.showFieldSuccessIndicator('all');
+        this.uiController.showFieldSuccessIndicator('all');
         setTimeout(() => this.analyzeQuality(), 500);
       }, delay);
-      
+
     } catch (error) {
-      this.showFieldErrorIndicator('all', error.message);
+      this.uiController.showFieldErrorIndicator('all', error.message);
     }
+  }
+
+  handleArtistAction(action, data) {
+    console.log(`🎨 Handling artist action: ${action}`, data);
+
+    if (action === 'move') {
+      // Move artist name to artist field
+      const artistField = document.querySelector('#item_artist');
+      if (artistField) {
+        artistField.value = data.artistName;
+        artistField.dispatchEvent(new Event('change', { bubbles: true }));
+        artistField.classList.add('ai-updated');
+
+        // If we have a suggested title (without the artist name), update the title too
+        if (data.suggestedTitle) {
+          this.uiController.applyImprovement('title', data.suggestedTitle);
+        }
+
+        // Show success indicator on artist field
+        artistField.classList.add('field-success');
+        setTimeout(() => artistField.classList.remove('field-success'), 1000);
+      } else {
+        console.warn('❌ Artist field not found');
+      }
+    } else if (action === 'bio') {
+      // Show biography
+      this.showArtistBiography(data.artistName);
+    } else if (action === 'ignore') {
+      // Ignore this artist detection for this session
+      this.ignoreArtistDetection(data.artistName);
+    }
+  }
+
+  showArtistBiography(artistName) {
+    console.log(`📖 Fetching biography for ${artistName}...`);
+    this.uiController.showLoadingIndicator('all');
+
+    // Use callClaudeAPI with 'biography' type
+    // We need to construct a temporary itemData with the artist name
+    const tempItemData = { artist: artistName };
+
+    this.callClaudeAPI(tempItemData, 'biography')
+      .then(response => {
+        this.uiController.removeFieldLoadingIndicator('all');
+        // The response from parseClaudeResponse for single field is usually an object or string
+        // For biography, we expect a string or object with biography property
+        let bioText = '';
+        if (typeof response === 'string') {
+          bioText = response;
+        } else if (response && response.biography) {
+          bioText = response.biography;
+        } else if (response && response.text) {
+          bioText = response.text;
+        } else {
+          bioText = JSON.stringify(response);
+        }
+
+        this.uiController.showBiographyModal(artistName, bioText);
+      })
+      .catch(error => {
+        this.uiController.removeFieldLoadingIndicator('all');
+        console.error('❌ Failed to fetch biography:', error);
+        alert('Kunde inte hämta biografi just nu.');
+      });
+  }
+
+  ignoreArtistDetection(artistName) {
+    console.log(`🙈 Ignoring artist detection for: ${artistName}`);
+    if (!this.ignoredArtists) this.ignoredArtists = [];
+    this.ignoredArtists.push(artistName);
+
+    // Re-assess quality
+    const itemData = this.extractItemData();
+    this.assessDataQuality(itemData, 'all');
   }
 
   assessDataQuality(data, fieldType) {
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
     const condLength = data.condition.replace(/<[^>]*>/g, '').length;
     const titleLength = data.title.length;
-    
+
     // Check if "Inga anmärkningar" is checked
-    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') ||
+      document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+      document.querySelector('input[type="checkbox"][name*="no_remarks"]');
     const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
-    
+
     // Calculate overall quality score
     const qualityScore = this.calculateCurrentQualityScore(data);
-    
+
     const issues = [];
     let needsMoreInfo = false;
-    
+
     // Critical quality thresholds
     if (qualityScore < 30) {
       needsMoreInfo = true;
       issues.push('critical_quality');
     }
-    
+
     // Field-specific quality checks
-    switch(fieldType) {
+    switch (fieldType) {
       case 'title':
         // Check if we can safely improve title
         if (!data.description.match(/\d{4}|\d{2,4}-tal|1[6-9]\d{2}|20[0-2]\d/i) && !data.artist && descLength < 30) {
@@ -2047,7 +1044,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           needsMoreInfo = true;
         }
         break;
-        
+
       case 'title-correct':
         // For title corrections, we just need a basic title to work with
         // No additional information required since we're only correcting grammar/structure
@@ -2056,7 +1053,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           needsMoreInfo = true;
         }
         break;
-        
+
       case 'description':
         if (descLength < 25) {
           warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, färg, märkningar', severity: 'high' });
@@ -2067,7 +1064,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           score -= 20;
         }
         break;
-        
+
       case 'condition':
         // Skip condition checks if "Inga anmärkningar" is checked
         if (!noRemarksChecked) {
@@ -2079,19 +1076,19 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
             issues.push('condition_details');
             needsMoreInfo = true;
           }
-          
+
           // Check for other vague condition phrases
           const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage'];
           const conditionText = data.condition.toLowerCase();
           const hasVaguePhrase = vaguePhrases.some(phrase => conditionText.includes(phrase));
-          
+
           if (hasVaguePhrase && condLength < 40) {
             issues.push('vague_condition_terms');
             needsMoreInfo = true;
           }
         }
         break;
-        
+
       case 'keywords':
         // Keywords can usually be generated even with sparse data
         if (qualityScore < 20) {
@@ -2099,7 +1096,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           needsMoreInfo = true;
         }
         break;
-        
+
       case 'all':
         // For "Förbättra alla" - comprehensive check
         if (qualityScore < 40) {
@@ -2120,65 +1117,65 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
         }
         break;
     }
-    
+
     return { needsMoreInfo, missingInfo: issues, qualityScore };
   }
 
   calculateCurrentQualityScore(data) {
     let score = 100;
-    
+
     // Check if "Inga anmärkningar" is checked
-    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') || 
-                             document.querySelector('input[type="checkbox"]#item_no_remarks') ||
-                             document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') ||
+      document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+      document.querySelector('input[type="checkbox"][name*="no_remarks"]');
     const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
-    
+
     // Quick quality calculation (simplified version of analyzeQuality)
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
     const condLength = data.condition.replace(/<[^>]*>/g, '').length;
     const keywordsLength = data.keywords.length;
-    
+
     // Support both comma-separated and Auctionet space-separated formats
-    const keywordCount = data.keywords ? 
-      (data.keywords.includes(',') ? 
+    const keywordCount = data.keywords ?
+      (data.keywords.includes(',') ?
         data.keywords.split(',').filter(k => k.trim().length > 0).length :
         data.keywords.split(/\s+/).filter(k => k.trim().length > 0).length
       ) : 0;
-    
+
     // Debug logging for calculateCurrentQualityScore
     console.log('calculateCurrentQualityScore keywords debug:', {
       keywords: data.keywords,
       keywordsLength: keywordsLength,
       keywordCount: keywordCount
     });
-    
+
     if (data.title.length < 20) score -= 20;
     if (descLength < 50) score -= 25;
-    
+
     // Skip condition scoring if "Inga anmärkningar" is checked
     if (!noRemarksChecked) {
       if (condLength < 20) score -= 20;
       if (data.condition.match(/^<p>bruksslitage\.?<\/p>$/i)) score -= 25; // Increased penalty
-      
+
       // Check for other vague condition terms
       const vaguePhrases = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
       const conditionText = data.condition.toLowerCase();
-      const hasVaguePhrase = vaguePhrases.some(phrase => 
+      const hasVaguePhrase = vaguePhrases.some(phrase =>
         conditionText.includes(phrase) && conditionText.replace(/<[^>]*>/g, '').trim().length < 30
       );
-      
+
       if (hasVaguePhrase) score -= 15;
     }
-    
+
     // Updated keyword scoring with more reasonable thresholds
     if (keywordsLength === 0 || !data.keywords || data.keywords.trim() === '') score -= 30;
     else if (keywordCount < 2) score -= 20;
     else if (keywordCount < 4) score -= 10;
     // 4-12 keywords = no penalty (sweet spot)
     else if (keywordCount > 12) score -= 15;
-    
+
     if (!data.description.match(/\d+[\s,]*(x|cm)/i)) score -= 20;
-    
+
     return Math.max(0, score);
   }
 
@@ -2188,450 +1185,72 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     return assessment.needsMoreInfo || assessment.qualityScore < 40;
   }
 
-  showInformationRequestDialog(currentData) {
-    const dialog = document.createElement('div');
-    dialog.className = 'ai-info-request-dialog';
-    dialog.innerHTML = `
-      <div class="dialog-overlay"></div>
-      <div class="dialog-content">
-        <h3>Mer information behövs för optimal katalogisering</h3>
-        <p>För att undvika felaktiga antaganden och skapa en professionell katalogisering behöver AI:n mer specifik information. Vänligen ange följande:</p>
-        
-        <div class="info-request-form">
-          <div class="form-group">
-            <label>Material (t.ex. ek, björk, mässing, silver):</label>
-            <input type="text" id="ai-material" placeholder="Ange material...">
-          </div>
-          
-          <div class="form-group">
-            <label>Tillverkningsteknik (t.ex. handblåst, drejade, gjuten):</label>
-            <input type="text" id="ai-technique" placeholder="Ange teknik...">
-          </div>
-          
-          <div class="form-group">
-            <label>Märkningar/Stämplar:</label>
-            <input type="text" id="ai-markings" placeholder="T.ex. 'Märkt Kosta 1960'">
-          </div>
-          
-          <div class="form-group">
-            <label>Specifika skador/slitage:</label>
-            <textarea id="ai-damage" placeholder="T.ex. 'Repa 3cm på ovansidan, nagg vid foten'"></textarea>
-          </div>
-          
-          <div class="form-group">
-            <label>Övrig information:</label>
-            <textarea id="ai-additional" placeholder="Allt annat som kan vara relevant..."></textarea>
-          </div>
-        </div>
-        
-        <div class="dialog-buttons">
-          <button class="btn btn-primary" id="process-with-info">
-            Förbättra med denna information
-          </button>
-          <button class="btn btn-default" id="process-without-info">
-            Fortsätt utan extra information
-          </button>
-          <button class="btn btn-link" id="cancel-dialog">
-            Avbryt
-          </button>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(dialog);
-    
-    // Add event listeners instead of inline onclick
-    document.getElementById('process-with-info').addEventListener('click', () => {
-      this.processWithAdditionalInfo();
-    });
-    
-    document.getElementById('process-without-info').addEventListener('click', () => {
-      this.processWithoutAdditionalInfo();
-    });
-    
-    document.getElementById('cancel-dialog').addEventListener('click', () => {
-      dialog.remove();
-    });
-    
-    // Add CSS for the dialog
-    if (!document.getElementById('dialog-styles')) {
-      const style = document.createElement('style');
-      style.id = 'dialog-styles';
-      style.textContent = `
-        .ai-info-request-dialog {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: 10000;
-        }
-        
-        .dialog-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.5);
-        }
-        
-        .dialog-content {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: white;
-          padding: 30px;
-          border-radius: 12px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-          max-width: 500px;
-          width: 90%;
-          max-height: 80vh;
-          overflow-y: auto;
-        }
-        
-        .dialog-content h3 {
-          margin: 0 0 15px 0;
-          color: #333;
-          font-size: 20px;
-        }
-        
-        .info-request-form {
-          margin: 20px 0;
-        }
-        
-        .form-group {
-          margin-bottom: 15px;
-        }
-        
-        .form-group label {
-          display: block;
-          margin-bottom: 5px;
-          font-weight: 500;
-          color: #555;
-        }
-        
-        .form-group input,
-        .form-group textarea {
-          width: 100%;
-          padding: 8px 12px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 14px;
-          box-sizing: border-box;
-        }
-        
-        .form-group textarea {
-          height: 60px;
-          resize: vertical;
-        }
-        
-        .dialog-buttons {
-          display: flex;
-          gap: 10px;
-          justify-content: flex-end;
-          margin-top: 25px;
-        }
-        
-        .btn {
-          padding: 10px 20px;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.2s;
-        }
-        
-        .btn-primary {
-          background: #007bff;
-          color: white;
-        }
-        
-        .btn-primary:hover {
-          background: #0056b3;
-        }
-        
-        .btn-default {
-          background: #6c757d;
-          color: white;
-        }
-        
-        .btn-default:hover {
-          background: #545b62;
-        }
-        
-        .btn-link {
-          background: transparent;
-          color: #6c757d;
-          text-decoration: underline;
-        }
-        
-        .btn-link:hover {
-          color: #495057;
-        }
-        
-        .missing-info {
-          background: #f8f9fa;
-          padding: 15px;
-          border-radius: 6px;
-          margin: 15px 0;
-        }
-        
-        .missing-info h4 {
-          margin: 0 0 10px 0;
-          color: #495057;
-          font-size: 16px;
-        }
-        
-        .missing-info ul {
-          margin: 0;
-          padding-left: 20px;
-        }
-        
-        .missing-info li {
-          margin-bottom: 5px;
-          color: #6c757d;
-        }
-        
-        .field-tips {
-          background: #e3f2fd;
-          padding: 15px;
-          border-radius: 6px;
-          margin: 15px 0;
-          border-left: 4px solid #2196f3;
-        }
-        
-        .field-tips h4 {
-          margin: 0 0 8px 0;
-          color: #1976d2;
-          font-size: 14px;
-        }
-        
-        .field-tips p {
-          margin: 0;
-          color: #424242;
-          font-size: 13px;
-          line-height: 1.4;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }
 
-  async processWithAdditionalInfo() {
-    const additionalInfo = {
-      material: document.getElementById('ai-material').value,
-      technique: document.getElementById('ai-technique').value,
-      markings: document.getElementById('ai-markings').value,
-      damage: document.getElementById('ai-damage').value,
-      additional: document.getElementById('ai-additional').value
-    };
-    
-    document.querySelector('.ai-info-request-dialog').remove();
-    
+
+  async processWithAdditionalInfo(info) {
     const itemData = this.extractItemData();
-    itemData.additionalInfo = additionalInfo;
-    
-    this.showFieldLoadingIndicator('all');
-    
+    itemData.additionalInfo = info;
+
+    this.uiController.showFieldLoadingIndicator('all');
+
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all-enhanced');
       this.applyAllImprovements(improvements);
     } catch (error) {
-      this.showFieldErrorIndicator('all', error.message);
+      this.uiController.showFieldErrorIndicator('all', error.message);
     }
   }
 
   async processWithoutAdditionalInfo() {
-    document.querySelector('.ai-info-request-dialog').remove();
     const itemData = this.extractItemData();
-    this.showFieldLoadingIndicator('all');
-    
+    this.uiController.showFieldLoadingIndicator('all');
+
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
       this.applyAllImprovements(improvements);
     } catch (error) {
-      this.showFieldErrorIndicator('all', error.message);
+      this.uiController.showFieldErrorIndicator('all', error.message);
     }
   }
 
-  showFieldSpecificInfoDialog(fieldType, missingInfo, data) {
-    const fieldNames = {
-      'title': 'titeln',
-      'description': 'beskrivningen', 
-      'condition': 'skicket',
-      'keywords': 'nyckelorden',
-      'all': 'alla fält'
-    };
-    
-    const fieldName = fieldNames[fieldType] || fieldType;
-    
-    const infoMessages = {
-      'basic_info': '📝 Grundläggande information om objektet',
-      'material': '🧱 Material (trä, metall, glas, keramik, textil, etc.)',
-      'technique': '🔨 Tillverkningsteknik (handgjord, gjuten, målad, etc.)',
-      'period': '📅 Tidsperiod eller årtal',
-      'measurements': '📏 Mått (längd x bredd x höjd)',
-      'specific_damage': '🔍 Specifika skador eller defekter',
-      'wear_details': '👀 Detaljer om slitage och användning',
-      'condition_details': '🔎 Mer detaljerad skickbeskrivning',
-      'bruksslitage_vague': '⚠️ "Bruksslitage" är för vagt - specificera typ av skador',
-      'vague_condition_terms': '📋 Vaga konditionstermer - beskriv specifika skador och placering',
-      'critical_quality': '⚠️ Grundläggande objektinformation',
-      'artist_verification': '👨‍🎨 Verifiering av konstnärsinformation och aktiv period'
-    };
-    
-    const dialog = document.createElement('div');
-    dialog.className = 'ai-info-request-dialog';
-    dialog.innerHTML = `
-      <div class="dialog-overlay"></div>
-      <div class="dialog-content">
-        <h3>🤖 Behöver mer information för ${fieldName}</h3>
-        <p>För att undvika felaktiga uppgifter behöver AI:n mer detaljerad information innan ${fieldName} kan förbättras säkert.</p>
-        
-        <div class="missing-info">
-          <h4>Lägg till information om:</h4>
-          <ul>
-            ${missingInfo.map(info => `<li>${infoMessages[info] || info}</li>`).join('')}
-          </ul>
-        </div>
-        
-        ${this.getFieldSpecificTips(fieldType, data)}
-        
-        <div class="dialog-buttons">
-          <button class="btn btn-link" id="cancel-field-dialog">Avbryt</button>
-          <button class="btn btn-default" id="continue-anyway">Fortsätt ändå</button>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(dialog);
-    
-    // Handle button clicks
-    document.getElementById('cancel-field-dialog').addEventListener('click', () => {
-      dialog.remove();
-    });
-    
-    document.getElementById('continue-anyway').addEventListener('click', () => {
-      dialog.remove();
-      this.forceImproveField(fieldType);
-    });
-    
-    // Close on background click
-    dialog.querySelector('.dialog-overlay').addEventListener('click', () => {
-      dialog.remove();
-    });
-  }
 
-  getFieldSpecificTips(fieldType, data) {
-    switch(fieldType) {
-      case 'title':
-        return `
-          <div class="field-tips">
-            <h4>💡 Tips för bättre titel:</h4>
-            <p>Lägg till information i beskrivningen om material, teknik och tidsperiod så kan AI:n skapa en mer exakt titel enligt Auctionets standarder.</p>
-          </div>
-        `;
-      case 'description':
-        return `
-          <div class="field-tips">
-            <h4>💡 Tips för bättre beskrivning:</h4>
-            <p>Inkludera mått, material, tillverkningsteknik och eventuell signering eller märkning. Detta hjälper AI:n att skapa en professionell beskrivning.</p>
-          </div>
-        `;
-      case 'condition':
-        return `
-          <div class="field-tips">
-            <h4>💡 Tips för bättre skickbeskrivning:</h4>
-            <p><strong>Undvik vaga termer som "bruksslitage".</strong> Beskriv istället:</p>
-            <ul style="margin: 8px 0; padding-left: 20px;">
-              <li><strong>Typ av skada:</strong> repor, nagg, sprickor, fläckar, missfärgningar</li>
-              <li><strong>Placering:</strong> "vid foten", "på ovansidan", "längs kanten"</li>
-              <li><strong>Omfattning:</strong> "mindre", "flera", "genomgående", "ytliga"</li>
-              <li><strong>Exempel:</strong> "Mindre repor på ovansidan. Nagg vid fot. Spricka 2cm i glasyr."</li>
-            </ul>
-          </div>
-        `;
-      case 'keywords':
-        return `
-          <div class="field-tips">
-            <h4>💡 Tips för bättre nyckelord:</h4>
-            <p>Mer detaljerad information i titel och beskrivning hjälper AI:n att generera relevanta sökord som inte bara upprepar befintlig text.</p>
-          </div>
-        `;
-      case 'all':
-        return `
-          <div class="field-tips">
-            <h4>💡 Tips för bättre katalogisering:</h4>
-            <p>Lägg till mer specifik information i beskrivningen så kan AI:n förbättra alla fält mer exakt och undvika att gissa.</p>
-          </div>
-        `;
-      default:
-        return '';
-    }
-  }
 
   async forceImproveField(fieldType) {
     // Bypass quality checks and improve anyway
     const itemData = this.extractItemData();
-    
+
     if (fieldType === 'all') {
       // For "Förbättra alla" - use existing logic
-      this.showFieldLoadingIndicator('all');
-      
+      this.uiController.showFieldLoadingIndicator('all');
+
       try {
         const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
         this.applyAllImprovements(improvements);
       } catch (error) {
-        this.showFieldErrorIndicator('all', error.message);
+        this.uiController.showFieldErrorIndicator('all', error.message);
       }
       return;
     }
-    
+
     // For individual fields
-    this.showFieldLoadingIndicator(fieldType);
-    
-    try {
-      const improved = await this.callClaudeAPI(itemData, fieldType);
-      console.log('Forced improved result for', fieldType, ':', improved);
-      
-      const value = improved[fieldType];
-      if (value) {
-        this.applyImprovement(fieldType, value);
-        this.showFieldSuccessIndicator(fieldType);
-        
-        // Re-analyze quality after improvement (with delay to ensure DOM is updated)
-        console.log('Re-analyzing quality after force field improvement...');
-        setTimeout(() => {
-          console.log('Delayed quality analysis for force field...');
-          this.analyzeQuality();
-        }, 500);
-      } else {
-        throw new Error(`No ${fieldType} value in response`);
-      }
-    } catch (error) {
-      console.error('Error improving field:', error);
-      this.showFieldErrorIndicator(fieldType, error.message);
-    }
+    this.improveField(fieldType, true);
   }
 
   applyAllImprovements(improvements) {
     if (improvements.title) {
-      this.applyImprovement('title', improvements.title);
+      this.uiController.applyImprovement('title', improvements.title);
     }
     if (improvements.description) {
-      this.applyImprovement('description', improvements.description);
+      this.uiController.applyImprovement('description', improvements.description);
     }
     if (improvements.condition) {
-      this.applyImprovement('condition', improvements.condition);
+      this.uiController.applyImprovement('condition', improvements.condition);
     }
     if (improvements.keywords) {
-      this.applyImprovement('keywords', improvements.keywords);
+      this.uiController.applyImprovement('keywords', improvements.keywords);
     }
-    
-    this.showFieldSuccessIndicator('all');
+
+    this.uiController.showFieldSuccessIndicator('all');
     setTimeout(() => {
       console.log('Delayed quality analysis after applyAllImprovements...');
       this.analyzeQuality();
@@ -2649,7 +1268,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       estimate: document.querySelector('#item_current_auction_attributes_estimate')?.value || '',
       reserve: document.querySelector('#item_current_auction_attributes_reserve')?.value || ''
     };
-    
+
     // Debug logging for keywords extraction
     console.log('extractItemData keywords debug:', {
       keywordsRaw: data.keywords,
@@ -2657,7 +1276,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       keywordsElement: document.querySelector('#item_hidden_keywords'),
       elementValue: document.querySelector('#item_hidden_keywords')?.value
     });
-    
+
     return data;
   }
 
@@ -2677,7 +1296,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: fieldType === 'title-correct' ? 'claude-3-haiku-20240307' : 'claude-3-5-sonnet-20241022',
+            model: this.getCurrentModelId(), // Use Claude 4 for all operations
             max_tokens: fieldType === 'title-correct' ? 500 : 1500,
             temperature: 0.1,
             system: systemPrompt,
@@ -2696,24 +1315,24 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
           }
         });
       });
-      
+
       return await this.processAPIResponse(response, systemPrompt, userPrompt, fieldType);
-      
+
     } catch (error) {
       // Handle rate limiting and overload errors with retry
       if ((error.message.includes('Overloaded') || error.message.includes('rate limit') || error.message.includes('429')) && retryCount < 3) {
         const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
         console.log(`API overloaded, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.callClaudeAPI(itemData, fieldType, retryCount + 1);
       }
-      
+
       // If it's an overload error and we've exhausted retries, provide helpful message
       if (error.message.includes('Overloaded')) {
         throw new Error('Claude API är överbelastad just nu. Vänta en stund och försök igen.');
       }
-      
+
       throw error;
     }
   }
@@ -2722,18 +1341,18 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
     const data = response.data;
     console.log('Received API response:', data);
-    
+
     // Validate response structure
     if (!data || !data.content || !Array.isArray(data.content) || data.content.length === 0) {
       throw new Error('Invalid response format from API');
     }
-    
+
     if (!data.content[0] || !data.content[0].text) {
       throw new Error('No text content in API response');
     }
-    
+
     let result = this.parseClaudeResponse(data.content[0].text, fieldType);
-    
+
     // If validation failed, retry with correction instructions (only for multi-field requests)
     if (result.needsCorrection && ['all', 'all-enhanced', 'all-sparse'].includes(fieldType)) {
       const correctionPrompt = `
@@ -2748,13 +1367,13 @@ ${result.validationWarnings.join('\n')}
 
 Vänligen korrigera dessa problem och returnera förbättrade versioner som följer alla svenska auktionsstandarder.
 `;
-      
+
       const correctionResponse = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
           body: {
-            model: 'claude-3-5-sonnet-20241022', // Keep Sonnet for corrections
+            model: this.getCurrentModelId(), // Use current model for corrections
             max_tokens: 1500,
             temperature: 0.1,
             system: systemPrompt,
@@ -2774,11 +1393,11 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
           }
         });
       });
-      
+
       if (correctionResponse.success) {
         const correctionData = correctionResponse.data;
         console.log('Received correction response:', correctionData);
-        
+
         // Validate correction response structure
         if (correctionData && correctionData.content && correctionData.content[0] && correctionData.content[0].text) {
           result = this.parseClaudeResponse(correctionData.content[0].text, fieldType);
@@ -2787,7 +1406,7 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
         }
       }
     }
-    
+
     return result;
   }
 
@@ -2837,14 +1456,14 @@ Kondition: ${itemData.condition}
 Konstnär/Formgivare: ${itemData.artist}
 Värdering: ${itemData.estimate} SEK
 
-VIKTIGT FÖR TITEL: ${itemData.artist ? 
-  'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet.' : 
-  'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt.'}
+VIKTIGT FÖR TITEL: ${itemData.artist ?
+        'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet.' :
+        'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt.'}
 
 KONSTNÄRSINFORMATION FÖR TIDSPERIOD:
-${itemData.artist ? 
-  'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs aktiva period för att bestämma korrekt tidsperiod. Om du inte är säker, använd "troligen" eller utelämna period.' : 
-  'Ingen konstnär angiven - lägg INTE till tidsperiod om den inte redan finns i källdata.'}
+${itemData.artist ?
+        'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs aktiva period för att bestämma korrekt tidsperiod. Om du inte är säker, använd "troligen" eller utelämna period.' :
+        'Ingen konstnär angiven - lägg INTE till tidsperiod om den inte redan finns i källdata.'}
 
 KRITISKT - BEHÅLL OSÄKERHETSMARKÖRER I TITEL:
 Om nuvarande titel innehåller ord som "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ" - BEHÅLL dessa exakt. De anger juridisk osäkerhet och får ALDRIG tas bort eller ändras.
@@ -3057,26 +1676,40 @@ KRITISKT - RETURFORMAT:
 • EXEMPEL: "grafik reproduktion svensk-design 1970-tal dekor inredning"
 
 STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där, använd det ALDRIG i sökorden.`;
+    } else if (fieldType === 'biography') {
+      return `
+UPPGIFT: Skriv en kort, informativ biografi om konstnären "${itemData.artist}" på svenska.
+
+KRAV:
+• Max 150 ord
+• Fokusera på stil, period, viktiga verk och betydelse
+• Skriv på professionell svenska
+• Inga inledande fraser som "Här är en biografi..."
+• Bara ren text
+
+FORMAT:
+Returnera endast biografin som ren text.
+`;
     }
   }
 
   parseClaudeResponse(response, fieldType) {
     console.log('Parsing Claude response for fieldType:', fieldType, 'Response:', response);
-    
+
     // Validate input
     if (!response || typeof response !== 'string') {
       console.error('Invalid response format:', response);
       throw new Error('Invalid response format from Claude');
     }
-    
+
     // For single field requests, parse the structured response
     if (['title', 'title-correct', 'description', 'condition', 'keywords'].includes(fieldType)) {
       const result = {};
       const lines = response.split('\n');
-      
+
       lines.forEach(line => {
         const trimmedLine = line.trim();
-        
+
         if (trimmedLine.match(/^\*?\*?TITEL\s*:?\*?\*?\s*/i)) {
           result.title = trimmedLine.replace(/^\*?\*?TITEL\s*:?\*?\*?\s*/i, '').trim();
         } else if (trimmedLine.match(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i)) {
@@ -3087,29 +1720,29 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
           result.keywords = trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim();
         }
       });
-      
+
       // If no structured response found, treat as legacy format
       if (Object.keys(result).length === 0) {
         result[fieldType] = response.trim();
       }
-      
+
       // For title-correct, map the result to the correct field type
       if (fieldType === 'title-correct' && result[fieldType]) {
         result['title'] = result[fieldType];
         delete result[fieldType];
       }
-      
+
       console.log('Single field parsed result:', result);
       return result;
     }
-    
+
     // Parse the structured response from Claude for multi-field requests
     const result = {};
     const lines = response.split('\n');
-    
+
     lines.forEach(line => {
       const trimmedLine = line.trim();
-      
+
       // Handle different formats: "TITEL:", "**TITEL:**", "**TITEL (XX tecken):**"
       if (trimmedLine.match(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i)) {
         result.title = trimmedLine.replace(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i, '').trim();
@@ -3122,7 +1755,7 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
       } else if (trimmedLine.match(/^\*?\*?VALIDERING\s*:?\*?\*?\s*/i)) {
         result.validation = trimmedLine.replace(/^\*?\*?VALIDERING\s*:?\*?\*?\s*/i, '').trim();
       }
-      
+
       // Handle simple formats (legacy)
       else if (trimmedLine.startsWith('TITEL:')) {
         result.title = trimmedLine.substring(6).trim();
@@ -3136,18 +1769,18 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
         result.validation = trimmedLine.substring(11).trim();
       }
     });
-    
+
     // If we only got a simple response (like just a title), handle it appropriately
     if (Object.keys(result).length === 0 && response.trim().length > 0) {
       // Assume it's a single field response based on the request type
       result.title = response.trim();
     }
-    
+
     console.log('Multi-field parsed result:', result);
-    
+
     // Validate the response against Swedish auction standards
     const validation = this.validateSwedishAuctionStandards(result);
-    
+
     // If validation fails, retry once with corrections
     if (validation.score < 70) {
       result.needsCorrection = true;
@@ -3155,519 +1788,65 @@ STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där,
       result.validationWarnings = validation.warnings;
       result.validationScore = validation.score;
     }
-    
+
     return result;
   }
 
-  applyImprovement(fieldType, value) {
-    const fieldMap = {
-      'title': '#item_title_sv',
-      'title-correct': '#item_title_sv',  // Apply title corrections to title field
-      'description': '#item_description_sv',
-      'condition': '#item_condition_sv',
-      'keywords': '#item_hidden_keywords'
-    };
-    
-    const field = document.querySelector(fieldMap[fieldType]);
-    if (field && value) {
-      // Set programmatic update flag for AI improvements
-      this.isProgrammaticUpdate = true;
-      
-      try {
-        field.value = value;
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-        field.classList.add('ai-updated');
-        
-        // Auto-resize textarea if needed (especially for description)
-        if (field.tagName.toLowerCase() === 'textarea') {
-          // Use setTimeout to ensure the value is fully applied before resizing
-          setTimeout(() => {
-            this.autoResizeTextarea(field);
-          }, 50);
-        }
-        
-        console.log(`✅ Applied improvement to ${fieldType}`);
-      } finally {
-        // Clear flag after a short delay to ensure all events have processed
-        setTimeout(() => {
-          this.isProgrammaticUpdate = false;
-          console.log('🔓 Cleared programmatic update flag after AI improvement');
-        }, 100);
+  validateSwedishAuctionStandards(data) {
+    const errors = [];
+    const warnings = [];
+    let score = 100;
+
+    // Validate Title
+    if (data.title) {
+      if (data.title.length > 60) {
+        warnings.push('Titeln är för lång (max 60 tecken)');
+        score -= 10;
+      }
+      if (data.title.match(/^[a-z]/)) {
+        errors.push('Titeln måste börja med stor bokstav');
+        score -= 20;
+      }
+      // Check for forbidden words in title
+      const forbiddenTitle = ['vacker', 'fin', 'underbar', 'fantastisk'];
+      if (new RegExp(forbiddenTitle.join('|'), 'i').test(data.title)) {
+        errors.push('Titeln innehåller subjektiva ord');
+        score -= 20;
       }
     }
-  }
 
-  // NEW: Auto-resize textarea functionality (from Add Items page)
-  autoResizeTextarea(textarea) {
-    if (!textarea || textarea.tagName.toLowerCase() !== 'textarea') return;
-    
-    // Reset height to auto to get the scroll height
-    textarea.style.height = 'auto';
-    
-    // Calculate the height needed
-    const scrollHeight = textarea.scrollHeight;
-    const minHeight = 60; // Minimum height
-    const maxHeight = 400; // Maximum height
-    
-    // Set the new height within bounds
-    const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
-    textarea.style.height = newHeight + 'px';
-    
-    // Add resizing class for smooth animation
-    textarea.classList.add('resizing');
-    setTimeout(() => {
-      textarea.classList.remove('resizing');
-    }, 300);
-  }
-
-  validateAndLimitKeywords(keywords) {
-    if (!keywords || typeof keywords !== 'string') {
-      return keywords;
-    }
-    
-    // Support both formats: detect if comma-separated or space-separated
-    let keywordArray;
-    if (keywords.includes(',')) {
-      // Comma-separated format - convert to Auctionet format
-      keywordArray = keywords.split(',')
-        .map(kw => kw.trim())
-        .filter(kw => kw.length > 0)
-        .filter(kw => kw.length >= 3)
-        .map(kw => kw.replace(/\s+/g, '-')); // Convert spaces to hyphens
-    } else {
-      // Already in Auctionet space-separated format
-      keywordArray = keywords.split(/\s+/)
-        .map(kw => kw.trim())
-        .filter(kw => kw.length > 0)
-        .filter(kw => kw.length >= 3);
-    }
-    
-    // If too many keywords, keep only the first 12 (most relevant ones)
-    if (keywordArray.length > 12) {
-      console.warn(`Too many keywords (${keywordArray.length}), limiting to 12`);
-      const limitedKeywords = keywordArray.slice(0, 12);
-      return limitedKeywords.join(' '); // Auctionet space-separated format
-    }
-    
-    return keywordArray.join(' '); // Auctionet space-separated format
-  }
-
-  addAIEnhancementNote(fieldType) {
-    const internalCommentsField = document.querySelector('#item_internal_comment');
-    if (internalCommentsField) {
-      const currentComments = internalCommentsField.value;
-      const timestamp = new Date().toLocaleDateString('sv-SE');
-      const fieldNames = {
-        'title': 'titel',
-        'description': 'beskrivning', 
-        'condition': 'kondition',
-        'keywords': 'sökord'
-      };
-      
-      const enhancementNote = `AI-förbättring ${fieldNames[fieldType]} (${timestamp})`;
-      
-      // Check if this enhancement is already noted
-      if (!currentComments.includes(enhancementNote)) {
-        const newComments = currentComments ? 
-          `${currentComments}\n${enhancementNote}` : 
-          enhancementNote;
-        internalCommentsField.value = newComments;
+    // Validate Description
+    if (data.description) {
+      if (data.description.length < 20) {
+        warnings.push('Beskrivningen är mycket kort');
+        score -= 10;
+      }
+      // Check for condition info in description
+      const conditionTerms = ['slitage', 'skada', 'nagg', 'spricka', 'repa'];
+      if (new RegExp(conditionTerms.join('|'), 'i').test(data.description)) {
+        warnings.push('Beskrivningen verkar innehålla konditionsinformation');
+        score -= 15;
       }
     }
-  }
 
-  addUndoButton(field) {
-    const existingUndo = field.parentElement.querySelector('.ai-undo-button');
-    if (existingUndo) {
-      existingUndo.remove();
-    }
-    
-    const undoButton = document.createElement('button');
-    undoButton.className = 'ai-undo-button';
-    undoButton.textContent = '↩ Ångra';
-    undoButton.type = 'button';
-    
-    undoButton.addEventListener('click', () => {
-      field.value = field.dataset.originalValue;
-      field.classList.remove('ai-updated');
-      undoButton.remove();
-    });
-    
-    field.parentElement.appendChild(undoButton);
-  }
-
-
-
-
-
-  getEncouragingMessage(fieldType) {
-    const messages = {
-      all: [
-        "🧠 AI analyserar alla fält för optimal kvalitet...",
-        "✨ Skapar professionell katalogisering för alla fält...",
-        "🎯 Optimerar hela katalogiseringen för bästa resultat...",
-        "🚀 Förbättrar alla fält med AI-precision..."
-      ],
-      title: [
-        "🎯 Skapar perfekt titel med AI-precision...",
-        "📝 Optimerar titel för sökbarhet...",
-        "✨ Genererar professionell titel...",
-        "🏷️ Förbättrar titel enligt auktionsstandard..."
-      ],
-      'title-correct': [
-        "✏️ Korrigerar stavning och grammatik...",
-        "🔧 Justerar struktur och interpunktion...",
-        "✅ Fixar mellanslag och citattecken...",
-        "📝 Korrigerar tekniska fel i titel..."
-      ],
-      description: [
-        "📖 Skapar detaljerad beskrivning...",
-        "🔍 Analyserar alla detaljer för beskrivning...",
-        "✨ Optimerar beskrivning för kvalitet...",
-        "📋 Genererar professionell beskrivning..."
-      ],
-      condition: [
-        "🔧 Analyserar kondition professionellt...",
-        "📊 Skapar detaljerad konditionsrapport...",
-        "✅ Optimerar konditionsbeskrivning...",
-        "🔍 Genererar noggrann konditionsanalys..."
-      ],
-      keywords: [
-        "🔍 Genererar optimala sökord...",
-        "🏷️ Skapar träffsäkra keywords...",
-        "📈 Optimerar sökbarhet...",
-        "🎯 Förbättrar söktrafik med smarta ord..."
-      ]
-    };
-    
-    const messageArray = messages[fieldType] || messages.all;
-    return messageArray[Math.floor(Math.random() * messageArray.length)];
-  }
-
-  showLoadingIndicator(fieldType) {
-    console.log(`🔄 Loading indicator for ${fieldType}`);
-    
-    // Remove any existing loading states
-    this.removeFieldLoadingIndicator(fieldType);
-    
-    let targetField;
-    if (fieldType === 'all') {
-      // For "all" - show loading on master button AND all individual fields
-      const masterButton = document.querySelector('.ai-master-button');
-      if (masterButton) {
-        masterButton.textContent = '🧠 AI arbetar...';
-        masterButton.disabled = true;
-        masterButton.style.opacity = '0.7';
-      }
-      
-      // Show loading animation on all fields simultaneously
-      const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
-      allFieldTypes.forEach(type => {
-        this.showFieldLoadingIndicator(type);
-      });
-      return;
-    } else {
-      // Get the specific field
-      const fieldMap = {
-        'title': '#item_title_sv',
-        'description': '#item_description_sv', 
-        'condition': '#item_condition_sv',
-        'keywords': '#item_hidden_keywords'
-      };
-      
-      targetField = document.querySelector(fieldMap[fieldType]);
-      console.log(`🎯 Target field for ${fieldType}:`, targetField);
-      console.log(`📋 Field element details:`, {
-        id: targetField?.id,
-        tagName: targetField?.tagName,
-        className: targetField?.className,
-        parentElement: targetField?.parentElement?.className
-      });
-    }
-    
-    if (!targetField) {
-      console.error(`❌ Target field not found for ${fieldType}`);
-      return;
-    }
-    
-    // Add CSS for field spinner overlays if not already added
-    if (!document.getElementById('field-spinner-overlay-styles')) {
-      const style = document.createElement('style');
-      style.id = 'field-spinner-overlay-styles';
-      style.textContent = `
-        /* AI Field Enhancement Loading States - EXACT COPY FROM ADD ITEMS PAGE */
-        .field-loading {
-          position: relative;
-        }
-        
-        .field-loading input,
-        .field-loading textarea {
-          filter: blur(2px);
-          transition: filter 0.3s ease;
-          pointer-events: none;
-        }
-        
-        .field-spinner-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(255, 255, 255, 0.8);
-          backdrop-filter: blur(1px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          border-radius: 6px;
-          animation: overlayFadeIn 0.3s ease;
-        }
-        
-        .ai-spinner {
-          width: 24px;
-          height: 24px;
-          border: 2px solid #e5e7eb;
-          border-top: 2px solid #007bff;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        .ai-processing-text {
-          margin-left: 12px;
-          font-size: 13px;
-          color: #374151;
-          font-weight: 500;
-          letter-spacing: 0.025em;
-        }
-        
-        @keyframes overlayFadeIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        
-        /* Success flash animation - EXACT COPY FROM ADD ITEMS PAGE */
-        .field-success {
-          animation: successFlash 0.6s ease;
-        }
-        
-        @keyframes successFlash {
-          0% { 
-            background-color: rgba(34, 197, 94, 0.1);
-            border-color: #22c55e;
-          }
-          50% { 
-            background-color: rgba(34, 197, 94, 0.2);
-            border-color: #16a34a;
-          }
-          100% { 
-            background-color: transparent;
-            border-color: initial;
-          }
-        }
-        
-        /* Auto-resize textarea styling with smooth transitions */
-        textarea.auto-resize {
-          resize: vertical;
-          min-height: 60px;
-          max-height: 400px;
-          transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          overflow-y: auto;
-        }
-        
-        textarea.auto-resize:not(:focus) {
-          overflow-y: hidden;
-        }
-        
-        .auto-resize.resizing {
-          transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        }
-      `;
-      document.head.appendChild(style);
-      console.log('✅ Field spinner overlay styles added');
-    }
-    
-    // Find the field container (parent element that will hold the overlay)
-    let fieldContainer = targetField.parentElement;
-    console.log(`🏠 Initial field container:`, {
-      element: fieldContainer,
-      className: fieldContainer?.className,
-      tagName: fieldContainer?.tagName
-    });
-    
-    // For textareas and inputs, we might need to go up one more level if it's in a wrapper
-    if (fieldContainer.classList.contains('ai-button-wrapper') || fieldContainer.tagName === 'LABEL') {
-      fieldContainer = fieldContainer.parentElement;
-      console.log(`🏠 Adjusted field container:`, {
-        element: fieldContainer,
-        className: fieldContainer?.className,
-        tagName: fieldContainer?.tagName
-      });
-    }
-    
-    // Check if container has position: relative or set it
-    const containerStyle = window.getComputedStyle(fieldContainer);
-    if (containerStyle.position === 'static') {
-      fieldContainer.style.position = 'relative';
-      console.log('🔧 Set field container position to relative');
-    }
-    
-    // Add loading class to container
-    fieldContainer.classList.add('field-loading');
-    console.log(`✅ Added field-loading class to container`);
-    
-    // Create spinner overlay
-    const overlay = document.createElement('div');
-    overlay.className = 'field-spinner-overlay';
-    overlay.dataset.fieldType = fieldType;
-    overlay.innerHTML = `
-      <div class="ai-spinner"></div>
-      <div class="ai-processing-text">AI förbättrar...</div>
-    `;
-    
-    // Position overlay over the field
-    const fieldRect = targetField.getBoundingClientRect();
-    const containerRect = fieldContainer.getBoundingClientRect();
-    
-    console.log(`📐 Field positioning:`, {
-      fieldRect: {
-        top: fieldRect.top,
-        left: fieldRect.left,
-        width: fieldRect.width,
-        height: fieldRect.height
-      },
-      containerRect: {
-        top: containerRect.top,
-        left: containerRect.left,
-        width: containerRect.width,
-        height: containerRect.height
-      }
-    });
-    
-    // Calculate relative position
-    const relativeTop = fieldRect.top - containerRect.top;
-    const relativeLeft = fieldRect.left - containerRect.left;
-    
-    overlay.style.position = 'absolute';
-    overlay.style.top = `${relativeTop}px`;
-    overlay.style.left = `${relativeLeft}px`;
-    overlay.style.width = `${fieldRect.width}px`;
-    overlay.style.height = `${fieldRect.height}px`;
-    
-    console.log(`📐 Overlay positioning:`, {
-      position: 'absolute',
-      top: `${relativeTop}px`,
-      left: `${relativeLeft}px`,
-      width: `${fieldRect.width}px`,
-      height: `${fieldRect.height}px`
-    });
-    
-    // Add overlay to container
-    fieldContainer.appendChild(overlay);
-    
-    console.log(`✅ Loading animation overlay added to ${fieldType} field`);
-    console.log(`🔍 Overlay element:`, overlay);
-    console.log(`🏠 Container with overlay:`, fieldContainer);
-  }
-
-  showFieldSuccessIndicator(fieldType) {
-    console.log(`✅ Success indicator for ${fieldType}`);
-    
-    // Remove loading state
-    this.removeFieldLoadingIndicator(fieldType);
-    
-    if (fieldType === 'all') {
-      // Reset master button
-      const masterButton = document.querySelector('.ai-master-button');
-      if (masterButton) {
-        masterButton.textContent = '✅ Klart!';
-        setTimeout(() => {
-          masterButton.textContent = '⚡ Förbättra alla';
-          masterButton.disabled = false;
-          masterButton.style.opacity = '1';
-        }, 2000);
-      }
-      return;
-    }
-    
-    // Get the specific field and apply success flash
-    const fieldMap = {
-      'title': '#item_title_sv',
-      'description': '#item_description_sv',
-      'condition': '#item_condition_sv', 
-      'keywords': '#item_hidden_keywords'
-    };
-    
-    const targetField = document.querySelector(fieldMap[fieldType]);
-    if (targetField) {
-      targetField.classList.add('field-success');
-      
-      // Remove success class after animation
-      setTimeout(() => {
-        targetField.classList.remove('field-success');
-      }, 600);
-    }
-  }
-
-  showFieldErrorIndicator(fieldType, message) {
-    console.error(`❌ Error for ${fieldType}: ${message}`);
-    
-    // Remove loading state
-    this.removeFieldLoadingIndicator(fieldType);
-    
-    if (fieldType === 'all') {
-      // Reset master button
-      const masterButton = document.querySelector('.ai-master-button');
-      if (masterButton) {
-        masterButton.textContent = '❌ Fel uppstod';
-        masterButton.disabled = false;
-        masterButton.style.opacity = '1';
-        setTimeout(() => {
-          masterButton.textContent = '⚡ Förbättra alla';
-        }, 3000);
+    // Validate Condition
+    if (data.condition) {
+      if (data.condition.length < 10 && !data.condition.toLowerCase().includes('inga anmärkningar')) {
+        warnings.push('Konditionsrapporten är mycket kort');
+        score -= 5;
       }
     }
-    
-    // Show error message
-    alert(`Fel vid AI-förbättring av ${fieldType}: ${message}`);
+
+    return { score, errors, warnings };
   }
-  
-  removeFieldLoadingIndicator(fieldType) {
-    if (fieldType === 'all') {
-      // Remove loading from all individual fields
-      const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
-      allFieldTypes.forEach(type => {
-        this.removeFieldLoadingIndicator(type);
-      });
-      return;
-    }
-    
-    // Remove loading states for specific field type
-    const overlay = document.querySelector(`.field-spinner-overlay[data-field-type="${fieldType}"]`);
-    if (overlay) {
-      const container = overlay.parentElement;
-      container.classList.remove('field-loading');
-      overlay.remove();
-    }
-    
-    // Also remove any general loading classes
-    document.querySelectorAll('.field-loading').forEach(container => {
-      const overlays = container.querySelectorAll('.field-spinner-overlay');
-      if (overlays.length === 0) {
-        container.classList.remove('field-loading');
-      }
-    });
-  }
+
+
+
+
+
+
+
+
 }
 
 // Initialize when DOM is ready

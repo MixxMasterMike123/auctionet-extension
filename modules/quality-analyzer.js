@@ -434,13 +434,15 @@ export class QualityAnalyzer {
   }
 
   async runAIArtistDetection(data, currentWarnings, currentScore) {
-    // SMART CHECK: Skip AI analysis if artist field is filled AND no artist detected in title
+    // OPTIMIZATION: Skip AI analysis if artist field is filled AND no artist detected in title
     if (data.artist && data.artist.trim()) {
+      console.log('⚡ Artist field filled, checking if title has misplaced artist:', data.artist);
+      
       // Quick rule-based check if title contains artist names
       const titleHasArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
       
       if (!titleHasArtist || !titleHasArtist.detectedArtist) {
-
+        console.log('⚡ SKIPPING AI artist detection - artist correctly placed in field, no artist in title');
         
         // Still run brand validation and market analysis with existing artist
         this.showAILoadingIndicator('🏷️ Kontrollerar märkesnamn...');
@@ -452,7 +454,7 @@ export class QualityAnalyzer {
           const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
           const brandIssues = await Promise.race([
             brandValidationPromise,
-            new Promise(resolve => setTimeout(() => resolve([]), 5000))
+            new Promise(resolve => setTimeout(() => resolve([]), 5000)) // Increased back to 5s to match artist detection
           ]);
           
           // Handle brand validation results
@@ -473,7 +475,7 @@ export class QualityAnalyzer {
         
         return; // Skip the rest of AI artist detection
       } else {
-
+        console.log('🔍 Artist field filled BUT title also contains artist - running AI analysis to suggest move');
       }
     }
 
@@ -521,16 +523,24 @@ export class QualityAnalyzer {
       const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
       
       // CRITICAL ENHANCEMENT: Handle AI artist detection but EXCLUDE from initial SSoT
+      console.log('⏱️ Starting artist analysis with 5s timeout (Haiku optimized)...');
+      const startTime = Date.now();
       const aiArtistForMarketAnalysis = await Promise.race([
         artistAnalysisPromise,
-        new Promise(resolve => setTimeout(() => resolve(null), 8000)) // 8s timeout
+        new Promise(resolve => setTimeout(() => {
+          console.log('⏰ Artist analysis timed out after 5s');
+          resolve(null);
+        }, 5000)) // 5s timeout - adjusted for real-world Haiku performance
       ]);
+      const endTime = Date.now();
+      console.log(`⏱️ Artist analysis completed in ${endTime - startTime}ms`);
       
       console.log('🎯 AI artist analysis result:', {
         hasResult: !!aiArtistForMarketAnalysis,
         detectedArtist: aiArtistForMarketAnalysis?.detectedArtist,
         confidence: aiArtistForMarketAnalysis?.confidence,
-        foundIn: aiArtistForMarketAnalysis?.foundIn
+        foundIn: aiArtistForMarketAnalysis?.foundIn,
+        fullResult: aiArtistForMarketAnalysis
       });
       
       // NEW: Handle brand validation in parallel
@@ -2052,22 +2062,25 @@ export class QualityAnalyzer {
     }
   }
 
-  // Use AI title correction (same as "AI-förbättra titel" button)
+  // Use AI title correction with artist field filled context rules
   async useAITitleCorrection(title) {
     try {
-      console.log('🤖 Using AI title correction for:', title);
+      console.log('🤖 Using AI title correction with artist field filled rules for:', title);
       
       // Show loading spinner over title field (same as "AI-förbättra titel" button)
       this.showTitleLoadingSpinner();
       
-      // Call the same API that the "AI-förbättra titel" button uses
+      // Get current artist field value
+      const artistField = document.querySelector('#item_artist_name_sv')?.value || '';
+      
+      // Use title-correct with specific context that artist field is filled
       const result = await this.apiManager.callClaudeAPI({
         title: title,
         description: '', // Not needed for title correction
         condition: '',
-        artist: document.querySelector('#item_artist_name_sv')?.value || '', // Include current artist field
+        artist: artistField, // Include current artist field
         keywords: ''
-      }, 'title');
+      }, 'title-correct'); // Use title-correct instead of title for minimal changes
       
       // Remove loading spinner
       this.removeTitleLoadingSpinner();
@@ -2805,7 +2818,7 @@ export class QualityAnalyzer {
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-haiku-20240307',
+            model: 'claude-3-5-haiku-20241022', // Use fast Haiku for biography generation
             max_tokens: 150,
             temperature: 0.3,
             system: 'Du är en konstexpert. Skriv mycket korta biografier på svenska för tooltips.',
@@ -2941,7 +2954,7 @@ export class QualityAnalyzer {
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-haiku-20240307',
+            model: this.apiManager.getCurrentModel().id,
             max_tokens: 300,
             temperature: 0.3,
             system: 'Du är en konstexpert. Skriv korta, faktabaserade biografier på svenska.',

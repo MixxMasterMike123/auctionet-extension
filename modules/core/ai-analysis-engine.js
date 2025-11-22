@@ -44,39 +44,18 @@ export class AIAnalysisEngine {
    * Perform the actual AI analysis (extracted from api-manager.js)
    */
   async performAIArtistAnalysis(title, objectType, artistField, description) {
-    const prompt = `Analysera denna svenska auktionspost för konstnärsnamn:
+    const prompt = `Titel: "${title}"
 
-TITEL: "${title}"
-OBJEKTTYP: ${objectType || 'Okänd'}
-KONSTNÄRSFÄLT: "${artistField || 'Tomt'}"
-BESKRIVNING: "${description?.substring(0, 200) || 'Ingen beskrivning'}"
+UPPGIFT: Hitta PERSONNAMN i titel som är konstnärer/designers/hantverkare.
+EXEMPEL: "Carl Malmsten", "Lisa Larson", "Christoffer Bauman" = konstnärer
+INTE: "IKEA", "Stockholm", "Gustavsberg" = företag/orter
 
-UPPGIFT: Analysera konstnärs-/designernamn och optimera för marknadsanalys.
-
-REGLER:
-- Om konstnärsfält är ifyllt: Verifiera korrekthet och använd för marknadsanalys
-- Om konstnärsfält är tomt: Hitta konstnärsnamn i titel/beskrivning  
-- INFORMAL INMATNING: "rolf lidberg pappaer litografi" → "Rolf Lidberg"
-- Konstnärsnamn ofta först i titel
-- Ignorera kapitalisering
-- "Signerad [Namn]" = konstnärsnamn
-- INTE konstnärsnamn: företag, orter, skolor
-
-EXEMPEL:
-- "carl malmsten stol ek" → "Carl Malmsten" 
-- "lisa larson figurin" → "Lisa Larson"
-- "IKEA lampa" → INGET (företag)
-
-VIKTIGT: I JSON-svaret, använd \\" för citattecken inom strängar.
-
-JSON:
+Svara ENDAST JSON:
 {
-  "hasArtist": boolean,
-  "artistName": "namn eller null",
-  "isVerified": boolean (true om konstnärsfält redan korrekt),
-  "suggestedTitle": "titel utan konstnär eller null",
-  "confidence": 0.0-1.0,
-  "reasoning": "kort förklaring"
+  "hasArtist": true/false,
+  "artistName": "Förnamn Efternamn eller null",
+  "confidence": 0.9,
+  "suggestedTitle": "titel utan konstnär"
 }`;
 
 
@@ -86,8 +65,8 @@ JSON:
         type: 'anthropic-fetch',
         apiKey: this.apiManager.apiKey,
         body: {
-          model: 'claude-3-haiku-20240307', // Use fast Haiku model for artist detection
-          max_tokens: 300,
+          model: 'claude-3-5-haiku-20241022', // Use fast Haiku for artist detection
+          max_tokens: 100, // Reduced from 300 to 100 for faster processing
           temperature: 0.1, // Low temperature for consistent analysis
           messages: [{
             role: 'user',
@@ -184,14 +163,29 @@ JSON:
       // Try a more aggressive fallback parsing
       try {
         // First try to extract the JSON part and parse it properly
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
+        // Handle both plain JSON and markdown-wrapped JSON
+        let jsonStr = null;
+        
+        // Try to extract JSON from markdown code blocks first
+        const markdownJsonMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
+        if (markdownJsonMatch) {
+          jsonStr = markdownJsonMatch[1].trim();
+          console.log('🔧 Found JSON in markdown code block');
+        } else {
+          // Fallback to simple JSON extraction
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            jsonStr = jsonMatch[0];
+            console.log('🔧 Found JSON without markdown wrapper');
+          }
+        }
+        
+        if (jsonStr) {
           try {
-            const jsonStr = jsonMatch[0];
             const parsed = JSON.parse(jsonStr);
-            if (parsed.hasArtist && parsed.artistName) {
+            if (parsed.hasArtist === true && parsed.artistName) {
               console.log('🎯 Fallback JSON parsing found artist:', parsed.artistName);
-              return {
+              const result = {
                 hasArtist: true,
                 artistName: parsed.artistName,
                 isVerified: parsed.isVerified || false,
@@ -202,10 +196,17 @@ JSON:
                 reasoning: parsed.reasoning || 'Fallback JSON parsing från AI-svar',
                 source: 'ai'
               };
+              console.log('🚀 AI Analysis Engine returning result:', result);
+              return result;
+            } else if (parsed.hasArtist === false) {
+              console.log('🚫 AI correctly determined no artist present');
+              return null; // No artist detected
             }
           } catch (jsonParseError) {
-            console.log('🔧 JSON parsing failed, trying regex fallback');
+            console.log('🔧 JSON parsing failed even with improved extraction:', jsonParseError.message);
           }
+        } else {
+          console.log('🔧 No JSON structure found in response');
         }
         
         // Fallback to regex patterns
@@ -230,6 +231,7 @@ JSON:
         console.log('⚠️ Even fallback parsing failed:', fallbackError.message);
       }
       
+      console.log('❌ AI Analysis Engine returning null - no artist found in parsing');
       return null;
     }
   }
@@ -245,23 +247,16 @@ JSON:
     }
 
     try {
-      const prompt = `Verifiera denna potentiella konstnär/designer:
+      const prompt = `Konstnär: "${artistName}" (${objectType || 'okänt'}, ${period || 'okänd period'})
 
-NAMN: "${artistName}"
-OBJEKTTYP: ${objectType || 'Okänd'}
-PERIOD: ${period || 'Okänd'}
+Verifiera snabbt: Är detta en verklig konstnär/hantverkare? Skriv kort biografi (max 80 ord) på svenska.
 
-UPPGIFT:
-Är detta en verklig konstnär, designer eller hantverkare? Ge biografisk kontext om möjligt.
-
-SVARA MED JSON:
+JSON:
 {
   "isRealArtist": boolean,
   "confidence": 0.0-1.0,
-  "biography": "kort biografisk information eller null",
-  "specialties": ["lista", "över", "specialiteter"] eller null,
-  "activeYears": "aktiva år eller null",
-  "relevanceToObject": "relevans till objekttyp eller null"
+  "biography": "kort biografi eller null",
+  "activeYears": "år eller null"
 }`;
 
       const response = await new Promise((resolve, reject) => {
@@ -269,8 +264,8 @@ SVARA MED JSON:
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-haiku-20240307',
-            max_tokens: 400,
+            model: 'claude-3-5-haiku-20241022', // Use fast Haiku for biography generation
+            max_tokens: 200, // Reduced from 400 to 200 for faster response
             temperature: 0.1,
             messages: [{
               role: 'user',

@@ -655,6 +655,18 @@
   transform: translateX(-50%) translateY(-4px) !important;
 }
 
+/* Loading state for biography */
+.artist-bio-preview.loading {
+  opacity: 0.7;
+  font-style: italic;
+  color: #666;
+}
+
+.btn-loading {
+  opacity: 0.7;
+  cursor: wait !important;
+}
+
 /* Ensure tooltip container has proper overflow */
 .quality-warnings li {
   position: relative;
