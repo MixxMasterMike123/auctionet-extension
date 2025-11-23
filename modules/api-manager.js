@@ -763,7 +763,7 @@ KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
 KRITISKA TITELFORMATREGLER:
 ${itemData.artist ?
             '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' :
-            '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
+            '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av KOMMA (,)\n• Nästa ord efter komma ska ha liten bokstav (utom namn/märken)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR, 2 st, Kosta Boda"'}
 
 SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • Om konstnärsnamn finns i MITTEN eller SLUTET av nuvarande titel (inte först) - BEHÅLL det där
@@ -908,7 +908,7 @@ KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
 KRITISKA TITELFORMATREGLER:
 ${itemData.artist ?
             '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' :
-            '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "BAJONETT. Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR. 2 st, Kosta Boda"'}
+            '• Konstnär/formgivare-fältet är tomt:\\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av KOMMA (,)\\n• Nästa ord efter komma ska ha liten bokstav (utom namn/märken)\\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"\\n• KORREKT: "BORDSLAMPOR, 2 st, Kosta Boda"'}
 
 SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • Om konstnärsnamn finns i MITTEN eller SLUTET av nuvarande titel (inte först) - BEHÅLL det där
