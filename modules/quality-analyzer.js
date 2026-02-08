@@ -534,6 +534,20 @@ export class QualityAnalyzer {
       score -= 3;
     }
 
+    // --- General: vague condition text (bruksslitage etc.) with clickable suggestions ---
+    const vagueConditionTerms = ['bruksslitage', 'normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
+    const conditionIsVague = vagueConditionTerms.some(term => condLower.includes(term)) && condPlain.length < 40;
+    if (conditionIsVague && !noRemarksChecked) {
+      warnings.push({
+        field: 'Kondition', 
+        issue: `"${condPlain.trim()}" är för vagt. Prova istället:`,
+        severity: 'medium', 
+        source: 'faq', 
+        fieldId: 'item_condition_sv',
+        vagueCondition: true
+      });
+    }
+
     // === END FAQ GUIDELINE VALIDATION RULES ===
 
     // Render inline hints below fields for FAQ violations
@@ -2925,8 +2939,26 @@ export class QualityAnalyzer {
         return;
       }
 
+      const hintStyle = 'padding:3px 8px;margin:2px 0;border-left:3px solid #f59e0b;background:#fffbeb;color:#92400e;font-size:11px;line-height:1.3;border-radius:0 3px 3px 0;font-style:italic;opacity:0.85;';
       const hintsHtml = hintsByField[fieldId]
-        .map(w => `<div style="padding:3px 8px;margin:2px 0;border-left:3px solid #f59e0b;background:#fffbeb;color:#92400e;font-size:11px;line-height:1.3;border-radius:0 3px 3px 0;font-style:italic;opacity:0.85;">⚠ ${w.issue}</div>`)
+        .map(w => {
+          let extra = '';
+          if (w.vagueCondition) {
+            // Pick 3 random suggestions from pool
+            const pool = [
+              'Repor och märken.', 'Ytslitage, nagg vid kanter.', 'Mindre repor och bruksmärken.',
+              'Sedvanligt slitage.', 'Slitage och mindre repor.', 'Ytliga repor, mindre märken.',
+              'Nagg och mindre lackskador.', 'Mindre slitage, repor.', 'Slitage vid kanter och hörn.',
+              'Ytslitage och mindre fläckar.', 'Bruksmärken och ytliga repor.', 'Repor, nagg, mindre fläckar.'
+            ];
+            const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, 3);
+            const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
+            extra = '<div style="margin-top:4px;">' +
+              shuffled.map(s => `<a class="condition-suggestion-chip" data-value="${s}" style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${s}</a>`).join('') +
+              '</div>';
+          }
+          return `<div style="${hintStyle}">⚠ ${w.issue}${extra}</div>`;
+        })
         .join('');
 
       if (existingHint) {
@@ -2943,6 +2975,20 @@ export class QualityAnalyzer {
         // Insert after the field element, before the button wrapper
         field.parentNode.insertBefore(hintDiv, field.nextSibling);
       }
+
+      // Attach click handlers to condition suggestion chips
+      const chips = field.parentNode.querySelectorAll(`.faq-hint[data-for="${fieldId}"] .condition-suggestion-chip`);
+      chips.forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          e.preventDefault();
+          const condField = document.querySelector('#item_condition_sv');
+          if (condField) {
+            condField.value = chip.getAttribute('data-value');
+            condField.dispatchEvent(new Event('input', { bubbles: true }));
+            condField.focus();
+          }
+        });
+      });
     });
   }
 
