@@ -294,8 +294,14 @@ class AuctionetCatalogingAssistant {
   }
 
   handlePageChange() {
+    // Guard: don't re-init if we're already on the same page (prevents DOM mutation loops)
+    if (this.currentPage && window.auctionetAssistantInitialized) {
+      const pageInfo = this.pageDetector.detectPageType();
+      if (pageInfo.type === this.currentPage) {
+        return; // Same page, skip re-init
+      }
+    }
     console.log('🔄 Page change detected, re-initializing...');
-    // Re-run init to detect page type and set up UI
     this.init();
   }
 
