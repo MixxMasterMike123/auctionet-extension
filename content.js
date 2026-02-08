@@ -146,6 +146,12 @@ import('./modules/api-manager.js').then(module => {
   console.log('✅ APIManager loaded');
 }).catch(error => console.error('❌ Failed to load APIManager:', error));
 
+// Import QualityAnalyzer for FAQ inline hints (shared with edit page)
+import('./modules/quality-analyzer.js').then(module => {
+  window.QualityAnalyzer = module.QualityAnalyzer;
+  console.log('✅ QualityAnalyzer loaded for FAQ hints');
+}).catch(error => console.error('❌ Failed to load QualityAnalyzer:', error));
+
 // SPA detection will be handled by the AuctionetCatalogingAssistant class
 
 class AuctionetCatalogingAssistant {
@@ -158,6 +164,7 @@ class AuctionetCatalogingAssistant {
     // Modules
     this.pageDetector = null;
     this.uiController = null;
+    this.faqHintAnalyzer = null; // Shared QualityAnalyzer for FAQ inline hints
     this.ignoredArtists = [];
 
     // Initialize asynchronously to prevent blocking
@@ -260,9 +267,26 @@ class AuctionetCatalogingAssistant {
       console.warn('⚠️ APIManager not yet loaded, API calls will use fallback');
     }
 
+    // Initialize FAQ inline hints analyzer (shared QualityAnalyzer module)
+    if (window.QualityAnalyzer) {
+      this.faqHintAnalyzer = new window.QualityAnalyzer();
+      if (this.apiManager) {
+        this.faqHintAnalyzer.setApiManager(this.apiManager);
+      }
+      console.log('✅ FAQ hint analyzer initialized for inline hints');
+    }
+
     if (this.currentPage === 'edit') {
       this.uiController.injectUI();
       // attachEventListeners is handled by UIController
+
+      // Run FAQ hints after UI is injected + set up live monitoring
+      if (this.faqHintAnalyzer) {
+        setTimeout(() => {
+          this.runFaqHints();
+          this.faqHintAnalyzer.setupLiveQualityUpdates();
+        }, 1500);
+      }
     } else if (this.currentPage === 'add') {
       await this.initializeFreetextParser();
     }
@@ -642,10 +666,22 @@ class AuctionetCatalogingAssistant {
   analyzeQuality() {
     try {
       const data = this.extractItemData();
+      // Also run FAQ inline hints
+      this.runFaqHints();
       return this.assessDataQuality(data, 'all');
     } catch (error) {
       console.error('Error analyzing quality:', error);
       return { needsMoreInfo: false, missingInfo: [], qualityScore: 0 };
+    }
+  }
+
+  // Run FAQ validation rules and render inline hints via shared QualityAnalyzer
+  runFaqHints() {
+    if (!this.faqHintAnalyzer) return;
+    try {
+      this.faqHintAnalyzer.analyzeQuality();
+    } catch (error) {
+      console.warn('⚠️ FAQ hints error (non-critical):', error);
     }
   }
 
