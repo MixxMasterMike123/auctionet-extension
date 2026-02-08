@@ -2913,7 +2913,7 @@ export class QualityAnalyzer {
       }
 
       const hintsHtml = hintsByField[fieldId]
-        .map(w => `<div class="faq-hint-item">⚠ ${w.issue}</div>`)
+        .map(w => `<div style="padding:3px 8px;margin:2px 0;border-left:3px solid #f59e0b;background:#fffbeb;color:#92400e;font-size:11px;line-height:1.3;border-radius:0 3px 3px 0;font-style:italic;opacity:0.85;">⚠ ${w.issue}</div>`)
         .join('');
 
       if (existingHint) {
@@ -2924,6 +2924,7 @@ export class QualityAnalyzer {
         const hintDiv = document.createElement('div');
         hintDiv.className = 'faq-hint';
         hintDiv.setAttribute('data-for', fieldId);
+        hintDiv.style.cssText = 'margin:2px 0 4px 0;padding:0;';
         hintDiv.innerHTML = hintsHtml;
 
         // Insert after the field element, before the button wrapper
