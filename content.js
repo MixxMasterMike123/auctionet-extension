@@ -556,7 +556,9 @@ class AuctionetCatalogingAssistant {
       // Show final success on master button after all fields are done
       setTimeout(() => {
         this.uiController.showFieldSuccessIndicator('all');
-        setTimeout(() => this.analyzeQuality(), 500);
+        // Clear stale FAQ hints, then run full re-analysis
+        document.querySelectorAll('.faq-hint').forEach(h => h.remove());
+        setTimeout(() => this.analyzeQuality(), 800);
       }, delay);
 
     } catch (error) {
