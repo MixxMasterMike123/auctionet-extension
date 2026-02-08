@@ -446,6 +446,18 @@ export class QualityAnalyzer {
         warnings.push({ field: 'Titel', issue: `Möbler: "${foundWood}" (träslag/material) bör inte stå i titeln — flytta till beskrivningen`, severity: 'medium', source: 'faq', fieldId: 'item_title_sv' });
         score -= 10;
       }
+
+      // Check if wood type is missing from BOTH title and description
+      const allWoodTypes = ['furu', 'ek', 'björk', 'mahogny', 'teak', 'valnöt', 'alm', 'ask',
+        'bok', 'tall', 'lönn', 'körsbär', 'palisander', 'jakaranda', 'rosewood',
+        'bambu', 'rotting', 'ceder', 'cypress', 'gran', 'lärk', 'poppel', 'avenbok',
+        'fanér', 'fanerad', 'massiv', 'trä'];
+      const woodInTitle = allWoodTypes.some(w => new RegExp(`\\b${w}\\b`, 'i').test(data.title));
+      const woodInDesc = allWoodTypes.some(w => new RegExp(`\\b${w}\\b`, 'i').test(descPlain));
+      if (!woodInTitle && !woodInDesc) {
+        warnings.push({ field: 'Beskrivning', issue: 'Möbler: Träslag/material saknas — ange t.ex. ek, björk, teak, furu i beskrivningen', severity: 'medium', source: 'faq', fieldId: 'item_description_sv' });
+        score -= 8;
+      }
     }
 
     // --- Rugs: measurements must be in title ---
