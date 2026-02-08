@@ -567,13 +567,15 @@ Detta är en möbel. Följ Auctionets katalogiseringsregler för möbler.
 TITELFORMAT FÖR MÖBLER:
 • Format: "BYRÅ, gustaviansk, sent 1700-tal." eller "FÅTÖLJ, "Karin", Bruno Mathsson, Dux."
 • TA BORT alla träslag från titeln — träslag hör ALDRIG hemma i titeln för möbler
-• Vanliga träslag som MÅSTE tas bort ur titeln: furu, ek, björk, mahogny, teak, valnöt, alm, ask, bok, tall, lönn, körsbär, palisander, jakaranda, bets
-• Om originaltiteln innehåller t.ex. "furu" eller "ek" — FLYTTA detta till beskrivningen istället
+• Använd din kunskap för att identifiera ALLA typer av trä/träslag (t.ex. furu, ek, jakaranda, teak, mahogny, björk, valnöt, palisander, och ALLA andra träslag du känner till)
+• Om du identifierar ett träslag i titeln — FLYTTA det till beskrivningen istället, ALDRIG behåll det i titeln
 • EXEMPEL: "Bord, furu, Karl Andersson" → titel: "Bord. Karl Andersson & Söner" + beskrivning: "Furu. ..."
+• EXEMPEL: "BYRÅ, jakaranda, 1960/70-tal" → titel: "BYRÅ, 1960/70-tal" + beskrivning: "Jakaranda. ..."
 • Ange stil och ålder i titeln
 
 BESKRIVNING FÖR MÖBLER:
 • Skriv ALLTID ut träslag i beskrivningen (om känt/angivet) — särskilt om det togs bort från titeln
+• Träslaget ska stå FÖRST i beskrivningen
 • Var försiktig med träslag — om osäker, nämn det inte alls (undvik reklamationer)
 • Mått anges SIST i beskrivningen: "Längd 84, bredd 47, höjd 92 cm"
 
