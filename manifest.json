@@ -36,6 +36,7 @@
         "content.js"
       ],
       "css": [
+        "styles.css",
         "styles/components/freetext-parser.css",
         "styles/components/ai-image-analyzer.css"
       ],
