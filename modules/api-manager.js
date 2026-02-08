@@ -827,7 +827,8 @@ PERIOD- OCH ÅLDERSFORMATERING:
 
 ANTI-FÖRKORTNING OCH SEO-REGLER:
 • UNDVIK alla förkortningar — texten ska vara läsbar för automatisk Google-översättning till internationella budgivare
-• Skriv "bland annat" INTE "bl a", "millimeter" INTE "mm" (undantag: "cm" är accepterat), "och så vidare" INTE "osv"
+• Skriv "bland annat" INTE "bl a", "millimeter" INTE "mm", "och så vidare" INTE "osv"
+• VIKTIGT: "cm" är ALLTID korrekt och ska ALLTID användas för centimeter — skriv "cm" INTE "centimeter"
 • Skriv INTE "st" efter antal (utom i titlar där "st" är konventionellt): "34 mattallrikar" INTE "34 st mattallrikar"
 • Skriv fullständiga namn: "Josef Frank" INTE "Frank", "nysilver" INTE "NS"
 • Syfte: Auctionet använder automatisk Google-översättning — förkortningar kan inte översättas korrekt
@@ -989,12 +990,14 @@ ${itemData.artist && this.enableArtistInfo ?
 
 MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
+• Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
 • Format för möbler: "Längd 84, bredd 47, höjd 92 cm" (cm bara efter sista måttet)
 • Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
 • Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
 • Små föremål: ett mått räcker (höjd eller diameter)
 • Ringar: ange BARA ringstorlek, inga mått
 • Grafik: förtydliga om det är bladstorlek eller bildstorlek
+• Använd ALLTID "cm" — ALDRIG "centimeter"
 
 === KONDITION-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL KONDITION-FÖRBÄTTRING) ===
 
@@ -1176,12 +1179,14 @@ ${itemData.artist && this.enableArtistInfo ?
 
 MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
+• Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
 • Format för möbler: "Längd 84, bredd 47, höjd 92 cm" (cm bara efter sista måttet)
 • Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
 • Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
 • Små föremål: ett mått räcker (höjd eller diameter)
 • Ringar: ange BARA ringstorlek, inga mått
 • Grafik: förtydliga om det är bladstorlek eller bildstorlek
+• Använd ALLTID "cm" — ALDRIG "centimeter"
 
 KRITISKT - RETURFORMAT:
 • Returnera ENDAST beskrivningstexten med radbrytningar för separata paragrafer
