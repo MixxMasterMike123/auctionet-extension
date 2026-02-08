@@ -8,7 +8,7 @@ export class APIManager {
     this.apiKey = null;
     this.enableArtistInfo = true;
     this.showDashboard = true; // Default to showing dashboard
-    this.currentModel = 'claude-3-5-sonnet'; // Set default model instead of null
+    this.currentModel = 'claude-4-sonnet'; // Default to latest supported model
     this.auctionetAPI = new AuctionetAPI();
     this.searchQuerySSoT = null; // NEW: AI-only SearchQuerySSoT support
 
@@ -333,6 +333,9 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
       } else if (currentField && trimmedLine.length > 0) {
         // This is a continuation line for the current field
         currentContent.push(line); // Keep original formatting/indentation
+      } else if (currentField && trimmedLine.length === 0 && currentContent.length > 0) {
+        // Preserve blank lines within a field (paragraph breaks in descriptions)
+        currentContent.push('');
       }
     }
 

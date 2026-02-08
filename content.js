@@ -215,7 +215,7 @@ class AuctionetCatalogingAssistant {
       this.uiController = new window.UIController({
         onImproveField: (fieldType) => this.improveField(fieldType),
         onImproveAll: () => this.improveAllFields(),
-        onAnalyzeQuality: () => this.assessDataQuality(),
+        onAnalyzeQuality: () => this.analyzeQuality(),
         onArtistAction: (action, data) => this.handleArtistAction(action, data),
         onGetItemData: () => this.extractItemData(),
         onProcessWithInfo: (info) => this.processWithAdditionalInfo(info),
@@ -339,372 +339,6 @@ class AuctionetCatalogingAssistant {
     }
   }
 
-  createSimpleAPIManager() {
-    // Capture reference to parent class for method calls
-    const parentClass = this;
-
-    // Create a simplified API manager that provides just what the tooltip system needs
-    return {
-      apiKey: this.apiKey,
-
-      async callClaudeAPI(itemData, fieldType) {
-        if (!parentClass.apiKey) {
-          throw new Error('No API key available');
-        }
-
-        // Generate the prompt based on the field type and item data
-        const prompt = parentClass.generatePromptForAddItems(itemData, fieldType);
-
-        try {
-          // Use background script communication (same as edit page)
-          const response = await new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({
-              type: 'anthropic-fetch',
-              apiKey: parentClass.apiKey,
-              body: {
-                model: parentClass.getCurrentModelId(),
-                max_tokens: fieldType === 'title-correct' ? 500 : 2000,
-                temperature: fieldType === 'title-correct' ? 0.1 : 0.7,
-                system: 'You are an expert Swedish auction cataloger. Follow Swedish auction standards.',
-                messages: [{
-                  role: 'user',
-                  content: [{ type: 'text', text: prompt }]
-                }]
-              }
-            }, (response) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else if (response.success) {
-                resolve(response);
-              } else {
-                reject(new Error(response.error || 'API request failed'));
-              }
-            });
-          });
-
-          if (!response.data || !response.data.content || !Array.isArray(response.data.content) || response.data.content.length === 0) {
-            throw new Error('Invalid response format from API');
-          }
-
-          if (!response.data.content[0] || !response.data.content[0].text) {
-            throw new Error('No text content in API response');
-          }
-
-          // Parse the response similar to how the edit page does it
-          return parentClass.parseClaudeResponseForAddItems(response.data.content[0].text, fieldType);
-        } catch (error) {
-          console.error('❌ API call failed:', error);
-          throw error;
-        }
-      },
-
-      // NEW: Add the analyzeForArtist method for AI artist detection
-      async analyzeForArtist(title, objectType, artistField, description = '') {
-        console.log('🤖 Simple API: Analyzing for artist in title:', title);
-
-        if (!parentClass.apiKey) {
-          console.error('🤖 Simple API: No API key available');
-          return { hasArtist: false };
-        }
-
-        const prompt = `Analyze this Swedish auction title for potential artist names that should be moved to the artist field.
-
-IMPORTANT: If you detect a misspelled artist name, correct it and explain the correction. Do NOT reject misspellings - instead provide the correct spelling with reasoning.
-
-LANGUAGE REQUIREMENT: All user-facing text (reasoning, explanations) must be in Swedish. Only field names in JSON should remain in English.
-
-CRITICAL JSON FORMATTING:
-- ALWAYS escape quotes in JSON string values using backslashes
-- If title contains "quotes", write them as \"quotes\" in JSON
-- Example: "suggestedTitle": "\"Nornan\" färglitografi signerad numrerad 55/150"
-- NEVER use unescaped quotes inside JSON string values
-
-Title: "${title}"
-Current artist field: "${artistField}"
-Object type: "${objectType || 'unknown'}"
-Description: "${description}"
-
-GUIDELINES:
-- Detect and CORRECT misspelled Swedish artist names (e.g., "Rolf Lidbergg" → "Rolf Lidberg")
-- If name appears misspelled, research the correct spelling and provide it
-- Use confidence 0.7-0.9 for corrections (high confidence in correction)
-- Use confidence 0.4-0.6 for uncertain detections
-- Move artist name to artist field, provide clean title without artist name
-- Respond in Swedish for all user-facing text (reasoning)
-
-CRITICAL: Escape ALL quotes in JSON string values with backslashes!
-
-RESPOND WITH VALID JSON:
-{
-  "hasArtist": boolean,
-  "artistName": "corrected name or null",
-  "confidence": 0.0-1.0,
-  "suggestedTitle": "title without artist, quotes properly escaped",
-  "reasoning": "explanation in Swedish"
-}`;
-
-        try {
-          // Make direct API call using background script communication
-          const response = await new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({
-              type: 'anthropic-fetch',
-              apiKey: parentClass.apiKey,
-              body: {
-                model: 'claude-3-5-haiku-20241022', // Use fast Haiku for artist detection
-                max_tokens: 1000,
-                temperature: 0.3,
-                system: 'You are an expert Swedish auction cataloger specializing in artist detection. Respond only with valid JSON.',
-                messages: [{
-                  role: 'user',
-                  content: [{ type: 'text', text: prompt }]
-                }]
-              }
-            }, (response) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else if (response.success) {
-                resolve(response);
-              } else {
-                reject(new Error(response.error || 'API request failed'));
-              }
-            });
-          });
-
-          // Validate response structure
-          if (!response.data || !response.data.content || !Array.isArray(response.data.content) || response.data.content.length === 0) {
-            console.error('🤖 Simple API: Invalid response format from API');
-            return { hasArtist: false };
-          }
-
-          if (!response.data.content[0] || !response.data.content[0].text) {
-            console.error('🤖 Simple API: No text content in API response');
-            return { hasArtist: false };
-          }
-
-          const rawResponse = response.data.content[0].text;
-          console.log('🤖 Simple API: Raw artist analysis response:', rawResponse);
-
-          // SAFETY CHECK: Ensure response is a string before processing
-          if (typeof rawResponse !== 'string') {
-            console.error('🤖 Simple API: Response is not a string:', typeof rawResponse, rawResponse);
-            return { hasArtist: false };
-          }
-
-          // Check for empty response
-          if (!rawResponse || rawResponse.trim() === '') {
-            console.error('🤖 Simple API: Empty response received');
-            return { hasArtist: false };
-          }
-
-          // Parse the response
-          if (rawResponse.toLowerCase().includes('no_artist')) {
-            return { hasArtist: false };
-          }
-
-          // Try to parse JSON response
-          let result;
-          try {
-            result = JSON.parse(rawResponse);
-          } catch (parseError) {
-            console.error('🤖 Simple API: Failed to parse artist analysis JSON:', parseError);
-            console.error('🤖 Simple API: Raw response that failed to parse:', rawResponse);
-
-            // ENHANCED: Try to fix common JSON issues and re-parse
-            let fixedResponseText = rawResponse;
-
-            // Fix 1: Escape unescaped quotes in JSON string values
-            // Look for patterns like "field": "value with "quotes" inside"
-            fixedResponseText = fixedResponseText.replace(
-              /"([^"]+)"\s*:\s*"([^"]*)"([^"]*)"([^"]*)"/g,
-              '"$1": "$2\\"$3\\"$4"'
-            );
-
-            // Fix 2: Handle more complex quote escaping in suggestedTitle and reasoning
-            fixedResponseText = fixedResponseText.replace(
-              /"(suggestedTitle|reasoning)"\s*:\s*"([^"]*""[^"]*"[^"]*)"/g,
-              (match, field, value) => {
-                const escapedValue = value.replace(/"/g, '\\"');
-                return `"${field}": "${escapedValue}"`;
-              }
-            );
-
-            // Fix 3: Handle trailing commas
-            fixedResponseText = fixedResponseText.replace(/,(\s*[}\]])/g, '$1');
-
-            // Fix 4: Ensure proper boolean formatting
-            fixedResponseText = fixedResponseText.replace(/:\s*(true|false)([,\s}])/g, ': $1$2');
-
-            console.log('🔧 Simple API: Attempting to fix JSON:', fixedResponseText);
-
-            try {
-              result = JSON.parse(fixedResponseText);
-              console.log('✅ Simple API: Successfully parsed fixed JSON');
-            } catch (secondParseError) {
-              console.log('🤖 Simple API: Failed to parse fixed JSON:', secondParseError);
-
-              // FALLBACK: Try to extract JSON from response if it's wrapped in text
-              const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                try {
-                  // Apply the same fixes to the extracted JSON
-                  let extractedJson = jsonMatch[0];
-                  extractedJson = extractedJson.replace(
-                    /"([^"]+)"\s*:\s*"([^"]*)"([^"]*)"([^"]*)"/g,
-                    '"$1": "$2\\"$3\\"$4"'
-                  );
-                  extractedJson = extractedJson.replace(
-                    /"(suggestedTitle|reasoning)"\s*:\s*"([^"]*""[^"]*"[^"]*)"/g,
-                    (match, field, value) => {
-                      const escapedValue = value.replace(/"/g, '\\"');
-                      return `"${field}": "${escapedValue}"`;
-                    }
-                  );
-
-                  result = JSON.parse(extractedJson);
-                  console.log('✅ Simple API: Successfully extracted and fixed JSON from wrapped response');
-                } catch (thirdParseError) {
-                  console.log('🤖 Simple API: Failed to parse extracted JSON:', thirdParseError);
-
-                  // FINAL FALLBACK: Extract data using regex
-                  try {
-                    const hasArtistMatch = rawResponse.match(/"hasArtist"\s*:\s*(true|false)/i);
-                    const artistNameMatch = rawResponse.match(/"artistName"\s*:\s*"([^"]+)"/);
-                    const confidenceMatch = rawResponse.match(/"confidence"\s*:\s*([\d.]+)/);
-                    const suggestedTitleMatch = rawResponse.match(/"suggestedTitle"\s*:\s*"([^"]*(?:\\"[^"]*)*[^"]*)"/);
-                    const reasoningMatch = rawResponse.match(/"reasoning"\s*:\s*"([^"]*(?:\\"[^"]*)*[^"]*)"/);
-
-                    if (hasArtistMatch) {
-                      result = {
-                        hasArtist: hasArtistMatch[1].toLowerCase() === 'true',
-                        artistName: artistNameMatch ? artistNameMatch[1] : null,
-                        confidence: confidenceMatch ? parseFloat(confidenceMatch[1]) : 0,
-                        suggestedTitle: suggestedTitleMatch ? suggestedTitleMatch[1].replace(/\\"/g, '"') : null,
-                        reasoning: reasoningMatch ? reasoningMatch[1].replace(/\\"/g, '"') : 'Automatisk korrigering'
-                      };
-                      console.log('🔧 Simple API: Extracted data using regex fallback:', result);
-                    } else {
-                      console.error('❌ Simple API: All parsing attempts failed');
-                      return { hasArtist: false };
-                    }
-                  } catch (regexError) {
-                    console.error('❌ Simple API: Regex extraction failed:', regexError);
-                    return { hasArtist: false };
-                  }
-                }
-              } else {
-                return { hasArtist: false };
-              }
-            }
-          }
-
-          // Validate the parsed result has expected structure
-          if (typeof result !== 'object' || result === null) {
-            console.error('🤖 Simple API: Parsed result is not an object:', result);
-            return { hasArtist: false };
-          }
-
-          // Ensure required fields exist with default values
-          const validatedResult = {
-            hasArtist: Boolean(result.hasArtist),
-            artistName: result.artistName || null,
-            confidence: typeof result.confidence === 'number' ? result.confidence : 0.5,
-            suggestedTitle: result.suggestedTitle || null,
-            reasoning: result.reasoning || 'No reasoning provided'
-          };
-
-          console.log('🤖 Simple API: Validated artist analysis result:', validatedResult);
-          return validatedResult;
-
-        } catch (error) {
-          console.error('🤖 Simple API: Artist analysis failed:', error);
-          return { hasArtist: false };
-        }
-      }
-    };
-  }
-
-  generatePromptForAddItems(itemData, fieldType) {
-    const baseInfo = `
-FÖREMÅLSINFORMATION:
-Kategori: ${itemData.category || ''}
-Nuvarande titel: ${itemData.title || ''}
-Nuvarande beskrivning: ${itemData.description || ''}
-Kondition: ${itemData.condition || ''}
-Konstnär/Formgivare: ${itemData.artist || ''}
-Sökord: ${itemData.keywords || ''}
-`;
-
-    if (fieldType === 'all') {
-      return baseInfo + `
-UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.
-`;
-    } else if (fieldType === 'title-correct') {
-      return baseInfo + `
-UPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.
-
-KRITISKT - MINIMALA ÄNDRINGAR:
-• Lägg INTE till ny information, material eller tidsperioder
-• Ändra INTE ordningen på elementer
-• Ta INTE bort information
-• Korrigera ENDAST:
-  - Saknade mellanslag ("SVERIGEStockholm" → "SVERIGE Stockholm")
-  - Felplacerade punkter ("TALLRIK. keramik" → "TALLRIK, keramik")
-  - Saknade citattecken runt titlar/motiv ("Dune Mario Bellini" → "Dune" Mario Bellini)
-  - Stavfel i välkända namn/märken
-  - Kommatecken istället för punkt mellan objekt och material
-
-EXEMPEL KORRIGERINGAR:
-• "SERVIRINGSBRICKA, akryl.Dune Mario Bellini" → "SERVIRINGSBRICKA, akryl, "Dune" Mario Bellini"
-• "TALLRIKkeramik Sverige" → "TALLRIK, keramik, Sverige"
-• "VAS. glas, 1970-tal" → "VAS, glas, 1970-tal"
-
-Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.
-`;
-    }
-
-    return baseInfo + `
-UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
-`;
-  }
-
-  parseClaudeResponseForAddItems(response, fieldType) {
-    // Simple parsing for add items improvements
-    const improvements = {};
-
-    if (fieldType === 'all') {
-      improvements.title = response.match(/Titel:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
-      improvements.description = response.match(/Beskrivning:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
-      improvements.condition = response.match(/Kondition:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
-      improvements.keywords = response.match(/Sökord:\s*(.+?)(?=\n|$)/)?.[1]?.trim() || '';
-    } else if (fieldType === 'title-correct') {
-      // For title corrections, map to 'title' field for application
-      improvements.title = response.trim();
-    } else {
-      improvements[fieldType] = response.trim();
-    }
-
-    return improvements;
-  }
-
-  createSimpleQualityAnalyzer(apiManager) {
-    // NEW: Create quality analyzer with ArtistDetectionManager SSoT instead of simplified detection
-    return {
-      // Use ArtistDetectionManager SSoT for robust detection
-      artistDetectionManager: new window.ArtistDetectionManager(apiManager),
-
-      async detectMisplacedArtist(title, artistField, forceReDetection = false) {
-        console.log('🎯 Simple quality analyzer: Using ArtistDetectionManager SSoT for detection');
-        return await this.artistDetectionManager.detectMisplacedArtist(title, artistField, forceReDetection);
-      }
-    };
-  }
-
-  // Legacy method for backward compatibility (edit pages)
-  isCorrectPage() {
-    const pageInfo = this.detectPageType();
-    return pageInfo.isSupported && pageInfo.type === 'edit';
-  }
-
   async loadApiKey() {
     try {
       const result = await chrome.storage.sync.get(['anthropicApiKey']);
@@ -747,53 +381,6 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     }
   }
 
-  async showArtistBiography(artistName) {
-    try {
-      // Create a simple API call to get biography
-      if (!this.apiKey) {
-        alert('API-nyckel saknas för att hämta biografi');
-        return;
-      }
-
-      const prompt = `Skriv en kort biografi (max 200 ord) på svenska om konstnären "${artistName}". Fokusera på viktiga datum, stil och kända verk. Svara endast med biografin, inga extra kommentarer.`;
-
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          type: 'anthropic-fetch',
-          apiKey: this.apiKey,
-          body: {
-            model: 'claude-3-5-haiku-20241022', // Use fast Haiku for biography generation
-            max_tokens: 300,
-            temperature: 0.3,
-            system: 'Du är en konstexpert. Skriv korta, faktabaserade biografier på svenska.',
-            messages: [{
-              role: 'user',
-              content: prompt
-            }]
-          }
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else if (response && response.success) {
-            resolve(response);
-          } else {
-            reject(new Error('Biography fetch failed'));
-          }
-        });
-      });
-
-      if (response.success && response.data?.content?.[0]?.text) {
-        const biography = response.data.content[0].text;
-        this.showBiographyModal(artistName, biography);
-      }
-    } catch (error) {
-      console.error('❌ Error fetching biography:', error);
-      alert('Kunde inte hämta biografi för ' + artistName);
-    }
-  }
-
-
-
   addBiographyToDescription(biography) {
     const descriptionField = document.querySelector('#item_description_sv');
     if (descriptionField) {
@@ -807,16 +394,14 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     }
   }
 
-  ignoreArtistDetection(artistName) {
-    // For now, just re-analyze to remove the warning
-    // In a more advanced implementation, we could store ignored artists
-    setTimeout(() => this.analyzeQuality(), 100);
-    console.log('🚫 Ignored artist detection for:', artistName);
-  }
-
-
 
   async improveField(fieldType, force = false) {
+    // Block condition improvement when "Inga anmärkningar" is checked
+    if (fieldType === 'condition' && this.isNoRemarksChecked()) {
+      this.uiController.showFieldErrorIndicator(fieldType, 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat. Avmarkera checkboxen först.');
+      return;
+    }
+
     // Ensure API key is loaded
     if (!this.apiKey) {
       await this.loadApiKey();
@@ -840,7 +425,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       }
     }
 
-    this.uiController.showFieldLoadingIndicator(fieldType);
+    this.uiController.showLoadingIndicator(fieldType);
 
     try {
       const improved = await this.callClaudeAPI(itemData, fieldType);
@@ -851,7 +436,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       const responseField = fieldType === 'title-correct' ? 'title' : fieldType;
       const value = improved[responseField];
       if (value) {
-        this.applyImprovement(fieldType, value);
+        this.uiController.applyImprovement(fieldType, value);
         this.uiController.showFieldSuccessIndicator(fieldType);
 
         // Re-analyze quality after improvement (with delay to ensure DOM is updated)
@@ -891,7 +476,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
       return;
     }
 
-    this.uiController.showFieldLoadingIndicator('all');
+    this.uiController.showLoadingIndicator('all');
 
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all');
@@ -901,7 +486,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
       if (improvements.title) {
         setTimeout(() => {
-          this.applyImprovement('title', improvements.title);
+          this.uiController.applyImprovement('title', improvements.title);
           this.uiController.showFieldSuccessIndicator('title');
         }, delay);
         delay += 300;
@@ -909,15 +494,16 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
       if (improvements.description) {
         setTimeout(() => {
-          this.applyImprovement('description', improvements.description);
+          this.uiController.applyImprovement('description', improvements.description);
           this.uiController.showFieldSuccessIndicator('description');
         }, delay);
         delay += 300;
       }
 
-      if (improvements.condition) {
+      // Only apply condition improvement if "Inga anmärkningar" is not checked
+      if (improvements.condition && !this.isNoRemarksChecked()) {
         setTimeout(() => {
-          this.applyImprovement('condition', improvements.condition);
+          this.uiController.applyImprovement('condition', improvements.condition);
           this.uiController.showFieldSuccessIndicator('condition');
         }, delay);
         delay += 300;
@@ -925,7 +511,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
       if (improvements.keywords) {
         setTimeout(() => {
-          this.applyImprovement('keywords', improvements.keywords);
+          this.uiController.applyImprovement('keywords', improvements.keywords);
           this.uiController.showFieldSuccessIndicator('keywords');
         }, delay);
         delay += 300;
@@ -947,7 +533,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
     if (action === 'move') {
       // Move artist name to artist field
-      const artistField = document.querySelector('#item_artist');
+      const artistField = document.querySelector('#item_artist_name_sv');
       if (artistField) {
         artistField.value = data.artistName;
         artistField.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1016,6 +602,52 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     this.assessDataQuality(itemData, 'all');
   }
 
+  isNoRemarksChecked() {
+    const checkboxSelectors = [
+      '#item_no_remarks',
+      'input[name="item[no_remarks]"]',
+      '.js-item-form-no-remarks',
+      'input[type="checkbox"][value="Inga anmärkningar"]',
+      'input[type="checkbox"]#item_no_remarks',
+      'input[type="checkbox"][name*="no_remarks"]',
+      'input[type="checkbox"][name*="anmärkningar"]',
+      'input[type="checkbox"][id*="anmärkningar"]',
+      'input[type="checkbox"][class*="anmärkningar"]'
+    ];
+
+    for (const selector of checkboxSelectors) {
+      const checkbox = document.querySelector(selector);
+      if (checkbox && checkbox.checked) {
+        return true;
+      }
+    }
+
+    // Fallback: search for any checkbox with "Inga anmärkningar" text nearby
+    const allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
+    for (const checkbox of allCheckboxes) {
+      const parent = checkbox.parentElement;
+      const textContent = parent ? parent.textContent : '';
+      if (textContent.includes('Inga anmärkningar') || textContent.includes('anmärkningar')) {
+        if (checkbox.checked) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // Re-analyze quality after a field change (extracts current data automatically)
+  analyzeQuality() {
+    try {
+      const data = this.extractItemData();
+      return this.assessDataQuality(data, 'all');
+    } catch (error) {
+      console.error('Error analyzing quality:', error);
+      return { needsMoreInfo: false, missingInfo: [], qualityScore: 0 };
+    }
+  }
+
   assessDataQuality(data, fieldType) {
     const descLength = data.description.replace(/<[^>]*>/g, '').length;
     const condLength = data.condition.replace(/<[^>]*>/g, '').length;
@@ -1069,12 +701,12 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
       case 'description':
         if (descLength < 25) {
-          warnings.push({ field: 'Beskrivning', issue: 'För kort - lägg till detaljer om material, teknik, färg, märkningar', severity: 'high' });
-          score -= 25;
+          issues.push('basic_info');
+          needsMoreInfo = true;
         }
-        if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i)) {
-          warnings.push({ field: 'Beskrivning', issue: 'Saknar fullständiga mått', severity: 'high' });
-          score -= 20;
+        if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i) && descLength < 50) {
+          issues.push('measurements');
+          needsMoreInfo = true;
         }
         break;
 
@@ -1192,19 +824,11 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
     return Math.max(0, score);
   }
 
-  isDataTooSparse(data) {
-    // Use the new assessment system for "Förbättra alla"
-    const assessment = this.assessDataQuality(data, 'all');
-    return assessment.needsMoreInfo || assessment.qualityScore < 40;
-  }
-
-
-
   async processWithAdditionalInfo(info) {
     const itemData = this.extractItemData();
     itemData.additionalInfo = info;
 
-    this.uiController.showFieldLoadingIndicator('all');
+    this.uiController.showLoadingIndicator('all');
 
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all-enhanced');
@@ -1216,7 +840,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
   async processWithoutAdditionalInfo() {
     const itemData = this.extractItemData();
-    this.uiController.showFieldLoadingIndicator('all');
+    this.uiController.showLoadingIndicator('all');
 
     try {
       const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
@@ -1234,7 +858,7 @@ UPPGIFT: Förbättra ${fieldType} enligt svenska auktionsstandarder.
 
     if (fieldType === 'all') {
       // For "Förbättra alla" - use existing logic
-      this.uiController.showFieldLoadingIndicator('all');
+      this.uiController.showLoadingIndicator('all');
 
       try {
         const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
@@ -1713,6 +1337,11 @@ Returnera endast biografin som ren text.
     if (!response || typeof response !== 'string') {
       console.error('Invalid response format:', response);
       throw new Error('Invalid response format from Claude');
+    }
+
+    // Biography requests return plain text — no structured parsing needed
+    if (fieldType === 'biography') {
+      return { biography: response.trim() };
     }
 
     // For single field requests, parse the structured response

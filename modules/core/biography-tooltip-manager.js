@@ -30,7 +30,7 @@ export class BiographyTooltipManager {
 
     // Create biography snippet (shorter for cleaner design - first 50 characters)
     const bioPreview = biography.length > 50 ? biography.substring(0, 50) + '...' : biography;
-    
+
     const biographySpan = document.createElement('span');
     biographySpan.className = 'artist-bio-tooltip';
     biographySpan.textContent = `(${bioPreview})`;
@@ -41,13 +41,13 @@ export class BiographyTooltipManager {
       transition: all 0.2s ease;
       position: relative;
     `;
-    
+
     // Add hover effect for snippet
     biographySpan.addEventListener('mouseenter', () => {
       biographySpan.style.backgroundColor = '#f0f8ff';
       biographySpan.style.borderRadius = '2px';
     });
-    
+
     biographySpan.addEventListener('mouseleave', () => {
       biographySpan.style.backgroundColor = 'transparent';
     });
@@ -63,43 +63,66 @@ export class BiographyTooltipManager {
   /**
    * Show full biography in a modal popup
    * @param {string} artistName - Artist name for header
-   * @param {string} biography - Full biography text
+   * @param {Object|string} biography - Biography object or text
    */
   async showFullBiography(artistName, biography) {
+    // Handle both old string format and new object format
+    let bioText, bioYears, bioSource, bioUrl;
+    if (typeof biography === 'string') {
+      bioText = biography;
+      bioSource = 'ai';
+    } else {
+      bioText = biography.text || biography.biography || biography;
+      bioYears = biography.years;
+      bioSource = biography.source || 'ai';
+      bioUrl = biography.url;
+    }
+
+    // Format biography text (preserve line breaks)
+    const formattedBio = bioText.replace(/\n/g, '<br>');
+
+    // Create attribution based on source
+    const attribution = bioSource === 'auctionet' ?
+      `✓ Verifierad biografi från <a href="${bioUrl}" target="_blank" style="color: #1976d2;">Auctionet</a>` :
+      `🤖 AI-genererad biografi (Claude Haiku)`;
+
+    // Create header with years if available
+    const header = bioYears ? `${artistName} (${bioYears})` : artistName;
+
     // Create a modern popup overlay for detailed artist information
     const popup = document.createElement('div');
     popup.className = 'artist-bio-popup-overlay';
     popup.innerHTML = `
       <div class="artist-bio-popup">
         <div class="popup-header">
-          <h3>${artistName}</h3>
+          <h3>${header}</h3>
           <button class="popup-close" type="button">✕</button>
         </div>
         <div class="popup-content">
-          <p>${biography}</p>
+          <p>${formattedBio}</p>
           <div class="popup-attribution">
-            <small>🤖 AI-genererad biografi (Claude Haiku)</small>
+            <small>${attribution}</small>
           </div>
         </div>
       </div>
     `;
-    
+
     // Add to page
     document.body.appendChild(popup);
-    
+
     // Add event listeners
     const closeBtn = popup.querySelector('.popup-close');
     closeBtn.addEventListener('click', () => {
       popup.remove();
     });
-    
+
     // Close on overlay click
     popup.addEventListener('click', (e) => {
       if (e.target === popup) {
         popup.remove();
       }
     });
-    
+
     // Close on escape key
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
@@ -117,14 +140,14 @@ export class BiographyTooltipManager {
    */
   createBiographyPreview(artistDetection) {
     const biography = artistDetection.biography || '';
-    
+
     if (!biography || biography === 'Ingen detaljerad biografi tillgänglig') {
       return '';
     }
 
     // Create preview snippet (first 120 characters for tooltips)
     const bioPreview = biography.length > 120 ? biography.substring(0, 120) + '...' : biography;
-    
+
     return `<div class="artist-bio-preview">${bioPreview}</div>`;
   }
 
@@ -139,9 +162,9 @@ export class BiographyTooltipManager {
       return; // No need for button on short biographies
     }
 
-    const buttonContainer = tooltipElement.querySelector('.tooltip-buttons') || 
-                           tooltipElement.querySelector('.tooltip-footer');
-    
+    const buttonContainer = tooltipElement.querySelector('.tooltip-buttons') ||
+      tooltipElement.querySelector('.tooltip-footer');
+
     if (buttonContainer) {
       const bioButton = document.createElement('button');
       bioButton.className = 'btn-secondary bio-button';
@@ -149,7 +172,7 @@ export class BiographyTooltipManager {
       bioButton.addEventListener('click', () => {
         this.showFullBiography(artistName, biography);
       });
-      
+
       buttonContainer.appendChild(bioButton);
     }
   }
@@ -160,26 +183,56 @@ export class BiographyTooltipManager {
    * @returns {boolean} - True if biography is available
    */
   hasBiography(verificationData) {
-    return verificationData && 
-           verificationData.biography && 
-           verificationData.biography !== 'Ingen detaljerad biografi tillgänglig';
+    return verificationData &&
+      verificationData.biography &&
+      verificationData.biography !== 'Ingen detaljerad biografi tillgänglig';
   }
 
   /**
    * Extract biography from various data structures
-   * @param {Object} data - Data object (can be artistDetection, verification, etc.)
-   * @returns {string|null} - Biography text or null
+   * Prioritizes Auctionet biographies over AI-generated ones
+   * @param {Object} data - Data object (can be artistDetection, verification, auctionetBio, etc.)
+   * @returns {Object|null} - Biography object with text and source, or null
    */
   extractBiography(data) {
     if (!data) return null;
-    
-    // Try different possible locations for biography
-    if (data.biography) return data.biography;
-    if (data.verification && data.verification.biography) return data.verification.biography;
-    if (data.aiArtist && data.aiArtist.verification && data.aiArtist.verification.biography) {
-      return data.aiArtist.verification.biography;
+
+    // PRIORITY 1: Auctionet biography (verified, zero hallucination)
+    if (data.auctionetBio && data.auctionetBio.biography) {
+      return {
+        text: data.auctionetBio.biography,
+        years: data.auctionetBio.years,
+        source: 'auctionet',
+        verified: true,
+        url: data.auctionetBio.url
+      };
     }
-    
+
+    // PRIORITY 2: AI-generated biography (fallback)
+    if (data.verification && data.verification.biography) {
+      return {
+        text: data.verification.biography,
+        source: 'ai',
+        verified: false
+      };
+    }
+
+    if (data.biography) {
+      return {
+        text: data.biography,
+        source: 'ai',
+        verified: false
+      };
+    }
+
+    if (data.aiArtist && data.aiArtist.verification && data.aiArtist.verification.biography) {
+      return {
+        text: data.aiArtist.verification.biography,
+        source: 'ai',
+        verified: false
+      };
+    }
+
     return null;
   }
 
@@ -367,7 +420,7 @@ export class BiographyTooltipManager {
         }
       }
     `;
-    
+
     document.head.appendChild(style);
     this.stylesInjected = true;
   }
@@ -379,7 +432,7 @@ export class BiographyTooltipManager {
     // Remove any active popups
     const activePopups = document.querySelectorAll('.artist-bio-popup-overlay');
     activePopups.forEach(popup => popup.remove());
-    
+
     this.activeTooltips.clear();
   }
 }

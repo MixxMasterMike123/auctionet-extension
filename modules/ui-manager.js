@@ -15,7 +15,6 @@ export class UIManager {
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
-      this.addAIButton(titleField, 'title-correct', 'AI-korrigera stavning');
     }
     if (descriptionField) {
       this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
@@ -258,32 +257,22 @@ export class UIManager {
 
 
       
-      .ai-undo-wrapper {
-        margin-top: 6px;
-        margin-bottom: 20px;
-        display: flex;
-        justify-content: flex-start;
-        align-items: center;
-      }
-      
       .ai-undo-button {
-        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-        color: white;
-        border: none;
-        padding: 6px 12px;
+        background: transparent;
+        color: #dc3545;
+        border: 1px solid #dc3545;
+        padding: 5px 10px;
         border-radius: 4px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.2s ease;
-        box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
-        margin: 0; /* Remove margin-left, use wrapper for positioning */
+        margin-left: auto;
       }
       
       .ai-undo-button:hover {
-        background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 3px 6px rgba(220, 53, 69, 0.4);
+        background: #dc3545;
+        color: white;
       }
       
       .ai-updated {
@@ -430,39 +419,41 @@ export class UIManager {
   }
 
   addUndoButton(field, fieldType) {
-    // Remove existing undo wrapper (which contains the button)
-    const existingUndoWrapper = field.parentElement.querySelector('.ai-undo-wrapper');
-    if (existingUndoWrapper) {
-      existingUndoWrapper.remove();
-    }
-    
-    // Also check for old-style undo buttons (for backwards compatibility)
-    const existingUndo = field.parentElement.querySelector('.ai-undo-button');
+    // Find the AI button wrapper reliably via the button's data-field-type attribute
+    // (works regardless of how deep the field is nested in the DOM)
+    const searchType = fieldType === 'title-correct' ? 'title' : fieldType;
+    const aiButton = document.querySelector(`.ai-assist-button[data-field-type="${searchType}"]`);
+    const wrapper = aiButton?.closest('.ai-button-wrapper');
+    if (!wrapper) return;
+
+    // Remove any existing undo button in this wrapper
+    const existingUndo = wrapper.querySelector('.ai-undo-button');
     if (existingUndo) {
       existingUndo.remove();
     }
-    
-    // Create undo button with proper wrapper for alignment
+
+    // Also clean up old-style undo wrappers if present
+    const existingUndoWrapper = field.parentElement?.querySelector('.ai-undo-wrapper');
+    if (existingUndoWrapper) {
+      existingUndoWrapper.remove();
+    }
+
+    // Create undo button directly inside the button wrapper (no separate wrapper)
     const undoButton = document.createElement('button');
     undoButton.className = 'ai-undo-button';
     undoButton.textContent = '↩ Ångra';
     undoButton.type = 'button';
-    
-    // Create wrapper for proper alignment and spacing
-    const undoWrapper = document.createElement('div');
-    undoWrapper.className = 'ai-undo-wrapper';
-    undoWrapper.appendChild(undoButton);
-    
+
     undoButton.addEventListener('click', () => {
       const originalValue = this.originalValues.get(fieldType);
       if (originalValue !== undefined) {
         field.value = originalValue;
         field.classList.remove('ai-updated');
-        undoWrapper.remove(); // Remove the wrapper instead of just the button
+        undoButton.remove();
       }
     });
-    
-    field.parentElement.appendChild(undoWrapper);
+
+    wrapper.appendChild(undoButton);
   }
 
   autoResizeTextarea(textarea) {
