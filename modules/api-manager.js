@@ -565,8 +565,11 @@ ENDAST FÖRBÄTTRA:
         ? `• TA BORT alla träslag från titeln — träslag hör ALDRIG hemma i titeln för möbler
 • Använd din kunskap för att identifiera ALLA typer av trä/träslag (t.ex. furu, ek, jakaranda, teak, mahogny, björk, valnöt, palisander, och ALLA andra träslag du känner till)
 • Om du identifierar ett träslag i titeln — FLYTTA det till beskrivningen istället, ALDRIG behåll det i titeln
-• EXEMPEL: "Bord, furu, Karl Andersson" → titel: "Bord. Karl Andersson & Söner" + beskrivning: "Furu. ..."
-• EXEMPEL: "BYRÅ, jakaranda, 1960/70-tal" → titel: "BYRÅ, 1960/70-tal" + beskrivning: "Jakaranda. ..."`
+• KRITISKT: När du tar bort ett träslag från titeln MÅSTE du lägga till det FÖRST i beskrivningen. Om beskrivningen inte redan innehåller träslaget, skriv det som första ord i beskrivningen (t.ex. "Teak. Överdel i form av...")
+• EXEMPEL: Titel "Bord, furu, Karl Andersson" → titel: "Bord. Karl Andersson & Söner" + beskrivning: "Furu. [befintlig beskrivning]"
+• EXEMPEL: Titel "BYRÅ, jakaranda, 1960/70-tal" → titel: "BYRÅ, 1960/70-tal" + beskrivning: "Jakaranda. [befintlig beskrivning]"
+• EXEMPEL: Titel "BOKHYLLA, teak, 1950/60-tal" → titel: "BOKHYLLA, 1950/60-tal" + beskrivning: "Teak. [befintlig beskrivning]"
+• Om du TAR BORT träslag från titeln men INTE lägger till det i beskrivningen är det ett FEL — informationen går förlorad`
         : `• Enligt Auctionets regler hör träslag egentligen INTE hemma i titeln för möbler, men eftersom du bara förbättrar titeln (inte beskrivningen) — BEHÅLL träslaget i titeln så att informationen inte går förlorad
 • Träslaget flyttas korrekt till beskrivningen när användaren kör "Förbättra alla fält"`;
 

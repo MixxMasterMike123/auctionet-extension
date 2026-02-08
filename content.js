@@ -475,12 +475,12 @@ class AuctionetCatalogingAssistant {
         this.uiController.applyImprovement(fieldType, value);
         this.uiController.showFieldSuccessIndicator(fieldType);
 
-        // Re-analyze quality after improvement (with delay to ensure DOM is updated)
-        console.log('Re-analyzing quality after single field improvement...');
+        // Clear stale FAQ hints, then re-analyze after DOM settles
+        document.querySelectorAll('.faq-hint').forEach(h => h.remove());
         setTimeout(() => {
           console.log('Delayed quality analysis for single field...');
           this.analyzeQuality();
-        }, 500);
+        }, 800);
       } else {
         throw new Error(`No ${fieldType} value in response`);
       }
@@ -958,10 +958,12 @@ class AuctionetCatalogingAssistant {
     }
 
     this.uiController.showFieldSuccessIndicator('all');
+    // Clear stale FAQ hints immediately, then re-analyze after DOM settles
+    document.querySelectorAll('.faq-hint').forEach(h => h.remove());
     setTimeout(() => {
       console.log('Delayed quality analysis after applyAllImprovements...');
       this.analyzeQuality();
-    }, 500);
+    }, 800);
   }
 
   extractItemData() {

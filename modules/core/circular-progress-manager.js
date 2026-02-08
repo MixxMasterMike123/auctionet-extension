@@ -345,6 +345,10 @@ export class CircularProgressManager {
    * Generate tooltip content for completeness score
    */
   generateCompletenessTooltip(completeness, warnings) {
+    if (completeness === 0) {
+      return "📝 Alla fält är tomma. Fyll i titel, beskrivning, kondition och sökord.";
+    }
+
     const missingFields = warnings.filter(w => 
       w.issue && (w.issue.includes('saknas') || w.issue.includes('tom') || w.issue.includes('behövs'))
     );
@@ -363,6 +367,10 @@ export class CircularProgressManager {
    * Generate tooltip content for accuracy score
    */
   generateAccuracyTooltip(accuracy, warnings) {
+    if (accuracy === 0) {
+      return "📝 Lägg till information i fälten för att kunna mäta noggrannhet.";
+    }
+
     const formatIssues = warnings.filter(w => 
       w.issue && (w.issue.includes('format') || w.issue.includes('struktur') || w.issue.includes('konstnär'))
     );
@@ -378,44 +386,106 @@ export class CircularProgressManager {
   }
 
   /**
-   * Calculate completeness score based on warnings
+   * Calculate completeness score based on actual field content.
+   * Each major field contributes a portion of the total score.
    */
   calculateCompleteness(warnings) {
-    let completeness = 100;
-    
-    warnings.forEach((warning, index) => {
-      const deduction = warning.severity === 'high' ? 15 : 
-                       warning.severity === 'medium' ? 8 : 3;
-      completeness -= deduction;
-    });
-    
-    return Math.max(0, completeness);
+    // Read actual field content from DOM
+    const title = (document.querySelector('#item_title_sv')?.value || '').trim();
+    const description = (document.querySelector('#item_description_sv')?.value || '').replace(/<[^>]*>/g, '').trim();
+    const condition = (document.querySelector('#item_condition_sv')?.value || '').replace(/<[^>]*>/g, '').trim();
+    const keywords = (document.querySelector('#item_hidden_keywords')?.value || '').trim();
+
+    // Check if "Inga anmärkningar" is checked (condition not required)
+    const noRemarksCheckbox = document.querySelector('input[type="checkbox"][value="Inga anmärkningar"]') ||
+      document.querySelector('input[type="checkbox"]#item_no_remarks') ||
+      document.querySelector('input[type="checkbox"][name*="no_remarks"]');
+    const noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
+
+    let completeness = 0;
+
+    // Title: 30 points (most important for search/discovery)
+    if (title.length >= 20) {
+      completeness += 30;
+    } else if (title.length >= 10) {
+      completeness += 20;
+    } else if (title.length > 0) {
+      completeness += 10;
+    }
+
+    // Description: 30 points
+    if (description.length >= 50) {
+      completeness += 30;
+    } else if (description.length >= 20) {
+      completeness += 20;
+    } else if (description.length > 0) {
+      completeness += 10;
+    }
+
+    // Condition: 20 points
+    if (noRemarksChecked) {
+      completeness += 20; // Checked "no remarks" counts as complete
+    } else if (condition.length >= 25) {
+      completeness += 20;
+    } else if (condition.length >= 10) {
+      completeness += 12;
+    } else if (condition.length > 0) {
+      completeness += 5;
+    }
+
+    // Keywords: 20 points
+    const keywordCount = keywords ? keywords.split(/[,\s]+/).filter(k => k.trim().length > 0).length : 0;
+    if (keywordCount >= 5) {
+      completeness += 20;
+    } else if (keywordCount >= 2) {
+      completeness += 14;
+    } else if (keywordCount >= 1) {
+      completeness += 8;
+    }
+
+    return Math.max(0, Math.min(100, completeness));
   }
 
   /**
-   * Calculate accuracy score based on warnings
+   * Calculate accuracy score based on formatting/rule warnings.
+   * If no content exists, accuracy is 0 (nothing to measure).
+   * If content exists, start at 100 and deduct for rule violations.
    */
   calculateAccuracy(warnings) {
+    // Read actual field content to determine if there's anything to measure
+    const title = (document.querySelector('#item_title_sv')?.value || '').trim();
+    const description = (document.querySelector('#item_description_sv')?.value || '').replace(/<[^>]*>/g, '').trim();
+    const condition = (document.querySelector('#item_condition_sv')?.value || '').replace(/<[^>]*>/g, '').trim();
+
+    const totalContentLength = title.length + description.length + condition.length;
+
+    // No content = nothing to be accurate about
+    if (totalContentLength === 0) {
+      return 0;
+    }
+
     let accuracy = 100;
-    
-    const accuracyIssues = warnings.filter(w => 
-      w.issue?.includes('struktur') || 
-      w.issue?.includes('terminologi') ||
-      w.issue?.includes('konstnär') ||
-      w.issue?.includes('märke')
-    );
-    
-    accuracyIssues.forEach(warning => {
-      if (warning.severity === 'high') {
-        accuracy -= 20;
-      } else if (warning.severity === 'medium') {
-        accuracy -= 10;
+
+    // Deduct for each warning based on severity
+    // High severity = format/content rule violations
+    // Medium = structural issues
+    // Low = minor suggestions (smaller deduction)
+    warnings.forEach(w => {
+      if (!w.issue) return;
+
+      // Skip purely informational/positive warnings
+      if (w.issue.startsWith('✓')) return;
+
+      if (w.severity === 'high') {
+        accuracy -= 12;
+      } else if (w.severity === 'medium') {
+        accuracy -= 6;
       } else {
-        accuracy -= 5;
+        accuracy -= 2;
       }
     });
-    
-    return Math.max(0, accuracy);
+
+    return Math.max(0, Math.min(100, accuracy));
   }
 
   /**

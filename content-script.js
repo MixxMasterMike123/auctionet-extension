@@ -289,8 +289,9 @@
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);
             
-            // Re-analyze quality with animation after improvement
-            setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
+            // Clear stale FAQ hints, then run full re-analysis (includes hint refresh)
+            document.querySelectorAll('.faq-hint').forEach(h => h.remove());
+            setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
           } else {
             throw new Error(`No ${fieldType} value in response`);
           }
@@ -482,8 +483,9 @@
           
           this.showFieldSuccessIndicator(fieldType);
           
-          // Re-analyze quality with animation after improvements
-          setTimeout(() => this.qualityAnalyzer.recalculateQualityWithAnimation(), 500);
+          // Clear stale FAQ hints immediately, then run full re-analysis (includes hint refresh)
+          document.querySelectorAll('.faq-hint').forEach(h => h.remove());
+          setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
         } catch (error) {
           console.error('Error improving field:', error);
           this.showFieldErrorIndicator(fieldType, error.message);
@@ -578,8 +580,9 @@
             this.uiManager.applyImprovement(fieldType, value);
             this.showFieldSuccessIndicator(fieldType);
             
-            // Re-analyze quality after improvement
-            setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
+            // Clear stale FAQ hints, then re-analyze after DOM settles
+            document.querySelectorAll('.faq-hint').forEach(h => h.remove());
+            setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
           } else {
             throw new Error(`No ${fieldType} value in response`);
           }
@@ -604,7 +607,9 @@
         }
         
         this.showFieldSuccessIndicator('all');
-        setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 500);
+        // Clear stale FAQ hints immediately, then re-analyze after DOM settles
+        document.querySelectorAll('.faq-hint').forEach(h => h.remove());
+        setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
       }
 
       // Field-specific loading indicator methods - delegate to main content.js implementation
