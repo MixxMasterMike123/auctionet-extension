@@ -281,14 +281,18 @@ class AuctionetCatalogingAssistant {
       // attachEventListeners is handled by UIController
     } else if (this.currentPage === 'add') {
       await this.initializeFreetextParser();
+      // Also inject AI enhance buttons + quality sidebar on Add page
+      this.uiController.injectUI();
     }
 
-    // Run FAQ inline hints on ALL page types (edit + add)
-    if (this.faqHintAnalyzer) {
+    // FAQ inline hints are triggered via the UIController's quality callback chain:
+    // UIController.setupLiveQualityUpdates() → onAnalyzeQuality() → analyzeQuality() → runFaqHints()
+    // Only set up standalone FAQ monitoring if UIController is NOT active (fallback)
+    if (this.faqHintAnalyzer && !document.querySelector('.quality-indicator')) {
       setTimeout(() => {
         this.runFaqHints();
         this.faqHintAnalyzer.setupLiveQualityUpdates();
-        console.log('✅ FAQ hints + live monitoring active on', this.currentPage, 'page');
+        console.log('✅ FAQ hints (standalone) + live monitoring active on', this.currentPage, 'page');
       }, 1500);
     }
   }

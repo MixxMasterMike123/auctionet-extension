@@ -91,7 +91,11 @@ export class UIController {
 
         this.injectStyles();
 
-        const sidebar = document.querySelector('.grid-col4');
+        // Find sidebar: .grid-col4 on edit pages, fallback to right-side columns on add pages
+        const sidebar = document.querySelector('.grid-col4') ||
+            document.querySelector('.span4:last-child') ||
+            document.querySelector('.sidebar') ||
+            document.querySelector('.row-fluid > div:last-child');
 
         if (sidebar) {
             console.log('✅ Adding quality indicator to sidebar');
