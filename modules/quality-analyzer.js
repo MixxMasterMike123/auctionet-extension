@@ -455,7 +455,7 @@ export class QualityAnalyzer {
       const woodInTitle = allWoodTypes.some(w => new RegExp(`\\b${w}\\b`, 'i').test(data.title));
       const woodInDesc = allWoodTypes.some(w => new RegExp(`\\b${w}\\b`, 'i').test(descPlain));
       if (!woodInTitle && !woodInDesc) {
-        warnings.push({ field: 'Beskrivning', issue: 'Möbler: Träslag/material saknas — ange t.ex. ek, björk, teak, furu i beskrivningen', severity: 'medium', source: 'faq', fieldId: 'item_description_sv' });
+        warnings.push({ field: 'Beskrivning', issue: 'Möbler: Träslag/material saknas — välj nedan eller ange manuellt:', severity: 'medium', source: 'faq', fieldId: 'item_description_sv', woodTypeSuggestion: true });
         score -= 8;
       }
     }
@@ -3066,6 +3066,13 @@ Anpassa förslagen till kategorin "${category}".`,
       const hintsHtml = hintsByField[fieldId]
         .map(w => {
           let extra = '';
+          if (w.woodTypeSuggestion) {
+            const woodChips = ['Ek', 'Björk', 'Furu', 'Teak', 'Mahogny', 'Valnöt', 'Bok', 'Ask', 'Tall', 'Alm', 'Palisander', 'Fanér'];
+            const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
+            extra = '<div style="margin-top:4px;">' +
+              woodChips.map(w => `<a class="wood-type-chip" data-value="${w}" style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${w}</a>`).join('') +
+              '</div>';
+          }
           if (w.vagueCondition) {
             // Get category-aware suggestions (AI cache or hardcoded fallback)
             const category = document.querySelector('#item_category_id option:checked')?.textContent || '';
@@ -3121,6 +3128,22 @@ Anpassa förslagen till kategorin "${category}".`,
               }
               condField.dispatchEvent(new Event('input', { bubbles: true }));
               condField.focus();
+            }
+          });
+        });
+
+        // Attach click handlers to wood type chips (prepend to description)
+        const woodChips = hintContainer.querySelectorAll('.wood-type-chip');
+        woodChips.forEach(chip => {
+          chip.addEventListener('click', (e) => {
+            e.preventDefault();
+            const descField = document.querySelector('#item_description_sv');
+            if (descField) {
+              const wood = chip.getAttribute('data-value');
+              const current = descField.value.trim();
+              descField.value = current ? `${wood}. ${current}` : `${wood}.`;
+              descField.dispatchEvent(new Event('input', { bubbles: true }));
+              descField.focus();
             }
           });
         });
