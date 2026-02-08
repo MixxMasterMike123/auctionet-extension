@@ -535,17 +535,41 @@ export class QualityAnalyzer {
     }
 
     // --- General: vague condition text (bruksslitage etc.) with clickable suggestions ---
-    const vagueConditionTerms = ['bruksslitage', 'normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
-    const conditionIsVague = vagueConditionTerms.some(term => condLower.includes(term)) && condPlain.length < 40;
-    if (conditionIsVague && !noRemarksChecked) {
-      warnings.push({
-        field: 'Kondition', 
-        issue: `"${condPlain.trim()}" är för vagt. Prova istället:`,
-        severity: 'medium', 
-        source: 'faq', 
-        fieldId: 'item_condition_sv',
-        vagueCondition: true
-      });
+    if (!noRemarksChecked) {
+      const hasBruksslitage = /bruksslitage/i.test(condPlain);
+      const vagueOnlyTerms = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
+      const hasOtherVague = vagueOnlyTerms.some(term => condLower.includes(term)) && condPlain.length < 40;
+
+      if (hasBruksslitage && condPlain.length < 40) {
+        // Short text with bruksslitage — show hint + clickable replacement chips
+        warnings.push({
+          field: 'Kondition', 
+          issue: `"${condPlain.trim()}" är för vagt. Prova istället:`,
+          severity: 'medium', 
+          source: 'faq', 
+          fieldId: 'item_condition_sv',
+          vagueCondition: true
+        });
+      } else if (hasBruksslitage) {
+        // Longer text but still contains bruksslitage — hint only, no chips
+        warnings.push({
+          field: 'Kondition', 
+          issue: 'Byt ut "bruksslitage" mot en mer specifik term (t.ex. repor, nagg, märken)',
+          severity: 'medium', 
+          source: 'faq', 
+          fieldId: 'item_condition_sv'
+        });
+      } else if (hasOtherVague) {
+        // Other vague terms in short text — show hint + chips
+        warnings.push({
+          field: 'Kondition', 
+          issue: `"${condPlain.trim()}" är för vagt. Prova istället:`,
+          severity: 'medium', 
+          source: 'faq', 
+          fieldId: 'item_condition_sv',
+          vagueCondition: true
+        });
+      }
     }
 
     // === END FAQ GUIDELINE VALIDATION RULES ===
