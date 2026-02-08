@@ -901,6 +901,15 @@ class AuctionetCatalogingAssistant {
 
 
   async forceImproveField(fieldType) {
+    // Ensure API key is loaded
+    if (!this.apiKey) {
+      await this.loadApiKey();
+    }
+    if (!this.apiKey) {
+      this.uiController.showFieldErrorIndicator(fieldType, 'API key not configured. Please set your Anthropic API key in the extension popup.');
+      return;
+    }
+
     // Bypass quality checks and improve anyway
     const itemData = this.extractItemData();
 
@@ -912,6 +921,7 @@ class AuctionetCatalogingAssistant {
         const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
         this.applyAllImprovements(improvements);
       } catch (error) {
+        console.error('❌ Force improve all failed:', error);
         this.uiController.showFieldErrorIndicator('all', error.message);
       }
       return;
