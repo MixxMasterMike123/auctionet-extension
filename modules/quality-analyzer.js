@@ -540,24 +540,16 @@ export class QualityAnalyzer {
       const vagueOnlyTerms = ['normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'];
       const hasOtherVague = vagueOnlyTerms.some(term => condLower.includes(term)) && condPlain.length < 40;
 
-      if (hasBruksslitage && condPlain.length < 40) {
-        // Short text with bruksslitage — show hint + clickable replacement chips
+      if (hasBruksslitage) {
+        // Always show hint + clickable chips for bruksslitage (chips do inline word replacement)
         warnings.push({
           field: 'Kondition', 
-          issue: `"${condPlain.trim()}" är för vagt. Prova istället:`,
+          issue: 'Byt ut "bruksslitage" mot en specifik term:',
           severity: 'medium', 
           source: 'faq', 
           fieldId: 'item_condition_sv',
-          vagueCondition: true
-        });
-      } else if (hasBruksslitage) {
-        // Longer text but still contains bruksslitage — hint only, no chips
-        warnings.push({
-          field: 'Kondition', 
-          issue: 'Byt ut "bruksslitage" mot en mer specifik term (t.ex. repor, nagg, märken)',
-          severity: 'medium', 
-          source: 'faq', 
-          fieldId: 'item_condition_sv'
+          vagueCondition: true,
+          inlineReplace: 'bruksslitage'
         });
       } else if (hasOtherVague) {
         // Other vague terms in short text — show hint + chips
@@ -2970,15 +2962,16 @@ export class QualityAnalyzer {
           if (w.vagueCondition) {
             // Pick 3 random suggestions from pool
             const pool = [
-              'Repor och märken.', 'Ytslitage, nagg vid kanter.', 'Mindre repor och bruksmärken.',
-              'Sedvanligt slitage.', 'Slitage och mindre repor.', 'Ytliga repor, mindre märken.',
-              'Nagg och mindre lackskador.', 'Mindre slitage, repor.', 'Slitage vid kanter och hörn.',
-              'Ytslitage och mindre fläckar.', 'Bruksmärken och ytliga repor.', 'Repor, nagg, mindre fläckar.'
+              'Repor och märken', 'Ytslitage, nagg vid kanter', 'Mindre repor och bruksmärken',
+              'Sedvanligt slitage', 'Slitage och mindre repor', 'Ytliga repor, mindre märken',
+              'Nagg och mindre lackskador', 'Mindre slitage, repor', 'Slitage vid kanter och hörn',
+              'Ytslitage och mindre fläckar', 'Bruksmärken och ytliga repor', 'Repor, nagg, mindre fläckar'
             ];
             const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, 3);
             const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
+            const replaceAttr = w.inlineReplace ? ` data-replace="${w.inlineReplace}"` : '';
             extra = '<div style="margin-top:4px;">' +
-              shuffled.map(s => `<a class="condition-suggestion-chip" data-value="${s}" style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${s}</a>`).join('') +
+              shuffled.map(s => `<a class="condition-suggestion-chip" data-value="${s}"${replaceAttr} style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${s}</a>`).join('') +
               '</div>';
           }
           return `<div style="${hintStyle}">⚠ ${w.issue}${extra}</div>`;
@@ -3007,7 +3000,15 @@ export class QualityAnalyzer {
           e.preventDefault();
           const condField = document.querySelector('#item_condition_sv');
           if (condField) {
-            condField.value = chip.getAttribute('data-value');
+            const replaceWord = chip.getAttribute('data-replace');
+            const newValue = chip.getAttribute('data-value');
+            if (replaceWord) {
+              // Inline replacement: swap only the problematic word
+              condField.value = condField.value.replace(new RegExp(replaceWord, 'i'), newValue.replace(/\.$/, ''));
+            } else {
+              // Full replacement: replace entire field
+              condField.value = newValue;
+            }
             condField.dispatchEvent(new Event('input', { bubbles: true }));
             condField.focus();
           }
