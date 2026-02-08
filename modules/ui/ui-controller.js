@@ -248,25 +248,36 @@ export class UIController {
         
         .quality-warnings ul {
           margin: 0;
-          padding-left: 20px;
+          padding-left: 0;
+          list-style: none;
         }
         
         .quality-warnings li {
-          margin-bottom: 8px;
-          font-size: 14px;
+          margin-bottom: 10px;
+          font-size: 12px;
+          padding: 8px 12px;
+          border-radius: 6px;
+          border-left: 4px solid;
         }
         
         .warning-high {
           color: #721c24;
-          font-weight: 500;
+          background-color: #f8d7da;
+          border-left-color: #dc3545;
+          font-weight: 400;
         }
         
         .warning-medium {
-          color: #856404;
+          color: #084298;
+          background-color: #cff4fc;
+          border-left-color: #0d6efd;
+          font-weight: 400;
         }
         
         .warning-low {
-          color: #6c757d;
+          color: #495057;
+          background-color: #f8f9fa;
+          border-left-color: #6c757d;
           font-style: italic;
         }
         

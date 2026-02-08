@@ -596,6 +596,9 @@ export class QualityAnalyzer {
     // Render inline hints below fields for FAQ violations
     this.renderInlineHints(warnings);
 
+    // Clamp score to 0-100 range
+    score = Math.max(0, Math.min(100, score));
+
     // Update UI with immediate results (no animation for initial display)
     this.updateQualityIndicator(score, warnings, false);
 
