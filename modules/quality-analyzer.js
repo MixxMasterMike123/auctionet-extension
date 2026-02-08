@@ -2925,6 +2925,101 @@ export class QualityAnalyzer {
 
 
 
+  // --- Condition suggestion pool & AI cache ---
+
+  getHardcodedConditionPool(category) {
+    const cat = (category || '').toLowerCase();
+
+    if (cat.includes('konst') || cat.includes('tavl') || cat.includes('målning') || cat.includes('grafik')) {
+      return [
+        'Sedvanligt slitage', 'Craquelure', 'Färgbortfall', 'Ej examinerad ur ram',
+        'Mindre retuscher', 'Sprickor i fernissan', 'Gulnad fernissa', 'Dukskador',
+        'Ramslitage', 'Smärre färgförluster', 'Solblekning', 'Ytliga repor i fernissan'
+      ];
+    }
+    if (cat.includes('möbler')) {
+      return [
+        'Repor och märken', 'Slitage vid kanter och hörn', 'Mindre lackskador',
+        'Ytslitage på sitsen', 'Fläckar och märken', 'Nagg vid kanter',
+        'Slitage på ben och kanter', 'Mindre repor i ytan', 'Skavmärken',
+        'Lossnade fogar', 'Slitage vid handtag', 'Ytliga rispor'
+      ];
+    }
+    if (cat.includes('silver') || cat.includes('guld')) {
+      return [
+        'Sedvanligt slitage', 'Mindre bucklor', 'Ytliga repor', 'Patina',
+        'Gravyr delvis sliten', 'Mindre hack', 'Lödningar synliga',
+        'Slitage på kanter', 'Putsrepor', 'Stämplar delvis otydliga',
+        'Monogram', 'Smärre bucklor och repor'
+      ];
+    }
+    if (cat.includes('glas') || cat.includes('porslin') || cat.includes('keramik') || cat.includes('servis')) {
+      return [
+        'Nagg', 'Nagg vid kanter', 'Glasyrsprickor', 'Hårspricka',
+        'Mindre nagg vid foten', 'Slipning vid mynning', 'Repor i glaset',
+        'Krakelering', 'Mindre flisning', 'Nagg och småflisor',
+        'Slitage på dekor', 'Mindre missfärgning'
+      ];
+    }
+    // General fallback
+    return [
+      'Repor och märken', 'Ytslitage, nagg vid kanter', 'Mindre repor och bruksmärken',
+      'Sedvanligt slitage', 'Slitage och mindre repor', 'Ytliga repor, mindre märken',
+      'Nagg och mindre lackskador', 'Mindre slitage, repor', 'Slitage vid kanter och hörn',
+      'Ytslitage och mindre fläckar', 'Bruksmärken och ytliga repor', 'Repor, nagg, mindre fläckar'
+    ];
+  }
+
+  async generateAIConditionSuggestions(category, title) {
+    if (!this.apiManager) return;
+    if (this._conditionSuggestionsLoading) return;
+
+    this._conditionSuggestionsLoading = true;
+    try {
+      const result = await this.apiManager.callClaudeAPI({
+        title: title || '',
+        description: `Generera exakt 15 korta, realistiska konditionsbeskrivningar för svenska auktionsföremål i kategorin "${category}". 
+Varje förslag ska vara 2-5 ord. Skriv ETT förslag per rad, utan numrering eller punkter.
+Undvik "bruksslitage". Fokusera på specifika skador: repor, nagg, fläckar, sprickor, slitage vid specifika delar.
+Anpassa förslagen till kategorin "${category}".`,
+        condition: '',
+        artist: '',
+        keywords: '',
+        category: category
+      }, 'biography');  // Use biography fieldType for raw text response
+
+      if (result && result.biography) {
+        const suggestions = result.biography
+          .split('\n')
+          .map(s => s.trim())
+          .filter(s => s.length > 2 && s.length < 60 && !/bruksslitage/i.test(s));
+
+        if (suggestions.length >= 3) {
+          this._aiConditionSuggestions = suggestions;
+          this._aiConditionSuggestionsCategory = category;
+          console.log(`✅ AI generated ${suggestions.length} condition suggestions for "${category}"`);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to generate AI condition suggestions:', error);
+    } finally {
+      this._conditionSuggestionsLoading = false;
+    }
+  }
+
+  getConditionSuggestions(category, count = 3) {
+    // Prefer AI-generated if available and matching category
+    const catLower = (category || '').toLowerCase();
+    if (this._aiConditionSuggestions && this._aiConditionSuggestionsCategory &&
+        catLower.includes(this._aiConditionSuggestionsCategory.toLowerCase().split('/')[0].trim().split(' ')[0])) {
+      const pool = [...this._aiConditionSuggestions];
+      return pool.sort(() => Math.random() - 0.5).slice(0, count);
+    }
+    // Fallback to hardcoded
+    const pool = [...this.getHardcodedConditionPool(category)];
+    return pool.sort(() => Math.random() - 0.5).slice(0, count);
+  }
+
   /**
    * Render inline FAQ hints below form fields that have guideline violations.
    * Uses a warm amber style to be friendly and non-intrusive.
@@ -2960,19 +3055,22 @@ export class QualityAnalyzer {
         .map(w => {
           let extra = '';
           if (w.vagueCondition) {
-            // Pick 3 random suggestions from pool
-            const pool = [
-              'Repor och märken', 'Ytslitage, nagg vid kanter', 'Mindre repor och bruksmärken',
-              'Sedvanligt slitage', 'Slitage och mindre repor', 'Ytliga repor, mindre märken',
-              'Nagg och mindre lackskador', 'Mindre slitage, repor', 'Slitage vid kanter och hörn',
-              'Ytslitage och mindre fläckar', 'Bruksmärken och ytliga repor', 'Repor, nagg, mindre fläckar'
-            ];
-            const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, 3);
+            // Get category-aware suggestions (AI cache or hardcoded fallback)
+            const category = document.querySelector('#item_category_id option:checked')?.textContent || '';
+            const suggestions = this.getConditionSuggestions(category, 3);
             const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
+            const refreshStyle = 'display:inline-block;margin:3px 0 0 4px;padding:2px 6px;background:none;border:1px solid #d4a056;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;transition:background 0.15s;';
             const replaceAttr = w.inlineReplace ? ` data-replace="${w.inlineReplace}"` : '';
+            const aiLabel = this._aiConditionSuggestions ? ' title="AI-genererade förslag"' : ' title="Klicka för nya förslag"';
             extra = '<div style="margin-top:4px;">' +
-              shuffled.map(s => `<a class="condition-suggestion-chip" data-value="${s}"${replaceAttr} style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${s}</a>`).join('') +
+              suggestions.map(s => `<a class="condition-suggestion-chip" data-value="${s}"${replaceAttr} style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${s}</a>`).join('') +
+              `<a class="condition-refresh-btn"${aiLabel} style="${refreshStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='none'">↻</a>` +
               '</div>';
+
+            // Trigger background AI generation if not already done
+            if (!this._aiConditionSuggestions && !this._conditionSuggestionsLoading && this.apiManager) {
+              this.generateAIConditionSuggestions(category, document.querySelector('#item_title_sv')?.value || '');
+            }
           }
           return `<div style="${hintStyle}">⚠ ${w.issue}${extra}</div>`;
         })
@@ -2994,26 +3092,37 @@ export class QualityAnalyzer {
       }
 
       // Attach click handlers to condition suggestion chips
-      const chips = field.parentNode.querySelectorAll(`.faq-hint[data-for="${fieldId}"] .condition-suggestion-chip`);
-      chips.forEach(chip => {
-        chip.addEventListener('click', (e) => {
-          e.preventDefault();
-          const condField = document.querySelector('#item_condition_sv');
-          if (condField) {
-            const replaceWord = chip.getAttribute('data-replace');
-            const newValue = chip.getAttribute('data-value');
-            if (replaceWord) {
-              // Inline replacement: swap only the problematic word
-              condField.value = condField.value.replace(new RegExp(replaceWord, 'i'), newValue.replace(/\.$/, ''));
-            } else {
-              // Full replacement: replace entire field
-              condField.value = newValue;
+      const hintContainer = field.parentNode.querySelector(`.faq-hint[data-for="${fieldId}"]`);
+      if (hintContainer) {
+        const chips = hintContainer.querySelectorAll('.condition-suggestion-chip');
+        chips.forEach(chip => {
+          chip.addEventListener('click', (e) => {
+            e.preventDefault();
+            const condField = document.querySelector('#item_condition_sv');
+            if (condField) {
+              const replaceWord = chip.getAttribute('data-replace');
+              const newValue = chip.getAttribute('data-value');
+              if (replaceWord) {
+                condField.value = condField.value.replace(new RegExp(replaceWord, 'i'), newValue.replace(/\.$/, ''));
+              } else {
+                condField.value = newValue;
+              }
+              condField.dispatchEvent(new Event('input', { bubbles: true }));
+              condField.focus();
             }
-            condField.dispatchEvent(new Event('input', { bubbles: true }));
-            condField.focus();
-          }
+          });
         });
-      });
+
+        // Attach click handler to refresh button
+        const refreshBtn = hintContainer.querySelector('.condition-refresh-btn');
+        if (refreshBtn) {
+          refreshBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Re-run analyzeQuality which will re-render hints with new random picks
+            this.analyzeQuality();
+          });
+        }
+      }
     });
   }
 
