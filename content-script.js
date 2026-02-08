@@ -1044,8 +1044,9 @@
         return specificWords.some(word => conditionText.includes(word));
       }
 
-      // Show condition guidance tooltip - EXACT copy from Add Items page
+      // Condition guidance tooltip DISABLED - replaced by inline FAQ hints system
       async showConditionGuidanceTooltip(formData, type, issues = []) {
+        return; // Inline hints now handle condition guidance
         const conditionField = document.querySelector('#item_condition_sv');
         if (!conditionField) return;
 

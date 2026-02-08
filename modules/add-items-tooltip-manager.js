@@ -3805,7 +3805,9 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     return locationWords.some(word => conditionText.includes(word));
   }
 
+  // Condition guidance tooltip DISABLED - replaced by inline FAQ hints system
   async showConditionGuidanceTooltip(formData, type, issues = []) {
+    return; // Inline hints now handle condition guidance
     const conditionField = document.querySelector(this.fieldMappings.condition);
     if (!conditionField) return;
 
