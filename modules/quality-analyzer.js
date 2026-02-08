@@ -534,6 +534,21 @@ export class QualityAnalyzer {
     }
 
     // --- General: vague period/century expressions instead of specific decades ---
+    // Match bare century references like "1900-tal" (but NOT specific decades like "1920-tal")
+    const bareCenturyPattern = /\b(\d{2})00-tal\.?\b/i;
+    const titleCenturyMatch = data.title.match(bareCenturyPattern);
+    const descCenturyMatch = descPlain.match(bareCenturyPattern);
+    if (titleCenturyMatch) {
+      const century = titleCenturyMatch[1];
+      warnings.push({ field: 'Titel', issue: `"${titleCenturyMatch[0]}" omfattar 100 år — ange decennium om möjligt (t.ex. "${century}20-tal" eller "${century}50-tal")`, severity: 'low', source: 'faq', fieldId: 'item_title_sv' });
+      score -= 5;
+    }
+    if (descCenturyMatch && !titleCenturyMatch) {
+      const century = descCenturyMatch[1];
+      warnings.push({ field: 'Beskrivning', issue: `"${descCenturyMatch[0]}" omfattar 100 år — ange decennium om möjligt (t.ex. "${century}20-tal" eller "${century}50-tal")`, severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
+      score -= 5;
+    }
+    // Match vague sub-century expressions like "1900-talets första hälft"
     const vagueperiodPattern = /\d{4}-talets\s+(första|andra|senare|mitt|mitten|början|slut)\s*(hälft|del|fjärdedel)?/i;
     const titlePeriodMatch = data.title.match(vagueperiodPattern);
     const descPeriodMatch = descPlain.match(vagueperiodPattern);
