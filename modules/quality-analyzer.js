@@ -521,6 +521,19 @@ export class QualityAnalyzer {
       score -= 3;
     }
 
+    // --- General: vague period/century expressions instead of specific decades ---
+    const vagueperiodPattern = /\d{4}-talets\s+(första|andra|senare|mitt|mitten|början|slut)\s*(hälft|del|fjärdedel)?/i;
+    const titlePeriodMatch = data.title.match(vagueperiodPattern);
+    const descPeriodMatch = descPlain.match(vagueperiodPattern);
+    if (titlePeriodMatch) {
+      warnings.push({ field: 'Titel', issue: `Var mer specifik med ålder: "${titlePeriodMatch[0]}" — ange decennium om möjligt (t.ex. "1980-tal")`, severity: 'low', source: 'faq', fieldId: 'item_title_sv' });
+      score -= 3;
+    }
+    if (descPeriodMatch) {
+      warnings.push({ field: 'Beskrivning', issue: `Var mer specifik med ålder: "${descPeriodMatch[0]}" — ange decennium om möjligt (t.ex. "1980-tal")`, severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
+      score -= 3;
+    }
+
     // === END FAQ GUIDELINE VALIDATION RULES ===
 
     // Render inline hints below fields for FAQ violations
