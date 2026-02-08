@@ -359,7 +359,7 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     return result;
   }
 
-  getCategorySpecificRules(itemData) {
+  getCategorySpecificRules(itemData, fieldType = 'all') {
     const category = itemData.category?.toLowerCase() || '';
     const title = itemData.title?.toLowerCase() || '';
     const description = itemData.description?.toLowerCase() || '';
@@ -560,17 +560,23 @@ ENDAST FÖRBÄTTRA:
       title.match(/^(byrå|bord|stol|fåtölj|soffa|skåp|bokhylla|sekretär|vitrinskåp|sängbord|kommod|piedestal|pall|bänk)/i);
 
     if (isFurniture) {
+      const isAllFields = fieldType === 'all' || fieldType === 'all-sparse' || fieldType === 'all-enhanced';
+      const woodTypeRule = isAllFields
+        ? `• TA BORT alla träslag från titeln — träslag hör ALDRIG hemma i titeln för möbler
+• Använd din kunskap för att identifiera ALLA typer av trä/träslag (t.ex. furu, ek, jakaranda, teak, mahogny, björk, valnöt, palisander, och ALLA andra träslag du känner till)
+• Om du identifierar ett träslag i titeln — FLYTTA det till beskrivningen istället, ALDRIG behåll det i titeln
+• EXEMPEL: "Bord, furu, Karl Andersson" → titel: "Bord. Karl Andersson & Söner" + beskrivning: "Furu. ..."
+• EXEMPEL: "BYRÅ, jakaranda, 1960/70-tal" → titel: "BYRÅ, 1960/70-tal" + beskrivning: "Jakaranda. ..."`
+        : `• Enligt Auctionets regler hör träslag egentligen INTE hemma i titeln för möbler, men eftersom du bara förbättrar titeln (inte beskrivningen) — BEHÅLL träslaget i titeln så att informationen inte går förlorad
+• Träslaget flyttas korrekt till beskrivningen när användaren kör "Förbättra alla fält"`;
+
       return `
 KATEGORI-SPECIFIK REGEL - MÖBLER:
 Detta är en möbel. Följ Auctionets katalogiseringsregler för möbler.
 
 TITELFORMAT FÖR MÖBLER:
 • Format: "BYRÅ, gustaviansk, sent 1700-tal." eller "FÅTÖLJ, "Karin", Bruno Mathsson, Dux."
-• TA BORT alla träslag från titeln — träslag hör ALDRIG hemma i titeln för möbler
-• Använd din kunskap för att identifiera ALLA typer av trä/träslag (t.ex. furu, ek, jakaranda, teak, mahogny, björk, valnöt, palisander, och ALLA andra träslag du känner till)
-• Om du identifierar ett träslag i titeln — FLYTTA det till beskrivningen istället, ALDRIG behåll det i titeln
-• EXEMPEL: "Bord, furu, Karl Andersson" → titel: "Bord. Karl Andersson & Söner" + beskrivning: "Furu. ..."
-• EXEMPEL: "BYRÅ, jakaranda, 1960/70-tal" → titel: "BYRÅ, 1960/70-tal" + beskrivning: "Jakaranda. ..."
+${woodTypeRule}
 • Ange stil och ålder i titeln
 
 BESKRIVNING FÖR MÖBLER:
@@ -891,7 +897,7 @@ KRITISKT - DATUM OCH PERIODSPECULATION FÖRBJUDEN:
 • EXEMPEL FÖRBJUDET: "daterad 55" → "1955" eller "troligen 1955"
 • EXEMPEL KORREKT: "daterad 55" → "daterad 55" (oförändrat)
 
-${this.getCategorySpecificRules(itemData)}
+${this.getCategorySpecificRules(itemData, fieldType)}
 `;
 
     // Return field-specific prompts based on fieldType
