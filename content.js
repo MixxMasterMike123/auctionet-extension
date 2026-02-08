@@ -279,16 +279,17 @@ class AuctionetCatalogingAssistant {
     if (this.currentPage === 'edit') {
       this.uiController.injectUI();
       // attachEventListeners is handled by UIController
-
-      // Run FAQ hints after UI is injected + set up live monitoring
-      if (this.faqHintAnalyzer) {
-        setTimeout(() => {
-          this.runFaqHints();
-          this.faqHintAnalyzer.setupLiveQualityUpdates();
-        }, 1500);
-      }
     } else if (this.currentPage === 'add') {
       await this.initializeFreetextParser();
+    }
+
+    // Run FAQ inline hints on ALL page types (edit + add)
+    if (this.faqHintAnalyzer) {
+      setTimeout(() => {
+        this.runFaqHints();
+        this.faqHintAnalyzer.setupLiveQualityUpdates();
+        console.log('✅ FAQ hints + live monitoring active on', this.currentPage, 'page');
+      }, 1500);
     }
   }
 
