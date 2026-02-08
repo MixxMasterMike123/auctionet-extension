@@ -2937,7 +2937,7 @@ export class QualityAnalyzer {
         const hintDiv = document.createElement('div');
         hintDiv.className = 'faq-hint';
         hintDiv.setAttribute('data-for', fieldId);
-        hintDiv.style.cssText = 'margin:6px 0 6px 0;padding:0;';
+        hintDiv.style.cssText = 'margin:6px 0 10px 0;padding:0;';
         hintDiv.innerHTML = hintsHtml;
 
         // Insert after the field element, before the button wrapper
