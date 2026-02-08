@@ -35,7 +35,6 @@ export class UIController {
 
         if (titleField) {
             this.addAIButton(titleField, 'title', 'AI-förbättra titel');
-            this.addAIButton(titleField, 'title-correct', 'AI-korrigera stavning');
         }
         if (descriptionField) {
             this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
@@ -921,34 +920,47 @@ export class UIController {
 
         document.body.appendChild(dialog);
 
-        // Add event listeners
-        document.getElementById('process-with-info').addEventListener('click', () => {
+        // Helper to robustly remove the dialog
+        const removeDialog = () => {
+            try { dialog.remove(); } catch(e) {}
+            document.querySelectorAll('.ai-info-request-dialog').forEach(d => {
+                try { d.remove(); } catch(e) {}
+            });
+        };
+
+        // Add event listeners — use dialog-scoped queries to avoid ID conflicts with host page
+        dialog.querySelector('#process-with-info').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // Read values BEFORE removing dialog from DOM
             const additionalInfo = {
-                material: document.getElementById('ai-material').value,
-                technique: document.getElementById('ai-technique').value,
-                markings: document.getElementById('ai-markings').value,
-                damage: document.getElementById('ai-damage').value,
-                additional: document.getElementById('ai-additional').value
+                material: dialog.querySelector('#ai-material')?.value || '',
+                technique: dialog.querySelector('#ai-technique')?.value || '',
+                markings: dialog.querySelector('#ai-markings')?.value || '',
+                damage: dialog.querySelector('#ai-damage')?.value || '',
+                additional: dialog.querySelector('#ai-additional')?.value || ''
             };
-            dialog.remove();
+            removeDialog();
             if (this.callbacks.onProcessWithInfo) {
                 this.callbacks.onProcessWithInfo(additionalInfo);
             }
         });
 
-        document.getElementById('process-without-info').addEventListener('click', () => {
-            dialog.remove();
+        dialog.querySelector('#process-without-info').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            removeDialog();
             if (this.callbacks.onProcessWithoutInfo) {
                 this.callbacks.onProcessWithoutInfo();
             }
         });
 
-        document.getElementById('cancel-dialog').addEventListener('click', () => {
-            dialog.remove();
+        dialog.querySelector('#cancel-dialog').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            removeDialog();
         });
 
-        // Add CSS for the dialog
-        this.injectDialogStyles();
     }
 
     showFieldSpecificInfoDialog(fieldType, missingInfo, data) {
@@ -1003,24 +1015,48 @@ export class UIController {
 
         document.body.appendChild(dialog);
 
-        // Handle button clicks
-        document.getElementById('cancel-field-dialog').addEventListener('click', () => {
-            dialog.remove();
-        });
+        // Handle button clicks — use dialog-scoped queries to avoid ID conflicts with host page
+        const cancelBtn = dialog.querySelector('#cancel-field-dialog');
+        const continueBtn = dialog.querySelector('#continue-anyway');
 
-        document.getElementById('continue-anyway').addEventListener('click', () => {
-            dialog.remove();
-            if (this.callbacks.onForceImprove) {
-                this.callbacks.onForceImprove(fieldType);
-            }
-        });
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                removeDialog();
+            });
+        }
+
+        // Helper to robustly remove the dialog
+        const removeDialog = () => {
+            try { dialog.remove(); } catch(e) {}
+            // Also remove any leftover dialogs of this class
+            document.querySelectorAll('.ai-info-request-dialog').forEach(d => {
+                try { d.remove(); } catch(e) {}
+            });
+        };
+
+        if (continueBtn) {
+            continueBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔍 Continue-anyway clicked, fieldType:', fieldType);
+                removeDialog();
+                if (this.callbacks.onForceImprove) {
+                    this.callbacks.onForceImprove(fieldType);
+                } else {
+                    console.error('❌ onForceImprove callback is not defined!');
+                }
+            });
+        }
 
         // Close on background click
-        dialog.querySelector('.dialog-overlay').addEventListener('click', () => {
-            dialog.remove();
+        dialog.querySelector('.dialog-overlay').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            removeDialog();
         });
 
-        this.injectDialogStyles();
     }
 
     getFieldSpecificTips(fieldType, data) {
@@ -1068,173 +1104,6 @@ export class UIController {
         `;
             default:
                 return '';
-        }
-    }
-
-    injectDialogStyles() {
-        if (!document.getElementById('dialog-styles')) {
-            const style = document.createElement('style');
-            style.id = 'dialog-styles';
-            style.textContent = `
-        .ai-info-request-dialog {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          z-index: 10000;
-        }
-        
-        .dialog-overlay {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.5);
-        }
-        
-        .dialog-content {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          background: white;
-          padding: 30px;
-          border-radius: 12px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-          max-width: 500px;
-          width: 90%;
-          max-height: 80vh;
-          overflow-y: auto;
-        }
-        
-        .dialog-content h3 {
-          margin: 0 0 15px 0;
-          color: #333;
-          font-size: 20px;
-        }
-        
-        .info-request-form {
-          margin: 20px 0;
-        }
-        
-        .form-group {
-          margin-bottom: 15px;
-        }
-        
-        .form-group label {
-          display: block;
-          margin-bottom: 5px;
-          font-weight: 500;
-          color: #555;
-        }
-        
-        .form-group input,
-        .form-group textarea {
-          width: 100%;
-          padding: 8px 12px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 14px;
-          box-sizing: border-box;
-        }
-        
-        .form-group textarea {
-          height: 60px;
-          resize: vertical;
-        }
-        
-        .dialog-buttons {
-          display: flex;
-          gap: 10px;
-          justify-content: flex-end;
-          margin-top: 25px;
-        }
-        
-        .btn {
-          padding: 10px 20px;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          transition: all 0.2s;
-        }
-        
-        .btn-primary {
-          background: #007bff;
-          color: white;
-        }
-        
-        .btn-primary:hover {
-          background: #0056b3;
-        }
-        
-        .btn-default {
-          background: #6c757d;
-          color: white;
-        }
-        
-        .btn-default:hover {
-          background: #545b62;
-        }
-        
-        .btn-link {
-          background: transparent;
-          color: #6c757d;
-          text-decoration: underline;
-        }
-        
-        .btn-link:hover {
-          color: #495057;
-        }
-        
-        .missing-info {
-          background: #f8f9fa;
-          padding: 15px;
-          border-radius: 6px;
-          margin: 15px 0;
-        }
-        
-        .missing-info h4 {
-          margin: 0 0 10px 0;
-          color: #495057;
-          font-size: 16px;
-        }
-        
-        .missing-info ul {
-          margin: 0;
-          padding-left: 20px;
-        }
-        
-        .missing-info li {
-          margin-bottom: 5px;
-          color: #6c757d;
-        }
-        
-        .field-tips {
-          background: #e3f2fd;
-          padding: 15px;
-          border-radius: 6px;
-          margin: 15px 0;
-          border-left: 4px solid #2196f3;
-        }
-        
-        .field-tips h4 {
-          margin: 0 0 8px 0;
-          color: #1976d2;
-          font-size: 14px;
-        }
-        
-        .field-tips p {
-          margin: 0;
-          color: #424242;
-          font-size: 13px;
-          line-height: 1.4;
-        }
-      `;
-            document.head.appendChild(style);
         }
     }
 

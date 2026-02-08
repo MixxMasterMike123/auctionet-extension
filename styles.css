@@ -444,6 +444,7 @@
 
 .dialog-content {
   position: relative;
+  z-index: 1;
   background: white;
   max-width: 600px;
   margin: 50px auto;

@@ -891,7 +891,7 @@ class AuctionetCatalogingAssistant {
     this.uiController.showLoadingIndicator('all');
 
     try {
-      const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
+      const improvements = await this.callClaudeAPI(itemData, 'all');
       this.applyAllImprovements(improvements);
     } catch (error) {
       this.uiController.showFieldErrorIndicator('all', error.message);
@@ -901,7 +901,16 @@ class AuctionetCatalogingAssistant {
 
 
   async forceImproveField(fieldType) {
-    // Ensure API key is loaded
+    console.log('🔍 forceImproveField called with:', fieldType);
+    console.log('🔍 apiManager exists:', !!this.apiManager);
+    
+    // Ensure API manager settings are loaded (matches Edit page behavior)
+    if (this.apiManager) {
+      await this.apiManager.loadSettings();
+      console.log('🔍 apiManager settings loaded, apiKey exists:', !!this.apiManager.apiKey);
+    }
+
+    // Ensure local API key is loaded
     if (!this.apiKey) {
       await this.loadApiKey();
     }
@@ -915,10 +924,13 @@ class AuctionetCatalogingAssistant {
 
     if (fieldType === 'all') {
       // For "Förbättra alla" - use existing logic
+      console.log('🔍 forceImproveField: showing loading indicator for all');
       this.uiController.showLoadingIndicator('all');
 
       try {
-        const improvements = await this.callClaudeAPI(itemData, 'all-sparse');
+        console.log('🔍 forceImproveField: calling Claude API with itemData:', Object.keys(itemData));
+        const improvements = await this.callClaudeAPI(itemData, 'all');
+        console.log('🔍 forceImproveField: got improvements:', Object.keys(improvements));
         this.applyAllImprovements(improvements);
       } catch (error) {
         console.error('❌ Force improve all failed:', error);
