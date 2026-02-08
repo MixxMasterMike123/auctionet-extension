@@ -424,6 +424,108 @@ export class QualityAnalyzer {
       }
     }
 
+    // === FAQ GUIDELINE VALIDATION RULES ===
+    const category = (data.category || '').toLowerCase();
+    const titleLower = data.title.toLowerCase();
+    const descPlain = data.description.replace(/<[^>]*>/g, '');
+    const descLower = descPlain.toLowerCase();
+    const condPlain = data.condition.replace(/<[^>]*>/g, '');
+    const condLower = condPlain.toLowerCase();
+
+    // --- Furniture: wood type in title ---
+    if (category.includes('möbler')) {
+      const woodTypes = ['furu', 'ek', 'björk', 'mahogny', 'teak', 'valnöt', 'alm', 'ask',
+        'bok', 'tall', 'lönn', 'körsbär', 'palisander', 'jakaranda', 'rosewood',
+        'bambu', 'rotting', 'ceder', 'cypress', 'gran', 'lärk', 'poppel', 'avenbok',
+        'betsad', 'betsat', 'lackad', 'lackerat', 'fanér', 'fanerad'];
+      const foundWood = woodTypes.find(w => {
+        const regex = new RegExp(`\\b${w}\\b`, 'i');
+        return regex.test(data.title);
+      });
+      if (foundWood) {
+        warnings.push({ field: 'Titel', issue: `Möbler: "${foundWood}" (träslag/material) bör inte stå i titeln — flytta till beskrivningen`, severity: 'medium', source: 'faq', fieldId: 'item_title_sv' });
+        score -= 10;
+      }
+    }
+
+    // --- Rugs: measurements must be in title ---
+    if (category.includes('matta') || category.includes('mattor')) {
+      if (!this.hasMeasurements(data.title)) {
+        warnings.push({ field: 'Titel', issue: 'Mattor: Mått ska alltid anges i titeln', severity: 'medium', source: 'faq', fieldId: 'item_title_sv' });
+        score -= 10;
+      }
+    }
+
+    // --- Art: condition must not say "bruksslitage" ---
+    if (category.includes('konst') || category.includes('tavl') || category.includes('målning') ||
+        category.includes('grafik') || category.includes('litografi')) {
+      if (/bruksslitage/i.test(condPlain)) {
+        warnings.push({ field: 'Kondition', issue: 'Konst: Använd "sedvanligt slitage" istället för "bruksslitage" — konst brukas inte', severity: 'high', source: 'faq', fieldId: 'item_condition_sv' });
+        score -= 15;
+      }
+    }
+
+    // --- Silver: weight should be in title ---
+    if (category.includes('silver') && !category.includes('smycke')) {
+      if (!/\b\d+\s*(gram|g)\b/i.test(data.title)) {
+        warnings.push({ field: 'Titel', issue: 'Silver: Vikt bör anges sist i titeln', severity: 'low', source: 'faq', fieldId: 'item_title_sv' });
+        score -= 5;
+      }
+    }
+
+    // --- Dinner sets: "st" after numbers in description ---
+    if (category.includes('servis')) {
+      if (/\b\d+\s+st\b/i.test(descPlain)) {
+        warnings.push({ field: 'Beskrivning', issue: 'Serviser: Skriv "34 tallrikar" inte "34 st tallrikar"', severity: 'medium', source: 'faq', fieldId: 'item_description_sv' });
+        score -= 5;
+      }
+    }
+
+    // --- General: compound object+material words in title ---
+    const compoundWords = {
+      'majolikavas': 'VAS, majolika', 'glasvas': 'VAS, glas', 'keramikvas': 'VAS, keramik',
+      'silverring': 'RING, silver', 'guldring': 'RING, guld', 'silverkedja': 'KEDJA, silver',
+      'kristallvas': 'VAS, kristall', 'porslinsvas': 'VAS, porslin', 'keramiktomte': 'TOMTE, keramik',
+      'mässingsljusstake': 'LJUSSTAKE, mässing', 'tennmugg': 'MUGG, tenn'
+    };
+    for (const [compound, suggestion] of Object.entries(compoundWords)) {
+      if (titleLower.includes(compound)) {
+        warnings.push({ field: 'Titel', issue: `Sammansatt ord: "${data.title.match(new RegExp(compound, 'i'))?.[0]}" bör skrivas "${suggestion}"`, severity: 'medium', source: 'faq', fieldId: 'item_title_sv' });
+        score -= 5;
+        break;
+      }
+    }
+
+    // --- General: "centimeter" instead of "cm" ---
+    if (/centimeter/i.test(descPlain)) {
+      warnings.push({ field: 'Beskrivning', issue: 'Skriv "cm" istället för "centimeter"', severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
+      score -= 3;
+    }
+
+    // --- General: "ca" before year ---
+    if (/\bca\.?\s+\d{4}\b/.test(data.title) || /\bca\.?\s+\d{4}\b/.test(descPlain)) {
+      const fieldId = /\bca\.?\s+\d{4}\b/.test(data.title) ? 'item_title_sv' : 'item_description_sv';
+      const fieldName = fieldId === 'item_title_sv' ? 'Titel' : 'Beskrivning';
+      warnings.push({ field: fieldName, issue: 'Använd "omkring" istället för "ca" framför årtal', severity: 'low', source: 'faq', fieldId });
+      score -= 3;
+    }
+
+    // --- General: common abbreviations ---
+    const allText = data.title + ' ' + descPlain + ' ' + condPlain;
+    if (/\bbl\.?\s*a\b/i.test(allText)) {
+      warnings.push({ field: 'Beskrivning', issue: 'Skriv "bland annat" istället för "bl a" — förkortningar försvårar översättning', severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
+      score -= 3;
+    }
+    if (/\bosv\b/i.test(allText)) {
+      warnings.push({ field: 'Beskrivning', issue: 'Skriv "och så vidare" istället för "osv" — förkortningar försvårar översättning', severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
+      score -= 3;
+    }
+
+    // === END FAQ GUIDELINE VALIDATION RULES ===
+
+    // Render inline hints below fields for FAQ violations
+    this.renderInlineHints(warnings);
+
     // Update UI with immediate results (no animation for initial display)
     this.updateQualityIndicator(score, warnings, false);
 
@@ -2532,6 +2634,13 @@ export class QualityAnalyzer {
       }
     });
 
+    // Monitor category dropdown for FAQ-rule changes
+    const categorySelect = document.querySelector('#item_category_id');
+    if (categorySelect) {
+      categorySelect.addEventListener('change', debouncedUpdate);
+      monitoredCount++;
+    }
+
     // Also monitor for changes in rich text editors (if any)
     const richTextEditors = document.querySelectorAll('[contenteditable="true"]');
     richTextEditors.forEach(editor => {
@@ -2772,6 +2881,56 @@ export class QualityAnalyzer {
   }
 
 
+
+  /**
+   * Render inline FAQ hints below form fields that have guideline violations.
+   * Uses a warm amber style to be friendly and non-intrusive.
+   */
+  renderInlineHints(warnings) {
+    const faqWarnings = warnings.filter(w => w.source === 'faq' && w.fieldId);
+
+    // Group by fieldId
+    const hintsByField = {};
+    faqWarnings.forEach(w => {
+      if (!hintsByField[w.fieldId]) hintsByField[w.fieldId] = [];
+      hintsByField[w.fieldId].push(w);
+    });
+
+    // All field IDs that could have hints
+    const allFieldIds = ['item_title_sv', 'item_description_sv', 'item_condition_sv', 'item_hidden_keywords'];
+
+    allFieldIds.forEach(fieldId => {
+      const field = document.querySelector(`#${fieldId}`);
+      if (!field) return;
+
+      // Find or remove existing hint container for this field
+      const existingHint = field.parentNode.querySelector(`.faq-hint[data-for="${fieldId}"]`);
+
+      if (!hintsByField[fieldId] || hintsByField[fieldId].length === 0) {
+        // No warnings for this field — remove hint if it exists
+        if (existingHint) existingHint.remove();
+        return;
+      }
+
+      const hintsHtml = hintsByField[fieldId]
+        .map(w => `<div class="faq-hint-item">⚠ ${w.issue}</div>`)
+        .join('');
+
+      if (existingHint) {
+        // Update existing hint
+        existingHint.innerHTML = hintsHtml;
+      } else {
+        // Create new hint container and insert it after the field
+        const hintDiv = document.createElement('div');
+        hintDiv.className = 'faq-hint';
+        hintDiv.setAttribute('data-for', fieldId);
+        hintDiv.innerHTML = hintsHtml;
+
+        // Insert after the field element, before the button wrapper
+        field.parentNode.insertBefore(hintDiv, field.nextSibling);
+      }
+    });
+  }
 
   // Helper method to escape regex special characters
   escapeRegex(string) {
