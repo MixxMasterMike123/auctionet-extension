@@ -3077,7 +3077,7 @@ Anpassa förslagen till kategorin "${category}".`,
         return;
       }
 
-      const hintStyle = 'padding:3px 8px;margin:2px 0;border-left:3px solid #f59e0b;background:#fffbeb;color:#92400e;font-size:11px;line-height:1.3;border-radius:0 3px 3px 0;font-style:italic;opacity:0.85;';
+      const hintStyle = 'padding:5px 10px;margin:2px 0;border-left:3px solid #f59e0b;background:#fffbeb;color:#92400e;font-size:11px;line-height:1.5;letter-spacing:0.3px;word-spacing:1px;border-radius:0 3px 3px 0;font-style:italic;opacity:0.85;';
       const hintsHtml = hintsByField[fieldId]
         .map(w => {
           let extra = '';
