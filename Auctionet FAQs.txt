@@ -1,0 +1,180 @@
+Förord
+Se ändringslogg
+Syftet med denna Verksamhetshandbok är att förklara hur det praktiska arbetet på ett nätauktionsföretag går till. Grundläggande för att få flöden effektiva och processer att flyta på är att arbeta strukturerat och organiserat. Det som skiljer nätauktioner mot slagauktioner är behovet av organisation samt tydliga processer då alla arbetsmoment måste utföras varje dag. Alla i företaget skall vara delaktiga och löpande förbättra arbetsprocesserna. Effektiva processer bidrar till ökad kundservice och minskade kostnader vilket kan hjälpa företaget öka sin lönsamhet och nå sina mål. Både det övergripande flödet och dess processer är beskrivna utifrån en nivå som ska uppnås för att hela verksamhetens flöde ska fungera på ett bra sätt under de tider på året då fullt kapacitetsutnyttjande krävs.
+Lokalavvikelser förekommer då lokalerna oftast är utformade på olika sätt och kräver lokala anpassningar för att vara så effektiva som möjligt.
+
+Verksamhetshandboken är utvecklad efter industriella teorier inom Lean Production och Supply Chain Management och baseras främst på en grundläggande metod inom dessa teorier med namnet 5S.
+5S innebär att:
+
+• Sortera – Klargör vad som är värdeskapande och vad som inte är det.
+• Strukturera – Skapa en logisk ordning i processer och flöde.
+• Städa – Håll kontinuerligt arbetsytan ren och tydlig.
+• Standardisera – Skapa rutiner och dokumentera arbetet.
+• Ständig förbättring – Forma ett tankesätt för att bibehålla och utveckla standarder.
+
+2.3.1 Katalogisering
+Se ändringslogg
+Se Katalogiseringstips.
+
+De föremål som står i föregående dags inlämningsruta är de föremål som ska katalogiseras under dagen.
+
+Saker som behövs för att kunna katalogisera:
+
+• Måttband/tumstock
+• Lupp/förstoringsglas
+• Våg
+
+Hur katalogiseringsarbetet delas upp kan skilja sig från auktionshus till auktionshus. För en del passar det bättre att man delar upp arbetet så att vissa bara gör en viss typ av föremål, till exempel katalogiserar konst och mindre föremål medan andra fokuserar på möbler. Det vanligaste är dock att alla katalogiserar alla typer av föremål.
+
+En del föredrar att jobba i par. Att en person mäter och kollar föremålets skick medan den andra skriver in uppgifterna i admin. Detta är framförallt lämpligt om det är en större post möbler som ska katalogiseras.
+
+Föremålet ska sedan så noggrant som möjligt katalogiseras och konditionsrapporteras i Admin. Detta innebär att för köparna relevant information som t.ex upphovsperson, material, tillverkare, mått och ibland vikt ska finnas med. Eventuella skador och defekter skrivs i konditionsrapporten. Se mer under avsnittet Katalogisering i verksamhetshandboken hur olika kategorier föremål katalogiseras.
+
+Känner du dig osäker på ett föremål? Bolla med en kollega. Ibland måste vissa föremål undersökas närmare och då kan det vara bra att ha en dedikerad yta att ställa dessa föremål på tills vidare. Det kanske är föremål som ska visas för Tom eller David. Ibland kanske även andra externa experter såsom gemmolog eller urmakare ska undersöka ett föremål.
+
+När föremålet är färdigkatalogiserat så sätts en liten markering på etiketten för att alla i personalen ska kunna se att det är färdigkatalogiserat.
+
+Föremålet placeras därefter i fotorutan.
+
+
+Katalogiseringsinstruktioner
+Se ändringslogg
+Titel: Här kommer några exempel på vilken ordning som orden skrivs i titeln på de vanligaste förekommande föremålstyperna. Detta kan naturligtvis variera från fall till fall, men försök att hålla dig till mallen i största möjligaste mån.
+
+För möbler skall titeln se ut på detta sätt: ”BYRÅ, gustaviansk, sent 1700-tal.” eller ”FÅTÖLJ, "Karin", Bruno Mathsson, Dux.” Ange aldrig träslag i titeln på möbler.
+
+För småsaker skrivs titeln enligt följande: ”VAS, majolika, nyrenässans, Gustafsberg, sent 1800-tal.” eller ”SKÅL, glas, Bertil Vallien, Kosta Boda, sign.” Notera att man inte skriver tex ”MAJOLIKAVAS” eller ”GLASVAS”. Det heter heller aldrig t ex ”KERAMIKTOMTE” utan ”TOMTE, keramik”.
+
+För serviser skrivs titeln på detta sätt: ”MAT- OCH KAFFESERVIS, 38 delar, flintgods, rokokostil, Rörstrand, tidigt 1900-tal.” eller ”MATSERVIS, 89 delar, porslin, "Maria Björnbär", Rosenthal.”
+
+För mattor gäller: ”MATTA, orientalisk, semiantik, ca 320 x 230 cm.” Skriv alltid måtten i titeln.
+
+För silver gäller: ”BÄGARE, 2 st, silver, rokokostil, CG Hallberg, Stockholm, 1942-56 ca 450 gram.”. Kolla alltid upp silverstämplar och liknande i möjligaste mån, även på utländskt silver. Vikt anges i princip alltid för silver och guld, och då alltid sist i rubriken. Ange ej vikt för till exempel ljusstakar med fylld fot då vikten i sådana fall blir irrelevant.
+
+Konst skrivs på detta vis: ”OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-tal.” eller ”BENGT LINDSTRÖM, färglitografier, 2 st, signerade och daterade 76 och numrerade 120/310.” eller ”BRUNO LILJEFORS, ”Enkelbeckasin i höstskog” Olja på duk. Signerad B.L och daterad -28” Om signaturen går att utläsa skriv då ut denna. Om en signatur är tydlig men du ändå inte kan ta reda på vem som står bakom den räknas detta som oidentifierad konstnär eftersom konstnären kan vara känd av andra. Skriv alltid dateringar och numreringar exakt som det står på verket dock utan citationstecken. Skilj alltså på om det står 1832, -32 eller 32. Var noggrann med att skriva ut om ett verk är signerat a tergo. I ett parti med flera målningar skrivs antalet verk ut efter tekniken, inte efter konstnären. Skriv ”Ej sign.” i beskrivningen om ett konstverk är osignerat. Om man vet titeln på ett konstverk bör denna skrivas inom citationstecken. Annars används inte citationstecken. Det räcker med att skriva in konstnärens namn i konstnärsrutan, då kommer namn och födelseår automatiskt hamna i titeln, annars blir det dubbelt. En oidentifierad konstnär skrivs också in i konstnärsrutan.
+
+Ange alltid ålder i möjligaste mån, det kan dock kännas lite larvigt att exempelvis skriva ut "1900-tal" på en vas av Berndt Friberg då denne inte levt under något annat århundrade och man kanske inte alltid kan veta exakt vilket decennium hans vaser gjordes. Försök att specificera ålder så mycket som möjligt så att det faktiskt säger något. Använd inte formuleringen "1800-talets senare del" då detta inte betyder någonting, skriv istället senare fjärdedel, senare hälft eller slut, vilket som passar. Använd inte termen ca när det gäller årtal, den används bara för summor, skriv istället omkring.
+
+VIKTIGT: För att optimera sidan för sökningar på Google (och sälja mer/dyrare) bör vi skriva ut så mycket info som möjligt, till exempel nysilver istället för NS eller Josef Frank istället för Frank. För taklampor och mattor skrivs måtten alltid i titeln, för övriga föremål i beskrivningen.
+
+Beskrivning: Försök att vara så utförlig som möjligt, särskilt med sådant som är svårt att uppfatta på bilderna. Skriv så långt som möjligt alltid ut träslag på möbler. Skriva alltid ut om det finns pendel och lod till ur. Skriv alltid ut om konst är oramad. För serviser behöver mått ej anges däremot måste delarna räknas upp: t ex 34 mattallrikar, 25 djupa tallrikar, såsskål samt tillbringare. Obs att enstaka föremål i servisen ej föregås av siffran 1. Inte heller behöver st skrivas ut.
+
+Mått anges alltid sist i beskrivningen, utom för taklampor och mattor. Mått skrivs alltid: Längd 84, bredd 47, höjd 92 cm eller Diameter 69 cm, höjd 36 cm. Skriv ut ”centimeter” eller "cm”. För småsaker behöver endast ett mått anges exempelvis höjd eller diameter. För partier anges mått från minsta till största delen, exempelvis l 8-27 cm. Mått på konst anges 45 x 78 cm. Alltid höjden först och alltid utan ram.
+För grafik, förtydliga gärna om det är bladstorlek eller bildstorlek som anges. Använd gärna termen ca om ett föremål är svårt att mäta exakt. Generellt anges mått i hela centimeter men för små föremål kan det ibland vara nödvändigt att vara mer specifik. För ringar anges endast ringstorlek, inte mått.
+
+Skaderapport: Var utförlig när det går, men vag när det behövs. Undvik uttryck som mm, bl a eller osv så långt som möjligt i skaderapporten. Använd alltid termen "Ej examinerad ur ram" för konst när detta är tillämpligt. Nämn aldrig något om ramars kondition, om det inte är så att det är ramen som är till försäljning. Skriv alltid om glas saknas eller är skadat i ramar. Nämn alltid om silver har gåvogravyr eller monogram. Använd termen "Ej genomgånget" för exempelvis böcker eller andra föremål där tillämpligt. Undvik termen "Ej funktionstestad" då detta kan leda till att kunderna tror att vi funktionstestar våra föremål. Var försiktiga med att använda termen “Ingen anmärkning” då det kan det leda till onödiga reklamationer.
+
+Konstnär: Förnamn Efternamn.
+
+Proveniens, Utställningar, Litteratur: Om sådan information finns så skriv den sist i katalogiseringsrutan dock före måtten.
+
+Subjektiva/relativa ord som "fin", "vacker", "värdefull", "stor" osv. ska ej användas
+
+Hur katalogiserar jag en matta?
+Se ändringslogg
+För att ge köparna en så bra kundupplevelse som möjligt så försöker vi katalogisera på ett så enhetligt sätt som möjligt. Fullständiga katalogiseringsrutiner finns att få av tom@auctionet.com.
+
+Tänk på att undvika förkortningar i all katalogisering. Detta för att texten enklare skall kunna översättas automatiskt via google till utländska budgivare.
+
+Måtten ska alltid skrivas i titelraden. Detta för att det ska bli enklare för kunderna att direkt se måtten utan att behöva klicka sig in.
+
+
+Hur katalogiserar jag en byrå?
+Se ändringslogg
+För att ge köparna en så bra kundupplevelse som möjligt så försöker vi katalogisera på ett så enhetligt sätt som möjligt. Fullständiga katalogiseringsrutiner finns att få av tom@auctionet.com.
+
+Tänk på att undvika förkortningar i all katalogisering. Detta för att texten enklare skall kunna översättas automatiskt via google till utländska budgivare.
+
+Här följer ett exempel på hur man kan katalogisera en byrå byrå
+
+I titelfältet bör man skriva i vilken stil byrå är samt byråns ålder. Är byrån signerad skrivs även det i titelfältet.
+Om möjligt ange träslag men är man osäker bör man inte nämna någonting alls. Trist att få en reklamation pga fel angivet träslag.
+Måtten på möbler anges alltid med längd, bredd, höjd och avsluta sen med cm.
+
+Hur katalogiserar jag en tavla?
+Se ändringslogg
+För att ge köparna en så bra kundupplevelse som möjligt så försöker vi katalogisera på ett så enhetligt sätt som möjligt. Fullständiga katalogiseringsrutiner finns att få av tom@auctionet.com.
+
+Tänk på att undvika förkortningar i all katalogisering. Detta för att texten enklare skall kunna översättas automatiskt via google till utländska budgivare.
+
+Här följer ett exempel på hur man bör skriva in en tavla. tavla
+
+Här fyller du i konstnärens förnamn och efternamn. Det blir automatiskt i versaler och läggs alltid först i beskrivningen.
+Titeln skrivs i gemener och utan citationstecken.
+Citationstecken används endast då konstnären själv gett tavlan sin titel.
+Här skrivs även in vilken teknik tavlan är utförd i. Exempelvis oljemålning, akvarell, blandteknik osv.
+Hur är tavlan signerad? Skriver man på detta sätt så betyder det att konstnären signerat med hela sitt namn samt att dateringen är exakt så som beskrivs.
+Måtten skrivs alltid med höjden x bredden samt utan ram. Är tavlan inglasad med passpartout så är det bildytans mått som gäller.
+
+
+Hur skriver jag in en servis?
+Se ändringslogg
+För att ge köparna en så bra kundupplevelse som möjligt så försöker vi katalogisera på ett så enhetligt sätt som möjligt. Fullständiga katalogiseringsrutiner finns att få av tom@auctionet.com.
+
+Tänk på att undvika förkortningar i all katalogisering. Detta för att texten enklare skall kunna översättas automatiskt via google till utländska budgivare.
+
+Här följer ett exempel på hur man kan katalogisera en servis. servis
+
+Här är det bra om man kan skriva vad för typ av servis det är. Olika exempel är MATSERVIS, KAFFESERVIS, DOCKSERVIS, MAT- och KAFFESERVIS, FRUKOSTSERVIS. man kan även använda sig av uttrycket SERVISDELAR
+Skriv antalet delar, tillverkare om det är känt samt servisens namn. Antalet delar är bra även för transportören eftersom antalet då även noteras på etiketten.
+Inskrivningsrutan går att göra större genom att dra i det nedre högra hörnet.
+Var så noga som ni kan med konditionsrapporten. Notera skador samt lagningar. Försök att vara så exakt som möjligt.
+För att en servis skall kunnas transporteras säkert och komma fram hel så krävs en ordentlig packning. Detta tar tid och kräver mycket packmaterial samt kartonger. Tänk på detta då ni sätter transportpriset.
+En stor servis kräver många etiketter.
+
+
+Tavlan är signerad men jag vet inte vem konstnären är. Hur gör jag?
+Se ändringslogg
+Det finns ett stort antal konstnärer som inte är kända för den stora massan men som kanske ändå är kända lokalt. I de fall där man inte kan identifiera den exakta konstnären bör man katalogisera på följande sätt. oidentifierad konstnär
+
+Använd OIDENTIFIERAD KONSTNÄR i rutan för konstnär.
+Skriv exakt hur tavlan är signerad och daterad i titelrutan.
+Tänk på att följerätt även gäller oidentifierade konstnärer. [Följerätt] (https://auctionet.com/sv/help/11-droit_de_suite)
+Ta gärna en detaljbild på signaturen för att underlätta eventuell identifiering
+
+
+Vad ska jag tänka på när jag katalogiserar lampor av alabaster?
+Se ändringslogg
+Viktigt med lampor av alabaster är att vara noga med att beskriva och fotografera eventuella skador då de är svåra att reparera. Särskilt brännskador måste nämnas och fotograferas.
+
+
+
+Vad ska jag tänka på när jag översätter föremål i Auctionet Admin?
+Se ändringslogg
+Du kan översätta flera föremål genom att klicka "Översätt föremål" på startsidan i Auctionet Admin.
+
+Du kan översätta ett enskilt föremål genom att klicka "Ändra översättning" antingen på föremålets sida i Auctionet Admin eller på föremålets publika sida (länken syns bara om du är inloggad i admin).
+
+Brittisk engelska
+Översättningar till engelska ska använda brittisk engelska.
+
+Använd samma fält
+Om det felaktigt t.ex. står "Mattor" i konstnärsfältet på originalspråket så gör likadant i översättningen. Om ett fält är ifyllt på ena språket men lämnas tomt på ett annat språk kommer Auctionet tro att det inte ännu har översatts.
+
+Titlar på konstverk
+Titlar som konstnären själv angivit ska stå inom citationstecken. Titeln inom citationstecken ska inte översättas.
+
+Titlar på konstverk som saknar citationstecken ska vara auktionshusets beskrivning, och ska översättas.
+
+(Vissa katalogiserare eller auktionshus kanske inte följer detta perfekt, men detta är den standard Auctionet vill följa.)
+
+Exempel:
+| Föremålstitel | Översätts till |
+|------------------|---------------|
+| "Kärleksparet", olja på duk. | "Kärleksparet", oil on canvas. |
+| Kvinna med groda, olja på duk. | Woman with frog, oil on canvas. |
+
+Dåliga maskinöversättningar
+Den förifyllda texten är en maskinöversättning. Om du ser några återkommande fel i maskinöversättningen, kontakta utvecklarna så kan de eventuellt lägga in en automatisk textersättning.
+
+
+
+Konditionsrapporter
+Se ändringslogg
+När ni skriver konditionsrapport är det viktigt att inte underdriva skicket på föremålet. Nämn de skador som finns och om föremålet är slitet eller inte.
+
+En målning ska inte ha "bruksslitage" då en målning inte brukas. Skriv istället sedvanligt slitage eller "ramslitage".
+
+Undvik i största mån "inga anmärkningar" då det är väldigt lätt för köpare att hävda reklamation.
+
+Se även till att fota eventuella skador på föremålet.

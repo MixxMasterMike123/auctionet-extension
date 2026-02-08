@@ -95,7 +95,7 @@ export class APIManager {
           apiKey: this.apiKey,
           body: {
             model: this.getCurrentModel().id,
-            max_tokens: CONFIG.API.maxTokens,
+            max_tokens: fieldType === 'title-correct' ? 500 : CONFIG.API.maxTokens,
             temperature: CONFIG.API.temperature,
             system: systemPrompt,
             messages: [{
@@ -209,6 +209,11 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     // SPECIAL CASE: Handle search_query field type - return raw JSON response
     if (fieldType === 'search_query') {
       return response.trim();
+    }
+
+    // SPECIAL CASE: Biography returns plain text, no structured parsing needed
+    if (fieldType === 'biography') {
+      return { biography: response.trim() };
     }
 
     // For single field requests
@@ -545,6 +550,159 @@ ENDAST FÖRBÄTTRA:
 • Språk och läsbarhet utan att lägga till tekniska detaljer`;
     }
 
+    // Detect furniture
+    const isFurniture = category.includes('möbler') ||
+      category.includes('byrå') ||
+      category.includes('bord') ||
+      category.includes('stol') ||
+      category.includes('soffa') ||
+      category.includes('skåp') ||
+      title.match(/^(byrå|bord|stol|fåtölj|soffa|skåp|bokhylla|sekretär|vitrinskåp|sängbord|kommod|piedestal|pall|bänk)/i);
+
+    if (isFurniture) {
+      return `
+KATEGORI-SPECIFIK REGEL - MÖBLER:
+Detta är en möbel. Följ Auctionets katalogiseringsregler för möbler.
+
+TITELFORMAT FÖR MÖBLER:
+• Format: "BYRÅ, gustaviansk, sent 1700-tal." eller "FÅTÖLJ, "Karin", Bruno Mathsson, Dux."
+• TA BORT alla träslag från titeln — träslag hör ALDRIG hemma i titeln för möbler
+• Vanliga träslag som MÅSTE tas bort ur titeln: furu, ek, björk, mahogny, teak, valnöt, alm, ask, bok, tall, lönn, körsbär, palisander, jakaranda, bets
+• Om originaltiteln innehåller t.ex. "furu" eller "ek" — FLYTTA detta till beskrivningen istället
+• EXEMPEL: "Bord, furu, Karl Andersson" → titel: "Bord. Karl Andersson & Söner" + beskrivning: "Furu. ..."
+• Ange stil och ålder i titeln
+
+BESKRIVNING FÖR MÖBLER:
+• Skriv ALLTID ut träslag i beskrivningen (om känt/angivet) — särskilt om det togs bort från titeln
+• Var försiktig med träslag — om osäker, nämn det inte alls (undvik reklamationer)
+• Mått anges SIST i beskrivningen: "Längd 84, bredd 47, höjd 92 cm"
+
+ANTI-HALLUCINATION FÖR MÖBLER:
+• Lägg ALDRIG till träslag som inte är angivet i källan
+• Uppfinn INTE stilperiod om den inte framgår av källan`;
+    }
+
+    // Detect rugs/carpets
+    const isRug = category.includes('matta') ||
+      category.includes('mattor') ||
+      title.match(/^matta/i) ||
+      title.match(/^orientalisk/i);
+
+    if (isRug) {
+      return `
+KATEGORI-SPECIFIK REGEL - MATTOR:
+Detta är en matta. Följ Auctionets katalogiseringsregler för mattor.
+
+TITELFORMAT FÖR MATTOR:
+• Måtten ska ALLTID skrivas i titeln — detta är ett krav
+• Format: "MATTA, orientalisk, semiantik, ca 320 x 230 cm."
+• Ange typ, stil/ursprung, ålder och mått
+
+BESKRIVNING FÖR MATTOR:
+• Var utförlig med typ, teknik, mönster, färger
+• Mått behöver inte upprepas i beskrivningen om de redan står i titeln`;
+    }
+
+    // Detect silver/gold items (not jewelry — those are caught above)
+    const isSilverGold = (category.includes('silver') || category.includes('guld') ||
+      title.match(/\bsilver\b/i) || description.match(/\bsilver\b/i) ||
+      description.match(/\bstämpel/i) || description.match(/\bhallmark/i)) &&
+      !isJewelry;
+
+    if (isSilverGold) {
+      return `
+KATEGORI-SPECIFIK REGEL - SILVER OCH GULD:
+Detta är ett föremål i silver eller guld. Följ Auctionets katalogiseringsregler.
+
+TITELFORMAT FÖR SILVER:
+• Format: "BÄGARE, 2 st, silver, rokokostil, CG Hallberg, Stockholm, 1942-56 ca 450 gram."
+• Vikt anges ALLTID SIST i titeln för silver och guld
+• Ange INTE vikt för föremål med fylld fot (vikten blir irrelevant)
+• Kolla ALLTID upp silverstämplar och märken i möjligaste mån
+
+KONDITION FÖR SILVER:
+• Nämn ALLTID om silver har gåvogravyr eller monogram`;
+    }
+
+    // Detect art/paintings
+    const isArt = category.includes('konst') ||
+      category.includes('tavl') ||
+      category.includes('målning') ||
+      category.includes('grafik') ||
+      category.includes('litografi') ||
+      title.match(/^(oljemålning|akvarell|litografi|grafik|skulptur|teckning|tryck|gouache|pastell)/i) ||
+      description.match(/\b(signerad|sign\.|daterad|numrerad|olja på duk|akvarell|blandteknik)\b/i);
+
+    if (isArt) {
+      return `
+KATEGORI-SPECIFIK REGEL - KONST OCH MÅLNINGAR:
+Detta är ett konstverk. Följ Auctionets katalogiseringsregler för konst.
+
+TITELFORMAT FÖR KONST:
+• Om signaturen går att utläsa — skriv ut den. Oidentifierad konstnär om känd av andra
+• Skriv ALLTID dateringar och numreringar EXAKT som det står på verket (utan citattecken)
+• Skilj på om det står 1832, -32 eller 32 — behåll exakt format
+• Antal verk skrivs efter tekniken, INTE efter konstnärens namn
+• EXEMPEL: "BENGT LINDSTRÖM, färglitografier, 2 st, signerade och daterade 76"
+• Citattecken ENDAST om konstnären själv gett verket en titel
+• Det räcker att skriva konstnärens namn i konstnärsrutan (läggs till automatiskt)
+
+SIGNATUR OCH ATTRIBUTION:
+• Skriv "signerad a tergo" om signatur finns på baksidan
+• Skriv "Ej sign." i beskrivningen om ett konstverk är osignerat
+
+MÅTT FÖR KONST:
+• Format: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
+• Om inglasad med passpartout — ange bildytans mått
+• För grafik: förtydliga om det är bladstorlek eller bildstorlek
+• Skriv ALLTID i beskrivningen om konst är oramad
+
+KONDITION FÖR KONST:
+• En målning ska ALDRIG ha "bruksslitage" — en målning brukas inte
+• Använd istället "sedvanligt slitage" eller "ramslitage"
+• Använd "Ej examinerad ur ram" när tillämpligt
+• Nämn ALDRIG ramens kondition (om inte ramen är det som säljs)
+• Skriv ALLTID om glas saknas eller är skadat i ramar`;
+    }
+
+    // Detect dinner sets/tableware
+    const isDinnerSet = category.includes('servis') ||
+      title.match(/^(mat|kaffe|te|frukost|dock)servis/i) ||
+      title.match(/^servisdelar/i) ||
+      title.match(/\bdelar\b.*\b(porslin|flintgods|stengods|keramik|fajans)\b/i);
+
+    if (isDinnerSet) {
+      return `
+KATEGORI-SPECIFIK REGEL - SERVISER OCH SERVISDELAR:
+Detta är en servis eller servisdelar. Följ Auctionets katalogiseringsregler.
+
+TITELFORMAT FÖR SERVISER:
+• Format: "MAT- OCH KAFFESERVIS, 38 delar, flintgods, rokokostil, Rörstrand, tidigt 1900-tal."
+• Ange ALLTID antal delar i titeln
+• Typ av servis: MATSERVIS, KAFFESERVIS, DOCKSERVIS, MAT- OCH KAFFESERVIS, FRUKOSTSERVIS, SERVISDELAR
+
+BESKRIVNING FÖR SERVISER:
+• Mått behöver INTE anges för serviser
+• Räkna ALLTID upp delarna: "34 mattallrikar, 25 djupa tallrikar, såsskål samt tillbringare"
+• Enstaka föremål föregås ALDRIG av siffran 1
+• Skriv INTE "st" efter antal — skriv bara "34 mattallrikar" INTE "34 st mattallrikar"
+
+KONDITION FÖR SERVISER:
+• Var noga med att notera skador och lagningar
+• Var så exakt som möjligt`;
+    }
+
+    // Detect ceiling lamps (measurements in title)
+    const isCeilingLamp = title.match(/^(taklampa|takkrona|ljuskrona|pendel)/i) ||
+      category.includes('taklampa') ||
+      category.includes('belysning');
+
+    if (isCeilingLamp) {
+      return `
+KATEGORI-SPECIFIK REGEL - TAKLAMPOR:
+Måtten ska ALLTID skrivas i titeln för taklampor (samma regel som mattor).`;
+    }
+
     return '';
   }
 
@@ -657,6 +815,20 @@ KRITISKT - DATUM OCH PERIODSPECULATION FÖRBJUDEN:
 • ENDAST om originalet redan anger fullständigt årtal (t.ex. "1955") får du behålla det
 • EXEMPEL FÖRBJUDET: "daterad 55" → "1955" eller "troligen 1955"
 • EXEMPEL KORREKT: "daterad 55" → "daterad 55" (oförändrat)
+
+PERIOD- OCH ÅLDERSFORMATERING:
+• Använd ALDRIG "ca" framför årtal — skriv "omkring" istället ("ca" används BARA för summor/vikter)
+• EXEMPEL: "omkring 1850" INTE "ca 1850", men "ca 450 gram" är korrekt
+• Använd ALDRIG "1800-talets senare del" — skriv "senare fjärdedel", "senare hälft" eller "slut"
+• Var så precis som möjligt med ålder — decennier framför sekel (t.ex. "1870-tal" istället för "1800-talets andra hälft")
+• Skriv UT alla fullständiga termer: "nysilver" INTE "NS", "Josef Frank" INTE "Frank"
+
+ANTI-FÖRKORTNING OCH SEO-REGLER:
+• UNDVIK alla förkortningar — texten ska vara läsbar för automatisk Google-översättning till internationella budgivare
+• Skriv "bland annat" INTE "bl a", "millimeter" INTE "mm" (undantag: "cm" är accepterat), "och så vidare" INTE "osv"
+• Skriv INTE "st" efter antal (utom i titlar där "st" är konventionellt): "34 mattallrikar" INTE "34 st mattallrikar"
+• Skriv fullständiga namn: "Josef Frank" INTE "Frank", "nysilver" INTE "NS"
+• Syfte: Auctionet använder automatisk Google-översättning — förkortningar kan inte översättas korrekt
 
 `;
   }
@@ -785,6 +957,13 @@ UPPDATERAD REGEL - FORMATERING NÄR INGET KONSTNÄRSFÄLT:
 • RÄTT: "LJUSPLÅTAR, ett par, mässing, 1900-tal"
 • FEL: "LJUSPLÅTAR. Ett par, mässing, 1900-tal"
 
+FÖRBJUDNA SAMMANSATTA ORD I TITEL:
+• Använd ALDRIG sammansatta objektord+material i titeln
+• Separera ALLTID objekttyp och material med komma
+• EXEMPEL: "MAJOLIKAVAS" → "VAS, majolika"; "GLASVAS" → "VAS, glas"
+• EXEMPEL: "KERAMIKTOMTE" → "TOMTE, keramik"; "SILVERRING" → "RING, silver"
+• KORREKT: "VAS, glas, Orrefors" INTE "GLASVAS, Orrefors"
+
 === BESKRIVNING-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL BESKRIVNING-FÖRBÄTTRING) ===
 
 FÄLTAVGRÄNSNING FÖR BESKRIVNING:
@@ -806,6 +985,15 @@ ${itemData.artist && this.enableArtistInfo ?
 • Förbättra språk, struktur och befintlig information
 • Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
 
+MÅTTFORMATERING I BESKRIVNING:
+• Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
+• Format för möbler: "Längd 84, bredd 47, höjd 92 cm" (cm bara efter sista måttet)
+• Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
+• Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
+• Små föremål: ett mått räcker (höjd eller diameter)
+• Ringar: ange BARA ringstorlek, inga mått
+• Grafik: förtydliga om det är bladstorlek eller bildstorlek
+
 === KONDITION-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL KONDITION-FÖRBÄTTRING) ===
 
 FÄLTAVGRÄNSNING FÖR KONDITION:
@@ -826,6 +1014,15 @@ KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
 • Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
 
 STRIKT REGEL: Kopiera ENDAST den skadeinformation som redan finns - lägg ALDRIG till nya detaljer.
+
+AUCTIONET FAQ-SPECIFIKA KONDITIONSREGLER:
+• Målningar och konst: Använd "Ej examinerad ur ram" om tillämpligt (standardfras för inramad konst)
+• Målningar: Använd ALDRIG "bruksslitage" — en målning brukas inte. Använd "sedvanligt slitage" istället
+• Ramar: Kommentera ALDRIG ramens kondition (om inte ramen är det som säljs). Nämn ALLTID saknat/skadat glas i ramar
+• Böcker/samlingar: Använd "Ej genomgånget" om alla delar inte kontrollerats individuellt
+• UNDVIK "Ej funktionstestad" — denna fras ger intryck att vi testar funktion, vilket vi inte gör
+• UNDVIK alla förkortningar i kondition: skriv "bland annat" INTE "bl a", "millimeter" INTE "mm", "och så vidare" INTE "osv"
+• Silver/guld: Nämn ALLTID gåvogravyr/monogram i kondition om det finns
 
 === SÖKORD-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL SÖKORD-GENERERING) ===
 
@@ -921,6 +1118,13 @@ SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • EXEMPEL: "SERVISDELAR, 24 delar, porslin, Stig Lindberg, 'Spisa Ribb', Gustavsberg. 1900-tal."
 • Flytta ALDRIG konstnären när den inte är i början - det är medvetet placerad
 
+FÖRBJUDNA SAMMANSATTA ORD I TITEL:
+• Använd ALDRIG sammansatta objektord+material i titeln
+• Separera ALLTID objekttyp och material med komma
+• EXEMPEL: "MAJOLIKAVAS" → "VAS, majolika"; "GLASVAS" → "VAS, glas"
+• EXEMPEL: "KERAMIKTOMTE" → "TOMTE, keramik"; "SILVERRING" → "RING, silver"
+• KORREKT: "VAS, glas, Orrefors" INTE "GLASVAS, Orrefors"
+
 Returnera ENDAST den förbättrade titeln utan extra formatering eller etiketter.`;
 
       case 'title-correct':
@@ -968,6 +1172,15 @@ ${itemData.artist && this.enableArtistInfo ?
 • Förbättra språk, struktur och befintlig information
 • Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
 
+MÅTTFORMATERING I BESKRIVNING:
+• Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
+• Format för möbler: "Längd 84, bredd 47, höjd 92 cm" (cm bara efter sista måttet)
+• Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
+• Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
+• Små föremål: ett mått räcker (höjd eller diameter)
+• Ringar: ange BARA ringstorlek, inga mått
+• Grafik: förtydliga om det är bladstorlek eller bildstorlek
+
 KRITISKT - RETURFORMAT:
 • Returnera ENDAST beskrivningstexten med radbrytningar för separata paragrafer
 • Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer
@@ -999,6 +1212,15 @@ KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
 • Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
 
 STRIKT REGEL: Kopiera ENDAST den skadeinformation som redan finns - lägg ALDRIG till nya detaljer.
+
+AUCTIONET FAQ-SPECIFIKA KONDITIONSREGLER:
+• Målningar och konst: Använd "Ej examinerad ur ram" om tillämpligt (standardfras för inramad konst)
+• Målningar: Använd ALDRIG "bruksslitage" — en målning brukas inte. Använd "sedvanligt slitage" istället
+• Ramar: Kommentera ALDRIG ramens kondition (om inte ramen är det som säljs). Nämn ALLTID saknat/skadat glas i ramar
+• Böcker/samlingar: Använd "Ej genomgånget" om alla delar inte kontrollerats individuellt
+• UNDVIK "Ej funktionstestad" — denna fras ger intryck att vi testar funktion, vilket vi inte gör
+• UNDVIK alla förkortningar i kondition: skriv "bland annat" INTE "bl a", "millimeter" INTE "mm", "och så vidare" INTE "osv"
+• Silver/guld: Nämn ALLTID gåvogravyr/monogram i kondition om det finns
 
 Returnera ENDAST den förbättrade konditionsrapporten utan extra formatering eller etiketter.`;
 
@@ -1038,6 +1260,46 @@ KRITISKT - RETURFORMAT:
 • EXEMPEL: "grafik reproduktion svensk-design 1970-tal dekor inredning"
 
 STRIKT REGEL: Läs titel och beskrivning noggrant - om ett ord redan finns där (även delvis), använd det ALDRIG i sökorden.`;
+
+      case 'all-enhanced':
+        return baseInfo + `
+YTTERLIGARE INFORMATION FRÅN ANVÄNDAREN:
+Material: ${itemData.additionalInfo?.material || 'Ej angivet'}
+Teknik: ${itemData.additionalInfo?.technique || 'Ej angivet'}
+Märkningar: ${itemData.additionalInfo?.markings || 'Ej angivet'}
+Specifika skador: ${itemData.additionalInfo?.damage || 'Ej angivet'}
+Övrigt: ${itemData.additionalInfo?.additional || 'Ej angivet'}
+
+UPPGIFT: Använd all tillgänglig information för att skapa professionell katalogisering enligt svenska auktionsstandarder.
+
+ANTI-HALLUCINATION REGLER:
+• Använd ENDAST den information som angivits ovan
+• Lägg INTE till ytterligare detaljer som inte är nämnda
+• Kombinera källdata med tilläggsinfo på ett faktabaserat sätt
+• Lägg ALDRIG till kommentarer om vad som "behövs" eller "saknas"
+
+Returnera EXAKT i detta format:
+TITEL: [förbättrad titel med korrekt material]
+BESKRIVNING: [detaljerad beskrivning med all relevant information]
+KONDITION: [specifik konditionsrapport baserad på angiven information]
+SÖKORD: [kompletterande sökord separerade med mellanslag, använd "-" för flerordsfraser]
+
+Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
+
+      case 'biography':
+        return `
+UPPGIFT: Skriv en kort, informativ biografi om konstnären "${itemData.artist}" på svenska.
+
+KRAV:
+• Max 150 ord
+• Fokusera på stil, period, viktiga verk och betydelse
+• Skriv på professionell svenska
+• Inga inledande fraser som "Här är en biografi..."
+• Bara ren text
+
+FORMAT:
+Returnera endast biografin som ren text.
+`;
 
       case 'search_query':
         return `You are an expert auction search optimizer. Generate 2-3 optimal search terms for finding comparable items.

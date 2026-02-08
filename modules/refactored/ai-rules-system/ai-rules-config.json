@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "name": "Auctionet AI Rules System",
   "description": "Centralized AI rules configuration for Swedish auction cataloging",
-  "lastUpdated": "2024-01-01",
+  "lastUpdated": "2026-02-08",
   
   "systemPrompts": {
     "core": "Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.\n\nGRUNDREGLER:\n• Använd endast verifierbara fakta\n• Skriv objektivt utan säljande språk\n• Använd etablerad auktionsterminologi\n• UPPFINN ALDRIG information som inte finns\n• Skriv naturligt och flytande - fokusera på autenticitet över regelefterlevnad\n\n🚨 ABSOLUT FÖRBJUDET - SÄLJANDE SPRÅK:\nAnvänd ALDRIG beskrivande adjektiv som 'elegant', 'karakteristisk', 'typisk', 'klassisk', 'traditionell', 'autentisk', 'raffinerad', 'stilren', 'harmonisk', 'genomarbetad', 'påkostad', 'exklusiv', 'förnäm', 'gedigen', 'kvalitativ', 'förstklassig', 'exemplarisk', 'representativ'.\n\nISÄLLET: Använd neutrala, faktabaserade beskrivningar som 'mahogny', 'tvådelad konstruktion', 'dubbeldörrar', 'rundade hörn', 'koniska ben', 'mässingsdetaljer'.",
@@ -94,6 +94,91 @@
         "Tekniska detaljer om legering eller bearbetning"
       ],
       "prompt": "KATEGORI-SPECIFIK REGEL - SMYCKEN OCH ÄDELMETALLER:\nDetta är ett smycke eller föremål i ädelmetall. Var FÖRSIKTIG med tekniska specifikationer.\n\nTEKNISKA BEGRÄNSNINGAR:\n• Lägg INTE till karattyngd som inte är angiven\n• Specificera INTE metallhalt (18k, 14k) utan källa\n• Lägg INTE till information om ädelstenars kvalitet eller ursprung"
+    },
+    
+    "furniture": {
+      "name": "Möbler",
+      "titleRules": {
+        "neverIncludeWoodType": true,
+        "includeStyleAndAge": true,
+        "format": "BYRÅ, gustaviansk, sent 1700-tal."
+      },
+      "descriptionRules": {
+        "woodTypeInDescription": true,
+        "measurementFormat": "Längd X, bredd Y, höjd Z cm",
+        "measurementPosition": "last"
+      },
+      "antiHallucination": [
+        "Lägg ALDRIG till träslag som inte är angivet",
+        "Uppfinn INTE stilperiod om den inte framgår"
+      ]
+    },
+    
+    "rugs": {
+      "name": "Mattor",
+      "titleRules": {
+        "measurementsRequired": true,
+        "format": "MATTA, orientalisk, semiantik, ca 320 x 230 cm."
+      },
+      "descriptionRules": {
+        "includeType": true,
+        "includeTechnique": true,
+        "includePattern": true,
+        "includeColors": true
+      }
+    },
+    
+    "silverGold": {
+      "name": "Silver och Guld (ej smycken)",
+      "titleRules": {
+        "weightAlwaysLast": true,
+        "noWeightForFilledItems": true,
+        "format": "BÄGARE, 2 st, silver, CG Hallberg, Stockholm, 1942-56 ca 450 gram."
+      },
+      "conditionRules": {
+        "alwaysMentionEngravings": true,
+        "alwaysMentionMonograms": true
+      }
+    },
+    
+    "art": {
+      "name": "Konst och Målningar",
+      "titleRules": {
+        "exactDating": true,
+        "quantityAfterTechnique": true,
+        "format": "BENGT LINDSTRÖM, färglitografier, 2 st, signerade och daterade 76"
+      },
+      "signatureRules": {
+        "aTermo": "signerad a tergo",
+        "unsigned": "Ej sign.",
+        "preserveExactFormat": true
+      },
+      "measurementRules": {
+        "heightFirst": true,
+        "withoutFrame": true,
+        "format": "45 x 78 cm"
+      },
+      "conditionRules": {
+        "neverBruksslitage": true,
+        "useInstead": "sedvanligt slitage",
+        "neverCommentFrameCondition": true,
+        "alwaysMentionMissingGlass": true,
+        "useEjExamineradUrRam": true
+      }
+    },
+    
+    "dinnerSets": {
+      "name": "Serviser och Servisdelar",
+      "titleRules": {
+        "alwaysIncludePartCount": true,
+        "format": "MAT- OCH KAFFESERVIS, 38 delar, flintgods, rokokostil, Rörstrand, tidigt 1900-tal."
+      },
+      "descriptionRules": {
+        "alwaysListParts": true,
+        "noMeasurementsNeeded": true,
+        "singleItemsNoPrecedingOne": true,
+        "noStAfterCount": true
+      }
     }
   },
   
@@ -109,6 +194,13 @@
         "withoutArtist": "comma-after-first-word"
       },
       "quotesPreservation": true,
+      "noCompoundObjectMaterial": true,
+      "compoundWordExamples": {
+        "MAJOLIKAVAS": "VAS, majolika",
+        "GLASVAS": "VAS, glas",
+        "KERAMIKTOMTE": "TOMTE, keramik",
+        "SILVERRING": "RING, silver"
+      },
       "brandCorrections": {
         "ikea": "IKEA",
         "rolex": "Rolex",
@@ -123,6 +215,15 @@
       "excludeConditionInfo": true,
       "preserveMeasurements": true,
       "preserveQuantities": true,
+      "measurementFormatting": {
+        "positionLast": true,
+        "exceptions": ["taklampor", "mattor"],
+        "furnitureFormat": "Längd X, bredd Y, höjd Z cm",
+        "roundFormat": "Diameter X cm, höjd Y cm",
+        "artFormat": "heightFirst, withoutFrame, 45 x 78 cm",
+        "ringsOnlySize": true,
+        "graphicsClarifySheetOrImage": true
+      },
       "allowedContent": [
         "material",
         "teknik", 
@@ -151,12 +252,23 @@
         "sprickor",
         "fläckar",
         "välbevarat",
-        "mindre skador"
+        "mindre skador",
+        "sedvanligt slitage",
+        "Ej examinerad ur ram",
+        "Ej genomgånget"
       ],
       "antiHallucination": {
         "noSpecificPlacements": true,
         "noInventedDamage": true,
         "noMeasurements": true
+      },
+      "faqSpecific": {
+        "artNeverBruksslitage": true,
+        "neverCommentFrameCondition": true,
+        "alwaysMentionMissingGlass": true,
+        "avoidEjFunktionstestadPhrase": true,
+        "noAbbreviations": true,
+        "silverAlwaysMentionEngravings": true
       }
     },
     
@@ -220,6 +332,28 @@
       "noInventedMaterials": true,
       "noInventedDamage": true,
       "preserveUncertaintyMarkers": true
+    },
+    
+    "periodFormatting": {
+      "neverCaForYears": true,
+      "useOmkringInstead": true,
+      "caOnlyForSumsAndWeights": true,
+      "neverSenareDelUse": ["senare fjärdedel", "senare hälft", "slut"],
+      "preferDecadesOverCenturies": true,
+      "writeOutFullTerms": true
+    },
+    
+    "antiAbbreviation": {
+      "enabled": true,
+      "reason": "Google translation compatibility for international bidders",
+      "forbiddenAbbreviations": {
+        "bl a": "bland annat",
+        "osv": "och så vidare",
+        "NS": "nysilver",
+        "st": "stycken (except in titles)"
+      },
+      "acceptedShortForms": ["cm"],
+      "alwaysUseFullNames": true
     },
     
     "uncertaintyMarkers": [
@@ -340,7 +474,7 @@
   },
   
   "metadata": {
-    "totalRulesExtracted": 810,
+    "totalRulesExtracted": 980,
     "filesProcessed": [
       "modules/api-manager.js",
       "content.js", 
@@ -352,7 +486,10 @@
       "Unified system prompts across all files",
       "Consolidated brand correction rules",
       "Merged validation rules from multiple sources",
-      "Standardized anti-hallucination rules"
+      "Standardized anti-hallucination rules",
+      "Added Auctionet FAQ compliance: furniture, rugs, silver, art, dinner sets categories",
+      "Added period formatting, anti-abbreviation, compound word, measurement formatting rules",
+      "Added FAQ-specific condition report terminology"
     ],
     "lastMigration": "2024-01-01T00:00:00Z",
     "migrationStats": {
