@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           type: 'anthropic-fetch',
           apiKey: apiKey,
           body: {
-            model: 'claude-sonnet-4-5', // Claude Sonnet 4.5
+            model: 'claude-sonnet-4-20250514', // Claude Sonnet 4
             max_tokens: 10,
             messages: [{
               role: 'user',

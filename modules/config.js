@@ -3,8 +3,8 @@ export const CONFIG = {
   // Model Configuration — updated Feb 2026
   MODELS: {
     'sonnet': {
-      id: 'claude-sonnet-4-5', // Claude Sonnet 4.5 — main model ($3/$15 per MTok)
-      name: 'Claude Sonnet 4.5',
+      id: 'claude-sonnet-4-20250514', // Claude Sonnet 4 — better for creative Swedish text
+      name: 'Claude Sonnet 4',
       cost: 'Standard'
     },
     'haiku': {
