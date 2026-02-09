@@ -20,7 +20,7 @@
     "freetextParser": {
       "name": "Freetext Parser",
       "valuationRules": {
-        "claude-sonnet-4-5-20250929": {
+        "claude-sonnet-4-5": {
           "approach": "advanced-research-based",
           "instruction": "GE REALISTISKA MARKNADSVÄRDEN baserat på marknadsdata och expertanalys. Använd 4-stegs analys: Objektanalys → Marknadsforskning → Värderingslogik → Slutsats. VIKTIGT: Låt inte låg/medel säkerhet leda till underskattning av marknadsvärde.",
           "temperature": 0.1,

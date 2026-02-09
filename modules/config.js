@@ -3,12 +3,12 @@ export const CONFIG = {
   // Model Configuration — updated Feb 2026
   MODELS: {
     'sonnet': {
-      id: 'claude-sonnet-4-5-20250929', // Claude Sonnet 4.5 — main model ($3/$15 per MTok)
+      id: 'claude-sonnet-4-5', // Claude Sonnet 4.5 — main model ($3/$15 per MTok)
       name: 'Claude Sonnet 4.5',
       cost: 'Standard'
     },
     'haiku': {
-      id: 'claude-haiku-4-5-20251015', // Claude Haiku 4.5 — fast/cheap ($1/$5 per MTok)
+      id: 'claude-haiku-4-5', // Claude Haiku 4.5 — fast/cheap ($1/$5 per MTok)
       name: 'Claude Haiku 4.5',
       cost: 'Budget'
     }

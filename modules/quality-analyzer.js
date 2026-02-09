@@ -3148,7 +3148,7 @@ Anpassa förslagen till kategorin "${category}".`,
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-haiku-4-5-20251015', // Claude Haiku 4.5 — fast/cheap for bios
+            model: 'claude-haiku-4-5', // Claude Haiku 4.5 — fast/cheap for bios
             max_tokens: 150,
             temperature: 0.3,
             system: 'Du är en konstexpert. Skriv mycket korta biografier på svenska för tooltips.',
