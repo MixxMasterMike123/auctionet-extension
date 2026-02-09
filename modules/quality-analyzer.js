@@ -430,15 +430,16 @@ export class QualityAnalyzer {
     const condLower = condPlain.toLowerCase();
 
     // --- Furniture: wood type in title ---
+    // Regex helper: matches wood type as standalone word OR as prefix in compound words
+    // e.g. "teak" matches "teak" and "teakfanér", "jakaranda" matches "jakarandafanér"
+    const woodRegex = (w) => new RegExp(`\\b${w}(fanér|fanerad|trä)?\\b`, 'i');
+
     if (category.includes('möbler')) {
       const woodTypes = ['furu', 'ek', 'björk', 'mahogny', 'teak', 'valnöt', 'alm', 'ask',
         'bok', 'tall', 'lönn', 'körsbär', 'palisander', 'jakaranda', 'rosewood',
         'bambu', 'rotting', 'ceder', 'cypress', 'gran', 'lärk', 'poppel', 'avenbok',
         'betsad', 'betsat', 'lackad', 'lackerat', 'fanér', 'fanerad'];
-      const foundWood = woodTypes.find(w => {
-        const regex = new RegExp(`\\b${w}\\b`, 'i');
-        return regex.test(data.title);
-      });
+      const foundWood = woodTypes.find(w => woodRegex(w).test(data.title));
       if (foundWood) {
         warnings.push({ field: 'Titel', issue: `Möbler: "${foundWood}" (träslag/material) bör inte stå i titeln — flytta till beskrivningen`, severity: 'medium', source: 'faq', fieldId: 'item_title_sv' });
         score -= 10;
@@ -449,8 +450,8 @@ export class QualityAnalyzer {
         'bok', 'tall', 'lönn', 'körsbär', 'palisander', 'jakaranda', 'rosewood',
         'bambu', 'rotting', 'ceder', 'cypress', 'gran', 'lärk', 'poppel', 'avenbok',
         'fanér', 'fanerad', 'massiv', 'trä'];
-      const woodInTitle = allWoodTypes.some(w => new RegExp(`\\b${w}\\b`, 'i').test(data.title));
-      const woodInDesc = allWoodTypes.some(w => new RegExp(`\\b${w}\\b`, 'i').test(descPlain));
+      const woodInTitle = allWoodTypes.some(w => woodRegex(w).test(data.title));
+      const woodInDesc = allWoodTypes.some(w => woodRegex(w).test(descPlain));
       if (!woodInTitle && !woodInDesc) {
         warnings.push({ field: 'Beskrivning', issue: 'Möbler: Träslag/material saknas — välj nedan eller ange manuellt:', severity: 'medium', source: 'faq', fieldId: 'item_description_sv', woodTypeSuggestion: true });
         score -= 8;
