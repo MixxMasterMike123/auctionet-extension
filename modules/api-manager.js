@@ -998,6 +998,12 @@ KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
 • Förbättra ENDAST språk och använd standardtermer för EXAKT samma information som redan finns
 • Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
 
+KRITISKT — ERSÄTT ALDRIG SPECIFIKA TERMER MED VAGARE:
+• Om originalet redan har en specifik konditionsterm (t.ex. "smärre slitage", "ytliga repor", "mindre nagg") — BEHÅLL den
+• Byt ALDRIG ut en specifik term mot en vagare (t.ex. "smärre slitage" → "normalt bruksslitage" är FÖRBJUDET)
+• Du får förbättra språket men ALDRIG sänka specificiteten
+• EXEMPEL: "Smärre slitage" → BEHÅLL som "Smärre slitage." — INTE "Normalt bruksslitage."
+
 STRIKT REGEL: Kopiera ENDAST den skadeinformation som redan finns - lägg ALDRIG till nya detaljer.
 
 AUCTIONET FAQ-SPECIFIKA KONDITIONSREGLER:
@@ -1200,6 +1206,12 @@ KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
 • EXEMPEL PÅ FÖRBJUDET: Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
 • Förbättra ENDAST språk och använd standardtermer för EXAKT samma information som redan finns
 • Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
+
+KRITISKT — ERSÄTT ALDRIG SPECIFIKA TERMER MED VAGARE:
+• Om originalet redan har en specifik konditionsterm (t.ex. "smärre slitage", "ytliga repor", "mindre nagg") — BEHÅLL den
+• Byt ALDRIG ut en specifik term mot en vagare (t.ex. "smärre slitage" → "normalt bruksslitage" är FÖRBJUDET)
+• Du får förbättra språket men ALDRIG sänka specificiteten
+• EXEMPEL: "Smärre slitage" → BEHÅLL som "Smärre slitage." — INTE "Normalt bruksslitage."
 
 STRIKT REGEL: Kopiera ENDAST den skadeinformation som redan finns - lägg ALDRIG till nya detaljer.
 
