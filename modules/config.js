@@ -3,8 +3,8 @@ export const CONFIG = {
   // Model Configuration — updated Feb 2026
   MODELS: {
     'sonnet': {
-      id: 'claude-sonnet-4-20250514', // Claude Sonnet 4 — better for creative Swedish text
-      name: 'Claude Sonnet 4',
+      id: 'claude-sonnet-4-5-20250514', // Claude Sonnet 4.5 — testing vs Sonnet 4
+      name: 'Claude Sonnet 4.5',
       cost: 'Standard'
     },
     'haiku': {
