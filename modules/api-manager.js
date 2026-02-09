@@ -828,6 +828,7 @@ Nuvarande titel: ${itemData.title}
 Nuvarande beskrivning: ${itemData.description}
 Kondition: ${itemData.condition}
 Konstnär/Formgivare: ${itemData.artist}
+${itemData.artistDates ? 'Konstnärsdata från Auctionet: ' + itemData.artistDates : ''}
 Värdering: ${itemData.estimate} SEK
 
 VIKTIGT FÖR TITEL: ${itemData.artist ?
@@ -844,8 +845,14 @@ KRITISKT - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 
 KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
 ${itemData.artist && this.enableArtistInfo ?
-        'Konstnär/formgivare: ' + itemData.artist + '\nDu SKA lägga till kort, relevant kontext om denna konstnär/formgivare i beskrivningen. Detta är ett KRAV, inte valfritt.\n• Om du vet specifika fakta om konstnären (nationalitet, verksam period, känd för) — skriv 1-2 meningar i beskrivningen\n• Om du vet om den specifika modellen/serien — nämn det\n• Om du är osäker, använd "troligen" eller "anses vara"\n• Det är bättre att ge allmän kontext ("israelisk konstnär verksam under 1900-talets andra hälft") än att inte säga något alls' :
+        'Konstnär/formgivare: ' + itemData.artist + (itemData.artistDates ? ' (' + itemData.artistDates + ')' : '') + '\nDu SKA lägga till kort, relevant kontext om denna konstnär/formgivare i beskrivningen. Detta är ett KRAV, inte valfritt.\n• Om du vet specifika fakta om konstnären (nationalitet, verksam period, känd för) — skriv 1-2 meningar i beskrivningen\n• Om du vet om den specifika modellen/serien — nämn det\n• Om du är osäker, använd "troligen" eller "anses vara"\n• Det är bättre att ge allmän kontext ("svensk formgivare verksam under 1900-talets andra hälft") än att inte säga något alls' :
         'Lägg inte till konstnärlig eller historisk kontext som inte redan finns i källdata.'}
+
+KRITISKT — FÖDELSE- OCH DÖDSÅR:
+• HITTA ALDRIG PÅ födelse- eller dödsår för konstnärer/formgivare
+${itemData.artistDates ? '• Auctionets data anger: ' + itemData.artistDates + ' — använd EXAKT dessa årtal om du inkluderar levnadsår' : '• Inga levnadsår finns i systemet — INKLUDERA INTE årtal i parenteser efter konstnärens namn'}
+• Om du är osäker på exakta årtal, skriv UTAN årtal: "svensk konstnär" istället för "svensk konstnär (1920–1990)"
+• Felaktiga årtal är VÄRRE än inga årtal alls — det förstör trovärdigheten
 
 OSÄKERHETSMARKÖRER I TITEL:
 Om titeln innehåller ord som "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ" — behåll dessa. De anger juridisk osäkerhet.
@@ -885,7 +892,7 @@ VIKTIGT - ARBETSORDNING:
 2. Sedan generera sökord baserat på de FÖRBÄTTRADE fälten (inte originalfälten)
 
 ${itemData.artist && this.enableArtistInfo ?
-            'KONSTNÄR KÄND (' + itemData.artist + '): Lägg till relevant kontext om konstnären/formgivaren i beskrivningen. Nationalitet, verksam period, vad hen är känd för, eller detaljer om denna serie/modell. 1-2 meningar, i en separat paragraf.' :
+            'KONSTNÄR KÄND (' + itemData.artist + (itemData.artistDates ? ', ' + itemData.artistDates : '') + '): Lägg till relevant kontext om konstnären/formgivaren i beskrivningen. Nationalitet, verksam period, vad hen är känd för, eller detaljer om denna serie/modell. 1-2 meningar, i en separat paragraf.' + (itemData.artistDates ? ' Använd EXAKT dessa levnadsår: ' + itemData.artistDates + '. HITTA INTE PÅ andra årtal.' : ' INKLUDERA INGA levnadsår — vi har inga bekräftade data.') :
             'Håll dig till befintlig information utan att lägga till konstnärlig kontext.'}
 
 FÄLTAVGRÄNSNING:
@@ -959,7 +966,7 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 
 VIKTIGT - PARAGRAFSTRUKTUR FÖR BESKRIVNING:
 ${itemData.artist && this.enableArtistInfo ?
-            '• STRUKTUR: Befintlig förbättrad beskrivning först, sedan konstnärsinformation i SEPARAT paragraf (\\n\\n)\n• EXEMPEL: "Blandteknik på papper, signerad.\\n\\nRuth Schloss (1922–2013) var en israelisk konstnär känd för sina socialrealistiska figurstudier.\\n\\nMotivyta 22,5 x 17,5 cm, rammått 46 x 41 cm."\n• Konstnärsinformation: 1-2 meningar med nationalitet, levnadsår, vad hen är känd för\n• Mått i sista paragrafen' :
+            '• STRUKTUR: Befintlig förbättrad beskrivning först, sedan konstnärsinformation i SEPARAT paragraf (\\n\\n)\n• EXEMPEL MED LEVNADSÅR (när data finns): "Blandteknik på papper, signerad.\\n\\nRuth Schloss (1922–2013) var en israelisk konstnär känd för sina socialrealistiska figurstudier.\\n\\nMotivyta 22,5 x 17,5 cm, rammått 46 x 41 cm."\n• EXEMPEL UTAN LEVNADSÅR (när data saknas): "Olja på duk, signerad.\\n\\nSvensk konstnär känd för sina expressiva landskapsmålningar.\\n\\n66 x 80 cm."\n• Inkludera levnadsår BARA om de finns i konstnärsdata ovan — HITTA ALDRIG PÅ årtal\n• Mått i sista paragrafen' :
             '• Returnera befintlig förbättrad beskrivning utan tillagd konstnärlig kontext'}
 • Lägg inte till mått som inte är angivna
 • Lägg INTE till material som inte är nämnt (såvida det inte är känt från konstnärens typiska tekniker)
@@ -1151,7 +1158,7 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 
 VIKTIGT - PARAGRAFSTRUKTUR:
 ${itemData.artist && this.enableArtistInfo ?
-            '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' :
+            '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• Inkludera levnadsår BARA om de finns i konstnärsdata — HITTA ALDRIG PÅ årtal\n• Håll det relevant för just detta föremål' :
             '• Returnera befintlig förbättrad beskrivning\n• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
 • Lägg INTE till mått som inte är angivna
 • Lägg INTE till material som inte är nämnt (såvida det inte är känt från konstnärens typiska tekniker)
@@ -1281,6 +1288,7 @@ Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bar
       case 'biography':
         return `
 UPPGIFT: Skriv en kort, informativ biografi om konstnären "${itemData.artist}" på svenska.
+${itemData.artistDates ? 'Bekräftade levnadsdata från Auctionet: ' + itemData.artistDates : ''}
 
 KRAV:
 • Max 150 ord
@@ -1288,6 +1296,8 @@ KRAV:
 • Skriv på professionell svenska
 • Inga inledande fraser som "Här är en biografi..."
 • Bara ren text
+${itemData.artistDates ? '• Använd EXAKT dessa levnadsår: ' + itemData.artistDates : '• INKLUDERA INGA födelse- eller dödsår — vi har inga bekräftade data'}
+• HITTA ALDRIG PÅ årtal — felaktiga år förstör trovärdigheten
 
 FORMAT:
 Returnera endast biografin som ren text.

@@ -896,12 +896,17 @@ class AuctionetCatalogingAssistant {
   }
 
   extractItemData() {
+    // Extract artist dates from Följerätt help-block (e.g. "Sverige, 1916–1997.")
+    const artistHelpSpan = document.querySelector('[data-devbridge-autocomplete-target="help"]');
+    const artistDates = artistHelpSpan ? artistHelpSpan.textContent.trim() : '';
+
     const data = {
       category: document.querySelector('#item_category_id option:checked')?.textContent || '',
       title: document.querySelector('#item_title_sv')?.value || '',
       description: document.querySelector('#item_description_sv')?.value || '',
       condition: document.querySelector('#item_condition_sv')?.value || '',
       artist: document.querySelector('#item_artist_name_sv')?.value || '',
+      artistDates: artistDates,
       keywords: document.querySelector('#item_hidden_keywords')?.value || '',
       estimate: document.querySelector('#item_current_auction_attributes_estimate')?.value || '',
       reserve: document.querySelector('#item_current_auction_attributes_reserve')?.value || ''
