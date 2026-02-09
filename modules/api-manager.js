@@ -836,8 +836,8 @@ PERIOD- OCH ÅLDERSFORMATERING:
 
 ANTI-FÖRKORTNING OCH SEO-REGLER:
 • UNDVIK alla förkortningar — texten ska vara läsbar för automatisk Google-översättning till internationella budgivare
-• Skriv "bland annat" INTE "bl a", "millimeter" INTE "mm", "och så vidare" INTE "osv"
-• VIKTIGT: "cm" är ALLTID korrekt och ska ALLTID användas för centimeter — skriv "cm" INTE "centimeter"
+• Skriv "bland annat" INTE "bl a", "med mera" INTE "mm" (som förkortning), "och så vidare" INTE "osv"
+• "cm" och "mm" som måttenheter är OK — "centimeter"/"millimeter" är också acceptabelt (båda godkända)
 • Skriv INTE "st" efter antal (utom i titlar där "st" är konventionellt): "34 mattallrikar" INTE "34 st mattallrikar"
 • Skriv fullständiga namn: "Josef Frank" INTE "Frank", "nysilver" INTE "NS"
 • Syfte: Auctionet använder automatisk Google-översättning — förkortningar kan inte översättas korrekt
@@ -1000,13 +1000,16 @@ ${itemData.artist && this.enableArtistInfo ?
 MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
 • Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
+• KRITISKT: Denna regel gäller ALLA kategorier — möbler, konst, kameror, keramik, glas, allt!
 • Format för möbler: "Längd 84, bredd 47, höjd 92 cm" (cm bara efter sista måttet)
 • Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
 • Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
 • Små föremål: ett mått räcker (höjd eller diameter)
 • Ringar: ange BARA ringstorlek, inga mått
 • Grafik: förtydliga om det är bladstorlek eller bildstorlek
-• Använd ALLTID "cm" — ALDRIG "centimeter"
+• "cm" och "mm" som måttenheter är OK — "centimeter"/"millimeter" är också acceptabelt
+• Undvik svenska förkortningar som "bl a", "osv", "mm" (med mera) — skriv ut dem för översättning
+• EXEMPEL — Kamera: "Canon AV-1, nummer 321063. Canon Zoom lens FD 35-70 mm.\n\nHusets längd 14 cm."
 
 === KONDITION-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL KONDITION-FÖRBÄTTRING) ===
 
@@ -1035,7 +1038,7 @@ AUCTIONET FAQ-SPECIFIKA KONDITIONSREGLER:
 • Ramar: Kommentera ALDRIG ramens kondition (om inte ramen är det som säljs). Nämn ALLTID saknat/skadat glas i ramar
 • Böcker/samlingar: Använd "Ej genomgånget" om alla delar inte kontrollerats individuellt
 • UNDVIK "Ej funktionstestad" — denna fras ger intryck att vi testar funktion, vilket vi inte gör
-• UNDVIK alla förkortningar i kondition: skriv "bland annat" INTE "bl a", "millimeter" INTE "mm", "och så vidare" INTE "osv"
+• UNDVIK svenska förkortningar i kondition: skriv "bland annat" INTE "bl a", "med mera" INTE "mm", "och så vidare" INTE "osv" — måttenheter som "mm" och "cm" är dock OK
 • Silver/guld: Nämn ALLTID gåvogravyr/monogram i kondition om det finns
 
 === SÖKORD-SPECIFIKA REGLER (SAMMA SOM INDIVIDUELL SÖKORD-GENERERING) ===
@@ -1189,13 +1192,16 @@ ${itemData.artist && this.enableArtistInfo ?
 MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
 • Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
+• KRITISKT: Denna regel gäller ALLA kategorier — möbler, konst, kameror, keramik, glas, allt!
 • Format för möbler: "Längd 84, bredd 47, höjd 92 cm" (cm bara efter sista måttet)
 • Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
 • Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
 • Små föremål: ett mått räcker (höjd eller diameter)
 • Ringar: ange BARA ringstorlek, inga mått
 • Grafik: förtydliga om det är bladstorlek eller bildstorlek
-• Använd ALLTID "cm" — ALDRIG "centimeter"
+• "cm" och "mm" som måttenheter är OK — "centimeter"/"millimeter" är också acceptabelt
+• Undvik svenska förkortningar som "bl a", "osv", "mm" (med mera) — skriv ut dem för översättning
+• EXEMPEL — Kamera: "Canon AV-1, nummer 321063. Canon Zoom lens FD 35-70 mm.\n\nHusets längd 14 cm."
 
 KRITISKT - RETURFORMAT:
 • Returnera ENDAST beskrivningstexten med radbrytningar för separata paragrafer
@@ -1235,7 +1241,7 @@ AUCTIONET FAQ-SPECIFIKA KONDITIONSREGLER:
 • Ramar: Kommentera ALDRIG ramens kondition (om inte ramen är det som säljs). Nämn ALLTID saknat/skadat glas i ramar
 • Böcker/samlingar: Använd "Ej genomgånget" om alla delar inte kontrollerats individuellt
 • UNDVIK "Ej funktionstestad" — denna fras ger intryck att vi testar funktion, vilket vi inte gör
-• UNDVIK alla förkortningar i kondition: skriv "bland annat" INTE "bl a", "millimeter" INTE "mm", "och så vidare" INTE "osv"
+• UNDVIK svenska förkortningar i kondition: skriv "bland annat" INTE "bl a", "med mera" INTE "mm", "och så vidare" INTE "osv" — måttenheter som "mm" och "cm" är dock OK
 • Silver/guld: Nämn ALLTID gåvogravyr/monogram i kondition om det finns
 
 Returnera ENDAST den förbättrade konditionsrapporten utan extra formatering eller etiketter.`;
