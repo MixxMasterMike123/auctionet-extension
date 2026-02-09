@@ -832,7 +832,7 @@ ${itemData.artistDates ? 'Konstnärsdata från Auctionet: ' + itemData.artistDat
 Värdering: ${itemData.estimate} SEK
 
 VIKTIGT FÖR TITEL: ${itemData.artist ?
-        'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA PROPER KAPITALISERAT (första bokstaven versal, resten gemener) eftersom konstnären läggs till i versaler automatiskt. Exempel: "Skulpturer" INTE "SKULPTURER" och INTE "skulpturer".' :
+        'Konstnär/formgivare-fältet är ifyllt (' + itemData.artist + '), så inkludera INTE konstnärens namn i titeln - det läggs till automatiskt av systemet. FÖRSTA ORDET I TITELN SKA VARA PROPER KAPITALISERAT (första bokstaven versal, resten gemener). Resten av titeln ska använda KOMMA (,) som separator och gemener för vanliga substantiv (glas, porslin, trä, etc.). Versaler BARA för egennamn och modellnamn. Exempel: "Vas, glas, Kosta Boda" INTE "Vas. Glas, Kosta Boda".' :
         'Konstnär/formgivare-fältet är tomt, så inkludera konstnärens namn i titeln om det är känt. FÖRSTA ORDET I TITELN SKA VARA VERSALER (uppercase).'}
 
 KRITISKT - KONSTNÄR I MITTEN/SLUTET AV TITEL:
@@ -926,7 +926,7 @@ KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
 
 KRITISKA TITELFORMATREGLER:
 ${itemData.artist ?
-            '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' :
+            '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av KOMMA (,)\n• Alla vanliga substantiv ska ha LITEN BOKSTAV (glas, porslin, trä, olja, etc.)\n• VERSALER bara för egennamn/modellnamn (Kosta Boda, IKEA, "Ladoga")\n• Exempel: "Vas, glas, Kosta Boda" (visas som "ULRICA HYDMAN-VALLIEN. Vas, glas, Kosta Boda")\n• Exempel: "Stolar, 6 st, modell 66, Artek"\n• FÖRBJUDET: "Vas. Glas," (punkt + versal) eller "STOLAR" (helversaler)\n• KORREKT: "Vas, glas," (komma + gemen)' :
             '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av KOMMA (,)\n• Nästa ord efter komma ska ha liten bokstav (utom namn/märken)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR, 2 st, Kosta Boda"'}
 
 SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
@@ -936,15 +936,6 @@ SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 • FÖRSTA ORDET ska vara VERSALER (objektnamnet är huvudsaken)
 • EXEMPEL: "SERVISDELAR, 24 delar, porslin, Stig Lindberg, 'Spisa Ribb', Gustavsberg. 1900-tal."
 • Flytta ALDRIG konstnären när den inte är i början - det är medvetet placerad
-
-UPPDATERAD REGEL - FORMATERING NÄR INGET KONSTNÄRSFÄLT:
-• KRITISKT: När konstnär/formgivare-fältet är TOMT ska första ordet ha KOMMA (,) INTE punkt (.)
-• FÖRSTA ORDET: Versaler (uppercase)
-• EFTER KOMMA: Liten bokstav (utom namn/märken som Eskilstuna, Kosta Boda)
-• RÄTT: "BOKHYLLA, betsat trä, 1900-talets mitt"
-• FEL: "BOKHYLLA. Betsat trä, 1900-talets mitt"
-• RÄTT: "LJUSPLÅTAR, ett par, mässing, 1900-tal"
-• FEL: "LJUSPLÅTAR. Ett par, mässing, 1900-tal"
 
 FÖRBJUDNA SAMMANSATTA ORD I TITEL:
 • Använd ALDRIG sammansatta objektord+material i titeln
@@ -1059,7 +1050,7 @@ VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KR
 
 KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
 ${itemData.artist ?
-            '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal)\n• Exempel: "Skulpturer" (blir "SVEN GUNNARSSON. Skulpturer") INTE "SKULPTURER" eller "skulpturer"\n• Auctionet lägger till: "KONSTNÄR. " så titeln ska vara "Skulpturer" inte "skulpturer"' :
+            '• Konstnär/formgivare-fältet är ifyllt - FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av KOMMA (,)\n• Vanliga substantiv efter komma: LITEN BOKSTAV (glas, porslin, olja, etc.)\n• Exempel: "Stolar, 6 st, modell 66, Artek" (visas som "ALVAR AALTO. Stolar, 6 st, modell 66, Artek")\n• FÖRBJUDET: punkt efter första ordet ("Stolar. 6 st") — använd KOMMA' :
             '• Konstnär/formgivare-fältet är tomt - FÖRSTA ORDET I TITEL SKA VARA VERSALER (uppercase)'}
 
 Returnera EXAKT i detta format (en rad per fält):
@@ -1101,7 +1092,7 @@ KRITISKA MÄRKESRÄTTSTAVNINGSREGLER:
 
 KRITISKA TITELFORMATREGLER:
 ${itemData.artist ?
-            '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av PUNKT (.)\n• Nästa ord efter punkt ska ha stor bokstav\n• Exempel: "Skulpturer. 2 st, porträttbyster" (blir "SVEN GUNNARSSON. Skulpturer. 2 st, porträttbyster")\n• FÖRBJUDET: "SKULPTURER" (versaler) eller "skulpturer" (gemener)\n• KORREKT: "Skulpturer." (proper kapitalisering + punkt)' :
+            '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av KOMMA (,)\n• Alla vanliga substantiv ska ha LITEN BOKSTAV (glas, porslin, trä, olja, etc.)\n• VERSALER bara för egennamn/modellnamn (Kosta Boda, IKEA, "Ladoga")\n• Exempel: "Vas, glas, Kosta Boda" (visas som "ULRICA HYDMAN-VALLIEN. Vas, glas, Kosta Boda")\n• FÖRBJUDET: "Vas. Glas," (punkt + versal) eller "STOLAR" (helversaler)\n• KORREKT: "Vas, glas," (komma + gemen)' :
             '• Konstnär/formgivare-fältet är tomt:\\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av KOMMA (,)\\n• Nästa ord efter komma ska ha liten bokstav (utom namn/märken)\\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"\\n• KORREKT: "BORDSLAMPOR, 2 st, Kosta Boda"'}
 
 SPECIAL REGEL - KONSTNÄR I MITTEN/SLUTET AV TITEL:
