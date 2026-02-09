@@ -364,13 +364,13 @@
   transform: translate(-50%, -100%) translateY(-8px);
 }
 
-/* Quality Score Badge (Legacy - for backward compatibility) */
+/* Quality Score Badge — overridden by component-level styles */
 .quality-score {
   font-size: 18px;
   font-weight: bold;
   padding: 5px 10px;
   border-radius: 3px;
-  display: none; /* Hide old style in favor of circles */
+  display: none;
 }
 
 .quality-score.good {

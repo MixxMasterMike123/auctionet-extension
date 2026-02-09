@@ -43,10 +43,6 @@ export function getCurrentModel() {
   return CONFIG.MODELS[CONFIG.CURRENT_MODEL];
 }
 
-export function getHaikuModel() {
-  return CONFIG.MODELS['haiku'];
-}
-
 export function getModelCost(modelKey = CONFIG.CURRENT_MODEL) {
   return CONFIG.MODELS[modelKey]?.cost || 'Unknown';
 } 

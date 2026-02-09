@@ -4147,30 +4147,4 @@ Anpassa förslagen till kategorin "${category}".`,
     }
   }
 
-  // NEW: Test artist field detection for debugging
-  testArtistFieldDetection() {
-
-    const artistFieldSelectors = [
-      '#item_artist_name_sv',
-      'input[name*="artist"]',
-      'input[id*="artist"]',
-      'input[placeholder*="konstnär"]',
-      'input[placeholder*="artist"]'
-    ];
-
-    artistFieldSelectors.forEach((selector, index) => {
-      const field = document.querySelector(selector);
-      if (field) {
-        // Field found for debugging if needed
-      }
-    });
-
-    // Also check all input fields on page
-    const allInputs = document.querySelectorAll('input[type="text"]');
-    allInputs.forEach((input, index) => {
-      if (input.id && (input.id.includes('artist') || input.name.includes('artist'))) {
-        // Log input details for debugging if needed
-      }
-    });
-  }
 }

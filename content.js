@@ -89,23 +89,8 @@ import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module =
       window.getModelSpecificValuationRules = aiRulesManager.getModelSpecificValuationRules.bind(aiRulesManager);
       window.getBrandCorrections = aiRulesManager.getBrandCorrections.bind(aiRulesManager);
       window.getArtistCorrections = aiRulesManager.getBrandCorrections.bind(aiRulesManager);
-      console.log('🔗 Overrode ALL global AI Rules functions with loaded instance');
-      console.log('✅ AI Rules System initialized and functions made globally available');
-
-      // Debug: Test that functions work
-      try {
-        const testPrompt = window.getSystemPrompt('core');
-        const testRules = window.getModelSpecificValuationRules('freetextParser', 'claude-sonnet-4-5-20250929');
-        console.log('🧪 AI Rules functions tested successfully:', {
-          hasSystemPrompt: !!testPrompt,
-          hasValuationRules: !!testRules
-        });
-      } catch (error) {
-        console.error('❌ AI Rules functions test failed:', error);
-      }
     } else {
-      console.log('⏳ Waiting for AI Rules to load... Current state:', aiRulesManager.loaded);
-      setTimeout(waitForRules, 200); // Check every 200ms
+      setTimeout(waitForRules, 200);
     }
   };
 

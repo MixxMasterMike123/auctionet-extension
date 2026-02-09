@@ -1539,13 +1539,6 @@ Return JSON only:
         // Determine the best working query for dashboard links (prioritize historical)
         const bestWorkingQuery = workingQueries.historical || workingQueries.live;
 
-        if (workingQueries.historical !== workingQueries.live && workingQueries.historical && workingQueries.live) {
-          console.log(`⚠️ SEARCH QUERY MISMATCH DETECTED:`);
-          console.log(`   Historical query: "${workingQueries.historical}"`);
-          console.log(`   Live query: "${workingQueries.live}"`);
-        } else {
-        }
-
         const combinedResult = {
           hasComparableData: !!(historicalResult || liveResult),
           dataSource: 'auctionet_comprehensive',

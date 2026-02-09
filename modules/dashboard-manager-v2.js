@@ -1,5 +1,4 @@
-// modules/dashboard-manager-v2.js - Clean, Modular Dashboard Manager
-// Refactored from the massive 3,146 line dashboard-manager.js
+// modules/dashboard-manager-v2.js - Modular Dashboard Manager
 
 import { PillGenerator } from './ui/pill-generator.js';
 import { CheckboxManager } from './ui/checkbox-manager.js';
