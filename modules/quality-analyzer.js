@@ -3096,12 +3096,16 @@ Anpassa förslagen till kategorin "${category}".`,
             const category = document.querySelector('#item_category_id option:checked')?.textContent || '';
             const suggestions = this.getConditionSuggestions(category, 3);
             const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
-            const refreshStyle = 'display:inline-block;margin:3px 0 0 4px;padding:2px 6px;background:none;border:1px solid #d4a056;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;transition:background 0.15s;';
+            const refreshStyle = 'display:inline-block;padding:1px 6px;background:none;border:none;color:#b08840;font-size:10px;font-style:normal;cursor:pointer;text-decoration:underline;text-underline-offset:2px;transition:color 0.15s;';
             const replaceAttr = w.inlineReplace ? ` data-replace="${w.inlineReplace}"` : '';
-            const aiLabel = this._aiConditionSuggestions ? ' title="AI-genererade förslag"' : ' title="Klicka för nya förslag"';
+            const aiLabel = this._aiConditionSuggestions ? ' title="AI-genererade förslag"' : ' title="Klicka for nya forslag"';
             extra = '<div style="margin-top:4px;">' +
+              '<div style="display:flex;justify-content:flex-end;margin-bottom:2px;">' +
+              `<a class="condition-refresh-btn"${aiLabel} style="${refreshStyle}" onmouseover="this.style.color='#92400e'" onmouseout="this.style.color='#b08840'">Nya forslag</a>` +
+              '</div>' +
+              '<div>' +
               suggestions.map(s => `<a class="condition-suggestion-chip" data-value="${s}"${replaceAttr} style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${s}</a>`).join('') +
-              `<a class="condition-refresh-btn"${aiLabel} style="${refreshStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='none'">↻</a>` +
+              '</div>' +
               '</div>';
 
             // Trigger background AI generation if not already done
