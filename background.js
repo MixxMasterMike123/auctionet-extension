@@ -2,6 +2,23 @@
 // Background script startup
 console.log('Auctionet AI Assistant background script loaded');
 
+// One-time migration: move API key from sync to local storage (for security)
+(async () => {
+  try {
+    const local = await chrome.storage.local.get(['anthropicApiKey']);
+    if (!local.anthropicApiKey) {
+      const sync = await chrome.storage.sync.get(['anthropicApiKey']);
+      if (sync.anthropicApiKey) {
+        await chrome.storage.local.set({ anthropicApiKey: sync.anthropicApiKey });
+        await chrome.storage.sync.remove('anthropicApiKey');
+        console.log('Migrated API key from sync to local storage');
+      }
+    }
+  } catch (e) {
+    console.error('API key migration error:', e);
+  }
+})();
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background script received message:', request.type);
   

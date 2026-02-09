@@ -20,7 +20,12 @@ export class APIManager {
 
   async loadSettings() {
     try {
-      const result = await chrome.storage.sync.get(['anthropicApiKey', 'enableArtistInfo', 'showDashboard', 'selectedModel']);
+      // API key stored in local (not synced) for security; preferences in sync
+      const [localResult, syncResult] = await Promise.all([
+        chrome.storage.local.get(['anthropicApiKey']),
+        chrome.storage.sync.get(['enableArtistInfo', 'showDashboard', 'selectedModel'])
+      ]);
+      const result = { ...localResult, ...syncResult };
       this.apiKey = result.anthropicApiKey;
       this.enableArtistInfo = result.enableArtistInfo !== false;
       this.showDashboard = result.showDashboard !== false; // Default to true if not set

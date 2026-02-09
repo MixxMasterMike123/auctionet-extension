@@ -102,10 +102,10 @@
       }
 
       setupEventListeners() {
-        // Listen for API key changes
+        // Listen for API key changes (stored in local for security)
         chrome.storage.onChanged.addListener((changes, namespace) => {
-          if (namespace === 'sync' && changes.anthropicApiKey) {
-            console.log('API key updated in storage');
+          if (namespace === 'local' && changes.anthropicApiKey) {
+            console.log('API key updated in local storage');
             this.apiManager.apiKey = changes.anthropicApiKey.newValue;
           }
         });

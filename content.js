@@ -172,9 +172,9 @@ class AuctionetCatalogingAssistant {
       console.error('❌ Failed to initialize AuctionetCatalogingAssistant:', error);
     });
 
-    // Listen for API key changes
+    // Listen for API key changes (stored in local for security)
     chrome.storage.onChanged.addListener((changes, namespace) => {
-      if (namespace === 'sync' && changes.anthropicApiKey) {
+      if (namespace === 'local' && changes.anthropicApiKey) {
         this.apiKey = changes.anthropicApiKey.newValue;
       }
     });
@@ -377,9 +377,9 @@ class AuctionetCatalogingAssistant {
 
   async loadApiKey() {
     try {
-      const result = await chrome.storage.sync.get(['anthropicApiKey']);
+      const result = await chrome.storage.local.get(['anthropicApiKey']);
       this.apiKey = result.anthropicApiKey;
-      console.log('API key loaded from storage:', this.apiKey ? 'Found' : 'Not found');
+      console.log('API key loaded from local storage:', this.apiKey ? 'Found' : 'Not found');
     } catch (error) {
       console.error('Error loading API key:', error);
       this.apiKey = null;

@@ -37,11 +37,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadApiKey() {
     try {
-      const result = await chrome.storage.sync.get(['anthropicApiKey']);
+      const result = await chrome.storage.local.get(['anthropicApiKey']);
       if (result.anthropicApiKey) {
         apiKeyInput.value = result.anthropicApiKey;
         // Don't auto-test on load, just show that key was loaded
-        console.log('API key loaded from storage');
+        console.log('API key loaded from local storage');
       }
     } catch (error) {
       showStatus('Error loading API key: ' + error.message, 'error');
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       saveButton.disabled = true;
       saveButton.textContent = 'Saving...';
 
-      await chrome.storage.sync.set({ anthropicApiKey: apiKey });
+      await chrome.storage.local.set({ anthropicApiKey: apiKey });
       showStatus('API key saved successfully! Click "Test Connection" to verify it works.', 'success');
       
       // Notify all tabs to refresh their API key
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // Check if API key is set
-      const result = await chrome.storage.sync.get(['anthropicApiKey']);
+      const result = await chrome.storage.local.get(['anthropicApiKey']);
       if (!result.anthropicApiKey) {
         updateExtensionStatus('no-api-key');
         return;
