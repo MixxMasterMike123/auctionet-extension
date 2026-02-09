@@ -30,7 +30,7 @@ export const CONFIG = {
   // API Configuration
   API: {
     maxTokens: 1500,
-    temperature: 0.1,
+    temperature: 0.3,
     retryAttempts: 3
   },
 
