@@ -996,7 +996,8 @@ KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
 • Lägg ALDRIG till detaljer om VAR skadorna finns om det inte redan står i originalet
 • EXEMPEL PÅ FÖRBJUDET: Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
 • Förbättra ENDAST språk och använd standardtermer för EXAKT samma information som redan finns
-• Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
+• Om originalet säger ENBART "bruksslitage" — BEHÅLL det EXAKT som det är. Ändra INTE till "normalt bruksslitage". Systemet har separata tips som hjälper användaren välja en bättre term.
+• Om originalet har "bruksslitage" TILLSAMMANS med specifika skador (t.ex. "Bruksslitage, repor") — behåll allt och förbättra bara språket
 
 KRITISKT — ERSÄTT ALDRIG SPECIFIKA TERMER MED VAGARE:
 • Om originalet redan har en specifik konditionsterm (t.ex. "smärre slitage", "ytliga repor", "mindre nagg") — BEHÅLL den
@@ -1205,7 +1206,8 @@ KRITISKT - ANTI-HALLUCINATION FÖR KONDITION:
 • Lägg ALDRIG till detaljer om VAR skadorna finns om det inte redan står i originalet
 • EXEMPEL PÅ FÖRBJUDET: Om original säger "repor" - skriv INTE "repor i metallramen" eller "repor på ytan"
 • Förbättra ENDAST språk och använd standardtermer för EXAKT samma information som redan finns
-• Om originalet säger "bruksslitage" - förbättra till "normalt bruksslitage" eller "synligt bruksslitage", INTE "repor och märken"
+• Om originalet säger ENBART "bruksslitage" — BEHÅLL det EXAKT som det är. Ändra INTE till "normalt bruksslitage". Systemet har separata tips som hjälper användaren välja en bättre term.
+• Om originalet har "bruksslitage" TILLSAMMANS med specifika skador (t.ex. "Bruksslitage, repor") — behåll allt och förbättra bara språket
 
 KRITISKT — ERSÄTT ALDRIG SPECIFIKA TERMER MED VAGARE:
 • Om originalet redan har en specifik konditionsterm (t.ex. "smärre slitage", "ytliga repor", "mindre nagg") — BEHÅLL den
