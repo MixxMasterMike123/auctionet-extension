@@ -1040,7 +1040,6 @@ export class UIController {
             continueBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('🔍 Continue-anyway clicked, fieldType:', fieldType);
                 removeDialog();
                 if (this.callbacks.onForceImprove) {
                     this.callbacks.onForceImprove(fieldType);
