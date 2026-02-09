@@ -611,14 +611,24 @@ KONDITION FÖR SILVER:
 KATEGORI-SPECIFIK REGEL - KONST OCH MÅLNINGAR:
 Detta är ett konstverk. Följ Auctionets katalogiseringsregler för konst.
 
-TITELFORMAT FÖR KONST:
-• Om signaturen går att utläsa — skriv ut den. Oidentifierad konstnär om känd av andra
-• Skriv ALLTID dateringar och numreringar EXAKT som det står på verket (utan citattecken)
-• Skilj på om det står 1832, -32 eller 32 — behåll exakt format
-• Antal verk skrivs efter tekniken, INTE efter konstnärens namn
-• EXEMPEL: "BENGT LINDSTRÖM, färglitografier, 2 st, signerade och daterade 76"
-• Citattecken ENDAST om konstnären själv gett verket en titel
-• Det räcker att skriva konstnärens namn i konstnärsrutan (läggs till automatiskt)
+TITELFORMAT FÖR KONST — ELEMENTORDNING:
+Titeln ska följa denna ordning (utelämna element som saknas):
+1. Verkets titel i citattecken (BARA om konstnären själv namngett verket)
+2. Teknik (olja på duk, akvarell, blandteknik, färglitografi, etc.)
+3. Antal (om parti: "2 st" — skrivs efter tekniken, INTE efter konstnärsnamn)
+4. Signatur/datering (signerad, signerad och daterad -28, etc.)
+5. Period (om känd och inte framgår av datering)
+
+EXEMPEL FRÅN AUCTIONET:
+• "Enkelbeckasin i höstskog", olja på duk, signerad B.L och daterad -28
+• Färglitografier, 2 st, signerade och daterade 76 och numrerade 120/310
+• Rådjur, skulptur, brons, otydligt signerad, 18/1900-tal
+• "Masque-Paysage II", olja på duk, signerad
+
+VIKTIGA KONSTREGLER:
+• Citattecken BARA om konstnären själv gett verket en titel — annars INGA citattecken
+• Skriv dateringar och numreringar EXAKT som det står på verket: skilj på 1832, -32 eller 32
+• Konstnärens namn skrivs i konstnärsrutan (läggs till automatiskt) — inkludera INTE i titeln
 
 SIGNATUR OCH ATTRIBUTION:
 • Skriv "signerad a tergo" om signatur finns på baksidan
