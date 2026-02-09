@@ -35,7 +35,7 @@ export class AIAnalysisEngine {
       const result = await this.performAIArtistAnalysis(title, objectType, artistField, description);
       return result;
     } catch (error) {
-      console.error('💥 Error in AI artist analysis:', error);
+      console.error('Error in AI artist analysis:', error);
       return null; // Graceful fallback
     }
   }
@@ -57,7 +57,6 @@ Svara ENDAST JSON:
   "confidence": 0.9,
   "suggestedTitle": "titel utan konstnär"
 }`;
-
 
 
     const response = await new Promise((resolve, reject) => {
@@ -156,9 +155,6 @@ Svara ENDAST JSON:
       return null;
     } catch (error) {
       // Enhanced debugging for parsing errors
-      console.log('⚠️ AI artist analysis: parsing issue (non-critical)', error.message);
-      console.log('🔧 Raw AI response that failed to parse:', responseText);
-      console.log('🔧 JSON match found:', responseText.match(/\{[\s\S]*\}/));
       
       // Try a more aggressive fallback parsing
       try {
@@ -170,13 +166,11 @@ Svara ENDAST JSON:
         const markdownJsonMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/i);
         if (markdownJsonMatch) {
           jsonStr = markdownJsonMatch[1].trim();
-          console.log('🔧 Found JSON in markdown code block');
         } else {
           // Fallback to simple JSON extraction
           const jsonMatch = responseText.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             jsonStr = jsonMatch[0];
-            console.log('🔧 Found JSON without markdown wrapper');
           }
         }
         
@@ -184,7 +178,6 @@ Svara ENDAST JSON:
           try {
             const parsed = JSON.parse(jsonStr);
             if (parsed.hasArtist === true && parsed.artistName) {
-              console.log('🎯 Fallback JSON parsing found artist:', parsed.artistName);
               const result = {
                 hasArtist: true,
                 artistName: parsed.artistName,
@@ -196,17 +189,12 @@ Svara ENDAST JSON:
                 reasoning: parsed.reasoning || 'Fallback JSON parsing från AI-svar',
                 source: 'ai'
               };
-              console.log('🚀 AI Analysis Engine returning result:', result);
               return result;
             } else if (parsed.hasArtist === false) {
-              console.log('🚫 AI correctly determined no artist present');
               return null; // No artist detected
             }
           } catch (jsonParseError) {
-            console.log('🔧 JSON parsing failed even with improved extraction:', jsonParseError.message);
           }
-        } else {
-          console.log('🔧 No JSON structure found in response');
         }
         
         // Fallback to regex patterns
@@ -214,7 +202,6 @@ Svara ENDAST JSON:
                          responseText.match(/(?:detected|found|upptäckt)[^"']*["']([^"']+)["']/i);
         
         if (nameMatch && nameMatch[1]) {
-          console.log('🎯 Fallback regex parsing found artist:', nameMatch[1]);
           return {
             hasArtist: true,
             artistName: nameMatch[1],
@@ -228,10 +215,8 @@ Svara ENDAST JSON:
           };
         }
       } catch (fallbackError) {
-        console.log('⚠️ Even fallback parsing failed:', fallbackError.message);
       }
       
-      console.log('❌ AI Analysis Engine returning null - no artist found in parsing');
       return null;
     }
   }
@@ -318,7 +303,6 @@ JSON:
       
       return null;
     } catch (error) {
-      console.log('⚠️ AI artist verification: parsing issue (non-critical)', error.message);
       return null;
     }
   }

@@ -64,7 +64,6 @@
     };
 
 
-
     // Extract title from the details section - try multiple selectors
     const titleSelectors = [
       '.details-texts .heading + .bottom-vspace',
@@ -286,7 +285,6 @@
     // Find the edit link to construct the edit URL
     const editLink = document.querySelector('a[href*="/edit"]');
     if (!editLink) {
-      console.log('Could not find edit link, cannot show banner');
       return;
     }
 
@@ -494,7 +492,6 @@
       const element = document.querySelector(selector);
       if (element) {
         insertionTarget = element;
-        console.log(`Found insertion point: ${selector}`);
         break;
       }
     }
@@ -502,21 +499,17 @@
     if (insertionTarget) {
       // Insert after the navigation element
       insertionTarget.parentNode.insertBefore(banner, insertionTarget.nextSibling);
-      console.log('Banner inserted after navigation in document flow');
     } else {
       // Fallback: insert at beginning of container
       const container = document.querySelector('.container');
       if (container) {
         container.insertBefore(banner, container.firstChild);
-        console.log('Banner inserted at beginning of container');
       } else {
         // Last resort: insert at beginning of body
         document.body.insertBefore(banner, document.body.firstChild);
-        console.log('Banner inserted at beginning of body');
       }
     }
     
-    console.log(`Quality banner shown for score: ${score}, issues: ${issues.join(', ')}, in document flow`);
   }
 
 })(); 

@@ -28,19 +28,14 @@ export class TitleCleanupUtility {
    */
   cleanTitleAfterArtistRemoval(originalTitle, artistName, options = {}) {
     if (!originalTitle || typeof originalTitle !== 'string') {
-      console.warn('⚠️ TitleCleanupUtility: Invalid original title provided');
       return originalTitle || '';
     }
     
     if (!artistName || typeof artistName !== 'string' || artistName.trim().length === 0) {
-      console.warn('⚠️ TitleCleanupUtility: Invalid artist name provided');
       return originalTitle;
     }
     
     const cleanArtistName = artistName.trim();
-    console.log('🧹 TitleCleanupUtility: Starting cleanup');
-    console.log(`📝 Original title: "${originalTitle}"`);
-    console.log(`👤 Artist to remove: "${cleanArtistName}"`);
     
     try {
       // Step 1: Remove artist using comprehensive patterns
@@ -55,11 +50,10 @@ export class TitleCleanupUtility {
       // Step 4: Apply Swedish auction formatting standards
       cleanedTitle = this.applyFormattingStandards(cleanedTitle);
       
-      console.log(`✅ TitleCleanupUtility: Cleanup complete: "${cleanedTitle}"`);
       return cleanedTitle;
       
     } catch (error) {
-      console.error('❌ TitleCleanupUtility: Error during cleanup:', error);
+      console.error('TitleCleanupUtility: Error during cleanup:', error);
       return originalTitle; // Return original on error
     }
   }
@@ -89,7 +83,6 @@ export class TitleCleanupUtility {
     // Pattern 5: Artist at end with preceding punctuation
     result = result.replace(new RegExp(`[.,\\-:;]\\s*${artistPattern}\\s*$`, 'i'), '');
     
-    console.log(`🔄 After artist removal: "${result}"`);
     return result;
   }
 
@@ -130,7 +123,6 @@ export class TitleCleanupUtility {
     // Final trim
     result = result.trim();
     
-    console.log(`🔧 After punctuation cleanup: "${result}"`);
     return result;
   }
 
@@ -140,21 +132,18 @@ export class TitleCleanupUtility {
   handleEdgeCases(cleanedTitle, originalTitle, options) {
     // Case 1: Title became empty or too short
     if (!cleanedTitle || cleanedTitle.length < 2) {
-      console.log('🔄 Title too short, extracting object type...');
       const extractedType = this.extractObjectType(originalTitle);
       return extractedType || (options.defaultObjectType || 'Objekt');
     }
     
     // Case 2: Title is only punctuation
     if (/^[.,\-:;\s]+$/.test(cleanedTitle)) {
-      console.log('🔄 Title only punctuation, extracting object type...');
       const extractedType = this.extractObjectType(originalTitle);
       return extractedType || (options.defaultObjectType || 'Objekt');
     }
     
     // Case 3: Title starts with lowercase after cleanup (fix capitalization)
     if (cleanedTitle.length > 0 && cleanedTitle[0] === cleanedTitle[0].toLowerCase()) {
-      console.log('🔄 Fixing capitalization...');
       cleanedTitle = cleanedTitle.charAt(0).toUpperCase() + cleanedTitle.slice(1);
     }
     
@@ -165,7 +154,6 @@ export class TitleCleanupUtility {
     );
     
     if (meaningfulWords.length === 0) {
-      console.log('🔄 No meaningful words left, extracting object type...');
       const extractedType = this.extractObjectType(originalTitle);
       return extractedType || (options.defaultObjectType || 'Objekt');
     }
@@ -200,7 +188,6 @@ export class TitleCleanupUtility {
       }
     }
     
-    console.log('🔍 Could not extract object type from title');
     return null;
   }
 
@@ -230,7 +217,6 @@ export class TitleCleanupUtility {
       result = result.replace(regex, marker);
     });
     
-    console.log(`🎨 After formatting standards: "${result}"`);
     return result;
   }
 
@@ -327,18 +313,11 @@ export class TitleCleanupUtility {
       }
     ];
     
-    console.log('🧪 Running TitleCleanupUtility tests...');
     
     testCases.forEach((test, index) => {
       const result = utility.cleanTitleAfterArtistRemoval(test.original, test.artist);
       const passed = result === test.expected;
       
-      console.log(`Test ${index + 1}: ${test.description}`);
-      console.log(`  Input: "${test.original}" (remove: "${test.artist}")`);
-      console.log(`  Expected: "${test.expected}"`);
-      console.log(`  Got: "${result}"`);
-      console.log(`  ${passed ? '✅ PASS' : '❌ FAIL'}`);
-      console.log('');
     });
   }
 }

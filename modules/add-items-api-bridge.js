@@ -15,7 +15,6 @@ export class AddItemsAPIBridge {
     
     // UI is now handled by AddItemsIntegrationManager - no duplicate UI!
     
-    console.log('✅ AddItemsAPIBridge: Initialized with edit page API manager');
   }
 
   /**
@@ -28,10 +27,9 @@ export class AddItemsAPIBridge {
       
       // UI initialization is now handled by AddItemsIntegrationManager
       
-      console.log('✅ AddItemsAPIBridge: Initialization complete');
       return true;
     } catch (error) {
-      console.error('❌ AddItemsAPIBridge: Initialization failed:', error);
+      console.error('AddItemsAPIBridge: Initialization failed:', error);
       return false;
     }
   }
@@ -95,13 +93,9 @@ export class AddItemsAPIBridge {
     // Apply the improvement to the field
     // Handle title-correct mapping to title field
     const responseField = fieldType === 'title-correct' ? 'title' : fieldType;
-    console.log(`🔍 API Bridge: fieldType=${fieldType}, responseField=${responseField}, result=`, result);
     
     if (result && result[responseField]) {
-      console.log(`✅ API Bridge: Applying improvement - fieldType=${fieldType}, value=${result[responseField]}`);
       this.applyImprovement(fieldType, result[responseField]);
-    } else {
-      console.log(`❌ API Bridge: No value found - result[${responseField}] =`, result[responseField]);
     }
     
     return result;
@@ -150,14 +144,10 @@ export class AddItemsAPIBridge {
       'keywords': '#item_hidden_keywords'
     };
     
-    console.log(`🔍 applyImprovement: fieldType=${fieldType}, value="${value}"`);
-    console.log(`🔍 applyImprovement: Looking for field selector="${fieldMap[fieldType]}"`);
     
     const field = document.querySelector(fieldMap[fieldType]);
-    console.log(`🔍 applyImprovement: Found field element=`, field);
     
     if (field && value) {
-      console.log(`🔄 applyImprovement: Setting field value from "${field.value}" to "${value}"`);
       field.value = value;
       field.dispatchEvent(new Event('change', { bubbles: true }));
       
@@ -170,12 +160,8 @@ export class AddItemsAPIBridge {
         this.autoResizeTextarea(field);
       }
       
-      console.log(`✅ Applied improvement to ${fieldType}`);
     } else {
-      console.log(`❌ applyImprovement failed: field=${!!field}, value="${value}"`);
-      if (!field) {
-        console.log(`❌ Field not found with selector: ${fieldMap[fieldType]}`);
-      }
+      
     }
   }
 
@@ -262,6 +248,5 @@ export class AddItemsAPIBridge {
     if (this.aiEnhancementUI) {
       this.aiEnhancementUI.destroy?.();
     }
-    console.log('🧹 AddItemsAPIBridge: Cleaned up');
   }
 } 

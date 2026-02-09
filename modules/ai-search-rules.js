@@ -157,19 +157,14 @@ export const AI_SEARCH_RULES = {
 export function applySearchRules(inputData) {
   const { title, description, artist, aiArtist, excludeArtist } = inputData;
   
-  console.log('🤖 AI RULES: Starting AI-powered term extraction for:', inputData);
-  if (excludeArtist) {
-    console.log('🚫 AI RULES: Will exclude ignored artist:', excludeArtist);
-  }
+  
   
   // Check if we have AI capability for intelligent term extraction
   if (window.apiManager && typeof window.apiManager.generateAISearchTerms === 'function') {
-    console.log('🧠 AI RULES: Using AI-powered intelligent term extraction...');
     return generateAISearchTerms(inputData);
   }
   
   // Fallback to basic extraction if AI not available
-  console.log('⚠️ AI RULES: AI not available, using basic extraction fallback...');
   return generateBasicSearchTerms(inputData);
 }
 
@@ -225,13 +220,11 @@ Return JSON format:
     const aiResult = await window.apiManager.generateAISearchTerms(prompt);
     
     if (aiResult && aiResult.terms && Array.isArray(aiResult.terms)) {
-      console.log('✅ AI RULES: AI successfully extracted', aiResult.terms.length, 'terms');
       
       // NEW: FORCE quote wrapping for artist names before processing
       aiResult.terms.forEach(term => {
         if (term.category === 'artist' && typeof term.term === 'string') {
           term.term = forceQuoteWrapArtist(term.term);
-          console.log(`🎯 AI RULES: Force-wrapped artist term: "${term.term}"`);
         }
       });
       
@@ -239,7 +232,6 @@ Return JSON format:
       aiResult.terms.forEach(term => {
         if (term.category === 'artist') {
           term.preSelected = true;
-          console.log(`🎯 PRIORITY OVERRIDE: Artist "${term.term}" forced to pre-selected (absolute priority rule)`);
         }
       });
       
@@ -247,10 +239,6 @@ Return JSON format:
       const candidateTerms = aiResult.terms.filter(t => !t.preSelected).map(t => t.term);
       const allTerms = aiResult.terms.map(t => t.term);
       
-      console.log('🎯 AI RULES: AI-POWERED EXTRACTION COMPLETE');
-      console.log(`  📌 Pre-selected (${preSelectedTerms.length}):`, preSelectedTerms);
-      console.log(`  ⚪ Candidates (${candidateTerms.length}):`, candidateTerms);
-      console.log(`  🎯 Total terms: ${allTerms.length}`);
       
       return {
         searchTerms: preSelectedTerms,
@@ -283,7 +271,7 @@ Return JSON format:
       };
     }
   } catch (error) {
-    console.error('❌ AI RULES: AI term extraction failed:', error);
+    console.error('AI RULES: AI term extraction failed:', error);
   }
   
   // Fallback to basic extraction
@@ -307,7 +295,6 @@ function generateBasicSearchTerms(inputData) {
       source: 'artist_field',
       isPreSelected: true
     });
-    console.log(`👤 AI RULES: Artist field found - "${formattedArtist}" (auto-selected - absolute priority)`);
   }
   
   // ABSOLUTE PRIORITY: Always include AI-detected artist if present and different from field
@@ -320,7 +307,6 @@ function generateBasicSearchTerms(inputData) {
       source: 'ai_detected',
       isPreSelected: true
     });
-    console.log(`🤖 AI RULES: AI-detected artist found - "${formattedAiArtist}" (auto-selected - absolute priority)`);
   }
   
   // Basic brand detection for common cases
@@ -334,7 +320,6 @@ function generateBasicSearchTerms(inputData) {
         source: 'brand_detection',
         isPreSelected: extractedTerms.filter(t => t.isPreSelected).length < 2
       });
-      console.log(`🏷️ AI RULES: Brand detected - "${brand}"`);
     }
   }
   
@@ -351,7 +336,6 @@ function generateBasicSearchTerms(inputData) {
           source: 'quoted_model',
           isPreSelected: extractedTerms.filter(t => t.isPreSelected).length < 3
         });
-        console.log(`🔢 AI RULES: Model detected - "${cleanMatch}"`);
       }
     });
   }
@@ -371,16 +355,12 @@ function generateBasicSearchTerms(inputData) {
       source: 'title_extraction',
       isPreSelected: false
     });
-    console.log(`📝 AI RULES: Descriptive term - "${titleWords[i]}"`);
   }
   
   const preSelectedTerms = extractedTerms.filter(t => t.isPreSelected).map(t => t.term);
   const candidateTerms = extractedTerms.filter(t => !t.isPreSelected).map(t => t.term);
   const allTerms = extractedTerms.map(t => t.term);
   
-  console.log('🔧 AI RULES: BASIC EXTRACTION COMPLETE');
-  console.log(`  📌 Pre-selected (${preSelectedTerms.length}):`, preSelectedTerms);
-  console.log(`  ⚪ Candidates (${candidateTerms.length}):`, candidateTerms);
   
   return {
     searchTerms: preSelectedTerms,
@@ -409,7 +389,6 @@ function generateBasicSearchTerms(inputData) {
 // Export for configuration updates
 export function updateRule(ruleCategory, updates) {
   Object.assign(AI_SEARCH_RULES[ruleCategory], updates);
-  console.log(`🔧 AI RULES: Updated ${ruleCategory}:`, updates);
 }
 
 // Get current rules for debugging
@@ -430,7 +409,6 @@ function forceQuoteWrapArtist(term) {
   if (words.length > 1) {
     // Multi-word: Always wrap in quotes
     const quotedTerm = `"${cleanTerm}"`;
-    console.log(`🎯 AI RULES QUOTE WRAP: "${term}" → ${quotedTerm} (multi-word artist name)`);
     return quotedTerm;
   }
   

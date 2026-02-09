@@ -35,7 +35,6 @@ export class AddItemsTooltipManager {
       keywords: '#item_hidden_keywords'
     };
     
-    console.log('✅ AddItemsTooltipManager initialized with permanent state management');
   }
 
   // Utility function for debouncing function calls
@@ -56,11 +55,9 @@ export class AddItemsTooltipManager {
     await this.loadSettings();
     
     if (!this.enabled) {
-      console.log('💤 Add Items Tooltips: Disabled in settings');
       return;
     }
     
-    console.log('🚀 Add Items Tooltips: Starting initialization...');
     
     // NEW: Initialize field value tracking
     this.initializeFieldTracking();
@@ -74,7 +71,6 @@ export class AddItemsTooltipManager {
     // NEW: Setup auto-resize for textareas (same as EDIT page)
     this.setupAutoResizeForAllTextareas();
     
-    console.log('✅ Add Items Tooltips: Initialized successfully with permanent state management');
   }
 
   // NEW: Initialize field value tracking
@@ -82,21 +78,14 @@ export class AddItemsTooltipManager {
     // Get initial form data to establish baseline
     const formData = this.extractFormData();
     this.updateFieldValues(formData);
-    console.log('📊 Initialized field value tracking:', {
-      title: formData.title?.substring(0, 30) + '...',
-      artist: formData.artist,
-      description: formData.description?.substring(0, 30) + '...',
-      condition: formData.condition?.substring(0, 30) + '...'
-    });
   }
 
   async loadSettings() {
     try {
       // For now, default to enabled. Later we can add a specific setting
       this.enabled = true;
-      console.log('⚙️ Add items tooltips enabled:', this.enabled);
     } catch (error) {
-      console.error('❌ Error loading tooltip settings:', error);
+      console.error('Error loading tooltip settings:', error);
       this.enabled = true; // Default to enabled if error
     }
   }
@@ -110,18 +99,15 @@ export class AddItemsTooltipManager {
     if (titleField) {
       // Longer debounce for more stable detection (like edit page)
       titleField.addEventListener('input', this.debounce((e) => {
-        console.log('🎯 Title field input detected, scheduling artist detection...');
         this.scheduleArtistDetection();
       }, 800)); // Increased from 500ms to 800ms
       
       titleField.addEventListener('paste', () => {
-        console.log('🎯 Title field paste detected, scheduling artist detection...');
         setTimeout(() => this.scheduleArtistDetection(), 200); // Slight delay for paste content
       });
       
       // IMPROVED: Also listen for focus out to trigger final detection
       titleField.addEventListener('blur', () => {
-        console.log('🎯 Title field lost focus, triggering final artist detection...');
         // Cancel any pending detection and run immediately
         if (this.artistDetectionTimeout) {
           clearTimeout(this.artistDetectionTimeout);
@@ -133,16 +119,13 @@ export class AddItemsTooltipManager {
     // NEW: Independent description field monitoring for description tooltips
     const descriptionField = document.querySelector(this.fieldMappings.description);
     if (descriptionField) {
-      console.log('✅ Setting up independent description field monitoring');
       const debouncedDescriptionAnalysis = this.debounce((e) => {
-        console.log('📝 Description field changed, analyzing description quality...');
         const formData = this.extractFormData();
         this.analyzeDescriptionQuality(formData);
       }, 1200); // Slightly longer debounce for description
       
       descriptionField.addEventListener('input', debouncedDescriptionAnalysis);
       descriptionField.addEventListener('paste', () => {
-        console.log('📝 Description field paste detected');
         setTimeout(() => {
           const formData = this.extractFormData();
           this.analyzeDescriptionQuality(formData);
@@ -151,27 +134,21 @@ export class AddItemsTooltipManager {
       
       // Also trigger on blur for final analysis
       descriptionField.addEventListener('blur', () => {
-        console.log('📝 Description field lost focus, final description analysis...');
         const formData = this.extractFormData();
         this.analyzeDescriptionQuality(formData);
       });
-    } else {
-      console.warn('❌ Description field not found for monitoring');
     }
     
     // NEW: Independent condition field monitoring for condition tooltips
     const conditionField = document.querySelector(this.fieldMappings.condition);
     if (conditionField) {
-      console.log('✅ Setting up independent condition field monitoring');
       const debouncedConditionAnalysis = this.debounce((e) => {
-        console.log('🩺 Condition field changed, analyzing condition quality...');
         const formData = this.extractFormData();
         this.analyzeConditionQuality(formData);
       }, 1000); // Medium debounce for condition
       
       conditionField.addEventListener('input', debouncedConditionAnalysis);
       conditionField.addEventListener('paste', () => {
-        console.log('🩺 Condition field paste detected');
         setTimeout(() => {
           const formData = this.extractFormData();
           this.analyzeConditionQuality(formData);
@@ -180,12 +157,9 @@ export class AddItemsTooltipManager {
       
       // Also trigger on blur for final analysis
       conditionField.addEventListener('blur', () => {
-        console.log('🩺 Condition field lost focus, final condition analysis...');
         const formData = this.extractFormData();
         this.analyzeConditionQuality(formData);
       });
-    } else {
-      console.warn('❌ Condition field not found for monitoring');
     }
     
     // Also monitor artist field changes to ensure we re-detect when artist is cleared
@@ -193,11 +167,9 @@ export class AddItemsTooltipManager {
     if (artistField) {
       artistField.addEventListener('input', this.debounce((e) => {
         const artistValue = e.target.value.trim();
-        console.log('🎯 Artist field changed:', artistValue);
         
         // If artist field was cleared, re-run detection
         if (artistValue.length === 0) {
-          console.log('🔄 Artist field cleared, re-running detection...');
           this.scheduleArtistDetection();
         }
       }, 500));
@@ -214,11 +186,9 @@ export class AddItemsTooltipManager {
       const checkbox = document.querySelector(selector);
       if (checkbox) {
         checkbox.addEventListener('change', (e) => {
-          console.log('☑️ "Inga anmärkningar" checkbox changed:', e.target.checked);
           if (e.target.checked) {
             // Dismiss condition tooltips when "no remarks" is checked
             this.dismissTooltip('condition-quality');
-            console.log('🗑️ Dismissed condition tooltip due to "Inga anmärkningar" being checked');
           } else {
             // Re-analyze condition when unchecked
             setTimeout(() => {
@@ -238,7 +208,6 @@ export class AddItemsTooltipManager {
   setupAutoResize() {
     // This method exists to prevent the "setupAutoResize is not a function" error
     // The full auto-resize functionality is handled elsewhere in this class
-    console.log('🔧 Auto-resize setup initialized');
   }
 
   scheduleArtistDetection() {
@@ -266,7 +235,6 @@ export class AddItemsTooltipManager {
       
       // ENHANCED: Smarter content change detection
       if (lastContent === contentKey) {
-        console.log('🚫 Title and artist content unchanged, keeping existing tooltip');
         return;
       }
       
@@ -278,14 +246,12 @@ export class AddItemsTooltipManager {
         
         // If current title contains the last title as a substring, it's just an addition
         if (currentTitle.includes(lastTitle) && currentTitle.length > lastTitle.length) {
-          console.log('🔄 User is adding to existing title, keeping tooltip active');
           // Update content key but don't dismiss tooltip
           this.lastAnalyzedContent.set('artist-detection', contentKey);
           return;
         }
         
         // If it's a significant change (not just addition), then dismiss and re-analyze
-        console.log('🔄 Significant title change detected, closing tooltip for re-analysis');
         this.dismissTooltip(tooltipId);
         
         // Add small delay before re-analysis to ensure clean state
@@ -294,7 +260,6 @@ export class AddItemsTooltipManager {
         }, 200);
       } else {
         // No active tooltip, proceed with normal analysis
-        console.log('🎯 No active tooltip, analyzing for artist detection');
         this.lastAnalyzedContent.set('artist-detection', contentKey);
         await this.analyzeArtistDetection(formData, { allowReDetection: true });
       }
@@ -352,12 +317,11 @@ export class AddItemsTooltipManager {
       return;
     }
 
-    console.log('🎯 Triggering artist detection only for title change...');
     
     try {
       await this.analyzeArtistDetection(formData, { allowReDetection: true });
     } catch (error) {
-      console.error('❌ Artist re-detection error:', error);
+      console.error('Artist re-detection error:', error);
     }
   }
 
@@ -383,7 +347,6 @@ export class AddItemsTooltipManager {
 
   async analyzeArtistDetection(formData, options = {}) {
     if (!formData.title || formData.title.length < 15) { // IMPROVED: Higher minimum for more reliable detection
-      console.log('🚫 Title too short for reliable artist detection:', formData.title.length);
       return;
     }
     
@@ -391,7 +354,6 @@ export class AddItemsTooltipManager {
     
     // Skip if artist field is already filled AND we're not doing re-detection
     if (hasExistingArtist && !options.allowReDetection) {
-      console.log('🚫 Artist field already populated, skipping detection');
       return;
     }
     
@@ -401,7 +363,6 @@ export class AddItemsTooltipManager {
       return; // Eligibility check handles all logging
     }
     
-    console.log('🎯 Analyzing artist detection with full SSoT system for:', formData.title);
     
     try {
       // IMPROVED: Use ArtistDetectionManager SSoT with proper force re-detection
@@ -422,7 +383,6 @@ export class AddItemsTooltipManager {
         
         // Check for obvious typos in well-known artist names
         if (this.isLikelyTypo(detectedName, formData.title)) {
-          console.log('🚫 Detected name appears to be a typo, rejecting:', detectedName);
           return;
         }
         
@@ -431,19 +391,9 @@ export class AddItemsTooltipManager {
         const minConfidence = artistDetection.source === 'ai' ? 0.6 : 0.7; // Reduced from 0.8 for AI to allow corrections
         
         if (confidence < minConfidence) {
-          console.log(`🚫 Confidence too low (${confidence}) for reliable detection, rejecting:`, detectedName);
           return;
         }
         
-        console.log('✅ Artist detected and validated with SSoT:', detectedName);
-        console.log('🔍 Detection data:', { 
-          detectedArtist: detectedName, 
-          suggestedTitle: artistDetection.suggestedTitle || 'None provided',
-          confidence: confidence,
-          source: artistDetection.source || 'Unknown',
-          reasoning: artistDetection.reasoning || 'None provided',
-          hasExistingArtist: hasExistingArtist
-        });
         
         // Store artist detection for potential reuse in description tooltip
         this.lastArtistDetection = artistDetection;
@@ -455,7 +405,6 @@ export class AddItemsTooltipManager {
           const existingArtistName = existingTooltip?.querySelector('.artist-detection-info strong')?.textContent;
           
           if (existingArtistName && existingArtistName !== artistDetection.detectedArtist) {
-            console.log(`🔄 Re-detection found different artist: "${existingArtistName}" → "${artistDetection.detectedArtist}"`);
             this.dismissTooltip(tooltipId);
             // Clear the active tooltip tracking to allow immediate replacement
             this.activeTooltips.delete(tooltipId);
@@ -473,7 +422,6 @@ export class AddItemsTooltipManager {
             }, 100);
           } else if (!existingTooltip) {
             // No existing tooltip, show new one
-            console.log('🎯 Re-detection: No existing tooltip, showing new one');
             this.showArtistDetectionTooltip(artistDetection, { 
               isReplacement: hasExistingArtist,
               existingArtist: formData.artist,
@@ -481,7 +429,6 @@ export class AddItemsTooltipManager {
             });
           } else {
             // Same artist detected, keep existing tooltip
-            console.log(`✅ Re-detection confirmed same artist: "${artistDetection.detectedArtist}", keeping existing tooltip`);
           }
         } else {
           this.showArtistDetectionTooltip(artistDetection, { 
@@ -490,7 +437,6 @@ export class AddItemsTooltipManager {
           });
         }
       } else {
-        console.log('❌ Artist detection incomplete, invalid, or below threshold:', artistDetection);
         
         // IMPROVED: If re-detection found nothing, dismiss existing tooltip
         if (options.allowReDetection) {
@@ -498,7 +444,7 @@ export class AddItemsTooltipManager {
         }
       }
     } catch (error) {
-      console.error('❌ Artist detection error with SSoT:', error);
+      console.error('Artist detection error with SSoT:', error);
       
       // IMPROVED: If detection failed during re-detection, dismiss existing tooltip
       if (options.allowReDetection) {
@@ -525,7 +471,6 @@ export class AddItemsTooltipManager {
     // Check if detected name matches any known typo patterns
     for (const [correctName, typos] of Object.entries(knownArtists)) {
       if (typos.includes(normalizedName)) {
-        console.log(`🚫 Detected "${detectedName}" appears to be a typo of "${correctName}"`);
         return true;
       }
     }
@@ -533,14 +478,12 @@ export class AddItemsTooltipManager {
     // Additional heuristics for obvious typos
     // Check for repeated characters (like "oo" in "Larsoo")
     if (/(.)\1{2,}/.test(normalizedName)) {
-      console.log(`🚫 Detected name "${detectedName}" has repeated characters, likely a typo`);
       return true;
     }
     
     // Check for very short or very long names that don't make sense
     const words = detectedName.split(' ');
     if (words.length < 2 || words.some(word => word.length < 2 || word.length > 15)) {
-      console.log(`🚫 Detected name "${detectedName}" has unusual word structure, likely invalid`);
       return true;
     }
     
@@ -559,21 +502,17 @@ export class AddItemsTooltipManager {
       const now = Date.now();
       const lastDismissed = this.lastDismissalTime?.get?.(tooltipId);
       if (lastDismissed && (now - lastDismissed) < 5000) {
-        console.log('🚫 Artist tooltip recently dismissed, waiting 5 seconds...');
         return;
       }
 
       // Check if tooltip is already active to prevent duplicates
       if (this.activeTooltips.has(tooltipId)) {
-        console.log('🚫 Artist tooltip already active, skipping duplicate');
         return;
       }
     } else {
       // For re-detection, we're more permissive since we may have cleared tracking
-      console.log('🔄 Re-detection mode: bypassing some blocking checks');
     }
 
-    console.log('⏳ Scheduling tooltip to show in 800ms for smooth timing...');
     
     // ENHANCED: Adjust delay based on re-detection context
     const delay = options.isReDetection ? 150 : 800; // Faster for re-detection
@@ -587,7 +526,6 @@ export class AddItemsTooltipManager {
         
         // Double-check tooltip isn't already active
         if (this.activeTooltips.has(tooltipId)) {
-          console.log('🚫 Artist tooltip already exists during delayed creation, skipping');
           return;
         }
       }
@@ -663,8 +601,6 @@ export class AddItemsTooltipManager {
               const loadedBiography = loadedVerification?.biography;
               if (loadedBiography) {
                 this.showArtistBiographyPopup(artistDetection.detectedArtist, loadedBiography);
-              } else {
-                console.log('No biography available for:', artistDetection.detectedArtist);
               }
             } catch (error) {
               console.error('Failed to load biography:', error);
@@ -683,22 +619,18 @@ export class AddItemsTooltipManager {
         persistent: true // ENHANCED: Make artist detection tooltips persistent
       });
       
-      console.log('✨ Tooltip shown with smooth timing');
     }, delay);
   }
 
   moveArtistFromTitle(artistName, suggestedTitle, options = {}) {
     // ENHANCED: Validate input parameters
     if (!artistName || typeof artistName !== 'string' || artistName.trim().length === 0) {
-      console.error('❌ Invalid artist name provided to moveArtistFromTitle:', artistName);
+      console.error('Invalid artist name provided to moveArtistFromTitle:', artistName);
       this.showErrorFeedback('Ogiltigt konstnärsnamn');
       return;
     }
     
     const cleanArtistName = artistName.trim();
-    console.log('🎯 Moving artist from title:', cleanArtistName);
-    console.log('🔍 Options:', options);
-    console.log('🔍 Suggested title:', suggestedTitle);
     
     try {
       // NEW: Set programmatic update flag to prevent re-enabling artist detection
@@ -714,32 +646,18 @@ export class AddItemsTooltipManager {
       ];
       
       let artistField = null;
-      console.log('🔍 Searching for artist field...');
       
       for (const selector of artistFieldSelectors) {
-        console.log(`🔍 Trying selector: ${selector}`);
         artistField = document.querySelector(selector);
         if (artistField) {
-          console.log(`✅ Found artist field with selector: ${selector}`);
-          console.log('📋 Artist field element:', artistField);
           break;
-        } else {
-          console.log(`❌ No element found for selector: ${selector}`);
         }
       }
       
       if (!artistField) {
-        console.error('❌ Artist field not found with any selector');
-        console.log('🔍 Available input fields on page:');
+        console.error('Artist field not found with any selector');
         const allInputs = document.querySelectorAll('input, select, textarea');
         allInputs.forEach((input, index) => {
-          console.log(`Input ${index}:`, {
-            id: input.id,
-            name: input.name,
-            className: input.className,
-            placeholder: input.placeholder,
-            type: input.type
-          });
         });
         this.showErrorFeedback('Konstnärsfält kunde inte hittas på sidan');
         return;
@@ -747,68 +665,49 @@ export class AddItemsTooltipManager {
       
       // Check if there's an existing artist and handle replacement
       const existingArtist = artistField.value ? artistField.value.trim() : '';
-      console.log('🔍 Existing artist value:', existingArtist);
       
       if (existingArtist && existingArtist !== cleanArtistName) {
         if (options.isReplacement) {
-          console.log(`🔄 Replacing existing artist "${existingArtist}" with "${cleanArtistName}"`);
           // For re-detection, just replace without confirmation
           artistField.value = cleanArtistName;
         } else {
           // First time detection with existing artist - ask for confirmation
           const confirm = window.confirm(`Ersätta befintlig konstnär "${existingArtist}" med "${cleanArtistName}"?`);
           if (!confirm) {
-            console.log('❌ User cancelled artist replacement');
             return;
           }
           artistField.value = cleanArtistName;
         }
       } else {
         // No existing artist or same artist - just set it
-        console.log('📝 Setting artist field value to:', cleanArtistName);
         artistField.value = cleanArtistName;
       }
       
-      console.log('✅ Artist field value set successfully');
       
       // Update title if suggested title provided
       if (suggestedTitle && suggestedTitle.trim().length > 0) {
-        console.log('📝 Updating title field with suggested title:', suggestedTitle);
         
         const titleField = document.querySelector(this.fieldMappings.title);
-        console.log('🔍 Title field element:', titleField);
-        console.log('🔍 Title field mapping:', this.fieldMappings.title);
         
         if (titleField && titleField.value.trim() !== suggestedTitle.trim()) {
           // Automatically update the title without confirmation popup
-          console.log('📝 Setting title field value to:', suggestedTitle);
           titleField.value = suggestedTitle;
           
           // Trigger events for title field
-          console.log('🎯 Triggering events for title field...');
           ['input', 'change', 'blur'].forEach(eventType => {
             try {
               titleField.dispatchEvent(new Event(eventType, { bubbles: true }));
-              console.log(`✅ Triggered ${eventType} event on title field`);
             } catch (eventError) {
-              console.warn(`⚠️ Failed to trigger ${eventType} event:`, eventError);
             }
           });
-        } else {
-          console.log('ℹ️ Title field not found or already has the suggested value');
         }
-      } else {
-        console.log('ℹ️ No suggested title provided or title is empty');
       }
       
       // Trigger form events for artist field
-      console.log('🎯 Triggering events for artist field...');
       ['input', 'change', 'blur'].forEach(eventType => {
         try {
           artistField.dispatchEvent(new Event(eventType, { bubbles: true }));
-          console.log(`✅ Triggered ${eventType} event on artist field`);
         } catch (eventError) {
-          console.warn(`⚠️ Failed to trigger ${eventType} event:`, eventError);
         }
       });
       
@@ -816,21 +715,18 @@ export class AddItemsTooltipManager {
       this.showSuccessFeedback(`Konstnär "${cleanArtistName}" ${options.isReplacement ? 'ersatt' : 'tillagd'}!`);
       
       // Hide the tooltip
-      console.log('🗑️ Hiding artist detection tooltip...');
       this.dismissTooltip('artist-detection');
       
       // Re-trigger analysis after a short delay
       setTimeout(() => {
-        console.log('🔄 Re-triggering analysis...');
         this.triggerAnalysis();
       }, 1000);
       
-      console.log('✅ moveArtistFromTitle completed successfully');
       
     } catch (error) {
-      console.error('❌ Error moving artist from title:', error);
-      console.error('❌ Error stack:', error.stack);
-      console.error('❌ Error details:', {
+      console.error('Error moving artist from title:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Error details:', {
         artistName: cleanArtistName,
         suggestedTitle: suggestedTitle,
         options: options,
@@ -840,7 +736,6 @@ export class AddItemsTooltipManager {
     } finally {
       // NEW: Always clear programmatic update flag
       this.isProgrammaticUpdate = false;
-      console.log('🔓 Cleared programmatic update flag');
     }
   }
 
@@ -854,13 +749,11 @@ export class AddItemsTooltipManager {
     // NEW: Analyze artist information enhancement opportunities
     await this.analyzeArtistEnhancement(formData);
     
-    console.log('📝 Field enhancement analysis - description, condition quality, and artist enhancement checked');
   }
 
   async analyzeDescriptionQuality(formData) {
     if (!formData.description || formData.description.length < 5) return;
     
-    console.log('🔍 Analyzing description quality for:', formData.description.substring(0, 50) + '...');
     
     // NEW: Use enhanced eligibility check
     const tooltipId = 'description-quality';
@@ -874,10 +767,7 @@ export class AddItemsTooltipManager {
     const issues = this.detectDescriptionIssues(formData);
     
     if (issues.length > 0) {
-      console.log('⚠️ Description quality issues detected:', issues);
       this.showDescriptionQualityTooltip(issues, formData);
-    } else {
-      console.log('✅ Description quality looks good');
     }
   }
 
@@ -1057,7 +947,6 @@ export class AddItemsTooltipManager {
         });
       }
     } catch (error) {
-      console.log('⚠️ AI description analysis failed, using basic checks:', error);
       // Fallback to basic keyword checks only if AI fails
       this.addBasicDescriptionChecks(formData, existingIssues);
     }
@@ -1126,7 +1015,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       const result = JSON.parse(response.data.content[0].text);
       return result;
     } catch (error) {
-      console.log('🤖 AI description analysis error:', error);
       return null;
     }
   }
@@ -1156,7 +1044,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
 
     const tooltipId = 'description-quality';
     
-    console.log('⏳ Scheduling description tooltip to show in 800ms...');
     
     // Add delay for smooth UX (same as artist tooltip)
     setTimeout(async () => {
@@ -1165,7 +1052,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       
       // Double-check tooltip isn't already active
       if (this.activeTooltips.has(tooltipId)) {
-        console.log('🚫 Description tooltip already exists during delayed creation, skipping');
         return;
       }
       
@@ -1220,21 +1106,17 @@ Om INGET saknas, returnera: {"missingElements": []}`;
         type: 'description-quality'
       });
       
-      console.log('✨ Description quality tooltip shown');
     }, 800);
   }
 
   async getArtistInformation(artistName) {
     // Try to get artist information from various sources
-    console.log('🔎 getArtistInformation called for:', artistName);
-    console.log('🔎 lastArtistDetection available:', !!this.lastArtistDetection);
     
     try {
       // First, check if we already have artist data from recent detection
       if (this.lastArtistDetection && 
           this.lastArtistDetection.detectedArtist === artistName &&
           this.lastArtistDetection.biography) {
-        console.log('✅ Found artist info from detection cache');
         return {
           name: artistName,
           biography: this.lastArtistDetection.biography,
@@ -1244,31 +1126,24 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       
       // If we have a quality analyzer method for artist lookup, use it
       if (this.qualityAnalyzer && this.qualityAnalyzer.getArtistBiography) {
-        console.log('🔎 Trying quality analyzer lookup...');
         const biography = await this.qualityAnalyzer.getArtistBiography(artistName);
         if (biography) {
-          console.log('✅ Found artist info from quality analyzer');
           return {
             name: artistName,
             biography: biography,
             source: 'database'
           };
         }
-      } else {
-        console.log('❌ No quality analyzer getArtistBiography method available');
       }
       
-      console.log('❌ No artist information found');
       return null;
     } catch (error) {
-      console.log('❌ Error fetching artist information:', error);
       return null;
     }
   }
 
   // NEW: Inject AI improvement buttons (same as edit page)
   injectAIButtons() {
-    console.log('🎨 Injecting AI improvement buttons...');
     
     // Add AI assistance button next to each field
     const titleField = document.querySelector('#item_title_sv');
@@ -1276,12 +1151,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     const conditionField = document.querySelector('#item_condition_sv');
     const keywordsField = document.querySelector('#item_hidden_keywords');
 
-    console.log('🔍 Found fields:', {
-      title: !!titleField,
-      description: !!descriptionField,
-      condition: !!conditionField,
-      keywords: !!keywordsField
-    });
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
@@ -1341,7 +1210,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
                        document.querySelector('form');
     
     if (targetElement) {
-      console.log('✅ Adding quality indicator to page');
       if (targetElement.tagName === 'FORM') {
         // If it's a form, add at the beginning
         targetElement.insertBefore(indicator, targetElement.firstChild);
@@ -1352,8 +1220,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       
       // Initial quality analysis
       this.analyzeQuality();
-    } else {
-      console.log('❌ No suitable location found for quality indicator');
     }
   }
 
@@ -1361,13 +1227,11 @@ Om INGET saknas, returnera: {"missingElements": []}`;
   attachAIButtonEventListeners() {
     // Individual field buttons
     const buttons = document.querySelectorAll('.ai-assist-button:not(.ai-master-button)');
-    console.log('Found AI assist buttons:', buttons.length);
     
     buttons.forEach(button => {
       button.addEventListener('click', (e) => {
         e.preventDefault();
         const fieldType = e.target.dataset.fieldType;
-        console.log('Button clicked for field type:', fieldType);
         if (fieldType) {
           this.improveField(fieldType);
         }
@@ -1377,10 +1241,8 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     // Master button
     const masterButton = document.querySelector('.ai-master-button');
     if (masterButton) {
-      console.log('Master button found and event listener attached');
       masterButton.addEventListener('click', (e) => {
         e.preventDefault();
-        console.log('Master button clicked');
         this.improveAllFields();
       });
     }
@@ -1389,7 +1251,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     const refreshButton = document.querySelector('.refresh-quality-btn');
     if (refreshButton) {
       refreshButton.addEventListener('click', () => {
-        console.log('🔄 Manual quality refresh triggered');
         this.analyzeQuality();
       });
     }
@@ -1509,12 +1370,10 @@ Om INGET saknas, returnera: {"missingElements": []}`;
           }, 50);
         }
         
-        console.log(`✅ Applied improvement to ${fieldType}`);
       } finally {
         // Clear flag after a short delay to ensure all events have processed
         setTimeout(() => {
           this.isProgrammaticUpdate = false;
-          console.log('🔓 Cleared programmatic update flag after AI improvement');
         }, 100);
       }
     }
@@ -1555,12 +1414,10 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     
     // Only log if height actually changed significantly
     if (!originalHeight || Math.abs(parseInt(originalHeight) - newHeight) > 5) {
-      console.log(`📏 Textarea ${textarea.id} resized to ${newHeight}px`);
     }
   }
 
   setupAutoResizeForAllTextareas() {
-    console.log('🔧 Setting up auto-resize for all textareas...');
     
     const textareas = document.querySelectorAll('textarea');
     let setupCount = 0;
@@ -1586,10 +1443,8 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       this.autoResizeTextarea(textarea);
       
       setupCount++;
-      console.log(`✅ Auto-resize setup for textarea: ${textarea.id || textarea.name || 'unnamed'}`);
     });
     
-    console.log(`🎯 Auto-resize setup complete for ${setupCount} textareas`);
   }
 
   // Method to manually trigger resize for all textareas (useful after programmatic changes)
@@ -1598,7 +1453,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     textareas.forEach(textarea => {
       this.autoResizeTextarea(textarea);
     });
-    console.log(`🔄 Manual resize triggered for ${textareas.length} textareas`);
   }
 
   // FIXED: Call Claude API through background script (same as edit page)
@@ -1641,7 +1495,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       return await this.processEditPageAPIResponse(response, fieldType);
       
     } catch (error) {
-      console.error('❌ ADD ITEM API call failed:', error);
+      console.error('ADD ITEM API call failed:', error);
       throw error;
     }
   }
@@ -1928,7 +1782,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
 
   processEditPageAPIResponse(response, fieldType) {
     const data = response.data;
-    console.log('📥 ADD ITEM API Response:', data);
     
     if (!data || !data.content || !Array.isArray(data.content) || data.content.length === 0) {
       throw new Error('Invalid response format from API');
@@ -1942,8 +1795,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
   }
 
   parseEditPageResponse(responseText, fieldType) {
-    console.log('🔍 Parsing response for fieldType:', fieldType);
-    console.log('📝 Raw response:', responseText);
 
     if (fieldType === 'all') {
       // Parse multi-field response (same logic as EDIT page)
@@ -1962,7 +1813,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
         }
       }
       
-      console.log('✅ Parsed result:', result);
       return result;
     } else {
       // Single field response
@@ -1975,7 +1825,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
         delete result[fieldType];
       }
       
-      console.log('✅ Parsed single field result:', result);
       return result;
     }
   }
@@ -1987,7 +1836,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     const debouncedUpdate = (event) => {
       clearTimeout(updateTimeout);
       updateTimeout = setTimeout(() => {
-        console.log('⚡ Live quality update triggered by:', event?.target?.id || event?.target?.tagName || 'unknown field');
         this.analyzeQuality();
       }, 800); // Wait 800ms after user stops typing
     };
@@ -2007,25 +1855,19 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     fieldsToMonitor.forEach(selector => {
       const element = document.querySelector(selector);
       if (element) {
-        console.log(`Setting up live monitoring for: ${selector}`);
         monitoredCount++;
         
         // Add event listeners for different input types
         if (element.type === 'checkbox') {
           element.addEventListener('change', debouncedUpdate);
-          console.log(`✅ Added 'change' listener to checkbox: ${selector}`);
         } else {
           element.addEventListener('input', debouncedUpdate);
           element.addEventListener('paste', debouncedUpdate);
           element.addEventListener('keyup', debouncedUpdate);
-          console.log(`✅ Added 'input', 'paste', 'keyup' listeners to: ${selector}`);
         }
-      } else {
-        console.log(`ℹ️ Field not found for live monitoring: ${selector}`);
       }
     });
 
-    console.log(`🎯 Live quality monitoring set up for ${monitoredCount} fields`);
   }
 
   // ENHANCED: Analyze quality (same comprehensive logic as edit page)
@@ -2135,12 +1977,10 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     }
     
     // No warnings section anymore - tooltips handle specific issues
-    console.log(`📊 Quality score updated: ${score}/100`);
   }
 
   // NEW: Show loading/success/error indicators
   showLoadingIndicator(fieldType) {
-    console.log(`🔄 Loading indicator for ${fieldType}`);
     
     // Remove any existing loading states
     this.removeLoadingIndicator(fieldType);
@@ -2209,11 +2049,9 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     // Add overlay to container
     fieldContainer.appendChild(overlay);
     
-    console.log(`✅ Loading animation applied to ${fieldType} field`);
   }
 
   showSuccessIndicator(fieldType) {
-    console.log(`✅ Success indicator for ${fieldType}`);
     
     // Remove loading state
     this.removeLoadingIndicator(fieldType);
@@ -2252,7 +2090,7 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
   }
 
   showErrorIndicator(fieldType, message) {
-    console.error(`❌ Error for ${fieldType}: ${message}`);
+    console.error(`Error for ${fieldType}: ${message}`);
     
     // Remove loading state
     this.removeLoadingIndicator(fieldType);
@@ -2355,11 +2193,7 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
       this.activeTooltips.set(config.id, tooltip);
       
       // Only log creation for important tooltips
-      if (config.type === 'artist-detection' || config.type === 'error') {
-        console.log(`✅ Created tooltip: ${config.id}`, tooltip);
-        console.log(`🔍 Tooltip positioned at: left=${tooltip.style.left}, top=${tooltip.style.top}`);
-        console.log(`🔍 Tooltip HTML:`, tooltip.innerHTML.substring(0, 200) + '...');
-      }
+      
       
       // Add animation class after a small delay for smooth animation
       setTimeout(() => {
@@ -2375,7 +2209,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
       
       return tooltip;
     } else {
-      console.warn(`❌ Could not find target element: ${config.targetSelector || 'targetElement not provided'}`);
       return null;
     }
   }
@@ -2384,8 +2217,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     const targetRect = targetElement.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
     
-    console.log(`🔍 Positioning tooltip: target=${targetRect.left},${targetRect.top} size=${targetRect.width}x${targetRect.height}`);
-    console.log(`🔍 Tooltip size: ${tooltipRect.width}x${tooltipRect.height}`);
     
     let left, top;
     const margin = 20;
@@ -2419,7 +2250,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
     
-    console.log(`🎯 Final tooltip position: left=${left}px, top=${top}px`);
     
     // Position arrow to point at target center
     const arrow = tooltip.querySelector('.tooltip-arrow');
@@ -2437,9 +2267,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
       }
       
       arrow.style.top = `${arrowY - 8}px`;
-      console.log(`🏹 Arrow positioned at: top=${arrowY - 8}px`);
-    } else {
-      console.warn('❌ Arrow element not found in tooltip');
     }
   }
 
@@ -2463,7 +2290,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
         btn.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          console.log(`🔘 Button ${index} clicked:`, buttons[index].text);
           buttons[index].onclick();
         });
       }
@@ -2492,7 +2318,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
 
   dismissTooltip(tooltipId) {
     const tooltip = document.getElementById(`ai-tooltip-${tooltipId}`);
-    console.log(`🔍 Dismissing tooltip with ID: ai-tooltip-${tooltipId}`, tooltip ? 'Found' : 'Not found');
     if (tooltip) {
       // Clean up scroll event listener if it exists
       if (tooltip._scrollCleanup) {
@@ -2505,9 +2330,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
       // Track dismissal time to prevent immediate re-showing
       this.lastDismissalTime.set(tooltipId, Date.now());
       
-      console.log(`🗑️ Dismissed tooltip: ${tooltipId}`);
-    } else {
-      console.warn(`❌ Could not find tooltip to dismiss: ai-tooltip-${tooltipId}`);
     }
   }
 
@@ -2516,7 +2338,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
       this.dismissTooltip(tooltipId);
     });
     this.activeTooltips.clear();
-    console.log('🗑️ Removed all tooltips');
   }
 
   injectStyles() {
@@ -3693,7 +3514,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     };
     document.addEventListener('keydown', handleEscape);
     
-    console.log('✨ Artist biography popup displayed for:', artistName);
   }
 
   async analyzeConditionQuality(formData) {
@@ -3723,7 +3543,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     const conditionIssues = this.detectConditionIssues(formData);
     
     if (conditionIssues.length > 0) {
-      console.log('⚠️ Condition issues detected - showing guidance');
       this.showConditionGuidanceTooltip(formData, 'improve', conditionIssues);
     }
   }
@@ -3813,7 +3632,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
 
     const tooltipId = 'condition-quality';
     
-    console.log('⏳ Scheduling condition guidance tooltip to show in 200ms...');
     
     // Add delay for smooth UX - faster response for better user experience
     setTimeout(() => {
@@ -3883,7 +3701,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
         type: 'condition-guidance'
       });
       
-      console.log('✨ Condition guidance tooltip shown');
     }, 200);
   }
 
@@ -4022,7 +3839,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     };
     document.addEventListener('keydown', handleEscape);
     
-    console.log('✨ Condition guide popup displayed for category:', category.name);
   }
 
   getConditionGuideContent(category) {
@@ -4200,11 +4016,9 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     // AUCTIONET COMPLIANCE: ONLY trigger enhanced artist information IF artist field is filled
     // This ensures listing compliance with Auctionet standards
     if (!formData.artist || formData.artist.trim().length < 3) {
-      console.log('🚫 Artist enhancement skipped - artist field not filled (Auctionet compliance)');
       return; // No artist to enhance with
     }
 
-    console.log('✅ Artist field filled, checking enhancement eligibility for Auctionet compliance...');
 
     // Core safety checks for tooltip system
     const tooltipId = 'artist-enhancement';
@@ -4214,18 +4028,15 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
 
     // Avoid conflicts with active artist detection
     if (this.activeTooltips.has('artist-detection')) {
-      console.log('🚫 Artist detection tooltip active, waiting to avoid conflicts');
       return;
     }
 
     // Only show if artist info setting is enabled
     if (!this.apiManager.enableArtistInfo) {
-      console.log('🚫 Artist info enhancement disabled in settings');
       return;
     }
 
     // AUCTIONET STANDARDS: Artist field is filled, offer enhancement
-    console.log('🎨 AUCTIONET COMPLIANCE: Artist enhancement eligible for:', formData.artist);
     this.showArtistEnhancementTooltip(formData);
   }
 
@@ -4248,7 +4059,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     ).length;
     
     if (contextCount >= 2) {
-      console.log('✅ Description already has substantial artist context:', contextCount, 'indicators');
       return true;
     }
 
@@ -4256,7 +4066,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     const cleanDescription = description.replace(/<[^>]*>/g, '').trim();
     if (cleanDescription.length > 200) {
       // Long descriptions likely already have good context
-      console.log('✅ Description is substantial (>200 chars), likely has context');
       return true;
     }
 
@@ -4270,7 +4079,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
 
     const tooltipId = 'artist-enhancement';
     
-    console.log('⏳ Scheduling artist enhancement tooltip to show in 1200ms...');
     
     // Longer delay to not conflict with other tooltips
     setTimeout(() => {
@@ -4330,14 +4138,12 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
         type: 'artist-enhancement'
       });
       
-      console.log('✨ Artist enhancement tooltip shown for:', formData.artist);
     }, 1200);
   }
 
   // NEW: Permanently disable a tooltip after user interaction
   permanentlyDisableTooltip(tooltipId, reason = 'user_interaction') {
     this.permanentlyDisabledTooltips.add(tooltipId);
-    console.log(`🔒 Permanently disabled tooltip: ${tooltipId} (${reason})`);
   }
 
   // NEW: Check if tooltip is permanently disabled
@@ -4360,17 +4166,13 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     const currentArtist = currentValues.artist;
     
     if (lastArtist !== currentArtist) {
-      console.log(`🎯 Artist field changed: "${lastArtist}" → "${currentArtist}"`);
       
       // FIXED: Only re-enable if this is NOT a programmatic update from our system
       if (!this.isProgrammaticUpdate) {
         // Allow artist detection to run again if artist field changed manually
         if (this.permanentlyDisabledTooltips.has('artist-detection')) {
           this.permanentlyDisabledTooltips.delete('artist-detection');
-          console.log('🔓 Re-enabled artist detection due to manual artist field change');
         }
-      } else {
-        console.log('🔒 Ignoring programmatic artist field change - keeping tooltip disabled');
       }
     }
     
@@ -4384,7 +4186,6 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
   isTooltipEligible(tooltipId, formData) {
     // Always check permanent disabling first
     if (this.isPermanentlyDisabled(tooltipId)) {
-      console.log(`🚫 Tooltip ${tooltipId} permanently disabled, skipping`);
       return false;
     }
 
@@ -4395,13 +4196,11 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     const now = Date.now();
     const lastDismissed = this.lastDismissalTime?.get?.(tooltipId);
     if (lastDismissed && (now - lastDismissed) < 5000) {
-      console.log(`🚫 Tooltip ${tooltipId} recently dismissed, waiting`);
       return false;
     }
 
     // Check if already active
     if (this.activeTooltips.has(tooltipId)) {
-      console.log(`🚫 Tooltip ${tooltipId} already active`);
       return false;
     }
 

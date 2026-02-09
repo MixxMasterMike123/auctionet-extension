@@ -89,8 +89,6 @@ export class QualityAnalyzer {
     // Connect SearchQuerySSoT to apiManager for SSoT-consistent queries
     if (this.searchQuerySSoT) {
       apiManager.setSearchQuerySSoT(this.searchQuerySSoT);
-    } else {
-
     }
 
     // Debug: Check if salesAnalysisManager is available
@@ -104,7 +102,7 @@ export class QualityAnalyzer {
 
       this.salesAnalysisManager.setDataExtractor(this.dataExtractor); // NEW: Set data extractor
     } else {
-      console.error('❌ SalesAnalysisManager not available during setApiManager call');
+      console.error('SalesAnalysisManager not available during setApiManager call');
     }
 
     this.dashboardManager.setApiManager(apiManager);
@@ -163,7 +161,7 @@ export class QualityAnalyzer {
       if (this.salesAnalysisManager.dashboardManager && typeof this.salesAnalysisManager.dashboardManager.showDashboardLoading === 'function') {
         this.salesAnalysisManager.dashboardManager.showDashboardLoading('Uppdaterar analys med nya söktermer...');
       } else {
-        console.error('❌ QualityAnalyzer: Dashboard manager or showDashboardLoading method not available!');
+        console.error('QualityAnalyzer: Dashboard manager or showDashboardLoading method not available!');
       }
 
       // Get the updated search context from SSoT
@@ -180,13 +178,13 @@ export class QualityAnalyzer {
       }
 
     } catch (error) {
-      console.error('❌ QualityAnalyzer: Failed to handle user selection update:', error);
+      console.error('QualityAnalyzer: Failed to handle user selection update:', error);
     } finally {
       // Hide loading spinner
       if (this.salesAnalysisManager.dashboardManager && typeof this.salesAnalysisManager.dashboardManager.hideDashboardLoading === 'function') {
         this.salesAnalysisManager.dashboardManager.hideDashboardLoading();
       } else {
-        console.error('❌ QualityAnalyzer: Dashboard manager or hideDashboardLoading method not available in finally!');
+        console.error('QualityAnalyzer: Dashboard manager or hideDashboardLoading method not available in finally!');
       }
     }
   }
@@ -417,7 +415,6 @@ export class QualityAnalyzer {
       const uniquePercentage = keywordArray.length > 0 ? uniqueKeywords.length / keywordArray.length : 0;
 
 
-
       // More lenient threshold - only flag if less than 20% are unique (was 40%)
       if (uniquePercentage < 0.2 && keywordArray.length > 3) {
         warnings.push({ field: 'Sökord', issue: 'Tips: Många sökord upprepar titel/beskrivning - kompletterande termer kan förbättra sökbarheten', severity: 'low' });
@@ -605,21 +602,17 @@ export class QualityAnalyzer {
     // Now run AI artist detection asynchronously and update when complete (only if API is available)
     if (this.apiManager) {
       this.runAIArtistDetection(data, warnings, score);
-    } else {
-
     }
   }
 
   async runAIArtistDetection(data, currentWarnings, currentScore) {
     // OPTIMIZATION: Skip AI analysis if artist field is filled AND no artist detected in title
     if (data.artist && data.artist.trim()) {
-      console.log('⚡ Artist field filled, checking if title has misplaced artist:', data.artist);
 
       // Quick rule-based check if title contains artist names
       const titleHasArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
 
       if (!titleHasArtist || !titleHasArtist.detectedArtist) {
-        console.log('⚡ SKIPPING AI artist detection - artist correctly placed in field, no artist in title');
 
         // Still run brand validation and market analysis with existing artist
         this.showAILoadingIndicator('🏷️ Kontrollerar märkesnamn...');
@@ -643,7 +636,7 @@ export class QualityAnalyzer {
           await this.triggerMarketAnalysisWithExistingArtist(data);
 
         } catch (error) {
-          console.error('❌ Brand validation failed:', error);
+          console.error('Brand validation failed:', error);
         } finally {
           this.pendingAnalyses.delete('brand');
           this.aiAnalysisActive = false;
@@ -651,8 +644,6 @@ export class QualityAnalyzer {
         }
 
         return; // Skip the rest of AI artist detection
-      } else {
-        console.log('🔍 Artist field filled BUT title also contains artist - running AI analysis to suggest move');
       }
     }
 
@@ -679,7 +670,6 @@ export class QualityAnalyzer {
       let analysisTitle = data.title;
 
 
-
       // Remove ignored artists from title before AI analysis to prevent re-detection
       for (const ignoredArtist of ignoredArtists) {
         const normalizedIgnored = this.artistIgnoreManager.normalizeArtistName(ignoredArtist);
@@ -693,32 +683,21 @@ export class QualityAnalyzer {
       }
 
 
-
       // Start parallel analyses - artist detection AND brand validation
       // Always run AI analysis for verification and brand validation, but don't suggest title changes when artist field is filled
       const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist, false);
       const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
 
       // CRITICAL ENHANCEMENT: Handle AI artist detection but EXCLUDE from initial SSoT
-      console.log('⏱️ Starting artist analysis with 5s timeout (Haiku optimized)...');
       const startTime = Date.now();
       const aiArtistForMarketAnalysis = await Promise.race([
         artistAnalysisPromise,
         new Promise(resolve => setTimeout(() => {
-          console.log('⏰ Artist analysis timed out after 5s');
           resolve(null);
         }, 5000)) // 5s timeout - adjusted for real-world Haiku performance
       ]);
       const endTime = Date.now();
-      console.log(`⏱️ Artist analysis completed in ${endTime - startTime}ms`);
 
-      console.log('🎯 AI artist analysis result:', {
-        hasResult: !!aiArtistForMarketAnalysis,
-        detectedArtist: aiArtistForMarketAnalysis?.detectedArtist,
-        confidence: aiArtistForMarketAnalysis?.confidence,
-        foundIn: aiArtistForMarketAnalysis?.foundIn,
-        fullResult: aiArtistForMarketAnalysis
-      });
 
       // NEW: Handle brand validation in parallel
       this.updateAILoadingMessage('🏷️ Kontrollerar märkesnamn...');
@@ -726,8 +705,6 @@ export class QualityAnalyzer {
       // CRITICAL FIX: Show artist detection UI for ALL detected artists, regardless of where found
 
       if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist) {
-        console.log('🎯 Entering artist detection UI flow...');
-
 
 
         // FIRST: Show the artist detection UI (this was missing!)
@@ -738,11 +715,9 @@ export class QualityAnalyzer {
 
 
           // Generate SSoT WITH the detected artist for comprehensive market analysis
-          console.log('🔧 Debug - searchQuerySSoT:', !!this.searchQuerySSoT, 'searchFilterManager:', !!this.searchFilterManager);
           if (this.searchQuerySSoT && this.searchFilterManager) {
 
             // Extract candidate terms WITH the detected artist for market analysis
-            console.log('🎯 Using AI-detected artist for market analysis:', aiArtistForMarketAnalysis.detectedArtist);
             let candidateSearchTerms = null;
             try {
               candidateSearchTerms = this.searchFilterManager.extractCandidateSearchTerms(
@@ -751,9 +726,8 @@ export class QualityAnalyzer {
                 { artist: aiArtistForMarketAnalysis.detectedArtist }, // Use AI-detected artist for market analysis
                 aiArtistForMarketAnalysis.detectedArtist || '' // Pass AI-detected artist as context
               );
-              console.log('🔍 Generated search terms:', candidateSearchTerms);
             } catch (error) {
-              console.error('❌ Error in extractCandidateSearchTerms:', error);
+              console.error('Error in extractCandidateSearchTerms:', error);
             }
 
             if (candidateSearchTerms && candidateSearchTerms.candidates && candidateSearchTerms.candidates.length > 0) {
@@ -779,7 +753,7 @@ export class QualityAnalyzer {
                     }
                   }
                 }).catch(error => {
-                  console.error('❌ Comprehensive market analysis failed:', error);
+                  console.error('Comprehensive market analysis failed:', error);
                 });
               }
             } else {
@@ -835,7 +809,7 @@ export class QualityAnalyzer {
                     }
                   }
                 }).catch(error => {
-                  console.error('❌ Full market analysis failed:', error);
+                  console.error('Full market analysis failed:', error);
                 });
               }
             } else {
@@ -855,12 +829,6 @@ export class QualityAnalyzer {
         // Clean up pending analysis since we already handled UI above
         this.pendingAnalyses.delete('artist');
       } else {
-        console.log('🚫 No artist detected or condition failed:', {
-          hasResult: !!aiArtistForMarketAnalysis,
-          detectedArtist: aiArtistForMarketAnalysis?.detectedArtist,
-          condition1: !!aiArtistForMarketAnalysis,
-          condition2: !!(aiArtistForMarketAnalysis?.detectedArtist)
-        });
         // Standard flow for non-artist items
         await this.triggerDashboardForNonArtItems(data);
         this.pendingAnalyses.delete('artist');
@@ -884,7 +852,7 @@ export class QualityAnalyzer {
           }
         });
       }).catch(error => {
-        console.error('❌ Brand validation failed:', error);
+        console.error('Brand validation failed:', error);
         this.pendingAnalyses.delete('brand');
 
         if (this.pendingAnalyses.size === 0) {
@@ -894,7 +862,7 @@ export class QualityAnalyzer {
       });
 
     } catch (error) {
-      console.error('💥 AI Analysis Error:', error);
+      console.error('AI Analysis Error:', error);
       this.pendingAnalyses.delete('artist');
       this.pendingAnalyses.delete('brand');
       this.hideAILoadingIndicator();
@@ -929,13 +897,6 @@ export class QualityAnalyzer {
   }
 
   async handleArtistDetectionResult(aiArtist, data, currentWarnings, currentScore) {
-    console.log('🎨 handleArtistDetectionResult called with:', {
-      hasAiArtist: !!aiArtist,
-      detectedArtist: aiArtist?.detectedArtist,
-      confidence: aiArtist?.confidence,
-      foundIn: aiArtist?.foundIn,
-      currentWarningsCount: currentWarnings?.length || 0
-    });
 
     // Check if aiArtist is null or undefined
     if (!aiArtist || !aiArtist.detectedArtist) {
@@ -978,17 +939,9 @@ export class QualityAnalyzer {
     let auctionetBio = null;
     try {
       auctionetBio = await this.auctionetArtistLookup.getArtistBiography(aiArtist.detectedArtist);
-      if (auctionetBio) {
-        console.log(`✅ Found Auctionet biography for ${aiArtist.detectedArtist}:`, {
-          years: auctionetBio.years,
-          bioLength: auctionetBio.biography?.length,
-          source: auctionetBio.source
-        });
-      } else {
-        console.log(`ℹ️ No Auctionet biography found for ${aiArtist.detectedArtist}`);
-      }
+      
     } catch (error) {
-      console.error(`❌ Error fetching Auctionet biography:`, error);
+      console.error(`Error fetching Auctionet biography:`, error);
     }
     */
     let auctionetBio = null; // Disabled until API access
@@ -1015,21 +968,13 @@ export class QualityAnalyzer {
       dataAttributes: { 'data-artist-warning': 'true' } // NEW: Add data attribute for ignore button targeting
     };
 
-    console.log('🎨 Created artist warning:', {
-      field: artistWarning.field,
-      issue: artistWarning.issue?.substring(0, 100) + '...',
-      detectedArtist: artistWarning.detectedArtist,
-      isArtistWarning: artistWarning.isArtistWarning
-    });
 
     // CRITICAL FIX: Don't add duplicate artist warnings
     const existingArtistWarningIndex = currentWarnings.findIndex(w => w.isArtistWarning);
     if (existingArtistWarningIndex >= 0) {
       currentWarnings[existingArtistWarningIndex] = artistWarning;
-      console.log('🎨 Replaced existing artist warning at index:', existingArtistWarningIndex);
     } else {
       currentWarnings.unshift(artistWarning);
-      console.log('🎨 Added new artist warning. Total warnings:', currentWarnings.length);
     }
 
     // Update quality display with animation after AI analysis (recalculate score with latest data)
@@ -1061,7 +1006,6 @@ export class QualityAnalyzer {
         score: currentScore
       };
     }
-
 
 
     // Convert brand issues to warnings
@@ -1395,7 +1339,6 @@ export class QualityAnalyzer {
         e.stopPropagation();
 
 
-
         // Create better confirmation dialog
         const confirmed = await this.showIgnoreConfirmationDialog(artistName);
 
@@ -1408,9 +1351,8 @@ export class QualityAnalyzer {
           await this.artistIgnoreManager.handleIgnoreAction(artistName, warningLi);
 
 
-
         } catch (error) {
-          console.error('❌ Error ignoring artist:', error);
+          console.error('Error ignoring artist:', error);
           alert(`Fel vid ignorering av konstnär: ${error.message}`);
         }
       });
@@ -1484,7 +1426,7 @@ export class QualityAnalyzer {
           }
 
           if (!titleField) {
-            console.error('❌ Could not find title field to update');
+            console.error('Could not find title field to update');
             this.showErrorFeedback(element, 'Kunde inte uppdatera titelfältet');
             return;
           }
@@ -1497,7 +1439,6 @@ export class QualityAnalyzer {
             titleField.dispatchEvent(new Event('input', { bubbles: true }));
             titleField.dispatchEvent(new Event('change', { bubbles: true }));
           } catch (eventError) {
-            console.warn('⚠️ Event dispatch warning (non-critical):', eventError);
           }
 
           // SUCCESS - Visual feedback and state management
@@ -1533,7 +1474,6 @@ export class QualityAnalyzer {
 
 
           } catch (uiError) {
-            console.warn('⚠️ UI feedback warning (non-critical):', uiError);
             // Still show success even if UI feedback fails
           }
 
@@ -1543,11 +1483,10 @@ export class QualityAnalyzer {
               this.analyzeQuality();
             }, 500);
           } catch (analysisError) {
-            console.warn('⚠️ Re-analysis scheduling warning (non-critical):', analysisError);
           }
 
         } catch (error) {
-          console.error('❌ Critical error during brand correction:', error);
+          console.error('Critical error during brand correction:', error);
           this.showErrorFeedback(element, 'Fel vid rättning av märke');
         }
       });
@@ -1613,15 +1552,11 @@ export class QualityAnalyzer {
               }
             }
           } catch (removeError) {
-            console.warn('⚠️ Minor error removing success tooltip:', removeError);
           }
         }, 3000);
-      } else {
-        console.warn('⚠️ No parent element found for success tooltip');
       }
 
     } catch (error) {
-      console.warn('⚠️ Error showing success feedback (non-critical):', error);
       // Fallback: log success to console
     }
   }
@@ -1689,12 +1624,10 @@ export class QualityAnalyzer {
           }
         }
 
-      } else {
-
       }
 
     } catch (error) {
-      console.error('❌ Error during non-art dashboard trigger:', error);
+      console.error('Error during non-art dashboard trigger:', error);
     }
   }
 
@@ -1846,7 +1779,7 @@ export class QualityAnalyzer {
           }
 
           if (!artistField) {
-            console.error('❌ Artist field not found with any selector');
+            console.error('Artist field not found with any selector');
             this.showErrorFeedback(element, 'Konstnärsfält hittades inte');
             return;
           }
@@ -1918,8 +1851,6 @@ export class QualityAnalyzer {
                     this.searchFilterManager,
                     this
                   );
-                } else {
-
                 }
               } catch (error) {
                 console.error('Error re-triggering market analysis after artist move:', error);
@@ -1958,7 +1889,7 @@ export class QualityAnalyzer {
 
 
         } catch (error) {
-          console.error('❌ Failed to add artist name to field:', error);
+          console.error('Failed to add artist name to field:', error);
           this.showErrorFeedback(element, 'Misslyckades att lägga till');
         }
       });
@@ -1999,7 +1930,7 @@ export class QualityAnalyzer {
       }
 
       if (!artistField) {
-        console.error('❌ Artist field not found with any selector');
+        console.error('Artist field not found with any selector');
         this.showErrorFeedback(clickableElement, 'Konstnärsfält hittades inte');
         return;
       }
@@ -2057,11 +1988,6 @@ export class QualityAnalyzer {
           // CRITICAL FIX: Apply AI Rules System context rules for "artistFieldFilled"
           const restructuredTitle = await this.applyArtistFieldFilledRules(cleanedTitle);
 
-          console.log('🎯 Title restructuring:', {
-            original: originalTitle,
-            cleaned: cleanedTitle,
-            restructured: restructuredTitle
-          });
 
           titleField.value = restructuredTitle;
           titleWasModified = true;
@@ -2071,11 +1997,7 @@ export class QualityAnalyzer {
           titleEvents.forEach(eventType => {
             titleField.dispatchEvent(new Event(eventType, { bubbles: true }));
           });
-        } else {
-
         }
-      } else if (!titleField) {
-
       }
 
       // Trigger form events to ensure proper validation and saving
@@ -2133,8 +2055,6 @@ export class QualityAnalyzer {
                 this.searchFilterManager,
                 this
               );
-            } else {
-
             }
           } catch (error) {
             console.error('Error re-triggering market analysis after artist move:', error);
@@ -2187,7 +2107,7 @@ export class QualityAnalyzer {
       }, 2000);
 
     } catch (error) {
-      console.error('❌ Failed to move artist name:', error);
+      console.error('Failed to move artist name:', error);
       this.showErrorFeedback(clickableElement, 'Misslyckades att flytta');
     }
   }
@@ -2213,9 +2133,7 @@ export class QualityAnalyzer {
     patterns.forEach((pattern, index) => {
       const beforeReplace = cleanedTitle;
       cleanedTitle = cleanedTitle.replace(pattern, index === 0 ? '' : ' ');
-      if (beforeReplace !== cleanedTitle) {
-
-      }
+      
     });
 
     // Comprehensive cleanup of punctuation and spacing
@@ -2243,12 +2161,10 @@ export class QualityAnalyzer {
   async applyArtistFieldFilledRules(title) {
     try {
       if (!this.apiManager) {
-        console.warn('⚠️ No API manager available, using AI title correction instead');
         // FALLBACK: Use AI title correction when rules system unavailable
         return await this.useAITitleCorrection(title);
       }
 
-      console.log('🎯 Attempting to apply AI Rules System context rules...');
 
       // SIMPLIFIED APPROACH: Since AI title correction works perfectly, use that instead
       // The "AI-förbättra titel" button produces: "Skrivbord. "Modell 75", teak, Jun Møbelfabrik, Danmark"
@@ -2257,7 +2173,7 @@ export class QualityAnalyzer {
       return await this.useAITitleCorrection(title);
 
     } catch (error) {
-      console.error('❌ Error applying artist field filled rules:', error);
+      console.error('Error applying artist field filled rules:', error);
       return title; // Return original title if rules application fails
     }
   }
@@ -2265,7 +2181,6 @@ export class QualityAnalyzer {
   // Use AI title correction with artist field filled context rules
   async useAITitleCorrection(title) {
     try {
-      console.log('🤖 Using AI title correction with artist field filled rules for:', title);
 
       // Show loading spinner over title field (same as "AI-förbättra titel" button)
       this.showTitleLoadingSpinner();
@@ -2286,18 +2201,16 @@ export class QualityAnalyzer {
       this.removeTitleLoadingSpinner();
 
       if (result && result.title) {
-        console.log('✅ AI title correction result:', result.title);
         // Show success flash (same as "AI-förbättra titel" button)
         this.showTitleSuccessFlash();
         return result.title;
       } else {
-        console.warn('⚠️ AI title correction failed, returning original');
         this.showTitleErrorFlash();
         return title;
       }
 
     } catch (error) {
-      console.error('❌ AI title correction error:', error);
+      console.error('AI title correction error:', error);
       // Remove loading spinner on error
       this.removeTitleLoadingSpinner();
       this.showTitleErrorFlash();
@@ -2374,7 +2287,6 @@ export class QualityAnalyzer {
     }
 
     fieldContainer.appendChild(overlay);
-    console.log('🔄 Title loading spinner shown');
   }
 
   // Remove loading spinner from title field
@@ -2384,7 +2296,6 @@ export class QualityAnalyzer {
       const container = overlay.parentElement;
       container.classList.remove('field-loading');
       overlay.remove();
-      console.log('✅ Title loading spinner removed');
     }
   }
 
@@ -2449,7 +2360,7 @@ export class QualityAnalyzer {
           }
 
           if (!artistField) {
-            console.error('❌ Artist field not found with any selector');
+            console.error('Artist field not found with any selector');
             this.showErrorFeedback(element, 'Konstnärsfält hittades inte');
             return;
           }
@@ -2626,7 +2537,7 @@ export class QualityAnalyzer {
           const actionText = titleField && artistWarning?.suggestedTitle ? 'moved to field and removed from title' : 'added to field';
 
         } catch (error) {
-          console.error('❌ Failed to move artist name:', error);
+          console.error('Failed to move artist name:', error);
           this.showErrorFeedback(element, 'Misslyckades att flytta');
         }
       });
@@ -2702,8 +2613,6 @@ export class QualityAnalyzer {
         // Test immediate trigger
         element.addEventListener('focus', () => {
         });
-      } else {
-        console.warn(`Field not found for live monitoring: ${selector}`);
       }
     });
 
@@ -2733,13 +2642,11 @@ export class QualityAnalyzer {
           const existingErrors = this.inlineBrandValidator.getCurrentErrors();
           if (existingErrors.length > 0) {
             existingErrors.forEach(error => {
-              console.log(`   - ${error.field}: "${error.original}" → "${error.suggested}" (${Math.round(error.confidence * 100)}%)`);
             });
           }
         }, 1000); // Wait for validation to complete
 
       } catch (error) {
-        console.warn('⚠️ Failed to start inline brand validation:', error);
       }
     }
 
@@ -2892,21 +2799,14 @@ export class QualityAnalyzer {
   }
 
   updateQualityIndicator(score, warnings, shouldAnimate = false) {
-    console.log('🔍 updateQualityIndicator called with:', {
-      score,
-      warningsCount: warnings?.length || 0,
-      warnings: warnings?.map(w => ({ field: w.field, issue: w.issue?.substring(0, 50) + '...', isArtistWarning: w.isArtistWarning })) || []
-    });
 
     // Create or update circular progress indicators using reusable component
     const qualityIndicator = document.querySelector('.quality-indicator');
-    console.log('🔍 Quality indicator element found:', !!qualityIndicator);
     if (qualityIndicator) {
       this.circularProgressManager.createQualityCircles(qualityIndicator, score, warnings, shouldAnimate);
     }
 
     const warningsElement = document.querySelector('.quality-warnings');
-    console.log('🔍 Warnings element found:', !!warningsElement);
 
     if (warningsElement) {
       if (warnings.length > 0) {
@@ -2915,7 +2815,6 @@ export class QualityAnalyzer {
 
           // SAFETY CHECK: Ensure issue exists
           if (!issue) {
-            console.warn(`⚠️ Warning ${warningIndex + 1} has no issue text:`, w);
             issue = w.message || 'Ingen information tillgänglig';
           }
 
@@ -2952,7 +2851,6 @@ export class QualityAnalyzer {
       }
     }
   }
-
 
 
   // --- Condition suggestion pool & AI cache ---
@@ -3027,11 +2925,9 @@ Anpassa förslagen till kategorin "${category}".`,
         if (suggestions.length >= 3) {
           this._aiConditionSuggestions = suggestions;
           this._aiConditionSuggestionsCategory = category;
-          console.log(`✅ AI generated ${suggestions.length} condition suggestions for "${category}"`);
         }
       }
     } catch (error) {
-      console.warn('⚠️ Failed to generate AI condition suggestions:', error);
     } finally {
       this._conditionSuggestionsLoading = false;
     }
@@ -3217,7 +3113,6 @@ Anpassa förslagen till kategorin "${category}".`,
             biographyTooltip = this.createBiographyTooltip(element, artistName, biography);
           }
         } catch (error) {
-          console.log('⚠️ Could not fetch biography for hover:', error.message);
         }
       }, 800); // 800ms delay before showing
     });
@@ -3277,7 +3172,6 @@ Anpassa förslagen till kategorin "${category}".`,
         return response.data.content[0].text;
       }
     } catch (error) {
-      console.log('⚠️ Biography fetch failed:', error.message);
     }
 
     return null;
@@ -3414,7 +3308,7 @@ Anpassa förslagen till kategorin "${category}".`,
         this.showBiographyModal(artistName, biography);
       }
     } catch (error) {
-      console.error('❌ Error fetching biography:', error);
+      console.error('Error fetching biography:', error);
       alert('Kunde inte hämta biografi för ' + artistName);
     }
   }
@@ -3762,7 +3656,6 @@ Anpassa förslagen till kategorin "${category}".`,
       };
     }
 
-    console.log('❌ No suitable artist or search terms found for market analysis');
     return null;
   }
 
@@ -3838,7 +3731,6 @@ Anpassa förslagen till kategorin "${category}".`,
 
     // Only proceed if we have meaningful terms
     if (searchTerms.length < 2) {
-      console.log('⚠️ Not enough meaningful terms for freetext search');
       return null;
     }
 
@@ -3959,12 +3851,6 @@ Anpassa förslagen till kategorin "${category}".`,
 
   // NEW: AI-ONLY search query generation for market analysis
   async determineBestSearchQueryForMarketAnalysis(data, aiArtist = null) {
-    console.log('🔍 Determining best search query for market analysis:', {
-      title: data.title?.substring(0, 80),
-      description: data.description?.substring(0, 100),
-      artist: data.artist,
-      aiArtist: aiArtist?.detectedArtist
-    });
 
     // Use AI-only SearchQuerySSoT if available
     if (this.searchQuerySSoT) {
@@ -3989,7 +3875,7 @@ Anpassa förslagen till kategorin "${category}".`,
           };
         }
       } catch (error) {
-        console.error('💥 AI-ONLY: Search query generation failed:', error);
+        console.error('AI-ONLY: Search query generation failed:', error);
       }
     }
 
@@ -4006,7 +3892,6 @@ Anpassa förslagen till kategorin "${category}".`,
     // 3. Rule-based artist detection
     // 4. Brand detection from title/description
     // 5. Freetext search from title/description
-
 
 
     // 1. PRIORITY: AI-detected artist (most reliable)
@@ -4091,7 +3976,6 @@ Anpassa förslagen till kategorin "${category}".`,
     const newScore = this.calculateCurrentQualityScore(latestData);
 
 
-
     // Update with animation enabled
     this.updateQualityIndicator(newScore, currentWarnings, true);
   }
@@ -4138,7 +4022,7 @@ Anpassa förslagen till kategorin "${category}".`,
           await this.triggerDashboardForNonArtItems(data);
         }
       } catch (error) {
-        console.error('❌ Market analysis with existing artist failed:', error);
+        console.error('Market analysis with existing artist failed:', error);
         await this.triggerDashboardForNonArtItems(data);
       }
     } else {

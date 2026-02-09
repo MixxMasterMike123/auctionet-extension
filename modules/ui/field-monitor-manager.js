@@ -18,7 +18,6 @@ export class FieldMonitorManager {
     this.userInteractionLog = new Map();
     this.isInitialized = false;
 
-    console.log('✅ FieldMonitorManager: Initialized');
   }
 
   /**
@@ -40,7 +39,6 @@ export class FieldMonitorManager {
     this.setupFieldMonitoring();
     
     this.isInitialized = true;
-    console.log('✅ FieldMonitorManager: Initialization complete');
   }
 
   /**
@@ -84,7 +82,6 @@ export class FieldMonitorManager {
       this.setupSingleFieldMonitoring(fieldConfig);
     });
 
-    console.log(`✅ FieldMonitorManager: Set up monitoring for ${fieldsToMonitor.length} fields`);
   }
 
   /**
@@ -96,7 +93,6 @@ export class FieldMonitorManager {
     const element = document.querySelector(selector);
 
     if (!element) {
-      console.warn(`⚠️ Field not found: ${selector}`);
       return;
     }
 
@@ -123,7 +119,6 @@ export class FieldMonitorManager {
     // Setup event listeners
     this.attachFieldEventListeners(element, type);
 
-    console.log(`✅ FieldMonitorManager: Monitoring set up for ${type} field`);
   }
 
   /**
@@ -209,7 +204,6 @@ export class FieldMonitorManager {
 
     this.debounceTimers.set(fieldType, timer);
 
-    console.log(`📝 FieldMonitorManager: Input detected in ${fieldType} field`);
   }
 
   /**
@@ -223,7 +217,6 @@ export class FieldMonitorManager {
       userLog.lastFocus = Date.now();
     }
 
-    console.log(`🎯 FieldMonitorManager: Focus on ${fieldType} field`);
   }
 
   /**
@@ -244,7 +237,6 @@ export class FieldMonitorManager {
       this.triggerFieldAnalysis(fieldType, { immediate: true });
     }
 
-    console.log(`👋 FieldMonitorManager: Blur from ${fieldType} field`);
   }
 
   /**
@@ -299,7 +291,6 @@ export class FieldMonitorManager {
                 };
               }
             } catch (error) {
-              console.log('Artist detection failed:', error);
             }
           }
           break;
@@ -324,10 +315,9 @@ export class FieldMonitorManager {
         this.showFieldAnalysisResult(fieldType, analysisResult);
       }
 
-      console.log(`🔍 FieldMonitorManager: Analysis complete for ${fieldType}`, analysisResult);
 
     } catch (error) {
-      console.error(`❌ FieldMonitorManager: Analysis failed for ${fieldType}:`, error);
+      console.error(`FieldMonitorManager: Analysis failed for ${fieldType}:`, error);
     }
   }
 
@@ -447,10 +437,9 @@ export class FieldMonitorManager {
           titleField.classList.remove('field-success');
         }, 2000);
 
-        console.log('✅ FieldMonitorManager: Artist moved successfully');
       }
     } catch (error) {
-      console.error('❌ FieldMonitorManager: Failed to move artist:', error);
+      console.error('FieldMonitorManager: Failed to move artist:', error);
     }
   }
 
@@ -464,9 +453,8 @@ export class FieldMonitorManager {
     try {
       // Use the API bridge to improve the field
       await this.apiBridge.improveField(fieldType);
-      console.log(`✅ FieldMonitorManager: AI improvement triggered for ${fieldType}`);
     } catch (error) {
-      console.error(`❌ FieldMonitorManager: AI improvement failed for ${fieldType}:`, error);
+      console.error(`FieldMonitorManager: AI improvement failed for ${fieldType}:`, error);
     }
   }
 
@@ -587,7 +575,6 @@ export class FieldMonitorManager {
       await this.triggerFieldAnalysis(fieldType, { immediate: true });
     }
 
-    console.log('✅ FieldMonitorManager: All fields analyzed');
   }
 
   /**
@@ -596,7 +583,6 @@ export class FieldMonitorManager {
    */
   setRealTimeAnalysis(enabled) {
     this.options.enableRealTimeAnalysis = enabled;
-    console.log(`${enabled ? '✅' : '❌'} FieldMonitorManager: Real-time analysis ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**
@@ -619,6 +605,5 @@ export class FieldMonitorManager {
     this.lastFieldContent.clear();
     this.userInteractionLog.clear();
 
-    console.log('🧹 FieldMonitorManager: Cleaned up');
   }
 } 

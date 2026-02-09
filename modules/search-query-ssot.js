@@ -21,7 +21,6 @@ export class SearchQuerySSoT {
   initialize(currentQuery, candidateTerms, analysisType) {
     
     if (!candidateTerms || !candidateTerms.candidates || candidateTerms.candidates.length === 0) {
-      console.log('⚠️ SSoT: No candidate terms provided, cannot initialize properly');
       return;
     }
     
@@ -39,12 +38,10 @@ export class SearchQuerySSoT {
         const quotedArtists = this.currentTerms.filter(term => 
           term.includes('"') && selectedCandidates.find(c => c.term === term && c.source === 'ai_detected')
         );
-        if (quotedArtists.length > 0) {
-        }
+        
       } else {
         // ENHANCED FALLBACK: Smart query parsing that preserves quoted terms
         this.currentTerms = this.parseQueryPreservingQuotes(currentQuery);
-        console.log('⚠️ SSoT: Fallback to smart query parsing (preserves quotes):', this.currentTerms);
       }
     }
     
@@ -139,19 +136,17 @@ export class SearchQuerySSoT {
         throw new Error('AI search generation failed');
       }
     } catch (error) {
-      console.error('💥 SSoT: Failed to generate AI query:', error);
+      console.error('SSoT: Failed to generate AI query:', error);
       
       // Emergency fallback with artist field priority
       const fallback = this.getEmergencyFallback(title, artist, description);
       this.setCurrentQuery(fallback, options);
-      console.log('⚠️ SSoT: Emergency fallback set as authoritative source');
       return fallback;
     }
   }
 
   // Set the current authoritative query
   setCurrentQuery(queryData, options = {}) {
-    console.log('🔒 SSoT: Setting authoritative query:', queryData);
     
     this.currentQuery = queryData.query || '';
     
@@ -198,7 +193,6 @@ export class SearchQuerySSoT {
       
     } else {
       // Fallback: create availableTerms from current terms only
-      console.log('⚠️ SSoT: Fallback - creating availableTerms from currentTerms only');
       
       this.availableTerms = this.currentTerms.map(term => ({
         term: term,
@@ -213,9 +207,6 @@ export class SearchQuerySSoT {
       }));
     }
     
-    console.log('   Total terms:', this.availableTerms.length);
-    console.log('   Unselected terms:', this.availableTerms.filter(t => !t.isSelected).length);
-    console.log('   Terms list:', this.availableTerms.map(t => `${t.term}(${t.isSelected ? '✓' : '○'})`));
     
     this.currentMetadata = {
       reasoning: queryData.reasoning || '',
@@ -239,7 +230,6 @@ export class SearchQuerySSoT {
       metadata: this.currentMetadata
     });
     
-    console.log('📡 SSoT: Notified all components of new authoritative query');
   }
 
   // Get current authoritative query
@@ -261,7 +251,6 @@ export class SearchQuerySSoT {
   buildSearchContext() {
     
     if (!this.currentQuery) {
-      console.warn('⚠️ SSoT: No current query set - returning default search context');
       
       // CRITICAL FIX: Never return null, always return a valid context object
       return {
@@ -323,7 +312,7 @@ export class SearchQuerySSoT {
     try {
       
       // Test query on Auctionet API (minimal call)
-      const testUrl = `https://auctionet.com/api/v2/items.json?is=ended&q=${encodeURIComponent(this.currentQuery)}&per_page=1`;
+      const testUrl = `https://auctionet.com/api/v2/items.json?is=ended&q=${encodeURIComponent(this.currentQuery)}&per_page=1`; // See CONFIG.URLS.AUCTIONET_API
       const response = await fetch(testUrl);
       
       if (!response.ok) {
@@ -342,7 +331,7 @@ export class SearchQuerySSoT {
       };
       
     } catch (error) {
-      console.error('💥 SSoT: Query validation failed:', error);
+      console.error('SSoT: Query validation failed:', error);
       return { valid: false, reason: error.message };
     }
   }
@@ -415,7 +404,6 @@ export class SearchQuerySSoT {
       
       fallbackTerms = basicWords;
       reasoning += 'Used basic word extraction as last resort.';
-      console.log(`⚠️ EMERGENCY: Last resort - basic words: ${basicWords.join(', ')}`);
     }
     
     const query = fallbackTerms.join(' ');
@@ -440,7 +428,6 @@ export class SearchQuerySSoT {
 
   removeListener(callback) {
     this.listeners = this.listeners.filter(cb => cb !== callback);
-    console.log(`📡 SSoT: Removed listener (${this.listeners.length} remaining)`);
   }
 
   notifyListeners(event, data) {
@@ -449,7 +436,7 @@ export class SearchQuerySSoT {
       try {
         callback(event, data);
       } catch (error) {
-        console.error('💥 SSoT: Listener callback failed:', error);
+        console.error('SSoT: Listener callback failed:', error);
       }
     });
   }
@@ -468,7 +455,6 @@ export class SearchQuerySSoT {
   // Generate Auctionet URLs for the current query
   getSearchUrls() {
     if (!this.currentQuery) {
-      console.warn('⚠️ SSoT: No current query - returning fallback URLs');
       return {
         historical: '#',
         live: '#',
@@ -477,7 +463,7 @@ export class SearchQuerySSoT {
     }
 
     const encodedQuery = encodeURIComponent(this.currentQuery);
-    const baseUrl = 'https://auctionet.com/sv/search';
+    const baseUrl = 'https://auctionet.com/sv/search'; // See CONFIG.URLS.AUCTIONET_SEARCH
     
     const urls = {
       historical: `${baseUrl}?event_id=&is=ended&q=${encodedQuery}`,
@@ -491,7 +477,6 @@ export class SearchQuerySSoT {
   // CRITICAL FIX: Update the DOM search field when SSoT state changes
   updateDOMSearchField() {
     if (!this.currentQuery) {
-      console.log('⚠️ SSoT: No current query to update DOM field with');
       return;
     }
     
@@ -506,14 +491,11 @@ export class SearchQuerySSoT {
       const changeEvent = new Event('change', { bubbles: true });
       keywordsField.dispatchEvent(changeEvent);
       
-    } else {
-      console.log('⚠️ SSoT: Keywords field (#item_hidden_keywords) not found in DOM');
     }
   }
 
   // Clear current state
   clear() {
-    console.log('🧹 SSoT: Clearing all state');
     this.currentQuery = null;
     this.currentTerms = [];
     this.currentMetadata = {};
@@ -523,7 +505,6 @@ export class SearchQuerySSoT {
 
   // Debug information
   debug() {
-    console.log('  AI Cache Stats:', this.aiGenerator.getCacheStats());
   }
 
   // Check if a specific term is selected (for UI checkbox state)
@@ -567,9 +548,7 @@ export class SearchQuerySSoT {
     
     // CRITICAL DEBUG: Find and inspect the Timo Sarpaneva term specifically
     const timoTerm = currentAvailableTerms.find(t => t.term && t.term.includes('Timo'));
-    if (timoTerm) {
-    } else {
-    }
+    
     
     // CRITICAL FIX: Identify AI-detected artists that should be preserved
     const aiDetectedArtists = currentAvailableTerms.filter(term => {
@@ -667,7 +646,6 @@ export class SearchQuerySSoT {
     
     
     if (!finalSelectedTerms || finalSelectedTerms.length === 0) {
-      console.log('⚠️ SSoT: No terms selected - clearing query');
       this.currentQuery = '';
       this.currentTerms = [];
       
@@ -699,8 +677,7 @@ export class SearchQuerySSoT {
         
         termObj.isSelected = isTermSelected;
         
-        if (isTermSelected) {
-        }
+        
       });
     }
     
@@ -721,7 +698,6 @@ export class SearchQuerySSoT {
       `${reasoningParts.join(' | ')}` : 
       'User cleared all selections';
     
-    console.log('   Preservation reasoning:', this.currentMetadata.reasoning);
     
     // CRITICAL FIX: Update the actual search keywords field in the DOM (unless explicitly disabled)
     const shouldUpdateDOMField = options.updateDOMField !== false; // Default to true
@@ -744,10 +720,7 @@ export class SearchQuerySSoT {
       // Access search filter manager through any available reference
       if (window.auctionetAssistant && window.auctionetAssistant.searchFilterManager) {
         const syncResult = window.auctionetAssistant.searchFilterManager.synchronizePillsWithSSoT();
-        if (syncResult && syncResult.mismatchCount > 0) {
-        }
-      } else {
-        console.log('⚠️ SSoT: Search filter manager not accessible for pill synchronization');
+        
       }
     }, 100); // Small delay to ensure DOM updates are complete
   }
@@ -763,7 +736,6 @@ export class SearchQuerySSoT {
     }
     
     // Only fall back to current terms if no available terms were ever stored
-    console.log('⚠️ SSoT: No available terms stored, creating from current terms (fallback)');
     return this.currentTerms.map(term => ({
       term: term,
       type: this.detectTermType(term),
@@ -808,8 +780,7 @@ export class SearchQuerySSoT {
     });
     
     const isSelected = foundUnquoted || foundQuoted || foundVariant;
-    if (isSelected) {
-    }
+    
     
     return isSelected;
   }

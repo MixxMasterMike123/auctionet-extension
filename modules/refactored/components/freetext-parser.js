@@ -25,11 +25,9 @@ export class FreetextParser {
     if (apiManager && typeof apiManager.getAPIManager === 'function') {
       // This is an APIBridge, get the actual APIManager
       this.apiManager = apiManager.getAPIManager();
-      console.log('✅ FreetextParser: Using APIManager from APIBridge');
     } else {
       // This is a direct APIManager
       this.apiManager = apiManager;
-      console.log('✅ FreetextParser: Using direct APIManager');
     }
     
     this.addItemsManager = addItemsManager;
@@ -51,7 +49,6 @@ export class FreetextParser {
       confidenceThreshold: 0.6
     };
     
-    console.log('✅ FreetextParser: Initialized with config:', this.config);
   }
 
   /**
@@ -60,22 +57,15 @@ export class FreetextParser {
   async init() {
     try {
       // Verify API manager and key are available
-      console.log('🔍 FreetextParser init - API Manager check:', {
-        hasApiManager: !!this.apiManager,
-        hasApiKey: !!this.apiManager?.apiKey,
-        apiKeyLength: this.apiManager?.apiKey?.length,
-        apiKeyType: typeof this.apiManager?.apiKey
-      });
       
       // Add a small delay to ensure page controllers are fully loaded
       await new Promise(resolve => setTimeout(resolve, 100));
       
       this.injectStyles();
       this.addFreetextButton();
-      console.log('✅ FreetextParser UI elements added to AddItem page');
       return true;
     } catch (error) {
-      console.error('❌ FreetextParser initialization failed:', error);
+      console.error('FreetextParser initialization failed:', error);
       throw error;
     }
   }
@@ -84,11 +74,9 @@ export class FreetextParser {
    * Add the main freetext parser button to the AddItem page
    */
   addFreetextButton() {
-    console.log('🔍 FreetextParser: addFreetextButton called, document.readyState:', document.readyState);
     
     // Wait for DOM to be ready and avoid conflicts with existing controllers
     if (document.readyState === 'loading') {
-      console.log('⏳ DOM still loading, waiting for DOMContentLoaded...');
       document.addEventListener('DOMContentLoaded', () => this.addFreetextButton());
       return;
     }
@@ -96,12 +84,6 @@ export class FreetextParser {
     // Check if button already exists to avoid duplicates
     const existingButton = document.querySelector('#freetext-parser-btn');
     if (existingButton) {
-      console.log('⚠️ Freetext parser button already exists:', {
-        element: existingButton,
-        visible: existingButton.offsetParent !== null,
-        parent: existingButton.parentNode,
-        className: existingButton.className
-      });
       return;
     }
 
@@ -114,30 +96,10 @@ export class FreetextParser {
                          document.querySelector('main') ||
                          document.body;
     
-    console.log('🔍 Form container search results:', {
-      'form[action*="items"]': !!document.querySelector('form[action*="items"]'),
-      '.item_form': !!document.querySelector('.item_form'),
-      '#new_item': !!document.querySelector('#new_item'),
-      'form:has(#item_title_sv)': !!document.querySelector('form:has(#item_title_sv)'),
-      '#item_title_sv closest form': !!document.querySelector('#item_title_sv')?.closest('form'),
-      'main': !!document.querySelector('main'),
-      'body': !!document.body,
-      'selected': formContainer?.tagName,
-      'selectedClass': formContainer?.className,
-      'selectedId': formContainer?.id
-    });
 
-    console.log('🔍 Selected form container details:', {
-      tagName: formContainer.tagName,
-      className: formContainer.className,
-      id: formContainer.id,
-      action: formContainer.action || 'N/A',
-      isVisible: formContainer.offsetHeight > 0,
-      childrenCount: formContainer.children.length
-    });
     
     if (!formContainer) {
-      console.error('❌ Could not find form container for freetext button');
+      console.error('Could not find form container for freetext button');
       return;
     }
 
@@ -156,7 +118,6 @@ export class FreetextParser {
     if (formContainer.id === 'new_item' || formContainer.className.includes('item_form')) {
       // For the AddItem form, insert before the form
       formContainer.parentNode.insertBefore(buttonContainer, formContainer);
-      console.log('📍 Button placed before AddItem form');
     } else {
       // For other containers, insert at the top
       const firstChild = formContainer.firstChild;
@@ -165,29 +126,16 @@ export class FreetextParser {
       } else {
         formContainer.appendChild(buttonContainer);
       }
-      console.log('📍 Button placed inside container');
     }
 
     // Attach event listener with error handling
     const button = buttonContainer.querySelector('#freetext-parser-btn');
     if (button) {
       button.addEventListener('click', () => this.openFreetextModal());
-      console.log('✅ Freetext parser button added to AddItem page');
       
       // DEBUGGING: Check button visibility
-      console.log('🔍 Button debugging:', {
-        buttonExists: !!button,
-        buttonVisible: button.offsetHeight > 0 && button.offsetWidth > 0,
-        buttonDisplay: window.getComputedStyle(button).display,
-        buttonVisibility: window.getComputedStyle(button).visibility,
-        buttonOpacity: window.getComputedStyle(button).opacity,
-        containerVisible: buttonContainer.offsetHeight > 0,
-        containerDisplay: window.getComputedStyle(buttonContainer).display,
-        parentElement: formContainer.tagName + '.' + formContainer.className,
-        buttonPosition: button.getBoundingClientRect()
-      });
     } else {
-      console.error('❌ Failed to find freetext parser button after creation');
+      console.error('Failed to find freetext parser button after creation');
     }
   }
 
@@ -228,7 +176,6 @@ export class FreetextParser {
           }
         }, 600); // After smooth scroll completes
         
-        console.log(`📍 Auto-scrolled to section title: ${sectionId}`);
         return;
       }
     }
@@ -240,29 +187,23 @@ export class FreetextParser {
       inline: 'nearest'
     });
 
-    console.log(`📍 Auto-scrolled to section: ${sectionId}`);
   }
 
   /**
    * Open the freetext input modal
    */
   openFreetextModal() {
-    console.log('🔴 FREETEXT MODAL OPENING in FreetextParser...');
     
     if (this.currentModal) {
-      console.log('⚠️ Modal already open');
       return;
     }
 
     try {
-      console.log('🔴 Creating freetext modal...');
       this.currentModal = this.createFreetextModal();
-      console.log('🔴 Modal created, appending to body...');
       
       // Ensure document.body exists before appending
       if (document.body) {
         document.body.appendChild(this.currentModal);
-        console.log('🔴 Modal appended to body successfully');
         
         // Initialize beautiful image upload and focus textarea
         setTimeout(() => {
@@ -273,18 +214,16 @@ export class FreetextParser {
             const textarea = this.currentModal.querySelector('#freetext-input');
             if (textarea) {
               textarea.focus();
-              console.log('🔴 Textarea focused');
             }
           }
         }, 100);
 
-        console.log('✅ Freetext modal opened successfully');
       } else {
-        console.error('❌ document.body not available for modal');
+        console.error('document.body not available for modal');
       }
     } catch (error) {
-      console.error('❌ Failed to open freetext modal:', error);
-      console.error('❌ Error stack:', error.stack);
+      console.error('Failed to open freetext modal:', error);
+      console.error('Error stack:', error.stack);
       this.currentModal = null;
     }
   }
@@ -496,7 +435,6 @@ export class FreetextParser {
     const analyzeBtn = modal.querySelector('#analyze-btn');
     if (analyzeBtn) {
               analyzeBtn.addEventListener('click', () => {
-          console.log('🔴 ANALYZE BUTTON CLICKED - processFreetextWithAI starting...');
           this.processFreetextWithAI();
         });
     }
@@ -535,7 +473,6 @@ export class FreetextParser {
    * Close modal and reset all state for fresh start
    */
   closeModal() {
-    console.log('🔄 Closing modal and resetting all state...');
     
     if (this.currentModal) {
       // Clean up escape key listener
@@ -568,7 +505,6 @@ export class FreetextParser {
       this.imageAnalyzer.currentImage = null; // Clear single image cache
     }
     
-    console.log('✅ Modal closed and all state reset for fresh start');
   }
 
   /**
@@ -578,7 +514,6 @@ export class FreetextParser {
     const MINIMUM_RESERVE_SEK = 400; // Business rule: minimum bevakning 400 SEK
     
     if (!reservePrice || reservePrice < MINIMUM_RESERVE_SEK) {
-      console.log(`🏛️ Enforcing minimum reserve: ${reservePrice || 0} SEK → ${MINIMUM_RESERVE_SEK} SEK`);
       return MINIMUM_RESERVE_SEK;
     }
     
@@ -589,7 +524,6 @@ export class FreetextParser {
    * Go back to input section while preserving existing data for re-analysis
    */
   goBackToInput() {
-    console.log('🔄 Going back to input section - preserving existing data...');
     
     if (!this.currentModal) return;
     
@@ -644,14 +578,12 @@ export class FreetextParser {
     // Update analysis mode indicator to refresh button state
     this.updateAnalysisModeIndicator(this.currentModal);
     
-    console.log('✅ Returned to input section with preserved data');
   }
 
   /**
    * Restart analysis - reset to input section with fresh state
    */
   restartAnalysis() {
-    console.log('🔄 Restarting analysis - resetting to input section...');
     
     if (!this.currentModal) return;
     
@@ -674,12 +606,6 @@ export class FreetextParser {
     
     // Reset image analyzer state completely
     if (this.imageAnalyzer) {
-      console.log('🔄 Clearing image analyzer cache:', {
-        currentImagesCount: this.imageAnalyzer.currentImages.size,
-        multipleResultsCount: this.imageAnalyzer.multipleAnalysisResults.size,
-        hasAnalysisResult: !!this.imageAnalyzer.analysisResult,
-        hasCurrentImage: !!this.imageAnalyzer.currentImage
-      });
       
       this.imageAnalyzer.currentImages.clear();
       this.imageAnalyzer.multipleAnalysisResults.clear(); // Clear multiple results cache
@@ -687,7 +613,6 @@ export class FreetextParser {
       this.imageAnalyzer.analysisResult = null;
       this.imageAnalyzer.currentImage = null; // Clear single image cache
       
-      console.log('✅ Image analyzer cache cleared completely');
     }
     
     // Clear all form inputs
@@ -753,7 +678,6 @@ export class FreetextParser {
     // Scroll back to input section
     this.scrollToSection('input-section');
     
-    console.log('✅ Analysis restarted - ready for fresh input');
   }
 
   /**
@@ -773,7 +697,7 @@ export class FreetextParser {
     const analyzeBtn = modal.querySelector('#analyze-btn');
 
     if (!textTab || !imageTab || !multipleImagesTab || !combinedTab) {
-      console.error('❌ Tab buttons not found');
+      console.error('Tab buttons not found');
       return;
     }
 
@@ -826,7 +750,6 @@ export class FreetextParser {
       `;
     });
 
-    console.log('✅ Tab switching initialized');
   }
 
   /**
@@ -845,7 +768,6 @@ export class FreetextParser {
 
     // Store current tab
     this.currentTab = tabType;
-    console.log('✅ Switched to tab:', tabType);
   }
 
   /**
@@ -858,7 +780,6 @@ export class FreetextParser {
         // Initialize multiple images analyzer
         const multipleImagesContainer = modal.querySelector('#multiple-images-analyzer-container');
         if (multipleImagesContainer) {
-          console.log('🔍 Initializing multiple images analyzer...');
           
           // Configure for unified multiple images
           this.imageAnalyzer.config.allowMultipleImages = true;
@@ -872,19 +793,15 @@ export class FreetextParser {
           // Wait a bit more for the HTML to be inserted
           setTimeout(() => {
             this.imageAnalyzer.attachMultipleImageUploadListeners('multiple-images-analyzer', (imagesMap) => {
-              console.log('[IMAGES] Images updated:', imagesMap?.size || 0, 'images');
               this.selectedImages = imagesMap;
               this.updateAnalysisModeIndicator(modal);
             });
           }, 100);
-        } else {
-          console.warn('⚠️ Multiple images analyzer container not found');
         }
 
-        console.log('✅ Unified image analyzer initialization started');
       }, 50);
     } catch (error) {
-      console.error('❌ Failed to initialize image analyzer:', error);
+      console.error('Failed to initialize image analyzer:', error);
     }
   }
 
@@ -998,20 +915,10 @@ export class FreetextParser {
    * Process input using AI Rules System v2.0 (unified logic)
    */
   async processFreetextWithAI() {
-    console.log('🔄 processFreetextWithAI called');
     
     // Debug: Check if we have any cached data that shouldn't be there
-    console.log('🔍 Analysis starting with state:', {
-      hasParsedData: !!this.parsedData,
-      hasCurrentSureScore: !!this.currentSureScore,
-      hasCurrentMarketData: !!this.currentMarketData,
-      selectedImagesCount: this.selectedImages?.size || 0,
-      imageAnalyzerHasResult: !!this.imageAnalyzer?.analysisResult,
-      imageAnalyzerHasCurrentImage: !!this.imageAnalyzer?.currentImage
-    });
     
     if (this.isProcessing) {
-      console.log('⚠️ Already processing');
       return;
     }
     
@@ -1023,16 +930,6 @@ export class FreetextParser {
     const hasText = textarea && textarea.value.trim().length > 0;
     const hasImages = this.selectedImages && this.selectedImages.size > 0;
     
-    console.log('🔍 Input analysis:', {
-      hasText,
-      hasImages,
-      imageCount: this.selectedImages?.size || 0,
-      textLength: textarea?.value?.trim()?.length || 0,
-      selectedImagesType: typeof this.selectedImages,
-      selectedImagesExists: !!this.selectedImages,
-      textareaExists: !!textarea,
-      textareaValue: textarea?.value?.substring(0, 50) + '...'
-    });
 
     if (!hasText && !hasImages) {
       this.showError('Vänligen lägg till ANTINGEN bilder ELLER text (eller båda) för AI-analys.');
@@ -1068,25 +965,20 @@ export class FreetextParser {
 
       if (hasImages && hasText) {
         // Combined analysis
-        console.log('[ANALYSIS] Running combined image + text analysis');
         analysisResult = await this.processCombinedImageAndText();
       } else if (hasImages) {
         // Image-only analysis
-        console.log('[ANALYSIS] Running image-only analysis');
         analysisResult = await this.processImageOnly();
       } else {
         // Text-only analysis
-        console.log('[ANALYSIS] Running text-only analysis');
         analysisResult = await this.processTextOnly();
       }
 
       // Calculate sure score and market validation (non-blocking)
-      console.log('[ANALYSIS] Calculating Sure Score and market validation...');
       let marketData = null;
       try {
         marketData = await this.imageAnalyzer.validateWithMarketData(analysisResult);
       } catch (error) {
-        console.warn('⚠️ Market validation failed, continuing without market data:', error);
       }
       sureScore = this.imageAnalyzer.calculateSureScore(analysisResult, marketData);
 
@@ -1116,12 +1008,6 @@ export class FreetextParser {
           analysisResult.reasoning = (analysisResult.reasoning || '') + ' ' + scalingResult.reasoning;
         }
         
-        console.log('🎯 Conservative scaling applied to estimates:', {
-          marketSupport: marketSupportPercentage + '%',
-          multiplier: scalingResult.multiplier,
-          originalConfidence: sureScore.confidenceLevel,
-          adjustedConfidence: scalingResult.confidenceLevel
-        });
       }
 
       // Final safety check: Enforce minimum reserve even if no scaling was applied
@@ -1135,24 +1021,15 @@ export class FreetextParser {
       this.currentMarketData = marketData;
 
       // Show results
-      console.log('🔍 PRICE ESTIMATE DEBUG - Final analysisResult:', {
-        hasEstimate: !!analysisResult.estimate,
-        estimateValue: analysisResult.estimate,
-        hasReserve: !!analysisResult.reserve,
-        reserveValue: analysisResult.reserve,
-        marketSupport: (sureScore.marketSupportPercentage || marketSupportPercentage) + '%'
-      });
       this.showParsedPreview(analysisResult, sureScore);
-      console.log('✅ Analysis completed successfully');
       
       // Auto-scroll to results section when analysis completes - with longer delay for better positioning
       setTimeout(() => {
-        console.log('📍 Starting auto-scroll to results section...');
         this.scrollToSection('results-section');
       }, 800); // Increased delay to ensure content is fully rendered
 
     } catch (error) {
-      console.error('❌ Analysis failed:', error);
+      console.error('Analysis failed:', error);
       this.showError(`AI-analys misslyckades: ${error.message}`);
     } finally {
       this.isProcessing = false;
@@ -1163,16 +1040,10 @@ export class FreetextParser {
    * Process text-only input (original functionality)
    */
   async processTextOnly() {
-          console.log('[TEXT] Processing text-only input...');
     
     const textarea = this.currentModal.querySelector('#freetext-input');
     const freetext = textarea.value.trim();
 
-          console.log('[TEXT] Freetext validation:', {
-      hasTextarea: !!textarea,
-      freetextLength: freetext?.length || 0,
-      freetext: freetext?.substring(0, 100) + '...'
-    });
 
     // Note: Text validation already done in main processFreetextWithAI method
     // This method is only called when hasText is true
@@ -1184,7 +1055,6 @@ export class FreetextParser {
       throw new Error('Fritexten verkar innehålla debug-information. Vänligen ange riktig auktionstext för att analysera.');
     }
 
-          console.log('[AI] Starting text analysis:', freetext.substring(0, 100) + '...');
 
     // Step 1: Parse freetext using AI Rules System v2.0
     const parsedData = await this.parseFreetextWithAI(freetext);
@@ -1203,7 +1073,6 @@ export class FreetextParser {
     // Step 5: Auto-enhance using AI Rules System v2.0
     const enhancedData = await this.autoEnhanceFields(finalData);
 
-    console.log('✅ Text-only processing completed');
     return enhancedData;
   }
 
@@ -1211,26 +1080,16 @@ export class FreetextParser {
    * Process image-only input using AIImageAnalyzer
    */
   async processImageOnly() {
-          console.log('[IMAGE] Processing image-only input...');
     
     // Note: Image validation already done in main processFreetextWithAI method
     // This method is only called when hasImages is true
 
-          console.log('[AI] Starting image analysis:', this.selectedImages.size, 'images');
     
     // Analyze images using AIImageAnalyzer component
     let imageAnalysis;
     if (this.selectedImages.size === 1) {
       // Single image analysis
       const singleImageData = Array.from(this.selectedImages.values())[0];
-      console.log('🔍 Single image data structure:', singleImageData);
-      console.log('🔍 File object details:', {
-        file: singleImageData.file,
-        fileName: singleImageData.file?.name,
-        fileType: singleImageData.file?.type,
-        fileSize: singleImageData.file?.size,
-        hasFile: !!singleImageData.file
-      });
       imageAnalysis = await this.imageAnalyzer.analyzeImage(singleImageData.file);
     } else {
       // Multiple images analysis
@@ -1249,10 +1108,6 @@ export class FreetextParser {
         categoryIndex++;
       }
       
-      console.log('🔍 Populated currentImages for image-only multiple analysis:', {
-        currentImagesSize: this.imageAnalyzer.currentImages.size,
-        categories: Array.from(this.imageAnalyzer.currentImages.keys())
-      });
       
       imageAnalysis = await this.imageAnalyzer.analyzeMultipleImages();
     }
@@ -1282,7 +1137,6 @@ export class FreetextParser {
       imageAnalysis: imageAnalysis // Store original image analysis
     };
 
-    console.log('✅ Image-only processing completed');
     return parsedData;
   }
 
@@ -1290,7 +1144,6 @@ export class FreetextParser {
    * Process combined image + text input
    */
   async processCombinedImageAndText() {
-    console.log('🔄 Processing combined image + text input...');
     
     if (!this.selectedImages || this.selectedImages.size === 0) {
       throw new Error('Vänligen ladda upp bilder för kombinerad analys först.');
@@ -1299,24 +1152,12 @@ export class FreetextParser {
     const textarea = this.currentModal.querySelector('#freetext-input');
     const additionalText = textarea ? textarea.value.trim() : '';
 
-          console.log('[AI] Starting combined analysis:', {
-      imageCount: this.selectedImages.size,
-      hasAdditionalText: !!additionalText,
-      additionalTextLength: additionalText.length
-    });
 
     // Analyze images with additional text context
     let imageAnalysis;
     if (this.selectedImages.size === 1) {
       // Single image analysis with text context
       const singleImageData = Array.from(this.selectedImages.values())[0];
-      console.log('🔍 Combined analysis - image data:', singleImageData);
-      console.log('🔍 Combined analysis - file object:', {
-        file: singleImageData.file,
-        fileName: singleImageData.file?.name,
-        fileType: singleImageData.file?.type,
-        hasFile: !!singleImageData.file
-      });
       imageAnalysis = await this.imageAnalyzer.analyzeImage(singleImageData.file, additionalText);
     } else {
       // Multiple images analysis with text context
@@ -1331,10 +1172,6 @@ export class FreetextParser {
         categoryIndex++;
       }
       
-      console.log('🔍 Populated currentImages for multiple analysis:', {
-        currentImagesSize: this.imageAnalyzer.currentImages.size,
-        categories: Array.from(this.imageAnalyzer.currentImages.keys())
-      });
       
       imageAnalysis = await this.imageAnalyzer.analyzeMultipleImages(additionalText);
     }
@@ -1367,13 +1204,10 @@ export class FreetextParser {
 
     // If we have additional text, enhance the analysis further
     if (additionalText && additionalText.length > 10) {
-      console.log('🔧 Enhancing with additional text context...');
       const enhancedData = await this.enhanceWithAdditionalText(parsedData, additionalText);
-      console.log('✅ Combined processing with text enhancement completed');
       return enhancedData;
     }
 
-    console.log('✅ Combined processing completed');
     return parsedData;
   }
 
@@ -1381,7 +1215,6 @@ export class FreetextParser {
    * Enhance image analysis with additional text context
    */
   async enhanceWithAdditionalText(imageData, additionalText) {
-    console.log('🔧 Enhancing image analysis with additional text...');
     
     try {
       // Use AI Rules System v2.0 for text enhancement
@@ -1469,19 +1302,16 @@ export class FreetextParser {
             analysisType: 'combined'
           };
           
-          console.log('✅ Text enhancement completed');
           return mergedData;
         } catch (parseError) {
-          console.warn('⚠️ Could not parse enhanced data, using original:', parseError);
           return imageData;
         }
       }
       
-      console.warn('⚠️ No valid enhancement response, using original data');
       return imageData;
       
     } catch (error) {
-      console.error('❌ Text enhancement failed:', error);
+      console.error('Text enhancement failed:', error);
       return imageData; // Fallback to original image data
     }
   }
@@ -1490,10 +1320,9 @@ export class FreetextParser {
    * Parse freetext using AI Rules System v2.0
    */
   async parseFreetextWithAI(freetext) {
-    console.log('🔄 Parsing freetext with AI Rules System v2.0...');
 
     if (!this.apiManager.apiKey) {
-      console.error('❌ No API key found in apiManager:', {
+      console.error('No API key found in apiManager:', {
         hasApiManager: !!this.apiManager,
         apiKeyExists: !!this.apiManager?.apiKey,
         apiKeyType: typeof this.apiManager?.apiKey
@@ -1501,11 +1330,6 @@ export class FreetextParser {
       throw new Error('API key not configured. Please set your Anthropic API key in the extension popup.');
     }
     
-    console.log('✅ API key validation passed:', {
-      hasApiKey: true,
-      keyLength: this.apiManager.apiKey.length,
-      keyPrefix: this.apiManager.apiKey.substring(0, 10) + '...'
-    });
 
     // Use AI Rules System v2.0 for consistent prompts and corrections
     const { 
@@ -1525,25 +1349,11 @@ export class FreetextParser {
     const artistCorrections = aiRules.getBrandCorrections();
     const keywordRules = aiRules.getFieldRules('keywords');
     
-    console.log('✅ Using AI Rules System v2.0:', {
-      hasSystemPrompt: !!systemPrompt,
-      hasCategoryPrompt: !!categoryPrompt,
-      brandCorrectionsCount: Object.keys(brandCorrections || {}).length,
-      artistCorrectionsCount: Object.keys(artistCorrections || {}).length
-    });
 
     // Get model-specific valuation rules from AI Rules System v2.0
     const currentModel = this.apiManager.getCurrentModel().id;
     const valuationRules = window.getAIRulesManager().getModelSpecificValuationRules('freetextParser', currentModel);
     
-          console.log('[RULES] Using model-specific valuation rules:', {
-      model: currentModel,
-      approach: valuationRules.approach,
-      instruction: valuationRules.instruction,
-      maxTokens: valuationRules.maxTokens,
-      temperature: valuationRules.temperature,
-      enableDeepReasoning: valuationRules.enableDeepReasoning
-    });
     
     // For Claude 4, add extra context about realistic pricing based on your data
     let valuationContext = '';
@@ -1640,19 +1450,13 @@ INSTRUKTIONER:
 - ${valuationRules.instruction}${valuationContext}`;
 
     try {
-      console.log('[API] Making AI API call with:', {
-        hasApiKey: !!this.apiManager.apiKey,
-        apiKeyLength: this.apiManager.apiKey?.length,
-        freetextLength: freetext.length
-      });
 
       // Call AI API directly using Chrome runtime messaging (same pattern as other components)
       const response = await new Promise((resolve, reject) => {
-        console.log('[API] Sending Chrome runtime message for AI parsing...');
         
         // Add timeout to catch hanging requests
         const timeout = setTimeout(() => {
-          console.error('⏰ Chrome runtime message timeout after 30 seconds');
+          console.error('Chrome runtime message timeout after 30 seconds');
           reject(new Error('API request timeout - no response from background script'));
         }, 30000);
         
@@ -1660,12 +1464,6 @@ INSTRUKTIONER:
         const maxTokens = valuationRules.maxTokens || 2000;
         const temperature = valuationRules.temperature || 0.1;
         
-        console.log('[API] Enhanced AI parameters:', {
-          model: currentModel,
-          maxTokens,
-          temperature,
-          deepReasoning: valuationRules.enableDeepReasoning
-        });
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
@@ -1682,41 +1480,31 @@ INSTRUKTIONER:
           }
         }, (response) => {
           clearTimeout(timeout);
-          console.log('[API] Chrome runtime response received:', response);
           
           if (chrome.runtime.lastError) {
-            console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+            console.error('Chrome runtime error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
           } else if (response && response.success) {
-            console.log('✅ AI API call successful');
             resolve(response);
           } else {
-            console.error('❌ AI API call failed:', response);
+            console.error('AI API call failed:', response);
             reject(new Error(response?.error || 'AI analysis failed'));
           }
         });
         
-                  console.log('[API] Chrome runtime message sent, waiting for response...');
       });
 
-      console.log('🔍 Processing AI response:', {
-        success: response.success,
-        hasData: !!response.data,
-        hasContent: !!response.data?.content,
-        contentLength: response.data?.content?.length
-      });
 
       if (response.success && response.data?.content?.[0]?.text) {
-        console.log('✅ AI response text received, length:', response.data.content[0].text.length);
         return this.parseAIResponse(response.data.content[0].text);
       } else {
-        console.error('❌ Invalid AI response structure:', response);
+        console.error('Invalid AI response structure:', response);
         throw new Error('Invalid response format from AI');
       }
 
     } catch (error) {
-      console.error('❌ AI parsing failed:', error);
-      console.error('❌ Error stack:', error.stack);
+      console.error('AI parsing failed:', error);
+      console.error('Error stack:', error.stack);
       throw error;
     }
   }
@@ -1726,7 +1514,6 @@ INSTRUKTIONER:
    * This is the "cheat" step that gives us perfect results!
    */
   async autoEnhanceFields(parsedData) {
-          console.log('[ENHANCE] Auto-enhancing fields with EXACT edit page logic...');
     
     try {
       // Convert parsed data to edit page format
@@ -1746,12 +1533,6 @@ INSTRUKTIONER:
       // Use ADD ITEM page specific user prompt (NOT edit page!)
       const userPrompt = this.getAddItemPageUserPrompt(itemData, 'all');
 
-      console.log('[ENHANCE] Using ADD ITEM page enhancement logic:', {
-        hasSystemPrompt: !!systemPrompt,
-        hasUserPrompt: !!userPrompt,
-        systemPromptLength: systemPrompt.length,
-        userPromptLength: userPrompt.length
-      });
 
       const response = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -1785,7 +1566,6 @@ INSTRUKTIONER:
 
       if (response.success && response.data?.content?.[0]?.text) {
         const enhancedText = response.data.content[0].text;
-        console.log('🔍 Edit page enhancement response:', enhancedText);
         
         // Use EXACT SAME parsing logic as edit page
         const enhancedFields = this.parseEditPageResponse(enhancedText, 'all');
@@ -1800,16 +1580,13 @@ INSTRUKTIONER:
           keywords: enhancedFields.keywords || parsedData.keywords
         };
         
-        console.log('✅ Edit page enhancement successful:', result);
         return result;
       }
       
-      console.log('⚠️ Edit page enhancement failed, using original data');
       return parsedData;
       
     } catch (error) {
-      console.error('❌ Edit page enhancement error:', error);
-      console.log('⚠️ Falling back to original parsed data');
+      console.error('Edit page enhancement error:', error);
       return parsedData;
     }
   }
@@ -1818,29 +1595,20 @@ INSTRUKTIONER:
    * Get EXACT SAME system prompt as edit page
    */
   getEditPageSystemPrompt() {
-    console.log('🔍 Checking for ContentJSMigration:', {
-      hasWindow: typeof window !== 'undefined',
-      hasContentJSMigration: !!window.ContentJSMigration,
-      hasGetSystemPrompt: !!(window.ContentJSMigration && window.ContentJSMigration.getSystemPrompt),
-      hasGlobalGetSystemPrompt: !!window.getSystemPrompt
-    });
     
     // Use the exact same system prompt as content.js
     const { ContentJSMigration } = window;
     if (ContentJSMigration && ContentJSMigration.getSystemPrompt) {
-      console.log('✅ Using ContentJSMigration.getSystemPrompt()');
       return ContentJSMigration.getSystemPrompt();
     }
     
     // Fallback to AI Rules System v2.0
     const { getSystemPrompt } = window;
     if (getSystemPrompt) {
-      console.log('✅ Using global getSystemPrompt()');
       return getSystemPrompt('core', 'contentJs');
     }
     
     // Final fallback - basic system prompt
-    console.log('⚠️ Using fallback system prompt');
     return `Du är en expert på svenska auktionskatalogisering. Förbättra auktionstexter enligt svenska auktionsstandarder med fokus på korrekt terminologi, struktur och anti-hallucination.`;
   }
 
@@ -1848,7 +1616,6 @@ INSTRUKTIONER:
    * Get ADD ITEM page specific user prompt (NOT edit page!)
    */
   getAddItemPageUserPrompt(itemData, fieldType) {
-    console.log('🔍 Using ADD ITEM page specific enhancement rules (NOT edit page)');
     
     // CRITICAL: Use ADD ITEM page rules, not edit page rules!
     
@@ -1869,7 +1636,6 @@ Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
     }
     
     // Final fallback - use EXACT edit page logic hardcoded
-    console.log('⚠️ Using fallback user prompt with EXACT edit page logic');
     
     const baseInfo = `
 FÖREMÅLSINFORMATION:
@@ -1930,7 +1696,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * Parse response using EXACT SAME logic as edit page
    */
   parseEditPageResponse(response, fieldType) {
-    console.log('🔍 Parsing edit page response for fieldType:', fieldType, 'Response:', response);
     
     // Use exact same parsing logic as content.js parseClaudeResponse method
     const result = {};
@@ -1968,7 +1733,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       result.title = response.trim();
     }
     
-    console.log('✅ Edit page parsed result:', result);
     return result;
   }
 
@@ -1977,7 +1741,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    */
   parseAIResponse(response) {
     try {
-      console.log('🔍 Raw AI response:', response);
 
       // Clean the response and extract JSON
       let cleanResponse = response.trim();
@@ -1999,7 +1762,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       // Fallback: Parse structured text response
       return this.parseStructuredTextResponse(cleanResponse);
     } catch (error) {
-      console.error('❌ Failed to parse AI response:', error, 'Response:', response);
+      console.error('Failed to parse AI response:', error, 'Response:', response);
       throw new Error('AI response kunde inte tolkas. Försök igen med tydligare fritext.');
     }
   }
@@ -2010,14 +1773,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   validateAndNormalizeParsedData(data) {
     // Handle both Swedish and English field names
     // DEBUG: Check raw estimate values from AI
-    console.log('🔍 RAW ESTIMATE VALUES from AI:', {
-      estimate: data.estimate,
-      värdering: data.värdering,
-      reserve: data.reserve,
-      utrop: data.utrop,
-      estimateType: typeof data.estimate,
-      fullData: data
-    });
 
     const normalized = {
       title: data.title || data.titel || '',
@@ -2040,7 +1795,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       reasoning: data.reasoning || data.motivering || ''
     };
 
-    console.log('✅ Normalized parsed data:', normalized);
     return normalized;
   }
 
@@ -2437,14 +2191,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
     // Special handling for final step - don't auto-complete, wait for actual AI completion
     if (isFinalStep) {
-      console.log('🔄 Final step detected - setting up continuous loading animation');
       
       // Add continuous loading animation to final step
       if (stepElement) {
         stepElement.classList.add('step-final-processing');
         const stepIcon = stepElement.querySelector('.step-icon');
         if (stepIcon) {
-          console.log('🔄 Replacing final step icon with spinner');
           stepIcon.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="spinner-icon">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416">
@@ -2458,14 +2210,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         // Update step text to indicate AI processing
         const stepTextEl = stepElement.querySelector('.step-text');
         if (stepTextEl) {
-          console.log('🔄 Updating final step text to show AI processing');
           stepTextEl.textContent = 'AI bearbetar... (detta kan ta några sekunder)';
         }
       }
       
       // Don't schedule auto-completion for final step - let completeProgressAnimation() handle it
       this.currentStepIndex++;
-      console.log('🔄 Final step setup complete - waiting for actual AI completion');
       return;
     }
 
@@ -2556,17 +2306,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   showParsedPreview(data, sureScore = null) {
     const modal = this.currentModal;
     if (!modal) {
-      console.error('❌ No modal found for showParsedPreview');
+      console.error('No modal found for showParsedPreview');
       return;
     }
 
-    console.log('🔍 showParsedPreview called with data:', {
-      title: data.title,
-      description: data.description?.substring(0, 50) + '...',
-      condition: data.condition,
-      artist: data.artist,
-      hasData: !!data
-    });
 
     // Complete the progress animation
     this.completeProgressAnimation();
@@ -2585,25 +2328,19 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const previewContent = modal.querySelector('.preview-content');
     
     if (previewSection && previewContent) {
-      console.log('🔍 Generating preview HTML for title:', data.title);
       const htmlContent = this.generatePreviewHTML(data, sureScore);
-      console.log('🔍 Generated HTML preview (first 200 chars):', htmlContent.substring(0, 200) + '...');
       
       previewContent.innerHTML = htmlContent;
       previewSection.style.display = 'block';
       
-      console.log('✅ Preview content updated in DOM');
       
       // DEBUG: Check what's actually in the DOM after update
       setTimeout(() => {
         const titleInput = modal.querySelector('.preview-field--title');
         const titleValue = titleInput ? titleInput.value : 'NOT FOUND';
-        console.log('🔍 DOM CHECK: Title input value after update:', titleValue);
-        console.log('🔍 DOM CHECK: Title input element:', titleInput);
-        console.log('🔍 DOM CHECK: Preview content HTML:', previewContent.innerHTML.substring(0, 300) + '...');
       }, 100);
     } else {
-      console.error('❌ Preview section or content not found:', {
+      console.error('Preview section or content not found:', {
         hasPreviewSection: !!previewSection,
         hasPreviewContent: !!previewContent
       });
@@ -2631,7 +2368,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       restartBtn.style.display = 'inline-block';
     }
 
-    console.log('✅ Parsed preview displayed with data:', data);
   }
 
   /**
@@ -2818,14 +2554,13 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    */
   applyParsedDataToForm() {
     if (!this.parsedData) {
-      console.error('❌ No parsed data to apply');
+      console.error('No parsed data to apply');
       return;
     }
 
     try {
       // Get updated values from preview fields (user may have edited them)
       const updatedData = this.getUpdatedDataFromPreview();
-      console.log('🔄 Applying parsed data to form:', updatedData);
       
       // Apply data directly to form fields using the exact field IDs from the HTML
       this.applyToFormField('item_title_sv', updatedData.title);
@@ -2847,7 +2582,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         const checkbox = document.getElementById('item_should_be_disposed_of_if_unsold');
         if (checkbox) {
           checkbox.checked = true;
-          console.log('✅ Set disposal checkbox to checked');
         }
       }
       
@@ -2857,10 +2591,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       // Show success message
       this.showSuccessMessage('Fritext har analyserats och tillämpats på formuläret!');
       
-      console.log('✅ All parsed data applied to form successfully');
       
     } catch (error) {
-      console.error('❌ Failed to apply parsed data:', error);
+      console.error('Failed to apply parsed data:', error);
       this.showError('Kunde inte applicera data till formuläret.');
     }
   }
@@ -2877,7 +2610,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       if (field.value.trim() && field.hasAttribute('data-confirm-nonempty')) {
         const confirmMessage = field.getAttribute('data-confirm-nonempty');
         if (!confirm(confirmMessage)) {
-          console.log(`⏭️ Skipped ${fieldId} - user declined replacement`);
           return;
         }
       }
@@ -2888,9 +2620,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       field.dispatchEvent(new Event('change', { bubbles: true }));
       field.dispatchEvent(new Event('input', { bubbles: true }));
       
-      console.log(`✅ Applied to ${fieldId}:`, value);
-    } else {
-      console.warn(`⚠️ Field not found: ${fieldId}`);
     }
   }
 
@@ -2991,7 +2720,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * Validate against auction history using existing 3.5M auction dataset
    */
   async validateAgainstAuctionHistory(data) {
-    console.log('🔄 Historical validation using existing auction dataset...');
     
     // Use existing validation logic - for now just return data
     // Future: Could integrate with existing validation systems
@@ -3002,12 +2730,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * Enrich with market data using existing comprehensive market analysis system
    */
   async enrichWithMarketData(data) {
-    console.log('🔄 Market data enrichment using existing market analysis system...');
     
     try {
       // Only run market analysis if we have artist or meaningful object data
       if (!data.artist && (!data.title || data.title.length < 10)) {
-        console.log('⏭️ Skipping market analysis - insufficient data for meaningful search');
         return data;
       }
       
@@ -3015,27 +2741,15 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       const searchQuery = this.buildOptimalSearchQuery(data);
       
       if (!searchQuery || searchQuery.trim().length < 3) {
-        console.log('⏭️ Skipping market analysis - could not build meaningful search query');
         data.reasoning = (data.reasoning || '') + ' Kunde inte bygga sökfråga för marknadsanalys.';
         return data;
       }
       
-      console.log('🔍 Running market analysis with optimized search query:', {
-        searchQuery,
-        hasArtist: !!data.artist,
-        title: data.title?.substring(0, 50) + '...'
-      });
       
       // Use the modern search-based market analysis approach with fallback strategy
       let marketData = await this.tryMarketAnalysisWithFallbacks(searchQuery, data);
       
       if (marketData && marketData.hasComparableData) {
-        console.log('✅ Market analysis successful:', {
-          hasHistorical: !!marketData.historical,
-          hasLive: !!marketData.live,
-          priceRange: marketData.priceRange,
-          confidence: marketData.confidence
-        });
         
         // Update estimates based on market data (preserve AI estimates if market data is better)
         if (marketData.priceRange) {
@@ -3072,7 +2786,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         data.marketData = marketData;
         
       } else {
-        console.log('⚠️ No market data found - keeping AI estimates');
         if (data.estimate || data.reserve) {
           data.reasoning = (data.reasoning || '') + ' Ingen marknadsdata hittades - använder AI-värdering.';
         } else {
@@ -3081,7 +2794,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       }
       
     } catch (error) {
-      console.error('❌ Market analysis failed:', error);
+      console.error('Market analysis failed:', error);
       data.reasoning = (data.reasoning || '') + ' Marknadsanalys misslyckades - använder AI-uppskattning.';
     }
     
@@ -3099,14 +2812,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     if (data.artist && data.artist.trim()) {
       const formattedArtist = this.formatArtistForSearch(data.artist);
       queryTerms.push(formattedArtist);
-      console.log(`[SEARCH] ARTIST: Added "${formattedArtist}" as primary search term`);
     }
     
     // PRIORITY 2: Object type (CRITICAL for relevance)
     const objectType = this.extractObjectType(data.title);
     if (objectType && !queryTerms.some(term => term.toLowerCase().includes(objectType.toLowerCase()))) {
       queryTerms.push(objectType);
-      console.log(`[SEARCH] OBJECT: Added "${objectType}" as object type`);
     }
     
     // PRIORITY 3: Brand/Designer (if different from artist)
@@ -3114,7 +2825,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     if (brand && !queryTerms.some(term => term.toLowerCase().includes(brand.toLowerCase()))) {
       const formattedBrand = this.formatBrandForSearch(brand);
       queryTerms.push(formattedBrand);
-      console.log(`[SEARCH] BRAND: Added "${formattedBrand}" as brand/designer`);
     }
     
     // PRIORITY 4: Material (if distinctive)
@@ -3122,31 +2832,17 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       const material = data.materials.toLowerCase();
       if (!queryTerms.some(term => term.toLowerCase().includes(material))) {
         queryTerms.push(material);
-        console.log(`[SEARCH] MATERIAL: Added "${material}" as distinctive material`);
       }
     }
     
     // PRIORITY 5: Period (if decade format)
     if (data.period && data.period.includes('-tal')) {
       queryTerms.push(data.period);
-      console.log(`[SEARCH] PERIOD: Added "${data.period}" as time period`);
     }
     
     // Build final query (limit to 4-5 terms for optimal results)
     const finalQuery = queryTerms.slice(0, 5).join(' ').trim();
     
-    console.log(`🔍 FREETEXT PARSER SEARCH QUERY BUILDING:`, {
-      originalData: {
-        title: data.title,
-        artist: data.artist,
-        materials: data.materials,
-        period: data.period
-      },
-      extractedTerms: queryTerms,
-      finalQuery: finalQuery,
-      termCount: queryTerms.length,
-      queryLength: finalQuery.length
-    });
     
     return finalQuery;
   }
@@ -3250,16 +2946,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     // Define priority order (most important first - these are removed LAST)
     const termPriorities = this.getTermPriorities(queryTerms, data);
     
-    console.log('🔍 Starting market analysis with fallback strategy:', {
-      initialQuery,
-      termCount: queryTerms.length,
-      priorities: termPriorities
-    });
     
     // Try initial query first
     let marketData = await this.callMarketAnalysis(initialQuery, 'initial');
     if (marketData && marketData.hasComparableData) {
-      console.log('✅ Initial query successful');
       return marketData;
     }
     
@@ -3273,11 +2963,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       const removedTerm = currentTerms.splice(leastImportantIndex, 1)[0];
       
       const fallbackQuery = currentTerms.join(' ');
-      console.log(`🔄 Fallback attempt ${attemptCount}: Removed "${removedTerm}", trying: "${fallbackQuery}"`);
       
       marketData = await this.callMarketAnalysis(fallbackQuery, `fallback_${attemptCount}`);
       if (marketData && marketData.hasComparableData) {
-        console.log(`✅ Fallback ${attemptCount} successful with query: "${fallbackQuery}"`);
         return marketData;
       }
       
@@ -3287,28 +2975,22 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     // Final attempt with just the most important term
     if (currentTerms.length > 0) {
       const finalQuery = currentTerms[0];
-      console.log(`🔄 Final attempt with most important term: "${finalQuery}"`);
       
       marketData = await this.callMarketAnalysis(finalQuery, 'final');
       if (marketData && marketData.hasComparableData) {
-        console.log(`✅ Final attempt successful with: "${finalQuery}"`);
         return marketData;
       }
     }
     
     // EMERGENCY FALLBACK: Try with unquoted terms if all quoted attempts failed
-    console.log('🚨 All quoted attempts failed - trying emergency unquoted fallback');
     const emergencyQuery = this.buildEmergencyFallbackQuery(data);
     if (emergencyQuery && emergencyQuery !== initialQuery) {
-      console.log(`🔄 Emergency fallback: "${emergencyQuery}"`);
       marketData = await this.callMarketAnalysis(emergencyQuery, 'emergency_unquoted');
       if (marketData && marketData.hasComparableData) {
-        console.log(`✅ Emergency fallback successful with: "${emergencyQuery}"`);
         return marketData;
       }
     }
     
-    console.log('❌ All fallback attempts failed - no market data found');
     return null;
   }
   
@@ -3413,7 +3095,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     // Limit to 3 terms for broader search
     const emergencyQuery = terms.slice(0, 3).join(' ').trim();
     
-    console.log(`🚨 EMERGENCY FALLBACK QUERY: "${emergencyQuery}" (unquoted for broader search)`);
     return emergencyQuery;
   }
   
@@ -3422,13 +3103,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    */
   async callMarketAnalysis(query, attemptType) {
     try {
-      console.log(`🔍 FREETEXT PARSER API CALL [${attemptType.toUpperCase()}]:`, {
-        query: query,
-        queryLength: query.length,
-        termCount: query.split(' ').length,
-        hasQuotes: query.includes('"'),
-        timestamp: new Date().toISOString()
-      });
       
       const searchContext = {
         primarySearch: query,
@@ -3442,22 +3116,13 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         hasValidQuery: true
       };
       
-      console.log(`📤 SENDING TO API:`, searchContext);
       
       const result = await this.apiManager.analyzeSales(searchContext);
       
-      console.log(`📥 API RESPONSE [${attemptType.toUpperCase()}]:`, {
-        hasData: !!result,
-        hasComparableData: result?.hasComparableData,
-        historicalSales: result?.historical?.analyzedSales || 0,
-        totalMatches: result?.historical?.totalMatches || 0,
-        priceRange: result?.priceRange ? `${result.priceRange.low}-${result.priceRange.high} SEK` : 'none',
-        confidence: result?.confidence || 0
-      });
       
       return result;
     } catch (error) {
-      console.error(`❌ Market analysis failed for ${attemptType} query "${query}":`, error);
+      console.error(`Market analysis failed for ${attemptType} query"${query}":`, error);
       return null;
     }
   }
@@ -3522,9 +3187,8 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         this.currentModal = null;
         this.parsedData = null;
         this.isProcessing = false;
-        console.log('✅ Freetext modal closed');
       } catch (error) {
-        console.error('❌ Error closing modal:', error);
+        console.error('Error closing modal:', error);
         // Force cleanup
         this.currentModal = null;
         this.parsedData = null;
@@ -3540,7 +3204,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   injectStyles() {
     // CSS is now properly loaded via manifest.json: styles/components/freetext-parser.css
     // Following .cursorrules: CSS in CSS files, not JavaScript
-    console.log('✅ FreetextParser: CSS loaded via manifest.json');
   }
 
   /**
@@ -3557,7 +3220,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const styles = document.querySelector('#freetext-parser-styles');
     if (styles) styles.remove();
     
-    console.log('✅ FreetextParser component destroyed');
   }
 
   /**
@@ -3565,7 +3227,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * This uses regular title enhancement but with ADD ITEM page formatting rules
    */
   async autoEnhanceParsedData(parsedData) {
-          console.log('[ENHANCE] Auto-enhancing parsed data with ADD ITEM page rules...');
     
     try {
       // Use regular enhancement with ADD ITEM page formatting
@@ -3573,11 +3234,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       
       // Enhance title using ADD ITEM page rules (not title-correct)
       if (parsedData.title) {
-        console.log('[ENHANCE] Enhancing title with ADD ITEM page rules...');
         const titleResult = await this.enhanceFieldWithAddItemRules('title', parsedData.title, parsedData);
         if (titleResult && titleResult.title) {
           enhancedFields.title = titleResult.title;
-          console.log('✅ Title enhanced:', enhancedFields.title);
         }
       }
       
@@ -3596,11 +3255,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         }
       }
       
-      console.log('[ENHANCE] Enhanced fields:', enhancedFields);
       return enhancedFields;
       
     } catch (error) {
-      console.error('❌ Auto-enhancement failed:', error);
+      console.error('Auto-enhancement failed:', error);
       return {};
     }
   }
@@ -3610,7 +3268,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * This uses the blue "AI-förbättra titel" button logic (fieldType: 'title')
    */
   async enhanceFieldWithAddItemRules(fieldType, fieldValue, fullData) {
-    console.log(`🔧 Enhancing ${fieldType} with ADD ITEM page rules (blue button logic):`, fieldValue);
     
     try {
       // Build the item data structure expected by AI Rules System
@@ -3628,9 +3285,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       const systemPrompt = window.getAIRulesManager().getSystemPrompt('addItems');
       const userPrompt = this.getAddItemPageUserPrompt(itemData, fieldType);
       
-      console.log(`[RULES] Using model-specific valuation rules for ${fieldType} enhancement`);
       
-              console.log(`[PROMPT] ${fieldType} ADD ITEM page prompt (blue button logic):`, userPrompt.substring(0, 200) + '...');
       
       // Call Claude API with regular enhancement settings (same as blue button)
       const response = await new Promise((resolve, reject) => {
@@ -3664,7 +3319,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       
       if (response && response.content && response.content[0] && response.content[0].text) {
         const enhancedText = response.content[0].text.trim();
-        console.log(`✅ ${fieldType} enhanced result (blue button logic):`, enhancedText);
         
         // Parse the response if it's a multi-field response
         if (fieldType === 'all' || enhancedText.includes('TITEL:')) {
@@ -3677,11 +3331,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         }
       }
       
-      console.log(`❌ No valid response for ${fieldType} enhancement`);
       return null;
       
     } catch (error) {
-      console.error(`❌ Error enhancing ${fieldType}:`, error);
+      console.error(`Error enhancing ${fieldType}:`, error);
       return null;
     }
   }
@@ -3690,7 +3343,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * Parse ADD ITEM page response (same format as edit page)
    */
   parseAddItemResponse(responseText) {
-    console.log('🔍 Parsing ADD ITEM response:', responseText);
     
     const result = {};
     const lines = responseText.split('\n');
@@ -3707,7 +3359,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       }
     }
     
-    console.log('✅ Parsed ADD ITEM result:', result);
     return result;
   }
 
@@ -3759,7 +3410,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     });
 
     this.uploadedImages = new Map();
-    console.log('✅ Beautiful image upload interface initialized');
   }
 
   /**
@@ -3774,7 +3424,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
     filesToProcess.forEach((file, index) => {
       if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        console.warn('File too large:', file.name);
         return;
       }
 
@@ -3795,11 +3444,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
             category: 'front', // Default category
             file: file,
             dataUrl: e.target.result
-          });
-          console.log('🖼️ Image added to selectedImages:', {
-            imageId,
-            fileName: file.name,
-            selectedImagesSize: this.selectedImages.size
           });
         }
       };
@@ -3880,10 +3524,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         this.uploadedImages.delete(imageId);
         if (this.selectedImages) {
           this.selectedImages.delete(imageId);
-          console.log('🗑️ Image removed from selectedImages:', {
-            imageId,
-            selectedImagesSize: this.selectedImages.size
-          });
         }
         this.updateBeautifulImagePreview();
         this.updateAnalysisMode();

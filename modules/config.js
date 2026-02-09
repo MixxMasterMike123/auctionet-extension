@@ -17,6 +17,16 @@ export const CONFIG = {
   // Current model — no user selection needed
   CURRENT_MODEL: 'sonnet',
 
+  // URLs
+  URLS: {
+    ANTHROPIC_API: 'https://api.anthropic.com/v1/messages',
+    AUCTIONET_BASE: 'https://auctionet.com',
+    AUCTIONET_API: 'https://auctionet.com/api/v2/items.json',
+    AUCTIONET_SEARCH: 'https://auctionet.com/sv/search',
+    AUCTIONET_ARTISTS: 'https://auctionet.com/sv/artists',
+    AUCTIONET_WILDCARD: 'https://auctionet.com/*'
+  },
+
   // API Configuration
   API: {
     maxTokens: 1500,

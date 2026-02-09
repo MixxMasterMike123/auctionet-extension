@@ -159,8 +159,6 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
 
         if (correctionData && correctionData.content && correctionData.content[0] && correctionData.content[0].text) {
           result = this.parseClaudeResponse(correctionData.content[0].text, fieldType);
-        } else {
-          console.warn('Invalid correction response format, using original result');
         }
       }
     }
@@ -214,7 +212,6 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
         delete result[fieldType];
       }
 
-      console.log('Single field parsed result:', result);
       return result;
     }
 
@@ -222,7 +219,6 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     const result = {};
     const lines = response.split('\n');
 
-    console.log('Parsing multi-field response, lines:', lines);
 
     let currentField = null;
     let currentContent = [];
@@ -319,12 +315,9 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     }
 
     if (Object.keys(result).length === 0 && response.trim().length > 0) {
-      console.log('No fields found, using entire response as title');
       result.title = response.trim();
     }
 
-    console.log('Multi-field parsed result:', result);
-    console.log('Fields found:', Object.keys(result));
     return result;
   }
 
@@ -1582,14 +1575,13 @@ Return JSON only:
 
         return combinedResult;
       } else {
-        console.log('❌ No market data found (neither historical nor live)');
 
         // Fallback to Claude analysis if no Auctionet data found
         return await this.analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description);
       }
 
     } catch (error) {
-      console.error('💥 Market analysis error, falling back to Claude:', error);
+      console.error('Market analysis error, falling back to Claude:', error);
 
       // Fallback to Claude analysis on error
       return await this.analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description);
@@ -1633,7 +1625,7 @@ Return JSON only:
       return analysisResult;
 
     } catch (error) {
-      console.error('❌ Market analysis failed:', error);
+      console.error('Market analysis failed:', error);
       throw error;
     }
   }
@@ -1663,7 +1655,7 @@ Return JSON only:
         // Add clickable link if we have a search query (similar to "Pågående" link in data sources)
         if (searchQuery) {
           // SAFETY CHECK: Use fallback URL generation since this is a nested function
-          const liveUrl = `https://auctionet.com/sv/search?event_id=&q=${encodeURIComponent(searchQuery)}`;
+          const liveUrl = `${CONFIG.URLS.AUCTIONET_SEARCH}?event_id=&q=${encodeURIComponent(searchQuery)}`;
           auctionText = `<a href="${liveUrl}" target="_blank" style="color: #e74c3c; text-decoration: none; font-weight: 500;" title="Visa alla pågående auktioner på Auctionet för '${searchQuery}'">${analyzedLiveItems} auktioner</a>`;
         }
 
@@ -1677,10 +1669,8 @@ Return JSON only:
       }
 
 
-
       // CRITICAL FIX: Check if priceRange exists before accessing its properties
       if (!historicalResult.priceRange || !historicalResult.priceRange.low || !historicalResult.priceRange.high) {
-        console.warn('⚠️ Historical result missing priceRange data, skipping price comparison insights');
         return insights; // Return early with empty insights
       }
 
@@ -1922,7 +1912,6 @@ Return JSON only:
   async analyzeComparableSalesWithClaude(artistName, objectType, period, technique, description) {
 
     if (!this.apiKey) {
-      console.log('❌ No API key available, skipping Claude sales analysis');
       return null;
     }
 
@@ -1989,11 +1978,9 @@ Svara ENDAST med giltig JSON:
   "reasoning": string
 }`;
 
-      console.log('📤 Sending Claude comparable sales request via Chrome runtime...');
 
       // Use Chrome runtime messaging instead of direct fetch
       const response = await new Promise((resolve, reject) => {
-        console.log('📨 Calling chrome.runtime.sendMessage for Claude sales analysis...');
 
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
@@ -2008,15 +1995,14 @@ Svara ENDAST med giltig JSON:
             }]
           }
         }, (response) => {
-          console.log('📥 Chrome runtime response received:', response);
 
           if (chrome.runtime.lastError) {
-            console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+            console.error('Chrome runtime error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
           } else if (response && response.success) {
             resolve(response);
           } else {
-            console.error('❌ Chrome runtime failed:', response);
+            console.error('Chrome runtime failed:', response);
             reject(new Error(response?.error || 'API request failed'));
           }
         });
@@ -2031,7 +2017,6 @@ Svara ENDAST med giltig JSON:
         try {
           salesData = JSON.parse(content);
         } catch (parseError) {
-          console.warn('⚠️ JSON parsing failed, attempting fallback parsing:', parseError);
           salesData = this.fallbackParseSalesData(content);
         }
 
@@ -2040,16 +2025,15 @@ Svara ENDAST med giltig JSON:
           salesData.dataSource = 'claude_ai_estimate';
           return salesData;
         } else {
-          console.log('❌ No comparable sales data found in Claude response');
           return null;
         }
       } else {
-        console.error('❌ Invalid Claude comparable sales response structure:', response);
+        console.error('Invalid Claude comparable sales response structure:', response);
         return null;
       }
     } catch (error) {
-      console.error('💥 Error in Claude comparable sales analysis:', error);
-      console.error('💥 Error stack:', error.stack);
+      console.error('Error in Claude comparable sales analysis:', error);
+      console.error('Error stack:', error.stack);
       return null;
     }
   }
@@ -2128,12 +2112,12 @@ Svara ENDAST med giltig JSON:
 
         return parsedResponse;
       } catch (parseError) {
-        console.error('❌ AI Manager: Failed to parse JSON:', parseError);
+        console.error('AI Manager: Failed to parse JSON:', parseError);
         throw new Error('Invalid JSON in AI response');
       }
 
     } catch (error) {
-      console.error('❌ AI Manager: AI search term generation failed:', error);
+      console.error('AI Manager: AI search term generation failed:', error);
       throw error;
     }
   }

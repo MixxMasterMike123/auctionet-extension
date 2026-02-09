@@ -21,10 +21,8 @@ export class AIImageAnalyzer {
     // Handle both direct APIManager and APIBridge patterns (same as FreetextParser)
     if (apiManager && typeof apiManager.getAPIManager === 'function') {
       this.apiManager = apiManager.getAPIManager();
-      console.log('✅ AIImageAnalyzer: Using APIManager from APIBridge');
     } else {
       this.apiManager = apiManager;
-      console.log('✅ AIImageAnalyzer: Using direct APIManager');
     }
     
     // Configuration
@@ -53,7 +51,6 @@ export class AIImageAnalyzer {
     this.multipleAnalysisResults = new Map(); // For multiple image results
     this.isProcessing = false;
     
-    console.log('✅ AIImageAnalyzer: Initialized with config:', this.config);
   }
 
   /**
@@ -114,11 +111,6 @@ export class AIImageAnalyzer {
    * Analyze multiple images using Claude Vision API
    */
   async analyzeMultipleImages(additionalContext = '') {
-    console.log('🔍 Starting multiple image analysis:', {
-      imageCount: this.currentImages.size,
-      categories: Array.from(this.currentImages.keys()),
-      hasContext: !!additionalContext
-    });
 
     if (this.currentImages.size === 0) {
       throw new Error('Inga bilder valda för analys');
@@ -150,7 +142,6 @@ export class AIImageAnalyzer {
       // Convert all images to base64
       const imageData = new Map();
       for (const [categoryId, file] of this.currentImages) {
-        console.log(`🔄 Converting ${categoryId} image to base64...`);
         const base64 = await this.convertToBase64(file);
         imageData.set(categoryId, {
           file,
@@ -159,13 +150,11 @@ export class AIImageAnalyzer {
         });
       }
       
-      console.log('✅ All images converted to base64');
       
       // Get AI Rules System v2.0 prompts for multiple image analysis
       const systemPrompt = this.getMultipleImageAnalysisSystemPrompt();
       const userPrompt = this.buildMultipleImageAnalysisPrompt(imageData, additionalContext);
       
-      console.log('🤖 Calling Claude Vision API for multiple images...');
       
       // Build content array with all images
       const content = [];
@@ -207,14 +196,6 @@ export class AIImageAnalyzer {
         }]
       };
       
-      console.log('📤 Sending multiple image request to Claude Vision API:', {
-        model: requestBody.model,
-        max_tokens: requestBody.max_tokens,
-        imageCount: this.currentImages.size,
-        contentItems: content.length,
-        systemPromptLength: systemPrompt.length,
-        userPromptLength: userPrompt.length
-      });
       
       // Call Claude Vision API using Chrome runtime messaging
       const response = await new Promise((resolve, reject) => {
@@ -228,16 +209,14 @@ export class AIImageAnalyzer {
           body: requestBody
         }, (response) => {
           clearTimeout(timeout);
-          console.log('📥 Chrome runtime response for multiple image analysis:', response);
           
           if (chrome.runtime.lastError) {
-            console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+            console.error('Chrome runtime error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
           } else if (response && response.success) {
-            console.log('✅ Multiple image analysis API call successful');
             resolve(response);
           } else {
-            console.error('❌ Multiple image analysis API call failed:', response);
+            console.error('Multiple image analysis API call failed:', response);
             reject(new Error(response?.error || 'Multiple image analysis failed'));
           }
         });
@@ -245,7 +224,6 @@ export class AIImageAnalyzer {
 
       if (response.success && response.data?.content?.[0]?.text) {
         const analysisText = response.data.content[0].text;
-        console.log('✅ Multiple image analysis completed');
         
         // Parse and validate the response
         const analysisResult = this.parseImageAnalysisResponse(analysisText);
@@ -254,16 +232,15 @@ export class AIImageAnalyzer {
         this.multipleAnalysisResults.set('combined', analysisResult);
         this.analysisResult = analysisResult; // For backward compatibility
         
-        console.log('✅ Multiple image analysis stored');
         return analysisResult;
         
       } else {
-        console.error('❌ Invalid multiple image analysis response:', response);
+        console.error('Invalid multiple image analysis response:', response);
         throw new Error('Invalid response format from multiple image analysis');
       }
       
     } catch (error) {
-      console.error('❌ Multiple image analysis failed:', error);
+      console.error('Multiple image analysis failed:', error);
       throw error;
     } finally {
       this.isProcessing = false;
@@ -274,12 +251,6 @@ export class AIImageAnalyzer {
    * Analyze image using Claude Vision API (original single image method)
    */
   async analyzeImage(imageFile, additionalContext = '') {
-    console.log('🔍 Starting image analysis:', {
-      fileName: imageFile.name,
-      fileSize: imageFile.size,
-      fileType: imageFile.type,
-      hasContext: !!additionalContext
-    });
 
     // Validate image first
     const validation = this.validateImageFile(imageFile);
@@ -296,13 +267,11 @@ export class AIImageAnalyzer {
       
       // Convert image to base64
       const base64Image = await this.convertToBase64(imageFile);
-      console.log('✅ Image converted to base64, length:', base64Image.length);
       
       // Get AI Rules System v2.0 prompts for image analysis
       const systemPrompt = this.getImageAnalysisSystemPrompt();
       const userPrompt = this.buildImageAnalysisPrompt(additionalContext);
       
-      console.log('🤖 Calling Claude Vision API...');
       
       // Debug the request being sent
       const requestBody = {
@@ -329,18 +298,6 @@ export class AIImageAnalyzer {
         }]
       };
       
-      console.log('📤 Sending request to Claude Vision API:', {
-        model: requestBody.model,
-        max_tokens: requestBody.max_tokens,
-        temperature: requestBody.temperature,
-        systemPromptLength: systemPrompt.length,
-        userPromptLength: userPrompt.length,
-        imageType: imageFile.type,
-        imageSize: imageFile.size,
-        base64Length: base64Image.length,
-        hasApiKey: !!this.apiManager.apiKey,
-        apiKeyLength: this.apiManager.apiKey?.length
-      });
       
       // Call Claude Vision API using Chrome runtime messaging
       const response = await new Promise((resolve, reject) => {
@@ -354,16 +311,14 @@ export class AIImageAnalyzer {
           body: requestBody
         }, (response) => {
           clearTimeout(timeout);
-          console.log('📥 Chrome runtime response for image analysis:', response);
           
           if (chrome.runtime.lastError) {
-            console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+            console.error('Chrome runtime error:', chrome.runtime.lastError);
             reject(new Error(chrome.runtime.lastError.message));
           } else if (response && response.success) {
-            console.log('✅ Image analysis API call successful');
             resolve(response);
           } else {
-            console.error('❌ Image analysis API call failed:', {
+            console.error('Image analysis API call failed:', {
               hasResponse: !!response,
               success: response?.success,
               error: response?.error,
@@ -377,7 +332,6 @@ export class AIImageAnalyzer {
 
       if (response.success && response.data?.content?.[0]?.text) {
         const analysisText = response.data.content[0].text;
-        console.log('✅ Image analysis completed');
         
         // Parse and validate the response
         const analysisResult = this.parseImageAnalysisResponse(analysisText);
@@ -398,7 +352,7 @@ export class AIImageAnalyzer {
       }
 
     } catch (error) {
-      console.error('❌ Image analysis failed:', error);
+      console.error('Image analysis failed:', error);
       throw error;
     } finally {
       this.isProcessing = false;
@@ -415,20 +369,17 @@ export class AIImageAnalyzer {
       // Try freetextParser prompt first (has Swedish expert knowledge)
       const freetextPrompt = aiRules.getSystemPrompt('freetextParser');
       if (freetextPrompt) {
-        console.log('✅ Using AI Rules System v2.0 freetextParser prompt for image analysis');
         return freetextPrompt + '\n\nSPECIAL BILDANALYS TILLÄGG:\n• Analysera endast vad som är synligt i bilden\n• Identifiera märken, signaturer, stämplar\n• Bedöm kondition från visuella tecken\n• Ge konfidenspoäng för varje observation (0.0-1.0)';
       }
       
       // Fallback to core prompt
       const corePrompt = aiRules.getSystemPrompt('core');
       if (corePrompt) {
-        console.log('✅ Using AI Rules System v2.0 core prompt for image analysis');
         return corePrompt + '\n\nBILDANALYS TILLÄGG:\n• Analysera bilder av auktionsföremål\n• Identifiera objekttyp, material, stil från visuella detaljer\n• Bedöm kondition från synliga tecken\n• Var konservativ med attribueringar';
       }
     }
     
     // Fallback system prompt for image analysis
-    console.log('⚠️ Using fallback system prompt for image analysis');
     return `Du är en ERFAREN SVENSK AUKTIONSEXPERT med djup kunskap om svenska konstnärer, formgivare och märken. Du har arbetat på svenska auktionshus i årtionden och känner alla viktiga namn inom svensk design och konst.
 
 🎯 DIN EXPERTIS INKLUDERAR:
@@ -644,7 +595,6 @@ INSTRUKTIONER:
    */
   parseImageAnalysisResponse(response) {
     try {
-      console.log('🔍 Parsing image analysis response...');
       
       // Clean and extract JSON
       let cleanResponse = response.trim();
@@ -660,7 +610,7 @@ INSTRUKTIONER:
       
       throw new Error('Could not find valid JSON in response');
     } catch (error) {
-      console.error('❌ Failed to parse image analysis response:', error);
+      console.error('Failed to parse image analysis response:', error);
       throw new Error('AI bildanalys kunde inte tolkas. Bilden kanske inte är tydlig nog.');
     }
   }
@@ -707,7 +657,6 @@ INSTRUKTIONER:
       timestamp: Date.now()
     };
 
-    console.log('✅ Normalized image analysis:', normalized);
     return normalized;
   }
 
@@ -715,7 +664,6 @@ INSTRUKTIONER:
    * Calculate "Sure Score" - composite confidence metric
    */
   calculateSureScore(imageAnalysis, marketData = null) {
-    console.log('🎯 Calculating Sure Score for image analysis...');
     
     const scores = {
       // Image analysis confidence (40% weight)
@@ -731,15 +679,6 @@ INSTRUKTIONER:
       marketValidation: marketData ? this.calculateMarketValidationScore(imageAnalysis, marketData) : 0.5
     };
     
-    console.log('🔍 Sure Score component breakdown:', {
-      imageAnalysis: scores.imageAnalysis,
-      imageQuality: scores.imageQuality,
-      objectIdentification: scores.objectIdentification,
-      marketValidation: scores.marketValidation,
-      imageAnalysisInput: imageAnalysis,
-      imageQualityInput: imageAnalysis.imageQuality,
-      confidenceInput: imageAnalysis.confidence
-    });
     
     // Ensure all scores are valid numbers
     const validScores = {
@@ -749,7 +688,6 @@ INSTRUKTIONER:
       marketValidation: isNaN(scores.marketValidation) ? 0.5 : scores.marketValidation
     };
     
-    console.log('🔍 Validated scores (NaN protection):', validScores);
     
     // Weighted composite score
     const sureScore = (
@@ -798,7 +736,6 @@ INSTRUKTIONER:
       }
     };
     
-    console.log('✅ Sure Score calculated:', result);
     return result;
   }
 
@@ -866,7 +803,6 @@ INSTRUKTIONER:
     const MINIMUM_RESERVE_SEK = 400; // Business rule: minimum bevakning 400 SEK
     
     if (!reservePrice || reservePrice < MINIMUM_RESERVE_SEK) {
-      console.log(`🏛️ Enforcing minimum reserve: ${reservePrice || 0} SEK → ${MINIMUM_RESERVE_SEK} SEK`);
       return MINIMUM_RESERVE_SEK;
     }
     
@@ -877,11 +813,6 @@ INSTRUKTIONER:
    * Apply conservative scaling based on market support percentage
    */
   applyConservativeScaling(estimate, reserve, marketSupportPercentage) {
-    console.log('🎯 Applying conservative scaling:', {
-      originalEstimate: estimate,
-      originalReserve: reserve,
-      marketSupport: marketSupportPercentage + '%'
-    });
 
     // Convert market validation score to percentage (0.0-1.0 → 0-100%)
     const supportPercent = marketSupportPercentage;
@@ -912,12 +843,6 @@ INSTRUKTIONER:
     const scaledReserveBeforeMin = reserve ? Math.round(reserve * multiplier) : null;
     const scaledReserve = this.enforceMinimumReserve(scaledReserveBeforeMin);
     
-    console.log('🎯 Conservative scaling applied:', {
-      multiplier: multiplier,
-      scaledEstimate: scaledEstimate,
-      scaledReserve: scaledReserve,
-      confidenceAdjustment: confidenceAdjustment
-    });
     
     return {
       estimate: scaledEstimate,
@@ -947,22 +872,18 @@ INSTRUKTIONER:
    */
   async validateWithMarketData(imageAnalysis) {
     if (!this.config.enableMarketValidation) {
-      console.log('⏭️ Market validation disabled');
       return null;
     }
     
     try {
-      console.log('🔍 Validating image analysis with market data...');
       
       // Build search query from image analysis
       const searchQuery = this.buildSearchQueryFromImageAnalysis(imageAnalysis);
       
       if (!searchQuery || searchQuery.trim().length < 3) {
-        console.log('⏭️ Could not build meaningful search query from image analysis');
         return null;
       }
       
-      console.log('🔍 Market validation search query:', searchQuery);
       
       // Create search context for market analysis
       const searchContext = {
@@ -980,17 +901,12 @@ INSTRUKTIONER:
       // Call existing market analysis system
       const marketData = await this.apiManager.analyzeSales(searchContext);
       
-      console.log('📊 Market validation result:', {
-        hasData: !!marketData,
-        hasComparableData: marketData?.hasComparableData,
-        salesCount: marketData?.historical?.analyzedSales || 0
-      });
       
       return marketData;
       
     } catch (error) {
-      console.error('❌ Market validation failed:', error);
-      console.error('❌ Market validation error details:', {
+      console.error('Market validation failed:', error);
+      console.error('Market validation error details:', {
         message: error.message,
         stack: error.stack,
         searchQuery: searchQuery || 'undefined',
@@ -1259,7 +1175,7 @@ INSTRUKTIONER:
   attachMultipleImageUploadListeners(containerId, callback) {
     const container = document.getElementById(containerId);
     if (!container) {
-      console.error('❌ Container not found:', containerId);
+      console.error('Container not found:', containerId);
       return;
     }
 
@@ -1274,7 +1190,7 @@ INSTRUKTIONER:
       const removeBtn = container.querySelector(`#${containerId}-${category.id}-remove`);
 
       if (!dropZone || !fileInput) {
-        console.error(`❌ Required elements not found for category ${category.id}`);
+        console.error(`Required elements not found for category ${category.id}`);
         return;
       }
 
@@ -1320,7 +1236,6 @@ INSTRUKTIONER:
       }
     });
 
-    console.log('✅ Multiple image upload listeners attached to:', containerId);
   }
 
   /**
@@ -1329,7 +1244,7 @@ INSTRUKTIONER:
   attachImageUploadListeners(containerId, callback) {
     const container = document.getElementById(containerId);
     if (!container) {
-      console.error('❌ Container not found:', containerId);
+      console.error('Container not found:', containerId);
       return;
     }
 
@@ -1341,7 +1256,7 @@ INSTRUKTIONER:
     const removeBtn = container.querySelector(`#${containerId}-remove`);
 
     if (!dropZone || !fileInput) {
-      console.error('❌ Required elements not found in container');
+      console.error('Required elements not found in container');
       return;
     }
 
@@ -1386,19 +1301,12 @@ INSTRUKTIONER:
       });
     }
 
-    console.log('✅ Image upload listeners attached to:', containerId);
   }
 
   /**
    * Handle multiple image selection
    */
   handleMultipleImageSelection(categoryId, file, preview, previewImg, fileInfo, containerId, callback) {
-    console.log('📸 Multiple image selected:', {
-      category: categoryId,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size
-    });
 
     // Validate file
     const validation = this.validateImageFile(file);
@@ -1467,20 +1375,12 @@ INSTRUKTIONER:
     const hasAllRequired = requiredCategories.every(cat => this.currentImages.has(cat.id));
     const hasMinimumImages = this.currentImages.size >= 2; // Front + back minimum
 
-    console.log('📊 Multiple image status:', {
-      uploadedCount: this.currentImages.size,
-      totalSlots: this.config.imageCategories.length,
-      hasAllRequired,
-      hasMinimumImages,
-      readyForAnalysis: hasAllRequired && hasMinimumImages
-    });
   }
 
   /**
    * Handle image selection (original single image method)
    */
   handleImageSelection(file, preview, previewImg, fileInfo, callback) {
-    console.log('📸 Image selected:', file.name, file.type, file.size);
 
     // Validate file
     const validation = this.validateImageFile(file);
@@ -1696,6 +1596,5 @@ INSTRUKTIONER:
     this.currentImage = null;
     this.analysisResult = null;
     this.isProcessing = false;
-    console.log('✅ AIImageAnalyzer component destroyed');
   }
 }

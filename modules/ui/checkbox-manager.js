@@ -91,8 +91,6 @@ export class CheckboxManager {
     const decodedValue = this.decodeHTMLEntities(rawValue);
     const isChecked = checkbox.checked;
     
-    console.log(`   Raw value: "${rawValue}"`);
-    console.log(`   Decoded value: "${decodedValue}"`);
     
     // Get all current checkbox states
     const allSelectedTerms = this.getAllSelectedTerms();
@@ -104,7 +102,7 @@ export class CheckboxManager {
       // Trigger dashboard refresh if needed
       this.triggerDashboardRefresh();
     } else {
-      console.error('❌ SearchQuerySSoT not available for checkbox handling');
+      console.error('SearchQuerySSoT not available for checkbox handling');
     }
   }
 
@@ -121,7 +119,6 @@ export class CheckboxManager {
         
         // Skip invalid or generic values
         if (!decodedValue || decodedValue === '0' || decodedValue === '1' || decodedValue === 'undefined') {
-          console.log(`⚠️ Skipping invalid checkbox value: "${rawValue}"`);
           return;
         }
         
@@ -135,7 +132,6 @@ export class CheckboxManager {
   // Sync all checkboxes with current SSoT state
   syncAllCheckboxesWithSSoT() {
     if (!this.searchQuerySSoT) {
-      console.log('⚠️ Cannot sync checkboxes - SearchQuerySSoT not available');
       return { syncedCount: 0, mismatchCount: 0 };
     }
     
@@ -165,12 +161,10 @@ export class CheckboxManager {
         checkbox.checked = shouldBeChecked;
         syncedCount++;
         mismatchCount++;
-      } else {
       }
     });
     
-    if (syncedCount === 0) {
-    }
+    
     
     return { syncedCount, mismatchCount, totalCheckboxes: allCheckboxes.length };
   }
@@ -184,7 +178,6 @@ export class CheckboxManager {
     }
     
     // Fallback to manual matching
-    console.log(`⚠️ Using fallback matching for: "${checkboxValue}"`);
     
     const normalizedCheckboxValue = checkboxValue.toLowerCase().trim();
     
@@ -205,7 +198,6 @@ export class CheckboxManager {
       }
     }
     
-    console.log(`❌ NO match: "${checkboxValue}" not found in SSoT selected terms`);
     return false;
   }
 
@@ -220,7 +212,6 @@ export class CheckboxManager {
     });
     
     document.dispatchEvent(event);
-    console.log('📡 Triggered dashboard refresh event');
     
     // CRITICAL: Also trigger search filter manager synchronization
     setTimeout(() => {
@@ -234,19 +225,12 @@ export class CheckboxManager {
   debug() {
     
     const allCheckboxes = document.querySelectorAll('.smart-checkbox, .header-checkbox, .suggestion-checkbox');
-    console.log('  Total checkboxes found:', allCheckboxes.length);
-    console.log('  Event listeners attached:', this.eventListeners.size);
     
     const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
-    console.log('  Currently checked:', checkedCount);
     
     // Show SSoT state
     if (this.searchQuerySSoT) {
       const ssotTerms = this.searchQuerySSoT.getSelectedTerms() || [];
-      console.log('  SSoT selected terms:', ssotTerms.length);
-      console.log('  SSoT terms:', ssotTerms);
-    } else {
-      console.log('  SSoT: Not available');
     }
     
     return {
@@ -259,7 +243,6 @@ export class CheckboxManager {
 
   // Cleanup on destruction
   destroy() {
-    console.log('🧹 CheckboxManager: Cleaning up...');
     this.removeAllListeners();
     this.searchQuerySSoT = null;
   }

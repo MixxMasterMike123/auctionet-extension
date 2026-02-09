@@ -81,7 +81,6 @@ export class SalesAnalysisManager {
       if (originalArtist && originalArtist.trim()) {
         // CRITICAL FIX: Quote-wrap artist field before passing to SSoT system
         const formattedArtist = this.formatArtistForSSoT(originalArtist);
-        console.log(`🎯 Quote-wrapped original artist: "${originalArtist}" → ${formattedArtist}`);
         
         properArtistInfo = {
           artist: formattedArtist,
@@ -127,23 +126,19 @@ export class SalesAnalysisManager {
       // CRITICAL FIX: ALWAYS initialize SSoT with candidate terms for extended checkbox functionality
       // Even if SSoT already has an AI query, it needs ALL candidate terms for user control
       if (this.searchQuerySSoT) {
-        console.log('   Current AI query:', this.searchQuerySSoT.getCurrentQuery());
-        console.log('   Will add', candidateTerms.candidates?.length || 0, 'candidate terms');
         
         // Force initialization with all candidate terms
         this.searchQuerySSoT.initialize(this.searchQuerySSoT.getCurrentQuery(), candidateTerms, 'system_with_extensions');
       } else {
-        console.error('❌ CRITICAL ERROR: SearchQuerySSoT not available for initialization');
-        console.error('🔧 SearchQuerySSoT reference:', this.searchQuerySSoT);
+        console.error('CRITICAL ERROR: SearchQuerySSoT not available for initialization');
+        console.error('SearchQuerySSoT reference:', this.searchQuerySSoT);
       }
       
       candidateTerms.candidates.forEach((candidate, index) => {
-        console.log(`   ${index + 1}. "${candidate.term}" (${candidate.type}) - preSelected: ${candidate.preSelected} - ${candidate.description}`);
       });
     }
     
     if (!artistInfo) {
-      console.log('❌ No artist information provided for sales analysis');
       return;
     }
     
@@ -167,7 +162,7 @@ export class SalesAnalysisManager {
         artistName = artistInfo.searchTerms.join(' ');
         isFreetext = true;
       } else {
-        console.error('❌ Invalid artistInfo structure:', artistInfo);
+        console.error('Invalid artistInfo structure:', artistInfo);
         return;
       }
       
@@ -187,17 +182,14 @@ export class SalesAnalysisManager {
       // 🚨 STRICT SSoT: Use ONLY SearchQuerySSoT for all search operations
       let searchContext;
       
-      if (this.searchQuerySSoT) {
-      }
+      
       
       if (this.searchQuerySSoT) {
         // MANDATORY: Use SSoT as the ONLY source
         searchContext = this.searchQuerySSoT.buildSearchContext();
-        console.log('🔒 SSoT Search Context:', searchContext);
         
         // CRITICAL FIX: Check if search context is valid and has a query
         if (!searchContext || searchContext.isEmpty || !searchContext.hasValidQuery) {
-          console.warn('⚠️ SSoT returned empty/invalid search context - cannot perform analysis');
           
           // Provide user-friendly error without crashing
           this.showNoSalesDataMessage(currentWarnings, currentScore, 'ssot_empty', 'Tom sökning', qualityAnalyzer);
@@ -212,7 +204,6 @@ export class SalesAnalysisManager {
           searchContext.source = ssotMetadata.source || 'ssot';
           searchContext.reasoning = ssotMetadata.reasoning || 'Generated from SSoT';
         } else {
-          console.log('⚠️ No SSoT metadata available - using default values');
           searchContext.confidence = 0.75; // Default confidence
           searchContext.source = 'ssot';
           searchContext.reasoning = 'Generated from SSoT';
@@ -220,10 +211,10 @@ export class SalesAnalysisManager {
         
       } else {
         // CRITICAL ERROR: No SSoT available - this should not happen
-        console.error('🚨 CRITICAL ERROR: SearchQuerySSoT not available - cannot perform SSoT-only analysis');
-        console.error('🔧 DETAILED DEBUG: this reference type:', typeof this);
-        console.error('🔧 DETAILED DEBUG: this.searchQuerySSoT value:', this.searchQuerySSoT);
-        console.error('🔧 DETAILED DEBUG: All this properties:', Object.keys(this));
+        console.error('CRITICAL ERROR: SearchQuerySSoT not available - cannot perform SSoT-only analysis');
+        console.error('DETAILED DEBUG: this reference type:', typeof this);
+        console.error('DETAILED DEBUG: this.searchQuerySSoT value:', this.searchQuerySSoT);
+        console.error('DETAILED DEBUG: All this properties:', Object.keys(this));
         
         // Provide graceful fallback instead of throwing error
         this.showNoSalesDataMessage(currentWarnings, currentScore, 'ssot_unavailable', 'System otillgängligt', qualityAnalyzer);
@@ -256,8 +247,6 @@ export class SalesAnalysisManager {
       // 🔧 CRITICAL FIX: Add candidate search terms to salesData for dashboard checkboxes
       if (this.lastCandidateSearchTerms) {
         salesData.candidateSearchTerms = this.lastCandidateSearchTerms;
-      } else {
-        console.log('⚠️ No candidateSearchTerms available to add to salesData');
       }
       
       // NEW: If this is an AI artist analysis and we previously had freetext data, merge them
@@ -267,7 +256,6 @@ export class SalesAnalysisManager {
       
       // Store freetext data for potential merging later
       if (analysisType === 'freetext') {
-        console.log('💾 Storing freetext data for potential merge with AI data');
         this.previousFreetextData = salesData;
       }
       
@@ -279,7 +267,7 @@ export class SalesAnalysisManager {
       this.handleSalesAnalysisResult(salesData, currentWarnings, currentScore, qualityAnalyzer, searchFilterManager);
       
     } catch (error) {
-      console.error('❌ Sales analysis failed:', error);
+      console.error('Sales analysis failed:', error);
       this.pendingAnalyses.delete('sales');
       this.showSalesAnalysisError(error, currentWarnings, currentScore, qualityAnalyzer);
     }
@@ -383,8 +371,6 @@ export class SalesAnalysisManager {
         salesData.aiOnlyMetadata = metadata;
         
         
-      } else {
-        console.log('⚠️ AI-only SearchQuerySSoT not available - using sales data as-is');
       }
       
       // NEW: Analyze valuation and suggest changes if needed

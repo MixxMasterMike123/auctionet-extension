@@ -1,6 +1,5 @@
 
 // Background script startup
-console.log('Auctionet AI Assistant background script loaded');
 
 // One-time migration: move API key from sync to local storage (for security)
 (async () => {
@@ -11,7 +10,6 @@ console.log('Auctionet AI Assistant background script loaded');
       if (sync.anthropicApiKey) {
         await chrome.storage.local.set({ anthropicApiKey: sync.anthropicApiKey });
         await chrome.storage.sync.remove('anthropicApiKey');
-        console.log('Migrated API key from sync to local storage');
       }
     }
   } catch (e) {
@@ -20,25 +18,21 @@ console.log('Auctionet AI Assistant background script loaded');
 })();
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Background script received message:', request.type);
   
   if (request.type === 'anthropic-fetch') {
     // Handle async operation properly
     handleAnthropicRequest(request, sendResponse);
     return true; // Keep the message channel open for sendResponse
   } else if (request.type === 'ping') {
-    console.log('Ping received, sending pong');
     sendResponse({ success: true, message: 'pong' });
     return false;
   } else {
-    console.log('Unknown message type:', request.type);
     return false;
   }
 });
 
 async function handleAnthropicRequest(request, sendResponse) {
   try {
-    console.log('Processing Anthropic API request...');
     
     // Validate API key
     if (!request.apiKey) {
@@ -47,14 +41,14 @@ async function handleAnthropicRequest(request, sendResponse) {
       return;
     }
 
-    console.log('Making request to Anthropic API...');
     
     // Add timeout to prevent hanging
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+      const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,7 +61,6 @@ async function handleAnthropicRequest(request, sendResponse) {
       });
 
       clearTimeout(timeoutId);
-      console.log('Anthropic API response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -78,7 +71,6 @@ async function handleAnthropicRequest(request, sendResponse) {
       }
 
       const data = await response.json();
-      console.log('Anthropic API success, sending response back');
       sendResponse({ success: true, data });
       
     } catch (fetchError) {

@@ -21,7 +21,6 @@ export class TypingSimulator {
         field.value = '';
         field.focus();
 
-        console.log(`⌨️ Typing "${text}" character-by-character...`);
 
         for (let i = 0; i < text.length; i++) {
             const char = text[i];
@@ -74,7 +73,6 @@ export class TypingSimulator {
             '.awesomplete ul' // Awesomplete
         ];
 
-        console.log('⏳ Waiting for autocomplete dropdown...');
 
         const startTime = Date.now();
         while (Date.now() - startTime < timeoutMs) {
@@ -82,14 +80,12 @@ export class TypingSimulator {
                 const dropdown = document.querySelector(selector);
                 // Check if dropdown exists and is visible
                 if (dropdown && dropdown.offsetParent !== null && dropdown.children.length > 0) {
-                    console.log(`✅ Autocomplete found: ${selector}`);
                     return dropdown;
                 }
             }
             await this.delay(100);
         }
 
-        console.warn('⚠️ Autocomplete dropdown did not appear within timeout');
         return null;
     }
 
@@ -116,7 +112,6 @@ export class TypingSimulator {
         for (const selector of itemSelectors) {
             const item = dropdown.querySelector(selector);
             if (item) {
-                console.log(`✅ Selecting first autocomplete item: ${selector}`);
 
                 // Try multiple selection methods
                 item.click();
@@ -132,7 +127,6 @@ export class TypingSimulator {
             }
         }
 
-        console.warn('⚠️ Could not find selectable item in autocomplete');
         return false;
     }
 
@@ -151,7 +145,6 @@ export class TypingSimulator {
         for (const item of items) {
             const itemText = item.textContent.toLowerCase().trim();
             if (itemText.includes(normalizedText) || normalizedText.includes(itemText)) {
-                console.log(`✅ Found exact match: "${item.textContent.trim()}"`);
                 return item;
             }
         }

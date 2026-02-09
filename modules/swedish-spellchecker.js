@@ -228,16 +228,11 @@ export class SwedishSpellChecker {
 
   // Debug information
   debug() {
-    console.log('🇸🇪 SwedishSpellChecker Debug:');
-    console.log('  Common words:', this.commonWords.length);
-    console.log('  Auction terms:', this.auctionTerms.length);
-    console.log('  Stop words:', this.stopWords.length);
     
     // Show category distribution
     const categories = {};
     [...this.commonWords, ...this.auctionTerms].forEach(entry => {
       categories[entry.category] = (categories[entry.category] || 0) + 1;
     });
-    console.log('  Categories:', categories);
   }
 } 

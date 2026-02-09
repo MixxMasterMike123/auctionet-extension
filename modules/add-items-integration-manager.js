@@ -9,7 +9,6 @@ export class AddItemsIntegrationManager {
     this.fieldQualityAnalyzer = null;
     this.fieldMonitorManager = null;
     
-    console.log('✅ AddItemsIntegrationManager: Initialized');
   }
 
   /**
@@ -33,26 +32,18 @@ export class AddItemsIntegrationManager {
     this.injectAIButtons();
     this.setupAutoResizeForAllTextareas();
     
-    console.log('✅ AddItemsIntegrationManager: Full initialization complete');
   }
 
   /**
    * Inject AI improvement buttons for all fields
    */
   injectAIButtons() {
-    console.log('🎨 Injecting AI improvement buttons...');
     
     const titleField = document.querySelector('#item_title_sv');
     const descriptionField = document.querySelector('#item_description_sv');
     const conditionField = document.querySelector('#item_condition_sv');
     const keywordsField = document.querySelector('#item_hidden_keywords');
 
-    console.log('🔍 Found fields:', {
-      title: !!titleField,
-      description: !!descriptionField,
-      condition: !!conditionField,
-      keywords: !!keywordsField
-    });
 
     if (titleField) {
       this.addAIButton(titleField, 'title', 'AI-förbättra titel');
@@ -122,7 +113,6 @@ export class AddItemsIntegrationManager {
                        document.querySelector('form');
     
     if (targetElement) {
-      console.log('✅ Adding quality indicator to page');
       if (targetElement.tagName === 'FORM') {
         targetElement.insertBefore(indicator, targetElement.firstChild);
       } else {
@@ -131,8 +121,6 @@ export class AddItemsIntegrationManager {
       
       // Trigger initial quality analysis
       this.analyzeQuality();
-    } else {
-      console.log('❌ No suitable location found for quality indicator');
     }
   }
 
@@ -142,13 +130,11 @@ export class AddItemsIntegrationManager {
   attachAIButtonEventListeners() {
     // Individual field buttons
     const buttons = document.querySelectorAll('.ai-assist-button:not(.ai-master-button)');
-    console.log('Found AI assist buttons:', buttons.length);
     
     buttons.forEach(button => {
       button.addEventListener('click', (e) => {
         e.preventDefault();
         const fieldType = e.target.dataset.fieldType;
-        console.log('Button clicked for field type:', fieldType);
         if (fieldType) {
           this.improveField(fieldType);
         }
@@ -158,10 +144,8 @@ export class AddItemsIntegrationManager {
     // Master button
     const masterButton = document.querySelector('.ai-master-button');
     if (masterButton) {
-      console.log('Master button found and event listener attached');
       masterButton.addEventListener('click', (e) => {
         e.preventDefault();
-        console.log('Master button clicked');
         this.improveAllFields();
       });
     }
@@ -170,7 +154,6 @@ export class AddItemsIntegrationManager {
     const refreshButton = document.querySelector('.refresh-quality-btn');
     if (refreshButton) {
       refreshButton.addEventListener('click', () => {
-        console.log('🔄 Manual quality refresh triggered');
         this.analyzeQuality();
       });
     }
@@ -182,28 +165,23 @@ export class AddItemsIntegrationManager {
    * @param {Object} options - Additional options
    */
   async improveField(fieldType, options = {}) {
-    console.log(`🎯 IntegrationManager: improveField called with fieldType=${fieldType}`);
     
     if (!this.apiBridge) {
-      console.log(`❌ IntegrationManager: API bridge not available`);
       this.showErrorIndicator(fieldType, 'API bridge not available');
       return;
     }
     
-    console.log(`✅ IntegrationManager: API bridge available, calling improveField`);
     this.showLoadingIndicator(fieldType);
     
     try {
-      console.log(`🚀 IntegrationManager: Calling apiBridge.improveField(${fieldType})`);
       await this.apiBridge.improveField(fieldType, options);
-      console.log(`✅ IntegrationManager: apiBridge.improveField completed successfully`);
       this.showSuccessIndicator(fieldType);
       
       // Trigger quality analysis after improvement
       setTimeout(() => this.analyzeQuality(), 500);
       
     } catch (error) {
-      console.error('❌ IntegrationManager: Error improving field:', error);
+      console.error('IntegrationManager: Error improving field:', error);
       this.showErrorIndicator(fieldType, error.message);
     }
   }
@@ -247,7 +225,6 @@ export class AddItemsIntegrationManager {
    */
   analyzeQuality() {
     if (!this.fieldQualityAnalyzer) {
-      console.warn('⚠️ FieldQualityAnalyzer not available for quality analysis');
       return;
     }
 
@@ -271,7 +248,7 @@ export class AddItemsIntegrationManager {
       this.updateQualityIndicator(overallScore, allIssues);
       
     } catch (error) {
-      console.error('❌ Quality analysis failed:', error);
+      console.error('Quality analysis failed:', error);
       this.updateQualityIndicator(0, [{ message: 'Analys misslyckades' }]);
     }
   }
@@ -308,7 +285,6 @@ export class AddItemsIntegrationManager {
       scoreElement.classList.add('poor');
     }
     
-    console.log(`📊 Quality score updated: ${score}/100`);
   }
 
   /**
@@ -330,7 +306,6 @@ export class AddItemsIntegrationManager {
    * Setup auto-resize for all textareas
    */
   setupAutoResizeForAllTextareas() {
-    console.log('🔧 Setting up auto-resize for all textareas...');
     
     const textareas = document.querySelectorAll('textarea');
     textareas.forEach(textarea => {
@@ -347,10 +322,8 @@ export class AddItemsIntegrationManager {
         setTimeout(autoResizeHandler, 0);
       });
       
-      console.log(`✅ Auto-resize setup for textarea: ${textarea.name || textarea.id || 'unnamed'}`);
     });
     
-    console.log(`🎯 Auto-resize setup complete for ${textareas.length} textareas`);
   }
 
   /**
@@ -367,7 +340,6 @@ export class AddItemsIntegrationManager {
     const newHeight = Math.max(textarea.scrollHeight + 4, 60);
     textarea.style.height = newHeight + 'px';
     
-    console.log(`📏 Textarea ${textarea.name || textarea.id} resized to ${newHeight}px`);
   }
 
   /**
@@ -640,7 +612,6 @@ export class AddItemsIntegrationManager {
     `;
     
     document.head.appendChild(style);
-    console.log('✅ AI Enhancement Integration styles injected');
   }
 
   /**
@@ -662,6 +633,5 @@ export class AddItemsIntegrationManager {
       styles.remove();
     }
     
-    console.log('🧹 AddItemsIntegrationManager: Cleaned up');
   }
 } 

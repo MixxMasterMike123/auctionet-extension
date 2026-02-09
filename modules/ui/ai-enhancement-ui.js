@@ -27,7 +27,6 @@ export class AIEnhancementUI {
    * Initialize the AI enhancement UI
    */
   init() {
-    console.log(`🎨 AI Enhancement UI: Initializing for ${this.options.pageType} page...`);
     
     this.injectAIButtons();
     
@@ -38,7 +37,6 @@ export class AIEnhancementUI {
     this.attachEventListeners();
     this.injectStyles();
     
-    console.log('✅ AI Enhancement UI: Initialized successfully');
   }
 
   /**
@@ -104,9 +102,6 @@ export class AIEnhancementUI {
         targetElement.insertBefore(indicator, targetElement.firstChild);
       }
       
-      console.log('✅ Quality indicator added to page');
-    } else {
-      console.warn('⚠️ No suitable location found for quality indicator');
     }
   }
 
@@ -285,7 +280,6 @@ export class AIEnhancementUI {
   handleQualityRefresh() {
     // This should be implemented by the parent component
     // as it depends on the specific quality analysis logic
-    console.log('🔄 Quality refresh requested');
     
     // Dispatch custom event for parent to handle
     document.dispatchEvent(new CustomEvent('ai-quality-refresh-requested', {
@@ -364,7 +358,6 @@ export class AIEnhancementUI {
    */
   showLoadingIndicator(fieldType) {
     // Implementation will depend on the specific UI design
-    console.log(`⏳ Showing loading indicator for ${fieldType}`);
   }
 
   /**
@@ -373,7 +366,6 @@ export class AIEnhancementUI {
    */
   showSuccessIndicator(fieldType) {
     // Implementation will depend on the specific UI design
-    console.log(`✅ Showing success indicator for ${fieldType}`);
   }
 
   /**
@@ -383,7 +375,7 @@ export class AIEnhancementUI {
    */
   showErrorIndicator(fieldType, message) {
     // Implementation will depend on the specific UI design
-    console.error(`❌ Error for ${fieldType}: ${message}`);
+    console.error(`Error for ${fieldType}: ${message}`);
   }
 
   /**
@@ -557,7 +549,6 @@ export class AIEnhancementUI {
    * Clean up resources
    */
   destroy() {
-    console.log('🧹 AI Enhancement UI: Cleaning up...');
     
     // Remove event listeners and DOM elements
     const buttons = document.querySelectorAll('.ai-assist-button');

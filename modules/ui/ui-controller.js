@@ -18,7 +18,6 @@ export class UIController {
     }
 
     injectUI() {
-        console.log('🎨 Injecting UI elements...');
 
         // Add AI assistance button next to each field
         const titleField = document.querySelector('#item_title_sv');
@@ -26,12 +25,6 @@ export class UIController {
         const conditionField = document.querySelector('#item_condition_sv');
         const keywordsField = document.querySelector('#item_hidden_keywords');
 
-        console.log('🔍 Found fields:', {
-            title: !!titleField,
-            description: !!descriptionField,
-            condition: !!conditionField,
-            keywords: !!keywordsField
-        });
 
         if (titleField) {
             this.addAIButton(titleField, 'title', 'AI-förbättra titel');
@@ -97,14 +90,12 @@ export class UIController {
             document.querySelector('.row-fluid > div:last-child');
 
         if (sidebar) {
-            console.log('✅ Adding quality indicator to sidebar');
             sidebar.insertBefore(indicator, sidebar.firstChild);
 
             // Add event listener for manual refresh button
             const refreshButton = indicator.querySelector('.refresh-quality-btn');
             if (refreshButton) {
                 refreshButton.addEventListener('click', () => {
-                    console.log('🔄 Manual quality refresh triggered');
                     this.callbacks.onAnalyzeQuality();
                 });
             }
@@ -114,8 +105,6 @@ export class UIController {
 
             // Initial quality analysis
             this.callbacks.onAnalyzeQuality();
-        } else {
-            console.log('❌ Sidebar not found - cannot add quality indicator');
         }
     }
 
@@ -598,7 +587,6 @@ export class UIController {
     }
 
     showLoadingIndicator(fieldType) {
-        console.log(`🔄 Loading indicator for ${fieldType}`);
 
         // Remove any existing loading states
         this.removeFieldLoadingIndicator(fieldType);
@@ -633,7 +621,7 @@ export class UIController {
         }
 
         if (!targetField) {
-            console.error(`❌ Target field not found for ${fieldType}`);
+            console.error(`Target field not found for ${fieldType}`);
             return;
         }
 
@@ -745,7 +733,7 @@ export class UIController {
     }
 
     showFieldErrorIndicator(fieldType, message) {
-        console.error(`❌ Error for ${fieldType}: ${message}`);
+        console.error(`Error for ${fieldType}: ${message}`);
         this.removeFieldLoadingIndicator(fieldType);
 
         if (fieldType === 'all') {
@@ -1044,7 +1032,7 @@ export class UIController {
                 if (this.callbacks.onForceImprove) {
                     this.callbacks.onForceImprove(fieldType);
                 } else {
-                    console.error('❌ onForceImprove callback is not defined!');
+                    console.error('onForceImprove callback is not defined!');
                 }
             });
         }

@@ -15,7 +15,6 @@ export class AIEnhancementEngine {
    * @returns {Promise<Object>} Enhanced field data
    */
   async improveField(formData, fieldType, options = {}) {
-    console.log(`🚀 AI Enhancement: Improving ${fieldType}...`);
     
     if (!this.apiManager?.apiKey) {
       throw new Error('API key not configured. Please set your Anthropic API key in the extension popup.');
@@ -24,7 +23,6 @@ export class AIEnhancementEngine {
     // Prevent duplicate requests for the same field
     const requestKey = `${fieldType}-${JSON.stringify(formData).substring(0, 100)}`;
     if (this.pendingRequests.has(requestKey)) {
-      console.log(`⏳ Request already pending for ${fieldType}, waiting...`);
       return await this.pendingRequests.get(requestKey);
     }
 
@@ -48,7 +46,6 @@ export class AIEnhancementEngine {
    * @returns {Promise<Object>} Enhanced data for all fields
    */
   async improveAllFields(formData, options = {}) {
-    console.log('🚀 AI Enhancement: Improving all fields...');
     
     if (!this.apiManager?.apiKey) {
       throw new Error('API key not configured. Please set your Anthropic API key in the extension popup.');
@@ -79,11 +76,10 @@ export class AIEnhancementEngine {
         throw new Error('No improvements received from API');
       }
 
-      console.log(`✅ AI Enhancement: Received improvements for ${fieldType}:`, Object.keys(improvements));
       return improvements;
 
     } catch (error) {
-      console.error(`❌ AI Enhancement: Failed to improve ${fieldType}:`, error);
+      console.error(`AI Enhancement: Failed to improve ${fieldType}:`, error);
       throw error;
     }
   }
@@ -264,7 +260,6 @@ export class AIEnhancementEngine {
    * Clean up resources
    */
   destroy() {
-    console.log('🧹 AI Enhancement Engine: Cleaning up...');
     this.pendingRequests.clear();
     this.apiManager = null;
   }

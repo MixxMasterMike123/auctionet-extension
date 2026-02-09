@@ -71,7 +71,6 @@ export class DashboardManagerV2 {
     
     // Strategy 2: Fallback to candidate terms from sales data
     if (terms.length === 0 && salesData.candidateSearchTerms) {
-      console.log('⚠️ Fallback to candidate terms from sales data');
       terms = this.termProcessor.processCandidateTerms(salesData.candidateSearchTerms);
     }
     
@@ -108,15 +107,9 @@ export class DashboardManagerV2 {
     
     // If dropdown should stay open and exists, just update content with spinner
     if (shouldStayOpen && existingContainer) {
-      console.log('🔄 Preserving existing dropdown, adding spinner overlay');
-      console.log('🔍 existingContainer:', existingContainer);
-      console.log('🔍 shouldStayOpen:', shouldStayOpen);
       this.showSpinnerOverlay(existingContainer);
       // Don't remove existing elements, just update them
     } else {
-      console.log('🆕 Creating new dropdown (normal flow)');
-      console.log('🔍 shouldStayOpen:', shouldStayOpen);
-      console.log('🔍 existingContainer:', existingContainer);
       // Normal flow - remove existing elements
       const existingButton = document.querySelector('.minimal-market-toggle');
       const existingDashboard = document.querySelector('.market-data-dashboard');
@@ -147,18 +140,16 @@ export class DashboardManagerV2 {
     
     // Check if we're updating existing dropdown or creating new one
     if (shouldStayOpen && existingContainer) {
-      console.log('🔄 Updating existing dropdown content');
       // Update existing dropdown content
       try {
         this.updateExistingDropdownContent(dashboard, existingContainer);
       } catch (error) {
-        console.error('❌ Failed to update existing dropdown, falling back to recreation:', error);
+        console.error('Failed to update existing dropdown, falling back to recreation:', error);
         // Fallback: remove existing and create new
         existingContainer.remove();
         this.createSmoothDropdownDashboard(dashboard);
       }
     } else {
-      console.log('🆕 Creating new smooth dropdown');
       // Create new dropdown
       this.createSmoothDropdownDashboard(dashboard);
     }
@@ -275,7 +266,7 @@ export class DashboardManagerV2 {
     const totalMatches = (historical?.totalMatches || 0) + (live?.totalMatches || 0);
     
     // Generate Auctionet URLs using SSoT query
-    const baseUrl = 'https://auctionet.com/sv/search';
+    const baseUrl = 'https://auctionet.com/sv/search'; // See also CONFIG.URLS.AUCTIONET_SEARCH
     let historicalUrl = baseUrl;
     let liveUrl = baseUrl;
     
@@ -469,7 +460,6 @@ export class DashboardManagerV2 {
   setupDashboardInteractions() {
     
     if (!this.checkboxManager) {
-      console.log('⚠️ CheckboxManager not available - skipping interaction setup');
       return;
     }
     
@@ -502,7 +492,6 @@ export class DashboardManagerV2 {
     
     const container = document.querySelector('.header-pills-container');
     if (!container) {
-      console.log('⚠️ Pills container not found');
       return;
     }
     
@@ -1048,11 +1037,6 @@ export class DashboardManagerV2 {
 
   // Debug information
   debug() {
-    console.log('  Dashboard created:', this.dashboardCreated);
-    console.log('  Current terms:', this.currentTerms.length);
-    console.log('  API Manager:', !!this.apiManager);
-    console.log('  SearchQuerySSoT:', !!this.searchQuerySSoT);
-    console.log('  CheckboxManager:', !!this.checkboxManager);
     
     // Debug modules
     if (this.checkboxManager) {
@@ -1074,7 +1058,6 @@ export class DashboardManagerV2 {
 
   // Cleanup
   destroy() {
-    console.log('🧹 DashboardManagerV2: Cleaning up...');
     
     if (this.checkboxManager) {
       this.checkboxManager.destroy();
@@ -1100,7 +1083,7 @@ export class DashboardManagerV2 {
     
     const dashboard = document.querySelector('.market-data-dashboard');
     if (!dashboard) {
-      console.error('❌ DashboardV2: No .market-data-dashboard element found for spinner!');
+      console.error('DashboardV2: No .market-data-dashboard element found for spinner!');
       return;
     }
     
@@ -1128,7 +1111,7 @@ export class DashboardManagerV2 {
     
     const dashboard = document.querySelector('.market-data-dashboard');
     if (!dashboard) {
-      console.error('❌ DashboardV2: No .market-data-dashboard element found for hiding spinner!');
+      console.error('DashboardV2: No .market-data-dashboard element found for hiding spinner!');
       return;
     }
     
@@ -1150,7 +1133,6 @@ export class DashboardManagerV2 {
         }, 300);
       }, 150);
     } else {
-      console.log('⚠️ DashboardV2: No overlay found, just removing blur');
       // No overlay, just remove blur
       dashboard.classList.remove('dashboard-loading');
     }
@@ -1171,7 +1153,7 @@ export class DashboardManagerV2 {
     // Find the main container to insert dropdown content above
     const mainContainer = document.querySelector('.container');
     if (!mainContainer) {
-      console.error('❌ Main container not found, cannot create smooth dropdown');
+      console.error('Main container not found, cannot create smooth dropdown');
       return;
     }
 
@@ -1242,7 +1224,6 @@ export class DashboardManagerV2 {
     // Force a brief delay to ensure DOM is ready, then apply state
     setTimeout(() => {
       this.applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, false);
-      console.log(`🔄 Applied initial state: ${isOpen ? 'OPEN' : 'CLOSED'}`);
     }, 10);
     
     floatingToggle.addEventListener('click', () => {
@@ -1251,7 +1232,6 @@ export class DashboardManagerV2 {
       // Save state to localStorage
       localStorage.setItem(STORAGE_KEY, isOpen.toString());
       
-      console.log(`👆 User clicked toggle: ${isOpen ? 'OPENING' : 'CLOSING'}`);
       
       // Apply visual state
       this.applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, true);
@@ -1285,23 +1265,21 @@ export class DashboardManagerV2 {
     // Insert dropdown content into normal document flow (pushes content down when expanded)
     mainContainer.parentNode.insertBefore(dropdownContainer, mainContainer);
 
-    console.log('📊 DashboardManagerV2: Created minimal floating toggle with smooth dropdown');
   }
 
   // Apply dropdown state (open/closed) with optional animation
   applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, animate = true) {
-    console.log(`🔄 applyDropdownState: ${isOpen ? 'OPENING' : 'CLOSING'} ${animate ? 'with animation' : 'instantly'}`);
     
     // Ensure we have valid elements
     if (!floatingToggle || !dropdownContainer || !dashboardElement) {
-      console.error('❌ applyDropdownState: Missing required elements');
+      console.error('applyDropdownState: Missing required elements');
       return;
     }
     
     // Ensure SVG exists
     const svg = floatingToggle.querySelector('svg');
     if (!svg) {
-      console.error('❌ applyDropdownState: Button SVG not found');
+      console.error('applyDropdownState: Button SVG not found');
       return;
     }
     
@@ -1322,7 +1300,6 @@ export class DashboardManagerV2 {
       // Add visual indicator that it's pinned open
       floatingToggle.title = 'Marknadsanalys (synlig - klicka för att dölja)';
       
-      console.log('✅ Applied OPEN state - arrow should be UP');
       
     } else {
       // Close - collapse content
@@ -1339,7 +1316,6 @@ export class DashboardManagerV2 {
       
       floatingToggle.title = 'Marknadsanalys (dold - klicka för att visa)';
       
-      console.log('✅ Applied CLOSED state - arrow should be DOWN');
     }
     
     // If this is initial load (no animation), ensure immediate display
@@ -1364,7 +1340,6 @@ export class DashboardManagerV2 {
       }, 50);
     }
     
-    console.log(`📊 Market analysis dropdown ${isOpen ? 'opened' : 'closed'} ${animate ? 'with animation' : 'instantly'}`);
   }
 
   // Show loading spinner when market analysis is refreshing
@@ -1438,7 +1413,6 @@ export class DashboardManagerV2 {
     // Create floating toggle button in loading state
     this.createLoadingToggleButton();
 
-    console.log('📊 Showing market analysis loading state');
   }
 
   // Create floating toggle button in loading state
@@ -1484,7 +1458,6 @@ export class DashboardManagerV2 {
     if (loadingContainer) {
       loadingContainer.remove();
     }
-    console.log('📊 Removed market analysis loading state');
   }
 
   // Verify that button and dropdown states are synchronized
@@ -1499,30 +1472,15 @@ export class DashboardManagerV2 {
     const buttonLooksOpen = buttonRotation.includes('180deg');
     const containerLooksOpen = containerMaxHeight !== '0px' && containerOpacity !== '0';
     
-    console.log(`🔍 State verification:
-      Expected: ${expectedState ? 'OPEN' : 'CLOSED'}
-      Button rotation: ${buttonRotation} (looks ${buttonLooksOpen ? 'OPEN' : 'CLOSED'})
-      Container height: ${containerMaxHeight} (looks ${containerLooksOpen ? 'OPEN' : 'CLOSED'})
-      Container opacity: ${containerOpacity}`);
     
     if (expectedState !== buttonLooksOpen || expectedState !== containerLooksOpen) {
-      console.warn('⚠️ STATE MISMATCH DETECTED - forcing re-sync');
       // Force re-sync
       this.applyDropdownState(expectedState, floatingToggle, dropdownContainer, dropdownContainer.firstChild, false);
-    } else {
-      console.log('✅ State verification passed - button and dropdown are synchronized');
     }
   }
 
   // Show spinner overlay on existing dropdown (no flickering)
   showSpinnerOverlay(existingContainer) {
-    console.log('🔄 showSpinnerOverlay called');
-    console.log('🔍 existingContainer:', existingContainer);
-    console.log('🔍 Container position:', getComputedStyle(existingContainer).position);
-    console.log('🔍 Container dimensions:', {
-      width: existingContainer.offsetWidth,
-      height: existingContainer.offsetHeight
-    });
     
     // Ensure container has position relative for absolute positioning
     if (getComputedStyle(existingContainer).position === 'static') {
@@ -1532,7 +1490,6 @@ export class DashboardManagerV2 {
     // Remove any existing overlay
     const existingOverlay = existingContainer.querySelector('.dropdown-spinner-overlay');
     if (existingOverlay) {
-      console.log('🗑️ Removing existing overlay');
       existingOverlay.remove();
     }
 
@@ -1582,13 +1539,10 @@ export class DashboardManagerV2 {
 
     // Add overlay to existing container
     existingContainer.appendChild(overlay);
-    console.log('✅ Overlay appended to container');
-    console.log('🔍 Container children after overlay add:', Array.from(existingContainer.children).map(child => child.className));
 
     // Update button to loading state
     const button = document.querySelector('.minimal-market-toggle');
     if (button) {
-      console.log('🔄 Updating button to loading state');
       const svg = button.querySelector('svg');
       if (svg) {
         svg.innerHTML = `<div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #4A90E2; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>`;
@@ -1598,7 +1552,6 @@ export class DashboardManagerV2 {
       button.title = 'Uppdaterar marknadsanalys...';
     }
 
-    console.log('🔄 Added spinner overlay to existing dropdown');
     
     // Force a repaint to ensure overlay is visible
     existingContainer.offsetHeight;
@@ -1606,44 +1559,29 @@ export class DashboardManagerV2 {
 
   // Update existing dropdown content (no flickering)
   updateExistingDropdownContent(newDashboard, existingContainer) {
-    console.log('🔄 updateExistingDropdownContent called');
-    console.log('🔍 newDashboard:', newDashboard);
-    console.log('🔍 existingContainer:', existingContainer);
     
     // FIRST: Remove spinner overlay
     const overlay = existingContainer.querySelector('.dropdown-spinner-overlay');
-    console.log('🔍 Overlay found:', overlay);
     if (overlay) {
-      console.log('🗑️ Removing spinner overlay');
       overlay.remove();
     }
     
     // THEN: Find the existing dashboard inside the container
     let existingDashboard = existingContainer.querySelector('.market-data-dashboard');
-    console.log('🔍 existingDashboard found:', existingDashboard);
-    console.log('🔍 All container children after overlay removal:', Array.from(existingContainer.children).map(child => ({
-      className: child.className,
-      tagName: child.tagName,
-      id: child.id
-    })));
     
     // Try alternative selectors if not found
     if (!existingDashboard) {
       existingDashboard = existingContainer.querySelector('div[class*="market"]');
-      console.log('🔍 Alternative dashboard search result:', existingDashboard);
     }
     
     if (!existingDashboard) {
-      console.error('❌ Could not find existing dashboard to update');
-      console.log('🔍 Container innerHTML (first 500 chars):', existingContainer.innerHTML.substring(0, 500));
+      console.error('Could not find existing dashboard to update');
       
       // FALLBACK: Create new dashboard inside existing container
-      console.log('🔄 Fallback: Adding new dashboard to existing container');
       existingContainer.appendChild(newDashboard);
       
       // Restore button to normal state
       this.restoreToggleButtonState();
-      console.log('✅ Fallback dashboard creation completed');
       return;
     }
 
@@ -1673,7 +1611,6 @@ export class DashboardManagerV2 {
       button.title = 'Marknadsanalys (synlig - klicka för att dölja)';
     }
 
-    console.log('✅ Updated existing dropdown content without flickering');
   }
 
   // Restore toggle button to normal open state

@@ -39,14 +39,12 @@ class AIRulesManager {
             this.version = this.rules.version;
             this.loaded = true;
 
-            console.log(`✅ AI Rules System v${this.version} loaded successfully`);
-            console.log(`📊 Rules loaded: ${this.getRulesStats()}`);
 
             // Clear cache when rules are reloaded
             this.cache.clear();
 
         } catch (error) {
-            console.error('❌ Failed to load AI rules:', error);
+            console.error('Failed to load AI rules:', error);
             this.loaded = false;
             throw error;
         }
@@ -76,7 +74,7 @@ class AIRulesManager {
      */
     ensureLoaded() {
         if (!this.loaded) {
-            console.error('❌ AI Rules Manager instance not loaded:', {
+            console.error('AI Rules Manager instance not loaded:', {
                 loaded: this.loaded,
                 hasRules: !!this.rules,
                 version: this.version,
@@ -113,7 +111,6 @@ class AIRulesManager {
         }
 
         if (!prompt) {
-            console.warn(`⚠️ System prompt '${type}' from '${source}' not found, using 'core'`);
             prompt = this.rules.systemPrompts.core;
         }
 
@@ -138,7 +135,6 @@ class AIRulesManager {
 
         const rules = this.rules.categoryRules[category];
         if (!rules) {
-            console.log(`ℹ️ No specific rules for category '${category}', using defaults`);
             return null;
         }
 
@@ -182,7 +178,6 @@ class AIRulesManager {
 
         const categoryRules = this.getCategoryRules(category);
         if (!categoryRules?.valuationRules) {
-            console.log(`ℹ️ No valuation rules for category '${category}', using defaults`);
             return { approach: 'conservative', instruction: 'Var konservativ med värderingar' };
         }
 
@@ -195,7 +190,6 @@ class AIRulesManager {
                 approach: 'conservative',
                 instruction: 'Var konservativ med värderingar'
             };
-            console.log(`ℹ️ No specific valuation rules for model '${modelId}', using default`);
         }
 
         this.cache.set(cacheKey, rules);
@@ -219,7 +213,6 @@ class AIRulesManager {
 
         const rules = this.rules.fieldRules[field];
         if (!rules) {
-            console.warn(`⚠️ No rules found for field '${field}'`);
             return {};
         }
 
@@ -412,7 +405,6 @@ ANTI-HALLUCINATION INSTRUKTIONER:
 • Uppfinn ALDRIG tidsperioder, material, mått eller skador
 • Förbättra ENDAST språk, struktur och terminologi
 • Om information saknas - utelämna eller använd osäkerhetsmarkörer
-
 
 
 KRITISKT - DATUM OCH PERIODSPECULATION FÖRBJUDEN:
@@ -844,7 +836,6 @@ Returnera endast biografin som ren text.
 
         const rules = this.rules.extractedRules?.[source];
         if (!rules) {
-            console.warn(`⚠️ No extracted rules found for source '${source}'`);
             return null;
         }
 
@@ -865,7 +856,6 @@ Returnera endast biografin som ren text.
 
         const rules = this.rules.extractedRules?.qualityAnalyzer?.validationRules;
         if (!rules) {
-            console.warn('⚠️ No quality validation rules found');
             return {};
         }
 
@@ -903,7 +893,6 @@ Returnera endast biografin som ren text.
      * Hot reload rules configuration
      */
     async reload() {
-        console.log('🔄 Reloading AI rules configuration...');
         this.cache.clear(); // Clear cache to force fresh load
         await this.loadRules();
     }
@@ -921,7 +910,6 @@ Returnera endast biografin som ren text.
                 }
             }
             keysToDelete.forEach(key => this.cache.delete(key));
-            console.log(`🗑️ Cleared valuation cache for model: ${modelId}`);
         } else {
             // Clear all valuation cache
             const keysToDelete = [];
@@ -931,7 +919,6 @@ Returnera endast biografin som ren text.
                 }
             }
             keysToDelete.forEach(key => this.cache.delete(key));
-            console.log('🗑️ Cleared all valuation cache');
         }
     }
 
@@ -999,7 +986,6 @@ let globalAIRulesManager = null;
 function getAIRulesManager() {
     if (!globalAIRulesManager) {
         globalAIRulesManager = new AIRulesManager();
-        console.log('🆕 Created new AI Rules Manager instance');
     }
     return globalAIRulesManager;
 }
@@ -1016,15 +1002,14 @@ async function initializeAIRulesSystem() {
         // Validate configuration
         const validation = manager.validateConfiguration();
         if (!validation.valid) {
-            console.error('❌ AI Rules configuration validation failed:', validation.errors);
+            console.error('AI Rules configuration validation failed:', validation.errors);
             throw new Error('Invalid AI rules configuration');
         }
 
-        console.log('✅ AI Rules System initialized successfully');
         return manager;
 
     } catch (error) {
-        console.error('❌ Failed to initialize AI Rules System:', error);
+        console.error('Failed to initialize AI Rules System:', error);
         throw error;
     }
 }

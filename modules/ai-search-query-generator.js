@@ -12,14 +12,7 @@ export class AISearchQueryGenerator {
   }
 
   async generateOptimalSearchQuery(title, description = '', artist = '', aiArtist = '', excludeArtist = null) {
-    console.log('🤖 AI-ONLY: Starting pure AI search query generation...');
-    console.log('📝 Title:', title);
-    console.log('📄 Description:', description);
-    console.log('👤 Artist field:', artist);
-    console.log('🤖 AI Artist:', aiArtist);
-    if (excludeArtist) {
-      console.log('🚫 Excluding ignored artist:', excludeArtist);
-    }
+    
 
     // STEP 1: Apply AI rules first (especially artist field respect)
     const inputData = { title, description, artist, aiArtist, excludeArtist };
@@ -38,13 +31,6 @@ export class AISearchQueryGenerator {
                               (hasArtistField && artistTermFound && rulesResult.searchTerms.length >= 1);
     
     if (isRulesSufficient) {
-      console.log('✅ AI RULES: Generated sufficient search terms, using rules-based approach');
-      console.log('🎯 Rules-based query:', rulesResult.searchTerms.join(' '));
-      console.log('👤 Artist field priority mode:', hasArtistField && artistTermFound ? 'ACTIVE' : 'inactive');
-      console.log('📊 Enhanced pre-selection info:');
-      console.log('   Pre-selected terms:', rulesResult.preSelectedTerms?.length || 0);
-      console.log('   Candidate terms:', rulesResult.candidateTerms?.length || 0);
-      console.log('   Total available terms:', rulesResult.totalTerms || 0);
       
       return {
         success: true,
@@ -62,9 +48,6 @@ export class AISearchQueryGenerator {
         appliedRules: rulesResult.appliedRules,
         selectionStrategy: rulesResult.selectionStrategy
       };
-    } else {
-      console.log('⚠️ AI RULES: Insufficient terms from rules, falling back to Claude AI generation');
-      console.log('🔧 Terms found:', rulesResult.searchTerms.length, 'Artist found:', artistTermFound);
     }
 
     // STEP 2: Fallback to Claude AI if rules don't generate enough terms
@@ -73,14 +56,12 @@ export class AISearchQueryGenerator {
       const cacheKey = this.generateCacheKey(title, description, artist);
       const cached = this.getCachedResult(cacheKey);
       if (cached) {
-        console.log('📦 Using cached AI search query result');
         return cached;
       }
 
       // Build context for AI (including artist field if available)
       const context = this.buildAIContext(title, description, artist, aiArtist, excludeArtist);
       
-      console.log('🚀 Calling AI for search query generation...');
       const response = await this.callClaudeAPI(context);
       
       if (response.success) {
@@ -104,7 +85,7 @@ export class AISearchQueryGenerator {
       }
 
     } catch (error) {
-      console.error('💥 AI search query generation failed:', error);
+      console.error('AI search query generation failed:', error);
       
       // Emergency fallback
       const fallbackTerms = this.generateFallbackQuery(title);
@@ -185,13 +166,11 @@ Return JSON format:
   // AI prompt and analysis
   async callClaudeAPI(prompt) {
     try {
-      console.log('🚀 Calling AI for search query generation...');
       const response = await this.apiManager.callClaudeAPI({
         title: 'Search Query Generation',
         description: prompt
       }, 'search_query');
       
-      console.log('🔧 Raw AI response:', response);
       
       // Parse the JSON response (API returns raw text for search_query field type)
       let parsedResponse;
@@ -201,18 +180,15 @@ Return JSON format:
         
         // Remove markdown code block wrappers if present
         if (response.includes('```json')) {
-          console.log('🔧 Cleaning markdown code blocks from AI response');
           cleanResponse = response
             .replace(/```json\s*/g, '')
             .replace(/```\s*/g, '')
             .trim();
-          console.log('🔧 Cleaned response:', cleanResponse);
         }
         
         parsedResponse = JSON.parse(cleanResponse);
-        console.log('✅ Successfully parsed AI JSON response:', parsedResponse);
       } catch (parseError) {
-        console.error('💥 Failed to parse AI JSON response:', parseError);
+        console.error('Failed to parse AI JSON response:', parseError);
         console.error('Raw response was:', response);
         throw new Error('Invalid JSON format in AI response');
       }
@@ -228,9 +204,6 @@ Return JSON format:
           return term;
         });
         
-        console.log('✅ AI search query generation successful with quote processing');
-        console.log('🔄 Original terms:', parsedResponse.searchTerms);
-        console.log('✅ Processed terms:', processedTerms);
         
         return {
           success: true,
@@ -239,11 +212,11 @@ Return JSON format:
           confidence: parsedResponse.confidence || 0.8
         };
       } else {
-        console.error('💥 Invalid AI response structure:', parsedResponse);
+        console.error('Invalid AI response structure:', parsedResponse);
         throw new Error('AI response missing required searchTerms array');
       }
     } catch (error) {
-      console.error('💥 AI call failed:', error);
+      console.error('AI call failed:', error);
       return { success: false, error: error.message };
     }
   }
@@ -281,7 +254,6 @@ Return JSON format:
     if (words.length > 1) {
       // Multi-word: Always wrap in quotes
       const quotedTerm = `"${cleanTerm}"`;
-      console.log(`🎯 FORCE QUOTE WRAP: "${term}" → ${quotedTerm} (multi-word artist name)`);
       return quotedTerm;
     }
     
@@ -291,7 +263,6 @@ Return JSON format:
 
   // Emergency fallback query generation
   generateFallbackQuery(title) {
-    console.log('🚨 Generating emergency fallback query from title');
     
     const words = title.toLowerCase()
       .replace(/[^\w\såäöüß-]/g, ' ')

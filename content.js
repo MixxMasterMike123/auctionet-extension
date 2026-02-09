@@ -6,66 +6,65 @@
 // - Code comments and console logs should be in English
 // - Technical field names and JSON keys remain in English for parsing
 
-console.log('🚀 Auctionet AI Assistant: Content script loaded!');
 
 // Import the API Bridge that connects add page to edit page API manager
 import('./modules/add-items-api-bridge.js').then(module => {
   window.AddItemsAPIBridge = module.AddItemsAPIBridge;
 }).catch(error => {
-  console.error('❌ Failed to load AddItemsAPIBridge:', error);
+  console.error('Failed to load AddItemsAPIBridge:', error);
 });
 
 // Import CONFIG for model selection
 import('./modules/config.js').then(module => {
   window.CONFIG = module.CONFIG;
 }).catch(error => {
-  console.error('❌ Failed to load CONFIG:', error);
+  console.error('Failed to load CONFIG:', error);
 });
 
 // Import the new modular tooltip system components
 import('./modules/ui/tooltip-system-manager.js').then(module => {
   window.TooltipSystemManager = module.TooltipSystemManager;
 }).catch(error => {
-  console.error('❌ Failed to load TooltipSystemManager:', error);
+  console.error('Failed to load TooltipSystemManager:', error);
 });
 
 import('./modules/core/field-quality-analyzer.js').then(module => {
   window.FieldQualityAnalyzer = module.FieldQualityAnalyzer;
 }).catch(error => {
-  console.error('❌ Failed to load FieldQualityAnalyzer:', error);
+  console.error('Failed to load FieldQualityAnalyzer:', error);
 });
 
 import('./modules/ui/field-monitor-manager.js').then(module => {
   window.FieldMonitorManager = module.FieldMonitorManager;
 }).catch(error => {
-  console.error('❌ Failed to load FieldMonitorManager:', error);
+  console.error('Failed to load FieldMonitorManager:', error);
 });
 
 import('./modules/add-items-integration-manager.js').then(module => {
   window.AddItemsIntegrationManager = module.AddItemsIntegrationManager;
 }).catch(error => {
-  console.error('❌ Failed to load AddItemsIntegrationManager:', error);
+  console.error('Failed to load AddItemsIntegrationManager:', error);
 });
 
 // Import the ArtistDetectionManager for edit page artist detection
 import('./modules/artist-detection-manager.js').then(module => {
   window.ArtistDetectionManager = module.ArtistDetectionManager;
 }).catch(error => {
-  console.error('❌ Failed to load ArtistDetectionManager:', error);
+  console.error('Failed to load ArtistDetectionManager:', error);
 });
 
 // Import the FreetextParser component
 import('./modules/refactored/components/freetext-parser.js').then(module => {
   window.FreetextParser = module.FreetextParser;
 }).catch(error => {
-  console.error('❌ Failed to load FreetextParser:', error);
+  console.error('Failed to load FreetextParser:', error);
 });
 
 // Import the AIImageAnalyzer component
 import('./modules/refactored/components/ai-image-analyzer.js').then(module => {
   window.AIImageAnalyzer = module.AIImageAnalyzer;
 }).catch(error => {
-  console.error('❌ Failed to load AIImageAnalyzer:', error);
+  console.error('Failed to load AIImageAnalyzer:', error);
 });
 
 // Import the AI Rules System
@@ -97,44 +96,39 @@ import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module =
   // Start checking after a small delay to let constructor complete
   setTimeout(waitForRules, 100);
 }).catch(error => {
-  console.error('❌ Failed to load AI Rules System:', error);
+  console.error('Failed to load AI Rules System:', error);
 });
 
 // Import PageDetector
 import('./modules/core/page-detector.js').then(module => {
   window.PageDetector = module.PageDetector;
 }).catch(error => {
-  console.error('❌ Failed to load PageDetector:', error);
+  console.error('Failed to load PageDetector:', error);
 });
 
 // Import UIController
 import('./modules/ui/ui-controller.js').then(module => {
   window.UIController = module.UIController;
-  console.log('✅ UIController loaded');
 }).catch(error => console.error('❌ Failed to load UIController:', error));
 
 // Import TypingSimulator for artist autocomplete
 import('./modules/utils/typing-simulator.js').then(module => {
   window.TypingSimulator = module.TypingSimulator;
-  console.log('✅ TypingSimulator loaded');
 }).catch(error => console.error('❌ Failed to load TypingSimulator:', error));
 
 // Import ArtistFieldManager for artist field operations
 import('./modules/core/artist-field-manager.js').then(module => {
   window.ArtistFieldManager = module.ArtistFieldManager;
-  console.log('✅ ArtistFieldManager loaded');
 }).catch(error => console.error('❌ Failed to load ArtistFieldManager:', error));
 
 // Import APIManager for shared API layer (same module used by content-script.js)
 import('./modules/api-manager.js').then(module => {
   window.APIManager = module.APIManager;
-  console.log('✅ APIManager loaded');
 }).catch(error => console.error('❌ Failed to load APIManager:', error));
 
 // Import QualityAnalyzer for FAQ inline hints (shared with edit page)
 import('./modules/quality-analyzer.js').then(module => {
   window.QualityAnalyzer = module.QualityAnalyzer;
-  console.log('✅ QualityAnalyzer loaded for FAQ hints');
 }).catch(error => console.error('❌ Failed to load QualityAnalyzer:', error));
 
 // SPA detection will be handled by the AuctionetCatalogingAssistant class
@@ -154,7 +148,7 @@ class AuctionetCatalogingAssistant {
 
     // Initialize asynchronously to prevent blocking
     this.init().catch(error => {
-      console.error('❌ Failed to initialize AuctionetCatalogingAssistant:', error);
+      console.error('Failed to initialize AuctionetCatalogingAssistant:', error);
     });
 
     // Listen for API key changes (stored in local for security)
@@ -179,7 +173,6 @@ class AuctionetCatalogingAssistant {
   async init() {
     // Wait for modules to load
     if (!window.PageDetector || !window.UIController) {
-      console.log('⏳ Waiting for modules to load...');
       await new Promise(resolve => setTimeout(resolve, 200));
       if (!window.PageDetector || !window.UIController) {
         // Retry init later
@@ -223,13 +216,11 @@ class AuctionetCatalogingAssistant {
     const pageInfo = this.pageDetector.detectPageType();
 
     if (!pageInfo.isSupported) {
-      console.log('❌ Page not supported:', window.location.href, window.location.hash);
       return;
     }
 
     // If page needs retry (form elements not ready), schedule a retry
     if (pageInfo.needsRetry) {
-      console.log('⏳ Page needs retry, scheduling retry in 2 seconds...');
       setTimeout(() => {
         this.init();
       }, 2000);
@@ -239,7 +230,6 @@ class AuctionetCatalogingAssistant {
     this.currentPage = pageInfo.type;
     window.auctionetAssistantInitialized = true;
 
-    console.log('✅ Auctionet AI Assistant: On supported page, type:', this.currentPage);
 
     await this.loadApiKey();
 
@@ -247,9 +237,6 @@ class AuctionetCatalogingAssistant {
     if (window.APIManager) {
       this.apiManager = new window.APIManager();
       await this.apiManager.loadSettings();
-      console.log('✅ APIManager initialized for content.js');
-    } else {
-      console.warn('⚠️ APIManager not yet loaded, API calls will use fallback');
     }
 
     // Initialize FAQ inline hints analyzer (shared QualityAnalyzer module)
@@ -258,7 +245,6 @@ class AuctionetCatalogingAssistant {
       if (this.apiManager) {
         this.faqHintAnalyzer.setApiManager(this.apiManager);
       }
-      console.log('✅ FAQ hint analyzer initialized for inline hints');
     }
 
     if (this.currentPage === 'edit') {
@@ -277,7 +263,6 @@ class AuctionetCatalogingAssistant {
       setTimeout(() => {
         this.runFaqHints();
         this.faqHintAnalyzer.setupLiveQualityUpdates();
-        console.log('✅ FAQ hints (standalone) + live monitoring active on', this.currentPage, 'page');
       }, 1500);
     }
   }
@@ -290,19 +275,15 @@ class AuctionetCatalogingAssistant {
         return; // Same page, skip re-init
       }
     }
-    console.log('🔄 Page change detected, re-initializing...');
     this.init();
   }
 
 
-
   async initializeFreetextParser() {
     try {
-      console.log('🎯 Initializing FreetextParser for Add Items page...');
 
       // Wait for required components AND AI Rules to be loaded
       if (!window.FreetextParser || !window.AIImageAnalyzer || !window.AddItemsAPIBridge || !window.getSystemPrompt || !window.getModelSpecificValuationRules) {
-        console.log('⏳ Waiting for components and AI Rules to load...');
         await new Promise((resolve, reject) => {
           let attempts = 0;
           const maxAttempts = 150; // 15 seconds timeout (increased for AI Rules loading)
@@ -318,19 +299,9 @@ class AuctionetCatalogingAssistant {
               window.getArtistCorrections;
 
             if (allReady) {
-              console.log('✅ All components and AI Rules loaded successfully');
               resolve();
             } else if (attempts >= maxAttempts) {
-              console.error('❌ Timeout waiting for components to load');
-              console.log('Missing components:', {
-                FreetextParser: !!window.FreetextParser,
-                AIImageAnalyzer: !!window.AIImageAnalyzer,
-                AddItemsAPIBridge: !!window.AddItemsAPIBridge,
-                getSystemPrompt: !!window.getSystemPrompt,
-                getModelSpecificValuationRules: !!window.getModelSpecificValuationRules,
-                getBrandCorrections: !!window.getBrandCorrections,
-                getArtistCorrections: !!window.getArtistCorrections
-              });
+              console.error('Timeout waiting for components to load');
               reject(new Error('Timeout waiting for components'));
             } else {
               setTimeout(checkForClasses, 100);
@@ -341,22 +312,19 @@ class AuctionetCatalogingAssistant {
       }
 
       // Create API Bridge for FreetextParser
-      console.log('🚀 Creating API Bridge for FreetextParser...');
       const apiBridge = new window.AddItemsAPIBridge();
       await apiBridge.init();
 
       // Initialize FreetextParser with API Manager
-      console.log('🎯 Initializing FreetextParser component...');
       this.freetextParser = new window.FreetextParser(apiBridge.getAPIManager());
       this.freetextParser.init();
 
       // Store the bridge for potential future use
       this.apiBridge = apiBridge;
 
-      console.log('✅ FreetextParser initialized successfully');
 
     } catch (error) {
-      console.error('❌ Failed to initialize FreetextParser:', error);
+      console.error('Failed to initialize FreetextParser:', error);
     }
   }
 
@@ -364,13 +332,11 @@ class AuctionetCatalogingAssistant {
     try {
       const result = await chrome.storage.local.get(['anthropicApiKey']);
       this.apiKey = result.anthropicApiKey;
-      console.log('API key loaded from local storage:', this.apiKey ? 'Found' : 'Not found');
     } catch (error) {
       console.error('Error loading API key:', error);
       this.apiKey = null;
     }
   }
-
 
 
   async moveArtistToField(artistName, suggestedTitle) {
@@ -390,15 +356,13 @@ class AuctionetCatalogingAssistant {
           setTimeout(() => this.analyzeQuality(), 500);
         },
         onError: (error) => {
-          console.error('❌ Failed to move artist:', error);
+          console.error('Failed to move artist:', error);
         }
       });
 
-      if (success) {
-        console.log('✅ Artist moved to field with autocomplete integration');
-      }
+      
     } catch (error) {
-      console.error('❌ Error in moveArtistToField:', error);
+      console.error('Error in moveArtistToField:', error);
     }
   }
 
@@ -450,7 +414,6 @@ class AuctionetCatalogingAssistant {
 
     try {
       const improved = await this.callClaudeAPI(itemData, fieldType);
-      console.log('Improved result for', fieldType, ':', improved);
 
       // For single field improvements, extract the specific field value
       // Handle title-correct mapping to title field
@@ -463,7 +426,6 @@ class AuctionetCatalogingAssistant {
         // Clear stale FAQ hints, then re-analyze after DOM settles
         document.querySelectorAll('.faq-hint').forEach(h => h.remove());
         setTimeout(() => {
-          console.log('Delayed quality analysis for single field...');
           this.analyzeQuality();
         }, 800);
       } else {
@@ -552,7 +514,6 @@ class AuctionetCatalogingAssistant {
   }
 
   handleArtistAction(action, data) {
-    console.log(`🎨 Handling artist action: ${action}`, data);
 
     if (action === 'move') {
       // Move artist name to artist field
@@ -570,8 +531,6 @@ class AuctionetCatalogingAssistant {
         // Show success indicator on artist field
         artistField.classList.add('field-success');
         setTimeout(() => artistField.classList.remove('field-success'), 1000);
-      } else {
-        console.warn('❌ Artist field not found');
       }
     } else if (action === 'bio') {
       // Show biography
@@ -583,7 +542,6 @@ class AuctionetCatalogingAssistant {
   }
 
   showArtistBiography(artistName) {
-    console.log(`📖 Fetching biography for ${artistName}...`);
     this.uiController.showLoadingIndicator('all');
 
     // Use callClaudeAPI with 'biography' type
@@ -610,13 +568,12 @@ class AuctionetCatalogingAssistant {
       })
       .catch(error => {
         this.uiController.removeFieldLoadingIndicator('all');
-        console.error('❌ Failed to fetch biography:', error);
+        console.error('Failed to fetch biography:', error);
         alert('Kunde inte hämta biografi just nu.');
       });
   }
 
   ignoreArtistDetection(artistName) {
-    console.log(`🙈 Ignoring artist detection for: ${artistName}`);
     if (!this.ignoredArtists) this.ignoredArtists = [];
     this.ignoredArtists.push(artistName);
 
@@ -679,7 +636,6 @@ class AuctionetCatalogingAssistant {
     try {
       this.faqHintAnalyzer.analyzeQuality();
     } catch (error) {
-      console.warn('⚠️ FAQ hints error (non-critical):', error);
     }
   }
 
@@ -823,11 +779,6 @@ class AuctionetCatalogingAssistant {
       ) : 0;
 
     // Debug logging for calculateCurrentQualityScore
-    console.log('calculateCurrentQualityScore keywords debug:', {
-      keywords: data.keywords,
-      keywordsLength: keywordsLength,
-      keywordCount: keywordCount
-    });
 
     if (data.title.length < 20) score -= 20;
     if (descLength < 50) score -= 25;
@@ -886,7 +837,6 @@ class AuctionetCatalogingAssistant {
   }
 
 
-
   async forceImproveField(fieldType) {
     // Ensure API manager settings are loaded (matches Edit page behavior)
     if (this.apiManager) {
@@ -913,7 +863,7 @@ class AuctionetCatalogingAssistant {
         const improvements = await this.callClaudeAPI(itemData, 'all');
         this.applyAllImprovements(improvements);
       } catch (error) {
-        console.error('❌ Force improve all failed:', error);
+        console.error('Force improve all failed:', error);
         this.uiController.showFieldErrorIndicator('all', error.message);
       }
       return;
@@ -941,7 +891,6 @@ class AuctionetCatalogingAssistant {
     // Clear stale FAQ hints immediately, then re-analyze after DOM settles
     document.querySelectorAll('.faq-hint').forEach(h => h.remove());
     setTimeout(() => {
-      console.log('Delayed quality analysis after applyAllImprovements...');
       this.analyzeQuality();
     }, 800);
   }
@@ -959,12 +908,6 @@ class AuctionetCatalogingAssistant {
     };
 
     // Debug logging for keywords extraction
-    console.log('extractItemData keywords debug:', {
-      keywordsRaw: data.keywords,
-      keywordsLength: data.keywords.length,
-      keywordsElement: document.querySelector('#item_hidden_keywords'),
-      elementValue: document.querySelector('#item_hidden_keywords')?.value
-    });
 
     return data;
   }
@@ -988,15 +931,11 @@ class AuctionetCatalogingAssistant {
 }
 
 // Initialize when DOM is ready
-console.log('🎬 Extension script executing, document ready state:', document.readyState);
 
 if (document.readyState === 'loading') {
-  console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('✅ DOMContentLoaded fired, creating AuctionetCatalogingAssistant');
     window.auctionetAssistant = new AuctionetCatalogingAssistant();
   });
 } else {
-  console.log('✅ Document already loaded, creating AuctionetCatalogingAssistant immediately');
   window.auctionetAssistant = new AuctionetCatalogingAssistant();
 }

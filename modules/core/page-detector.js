@@ -19,19 +19,12 @@ export class PageDetector {
         const url = window.location.href;
         const hash = window.location.hash;
 
-        console.log('🔍 Detecting page type:', {
-            url,
-            hash,
-            hasItemTitle: !!document.querySelector('#item_title_sv'),
-            itemTitleElement: document.querySelector('#item_title_sv')
-        });
 
         // Check for edit page
         if (url.includes('auctionet.com/admin/') &&
             url.includes('/items/') &&
             url.includes('/edit') &&
             document.querySelector('#item_title_sv')) {
-            console.log('✅ Detected EDIT page');
             return { isSupported: true, type: 'edit' };
         }
 
@@ -47,10 +40,8 @@ export class PageDetector {
                 document.querySelector('form[action*="items"]');
 
             if (hasFormElements || document.readyState === 'loading') {
-                console.log('✅ Detected ADD page (new pattern)', hasFormElements ? 'with form elements' : 'loading');
                 return { isSupported: true, type: 'add' };
             } else {
-                console.log('⏳ ADD page detected but form not ready, will retry...');
                 // Return supported but mark for retry
                 return { isSupported: true, type: 'add', needsRetry: true };
             }
@@ -60,17 +51,10 @@ export class PageDetector {
         if (url.includes('auctionet.com/admin/') &&
             url.includes('/items/new') &&
             document.querySelector('#item_title_sv')) {
-            console.log('✅ Detected ADD page (legacy pattern)');
             return { isSupported: true, type: 'add' };
         }
 
         // Debug why page wasn't detected
-        console.log('❌ Page not supported. Checking conditions:');
-        console.log('  - URL contains admin:', url.includes('auctionet.com/admin/'));
-        console.log('  - URL contains sellers:', url.includes('admin/sas/sellers/'));
-        console.log('  - URL contains contracts:', url.includes('/contracts/'));
-        console.log('  - Hash is #new_item:', hash === '#new_item');
-        console.log('  - Has #item_title_sv element:', !!document.querySelector('#item_title_sv'));
 
         return { isSupported: false, type: null };
     }
@@ -79,11 +63,9 @@ export class PageDetector {
      * Set up SPA detection listeners (hash change and mutation observer)
      */
     setupSPADetection() {
-        console.log('🔄 Setting up SPA detection system...');
 
         // Hash change listener for SPA navigation
         window.addEventListener('hashchange', () => {
-            console.log('🔄 Hash changed to:', window.location.hash);
             if (this.onPageChange) {
                 setTimeout(() => this.onPageChange(), 500);
             }
@@ -110,7 +92,6 @@ export class PageDetector {
             });
 
             if (shouldCheck) {
-                console.log('🔄 DOM change detected, checking for AddItem form...');
                 if (this.onPageChange) {
                     setTimeout(() => this.onPageChange(), 500);
                 }
@@ -122,7 +103,6 @@ export class PageDetector {
             subtree: true
         });
 
-        console.log('✅ SPA detection system set up successfully');
     }
 
     /**

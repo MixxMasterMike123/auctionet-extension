@@ -22,12 +22,10 @@ export class AuctionetArtistLookup {
         // Check cache first
         const cached = this.getCachedBiography(artistName);
         if (cached) {
-            console.log(`📦 Using cached biography for: ${artistName}`);
             return cached;
         }
 
         try {
-            console.log(`🔍 Fetching Auctionet biography for: ${artistName}`);
 
             // Try to fetch artist page
             const biography = await this.fetchArtistPage(artistName);
@@ -43,7 +41,7 @@ export class AuctionetArtistLookup {
             return null;
 
         } catch (error) {
-            console.error(`❌ Error fetching artist biography for ${artistName}:`, error);
+            console.error(`Error fetching artist biography for ${artistName}:`, error);
             return null;
         }
     }
@@ -68,7 +66,6 @@ export class AuctionetArtistLookup {
         // Try all URLs
         for (const url of urlPatterns) {
             try {
-                console.log(`🌐 Trying URL: ${url}`);
 
                 const response = await fetch(url);
 
@@ -80,31 +77,24 @@ export class AuctionetArtistLookup {
                         biography.url = url;
                         biography.source = 'auctionet';
                         biography.verified = true;
-                        console.log(`✅ Found biography at: ${url}`);
                         return biography;
                     }
-                } else {
-                    console.log(`⚠️ ${response.status} for ${url}`);
                 }
             } catch (error) {
-                console.warn(`⚠️ Failed to fetch ${url}:`, error.message);
                 continue;
             }
         }
 
         // STRATEGY 2: Try to find artist ID via items API
-        console.log(`🔍 Trying to find artist ID for: ${artistName}`);
         const artistId = await this.findArtistIdViaItemsAPI(artistName);
 
         if (artistId) {
-            console.log(`✅ Found artist ID: ${artistId}`);
 
             // Try URLs with ID + slug combinations
             for (const slug of slugs) {
                 const urlWithId = `${this.baseUrl}/${artistId}-${slug}`;
 
                 try {
-                    console.log(`🌐 Trying URL with ID: ${urlWithId}`);
 
                     const response = await fetch(urlWithId);
 
@@ -116,18 +106,15 @@ export class AuctionetArtistLookup {
                             biography.url = urlWithId;
                             biography.source = 'auctionet';
                             biography.verified = true;
-                            console.log(`✅ Found biography at: ${urlWithId}`);
                             return biography;
                         }
                     }
                 } catch (error) {
-                    console.warn(`⚠️ Failed to fetch ${urlWithId}:`, error.message);
                     continue;
                 }
             }
         }
 
-        console.log(`❌ No Auctionet page found after trying all strategies`);
         return null;
     }
 
@@ -141,12 +128,10 @@ export class AuctionetArtistLookup {
             // Search for items by this artist
             const searchUrl = `https://auctionet.com/api/v2/items.json?q=artist:"${encodeURIComponent(artistName)}"&per_page=1`;
 
-            console.log(`🔍 Searching items API: ${searchUrl}`);
 
             const response = await fetch(searchUrl);
 
             if (!response.ok) {
-                console.log(`⚠️ Items API returned ${response.status}`);
                 return null;
             }
 
@@ -155,18 +140,14 @@ export class AuctionetArtistLookup {
             // Log what we actually got to debug
             if (data.items && data.items.length > 0) {
                 const firstItem = data.items[0];
-                console.log(`📊 Item data keys:`, Object.keys(firstItem));
-                console.log(`📊 Item artist field:`, firstItem.artist);
 
                 // Try to extract artist ID from item data
                 if (firstItem.artist_id) {
-                    console.log(`✅ Found artist_id in item: ${firstItem.artist_id}`);
                     return firstItem.artist_id;
                 }
 
                 // Try to extract from artist_url if available
                 if (firstItem.artist_url) {
-                    console.log(`🔗 Found artist_url: ${firstItem.artist_url}`);
                     const match = firstItem.artist_url.match(/\/artists\/(\d+)-/);
                     if (match) {
                         return parseInt(match[1]);
@@ -174,25 +155,20 @@ export class AuctionetArtistLookup {
                 }
 
                 // Try to extract from URL field (might contain artist link)
-                if (firstItem.url) {
-                    console.log(`🔗 Item URL: ${firstItem.url}`);
-                }
+                
 
                 // If we have the artist name from API, try direct Auctionet search
                 if (firstItem.artist) {
-                    console.log(`👤 Artist name from API: "${firstItem.artist}"`);
 
                     // Last resort: Try to fetch the item page and extract artist link
                     return await this.extractArtistIdFromItemPage(firstItem.url);
                 }
-            } else {
-                console.log(`ℹ️ No items found for artist: ${artistName}`);
             }
 
             return null;
 
         } catch (error) {
-            console.error(`❌ Error searching items API:`, error);
+            console.error(`Error searching items API:`, error);
             return null;
         }
     }
@@ -206,7 +182,6 @@ export class AuctionetArtistLookup {
         if (!itemUrl) return null;
 
         try {
-            console.log(`🔍 Trying to extract artist ID from item page: ${itemUrl}`);
 
             const response = await fetch(itemUrl);
             if (!response.ok) return null;
@@ -219,15 +194,13 @@ export class AuctionetArtistLookup {
 
             if (artistLinkMatch) {
                 const artistId = parseInt(artistLinkMatch[1]);
-                console.log(`✅ Extracted artist ID from item page: ${artistId}`);
                 return artistId;
             }
 
-            console.log(`⚠️ No artist link found in item page`);
             return null;
 
         } catch (error) {
-            console.error(`❌ Error extracting artist ID from item page:`, error);
+            console.error(`Error extracting artist ID from item page:`, error);
             return null;
         }
     }
@@ -256,7 +229,6 @@ export class AuctionetArtistLookup {
             const bioHeader = bioHeaders.find(h => h.textContent.toLowerCase().includes('biografi'));
 
             if (!bioHeader) {
-                console.warn('⚠️ No biography section found on page');
                 return null;
             }
 
@@ -280,7 +252,6 @@ export class AuctionetArtistLookup {
             biographyText = biographyText.trim();
 
             if (!biographyText) {
-                console.warn('⚠️ Empty biography text');
                 return null;
             }
 
@@ -294,7 +265,7 @@ export class AuctionetArtistLookup {
             };
 
         } catch (error) {
-            console.error('❌ Error parsing biography HTML:', error);
+            console.error('Error parsing biography HTML:', error);
             return null;
         }
     }
@@ -376,7 +347,6 @@ export class AuctionetArtistLookup {
             variations.push(slug3);
         }
 
-        console.log(`🔤 Generated slug variations for "${name}":`, variations);
         return variations;
     }
 
@@ -425,7 +395,6 @@ export class AuctionetArtistLookup {
      */
     clearCache() {
         this.cache.clear();
-        console.log('🗑️ Artist biography cache cleared');
     }
 
     /**

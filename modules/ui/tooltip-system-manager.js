@@ -9,7 +9,6 @@ export class TooltipSystemManager {
     this.lastDismissalTime = new Map();
     this.permanentlyDisabledTooltips = new Set();
     
-    console.log('✅ TooltipSystemManager: Initialized');
   }
 
   /**
@@ -31,7 +30,6 @@ export class TooltipSystemManager {
 
     // Check if tooltip is permanently disabled
     if (this.isPermanentlyDisabled(id)) {
-      console.log(`🚫 Tooltip ${id} is permanently disabled`);
       return null;
     }
 
@@ -187,7 +185,7 @@ export class TooltipSystemManager {
           try {
             await buttonConfig.handler(tooltipId, button);
           } catch (error) {
-            console.error(`❌ Tooltip button handler error:`, error);
+            console.error(`Tooltip button handler error:`, error);
           }
         }
       });
@@ -251,7 +249,6 @@ export class TooltipSystemManager {
       tooltip.style.transform = 'scale(1)';
     });
 
-    console.log(`✅ Tooltip ${config.id} shown`);
     return tooltip;
   }
 
@@ -278,7 +275,6 @@ export class TooltipSystemManager {
     this.dismissedTooltips.add(tooltipId);
     this.lastDismissalTime.set(tooltipId, Date.now());
     
-    console.log(`✅ Tooltip ${tooltipId} dismissed`);
   }
 
   /**
@@ -287,7 +283,6 @@ export class TooltipSystemManager {
   removeAllTooltips() {
     const tooltipIds = Array.from(this.activeTooltips.keys());
     tooltipIds.forEach(id => this.dismissTooltip(id));
-    console.log('✅ All tooltips removed');
   }
 
   /**
@@ -298,7 +293,6 @@ export class TooltipSystemManager {
   permanentlyDisableTooltip(tooltipId, reason = 'user_interaction') {
     this.permanentlyDisabledTooltips.add(tooltipId);
     this.dismissTooltip(tooltipId);
-    console.log(`🚫 Tooltip ${tooltipId} permanently disabled: ${reason}`);
   }
 
   /**
@@ -532,7 +526,6 @@ export class TooltipSystemManager {
     `;
 
     document.head.appendChild(style);
-    console.log('✅ Tooltip system styles injected');
   }
 
   /**
@@ -540,7 +533,6 @@ export class TooltipSystemManager {
    */
   init() {
     this.injectStyles();
-    console.log('✅ TooltipSystemManager: Initialized');
   }
 
   /**
@@ -552,6 +544,5 @@ export class TooltipSystemManager {
     this.dismissedTooltips.clear();
     this.lastDismissalTime.clear();
     this.permanentlyDisabledTooltips.clear();
-    console.log('🧹 TooltipSystemManager: Cleaned up');
   }
 } 

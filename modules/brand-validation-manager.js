@@ -65,7 +65,6 @@ export class BrandValidationManager {
           detectedIssues.push(...aiValidation);
         }
       } catch (error) {
-        console.log('⚠️ AI brand validation failed, using fuzzy matching only:', error.message);
       }
     }
     
@@ -178,7 +177,6 @@ Om inga felstavningar hittas, svara: {"issues": []}`;
         }
       }
     } catch (error) {
-      console.log('❌ AI brand validation error:', error);
     }
     
     return [];
@@ -286,8 +284,5 @@ Om inga felstavningar hittas, svara: {"issues": []}`;
 
   // Debug information
   debug() {
-    console.log('  Known brands:', this.knownBrands.length);
-    console.log('  API Manager:', !!this.apiManager);
-    console.log('  Categories:', [...new Set(this.knownBrands.map(b => b.category))]);
   }
 } 

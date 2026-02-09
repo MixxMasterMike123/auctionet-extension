@@ -54,7 +54,6 @@ export class CircularProgressManager {
     const accuracy = this.calculateAccuracy(warnings);
 
 
-
     // Generate tooltip content
     const tooltipData = [
       this.generateOverallTooltip(overallScore, warnings),
@@ -135,7 +134,6 @@ export class CircularProgressManager {
       } else if (window.addItemsManager && typeof window.addItemsManager.improveAllFields === 'function') {
         window.addItemsManager.improveAllFields();
       } else {
-        console.warn('⚠️ No global assistant found to handle button click');
         // Fallback: dispatch custom event
         document.dispatchEvent(new CustomEvent('ai-improve-all-requested', {
           detail: { source: 'circular-progress-manager' }
@@ -297,8 +295,6 @@ export class CircularProgressManager {
       
       // Animate score text
       this.animateScoreText(scoreText, 0, finalScore, 1500);
-    } else {
-      console.warn(`❌ Could not find circle or text elements for index ${circleIndex}`);
     }
   }
 

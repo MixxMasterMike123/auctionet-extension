@@ -90,7 +90,6 @@ export class TermProcessor {
     // Step 2: Filter out invalid terms
     const validTerms = conflictFreeTerms.filter(term => {
       if (!term || typeof term.term !== 'string' || term.term.trim() === '') {
-        console.warn('🚨 FILTERING OUT INVALID TERM:', term);
         return false;
       }
       return true;
@@ -115,7 +114,6 @@ export class TermProcessor {
 
     smartSuggestions.forEach((term, index) => {
       const status = term.isSelected ? '✓' : '○';
-      console.log(`   ${index + 1}. "${term.term}" (${term.type}) - ${status} - Priority: ${term.priority || 0}`);
     });
 
     return smartSuggestions;
@@ -146,19 +144,16 @@ export class TermProcessor {
 
     // Period detection
     if (/^\d{4}$/.test(term) || /\d{4}[-\s]tal/.test(lowerTerm)) {
-      console.log(`📅 PERIOD detected: "${term}"`);
       return 'period';
     }
 
     // Material detection  
     const materials = ['guld', 'silver', 'stål', 'platina', 'metall', 'keramik', 'glas'];
     if (materials.includes(lowerTerm)) {
-      console.log(`⚡ MATERIAL detected: "${term}"`);
       return 'material';
     }
 
     // Default to keyword
-    console.log(`🔤 KEYWORD: "${term}" (default)`);
     return 'keyword';
   }
 
@@ -210,7 +205,6 @@ export class TermProcessor {
   processCandidateTerms(candidateTerms, currentQuery = '') {
     
     if (!candidateTerms || !candidateTerms.candidates) {
-      console.log('⚠️ No candidate terms to process');
       return [];
     }
 
@@ -238,7 +232,6 @@ export class TermProcessor {
     const conflictResolved = this.resolveTermConflicts(processed);
     
     conflictResolved.forEach((term, index) => {
-      console.log(`   ${index + 1}. "${term.term}" (${term.type}, priority: ${term.priority})`);
     });
     
     return conflictResolved;
@@ -246,7 +239,6 @@ export class TermProcessor {
 
   // Debug term analysis
   debugTermAnalysis(terms) {
-    console.log('  Total terms:', terms.length);
     
     const typeGroups = terms.reduce((groups, term) => {
       const type = term.type || 'unknown';
@@ -254,12 +246,10 @@ export class TermProcessor {
       return groups;
     }, {});
     
-    console.log('  Terms by type:', typeGroups);
     
     const selectedCount = terms.filter(t => t.isSelected).length;
     
     const conflictGroups = this.findPotentialConflicts(terms);
-    console.log('  Potential conflicts:', conflictGroups.size);
     
     return {
       totalTerms: terms.length,

@@ -87,12 +87,10 @@ export class UIManager {
       try {
         this.qualityAnalyzer.setupLiveQualityUpdates();
       } catch (error) {
-        console.error('❌ Error setting up live quality monitoring:', error);
+        console.error('Error setting up live quality monitoring:', error);
       }
       
       // Note: Initial quality analysis will be called after API key is loaded
-    } else {
-      console.log('❌ Sidebar not found - cannot add quality indicator');
     }
   }
 
@@ -410,7 +408,6 @@ export class UIManager {
       .filter(kw => kw.length >= 3);
     
     if (keywordArray.length > 12) {
-      console.warn(`Too many keywords (${keywordArray.length}), limiting to 12`);
       const limitedKeywords = keywordArray.slice(0, 12);
       return limitedKeywords.join(', ');
     }

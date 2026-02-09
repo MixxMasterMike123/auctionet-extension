@@ -59,11 +59,10 @@ export class ArtistFieldManager {
         try {
             const artistField = this.findArtistField();
             if (!artistField) {
-                console.error('❌ Artist field not found');
+                console.error('Artist field not found');
                 return false;
             }
 
-            console.log('🎨 Moving artist to field with autocomplete:', artistName);
 
             // Check if typing simulator is available
             if (this.typingSimulator) {
@@ -71,7 +70,6 @@ export class ArtistFieldManager {
                 await this.moveWithAutocomplete(artistField, artistName);
             } else {
                 // Fallback: simple value assignment
-                console.warn('⚠️ TypingSimulator not available, using fallback');
                 this.moveWithoutAutocomplete(artistField, artistName);
             }
 
@@ -89,11 +87,10 @@ export class ArtistFieldManager {
                 options.onSuccess(artistName, suggestedTitle);
             }
 
-            console.log('✅ Artist moved to field successfully');
             return true;
 
         } catch (error) {
-            console.error('❌ Error moving artist:', error);
+            console.error('Error moving artist:', error);
 
             // Fallback to simple value assignment
             const artistField = this.findArtistField();
@@ -123,27 +120,20 @@ export class ArtistFieldManager {
         const dropdown = await this.typingSimulator.waitForAutocomplete(2000);
 
         if (dropdown) {
-            console.log('✅ Autocomplete appeared');
 
             // Step 3: Try to find exact match first
             const exactMatch = this.typingSimulator.findExactMatch(dropdown, artistName);
             if (exactMatch) {
                 exactMatch.click();
-                console.log('✅ Selected exact match from autocomplete');
             } else {
                 // Fallback: select first item
                 const selected = this.typingSimulator.selectFirstItem(dropdown);
-                if (selected) {
-                    console.log('✅ Selected first match from autocomplete');
-                } else {
-                    console.warn('⚠️ Could not auto-select from dropdown');
-                }
+                
             }
 
             // Wait for selection to register
             await this.typingSimulator.delay(300);
         } else {
-            console.warn('⚠️ Autocomplete did not appear - artist may not be in Auctionet database');
             // Ensure value is set
             artistField.value = artistName;
             artistField.dispatchEvent(new Event('change', { bubbles: true }));

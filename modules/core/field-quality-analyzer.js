@@ -7,7 +7,6 @@ export class FieldQualityAnalyzer {
     this.apiManager = apiManager;
     this.lastAnalyzedContent = new Map(); // Track content to avoid duplicate analysis
     
-    console.log('✅ FieldQualityAnalyzer: Initialized');
   }
 
   /**
@@ -547,7 +546,6 @@ export class FieldQualityAnalyzer {
    */
   clearCache() {
     this.lastAnalyzedContent.clear();
-    console.log('✅ FieldQualityAnalyzer: Cache cleared');
   }
 
   /**
@@ -556,6 +554,5 @@ export class FieldQualityAnalyzer {
   destroy() {
     this.clearCache();
     this.apiManager = null;
-    console.log('🧹 FieldQualityAnalyzer: Cleaned up');
   }
 } 

@@ -126,7 +126,6 @@ export class InlineBrandValidator {
   // Validate field content and highlight misspellings
   async validateFieldContent(field, markerContainer, type) {
     if (!this.brandValidationManager) {
-      console.log('⚠️ No BrandValidationManager available');
       return;
     }
 
@@ -167,7 +166,7 @@ export class InlineBrandValidator {
         markerContainer.innerHTML = '';
       }
     } catch (error) {
-      console.error('❌ Error validating field content:', error);
+      console.error('Error validating field content:', error);
     }
   }
 
@@ -318,7 +317,6 @@ export class InlineBrandValidator {
       }
     }, 5000);
 
-    console.log(`💬 Showing correction tooltip: ${original} → ${suggested}`);
   }
 
   // Apply correction to field
@@ -531,7 +529,6 @@ export class InlineBrandValidator {
       wrapper.remove();
     });
     
-    console.log('🛑 Stopped inline brand validation monitoring');
   }
 
   // Manually trigger validation for all monitored fields
@@ -569,14 +566,9 @@ export class InlineBrandValidator {
 
   // Debug information
   debug() {
-    console.log('  Monitored fields:', this.monitoredFields.size);
-    console.log('  Active tooltip:', !!this.activeTooltip);
-    console.log('  Brand manager:', !!this.brandValidationManager);
-    console.log('  Current errors:', this.getCurrentErrors());
     
     // Log field contents
     this.monitoredFields.forEach((fieldInfo, field) => {
-      console.log(`  ${fieldInfo.type}: "${field.value.substring(0, 50)}${field.value.length > 50 ? '...' : ''}"`);
     });
   }
 } 

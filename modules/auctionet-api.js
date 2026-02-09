@@ -21,10 +21,8 @@ export class AuctionetAPI {
   
       } else {
         this.excludeCompanyId = null;
-        console.log(`✅ No company exclusion set`);
       }
     } catch (error) {
-      console.warn('⚠️ Could not load exclude company setting:', error);
     }
   }
 
@@ -51,11 +49,9 @@ export class AuctionetAPI {
     if (words.length > 1) {
       // Multiple words - wrap in quotes to treat as single entity
       const quotedArtist = `"${cleanArtist}"`;
-      console.log(`👤 ARTIST FORMATTING: "${cleanArtist}" → ${quotedArtist} (multi-word name, quoted for exact matching)`);
       return quotedArtist;
     } else {
       // Single word - no quotes needed
-      console.log(`👤 ARTIST FORMATTING: "${cleanArtist}" → ${cleanArtist} (single word, no quotes needed)`);
       return cleanArtist;
     }
   }
@@ -94,7 +90,6 @@ export class AuctionetAPI {
         
         // If this is a user selection, ONLY use SSoT query (no fallbacks)
         if (isUserSelection) {
-          console.log(`🔒 USER SELECTION DETECTED: Using ONLY SSoT query "${ssotQuery}" - NO FALLBACKS ALLOWED`);
           
           const ssotResult = await this.searchAuctionResults(ssotQuery, `User-Selected SSoT Query: ${ssotQuery}`);
           
@@ -108,7 +103,6 @@ export class AuctionetAPI {
               source: "user_ssot" 
             };
           } else {
-            console.log(`⚠️ User-selected SSoT query "${ssotQuery}" found ${ssotResult?.soldItems.length || 0} items - RESPECTING USER CHOICE (no fallbacks)`);
             // 🔒 NO FALLBACKS - respect user's specific search choices even if low results
             bestResult = ssotResult || { soldItems: [], totalEntries: 0 };
             totalMatches = ssotResult?.totalEntries || 0;
@@ -120,7 +114,6 @@ export class AuctionetAPI {
           }
         } else {
           // AI-generated query - can use with fallbacks if needed
-          console.log(`🤖 AI-generated SSoT query: "${ssotQuery}" - fallbacks allowed if insufficient results`);
           const ssotResult = await this.searchAuctionResults(ssotQuery, `AI-Generated SSoT Query: ${ssotQuery}`);
           
           if (ssotResult && ssotResult.soldItems.length >= 3) {
@@ -133,7 +126,6 @@ export class AuctionetAPI {
               source: "ai_ssot" 
             };
           } else {
-            console.log(`⚠️ AI-generated SSoT query found insufficient results (${ssotResult?.soldItems.length || 0}), trying fallback strategies...`);
             // Continue to fallback logic below
           }
         }
@@ -141,7 +133,6 @@ export class AuctionetAPI {
       
       // Only use fallback strategies if no SSoT query or AI-generated query with insufficient results
       if (!bestResult || bestResult.soldItems.length === 0) {
-        console.log(`🎯 Using fallback search strategies (no SSoT user selection)`);
         
         // PRIORITY 1: Try the canonical query first (from centralized SearchQueryBuilder)
         const formattedArtist = this.formatArtistForSearch(artistName);
@@ -160,7 +151,6 @@ export class AuctionetAPI {
             source: "Direct search" 
           };
         } else {
-          console.log(`⚠️ Canonical query found insufficient results (${canonicalResult?.soldItems.length || 0}), trying fallback strategies...`);
           
           // FALLBACK: Build search strategies with different levels of specificity
           const searchStrategies = this.buildSearchStrategies(artistName, objectType, period, technique);
@@ -195,7 +185,6 @@ export class AuctionetAPI {
       }
 
       if (!bestResult || bestResult.soldItems.length === 0) {
-        console.log('❌ No comparable sales found');
         return {
           hasComparableData: false,
           dataSource: 'auctionet_api',
@@ -231,7 +220,7 @@ export class AuctionetAPI {
       };
 
     } catch (error) {
-      console.error('❌ Auctionet API error:', error);
+      console.error('Auctionet API error:', error);
       return {
         hasComparableData: false,
         dataSource: 'auctionet_api',
@@ -332,7 +321,6 @@ export class AuctionetAPI {
     const cacheKey = `live_${query}_${maxResults}_exclude_${this.excludeCompanyId || 'none'}`;
     const cached = this.getCachedResult(cacheKey, 5 * 60 * 1000); // 5 minute cache for live data
     if (cached) {
-      console.log(`📦 Using cached live result for: ${description} (exclude: ${this.excludeCompanyId || 'none'})`);
       return cached;
     }
     
@@ -351,7 +339,6 @@ export class AuctionetAPI {
       const data = await response.json();
       
       if (!data.items || data.items.length === 0) {
-        console.log(`❌ No live results found for: ${description}`);
         return null;
       }
       
@@ -369,7 +356,6 @@ export class AuctionetAPI {
       // Apply company exclusion filter
       const filteredItems = allActiveItems.filter(item => {
         if (this.excludeCompanyId && item.company_id && item.company_id.toString() === this.excludeCompanyId) {
-          console.log(`🚫 Excluding LIVE item from company ${this.excludeCompanyId}: ${item.title.substring(0, 50)}...`);
           return false;
         }
         return true;
@@ -392,9 +378,7 @@ export class AuctionetAPI {
                               title.includes('dx7') || title.includes('juno') || 
                               title.includes('jupiter') || title.includes('moog');
             
-            if (!isRelevant) {
-
-            }
+            
             return isRelevant;
           });
           
@@ -410,8 +394,7 @@ export class AuctionetAPI {
                               title.includes('fickur') || title.includes('watch') ||
                               title.includes('timepiece') || title.includes('ur');
             
-            if (!isRelevant) {
-            }
+            
             return isRelevant;
           });
           
@@ -455,7 +438,7 @@ export class AuctionetAPI {
       return result;
       
     } catch (error) {
-      console.error(`💥 Live search failed for "${description}":`, error);
+      console.error(`Live search failed for"${description}":`, error);
       return null;
     }
   }
@@ -829,7 +812,6 @@ export class AuctionetAPI {
 
   // NEW: Build instrument-specific search strategies with progressive fallbacks
   buildInstrumentSearchStrategies(fullSearchString, objectType, technique) {
-    console.log('🎼 Building instrument search strategies for:', fullSearchString);
     
     const strategies = [];
     
@@ -841,7 +823,6 @@ export class AuctionetAPI {
     const isSynthesizerSearch = /synthesizer|synth|keyboard|drum machine|sampler/.test(fullSearchString.toLowerCase());
     
     if (isSynthesizerSearch) {
-      console.log('🎹 Detected synthesizer search, building specialized strategies');
       
       // Extract synthesizer brands and models
       const synthBrands = ['yamaha', 'roland', 'korg', 'moog', 'sequential', 'oberheim', 'arp', 'ensoniq', 'kurzweil', 'akai'];
@@ -850,7 +831,6 @@ export class AuctionetAPI {
       // Extract model numbers (like DX7, SH101, JP8000)
       const models = parts.filter(part => /^[a-z]{1,4}\d{1,4}[a-z]*$/i.test(part));
       
-      console.log('🎹 Synthesizer components:', { brands, models, fullParts: parts });
       
       // STRATEGY 1: Brand + Model (MOST IMPORTANT for synthesizers)
       if (brands.length > 0 && models.length > 0) {
@@ -860,7 +840,6 @@ export class AuctionetAPI {
           description: `Synthesizer Brand+Model: "${query}"`,
           weight: 1.0
         });
-        console.log(`🎹 Priority 1: Brand+Model "${query}"`);
       }
       
       // STRATEGY 2: Model only (like "DX7")
@@ -871,7 +850,6 @@ export class AuctionetAPI {
           description: `Synthesizer Model: "${query}"`,
           weight: 0.9
         });
-        console.log(`🎹 Priority 2: Model only "${query}"`);
       }
       
       // STRATEGY 3: Brand + synthesizer type
@@ -882,7 +860,6 @@ export class AuctionetAPI {
           description: `Synthesizer Brand: "${query}"`,
           weight: 0.8
         });
-        console.log(`🎹 Priority 3: Brand+Type "${query}"`);
       }
       
       // STRATEGY 4: Brand only (broadest brand search)
@@ -893,7 +870,6 @@ export class AuctionetAPI {
           description: `Brand only: "${query}"`,
           weight: 0.7
         });
-        console.log(`🎹 Priority 4: Brand only "${query}"`);
       }
       
       // STRATEGY 5: Generic synthesizer search (fallback)
@@ -903,7 +879,6 @@ export class AuctionetAPI {
         weight: 0.5
       });
       
-      console.log(`🎹 Built ${strategies.length} synthesizer search strategies`);
       return strategies;
     }
     
@@ -921,7 +896,6 @@ export class AuctionetAPI {
     // Extract periods if present
     const periods = parts.filter(part => /(?:19\d{2}|20\d{2}|\d{2}-tal)/.test(part));
     
-    console.log('🎼 Extracted components:', { instrumentType, brands, materials, periods, fullParts: parts });
     
     // Strategy 1: Type + brand only (most important for instruments - skip overly complex search)
     if (brands.length > 0) {
@@ -972,7 +946,6 @@ export class AuctionetAPI {
       weight: 0.5
     });
     
-    console.log(`🎼 Built ${strategies.length} instrument search strategies`);
     return strategies;
   }
 
@@ -982,7 +955,6 @@ export class AuctionetAPI {
     const cacheKey = `search_${query}_${maxResults}`;
     const cached = this.getCachedResult(cacheKey);
     if (cached) {
-      console.log(`📦 Using cached result for: ${description}`);
       return cached;
     }
     
@@ -1002,7 +974,6 @@ export class AuctionetAPI {
       const data = await response.json();
       
       if (!data.items || data.items.length === 0) {
-        console.log(`❌ No results found for: ${description}`);
         return null;
       }
       
@@ -1047,14 +1018,11 @@ export class AuctionetAPI {
 
         validatedItems = this.validateSearchResults(soldItems, query, description);
         
-        if (validatedItems.length < soldItems.length) {
-          console.log(`⚠️ Data quality filter: Removed ${soldItems.length - validatedItems.length} inconsistent items from generic search`);
-        }
+        
       }
       
       // If we still don't have enough, be even more lenient
       if (validatedItems.length === 0) {
-        console.log(`⚠️ No strict matches found, trying lenient filtering...`);
         const lenientItems = data.items.filter(item => {
           // CRITICAL: Only include Swedish currency items to avoid mixing DKK/NOK/EUR with SEK
           if (item.currency && item.currency !== 'SEK') {
@@ -1066,7 +1034,6 @@ export class AuctionetAPI {
           return item.estimate > 0 || item.upper_estimate > 0 || 
                  (item.bids && item.bids.length > 0);
         });
-        console.log(`📊 Lenient filtering found: ${lenientItems.length} items`);
         
         if (lenientItems.length > 0) {
           // Use the lenient results but mark them clearly
@@ -1132,7 +1099,7 @@ export class AuctionetAPI {
       return result;
       
     } catch (error) {
-      console.error(`💥 Search failed for "${description}":`, error);
+      console.error(`Search failed for"${description}":`, error);
       return null;
     }
   }
@@ -1142,7 +1109,6 @@ export class AuctionetAPI {
 
     
     if (soldItems.length <= 3) {
-      console.log('📊 Too few items to validate - accepting all');
       return soldItems;
     }
     
@@ -1159,7 +1125,6 @@ export class AuctionetAPI {
     }).filter(price => price && price > 0);
     
     if (prices.length < 3) {
-      console.log('📊 Not enough prices to validate - accepting all items');
       return soldItems;
     }
     
@@ -1175,7 +1140,6 @@ export class AuctionetAPI {
     // IMPORTANT: For luxury brands like OMEGA, high-value items are legitimate, not outliers
     // Only filter if we have truly extreme ratios (>200x) that indicate data quality issues
     if (priceRatio > 200) {
-      console.log(`⚠️ Extreme price variation detected (${priceRatio.toFixed(1)}x) - checking for data quality issues`);
       
       // Calculate quartiles for outlier detection
       const q1Index = Math.floor(prices.length * 0.25);
@@ -1189,7 +1153,6 @@ export class AuctionetAPI {
       const lowerBound = q1 - (5.0 * iqr);
       const upperBound = q3 + (5.0 * iqr);
       
-      console.log(`📊 Conservative filtering: Q1=${q1.toLocaleString()}, Q3=${q3.toLocaleString()}, bounds=[${lowerBound.toLocaleString()}, ${upperBound.toLocaleString()}]`);
       
       // Filter out only truly extreme outliers (likely data errors)
       const filteredItems = soldItems.filter(item => {
@@ -1199,16 +1162,11 @@ export class AuctionetAPI {
         if (!itemPrice) return true; // Keep items without prices
         
         const isWithinBounds = itemPrice >= lowerBound && itemPrice <= upperBound;
-        if (!isWithinBounds) {
-          console.log(`🚫 Filtering outlier: ${item.title.substring(0, 50)}... (${itemPrice.toLocaleString()} SEK)`);
-        }
+        
         return isWithinBounds;
       });
       
-      console.log(`✅ Conservative filtering: Kept ${filteredItems.length} of ${soldItems.length} items`);
       return filteredItems;
-    } else {
-      console.log(`✅ Price ratio acceptable (${priceRatio.toFixed(1)}x) - keeping all items including high-value models`);
     }
     */
     
@@ -1236,7 +1194,6 @@ export class AuctionetAPI {
           const hasAllNameTermsInTitle = personNameTerms.every(term => titleLower.includes(term));
           
           if (!hasAllNameTermsInTitle) {
-            console.log(`🚫 Artist name mismatch: ${item.title.substring(0, 50)}... (missing artist terms: ${personNameTerms.filter(term => !titleLower.includes(term)).join(', ')})`);
             return false;
           }
           
@@ -1250,7 +1207,6 @@ export class AuctionetAPI {
             const hasObjectTerm = objectTerms.some(term => fullText.includes(term));
             
             if (!hasObjectTerm) {
-              console.log(`🚫 Object type mismatch: ${item.title.substring(0, 50)}... (missing object terms: ${objectTerms.join(', ')})`);
               return false;
             }
           }
@@ -1261,15 +1217,12 @@ export class AuctionetAPI {
           const fullText = `${titleLower} ${descLower}`;
           const hasKeyTerm = keyTerms.some(term => fullText.includes(term));
           
-          if (!hasKeyTerm) {
-            console.log(`🚫 Title mismatch: ${item.title.substring(0, 50)}... (missing: ${keyTerms.join(', ')})`);
-          }
+          
           
           return hasKeyTerm;
         }
       });
       
-      console.log(`✅ Title filtering: Kept ${consistentItems.length} of ${soldItems.length} items`);
       
       if (consistentItems.length >= 3) {
         return consistentItems;
@@ -1284,7 +1237,6 @@ export class AuctionetAPI {
       const dateSpanYears = (Math.max(...itemDates) - Math.min(...itemDates)) / (1000 * 60 * 60 * 24 * 365);
       
       if (dateSpanYears > 10) {
-        console.log(`📅 Large time span detected (${dateSpanYears.toFixed(1)} years) - keeping recent items`);
         
         // Keep items from the last 5 years for more relevant data
         const fiveYearsAgo = new Date();
@@ -1296,13 +1248,11 @@ export class AuctionetAPI {
         });
         
         if (recentItems.length >= 3) {
-          console.log(`✅ Time filtering: Kept ${recentItems.length} recent items`);
           return recentItems;
         }
       }
     }
     
-    console.log('✅ Validation complete - data appears consistent');
     return soldItems;
   }
 
@@ -1311,7 +1261,6 @@ export class AuctionetAPI {
 
     
     if (!soldItems || soldItems.length === 0) {
-      console.log('❌ No sold items to analyze');
       return null;
     }
     
@@ -1321,7 +1270,6 @@ export class AuctionetAPI {
 
     
     if (actualSales.length === 0) {
-      console.log('❌ No actual sales found');
       return null;
     }
     
@@ -1408,9 +1356,6 @@ export class AuctionetAPI {
       // Exceptional sales must be both statistically high AND above current valuation
       exceptionalThreshold = Math.max(baseThreshold, currentValuation);
       valuationBasedFiltering = true;
-      console.log(`🎯 Exceptional sales filtering: must be > ${currentValuation.toLocaleString()} SEK (current valuation) and > ${baseThreshold.toLocaleString()} SEK (statistical threshold)`);
-    } else {
-      console.log(`📊 Exceptional sales filtering: must be > ${baseThreshold.toLocaleString()} SEK (statistical threshold only, no valuation provided)`);
     }
     
     // Filter for confirmed sales (finalPrice exists) that meet our criteria
@@ -1565,7 +1510,6 @@ export class AuctionetAPI {
     const isHighlyExtremeTrend = Math.abs(changePercent) > 1000; // More than 1000% is almost certainly mixed data
     
     if (isHighlyExtremeTrend) {
-      console.log(`⚠️ EXTREME trend detected (${changePercent.toFixed(1)}%) - likely mixed market data, using conservative estimate`);
       
       // For highly extreme trends, just indicate general direction without specific percentage
       if (changePercent > 0) {
@@ -1585,9 +1529,7 @@ export class AuctionetAPI {
       }
     }
     
-    if (isExtremeTrend) {
-      console.log(`⚠️ Extreme trend detected (${changePercent.toFixed(1)}%) - applying conservative interpretation`);
-    }
+    
     
     // Apply conservative caps for extreme trends
     let cappedChangePercent = changePercent;
@@ -1742,13 +1684,7 @@ export class AuctionetAPI {
       
       // Only remove if BOTH statistically extreme AND unreasonably high
       const shouldRemove = isStatisticalOutlier && isUnreasonablyHigh;
-      
-      if (shouldRemove) {
-        console.log(`🚫 Removing extreme outlier: ${price.toLocaleString()} SEK (>${upperBound.toLocaleString()} and >${maxReasonablePrice.toLocaleString()})`);
-      } else if (isStatisticalOutlier) {
-        console.log(`⚠️ Statistical outlier detected but keeping: ${price.toLocaleString()} SEK (legitimate high-value sale)`);
-      }
-      
+
       return !shouldRemove;
     });
     
@@ -1756,7 +1692,6 @@ export class AuctionetAPI {
     if (filtered.length >= 3) {
       return filtered;
     } else {
-      console.log(`⚠️ Outlier removal would leave too few data points (${filtered.length}), keeping all data`);
       return sortedPrices;
     }
   }

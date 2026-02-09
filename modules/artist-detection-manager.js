@@ -16,12 +16,6 @@ export class ArtistDetectionManager {
     // Track if artist field is already filled (will affect result processing but not prevent AI analysis)
     const artistFieldFilled = artistField && artistField.trim().length > 2;
     
-    console.log('🔧 ArtistDetectionManager input:', {
-      title: title?.substring(0, 50) + '...',
-      artistField,
-      artistFieldFilled,
-      forceReDetection
-    });
 
     if (!title || title.length < 10) {
       return null; // Title too short to contain artist
@@ -29,7 +23,6 @@ export class ArtistDetectionManager {
 
     // OPTIMIZATION: Skip AI analysis if artist field is properly filled (unless forced re-detection)
     if (artistFieldFilled && !forceReDetection) {
-      console.log('⚡ SKIPPING AI analysis - artist field already filled:', artistField);
       return null; // No need to detect artist - already in correct field
     }
 
@@ -71,11 +64,9 @@ export class ArtistDetectionManager {
         // UPDATED: Use the new AI Analysis Engine which doesn't skip prefilled artists by default
         const options = forceReDetection ? {} : {}; // No skipIfArtistExists for normal flow
         
-        console.log('⚡ Starting Haiku artist detection...');
         const startTime = Date.now();
         aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistForAnalysis, description, options);
         const endTime = Date.now();
-        console.log(`⚡ Haiku artist detection completed in ${endTime - startTime}ms`);
         
       } catch (error) {
         console.error('AI artist detection failed, will try rule-based fallback:', error);
@@ -84,15 +75,6 @@ export class ArtistDetectionManager {
       
       // Process AI result if we got one (no error)
       if (!aiError && aiResult) {
-        console.log('🔧 Processing AI result - conditions check:', {
-          aiError,
-          hasAiResult: !!aiResult,
-          hasArtist: aiResult.hasArtist,
-          artistName: aiResult.artistName,
-          confidence: aiResult.confidence,
-          isInformalPattern,
-          requiredConfidence: isInformalPattern ? 0.5 : 0.6
-        });
         
         // ENHANCED: Let AI handle misspelling detection and correction
         // Remove our strict validation - trust AI to detect and correct misspellings
@@ -100,13 +82,8 @@ export class ArtistDetectionManager {
           
           // Basic validation that it looks like a person name
           const looksLikeName = this.looksLikePersonName(aiResult.artistName);
-          console.log('🔧 Person name validation:', { 
-            artistName: aiResult.artistName, 
-            looksLikeName 
-          });
           
           if (!looksLikeName) {
-            console.log('🚫 Failed person name validation, marking as no artist');
             aiResult = { hasArtist: false };
           }
         }
@@ -114,13 +91,6 @@ export class ArtistDetectionManager {
         // ENHANCED: Use appropriate confidence threshold
         const requiredConfidence = isInformalPattern ? 0.5 : 0.6; // Lower thresholds to allow corrections
         
-        console.log('🔧 Final conditions check:', {
-          hasAiResult: !!aiResult,
-          hasArtist: aiResult?.hasArtist,
-          confidence: aiResult?.confidence,
-          requiredConfidence,
-          confidencePass: aiResult?.confidence > requiredConfidence
-        });
         
         if (aiResult && aiResult.hasArtist && aiResult.confidence > requiredConfidence) {
           
@@ -130,18 +100,15 @@ export class ArtistDetectionManager {
           let verificationPromise = null;
           
           if (aiResult.artistName) {
-            console.log('⚡ Starting background artist verification for:', aiResult.artistName);
             const period = this.extractPeriod(title);
             const objectType = this.extractObjectType(title);
             
             // Start verification but don't wait for it - return immediately
             verificationPromise = this.apiManager.verifyArtist(aiResult.artistName, objectType, period)
               .then(result => {
-                console.log('⚡ Background verification completed for:', aiResult.artistName);
                 return result;
               })
               .catch(error => {
-                console.log('⚠️ Background verification failed:', error);
                 return null;
               });
             
@@ -164,7 +131,6 @@ export class ArtistDetectionManager {
               source: 'ai-verification',
               foundIn: 'verification'
             };
-            console.log('🎯 ArtistDetectionManager returning (artist field filled):', result);
             return result;
           }
           
@@ -177,10 +143,8 @@ export class ArtistDetectionManager {
             source: 'ai',
             foundIn: forceReDetection ? 'titel (upprepad sökning)' : 'titel'
           };
-          console.log('🎯 ArtistDetectionManager returning (main result):', result);
           return result;
         } else if (aiResult && aiResult.hasArtist) {
-          console.log('⚠️ AI detected artist but confidence too low:', aiResult.confidence, 'for artist:', aiResult.artistName);
           
           // ENHANCED: If we have informal pattern match AND AI detects same artist, accept it even with lower confidence
           if (isInformalPattern && potentialArtistFromPattern && 
@@ -206,12 +170,9 @@ export class ArtistDetectionManager {
       }
       
       // ONLY fall back to rules if there was an actual API error
-      if (aiError) {
-      } else {
+       else {
         return null;
       }
-    } else {
-      console.log('❌ No API manager available for AI detection, using rule-based detection');
     }
 
     // ENHANCED: If we detected informal pattern but AI failed with error, use rule-based as backup
@@ -252,14 +213,12 @@ export class ArtistDetectionManager {
       // CRITICAL FIX: Don't treat artist names as object types
       // Check if this looks like a person's name (common artist name pattern)
       if (this.looksLikePersonName(potentialObjectType)) {
-        console.log(`🎨 Skipping "${potentialObjectType}" - looks like artist name, not object type`);
         return null;
       }
       
       return potentialObjectType.toUpperCase(); // Convert to uppercase for consistency
     }
     
-    console.log(`❌ No object type found in title: "${title}"`);
     return null;
   }
 

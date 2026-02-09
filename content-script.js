@@ -105,7 +105,6 @@
         // Listen for API key changes (stored in local for security)
         chrome.storage.onChanged.addListener((changes, namespace) => {
           if (namespace === 'local' && changes.anthropicApiKey) {
-            console.log('API key updated in local storage');
             this.apiManager.apiKey = changes.anthropicApiKey.newValue;
           }
         });
@@ -113,11 +112,9 @@
         // Listen for messages from popup
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           if (request.type === 'refresh-api-key') {
-            console.log('Refreshing API key from popup request');
             this.apiManager.loadSettings();
             sendResponse({ success: true });
           } else if (request.type === 'refresh-settings') {
-            console.log('Refreshing settings from popup request');
             this.apiManager.loadSettings(); // This also loads all settings including enableArtistInfo
             sendResponse({ success: true });
           }
@@ -219,8 +216,6 @@
             const fieldType = e.target.dataset.fieldType;
             if (fieldType) {
               this.improveField(fieldType);
-            } else {
-              console.warn('Button clicked but no fieldType found:', e.target);
             }
           });
         });
@@ -232,8 +227,6 @@
             e.preventDefault();
             this.improveAllFields();
           });
-        } else {
-          console.warn('Master button not found');
         }
         
         // Update condition button state after buttons are attached and UI is ready
@@ -751,7 +744,6 @@
       }
 
       fallbackShowFieldErrorIndicator(fieldType, message) {
-        console.log(`❌ Fallback error indicator for ${fieldType}:`, message);
         
         // Remove loading state - EXACT same as Add Items page
         this.fallbackRemoveFieldLoadingIndicator(fieldType);
@@ -861,7 +853,7 @@
           setTimeout(() => {
             // Debug: Check if dataExtractor is working
             if (!this.dataExtractor) {
-              console.error('❌ Edit page: dataExtractor is not available!');
+              console.error('Edit page: dataExtractor is not available!');
               return;
             }
             
@@ -874,11 +866,9 @@
             this.analyzeConditionQuality(formData);
           }, 2000); // Increased delay to ensure page is fully loaded
         } else {
-          console.warn('⚠️ Edit page: Condition field not found! Available fields:');
           const allFields = document.querySelectorAll('input, textarea');
           allFields.forEach((field, index) => {
             if (field.id.includes('condition') || field.name.includes('condition')) {
-              console.log(`   ${index + 1}. ID: ${field.id}, Name: ${field.name}`);
             }
           });
         }
@@ -1169,7 +1159,6 @@
         // PRIORITY 1: Check actual selected category from dropdown
         const selectedCategory = this.getSelectedCategoryFromDropdown();
         if (selectedCategory) {
-          console.log('🏷️ Using selected category from dropdown:', selectedCategory);
           const categoryGuide = this.mapAuctionetCategoryToGuide(selectedCategory);
           if (categoryGuide) {
             return categoryGuide;
@@ -1278,18 +1267,15 @@
           return chosenContainer.textContent.trim();
         }
         
-        console.log('❌ No category found in dropdown');
         return null;
       }
 
       // NEW: Map Auctionet category names to our condition guidance categories
       mapAuctionetCategoryToGuide(categoryText) {
         const categoryLower = categoryText.toLowerCase();
-        console.log('🗺️ Mapping category:', categoryText);
         
         // Glass categories
         if (categoryLower.includes('glas')) {
-          console.log('→ Mapped to: keramik/glas');
           return {
             name: 'keramik/glas',
             checkPoints: ['nagg', 'sprickor', 'glasyr', 'märkningar', 'reparationer', 'dekor', 'form'],
@@ -1299,7 +1285,6 @@
         
         // Ceramics and Porcelain categories
         if (categoryLower.includes('keramik') || categoryLower.includes('porslin')) {
-          console.log('→ Mapped to: keramik/glas');
           return {
             name: 'keramik/glas',
             checkPoints: ['nagg', 'sprickor', 'glasyr', 'märkningar', 'reparationer', 'dekor', 'form'],
@@ -1309,7 +1294,6 @@
         
         // Watch categories
         if (categoryLower.includes('klockor') || categoryLower.includes('ur') || categoryLower.includes('armbandsur')) {
-          console.log('→ Mapped to: armbandsur');
           return {
             name: 'armbandsur',
             checkPoints: ['urtavla', 'boett', 'länk/armband', 'glas', 'funktion', 'krona', 'tryckare'],
@@ -1322,7 +1306,6 @@
             categoryLower.includes('ringar') || categoryLower.includes('armband') || 
             categoryLower.includes('collier') || categoryLower.includes('örhängen') ||
             categoryLower.includes('broscher')) {
-          console.log('→ Mapped to: smycken');
           return {
             name: 'smycken',
             checkPoints: ['stenar', 'fattningar', 'lås', 'kedja/band', 'ytbehandling', 'stämplar', 'infattning'],
@@ -1334,7 +1317,6 @@
         if (categoryLower.includes('konst') || categoryLower.includes('måleri') || 
             categoryLower.includes('grafik') || categoryLower.includes('skulptur') ||
             categoryLower.includes('teckningar') || categoryLower.includes('fotografi')) {
-          console.log('→ Mapped to: konstverk');
           return {
             name: 'konstverk',
             checkPoints: ['duk/papper', 'färger', 'ram', 'signatur', 'baksida', 'upphängning', 'tryckyta'],
@@ -1347,7 +1329,6 @@
             categoryLower.includes('stolar') || categoryLower.includes('fåtöljer') ||
             categoryLower.includes('soffor') || categoryLower.includes('skåp') ||
             categoryLower.includes('byråar') || categoryLower.includes('matsalsmöbler')) {
-          console.log('→ Mapped to: möbler');
           return {
             name: 'möbler',
             checkPoints: ['finish', 'fogar', 'klädsel', 'beslag', 'stabilitet', 'funktion', 'material'],
@@ -1358,7 +1339,6 @@
         // Textiles categories
         if (categoryLower.includes('mattor') || categoryLower.includes('textil') || 
             categoryLower.includes('vintagekläder') || categoryLower.includes('accessoarer')) {
-          console.log('→ Mapped to: textilier');
           return {
             name: 'textilier',
             checkPoints: ['tyg', 'sömmar', 'dragkedjor', 'knappar', 'foder', 'form', 'färg'],
@@ -1369,7 +1349,6 @@
         // Books categories
         if (categoryLower.includes('böcker') || categoryLower.includes('kartor') || 
             categoryLower.includes('handskrifter') || categoryLower.includes('autografer')) {
-          console.log('→ Mapped to: böcker/dokument');
           return {
             name: 'böcker/dokument',
             checkPoints: ['papper', 'band', 'ryggrad', 'text', 'illustrationer', 'bindning'],
@@ -1381,7 +1360,6 @@
         if (categoryLower.includes('silver') || categoryLower.includes('metall') || 
             categoryLower.includes('tenn') || categoryLower.includes('mässing') ||
             categoryLower.includes('koppar') || categoryLower.includes('nysilver')) {
-          console.log('→ Mapped to: silver/metall');
           return {
             name: 'silver/metall',
             checkPoints: ['yta', 'stämplar', 'fogar', 'handtag', 'funktion', 'patina'],
@@ -1389,7 +1367,6 @@
           };
         }
         
-        console.log('❌ No mapping found for category:', categoryText);
         return null; // No mapping found, will fall back to text analysis
       }
 
@@ -1437,7 +1414,6 @@
         };
         document.addEventListener('keydown', handleEscape);
         
-        console.log('✨ Condition guide popup displayed for category:', category.name);
       }
 
       // Get condition guide content - EXACT copy from Add Items page
@@ -1612,7 +1588,6 @@
           
           return tooltip;
         } else {
-          console.warn(`❌ Could not find target element: ${config.targetSelector || 'targetElement not provided'}`);
           return null;
         }
       }

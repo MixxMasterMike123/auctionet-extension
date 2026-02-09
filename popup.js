@@ -35,7 +35,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (result.anthropicApiKey) {
         apiKeyInput.value = result.anthropicApiKey;
         // Don't auto-test on load, just show that key was loaded
-        console.log('API key loaded from local storage');
       }
     } catch (error) {
       showStatus('Error loading API key: ' + error.message, 'error');
@@ -71,7 +70,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         }
       } catch (error) {
-        console.log('Could not notify tabs:', error);
       }
       
     } catch (error) {
@@ -84,7 +82,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function testApiKey(apiKey) {
     try {
-      console.log('Testing API key...');
       
       const response = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -111,7 +108,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           } else if (!response) {
             reject(new Error('No response received from background script'));
           } else {
-            console.log('Received response:', response);
             resolve(response);
           }
         });
@@ -211,7 +207,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       testButton.textContent = 'Testing...';
       
       // First test basic communication with background script
-      console.log('Testing background script communication...');
       const pingResponse = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Background script ping timeout'));
@@ -227,7 +222,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
       });
       
-      console.log('Background script ping successful');
       showStatus('Background script communication OK, testing API...', 'warning');
       
       // Now test the API
@@ -259,7 +253,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     try {
       await chrome.storage.sync.set({ enableArtistInfo: isEnabled });
-      console.log('Artist info setting saved:', isEnabled);
       
       // Notify all tabs to refresh their settings
       try {
@@ -270,7 +263,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         }
       } catch (error) {
-        console.log('Could not notify tabs:', error);
       }
       
     } catch (error) {
@@ -296,7 +288,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     try {
       await chrome.storage.sync.set({ showDashboard: isEnabled });
-      console.log('Show dashboard setting saved:', isEnabled);
       
       // Notify all tabs to refresh their settings
       try {
@@ -307,7 +298,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         }
       } catch (error) {
-        console.log('Could not notify tabs:', error);
       }
       
     } catch (error) {
@@ -345,7 +335,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           });
         }
       } catch (error) {
-        console.log('Could not notify tabs:', error);
       }
       
     } catch (error) {

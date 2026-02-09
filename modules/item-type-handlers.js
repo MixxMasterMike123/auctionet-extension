@@ -37,7 +37,6 @@ export class ItemTypeHandlers {
   }
 
   generateJewelrySearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
-    console.log('💍 Generating jewelry-specific search for:', title);
     
     // Extract jewelry-specific attributes
     const text = title + ' ' + description;
@@ -100,16 +99,6 @@ export class ItemTypeHandlers {
 
     const searchString = primaryTerms.join(' ');
     
-    console.log('💍 Jewelry search generated:', {
-      materials,
-      stones,
-      weight,
-      size,
-      periods,
-      finalSearch: searchString,
-      strategy: searchStrategy,
-      confidence: Math.min(confidence, 0.9)
-    });
 
     return {
       searchTerms: searchString,
@@ -139,7 +128,6 @@ export class ItemTypeHandlers {
   }
 
   generateCoinSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
-    console.log('🪙 Generating coin-specific search for:', title);
     
     const text = title + ' ' + description;
     const denominations = this.extractDenominations(text);
@@ -202,16 +190,6 @@ export class ItemTypeHandlers {
 
     const searchString = primaryTerms.join(' ');
     
-    console.log('🪙 Coin search generated:', {
-      denominations,
-      materials,
-      countries,
-      years,
-      series,
-      finalSearch: searchString,
-      strategy: searchStrategy,
-      confidence: Math.min(confidence, 0.9)
-    });
 
     return {
       searchTerms: searchString,
@@ -295,7 +273,6 @@ export class ItemTypeHandlers {
   }
 
   generateStampSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
-    console.log('📮 Generating stamp search for:', title);
     
     const text = title + ' ' + description;
     const countries = this.extractStampCountries(text);
@@ -339,12 +316,6 @@ export class ItemTypeHandlers {
 
     const searchString = finalTerms.join(' ');
     
-    console.log('📮 Stamp search generated:', {
-      terms: finalTerms,
-      searchString: searchString,
-      confidence: Math.min(confidence, 0.9),
-      strategy: searchStrategy
-    });
 
     return {
       searchTerms: searchString,
@@ -416,7 +387,6 @@ export class ItemTypeHandlers {
   }
 
   generateAudioSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
-    console.log('🔊 Generating audio equipment search for:', title);
     
     const brand = this.extractAudioBrands(title + ' ' + description);
     const model = this.extractAudioModel(title + ' ' + description);
@@ -449,15 +419,6 @@ export class ItemTypeHandlers {
 
     const searchString = primarySearch;
     
-    console.log('🔊 Audio search generated:', {
-      brand,
-      model,
-      equipmentType,
-      broadPeriod,
-      finalSearch: searchString,
-      strategy: searchStrategy,
-      confidence: Math.min(confidence, 0.9)
-    });
 
     return {
       searchTerms: searchString,
@@ -552,7 +513,6 @@ export class ItemTypeHandlers {
   }
 
   generateWatchSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
-    console.log('⌚ Generating watch-specific search for:', title);
     
     // Extract components for watches
     const brand = this.extractWatchBrands(title + ' ' + description);
@@ -603,16 +563,6 @@ export class ItemTypeHandlers {
 
     const searchString = primarySearch;
     
-    console.log('⌚ Watch search generated:', {
-      brand,
-      movement,
-      material,
-      complications,
-      broadPeriod,
-      finalSearch: searchString,
-      strategy: searchStrategy,
-      confidence: Math.min(confidence, 0.9)
-    });
 
     return {
       searchTerms: searchString,
@@ -741,7 +691,6 @@ export class ItemTypeHandlers {
   }
 
   generateMusicalInstrumentSearch(objectType, title, description, artistInfo, baseTerms, baseConfidence) {
-    console.log('🎵 Generating musical instrument search for:', title);
     
     const brand = this.extractInstrumentBrands(title + ' ' + description);
     const material = this.extractInstrumentMaterials(title + ' ' + description);
@@ -782,16 +731,6 @@ export class ItemTypeHandlers {
 
     const searchString = primarySearch;
     
-    console.log('🎵 Instrument search generated:', {
-      brand,
-      material,
-      model,
-      broadPeriod,
-      country,
-      finalSearch: searchString,
-      strategy: searchStrategy,
-      confidence: Math.min(confidence, 0.9)
-    });
 
     return {
       searchTerms: searchString,

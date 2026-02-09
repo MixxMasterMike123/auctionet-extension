@@ -119,8 +119,6 @@ export class SearchFilterManager {
           currentQuery: currentQuery,
           analysisType: artistInfo ? 'artist' : 'freetext'
         };
-      } else {
-
       }
     }
     
@@ -293,11 +291,6 @@ export class SearchFilterManager {
       const quotedArtist = this.formatArtistForSearch(normalizedArtist);
       const preSelected = shouldBePreSelected(quotedArtist);
       
-      console.log('🎨 Artist formatting:', {
-        original: artistInfo.artist,
-        normalized: normalizedArtist, 
-        quoted: quotedArtist
-      });
       
       // CRITICAL FIX: Detect if this is an AI-detected artist
       // If the artistInfo is passed with a quoted name and it's not in the DOM artist field, it's likely AI-detected
@@ -319,8 +312,7 @@ export class SearchFilterManager {
         source: isAICandidate ? 'ai_detected' : 'artist_info_param' // CRITICAL FIX: Use ai_detected source when appropriate
       });
       
-      if (isAICandidate) {
-      }
+      
     } else {
       // CRITICAL FIX: Always check artist field directly when not passed as parameter
       // This ensures artist field content is included even when detection is skipped
@@ -355,7 +347,6 @@ export class SearchFilterManager {
     
     // 2. OBJECT TYPE (with deduplication check)
     const objectType = this.qualityAnalyzer.extractObjectType(title);
-    console.log('🏷️ Object type extraction result:', objectType);
     if (objectType) {
       // Check if we already have this term (case-insensitive)
       const alreadyExists = candidates.some(c => 
@@ -364,7 +355,6 @@ export class SearchFilterManager {
       
       if (!alreadyExists) {
         const preSelected = shouldBePreSelected(objectType);
-        console.log('🏷️ Adding object type to candidates:', objectType);
         candidates.push({
           term: objectType,
           type: 'object_type',
@@ -372,7 +362,6 @@ export class SearchFilterManager {
           description: 'Objekttyp',
           preSelected: preSelected
         });
-      } else {
       }
     }
     
@@ -461,11 +450,6 @@ export class SearchFilterManager {
       const normalizedArtist = artistInfo.artist.trim().replace(/,\s*$/, '');
       const artistWords = normalizedArtist.toLowerCase().split(/\s+/);
       
-      console.log('🧹 Deduplicating artist words from text:', {
-        originalText: textForSignificantWords.substring(0, 100) + '...',
-        normalizedArtist,
-        artistWords
-      });
       
       // Remove artist words from the text to prevent duplication
       artistWords.forEach(artistWord => {
@@ -473,13 +457,10 @@ export class SearchFilterManager {
           const wordRegex = new RegExp(`\\b${artistWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
           const beforeReplace = textForSignificantWords;
           textForSignificantWords = textForSignificantWords.replace(wordRegex, '');
-          if (beforeReplace !== textForSignificantWords) {
-            console.log(`🧹 Removed "${artistWord}" from text`);
-          }
+          
         }
       });
       
-      console.log('🧹 Text after artist deduplication:', textForSignificantWords.substring(0, 100) + '...');
     }
     
     const significantWords = this.extractSignificantWords(textForSignificantWords);
@@ -497,7 +478,6 @@ export class SearchFilterManager {
             description: 'Nyckelord',
             preSelected: preSelected
           });
-        } else {
         }
       }
     });
@@ -538,10 +518,7 @@ export class SearchFilterManager {
     
 
     
-    if (unselectedCandidates.length === 0) {
-      console.warn('⚠️ PROBLEM: No unselected candidates found - should have extended terms like japan, synthesizer, etc.');
-    } else {
-    }
+    
     
     return {
       candidates: candidates,
@@ -881,7 +858,7 @@ export class SearchFilterManager {
         
         // CRITICAL FIX: Use SearchQueryManager SSoT for consistent query building
         if (!this.searchQuerySSoT) {
-          console.error('❌ CONSISTENCY ERROR: SearchQueryManager not available for interactive filter');
+          console.error('CONSISTENCY ERROR: SearchQueryManager not available for interactive filter');
           alert('⚠️ Sökfunktion inte tillgänglig - ladda om sidan');
           return;
         }
@@ -921,7 +898,7 @@ export class SearchFilterManager {
         
         
       } catch (error) {
-        console.error('❌ Failed to update search filter:', error);
+        console.error('Failed to update search filter:', error);
         alert('❌ Sökning misslyckades. Försök igen.');
       } finally {
         // Reset button state
@@ -988,7 +965,7 @@ export class SearchFilterManager {
     try {
       // CRITICAL FIX: Use SearchQueryManager SSoT for consistent query building
       if (!this.searchQuerySSoT) {
-        console.error('❌ CONSISTENCY ERROR: SearchQueryManager not available for header filter change');
+        console.error('CONSISTENCY ERROR: SearchQueryManager not available for header filter change');
         return;
       }
       
@@ -1015,7 +992,7 @@ export class SearchFilterManager {
       if (this.dashboardManager && typeof this.dashboardManager.showDashboardLoading === 'function') {
         this.dashboardManager.showDashboardLoading();
       } else {
-        console.error('❌ SearchFilterManager: Dashboard manager or showDashboardLoading method not available!');
+        console.error('SearchFilterManager: Dashboard manager or showDashboardLoading method not available!');
       }
       
       // Call API with SSoT-generated search context
@@ -1031,13 +1008,13 @@ export class SearchFilterManager {
       this.dashboardManager.addMarketDataDashboard(filteredSalesData);
       
     } catch (error) {
-      console.error("❌ Header search filter error:", error);
+      console.error("Header search filter error:", error);
     } finally {
       
       if (this.dashboardManager && typeof this.dashboardManager.hideDashboardLoading === 'function') {
         this.dashboardManager.hideDashboardLoading();
       } else {
-        console.error('❌ SearchFilterManager: Dashboard manager or hideDashboardLoading method not available in finally!');
+        console.error('SearchFilterManager: Dashboard manager or hideDashboardLoading method not available in finally!');
       }
     }
   }
@@ -1080,7 +1057,6 @@ export class SearchFilterManager {
       if (checkboxCurrentState !== shouldBeSelected) {
         checkbox.checked = shouldBeSelected;
         mismatchCount++;
-      } else {
       }
       
       syncCount++;
