@@ -834,25 +834,20 @@ KRITISKT - KONSTNÄR I MITTEN/SLUTET AV TITEL:
 
 KONSTNÄRSINFORMATION OCH EXPERTKUNSKAP:
 ${itemData.artist && this.enableArtistInfo ?
-        'Konstnär/formgivare: ' + itemData.artist + ' - Använd din kunskap om denna konstnärs verk för att lägga till KORT, RELEVANT kontext. Fokusera på specifika detaljer om denna modell/serie om du känner till dem (tillverkningsår, karakteristiska drag). Håll det koncist - max 1-2 meningar extra kontext. Om du inte är säker om specifika fakta, använd "troligen" eller "anses vara".' :
-        'Lägg INTE till konstnärlig eller historisk kontext som inte redan finns i källdata.'}
+        'Konstnär/formgivare: ' + itemData.artist + '\nDu SKA lägga till kort, relevant kontext om denna konstnär/formgivare i beskrivningen. Detta är ett KRAV, inte valfritt.\n• Om du vet specifika fakta om konstnären (nationalitet, verksam period, känd för) — skriv 1-2 meningar i beskrivningen\n• Om du vet om den specifika modellen/serien — nämn det\n• Om du är osäker, använd "troligen" eller "anses vara"\n• Det är bättre att ge allmän kontext ("israelisk konstnär verksam under 1900-talets andra hälft") än att inte säga något alls' :
+        'Lägg inte till konstnärlig eller historisk kontext som inte redan finns i källdata.'}
 
-DEBUG INFO: Artist="${itemData.artist}", EnableArtistInfo=${this.enableArtistInfo}, ShouldAddArtistInfo=${!!(itemData.artist && this.enableArtistInfo)}
+OSÄKERHETSMARKÖRER I TITEL:
+Om titeln innehåller ord som "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ" — behåll dessa. De anger juridisk osäkerhet.
 
-KRITISKT - BEHÅLL OSÄKERHETSMARKÖRER I TITEL:
-Om nuvarande titel innehåller ord som "troligen", "tillskriven", "efter", "stil av", "möjligen", "typ" - BEHÅLL dessa exakt. De anger juridisk osäkerhet och får ALDRIG tas bort eller ändras.
-
-ANTI-HALLUCINATION INSTRUKTIONER:
-• Lägg ALDRIG till information som inte finns i källdata
-• Uppfinn ALDRIG tidsperioder, material, mått eller skador
-• Förbättra ENDAST språk, struktur och terminologi
-• Om information saknas - utelämna eller använd osäkerhetsmarkörer
+FAKTAKONTROLL:
+• Uppfinn inte tidsperioder, material, mått eller skador som inte finns i källdata
+• Konstnärsinformation baserad på din kunskap är OK — det är skillnad på att berika med kunskap och att hitta på fakta om föremålet
+• Om information saknas — utelämna eller använd osäkerhetsmarkörer
 
 ${this.isSpecializedCategory(itemData) ? `
-🚨 EXTRA VARNING - SPECIALISERAD KATEGORI DETEKTERAD:
-Detta föremål kräver EXTRA FÖRSIKTIGHET för att undvika AI-hallucinationer och felaktiga tillägg.
-SE KATEGORI-SPECIFIKA REGLER NEDAN för strikt vägledning om vad som är FÖRBJUDET att lägga till.
-VIKTIGASTE REGEL: När i tvivel - FÖRBÄTTRA MINDRE och bevara EXAKTHET över utförlig beskrivning.
+OBS — SPECIALISERAD KATEGORI:
+Detta föremål kräver extra omsorg. Se kategori-specifika regler nedan.
 ` : ''}
 
 KRITISKT - DATUM OCH PERIODSPECULATION FÖRBJUDEN:
@@ -880,8 +875,8 @@ VIKTIGT - ARBETSORDNING:
 2. Sedan generera sökord baserat på de FÖRBÄTTRADE fälten (inte originalfälten)
 
 ${itemData.artist && this.enableArtistInfo ?
-            'EXPERTKUNSKAP - KONSTNÄR KÄND: Eftersom konstnär/formgivare är angiven (' + itemData.artist + ') och konstnärsinformation är aktiverad, lägg till KORT, RELEVANT kontext om denna specifika modell/serie. Max 1-2 extra meningar. Fokusera på konkreta fakta, inte allmän konstnärsbiografi.' :
-            'BEGRÄNSAD INFORMATION: Håll dig till befintlig information utan att lägga till konstnärlig kontext.'}
+            'KONSTNÄR KÄND (' + itemData.artist + '): Lägg till relevant kontext om konstnären/formgivaren i beskrivningen. Nationalitet, verksam period, vad hen är känd för, eller detaljer om denna serie/modell. 1-2 meningar, i en separat paragraf.' :
+            'Håll dig till befintlig information utan att lägga till konstnärlig kontext.'}
 
 FÄLTAVGRÄNSNING:
 • BESKRIVNING: Material, teknik, mått, stil, ursprung, märkningar, funktion - ALDRIG konditionsinformation
@@ -954,9 +949,9 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 
 VIKTIGT - PARAGRAFSTRUKTUR FÖR BESKRIVNING:
 ${itemData.artist && this.enableArtistInfo ?
-            '• STRUKTUR: Befintlig beskrivning först, sedan ny konstnärsinformation i SEPARAT paragraf\n• FORMAT: Använd dubbla radbrytningar (\\n\\n) för att separera paragrafer i beskrivningsfältet\n• EXEMPEL: "Befintlig förbättrad beskrivning här...\\n\\nKort konstnärskontext här..."\n• Lägg till KORT, SPECIFIK kontext om denna modell/serie i SEPARAT paragraf\n• Max 1-2 meningar extra - fokusera på tillverkningsår och karakteristiska drag\n• UNDVIK allmänna beskrivningar av konstnärens karriär eller designfilosofi\n• Håll det relevant för just detta föremål' :
-            '• Returnera befintlig förbättrad beskrivning\n• Lägg INTE till konstnärlig eller historisk kontext som inte finns i källdata'}
-• Lägg INTE till mått som inte är angivna
+            '• STRUKTUR: Befintlig förbättrad beskrivning först, sedan konstnärsinformation i SEPARAT paragraf (\\n\\n)\n• EXEMPEL: "Blandteknik på papper, signerad.\\n\\nRuth Schloss (1922–2013) var en israelisk konstnär känd för sina socialrealistiska figurstudier.\\n\\nMotivyta 22,5 x 17,5 cm, rammått 46 x 41 cm."\n• Konstnärsinformation: 1-2 meningar med nationalitet, levnadsår, vad hen är känd för\n• Mått i sista paragrafen' :
+            '• Returnera befintlig förbättrad beskrivning utan tillagd konstnärlig kontext'}
+• Lägg inte till mått som inte är angivna
 • Lägg INTE till material som inte är nämnt (såvida det inte är känt från konstnärens typiska tekniker)
 • Lägg INTE till märkningar eller signaturer som inte finns
 • Förbättra språk, struktur och befintlig information
