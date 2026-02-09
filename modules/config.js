@@ -34,8 +34,7 @@ export const CONFIG = {
   // Feature flags
   FEATURES: {
     enableQualityValidation: true,
-    enableHallucinationPrevention: true,
-    enableCostTracking: false // Future feature
+    enableHallucinationPrevention: true
   }
 };
 
