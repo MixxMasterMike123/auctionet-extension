@@ -5,17 +5,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const testButton = document.getElementById('test-connection');
   const statusContainer = document.getElementById('status-container');
   const extensionStatus = document.getElementById('extension-status');
-  const modelSelect = document.getElementById('model-select');
-  const saveModelButton = document.getElementById('save-model');
-  const modelDescription = document.getElementById('model-description');
   const enableArtistInfoCheckbox = document.getElementById('enable-artist-info');
   const showDashboardCheckbox = document.getElementById('show-dashboard');
   const excludeCompanyInput = document.getElementById('exclude-company-id');
   const saveExcludeCompanyButton = document.getElementById('save-exclude-company');
 
-  // Load existing API key, model, and settings
+  // Load existing API key and settings
   await loadApiKey();
-  await loadModelSelection();
   await loadArtistInfoSetting();
   await loadShowDashboardSetting();
   await loadExcludeCompanySetting();
@@ -26,8 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Event listeners
   saveButton.addEventListener('click', saveApiKey);
   testButton.addEventListener('click', testConnection);
-  saveModelButton.addEventListener('click', saveModelSelection);
-  modelSelect.addEventListener('change', updateModelDescription);
   enableArtistInfoCheckbox.addEventListener('change', saveArtistInfoSetting);
   showDashboardCheckbox.addEventListener('change', saveShowDashboardSetting);
   saveExcludeCompanyButton.addEventListener('click', saveExcludeCompanySetting);
@@ -101,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           type: 'anthropic-fetch',
           apiKey: apiKey,
           body: {
-            model: 'claude-sonnet-4-20250514', // Use Claude 4 for testing
+            model: 'claude-sonnet-4-5-20250929', // Claude Sonnet 4.5
             max_tokens: 10,
             messages: [{
               role: 'user',
@@ -245,73 +239,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       testButton.disabled = false;
       testButton.textContent = 'Test Connection';
     }
-  }
-
-  async function loadModelSelection() {
-    try {
-      const result = await chrome.storage.sync.get(['selectedModel']);
-      if (result.selectedModel) {
-        // Auto-migrate deprecated models to Claude 4
-        if (result.selectedModel === 'claude-3-5-sonnet' || result.selectedModel.includes('claude-3')) {
-          console.log('🔄 Auto-migrating from deprecated model to Claude 4');
-          modelSelect.value = 'claude-4-sonnet';
-          // Save the migration immediately
-          await chrome.storage.sync.set({ selectedModel: 'claude-4-sonnet' });
-          showStatus('✅ Automatically upgraded to Claude 4 Sonnet (deprecated model no longer supported)', 'success');
-        } else {
-          modelSelect.value = result.selectedModel;
-        }
-        updateModelDescription();
-      } else {
-        // Default to Claude 4 for new users
-        modelSelect.value = 'claude-4-sonnet';
-        updateModelDescription();
-      }
-    } catch (error) {
-      console.error('Error loading model selection:', error);
-      // Fallback to Claude 4
-      modelSelect.value = 'claude-4-sonnet';
-      updateModelDescription();
-    }
-  }
-
-  async function saveModelSelection() {
-    const selectedModel = modelSelect.value;
-    
-    try {
-      saveModelButton.disabled = true;
-      saveModelButton.textContent = 'Saving...';
-
-      await chrome.storage.sync.set({ selectedModel: selectedModel });
-      showStatus('Model selection saved successfully!', 'success');
-      
-      // Notify all tabs to refresh their model selection
-      try {
-        const tabs = await chrome.tabs.query({ url: 'https://auctionet.com/*' });
-        for (const tab of tabs) {
-          chrome.tabs.sendMessage(tab.id, { type: 'refresh-model' }).catch(() => {
-            // Ignore errors for tabs that don't have the content script
-          });
-        }
-      } catch (error) {
-        console.log('Could not notify tabs:', error);
-      }
-      
-    } catch (error) {
-      showStatus('Error saving model selection: ' + error.message, 'error');
-    } finally {
-      saveModelButton.disabled = false;
-      saveModelButton.textContent = 'Save Model';
-    }
-  }
-
-  function updateModelDescription() {
-    const selectedModel = modelSelect.value;
-    const descriptions = {
-      'claude-4-sonnet': 'Latest Claude 4 Sonnet model with enhanced capabilities. Same cost as previous Claude 3.5.'
-    };
-    
-    modelDescription.textContent = descriptions[selectedModel] || 'Claude 4 Sonnet - Latest supported model';
   }
 
   async function loadArtistInfoSetting() {

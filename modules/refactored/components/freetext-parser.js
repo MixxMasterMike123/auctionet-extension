@@ -1547,7 +1547,7 @@ export class FreetextParser {
     
     // For Claude 4, add extra context about realistic pricing based on your data
     let valuationContext = '';
-    if (currentModel === 'claude-4-sonnet') {
+    if (currentModel.includes('claude-sonnet-4')) {
       valuationContext = `\n\nVÄRDERINGSKONTEXT FÖR CLAUDE 4:
 Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
 - Genomsnittligt slutpris: 1,592 SEK
@@ -1858,7 +1858,7 @@ INSTRUKTIONER:
     
     // For Claude 4, add extra context about realistic pricing based on your data
     let valuationContext = '';
-    if (currentModel === 'claude-4-sonnet') {
+    if (currentModel.includes('claude-sonnet-4')) {
       valuationContext = `\n\nVÄRDERINGSKONTEXT FÖR CLAUDE 4:
 Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
 - Genomsnittligt slutpris: 1,592 SEK

@@ -116,10 +116,6 @@
             console.log('Refreshing API key from popup request');
             this.apiManager.loadSettings();
             sendResponse({ success: true });
-          } else if (request.type === 'refresh-model') {
-            console.log('Refreshing model selection from popup request');
-            this.apiManager.refreshModelSelection();
-            sendResponse({ success: true });
           } else if (request.type === 'refresh-settings') {
             console.log('Refreshing settings from popup request');
             this.apiManager.loadSettings(); // This also loads all settings including enableArtistInfo

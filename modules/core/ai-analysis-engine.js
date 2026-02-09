@@ -65,7 +65,7 @@ Svara ENDAST JSON:
         type: 'anthropic-fetch',
         apiKey: this.apiManager.apiKey,
         body: {
-          model: 'claude-3-5-haiku-20241022', // Use fast Haiku for artist detection
+          model: 'claude-haiku-4-5-20251015', // Claude Haiku 4.5 — fast artist detection
           max_tokens: 100, // Reduced from 300 to 100 for faster processing
           temperature: 0.1, // Low temperature for consistent analysis
           messages: [{
@@ -264,7 +264,7 @@ JSON:
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-3-5-haiku-20241022', // Use fast Haiku for biography generation
+            model: 'claude-haiku-4-5-20251015', // Claude Haiku 4.5 — fast bio generation
             max_tokens: 200, // Reduced from 400 to 200 for faster response
             temperature: 0.1,
             messages: [{

@@ -8,7 +8,7 @@ export class APIManager {
     this.apiKey = null;
     this.enableArtistInfo = true;
     this.showDashboard = true; // Default to showing dashboard
-    this.currentModel = 'claude-4-sonnet'; // Default to latest supported model
+    this.currentModel = 'sonnet'; // Claude Sonnet 4.5
     this.auctionetAPI = new AuctionetAPI();
     this.searchQuerySSoT = null; // NEW: AI-only SearchQuerySSoT support
 
@@ -23,34 +23,17 @@ export class APIManager {
       // API key stored in local (not synced) for security; preferences in sync
       const [localResult, syncResult] = await Promise.all([
         chrome.storage.local.get(['anthropicApiKey']),
-        chrome.storage.sync.get(['enableArtistInfo', 'showDashboard', 'selectedModel'])
+        chrome.storage.sync.get(['enableArtistInfo', 'showDashboard'])
       ]);
       const result = { ...localResult, ...syncResult };
       this.apiKey = result.anthropicApiKey;
       this.enableArtistInfo = result.enableArtistInfo !== false;
-      this.showDashboard = result.showDashboard !== false; // Default to true if not set
-
-      // Load selected model from storage
-      if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
-        const previousModel = this.currentModel;
-        this.currentModel = result.selectedModel;
-
-        // Always log which model is loaded, whether it changed or not
-
-        // Log if this was a change from the default
-        if (previousModel !== this.currentModel) {
-        }
-      } else {
-      }
-
-
+      this.showDashboard = result.showDashboard !== false;
 
       // Sync settings with AI Analysis Engine
       if (this.aiAnalysisEngine) {
         this.aiAnalysisEngine.updateSettings({ enableArtistInfo: this.enableArtistInfo });
       }
-
-
 
       // Also refresh Auctionet API settings
       if (this.auctionetAPI) {
@@ -61,28 +44,9 @@ export class APIManager {
     }
   }
 
-  // NEW: Method to refresh just the model selection
-  async refreshModelSelection() {
-    try {
-      const result = await chrome.storage.sync.get(['selectedModel']);
-      if (result.selectedModel && CONFIG.MODELS[result.selectedModel]) {
-        const previousModel = this.currentModel;
-        this.currentModel = result.selectedModel;
-
-        // Always log the refresh action, even if model didn't change
-        if (previousModel !== this.currentModel) {
-        } else {
-        }
-      } else {
-      }
-    } catch (error) {
-      console.error('Error refreshing model selection:', error);
-    }
-  }
-
-  // Get current model (replacing the config version)
+  // Get current model
   getCurrentModel() {
-    return CONFIG.MODELS[this.currentModel] || CONFIG.MODELS['claude-3-5-sonnet'];
+    return CONFIG.MODELS[this.currentModel] || CONFIG.MODELS['sonnet'];
   }
 
   async callClaudeAPI(itemData, fieldType, retryCount = 0) {

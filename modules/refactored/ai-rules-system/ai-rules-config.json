@@ -20,19 +20,12 @@
     "freetextParser": {
       "name": "Freetext Parser",
       "valuationRules": {
-        "claude-sonnet-4-20250514": {
+        "claude-sonnet-4-5-20250929": {
           "approach": "advanced-research-based",
           "instruction": "GE REALISTISKA MARKNADSVÄRDEN baserat på marknadsdata och expertanalys. Använd 4-stegs analys: Objektanalys → Marknadsforskning → Värderingslogik → Slutsats. VIKTIGT: Låt inte låg/medel säkerhet leda till underskattning av marknadsvärde.",
           "temperature": 0.1,
           "maxTokens": 4000,
           "reasoning": "multi-step"
-        },
-        "claude-3-5-sonnet-20241022": {
-          "approach": "conservative",
-          "instruction": "Var konservativ med värderingar. Använd försiktiga uppskattningar baserat på tillgänglig information.",
-          "temperature": 0.3,
-          "maxTokens": 2000,
-          "reasoning": "standard"
         },
         "default": {
           "approach": "conservative",

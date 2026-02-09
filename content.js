@@ -95,7 +95,7 @@ import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module =
       // Debug: Test that functions work
       try {
         const testPrompt = window.getSystemPrompt('core');
-        const testRules = window.getModelSpecificValuationRules('freetextParser', 'claude-4-sonnet');
+        const testRules = window.getModelSpecificValuationRules('freetextParser', 'claude-sonnet-4-5-20250929');
         console.log('🧪 AI Rules functions tested successfully:', {
           hasSystemPrompt: !!testPrompt,
           hasValuationRules: !!testRules

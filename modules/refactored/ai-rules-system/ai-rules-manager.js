@@ -169,7 +169,7 @@ class AIRulesManager {
     /**
      * Get model-specific valuation rules for a category
      * @param {string} category - Category identifier (e.g., 'freetextParser')
-     * @param {string} modelId - Model identifier (e.g., 'claude-4-sonnet')
+     * @param {string} modelId - Model identifier (e.g., 'claude-sonnet-4-5-20250929')
      * @returns {object} Model-specific valuation rules
      */
     getModelSpecificValuationRules(category, modelId) {
