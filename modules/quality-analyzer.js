@@ -574,7 +574,8 @@ export class QualityAnalyzer {
           source: 'faq', 
           fieldId: 'item_condition_sv',
           vagueCondition: true,
-          inlineReplace: 'bruksslitage'
+          inlineReplace: 'bruksslitage',
+          extraNote: 'Om föremålet inte har några skador — använd kryssrutan "Inga anmärkningar" nedan istället.'
         });
       } else if (hasOtherVague) {
         // Other vague terms in short text — show hint + chips
@@ -2996,6 +2997,7 @@ Anpassa förslagen till kategorin "${category}".`,
             const refreshStyle = 'display:inline-block;padding:1px 6px;background:none;border:none;color:#b08840;font-size:10px;font-style:normal;cursor:pointer;text-decoration:underline;text-underline-offset:2px;transition:color 0.15s;';
             const replaceAttr = w.inlineReplace ? ` data-replace="${w.inlineReplace}"` : '';
             const aiLabel = this._aiConditionSuggestions ? ' title="AI-genererade förslag"' : ' title="Klicka for nya forslag"';
+            const noteHtml = w.extraNote ? `<div style="margin-top:6px;font-size:10px;font-style:italic;color:#78716c;">💡 ${w.extraNote}</div>` : '';
             extra = '<div style="margin-top:4px;">' +
               '<div style="display:flex;justify-content:flex-end;margin-bottom:2px;">' +
               `<a class="condition-refresh-btn"${aiLabel} style="${refreshStyle}" onmouseover="this.style.color='#92400e'" onmouseout="this.style.color='#b08840'">Nya forslag</a>` +
@@ -3003,6 +3005,7 @@ Anpassa förslagen till kategorin "${category}".`,
               '<div>' +
               suggestions.map(s => `<a class="condition-suggestion-chip" data-value="${s}"${replaceAttr} style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${s}</a>`).join('') +
               '</div>' +
+              noteHtml +
               '</div>';
 
             // Trigger background AI generation if not already done
