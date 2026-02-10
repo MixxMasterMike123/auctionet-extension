@@ -1076,7 +1076,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
 
       const buttons = [
         {
-          text: 'AI-förbättra',
+          text: 'Förbättra',
           className: 'btn-primary',
           onclick: () => {
             // NEW: Permanently disable this tooltip after user interaction
@@ -1153,17 +1153,17 @@ Om INGET saknas, returnera: {"missingElements": []}`;
 
 
     if (titleField) {
-      this.addAIButton(titleField, 'title', 'AI-förbättra titel');
-      this.addAIButton(titleField, 'title-correct', 'AI-korrigera stavning');
+      this.addAIButton(titleField, 'title', 'Förbättra titel');
+      this.addAIButton(titleField, 'title-correct', 'Korrigera stavning');
     }
     if (descriptionField) {
-      this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
+      this.addAIButton(descriptionField, 'description', 'Förbättra beskrivning');
     }
     if (conditionField) {
-      this.addAIButton(conditionField, 'condition', 'AI-förbättra kondition');
+      this.addAIButton(conditionField, 'condition', 'Förbättra kondition');
     }
     if (keywordsField) {
-      this.addAIButton(keywordsField, 'keywords', 'AI-generera sökord');
+      this.addAIButton(keywordsField, 'keywords', 'Generera sökord');
     }
 
     // Add master "Improve All" button with quality indicator
@@ -1195,7 +1195,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     indicator.className = 'quality-indicator';
     indicator.innerHTML = `
       <div class="quality-header">
-        <h4 class="quality-title">Katalogiseringskvalitet</h4>
+        <h4 class="quality-title">Auctionet Kvalitetskontroll</h4>
         <div class="quality-score-container">
           <span class="quality-score">Analyserar...</span>
           <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
@@ -1354,11 +1354,26 @@ Om INGET saknas, returnera: {"missingElements": []}`;
     
     const field = document.querySelector(fieldMap[fieldType]);
     if (field && value) {
-      // NEW: Set programmatic update flag for AI improvements
+      // NEW: Set programmatic update flag for improvements
       this.isProgrammaticUpdate = true;
       
       try {
-        field.value = value;
+        // For keywords: merge with existing instead of replacing
+        let finalValue = value;
+        if (fieldType === 'keywords') {
+          const existingKeywords = field.value.trim();
+          if (existingKeywords) {
+            const existingSet = new Set(
+              existingKeywords.split(',').map(kw => kw.trim().toLowerCase()).filter(kw => kw.length > 0)
+            );
+            const newKeywords = value.split(',').map(kw => kw.trim()).filter(kw => kw.length > 0);
+            const uniqueNew = newKeywords.filter(kw => !existingSet.has(kw.toLowerCase()));
+            finalValue = uniqueNew.length > 0
+              ? existingKeywords + ', ' + uniqueNew.join(', ')
+              : existingKeywords;
+          }
+        }
+        field.value = finalValue;
         field.dispatchEvent(new Event('change', { bubbles: true }));
         field.classList.add('ai-updated');
         
@@ -1990,7 +2005,7 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
       // For "all" - show loading on master button AND all individual fields
       const masterButton = document.querySelector('.ai-master-button');
       if (masterButton) {
-        masterButton.textContent = '🧠 AI arbetar...';
+        masterButton.textContent = '⏳ Kontrollerar...';
         masterButton.disabled = true;
         masterButton.style.opacity = '0.7';
       }
@@ -2032,7 +2047,7 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     overlay.dataset.fieldType = fieldType;
     overlay.innerHTML = `
       <div class="ai-spinner"></div>
-      <div class="ai-processing-text">AI förbättrar...</div>
+      <div class="ai-processing-text">Förbättrar...</div>
     `;
     
     // Position overlay over the field
@@ -2109,7 +2124,7 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     }
     
     // Show error message
-    alert(`Fel vid AI-förbättring av ${fieldType}: ${message}`);
+    alert(`Fel vid förbättring av ${fieldType}: ${message}`);
   }
   
   removeLoadingIndicator(fieldType) {
@@ -3662,7 +3677,7 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
 
       const buttons = [
         {
-          text: 'AI-förbättra',
+          text: 'Förbättra',
           className: 'btn-primary',
           onclick: () => {
             // NEW: Permanently disable this tooltip after user interaction

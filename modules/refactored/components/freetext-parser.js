@@ -261,7 +261,7 @@ export class FreetextParser {
                 <div class="upload-title">
                   📸 Bilder av objektet
                 </div>
-                <p class="upload-subtitle">Ladda upp bilder för bättre AI-analys • Max 5 bilder • JPG, PNG, WebP</p>
+                <p class="upload-subtitle">Ladda upp bilder för bättre analys • Max 5 bilder • JPG, PNG, WebP</p>
               </div>
               
               <div class="simple-upload-area" id="simple-upload-trigger">
@@ -273,7 +273,7 @@ export class FreetextParser {
               <div class="image-preview-grid" id="image-preview-grid" style="display: none;"></div>
               
               <div class="upload-status" id="upload-status">
-                Inga bilder uppladdade • Bilder är valfria (AI kan analysera endast text)
+                Inga bilder uppladdade • Bilder är valfria (analys kan göras med enbart text)
               </div>
               
               <!-- Hidden file input -->
@@ -317,7 +317,7 @@ export class FreetextParser {
                   <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
               </span>
-                <span class="mode-text">Lägg till bilder ELLER text (eller båda) för AI-analys</span>
+                <span class="mode-text">Lägg till bilder ELLER text (eller båda) för analys</span>
               </div>
             </div>
           </div>
@@ -351,7 +351,7 @@ export class FreetextParser {
                   <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </div>
-              <span>AI-genererad katalogpost</span>
+              <span>Genererad katalogpost</span>
             </div>
             <div class="preview-content">
               <!-- Parsed data will be inserted here -->
@@ -370,7 +370,7 @@ export class FreetextParser {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/>
             </svg>
-            Analysera med AI
+            Analysera
           </button>
           <button class="btn btn--success" id="apply-btn" style="display: none;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
@@ -631,7 +631,7 @@ export class FreetextParser {
     // Reset upload status
     const uploadStatus = this.currentModal.querySelector('#upload-status');
     if (uploadStatus) {
-      uploadStatus.textContent = 'Inga bilder uppladdade • Bilder är valfria (AI kan analysera endast text)';
+      uploadStatus.textContent = 'Inga bilder uppladdade • Bilder är valfria (analys kan göras med enbart text)';
     }
     
     // Show upload area again
@@ -709,7 +709,7 @@ export class FreetextParser {
           <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
           <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera fritext med AI
+        Analysera fritext
       `;
     });
 
@@ -721,7 +721,7 @@ export class FreetextParser {
           <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
           <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera bild med AI
+        Analysera bild
       `;
     });
 
@@ -734,7 +734,7 @@ export class FreetextParser {
           <rect x="2" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
           <rect x="14" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera flera bilder med AI
+        Analysera flera bilder
       `;
     });
 
@@ -746,7 +746,7 @@ export class FreetextParser {
           <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
           <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera bild + text med AI
+        Analysera bild + text
       `;
     });
 
@@ -840,7 +840,7 @@ export class FreetextParser {
           <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
           <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera bilder + text med AI
+        Analysera bilder + text
       `;
       indicator.className = 'analysis-mode-indicator mode-combined';
     } else if (hasImages) {
@@ -860,14 +860,14 @@ export class FreetextParser {
           <rect x="2" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
           <rect x="14" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera flera bilder med AI
+        Analysera flera bilder
       ` : `
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
           <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
           <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
           <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera bild med AI
+        Analysera bild
       `;
       indicator.className = 'analysis-mode-indicator mode-images';
     } else if (hasText) {
@@ -888,7 +888,7 @@ export class FreetextParser {
           <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
           <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera text med AI
+        Analysera text
       `;
       indicator.className = 'analysis-mode-indicator mode-text';
     } else {
@@ -899,13 +899,13 @@ export class FreetextParser {
           <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
         </svg>
       `;
-      modeText.textContent = 'Fyll i bilder och/eller text för AI-analys';
+      modeText.textContent = 'Fyll i bilder och/eller text för analys';
       analyzeBtn.innerHTML = `
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
           <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
           <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
         </svg>
-        Analysera med AI
+        Analysera
       `;
       indicator.className = 'analysis-mode-indicator mode-empty';
     }
@@ -932,7 +932,7 @@ export class FreetextParser {
     
 
     if (!hasText && !hasImages) {
-      this.showError('Vänligen lägg till ANTINGEN bilder ELLER text (eller båda) för AI-analys.');
+      this.showError('Vänligen lägg till ANTINGEN bilder ELLER text (eller båda) för analys.');
       return;
     }
 
@@ -1030,7 +1030,7 @@ export class FreetextParser {
 
     } catch (error) {
       console.error('Analysis failed:', error);
-      this.showError(`AI-analys misslyckades: ${error.message}`);
+      this.showError(`Analys misslyckades: ${error.message}`);
     } finally {
       this.isProcessing = false;
     }
@@ -1763,7 +1763,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       return this.parseStructuredTextResponse(cleanResponse);
     } catch (error) {
       console.error('Failed to parse AI response:', error, 'Response:', response);
-      throw new Error('AI response kunde inte tolkas. Försök igen med tydligare fritext.');
+      throw new Error('Svaret kunde inte tolkas. Försök igen med tydligare fritext.');
     }
   }
 
@@ -1976,7 +1976,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
             </div>
           </div>
           <h3 class="processing-title">
-            ${isAdvancedModel ? 'Claude 4 Expertanalys' : 'AI-analys pågår'}
+            ${isAdvancedModel ? 'Expertanalys pågår' : 'Analys pågår'}
           </h3>
           <p class="processing-subtitle">
             ${isAdvancedModel ? 'Djupgående marknadsresearch med 4-stegs analys' : 'Extraherar strukturerad data från fritext'}
@@ -2064,7 +2064,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
             </div>
           </div>
           <h3 class="processing-title">
-            ${isAdvancedModel ? 'Claude 4 Expertanalys' : 'AI-analys pågår'}
+            ${isAdvancedModel ? 'Expertanalys pågår' : 'Analys pågår'}
           </h3>
           <p class="processing-subtitle">
             ${isAdvancedModel ? 'Djupgående marknadsresearch med kontinuerlig analys' : 'Extraherar strukturerad data från fritext'}
@@ -2210,7 +2210,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         // Update step text to indicate AI processing
         const stepTextEl = stepElement.querySelector('.step-text');
         if (stepTextEl) {
-          stepTextEl.textContent = 'AI bearbetar... (detta kan ta några sekunder)';
+          stepTextEl.textContent = 'Bearbetar... (detta kan ta några sekunder)';
         }
       }
       
@@ -2451,8 +2451,20 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
             </svg>
             💰 Värdering
           </h5>
-          ${data.estimate ? `<p><strong>Uppskattat värde:</strong> ${data.estimate} SEK ${this.getConfidenceBadge(data.confidence?.estimate)}</p>` : ''}
-          ${data.reserve ? `<p><strong>Föreslaget bevakningspris:</strong> ${data.reserve} SEK</p>` : ''}
+          ${data.estimate ? `
+            <div class="field-preview" data-field="estimate" style="margin-bottom: 8px;">
+              <label class="field-label" style="font-size: 12px; font-weight: 600; color: #555; margin-bottom: 2px; display: block;">
+                Uppskattat värde (SEK) ${this.getConfidenceBadge(data.confidence?.estimate)}
+              </label>
+              <input type="number" class="preview-field preview-field--estimate" data-field="estimate" value="${data.estimate}" style="width: 120px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+            </div>` : ''}
+          ${data.reserve ? `
+            <div class="field-preview" data-field="reserve" style="margin-bottom: 8px;">
+              <label class="field-label" style="font-size: 12px; font-weight: 600; color: #555; margin-bottom: 2px; display: block;">
+                Bevakningspris (SEK)
+              </label>
+              <input type="number" class="preview-field preview-field--reserve" data-field="reserve" value="${data.reserve}" style="width: 120px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+            </div>` : ''}
           ${data.shouldDisposeIfUnsold ? '<p><strong>⚠️ Ska skänkas/återvinnas om osålt</strong></p>' : ''}
         </div>
       ` : `
@@ -2471,7 +2483,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
               <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
               <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
             </svg>
-            AI-analys
+            Analys
           </h5>
           <p><em>${data.reasoning}</em></p>
         </div>
@@ -2569,16 +2581,16 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       this.applyToFormField('item_artist_name_sv', updatedData.artist);
       this.applyToFormField('item_hidden_keywords', updatedData.keywords);
       
-      // Apply numeric fields from original parsed data
-      if (this.parsedData.estimate) {
-        this.applyToFormField('item_current_auction_attributes_estimate', this.parsedData.estimate);
+      // Apply numeric fields from editable preview (user may have adjusted them)
+      if (updatedData.estimate) {
+        this.applyToFormField('item_current_auction_attributes_estimate', updatedData.estimate);
       }
-      if (this.parsedData.reserve) {
-        this.applyToFormField('item_current_auction_attributes_reserve', this.parsedData.reserve);
+      if (updatedData.reserve) {
+        this.applyToFormField('item_current_auction_attributes_reserve', updatedData.reserve);
       }
       
       // Apply checkbox for disposal if unsold
-      if (this.parsedData.shouldDisposeIfUnsold) {
+      if (updatedData.shouldDisposeIfUnsold || (this.parsedData && this.parsedData.shouldDisposeIfUnsold)) {
         const checkbox = document.getElementById('item_should_be_disposed_of_if_unsold');
         if (checkbox) {
           checkbox.checked = true;
@@ -2587,6 +2599,17 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       
       // Close modal
       this.closeModal();
+      
+      // Trigger quality re-analysis so hints update based on new form content
+      try {
+        setTimeout(() => {
+          if (window.auctionetAssistant && typeof window.auctionetAssistant.runFaqHints === 'function') {
+            window.auctionetAssistant.runFaqHints();
+          }
+        }, 300);
+      } catch (e) {
+        console.warn('Quality re-analysis after Snabbkatalogisering not available:', e);
+      }
       
       // Show success message
       this.showSuccessMessage('Fritext har analyserats och tillämpats på formuläret!');
@@ -2600,6 +2623,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
   /**
    * Apply value to a specific form field
+   * Keywords are intelligently merged with existing content (not overwritten)
    */
   applyToFormField(fieldId, value) {
     if (!value) return;
@@ -2614,7 +2638,24 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         }
       }
       
-      field.value = value;
+      // Smart keyword merge: append unique new keywords to existing ones
+      if (fieldId === 'item_hidden_keywords' && field.value.trim()) {
+        const existingKeywords = field.value.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+        const existingSet = new Set(existingKeywords);
+        const newKeywords = String(value).split(',').map(k => k.trim()).filter(k => k);
+        const uniqueNew = newKeywords.filter(k => !existingSet.has(k.toLowerCase()));
+        
+        if (uniqueNew.length > 0) {
+          // Append unique new keywords to existing
+          const merged = field.value.trim() + ', ' + uniqueNew.join(', ');
+          // Enforce 12-keyword limit
+          const allKeywords = merged.split(',').map(k => k.trim()).filter(k => k);
+          field.value = allKeywords.slice(0, 12).join(', ');
+        }
+        // If no unique new keywords, leave existing content unchanged
+      } else {
+        field.value = value;
+      }
       
       // Trigger change event to notify any listeners (important for Auctionet's form validation)
       field.dispatchEvent(new Event('change', { bubbles: true }));
@@ -2659,17 +2700,18 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const previewFields = this.currentModal.querySelectorAll('.preview-field');
     
     previewFields.forEach(field => {
-      const fieldName = field.closest('.field-preview').dataset.field;
-      const value = field.value.trim();
-      if (value) {
-        data[fieldName] = value;
+      const fieldPreview = field.closest('.field-preview');
+      if (fieldPreview) {
+        const fieldName = fieldPreview.dataset.field;
+        const value = field.value.trim();
+        if (value) {
+          data[fieldName] = value;
+        }
       }
     });
     
-    // Include original parsed data for fields not shown in preview
+    // Include shouldDisposeIfUnsold from original parsed data (not shown as editable field)
     if (this.parsedData) {
-      data.estimate = this.parsedData.estimate;
-      data.reserve = this.parsedData.reserve;
       data.shouldDisposeIfUnsold = this.parsedData.shouldDisposeIfUnsold;
     }
     
@@ -2765,10 +2807,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
           const calculatedReserve = Math.round(marketLow * 0.7); // 70% of market low
           data.reserve = this.enforceMinimumReserve(calculatedReserve);
           
-          // Add note about AI vs market estimates
+          // Add note about initial vs market estimates
           if (aiEstimate && Math.abs(aiEstimate - marketMid) > marketMid * 0.3) {
             data.reasoning = (data.reasoning || '') + 
-              ` AI-uppskattning: ${aiEstimate} SEK, marknadsdata: ${marketMid} SEK.`;
+              ` Uppskattning: ${aiEstimate} SEK, marknadsdata: ${marketMid} SEK.`;
           }
           
           // Add market context to reasoning
@@ -2787,15 +2829,15 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
         
       } else {
         if (data.estimate || data.reserve) {
-          data.reasoning = (data.reasoning || '') + ' Ingen marknadsdata hittades - använder AI-värdering.';
+          data.reasoning = (data.reasoning || '') + ' Ingen marknadsdata hittades - använder automatisk värdering.';
         } else {
-          data.reasoning = (data.reasoning || '') + ' Ingen marknadsdata eller AI-värdering tillgänglig.';
+          data.reasoning = (data.reasoning || '') + ' Ingen marknadsdata eller automatisk värdering tillgänglig.';
         }
       }
       
     } catch (error) {
       console.error('Market analysis failed:', error);
-      data.reasoning = (data.reasoning || '') + ' Marknadsanalys misslyckades - använder AI-uppskattning.';
+      data.reasoning = (data.reasoning || '') + ' Marknadsanalys misslyckades - använder automatisk uppskattning.';
     }
     
     return data;
@@ -3500,7 +3542,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
     if (this.uploadedImages.size === 0) {
       previewGrid.style.display = 'none';
-      uploadStatus.textContent = 'Inga bilder uppladdade • Bilder är valfria men förbättrar AI-analysen';
+      uploadStatus.textContent = 'Inga bilder uppladdade • Bilder är valfria men förbättrar analysen';
       uploadTrigger.style.display = 'block';
       return;
     }

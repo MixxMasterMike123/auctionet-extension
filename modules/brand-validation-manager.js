@@ -171,7 +171,7 @@ Om inga felstavningar hittas, svara: {"issues": []}`;
             confidence: issue.confidence || 0.8,
             category: this.inferCategory(issue.suggested),
             source: 'ai_detection',
-            foundIn: 'AI-analys',
+            foundIn: 'analys',
             reason: issue.reason
           }));
         }

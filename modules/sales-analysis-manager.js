@@ -351,10 +351,10 @@ export class SalesAnalysisManager {
         salesData.historical = salesData.historical || {
           analyzedSales: 0,
           totalMatches: 0,
-          actualSearchQuery: this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : 'AI-genererad sökning'
+          actualSearchQuery: this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : 'Automatisk sökning'
         };
         salesData.confidence = 0.5; // Medium confidence for AI-only
-        salesData.dataSource = 'AI-genererad sökstrategi';
+        salesData.dataSource = 'Automatisk sökstrategi';
       }
       
       // CRITICAL FIX: Use AI-only SearchQuerySSoT instead of re-extracting terms

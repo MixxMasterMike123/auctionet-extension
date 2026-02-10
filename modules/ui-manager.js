@@ -7,23 +7,23 @@ export class UIManager {
   }
 
   injectUI() {
-    // Add AI assistance button next to each field
+    // Add assistance button next to each field
     const titleField = document.querySelector('#item_title_sv');
     const descriptionField = document.querySelector('#item_description_sv');
     const conditionField = document.querySelector('#item_condition_sv');
     const keywordsField = document.querySelector('#item_hidden_keywords');
 
     if (titleField) {
-      this.addAIButton(titleField, 'title', 'AI-förbättra titel');
+      this.addAIButton(titleField, 'title', 'Förbättra titel');
     }
     if (descriptionField) {
-      this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
+      this.addAIButton(descriptionField, 'description', 'Förbättra beskrivning');
     }
     if (conditionField) {
-      this.addAIButton(conditionField, 'condition', 'AI-förbättra kondition');
+      this.addAIButton(conditionField, 'condition', 'Förbättra kondition');
     }
     if (keywordsField) {
-      this.addAIButton(keywordsField, 'keywords', 'AI-generera sökord');
+      this.addAIButton(keywordsField, 'keywords', 'Generera sökord');
     }
 
     // Add master "Improve All" button
@@ -60,7 +60,7 @@ export class UIManager {
     const indicator = document.createElement('div');
     indicator.className = 'quality-indicator';
     indicator.innerHTML = `
-      <h4 class="quality-title">Katalogiseringskvalitet</h4>
+      <h4 class="quality-title">Auctionet Kvalitetskontroll</h4>
       <div class="quality-header">
         <div class="quality-score-container">
           <span class="quality-score">Analyserar...</span>
@@ -374,7 +374,20 @@ export class UIManager {
       // Validate and limit keywords if necessary
       let finalValue = value;
       if (fieldType === 'keywords') {
-        finalValue = this.validateAndLimitKeywords(value);
+        // Merge with existing keywords instead of replacing
+        const existingKeywords = field.value.trim();
+        if (existingKeywords) {
+          const existingSet = new Set(
+            existingKeywords.split(',').map(kw => kw.trim().toLowerCase()).filter(kw => kw.length > 0)
+          );
+          const newKeywords = value.split(',').map(kw => kw.trim()).filter(kw => kw.length > 0);
+          // Only add keywords that don't already exist (case-insensitive)
+          const uniqueNew = newKeywords.filter(kw => !existingSet.has(kw.toLowerCase()));
+          finalValue = uniqueNew.length > 0
+            ? existingKeywords + ', ' + uniqueNew.join(', ')
+            : existingKeywords;
+        }
+        finalValue = this.validateAndLimitKeywords(finalValue);
       }
       
       // Apply new value with animation

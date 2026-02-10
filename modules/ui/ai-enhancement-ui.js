@@ -44,10 +44,10 @@ export class AIEnhancementUI {
    */
   injectAIButtons() {
     const fieldConfigs = [
-      { field: 'title', text: 'AI-förbättra titel' },
-      { field: 'description', text: 'AI-förbättra beskrivning' },
-      { field: 'condition', text: 'AI-förbättra kondition' },
-      { field: 'keywords', text: 'AI-generera sökord' }
+      { field: 'title', text: 'Förbättra titel' },
+      { field: 'description', text: 'Förbättra beskrivning' },
+      { field: 'condition', text: 'Förbättra kondition' },
+      { field: 'keywords', text: 'Generera sökord' }
     ];
 
     fieldConfigs.forEach(config => {
@@ -143,7 +143,7 @@ export class AIEnhancementUI {
       // Modern design for add page
       return `
         <div class="quality-header quality-header--modern">
-          <h4 class="quality-title">✨ Katalogiseringskvalitet</h4>
+          <h4 class="quality-title">✨ Auctionet Kvalitetskontroll</h4>
           <div class="quality-score-container">
             <div class="quality-score-badge">
               <span class="quality-score">Analyserar...</span>
@@ -158,7 +158,7 @@ export class AIEnhancementUI {
       // Traditional design for edit page
       return `
         <div class="quality-header">
-          <h4 class="quality-title">Katalogiseringskvalitet</h4>
+          <h4 class="quality-title">Auctionet Kvalitetskontroll</h4>
           <div class="quality-score-container">
             <span class="quality-score">Analyserar...</span>
             <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>

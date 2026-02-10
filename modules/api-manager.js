@@ -682,8 +682,29 @@ KONDITION FÖR SERVISER:
 
     if (isCeilingLamp) {
       return `
-KATEGORI-SPECIFIK REGEL - TAKLAMPOR:
-Måtten ska ALLTID skrivas i titeln för taklampor (samma regel som mattor).`;
+KATEGORI-SPECIFIK REGEL - TAKLAMPOR OCH LJUSKRONOR:
+Måtten (höjd) ska ALLTID skrivas i titeln för taklampor och ljuskronor (samma regel som mattor).
+
+BESKRIVNING FÖR LJUSKRONOR:
+• Ange ALLTID antal LJUS (inte bara antal ljusarmar — en krona kan ha ljushållare i korgbotten)
+• Ange material och stil
+
+KONDITION FÖR LJUSKRONOR:
+• Notera ALLTID om det saknas prismor
+• Notera om det finns skadade prismor`;
+    }
+
+    // Detect clocks/ur (not wristwatches — those are handled separately)
+    const isClock = (title.match(/^(golvur|väggur|bordsur|kaminur|pendyl|regulat)/i) ||
+      category.includes('ur') || category.includes('klocka')) &&
+      !title.match(/armbandsur/i);
+
+    if (isClock) {
+      return `
+KATEGORI-SPECIFIK REGEL - UR (ej armbandsur):
+BESKRIVNING FÖR UR:
+• Skriv ALLTID ut om det finns pendel och lod till uret
+• Ange material och eventuell urtavla/urverkstyp om känt`;
     }
 
     return '';
@@ -733,7 +754,8 @@ KVALITETSKRAV:
 • Skriv naturligt och flytande — fokusera på autenticitet över regelefterlevnad
 
 UNDVIK VÄRDEORD OCH SÄLJANDE SPRÅK:
-• Undvik: fantastisk, vacker, utsökt, magnifik, underbar, exceptionell, perfekt, sällsynt, extraordinär, spektakulär, enastående
+• Undvik: fantastisk, vacker, fin, utsökt, magnifik, underbar, exceptionell, perfekt, sällsynt, extraordinär, spektakulär, enastående, värdefull
+• Subjektiva/relativa ord som "fin", "vacker", "värdefull", "stor" ska ALDRIG användas
 • Använd istället neutrala, faktabaserade beskrivningar som lyfter föremålets egenskaper
 
 KATEGORI-SPECIFIKA REGLER:
@@ -965,6 +987,10 @@ ${itemData.artist && this.enableArtistInfo ?
 • Förbättra språk, struktur och befintlig information
 • Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
 
+PROVENIENS, UTSTÄLLNINGAR, LITTERATUR:
+• Om sådan information finns — skriv den SIST i beskrivningen men FÖRE måtten
+• Ordning: Beskrivning → Proveniens/Utställningar/Litteratur → Mått (sist)
+
 MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
 • Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
@@ -1163,6 +1189,10 @@ ${itemData.artist && this.enableArtistInfo ?
 • Lägg INTE till märkningar eller signaturer som inte finns
 • Förbättra språk, struktur och befintlig information
 • Lägg ALDRIG till kommentarer om vad som "saknas" eller "behövs"
+
+PROVENIENS, UTSTÄLLNINGAR, LITTERATUR:
+• Om sådan information finns — skriv den SIST i beskrivningen men FÖRE måtten
+• Ordning: Beskrivning → Proveniens/Utställningar/Litteratur → Mått (sist)
 
 MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
@@ -1375,8 +1405,8 @@ Return JSON only:
 
     // Forbidden marketing terms
     const marketingTerms = [
-      'fantastisk', 'vacker', 'underbar', 'magnifik', 'exceptional', 'stunning',
-      'rare', 'unique', 'sällsynt', 'unik', 'perfekt', 'pristine'
+      'fantastisk', 'vacker', 'fin', 'underbar', 'magnifik', 'exceptional', 'stunning',
+      'rare', 'unique', 'sällsynt', 'unik', 'perfekt', 'pristine', 'värdefull'
     ];
 
     marketingTerms.forEach(term => {

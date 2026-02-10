@@ -909,7 +909,9 @@ class AuctionetCatalogingAssistant {
       artistDates: artistDates,
       keywords: document.querySelector('#item_hidden_keywords')?.value || '',
       estimate: document.querySelector('#item_current_auction_attributes_estimate')?.value || '',
-      reserve: document.querySelector('#item_current_auction_attributes_reserve')?.value || ''
+      upperEstimate: document.querySelector('#item_current_auction_attributes_upper_estimate')?.value || '',
+      reserve: document.querySelector('#item_current_auction_attributes_reserve')?.value || '',
+      acceptedReserve: document.querySelector('#item_current_auction_attributes_accepted_reserve')?.value || ''
     };
 
     // Debug logging for keywords extraction

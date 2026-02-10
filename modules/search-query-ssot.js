@@ -528,8 +528,8 @@ export class SearchQuerySSoT {
     
     // Map sources to user-friendly labels
     const sourceLabels = {
-      'ai_only': 'AI-genererad',
-      'ai_enhanced': 'AI-förbättrad',
+      'ai_only': 'Automatisk',
+      'ai_enhanced': 'Förbättrad',
       'emergency_fallback': 'automatisk',
       'user_modified': 'användarval',
       'user_selection': 'användarval',

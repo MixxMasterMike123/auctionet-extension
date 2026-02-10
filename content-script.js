@@ -177,7 +177,7 @@
             conditionButton.disabled = false;
             conditionButton.style.opacity = '1';
             conditionButton.style.cursor = 'pointer';
-            conditionButton.title = 'AI-förbättra kondition';
+            conditionButton.title = 'Förbättra kondition';
           }
         } else {
           // Try alternative selectors but don't log as error during initialization
@@ -200,7 +200,7 @@
               foundConditionButton.disabled = false;
               foundConditionButton.style.opacity = '1';
               foundConditionButton.style.cursor = 'pointer';
-              foundConditionButton.title = 'AI-förbättra kondition';
+              foundConditionButton.title = 'Förbättra kondition';
             }
           }
         }
@@ -346,8 +346,8 @@
         dialog.innerHTML = `
           <div class="dialog-overlay"></div>
           <div class="dialog-content">
-            <h3>🤖 Behöver mer information för ${fieldName}</h3>
-            <p>För att undvika felaktiga uppgifter behöver AI:n mer detaljerad information innan ${fieldName} kan förbättras säkert.</p>
+            <h3>📋 Behöver mer information för ${fieldName}</h3>
+            <p>Enligt Auctionets kvalitetskrav behövs mer detaljerad information innan ${fieldName} kan förbättras.</p>
             
             <div class="missing-info">
               <h4>Lägg till information om:</h4>
@@ -400,7 +400,7 @@
           <div class="dialog-overlay"></div>
           <div class="dialog-content">
             <h3>⚡ Förbättra ${fieldName}</h3>
-            <p>AI:n är redo att förbättra ${fieldName} enligt svenska auktionsstandarder.</p>
+            <p>Redo att förbättra ${fieldName} enligt Auctionets katalogiseringsstandard.</p>
             
             <div class="dialog-buttons">
               <button class="btn btn-link" id="cancel-settings-dialog">Avbryt</button>
@@ -487,14 +487,14 @@
             return `
               <div class="field-tips">
                 <h4>💡 Tips för bättre titel:</h4>
-                <p>Lägg till information i beskrivningen om material, teknik och tidsperiod så kan AI:n skapa en mer exakt titel enligt Auctionets standarder.</p>
+                <p>Lägg till information i beskrivningen om material, teknik och tidsperiod för en mer exakt titel enligt Auctionets standarder.</p>
               </div>
             `;
           case 'description':
             return `
               <div class="field-tips">
                 <h4>💡 Tips för bättre beskrivning:</h4>
-                <p>Inkludera mått, material, tillverkningsteknik och eventuell signering eller märkning. Detta hjälper AI:n att skapa en professionell beskrivning.</p>
+                <p>Inkludera mått, material, tillverkningsteknik och eventuell signering eller märkning för en professionell beskrivning.</p>
               </div>
             `;
           case 'condition':
@@ -520,14 +520,14 @@
             return `
               <div class="field-tips">
                 <h4>💡 Tips för bättre nyckelord:</h4>
-                <p>Mer detaljerad information i titel och beskrivning hjälper AI:n att generera relevanta sökord som inte bara upprepar befintlig text.</p>
+                <p>Mer detaljerad information i titel och beskrivning ger bättre sökord som inte bara upprepar befintlig text.</p>
               </div>
             `;
           case 'all':
             return `
               <div class="field-tips">
                 <h4>💡 Tips för bättre katalogisering:</h4>
-                <p>Lägg till mer specifik information i beskrivningen så kan AI:n förbättra alla fält mer exakt och undvika att gissa.</p>
+                <p>Lägg till mer specifik information i beskrivningen för bättre resultat vid förbättring av alla fält.</p>
               </div>
             `;
           default:
@@ -629,7 +629,7 @@
           // For "all" - show loading on master button AND all individual fields
           const masterButton = document.querySelector('.ai-master-button');
           if (masterButton) {
-            masterButton.textContent = 'AI arbetar...';
+            masterButton.textContent = '⏳ Kontrollerar...';
             masterButton.disabled = true;
             masterButton.style.opacity = '0.7';
           }
@@ -672,7 +672,7 @@
         overlay.dataset.fieldType = fieldType;
         overlay.innerHTML = `
           <div class="ai-spinner"></div>
-          <div class="ai-processing-text">AI förbättrar...</div>
+          <div class="ai-processing-text">Förbättrar...</div>
         `;
         
         // Position overlay over the field - EXACT same positioning logic
@@ -762,7 +762,7 @@
         }
         
         // Show error message - EXACT same as Add Items page
-        alert(`Fel vid AI-förbättring av ${fieldType}: ${message}`);
+        alert(`Fel vid förbättring av ${fieldType}: ${message}`);
       }
 
       fallbackRemoveFieldLoadingIndicator(fieldType) {
@@ -1074,7 +1074,7 @@
 
           const buttons = [
             {
-              text: 'AI-förbättra',
+              text: 'Förbättra',
               className: 'btn-primary',
               onclick: () => {
                 this.dismissTooltip(tooltipId);

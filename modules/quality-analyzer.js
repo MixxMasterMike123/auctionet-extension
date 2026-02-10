@@ -261,6 +261,22 @@ export class QualityAnalyzer {
     const warnings = [];
     let score = 100;
 
+    // --- Bevakningspris vs Värdering validation (Auctionet rule: reserve must NEVER equal or exceed estimate) ---
+    const estimateVal = parseFloat(data.estimate);
+    const reserveVal = parseFloat(data.reserve || data.acceptedReserve);
+    if (estimateVal > 0 && reserveVal > 0) {
+      if (reserveVal >= estimateVal) {
+        warnings.push({
+          field: 'Värdering',
+          issue: `Bevakningspris (${reserveVal} SEK) får aldrig vara lika med eller överstiga värdering (${estimateVal} SEK)`,
+          severity: 'high',
+          source: 'faq',
+          fieldId: 'item_current_auction_attributes_estimate'
+        });
+        score -= 20;
+      }
+    }
+
     // Check if "Inga anmärkningar" (No remarks) is checked (handle missing checkboxes gracefully)
     let noRemarksChecked = false;
     try {
@@ -506,11 +522,8 @@ export class QualityAnalyzer {
       }
     }
 
-    // --- General: "centimeter" instead of "cm" ---
-    if (/centimeter/i.test(descPlain)) {
-      warnings.push({ field: 'Beskrivning', issue: 'Skriv "cm" istället för "centimeter"', severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
-      score -= 3;
-    }
+    // --- General: "centimeter" is acceptable per Auctionet guidelines ("centimeter" or "cm" both OK) ---
+    // No penalty — both forms are accepted according to the admin help pages.
 
     // --- General: "ca" before year ---
     if (/\bca\.?\s+\d{4}\b/.test(data.title) || /\bca\.?\s+\d{4}\b/.test(descPlain)) {
@@ -546,16 +559,18 @@ export class QualityAnalyzer {
       warnings.push({ field: 'Beskrivning', issue: `"${descCenturyMatch[0]}" omfattar 100 år — ange decennium om möjligt (t.ex. "${century}20-tal" eller "${century}50-tal")`, severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
       score -= 5;
     }
-    // Match vague sub-century expressions like "1900-talets första hälft"
-    const vagueperiodPattern = /\d{4}-talets\s+(första|andra|senare|mitt|mitten|början|slut)\s*(hälft|del|fjärdedel)?/i;
+    // Match ONLY truly vague sub-century expressions like "1800-talets senare del"
+    // Auctionet explicitly says: "senare fjärdedel", "senare hälft", "slut" are ACCEPTABLE alternatives
+    // The PROBLEM phrase is "1800-talets senare del" which "inte betyder någonting"
+    const vagueperiodPattern = /\d{4}-talets\s+(första|andra|senare)\s+del\b/i;
     const titlePeriodMatch = data.title.match(vagueperiodPattern);
     const descPeriodMatch = descPlain.match(vagueperiodPattern);
     if (titlePeriodMatch) {
-      warnings.push({ field: 'Titel', issue: `Var mer specifik med ålder: "${titlePeriodMatch[0]}" — ange decennium om möjligt (t.ex. "1980-tal")`, severity: 'low', source: 'faq', fieldId: 'item_title_sv' });
+      warnings.push({ field: 'Titel', issue: `"${titlePeriodMatch[0]}" är för vagt — ange "senare fjärdedel", "senare hälft", "slut" eller specifikt decennium`, severity: 'low', source: 'faq', fieldId: 'item_title_sv' });
       score -= 3;
     }
     if (descPeriodMatch) {
-      warnings.push({ field: 'Beskrivning', issue: `Var mer specifik med ålder: "${descPeriodMatch[0]}" — ange decennium om möjligt (t.ex. "1980-tal")`, severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
+      warnings.push({ field: 'Beskrivning', issue: `"${descPeriodMatch[0]}" är för vagt — ange "senare fjärdedel", "senare hälft", "slut" eller specifikt decennium`, severity: 'low', source: 'faq', fieldId: 'item_description_sv' });
       score -= 3;
     }
 
@@ -575,7 +590,7 @@ export class QualityAnalyzer {
           fieldId: 'item_condition_sv',
           vagueCondition: true,
           inlineReplace: 'bruksslitage',
-          extraNote: 'Om föremålet inte har några skador — använd kryssrutan "Inga anmärkningar" nedan istället.'
+          extraNote: 'Var specifik: beskriv vilken typ av slitage (repor, nagg, fläckar, etc.) eller ange "Sedvanligt slitage" om inga tydliga skador finns.'
         });
       } else if (hasOtherVague) {
         // Other vague terms in short text — show hint + chips
@@ -650,7 +665,7 @@ export class QualityAnalyzer {
     }
 
     // Show initial AI loading indicator
-    this.showAILoadingIndicator('🤖 Söker konstnärsnamn...');
+    this.showAILoadingIndicator('🔍 Söker konstnärsnamn...');
     this.aiAnalysisActive = true;
     this.pendingAnalyses = new Set();
 
@@ -951,8 +966,8 @@ export class QualityAnalyzer {
     // Create properly formatted warning for the existing display system (without button - we'll add it programmatically)
     // CRITICAL FIX: Create clean text message first, then add HTML elements programmatically to avoid data corruption
     const artistMessage = aiArtist.verification ?
-      `AI upptäckte konstnär: "${aiArtist.detectedArtist}" (95% säkerhet) ✓ Verifierad konstnär (biografi tillgänglig) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
-      `AI upptäckte konstnär: "${aiArtist.detectedArtist}" (${Math.round(aiArtist.confidence * 100)}% säkerhet) - flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
+      `Hittade konstnär: "${aiArtist.detectedArtist}" (95% säkerhet) ✓ Verifierad konstnär (biografi tillgänglig) — flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält` :
+      `Hittade konstnär: "${aiArtist.detectedArtist}" (${Math.round(aiArtist.confidence * 100)}% säkerhet) — flytta från ${aiArtist.foundIn || 'titel'} till konstnärsfält`;
 
 
     // Insert artist warning at the beginning since it's important info
@@ -1058,7 +1073,7 @@ export class QualityAnalyzer {
             <p>Detta kommer att:</p>
             <ul>
               <li>✕ Ta bort varningen från kvalitetsindikatorn</li>
-              <li>🔄 Köra ny AI-analys utan denna konstnär</li>
+              <li>🔄 Köra ny analys utan denna konstnär</li>
               <li>🚫 Förhindra framtida detekteringar av samma namn</li>
               <li>💾 Spara inställningen för denna session</li>
             </ul>
@@ -2242,7 +2257,7 @@ export class QualityAnalyzer {
     overlay.className = 'field-spinner-overlay title-correction-spinner';
     overlay.innerHTML = `
       <div class="ai-spinner"></div>
-      <div class="ai-processing-text">AI förbättrar titel...</div>
+      <div class="ai-processing-text">Förbättrar titel...</div>
     `;
 
     // Position overlay over the field
@@ -2996,7 +3011,7 @@ Anpassa förslagen till kategorin "${category}".`,
             const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
             const refreshStyle = 'background:none;border:none;color:#b08840;font-size:10px;font-style:normal;cursor:pointer;text-decoration:underline;text-underline-offset:2px;transition:color 0.15s;white-space:nowrap;';
             const replaceAttr = w.inlineReplace ? ` data-replace="${w.inlineReplace}"` : '';
-            const aiLabel = this._aiConditionSuggestions ? ' title="AI-genererade förslag"' : ' title="Klicka for nya forslag"';
+            const aiLabel = this._aiConditionSuggestions ? ' title="Anpassade förslag"' : ' title="Klicka for nya forslag"';
             const noteHtml = w.extraNote ? `<div style="margin-top:6px;font-size:10px;font-style:italic;color:#78716c;">💡 ${w.extraNote}</div>` : '';
             const refreshLink = `<a class="condition-refresh-btn"${aiLabel} style="${refreshStyle}" onmouseover="this.style.color='#92400e'" onmouseout="this.style.color='#b08840'">Nya forslag</a>`;
             extra = '<div style="margin-top:4px;">' +
@@ -3027,8 +3042,19 @@ Anpassa förslagen till kategorin "${category}".`,
         hintDiv.style.cssText = 'margin:6px 0 10px 0;padding:0;';
         hintDiv.innerHTML = hintsHtml;
 
-        // Insert after the field element, before the button wrapper
-        field.parentNode.insertBefore(hintDiv, field.nextSibling);
+        // Insert after Auctionet's own "Förslag" help-block if it exists, otherwise after the button wrapper
+        const helpBlock = field.parentNode.querySelector('.help-block');
+        const buttonWrapper = field.parentNode.querySelector('.ai-button-wrapper');
+        if (helpBlock) {
+          // Place our hints after Auctionet's suggestions
+          helpBlock.parentNode.insertBefore(hintDiv, helpBlock.nextSibling);
+        } else if (buttonWrapper) {
+          // Place after the button wrapper
+          buttonWrapper.parentNode.insertBefore(hintDiv, buttonWrapper.nextSibling);
+        } else {
+          // Fallback: after the field
+          field.parentNode.insertBefore(hintDiv, field.nextSibling);
+        }
       }
 
       // Attach click handlers to condition suggestion chips
@@ -3043,9 +3069,24 @@ Anpassa förslagen till kategorin "${category}".`,
               const replaceWord = chip.getAttribute('data-replace');
               const newValue = chip.getAttribute('data-value');
               if (replaceWord) {
-                condField.value = condField.value.replace(new RegExp(replaceWord, 'i'), newValue.replace(/\.$/, ''));
+                // Smart replace: only swap the vague term, preserve everything else
+                // Also clean up surrounding punctuation artifacts (e.g., "Bruksslitage. Repor." → "Smärre ytslitage. Repor.")
+                const escaped = replaceWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                // Match the vague word with optional surrounding whitespace, period, comma
+                const pattern = new RegExp(`\\s*${escaped}[\\s.,;]*`, 'i');
+                let result = condField.value.replace(pattern, newValue.replace(/\.$/, '') + '. ');
+                // Clean up: trim and remove trailing/leading punctuation artifacts
+                result = result.replace(/^[\s.,;]+/, '').replace(/[\s.,;]+$/, '.').replace(/\.\s*\./g, '.').trim();
+                condField.value = result;
               } else {
-                condField.value = newValue;
+                // No replace word — append to existing content instead of replacing
+                const existing = condField.value.trim();
+                if (existing) {
+                  const separator = existing.endsWith('.') ? ' ' : '. ';
+                  condField.value = existing + separator + newValue;
+                } else {
+                  condField.value = newValue;
+                }
               }
               condField.dispatchEvent(new Event('input', { bubbles: true }));
               condField.focus();

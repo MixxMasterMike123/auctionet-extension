@@ -34,7 +34,7 @@ export class BiographyTooltipManager {
     const biographySpan = document.createElement('span');
     biographySpan.className = 'artist-bio-tooltip';
     biographySpan.textContent = `(${bioPreview})`;
-    biographySpan.setAttribute('data-full-bio', biography + '\n\n🤖 AI-genererad biografi (Claude Haiku)');
+    biographySpan.setAttribute('data-full-bio', biography + '\n\n📚 Automatiskt genererad biografi');
     biographySpan.style.cssText = `
       cursor: help;
       border-bottom: 1px dotted rgba(25, 118, 210, 0.5);
@@ -84,7 +84,7 @@ export class BiographyTooltipManager {
     // Create attribution based on source
     const attribution = bioSource === 'auctionet' ?
       `✓ Verifierad biografi från <a href="${bioUrl}" target="_blank" style="color: #1976d2;">Auctionet</a>` :
-      `🤖 AI-genererad biografi (Claude Haiku)`;
+      `📚 Automatiskt genererad biografi`;
 
     // Create header with years if available
     const header = bioYears ? `${artistName} (${bioYears})` : artistName;

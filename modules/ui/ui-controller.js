@@ -19,7 +19,7 @@ export class UIController {
 
     injectUI() {
 
-        // Add AI assistance button next to each field
+        // Add assistance button next to each field
         const titleField = document.querySelector('#item_title_sv');
         const descriptionField = document.querySelector('#item_description_sv');
         const conditionField = document.querySelector('#item_condition_sv');
@@ -27,16 +27,16 @@ export class UIController {
 
 
         if (titleField) {
-            this.addAIButton(titleField, 'title', 'AI-förbättra titel');
+            this.addAIButton(titleField, 'title', 'Förbättra titel');
         }
         if (descriptionField) {
-            this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
+            this.addAIButton(descriptionField, 'description', 'Förbättra beskrivning');
         }
         if (conditionField) {
-            this.addAIButton(conditionField, 'condition', 'AI-förbättra kondition');
+            this.addAIButton(conditionField, 'condition', 'Förbättra kondition');
         }
         if (keywordsField) {
-            this.addAIButton(keywordsField, 'keywords', 'AI-generera sökord');
+            this.addAIButton(keywordsField, 'keywords', 'Generera sökord');
         }
 
         // Add master "Improve All" button
@@ -71,7 +71,7 @@ export class UIController {
         indicator.className = 'quality-indicator';
         indicator.innerHTML = `
       <div class="quality-header">
-        <h4 class="quality-title">Katalogiseringskvalitet</h4>
+        <h4 class="quality-title">Auctionet Kvalitetskontroll</h4>
         <div class="quality-score-container">
           <span class="quality-score">Analyserar...</span>
           <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
@@ -277,7 +277,7 @@ export class UIController {
           font-size: 14px;
         }
         
-        /* AI Button Styles */
+        /* Assist Button Styles */
         .ai-button-wrapper {
           margin-top: 0px;
           display: flex;
@@ -596,7 +596,7 @@ export class UIController {
             // For "all" - show loading on master button AND all individual fields
             const masterButton = document.querySelector('.ai-master-button');
             if (masterButton) {
-                masterButton.textContent = '🧠 AI arbetar...';
+                masterButton.textContent = '⏳ Kontrollerar...';
                 masterButton.disabled = true;
                 masterButton.style.opacity = '0.7';
             }
@@ -664,7 +664,7 @@ export class UIController {
         overlay.dataset.fieldType = fieldType;
         overlay.innerHTML = `
       <div class="ai-spinner"></div>
-      <div class="ai-processing-text">AI förbättrar...</div>
+      <div class="ai-processing-text">Förbättrar...</div>
     `;
 
         const fieldRect = targetField.getBoundingClientRect();
@@ -748,7 +748,7 @@ export class UIController {
             }
         }
 
-        alert(`Fel vid AI-förbättring av ${fieldType}: ${message}`);
+        alert(`Fel vid förbättring av ${fieldType}: ${message}`);
     }
 
     addUndoButton(field) {
@@ -801,7 +801,7 @@ export class UIController {
                 'keywords': 'sökord'
             };
 
-            const enhancementNote = `AI-förbättring ${fieldNames[fieldType]} (${timestamp})`;
+            const enhancementNote = `Auctionet-förbättring ${fieldNames[fieldType]} (${timestamp})`;
 
             if (!currentComments.includes(enhancementNote)) {
                 const newComments = currentComments ?
@@ -831,7 +831,23 @@ export class UIController {
                     field.dataset.originalValue = field.value;
                 }
 
-                field.value = value;
+                // For keywords: merge with existing instead of replacing
+                let finalValue = value;
+                if (fieldType === 'keywords') {
+                    const existingKeywords = field.value.trim();
+                    if (existingKeywords) {
+                        const existingSet = new Set(
+                            existingKeywords.split(',').map(kw => kw.trim().toLowerCase()).filter(kw => kw.length > 0)
+                        );
+                        const newKeywords = value.split(',').map(kw => kw.trim()).filter(kw => kw.length > 0);
+                        const uniqueNew = newKeywords.filter(kw => !existingSet.has(kw.toLowerCase()));
+                        finalValue = uniqueNew.length > 0
+                            ? existingKeywords + ', ' + uniqueNew.join(', ')
+                            : existingKeywords;
+                    }
+                }
+
+                field.value = finalValue;
                 field.dispatchEvent(new Event('change', { bubbles: true }));
                 field.classList.add('ai-updated');
 
@@ -863,7 +879,7 @@ export class UIController {
       <div class="dialog-overlay"></div>
       <div class="dialog-content">
         <h3>Mer information behövs för optimal katalogisering</h3>
-        <p>För att undvika felaktiga antaganden och skapa en professionell katalogisering behöver AI:n mer specifik information. Vänligen ange följande:</p>
+        <p>För att skapa en professionell katalogisering enligt Auctionets riktlinjer behövs mer specifik information. Vänligen ange följande:</p>
         
         <div class="info-request-form">
           <div class="form-group">
@@ -982,8 +998,8 @@ export class UIController {
         dialog.innerHTML = `
       <div class="dialog-overlay"></div>
       <div class="dialog-content">
-        <h3>🤖 Behöver mer information för ${fieldName}</h3>
-        <p>För att undvika felaktiga uppgifter behöver AI:n mer detaljerad information innan ${fieldName} kan förbättras säkert.</p>
+        <h3>📋 Behöver mer information för ${fieldName}</h3>
+        <p>Enligt Auctionets kvalitetskrav behövs mer detaljerad information innan ${fieldName} kan förbättras.</p>
         
         <div class="missing-info">
           <h4>Lägg till information om:</h4>
@@ -1052,14 +1068,14 @@ export class UIController {
                 return `
           <div class="field-tips">
             <h4>💡 Tips för bättre titel:</h4>
-            <p>Lägg till information i beskrivningen om material, teknik och tidsperiod så kan AI:n skapa en mer exakt titel enligt Auctionets standarder.</p>
+            <p>Lägg till information i beskrivningen om material, teknik och tidsperiod för en mer exakt titel enligt Auctionets standarder.</p>
           </div>
         `;
             case 'description':
                 return `
           <div class="field-tips">
             <h4>💡 Tips för bättre beskrivning:</h4>
-            <p>Inkludera mått, material, tillverkningsteknik och eventuell signering eller märkning. Detta hjälper AI:n att skapa en professionell beskrivning.</p>
+            <p>Inkludera mått, material, tillverkningsteknik och eventuell signering eller märkning för en professionell beskrivning.</p>
           </div>
         `;
             case 'condition':
@@ -1079,14 +1095,14 @@ export class UIController {
                 return `
           <div class="field-tips">
             <h4>💡 Tips för bättre nyckelord:</h4>
-            <p>Mer detaljerad information i titel och beskrivning hjälper AI:n att generera relevanta sökord som inte bara upprepar befintlig text.</p>
+            <p>Mer detaljerad information i titel och beskrivning ger bättre sökord som inte bara upprepar befintlig text.</p>
           </div>
         `;
             case 'all':
                 return `
           <div class="field-tips">
             <h4>💡 Tips för bättre katalogisering:</h4>
-            <p>Lägg till mer specifik information i beskrivningen så kan AI:n förbättra alla fält mer exakt och undvika att gissa.</p>
+            <p>Lägg till mer specifik information i beskrivningen för bättre resultat vid förbättring av alla fält.</p>
           </div>
         `;
             default:

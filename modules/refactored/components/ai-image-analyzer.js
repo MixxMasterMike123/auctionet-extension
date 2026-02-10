@@ -1028,7 +1028,7 @@ INSTRUKTIONER:
     return `
       <div class="ai-image-analyzer ai-image-analyzer--multiple" id="${containerId}">
         <div class="ai-image-analyzer__header">
-          <h4>📸 Ladda upp bilder för AI-analys</h4>
+          <h4>📸 Ladda upp bilder för analys</h4>
           <p>Minimum ${config.minImages} bilder krävs (framsida + baksida). Fler bilder ger bättre analys.</p>
           <small>Stödda format: JPG, PNG, WebP • Max storlek: 10MB per bild</small>
         </div>
@@ -1092,7 +1092,7 @@ INSTRUKTIONER:
           <div class="ai-image-analyzer__processing" id="${containerId}-processing" style="display: none;">
             <div class="ai-image-analyzer__spinner"></div>
             <div class="ai-image-analyzer__processing-text">
-              <h4>🤖 AI analyserar bilderna...</h4>
+              <h4>🔍 Analyserar bilderna...</h4>
               <p>Detta kan ta upp till 60 sekunder för flera bilder</p>
               <div class="ai-image-analyzer__processing-progress" id="${containerId}-processing-progress"></div>
             </div>
@@ -1123,7 +1123,7 @@ INSTRUKTIONER:
           <div class="ai-image-analyzer__upload-zone" id="${containerId}-drop-zone">
             <div class="ai-image-analyzer__upload-icon">📸</div>
             <div class="ai-image-analyzer__upload-text">
-              <h4>Ladda upp bild för AI-analys</h4>
+              <h4>Ladda upp bild för analys</h4>
               <p>Dra och släpp bild här eller klicka för att välja</p>
               <small>Stödda format: JPG, PNG, WebP • Max storlek: 10MB</small>
             </div>
@@ -1156,7 +1156,7 @@ INSTRUKTIONER:
           <div class="ai-image-analyzer__processing" id="${containerId}-processing" style="display: none;">
             <div class="ai-image-analyzer__spinner"></div>
             <div class="ai-image-analyzer__processing-text">
-              <h4>🤖 AI analyserar bilden...</h4>
+              <h4>🔍 Analyserar bilden...</h4>
               <p>Detta kan ta upp till 30 sekunder</p>
             </div>
           </div>
@@ -1551,7 +1551,7 @@ INSTRUKTIONER:
       
       ${analysis.reasoning ? `
         <div class="ai-image-analyzer__reasoning">
-          <h5>🤖 AI-analys:</h5>
+          <h5>🔍 Bildanalys:</h5>
           <p><em>${this.escapeHtml(analysis.reasoning)}</em></p>
         </div>
       ` : ''}

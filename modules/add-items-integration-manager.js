@@ -46,17 +46,17 @@ export class AddItemsIntegrationManager {
 
 
     if (titleField) {
-      this.addAIButton(titleField, 'title', 'AI-förbättra titel');
+      this.addAIButton(titleField, 'title', 'Förbättra titel');
       this.addAIButton(titleField, 'title-correct', 'AI-korrigera stavning');
     }
     if (descriptionField) {
-      this.addAIButton(descriptionField, 'description', 'AI-förbättra beskrivning');
+      this.addAIButton(descriptionField, 'description', 'Förbättra beskrivning');
     }
     if (conditionField) {
-      this.addAIButton(conditionField, 'condition', 'AI-förbättra kondition');
+      this.addAIButton(conditionField, 'condition', 'Förbättra kondition');
     }
     if (keywordsField) {
-      this.addAIButton(keywordsField, 'keywords', 'AI-generera sökord');
+      this.addAIButton(keywordsField, 'keywords', 'Generera sökord');
     }
 
     // Add quality indicator with master button
@@ -98,7 +98,7 @@ export class AddItemsIntegrationManager {
     indicator.className = 'quality-indicator';
     indicator.innerHTML = `
       <div class="quality-header">
-        <h4 class="quality-title">Katalogiseringskvalitet</h4>
+        <h4 class="quality-title">Auctionet Kvalitetskontroll</h4>
         <div class="quality-score-container">
           <span class="quality-score">Analyserar...</span>
           <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
@@ -411,14 +411,14 @@ export class AddItemsIntegrationManager {
     
     // Reset to original text
     const originalTexts = {
-      title: 'AI-förbättra titel',
-      description: 'AI-förbättra beskrivning',
-      condition: 'AI-förbättra kondition',
-      keywords: 'AI-generera sökord',
+      title: 'Förbättra titel',
+      description: 'Förbättra beskrivning',
+      condition: 'Förbättra kondition',
+      keywords: 'Generera sökord',
       all: '⚡ Förbättra alla'
     };
     
-    button.textContent = originalTexts[fieldType] || 'AI-förbättra';
+    button.textContent = originalTexts[fieldType] || 'Förbättra';
   }
 
   /**
