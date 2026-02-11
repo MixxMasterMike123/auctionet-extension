@@ -548,7 +548,7 @@ BESKRIVNING FÖR MÖBLER:
 • Skriv ALLTID ut träslag i beskrivningen (om känt/angivet) — särskilt om det togs bort från titeln
 • Träslaget ska stå FÖRST i beskrivningen
 • Var försiktig med träslag — om osäker, nämn det inte alls (undvik reklamationer)
-• Mått anges SIST i beskrivningen: "Längd 84, bredd 47, höjd 92 cm"
+• Mått anges SIST i beskrivningen: "Längd 84 cm, bredd 47 cm, höjd 92 cm"
 
 ANTI-HALLUCINATION FÖR MÖBLER:
 • Lägg ALDRIG till träslag som inte är angivet i källan
@@ -995,7 +995,7 @@ MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
 • Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
 • KRITISKT: Denna regel gäller ALLA kategorier — möbler, konst, kameror, keramik, glas, allt!
-• Format för möbler: "Längd 84, bredd 47, höjd 92 cm" (cm bara efter sista måttet)
+• Format för möbler: "Längd 84 cm, bredd 47 cm, höjd 92 cm" (cm efter VARJE mått)
 • Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
 • Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
 • Små föremål: ett mått räcker (höjd eller diameter)
@@ -1198,7 +1198,7 @@ MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
 • Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
 • KRITISKT: Denna regel gäller ALLA kategorier — möbler, konst, kameror, keramik, glas, allt!
-• Format för möbler: "Längd 84, bredd 47, höjd 92 cm" (cm bara efter sista måttet)
+• Format för möbler: "Längd 84 cm, bredd 47 cm, höjd 92 cm" (cm efter VARJE mått)
 • Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
 • Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
 • Små föremål: ett mått räcker (höjd eller diameter)

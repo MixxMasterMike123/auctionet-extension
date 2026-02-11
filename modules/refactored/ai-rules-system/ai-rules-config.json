@@ -98,7 +98,7 @@
       },
       "descriptionRules": {
         "woodTypeInDescription": true,
-        "measurementFormat": "Längd X, bredd Y, höjd Z cm",
+        "measurementFormat": "Längd X cm, bredd Y cm, höjd Z cm",
         "measurementPosition": "last"
       },
       "antiHallucination": [
@@ -211,7 +211,7 @@
       "measurementFormatting": {
         "positionLast": true,
         "exceptions": ["taklampor", "mattor"],
-        "furnitureFormat": "Längd X, bredd Y, höjd Z cm",
+        "furnitureFormat": "Längd X cm, bredd Y cm, höjd Z cm",
         "roundFormat": "Diameter X cm, höjd Y cm",
         "artFormat": "heightFirst, withoutFrame, 45 x 78 cm",
         "ringsOnlySize": true,
