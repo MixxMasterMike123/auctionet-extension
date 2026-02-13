@@ -1,4 +1,6 @@
 // popup.js - Popup interface for API key management and status
+const escapeHTML = s => s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 document.addEventListener('DOMContentLoaded', async () => {
   const apiKeyInput = document.getElementById('api-key');
   const saveButton = document.getElementById('save-key');
@@ -180,7 +182,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function showStatus(message, type) {
-    statusContainer.innerHTML = `<div class="status ${type}">${message}</div>`;
+    statusContainer.innerHTML = `<div class="status ${escapeHTML(type)}">${escapeHTML(message)}</div>`;
     
     // Auto-clear success messages after 3 seconds
     if (type === 'success') {

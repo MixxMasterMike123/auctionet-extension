@@ -1,4 +1,6 @@
 // modules/ui-manager.js - UI Management Module
+import { escapeHTML } from './core/html-escape.js';
+
 export class UIManager {
   constructor(apiManager, qualityAnalyzer) {
     this.apiManager = apiManager;
@@ -648,7 +650,7 @@ export class UIManager {
     
     // Handle header-only warnings (like the API data header)
     if (warning.severity === 'header') {
-      warningDiv.innerHTML = `<strong>${warning.field}</strong>`;
+      warningDiv.innerHTML = `<strong>${escapeHTML(warning.field)}</strong>`;
       return warningDiv;
     }
     
@@ -656,16 +658,16 @@ export class UIManager {
     if (warning.field && warning.issue) {
       warningDiv.innerHTML = `
         <div style="display: flex; align-items: flex-start; gap: 8px;">
-          <strong style="min-width: 120px; font-size: 12px; opacity: 0.8;">${warning.field}:</strong>
-          <span style="flex: 1;">${warning.issue}</span>
+          <strong style="min-width: 120px; font-size: 12px; opacity: 0.8;">${escapeHTML(warning.field)}:</strong>
+          <span style="flex: 1;">${escapeHTML(warning.issue)}</span>
         </div>
       `;
     } else if (warning.issue) {
       // Issue only (for market data)
-      warningDiv.innerHTML = warning.issue;
+      warningDiv.innerHTML = escapeHTML(warning.issue);
     } else if (warning.field) {
       // Field only (for headers)
-      warningDiv.innerHTML = `<strong>${warning.field}</strong>`;
+      warningDiv.innerHTML = `<strong>${escapeHTML(warning.field)}</strong>`;
     }
     
     return warningDiv;

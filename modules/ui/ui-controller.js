@@ -2,6 +2,7 @@
  * UI Controller Module
  * Handles UI injection, event listeners, and UI updates for Auctionet Extension
  */
+import { escapeHTML } from '../core/html-escape.js';
 
 export class UIController {
     constructor(callbacks = {}) {
@@ -519,7 +520,7 @@ export class UIController {
                         if (w.interactive && w.severity === 'artist-detection') {
                             return this.createArtistDetectionWarning(w);
                         } else {
-                            return `<li class="warning-${w.severity}"><strong>${w.field}:</strong> ${w.issue}</li>`;
+                            return `<li class="warning-${escapeHTML(w.severity)}"><strong>${escapeHTML(w.field)}:</strong> ${escapeHTML(w.issue)}</li>`;
                         }
                     }).join('') +
                     '</ul>';
@@ -538,19 +539,19 @@ export class UIController {
         return `
       <li class="warning-artist-detection">
         <div class="artist-detection-header">
-          <strong>🎨 ${warning.field}:</strong> ${warning.issue}
+          <strong>🎨 ${escapeHTML(warning.field)}:</strong> ${escapeHTML(warning.issue)}
           <span class="confidence-badge">${confidence}% säkerhet</span>
         </div>
         <div class="artist-detection-body">
-          ${artistData.reasoning ? `<p class="artist-reasoning">${artistData.reasoning}</p>` : ''}
+          ${artistData.reasoning ? `<p class="artist-reasoning">${escapeHTML(artistData.reasoning)}</p>` : ''}
           <div class="artist-actions">
-            <button class="btn-artist-move" data-artist="${artistData.detectedArtist}" data-suggested-title="${artistData.suggestedTitle || ''}">
+            <button class="btn-artist-move" data-artist="${escapeHTML(artistData.detectedArtist)}" data-suggested-title="${escapeHTML(artistData.suggestedTitle || '')}">
               📝 Flytta till konstnärsfält
             </button>
-            <button class="btn-artist-bio" data-artist="${artistData.detectedArtist}">
+            <button class="btn-artist-bio" data-artist="${escapeHTML(artistData.detectedArtist)}">
               ℹ️ Visa biografi
             </button>
-            <button class="btn-artist-ignore" data-artist="${artistData.detectedArtist}">
+            <button class="btn-artist-ignore" data-artist="${escapeHTML(artistData.detectedArtist)}">
               ❌ Ignorera
             </button>
           </div>
@@ -998,13 +999,13 @@ export class UIController {
         dialog.innerHTML = `
       <div class="dialog-overlay"></div>
       <div class="dialog-content">
-        <h3>📋 Behöver mer information för ${fieldName}</h3>
-        <p>Enligt Auctionets kvalitetskrav behövs mer detaljerad information innan ${fieldName} kan förbättras.</p>
+        <h3>📋 Behöver mer information för ${escapeHTML(fieldName)}</h3>
+        <p>Enligt Auctionets kvalitetskrav behövs mer detaljerad information innan ${escapeHTML(fieldName)} kan förbättras.</p>
         
         <div class="missing-info">
           <h4>Lägg till information om:</h4>
           <ul>
-            ${missingInfo.map(info => `<li>${infoMessages[info] || info}</li>`).join('')}
+            ${missingInfo.map(info => `<li>${escapeHTML(infoMessages[info] || info)}</li>`).join('')}
           </ul>
         </div>
         
@@ -1117,11 +1118,11 @@ export class UIController {
         modal.innerHTML = `
       <div class="artist-bio-modal">
         <div class="artist-bio-header">
-          <h3>🎨 ${artistName}</h3>
+          <h3>🎨 ${escapeHTML(artistName)}</h3>
           <button class="close-bio-modal">&times;</button>
         </div>
         <div class="artist-bio-content">
-          <p>${biography}</p>
+          <p>${escapeHTML(biography)}</p>
           <div class="bio-actions">
             <button class="btn-add-bio-to-description">📝 Lägg till i beskrivning</button>
             <button class="btn-close-bio">Stäng</button>

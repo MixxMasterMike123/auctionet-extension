@@ -2,6 +2,7 @@
 // Real-time brand validation with in-field highlighting and correction tooltips
 
 import { SwedishSpellChecker } from './swedish-spellchecker.js';
+import { escapeHTML } from './core/html-escape.js';
 
 export class InlineBrandValidator {
   constructor(brandValidationManager = null) {
@@ -274,8 +275,8 @@ export class InlineBrandValidator {
       </div>
       <div class="tooltip-content">
         <div class="correction-text">
-          "${original}" → föreslår "<strong>${suggested}</strong>" 
-          <br><small>(${confidence}% säkerhet, ${categoryText})</small>
+          "${escapeHTML(original)}" → föreslår "<strong>${escapeHTML(suggested)}</strong>" 
+          <br><small>(${confidence}% säkerhet, ${escapeHTML(categoryText)})</small>
         </div>
         <button class="correction-button" onclick="this.closest('.brand-correction-tooltip').dispatchEvent(new CustomEvent('correct'))">
           Uppdatera
@@ -358,7 +359,7 @@ export class InlineBrandValidator {
   // Show success animation
   showSuccessAnimation(field, message) {
     const successDiv = document.createElement('div');
-    successDiv.innerHTML = `✓ ${message}`;
+    successDiv.innerHTML = `✓ ${escapeHTML(message)}`;
     successDiv.style.cssText = `
       position: fixed;
       left: ${field.getBoundingClientRect().left}px;
