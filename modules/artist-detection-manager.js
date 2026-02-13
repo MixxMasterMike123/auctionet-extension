@@ -164,14 +164,10 @@ export class ArtistDetectionManager {
           return null;
         } else {
     
-          // AI successfully responded but found no artist - don't fall back to rules
-          return null;
+          // AI successfully responded but found no artist
+          // Allow rule-based fallback for obvious patterns (e.g. "CARL MALMSTEN. rest...")
+          // that the AI might miss (furniture designers, etc.)
         }
-      }
-      
-      // ONLY fall back to rules if there was an actual API error
-       else {
-        return null;
       }
     }
 
@@ -186,7 +182,7 @@ export class ArtistDetectionManager {
       };
     }
 
-    // Fallback to full rule-based detection ONLY if AI had an error
+    // Fallback to rule-based detection (AI error OR AI found no artist)
     const ruleResult = this.detectMisplacedArtistRuleBased(title, artistField);
     
     if (ruleResult && forceReDetection) {

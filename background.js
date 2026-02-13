@@ -23,6 +23,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle async operation properly
     handleAnthropicRequest(request, sendResponse);
     return true; // Keep the message channel open for sendResponse
+  } else if (request.type === 'wikipedia-fetch') {
+    handleWikipediaRequest(request, sendResponse);
+    return true;
   } else if (request.type === 'ping') {
     sendResponse({ success: true, message: 'pong' });
     return false;
@@ -85,6 +88,55 @@ async function handleAnthropicRequest(request, sendResponse) {
     
   } catch (error) {
     console.error('Background script error:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleWikipediaRequest(request, sendResponse) {
+  try {
+    const artistName = request.artistName;
+    if (!artistName) {
+      sendResponse({ success: false, error: 'Artist name required' });
+      return;
+    }
+
+    const encodedName = encodeURIComponent(artistName.replace(/\s+/g, '_'));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    // Try Swedish Wikipedia first, then English
+    const wikis = [
+      `https://sv.wikipedia.org/api/rest_v1/page/summary/${encodedName}`,
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodedName}`
+    ];
+
+    for (const url of wikis) {
+      try {
+        const response = await fetch(url, {
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.thumbnail?.source) {
+            clearTimeout(timeoutId);
+            sendResponse({
+              success: true,
+              imageUrl: data.thumbnail.source,
+              description: data.extract || null,
+              pageUrl: data.content_urls?.desktop?.page || null
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        // Try next wiki
+      }
+    }
+
+    clearTimeout(timeoutId);
+    sendResponse({ success: true, imageUrl: null });
+  } catch (error) {
     sendResponse({ success: false, error: error.message });
   }
 }

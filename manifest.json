@@ -10,7 +10,9 @@
   ],
   "host_permissions": [
     "https://auctionet.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.anthropic.com/*",
+    "https://*.wikipedia.org/*",
+    "https://upload.wikimedia.org/*"
   ],
   "content_scripts": [
     {

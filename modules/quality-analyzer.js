@@ -261,6 +261,9 @@ export class QualityAnalyzer {
     const warnings = [];
     let score = 100;
 
+    // --- Artist field bio hover (reference guide for filled artist field) ---
+    this.setupArtistFieldBioHover(data.artist);
+
     // --- Bevakningspris vs Värdering validation (Auctionet rule: reserve must NEVER equal or exceed estimate) ---
     const estimateVal = parseFloat(data.estimate);
     const reserveVal = parseFloat(data.reserve || data.acceptedReserve);
@@ -286,30 +289,6 @@ export class QualityAnalyzer {
       noRemarksChecked = noRemarksCheckbox && noRemarksCheckbox.checked;
     } catch (error) {
       // Optional checkbox - no logging needed
-    }
-
-    // --- Quick rule-based artist-in-title check (synchronous, no AI dependency) ---
-    if (!data.artist || !data.artist.trim()) {
-      // Artist field is empty — check if title starts with "ARTIST NAME. rest..."
-      const quickArtistPattern = /^([A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+\s+[A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+(?:\s+[A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+)?)\.\s+(.+)/;
-      const quickArtistMatch = data.title.match(quickArtistPattern);
-      if (quickArtistMatch) {
-        const potentialName = quickArtistMatch[1].trim();
-        const nameWords = potentialName.split(/\s+/);
-        // Must be 2-3 words, each at least 2 chars, and not a common object type
-        const objectTypes = ['art deco', 'art nouveau', 'carl johan', 'gustav iii', 'louis philippe'];
-        const isNotObject = !objectTypes.includes(potentialName.toLowerCase());
-        if (nameWords.length >= 2 && nameWords.length <= 3 && nameWords.every(w => w.length >= 2) && isNotObject) {
-          warnings.push({
-            field: 'Konstnär',
-            issue: `"${potentialName}" verkar vara en konstnär/formgivare — flytta till konstnärsfältet`,
-            severity: 'high',
-            source: 'faq',
-            fieldId: 'item_artist_name_sv'
-          });
-          score -= 15;
-        }
-      }
     }
 
     // Title quality checks (aggressively softened: 20 → 14)
@@ -1296,6 +1275,50 @@ export class QualityAnalyzer {
     });
   }
 
+  /**
+   * Add a small "(i) visa biografi" link next to the artist field when it has a value.
+   * Hovering shows the KB card as a reference guide.
+   */
+  setupArtistFieldBioHover(artistName) {
+    if (!artistName || !artistName.trim()) {
+      // Remove existing bio link if artist field was cleared
+      const existing = document.querySelector('.artist-field-bio-link');
+      if (existing) existing.remove();
+      return;
+    }
+
+    const artistField = document.querySelector('#item_artist_name_sv') ||
+      document.querySelector('input[name*="artist"]');
+    if (!artistField) return;
+
+    // Don't add duplicate — check if already exists for this artist
+    const existing = document.querySelector('.artist-field-bio-link');
+    if (existing) {
+      if (existing.dataset.artist === artistName.trim()) return; // Same artist, keep it
+      existing.remove(); // Different artist, replace
+    }
+
+    const bioLink = document.createElement('span');
+    bioLink.className = 'artist-field-bio-link';
+    bioLink.dataset.artist = artistName.trim();
+    bioLink.textContent = 'visa biografi';
+    bioLink.style.cssText = `
+      font-size: 12px;
+      color: #1976d2;
+      cursor: pointer;
+      margin-left: 8px;
+      font-style: italic;
+      position: relative;
+      user-select: none;
+    `;
+
+    // Add the bio hover using the same KB card system
+    this.addBiographyHover(bioLink, artistName.trim());
+
+    // Insert after the artist field
+    artistField.parentNode.insertBefore(bioLink, artistField.nextSibling);
+  }
+
   // NEW: Setup ignore button handlers for artist detections
   setupIgnoreArtistHandlers() {
     // Find artist warnings by their data attribute
@@ -1324,10 +1347,10 @@ export class QualityAnalyzer {
         clickableSpan.style.color = '#1976d2';
         clickableSpan.style.textDecoration = 'underline';
         clickableSpan.style.position = 'relative';
-        clickableSpan.title = `Klicka för att flytta "${artistName}" till konstnärsfält. Håll muspekaren över för biografi.`;
+        clickableSpan.title = `Klicka för att flytta "${artistName}" till konstnärsfält`;
 
-        // Add biography hover functionality
-        this.addBiographyHover(clickableSpan, artistName);
+        // Add biography hover functionality (pass warningData for existing bio fallback)
+        this.addBiographyHover(clickableSpan, artistName, warningData);
 
         // NEW: Use Biography Manager SSoT component for biography handling
         let biographySpan = null;
@@ -1337,12 +1360,31 @@ export class QualityAnalyzer {
           biographySpan = this.biographyManager.createBiographySnippet(null, biography, artistName);
         }
 
+        // Create discoverability cue for biography hover
+        const bioCue = document.createElement('span');
+        bioCue.textContent = ' (visa biografi)';
+        bioCue.style.cssText = `
+          font-size: 0.85em;
+          color: #888;
+          font-style: italic;
+          font-weight: normal;
+          cursor: pointer;
+        `;
+        bioCue.addEventListener('mouseenter', () => {
+          // Trigger hover on the clickable span to show bio tooltip
+          clickableSpan.dispatchEvent(new Event('mouseenter'));
+        });
+        bioCue.addEventListener('mouseleave', () => {
+          clickableSpan.dispatchEvent(new Event('mouseleave'));
+        });
+
         // Replace the quoted artist name in the text with the clickable element
         const textParts = originalText.split(`"${artistName}"`);
         if (textParts.length === 2) {
           issueSpan.innerHTML = '';
           issueSpan.appendChild(document.createTextNode(textParts[0]));
           issueSpan.appendChild(clickableSpan);
+          issueSpan.appendChild(bioCue);
           issueSpan.appendChild(document.createTextNode(textParts[1]));
 
           // Add biography snippet on new line if it exists
@@ -3220,60 +3262,144 @@ Anpassa förslagen till kategorin "${category}".`,
   /**
    * Add biography hover functionality to an element
    */
-  addBiographyHover(element, artistName) {
-    let biographyTooltip = null;
-    let hoverTimeout = null;
+  addBiographyHover(element, artistName, warningData = null) {
+    let kbCard = null;
+    let dataLoaded = false;
+    let hideTimeout = null;
+    let isHoveringTrigger = false;
+    let isHoveringCard = false;
+
+    // Extract any existing biography from the detection pipeline
+    let existingBio = null;
+    if (warningData?.verification?.biography) {
+      existingBio = warningData.verification.biography;
+    } else if (warningData?.verification?.promise) {
+      warningData.verification.promise.then(result => {
+        if (result?.biography) existingBio = result.biography;
+      }).catch(() => {});
+    }
+
+    const positionCard = () => {
+      if (!kbCard) return;
+      const rect = element.getBoundingClientRect();
+      const cardWidth = 300;
+      let left = rect.left + rect.width / 2 - cardWidth / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - cardWidth - 8));
+      kbCard.style.left = `${left}px`;
+      kbCard.style.top = `${rect.bottom + 8}px`;
+    };
+
+    const showCard = () => {
+      if (!kbCard) return;
+      if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+      positionCard();
+      kbCard.style.opacity = '1';
+      kbCard.style.visibility = 'visible';
+      kbCard.style.transform = 'translateY(0) scale(1)';
+      kbCard.style.pointerEvents = 'auto';
+    };
+
+    const scheduleHide = () => {
+      if (hideTimeout) clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        if (!isHoveringTrigger && !isHoveringCard && kbCard) {
+          kbCard.style.opacity = '0';
+          kbCard.style.visibility = 'hidden';
+          kbCard.style.transform = 'translateY(6px) scale(0.96)';
+          kbCard.style.pointerEvents = 'none';
+        }
+      }, 150);
+    };
+
+    const setupCardHover = () => {
+      if (!kbCard || kbCard.dataset.hoverBound) return;
+      kbCard.dataset.hoverBound = 'true';
+      kbCard.addEventListener('mouseenter', () => {
+        isHoveringCard = true;
+        if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+      });
+      kbCard.addEventListener('mouseleave', () => {
+        isHoveringCard = false;
+        scheduleHide();
+      });
+    };
 
     element.addEventListener('mouseenter', async () => {
-      // Clear any existing timeout
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
+      isHoveringTrigger = true;
+
+      // If card exists and data is loaded, just show it
+      if (kbCard && dataLoaded) {
+        showCard();
+        return;
       }
 
-      // Delay showing tooltip to avoid flickering
-      hoverTimeout = setTimeout(async () => {
-        try {
-          // Check if tooltip already exists
-          if (biographyTooltip) {
-            biographyTooltip.style.display = 'block';
-            return;
-          }
+      // Create and show KB card with loading spinner
+      if (!kbCard) {
+        kbCard = this.createKBCard(artistName);
+        setupCardHover();
+      }
+      showCard();
 
-          // Fetch biography
-          const biography = await this.fetchArtistBiography(artistName);
-          if (biography) {
-            // Create tooltip
-            biographyTooltip = this.createBiographyTooltip(element, artistName, biography);
-          }
-        } catch (error) {
+      // Fetch bio + Wikipedia image in parallel
+      try {
+        const [bioData, imageUrl] = await Promise.all([
+          this.fetchArtistBiography(artistName),
+          this.fetchWikipediaImage(artistName)
+        ]);
+        dataLoaded = true;
+
+        let finalBioData = bioData;
+        if (!finalBioData && existingBio) {
+          finalBioData = {
+            years: null,
+            biography: existingBio,
+            style: [],
+            notableWorks: []
+          };
         }
-      }, 800); // 800ms delay before showing
+
+        this.updateKBCard(kbCard, finalBioData, imageUrl);
+      } catch (error) {
+        dataLoaded = true;
+        if (existingBio) {
+          this.updateKBCard(kbCard, { years: null, biography: existingBio, style: [], notableWorks: [] }, null);
+        } else {
+          this.updateKBCard(kbCard, null, null);
+        }
+      }
     });
 
     element.addEventListener('mouseleave', () => {
-      // Clear timeout
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-      }
-
-      // Hide tooltip with delay
-      setTimeout(() => {
-        if (biographyTooltip) {
-          biographyTooltip.style.display = 'none';
-        }
-      }, 200);
+      isHoveringTrigger = false;
+      scheduleHide();
     });
   }
 
   /**
-   * Fetch artist biography (separate from modal version)
+   * Fetch structured artist biography for KB card
+   * Returns: { years, biography, style, notableWorks } or null
    */
   async fetchArtistBiography(artistName) {
     if (!this.apiManager?.apiKey) {
       return null;
     }
 
-    const prompt = `Skriv en mycket kort biografi (max 100 ord) på svenska om konstnären "${artistName}". Fokusera på födelse/död, stil och 1-2 kända verk. Svara endast med biografin.`;
+    const prompt = `Konstnär/formgivare: "${artistName}"
+
+Svara med JSON (på svenska):
+{
+  "years": "födelseår–dödsår eller födelseår–",
+  "biography": "kort biografi, max 80 ord",
+  "style": ["stilriktning1", "stilriktning2"],
+  "notableWorks": ["verk1", "verk2", "verk3"]
+}
+
+Regler:
+- years: t.ex. "1888–1972" eller "1945–"
+- biography: fokusera på karriär och betydelse
+- style: max 3 stilar/material/perioder
+- notableWorks: max 3 kända verk med årtal om känt
+- Om okänd konstnär, returnera null`;
 
     try {
       const response = await new Promise((resolve, reject) => {
@@ -3281,10 +3407,10 @@ Anpassa förslagen till kategorin "${category}".`,
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-haiku-4-5', // Claude Haiku 4.5 — fast/cheap for bios
-            max_tokens: 150,
-            temperature: 0.3,
-            system: 'Du är en konstexpert. Skriv mycket korta biografier på svenska för tooltips.',
+            model: 'claude-opus-4-6', // Opus for KB bios — broader artist knowledge than Sonnet/Haiku
+            max_tokens: 250,
+            temperature: 0.2,
+            system: 'Du är en konstexpert. Svara ALLTID med valid JSON. Inga kommentarer utanför JSON.',
             messages: [{
               role: 'user',
               content: prompt
@@ -3302,7 +3428,22 @@ Anpassa förslagen till kategorin "${category}".`,
       });
 
       if (response.success && response.data?.content?.[0]?.text) {
-        return response.data.content[0].text;
+        const text = response.data.content[0].text.trim();
+        try {
+          // Try to parse JSON (handle markdown code blocks)
+          const jsonStr = text.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
+          const parsed = JSON.parse(jsonStr);
+          if (parsed === null) return null;
+          return {
+            years: parsed.years || null,
+            biography: parsed.biography || null,
+            style: Array.isArray(parsed.style) ? parsed.style : [],
+            notableWorks: Array.isArray(parsed.notableWorks) ? parsed.notableWorks : []
+          };
+        } catch (parseError) {
+          // Fallback: treat as plain text biography
+          return { years: null, biography: text, style: [], notableWorks: [] };
+        }
       }
     } catch (error) {
     }
@@ -3311,92 +3452,326 @@ Anpassa förslagen till kategorin "${category}".`,
   }
 
   /**
-   * Create biography tooltip
+   * Fetch artist image from Wikipedia (sv first, then en)
+   * Returns image URL or null
    */
-  createBiographyTooltip(parentElement, artistName, biography) {
-    const tooltip = document.createElement('div');
-    tooltip.className = 'artist-biography-tooltip';
-    tooltip.innerHTML = `
-      <div class="tooltip-header">
-        <strong>🎨 ${artistName}</strong>
+  async fetchWikipediaImage(artistName) {
+    try {
+      return await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          type: 'wikipedia-fetch',
+          artistName: artistName
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            resolve(null);
+          } else if (response?.success && response.imageUrl) {
+            resolve(response.imageUrl);
+          } else {
+            resolve(null);
+          }
+        });
+      });
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Create KB-style artist card (loading state when no data provided)
+   */
+  createKBCard(artistName) {
+    // Inject styles once
+    if (!document.querySelector('#kb-card-styles')) {
+      const style = document.createElement('style');
+      style.id = 'kb-card-styles';
+      style.textContent = `
+        .kb-card-spinner {
+          display: inline-block;
+          width: 14px;
+          height: 14px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: kbSpin 0.6s linear infinite;
+          vertical-align: middle;
+          margin-right: 8px;
+        }
+        @keyframes kbSpin {
+          to { transform: rotate(360deg); }
+        }
+        .kb-style-tag {
+          display: inline-block;
+          padding: 2px 10px;
+          border-radius: 12px;
+          font-size: 11px;
+          background: rgba(255,255,255,0.12);
+          color: rgba(255,255,255,0.85);
+          margin: 0 4px 4px 0;
+          letter-spacing: 0.3px;
+        }
+        .kb-notable-item {
+          padding: 2px 0;
+          font-size: 11.5px;
+          color: rgba(255,255,255,0.8);
+        }
+        .kb-notable-item::before {
+          content: "\\2022";
+          margin-right: 6px;
+          color: rgba(255,255,255,0.4);
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const initials = artistName.split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+    const card = document.createElement('div');
+    card.className = 'artist-kb-card';
+
+    card.innerHTML = `
+      <div class="kb-photo-area">
+        <div class="kb-avatar">${initials}</div>
       </div>
-      <div class="tooltip-content">
-        ${biography}
+      <div class="kb-header">
+        <div class="kb-name">${artistName}</div>
+        <div class="kb-years"></div>
       </div>
+      <div class="kb-bio">
+        <span class="kb-card-spinner"></span> Letar information...
+      </div>
+      <div class="kb-tags"></div>
+      <div class="kb-works"></div>
     `;
 
-    // Style the tooltip
-    tooltip.style.cssText = `
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%) translateY(-8px);
-      background: rgba(20, 20, 30, 0.95);
-      backdrop-filter: blur(12px);
+    // Card container — fixed position, appended to body to escape stacking contexts
+    card.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      transform: translateY(6px) scale(0.96);
+      background: rgba(20, 20, 30, 0.96);
+      backdrop-filter: blur(16px);
       color: white;
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-size: 13px;
-      line-height: 1.5;
-      width: 280px;
+      padding: 16px 18px 14px;
+      border-radius: 14px;
+      width: 300px;
       white-space: normal;
       word-wrap: break-word;
-      box-shadow: 
-        0 4px 32px rgba(0, 0, 0, 0.12),
-        0 2px 8px rgba(0, 0, 0, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-      z-index: 99999;
+      box-shadow:
+        0 8px 40px rgba(0, 0, 0, 0.25),
+        0 2px 8px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      z-index: 2147483647;
       opacity: 0;
       visibility: hidden;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                  visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       pointer-events: none;
-      margin-bottom: 8px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      font-weight: 400;
       text-align: left;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.06);
     `;
 
-    const header = tooltip.querySelector('.tooltip-header');
-    header.style.cssText = `
-      margin-bottom: 8px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-      font-size: 14px;
+    // Photo area
+    const photoArea = card.querySelector('.kb-photo-area');
+    photoArea.style.cssText = `
+      text-align: center;
+      margin-bottom: 10px;
     `;
 
-    const content = tooltip.querySelector('.tooltip-content');
-    content.style.cssText = `
+    // Initials avatar (fallback)
+    const avatar = card.querySelector('.kb-avatar');
+    avatar.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4a5568, #2d3748);
+      color: rgba(255,255,255,0.7);
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      border: 2px solid rgba(255,255,255,0.1);
+    `;
+
+    // Header
+    const nameEl = card.querySelector('.kb-name');
+    nameEl.style.cssText = `
+      font-size: 15px;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 0.3px;
+    `;
+
+    const yearsEl = card.querySelector('.kb-years');
+    yearsEl.style.cssText = `
       font-size: 12px;
-      line-height: 1.4;
-      color: rgba(255, 255, 255, 0.9);
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      margin-bottom: 10px;
     `;
 
-    // Create arrow
-    const arrow = document.createElement('div');
-    arrow.style.cssText = `
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      border: 6px solid transparent;
-      border-top-color: rgba(20, 20, 30, 0.95);
-      margin-bottom: -6px;
-      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    // Bio
+    const bioEl = card.querySelector('.kb-bio');
+    bioEl.style.cssText = `
+      font-size: 12px;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 8px;
     `;
-    tooltip.appendChild(arrow);
 
-    // Add to parent and show
-    parentElement.appendChild(tooltip);
+    // Tags and works (hidden until filled)
+    card.querySelector('.kb-tags').style.cssText = 'margin-bottom: 6px;';
+    card.querySelector('.kb-works').style.cssText = 'display: none;';
 
-    // Show with animation
-    setTimeout(() => {
-      tooltip.style.opacity = '1';
-      tooltip.style.visibility = 'visible';
-      tooltip.style.transform = 'translateX(-50%) translateY(-4px)';
-    }, 100);
+    // Append to body to escape all stacking contexts
+    document.body.appendChild(card);
 
-    return tooltip;
+    return card;
+  }
+
+  /**
+   * Update KB card with fetched data (bio + image)
+   */
+  updateKBCard(card, bioData, imageUrl) {
+    if (!card) return;
+
+    // Update image (skip if already loaded)
+    const photoArea = card.querySelector('.kb-photo-area');
+    if (imageUrl && photoArea && !photoArea.querySelector('img')) {
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.alt = '';
+      img.style.cssText = `
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(255,255,255,0.15);
+      `;
+      img.onerror = () => { /* Keep initials avatar on error */ };
+      img.onload = () => {
+        // Remove any existing images to prevent duplicates
+        const existingImgs = photoArea.querySelectorAll('img');
+        existingImgs.forEach(i => i.remove());
+        const avatar = photoArea.querySelector('.kb-avatar');
+        if (avatar) avatar.remove();
+        photoArea.prepend(img);
+      };
+    }
+
+    if (!bioData) {
+      const bioEl = card.querySelector('.kb-bio');
+      if (bioEl) bioEl.textContent = 'Ingen information tillgänglig.';
+      return;
+    }
+
+    // Update years
+    if (bioData.years) {
+      const yearsEl = card.querySelector('.kb-years');
+      if (yearsEl) yearsEl.textContent = bioData.years;
+    }
+
+    // Update biography
+    const bioEl = card.querySelector('.kb-bio');
+    if (bioEl) {
+      bioEl.textContent = bioData.biography || 'Ingen biografi tillgänglig.';
+    }
+
+    // Update style tags
+    if (bioData.style && bioData.style.length > 0) {
+      const tagsEl = card.querySelector('.kb-tags');
+      if (tagsEl) {
+        tagsEl.innerHTML = bioData.style
+          .map(s => `<span class="kb-style-tag">${s}</span>`)
+          .join('');
+      }
+    }
+
+    // Update notable works
+    if (bioData.notableWorks && bioData.notableWorks.length > 0) {
+      const worksEl = card.querySelector('.kb-works');
+      if (worksEl) {
+        worksEl.style.display = 'block';
+        worksEl.style.cssText += `
+          margin-top: 6px;
+          padding-top: 8px;
+          border-top: 1px solid rgba(255,255,255,0.1);
+        `;
+        worksEl.innerHTML = `
+          <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Kända verk</div>
+          ${bioData.notableWorks.map(w => `<div class="kb-notable-item">${w}</div>`).join('')}
+        `;
+      }
+    }
+
+    // Add "Lägg till biografi i beskrivning" button if we have bio text
+    if (bioData.biography && !card.querySelector('.kb-add-bio-btn')) {
+      const btnArea = document.createElement('div');
+      btnArea.style.cssText = `
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        text-align: center;
+      `;
+
+      const btn = document.createElement('button');
+      btn.className = 'kb-add-bio-btn';
+      btn.textContent = 'Lägg till biografi i beskrivning';
+      btn.type = 'button';
+      btn.style.cssText = `
+        background: rgba(255,255,255,0.12);
+        color: rgba(255,255,255,0.9);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 8px;
+        padding: 7px 14px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        width: 100%;
+        font-family: inherit;
+      `;
+      btn.addEventListener('mouseenter', () => {
+        btn.style.background = 'rgba(255,255,255,0.2)';
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.background = 'rgba(255,255,255,0.12)';
+      });
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const descField = document.querySelector('#item_description_sv');
+        if (descField) {
+          // Build bio text to insert
+          const artistName = card.querySelector('.kb-name')?.textContent || '';
+          const years = card.querySelector('.kb-years')?.textContent || '';
+          const bioLine = years
+            ? `${artistName} (${years}). ${bioData.biography}`
+            : `${artistName}. ${bioData.biography}`;
+
+          const current = descField.value.trim();
+          descField.value = current ? `${current}\n\n${bioLine}` : bioLine;
+          descField.dispatchEvent(new Event('input', { bubbles: true }));
+
+          // Visual feedback
+          btn.textContent = 'Tillagd i beskrivning';
+          btn.style.background = 'rgba(76, 175, 80, 0.3)';
+          btn.style.borderColor = 'rgba(76, 175, 80, 0.5)';
+          btn.disabled = true;
+          setTimeout(() => {
+            btn.textContent = 'Lägg till biografi i beskrivning';
+            btn.style.background = 'rgba(255,255,255,0.12)';
+            btn.style.borderColor = 'rgba(255,255,255,0.15)';
+            btn.disabled = false;
+          }, 2000);
+        }
+      });
+
+      btnArea.appendChild(btn);
+      card.appendChild(btnArea);
+    }
   }
 
   /**
