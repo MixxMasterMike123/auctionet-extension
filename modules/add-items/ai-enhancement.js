@@ -557,21 +557,42 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
 
   parseEditPageResponse(responseText, fieldType) {
     if (fieldType === 'all') {
+      // Multi-field response: accumulate multi-line content per field
       const result = {};
       const lines = responseText.split('\n');
-      
+      let currentField = null;
+      let currentContent = [];
+
+      const fieldPatterns = [
+        { regex: /^\*?\*?TITEL\s*:?\*?\*?\s*/i, key: 'title' },
+        { regex: /^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, key: 'description' },
+        { regex: /^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i, key: 'condition' },
+        { regex: /^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, key: 'keywords' }
+      ];
+
       for (const line of lines) {
-        if (line.startsWith('TITEL:')) {
-          result.title = line.replace('TITEL:', '').trim();
-        } else if (line.startsWith('BESKRIVNING:')) {
-          result.description = line.replace('BESKRIVNING:', '').trim();
-        } else if (line.startsWith('KONDITION:')) {
-          result.condition = line.replace('KONDITION:', '').trim();
-        } else if (line.startsWith('SÖKORD:')) {
-          result.keywords = line.replace('SÖKORD:', '').trim();
+        const trimmed = line.trim();
+        const matchedPattern = fieldPatterns.find(p => trimmed.match(p.regex));
+
+        if (matchedPattern) {
+          // Save previous field
+          if (currentField && currentContent.length > 0) {
+            result[currentField] = currentContent.join('\n').trim();
+          }
+          currentField = matchedPattern.key;
+          currentContent = [trimmed.replace(matchedPattern.regex, '').trim()];
+        } else if (currentField && trimmed.length > 0) {
+          currentContent.push(line); // Keep original formatting
+        } else if (currentField && trimmed.length === 0 && currentContent.length > 0) {
+          currentContent.push(''); // Preserve blank lines (paragraph breaks)
         }
       }
-      
+
+      // Save last field
+      if (currentField && currentContent.length > 0) {
+        result[currentField] = currentContent.join('\n').trim();
+      }
+
       return result;
     } else {
       const result = {};

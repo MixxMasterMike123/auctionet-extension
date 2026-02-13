@@ -183,24 +183,41 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
       return { biography: response.trim() };
     }
 
-    // For single field requests
+    // For single field requests — use accumulator to preserve multi-line content (paragraphs)
     if (['title', 'title-correct', 'description', 'condition', 'keywords'].includes(fieldType)) {
       const result = {};
       const lines = response.split('\n');
 
-      lines.forEach(line => {
-        const trimmedLine = line.trim();
+      const fieldPatterns = [
+        { regex: /^\*?\*?TITEL\s*:?\*?\*?\s*/i, key: 'title' },
+        { regex: /^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, key: 'description' },
+        { regex: /^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i, key: 'condition' },
+        { regex: /^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, key: 'keywords' }
+      ];
 
-        if (trimmedLine.match(/^\*?\*?TITEL\s*:?\*?\*?\s*/i)) {
-          result.title = trimmedLine.replace(/^\*?\*?TITEL\s*:?\*?\*?\s*/i, '').trim();
-        } else if (trimmedLine.match(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i)) {
-          result.description = trimmedLine.replace(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, '').trim();
-        } else if (trimmedLine.match(/^\*?\*?KONDITION\s*:?\*?\*?\s*/i)) {
-          result.condition = trimmedLine.replace(/^\*?\*?KONDITION\s*:?\*?\*?\s*/i, '').trim();
-        } else if (trimmedLine.match(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i)) {
-          result.keywords = trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim();
+      let currentField = null;
+      let currentContent = [];
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        const matchedPattern = fieldPatterns.find(p => trimmed.match(p.regex));
+
+        if (matchedPattern) {
+          if (currentField && currentContent.length > 0) {
+            result[currentField] = currentContent.join('\n').trim();
+          }
+          currentField = matchedPattern.key;
+          currentContent = [trimmed.replace(matchedPattern.regex, '').trim()];
+        } else if (currentField && trimmed.length > 0) {
+          currentContent.push(line);
+        } else if (currentField && trimmed.length === 0 && currentContent.length > 0) {
+          currentContent.push(''); // Preserve paragraph breaks
         }
-      });
+      }
+
+      if (currentField && currentContent.length > 0) {
+        result[currentField] = currentContent.join('\n').trim();
+      }
 
       if (Object.keys(result).length === 0) {
         result[fieldType] = response.trim();
