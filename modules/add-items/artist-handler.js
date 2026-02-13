@@ -25,7 +25,7 @@ export class AddItemsArtistHandler {
   get fieldMappings() { return this.callbacks.getFieldMappings?.() ?? {}; }
 
   scheduleArtistDetection() {
-    if (!this.enabled || !this.apiManager?.apiKey) {
+    if (!this.enabled) {
       return;
     }
 
@@ -46,6 +46,9 @@ export class AddItemsArtistHandler {
       if (lastContent === contentKey) {
         return;
       }
+
+      // Pattern-matching detection works without an API key
+      const hasApiKey = !!this.apiManager?.apiKey;
       
       const tooltipId = 'artist-detection';
       if (this.callbacks.isTooltipActive(tooltipId) && lastContent) {
@@ -60,17 +63,17 @@ export class AddItemsArtistHandler {
         this.callbacks.dismissTooltip(tooltipId);
         
         setTimeout(() => {
-          this.analyzeArtistDetection(formData, { allowReDetection: true });
+          this.analyzeArtistDetection(formData, { allowReDetection: true, skipAI: !hasApiKey });
         }, 200);
       } else {
         this.lastAnalyzedContent.set('artist-detection', contentKey);
-        await this.analyzeArtistDetection(formData, { allowReDetection: true });
+        await this.analyzeArtistDetection(formData, { allowReDetection: true, skipAI: !hasApiKey });
       }
     }, 1500);
   }
 
   async triggerArtistDetectionOnly() {
-    if (!this.enabled || !this.apiManager?.apiKey) {
+    if (!this.enabled) {
       return;
     }
 
@@ -80,21 +83,40 @@ export class AddItemsArtistHandler {
       return;
     }
 
+    const hasApiKey = !!this.apiManager?.apiKey;
+
     try {
-      await this.analyzeArtistDetection(formData, { allowReDetection: true });
+      await this.analyzeArtistDetection(formData, { allowReDetection: true, skipAI: !hasApiKey });
     } catch (error) {
       console.error('Artist re-detection error:', error);
     }
   }
 
   async analyzeArtistDetection(formData, options = {}) {
-    if (!formData.title || formData.title.length < 15) {
+    if (!formData.title || formData.title.length < 10) {
       return;
     }
     
     const hasExistingArtist = formData.artist && formData.artist.trim().length > 2;
+
+    // Check for unknown/unidentified artist phrases in any field before running AI detection
+    if (!hasExistingArtist) {
+      const titleMatch = this.checkUnknownArtistPhrase(formData.title);
+      const descMatch = !titleMatch ? this.checkUnknownArtistPhrase(formData.description || '') : null;
+      const unknownArtistMatch = titleMatch || descMatch;
+      if (unknownArtistMatch) {
+        unknownArtistMatch.foundIn = titleMatch ? 'titeln' : 'beskrivningen';
+        this.showUnknownArtistTooltip(unknownArtistMatch, formData);
+        return; // Skip AI detection — simple pattern match is sufficient
+      }
+    }
     
     if (hasExistingArtist && !options.allowReDetection) {
+      return;
+    }
+
+    // If no API key, pattern-matching above was the only check we can do
+    if (options.skipAI) {
       return;
     }
     
@@ -201,6 +223,136 @@ export class AddItemsArtistHandler {
     }
     
     return false;
+  }
+
+  // --- Unknown/unidentified artist phrase detection ---
+
+  /**
+   * Checks if the title contains a phrase like "oidentifierad konstnär" that
+   * belongs in the artist field rather than the title.
+   * @returns {{ phrase: string, displayPhrase: string }} | null
+   */
+  checkUnknownArtistPhrase(title) {
+    const unknownArtistPhrases = [
+      'oidentifierad konstnär', 'okänd konstnär', 'okänd mästare',
+      'oidentifierad formgivare', 'okänd formgivare', 'oidentifierad upphovsman'
+    ];
+    const titleLower = title.toLowerCase();
+    const matched = unknownArtistPhrases.find(p => titleLower.includes(p));
+    if (!matched) return null;
+
+    // Capitalise for display (e.g. "Oidentifierad konstnär")
+    const displayPhrase = matched.charAt(0).toUpperCase() + matched.slice(1);
+    return { phrase: matched, displayPhrase };
+  }
+
+  /**
+   * Builds a suggested title by removing the unknown-artist phrase and tidying
+   * up leftover commas / whitespace.
+   */
+  buildCleanedTitle(title, phrase) {
+    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let cleaned = title.replace(regex, '');
+    // Collapse double commas, leading/trailing commas, extra spaces
+    cleaned = cleaned
+      .replace(/,\s*,/g, ',')
+      .replace(/^\s*,\s*/, '')
+      .replace(/\s*,\s*$/, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    return cleaned;
+  }
+
+  /**
+   * Removes the unknown-artist phrase from the description textarea and
+   * dispatches change events so the form stays in sync.
+   */
+  cleanPhraseFromDescription(phrase) {
+    const descField = document.querySelector(this.fieldMappings.description);
+    if (!descField) return;
+
+    const cleaned = this.buildCleanedTitle(descField.value, phrase);
+    if (cleaned !== descField.value) {
+      descField.value = cleaned;
+      ['input', 'change', 'blur'].forEach(evt => {
+        try { descField.dispatchEvent(new Event(evt, { bubbles: true })); } catch (_) { /* ignore */ }
+      });
+    }
+  }
+
+  /**
+   * Shows a tooltip informing the user that an unknown-artist phrase was found
+   * in the title and should be moved to the artist field.
+   */
+  showUnknownArtistTooltip({ phrase, displayPhrase, foundIn }, formData) {
+    const titleField = document.querySelector(this.fieldMappings.title);
+    if (!titleField) return;
+
+    const tooltipId = 'artist-detection'; // Reuse the same slot so it doesn't stack
+
+    // Respect recent dismissal
+    const now = Date.now();
+    const lastDismissed = this.callbacks.getLastDismissalTime(tooltipId);
+    if (lastDismissed && (now - lastDismissed) < 5000) return;
+    if (this.callbacks.isTooltipActive(tooltipId)) return;
+
+    const isInTitle = (foundIn || 'titeln') === 'titeln';
+    const suggestedTitle = isInTitle ? this.buildCleanedTitle(formData.title, phrase) : formData.title;
+
+    // Helper: move the chosen term to artist field and clean the source field
+    const applyChoice = (chosenTerm) => {
+      this.callbacks.permanentlyDisableTooltip('artist-detection', 'user_moved_artist');
+      this.moveArtistFromTitle(chosenTerm, isInTitle ? suggestedTitle : '', {});
+      if (!isInTitle) {
+        this.cleanPhraseFromDescription(phrase);
+      }
+    };
+
+    setTimeout(() => {
+      // Re-check dismissal after delay
+      const recentDismissal = this.callbacks.getLastDismissalTime(tooltipId);
+      if (recentDismissal && (Date.now() - recentDismissal) < 5000) return;
+      if (this.callbacks.isTooltipActive(tooltipId)) return;
+
+      const foundInLabel = foundIn || 'titeln';
+      const content = `
+        <div class="tooltip-header">
+          KONSTNÄRSTERM I ${foundInLabel === 'titeln' ? 'TITELFÄLTET' : 'BESKRIVNINGEN'}
+        </div>
+        <div class="tooltip-body">
+          <div class="artist-detection-info">
+            "<strong>${escapeHTML(displayPhrase)}</strong>" hittades i ${escapeHTML(foundInLabel)} — flytta till konstnärsfältet:
+          </div>
+          <div class="action-text" style="margin-top:6px;line-height:1.45">
+            <strong>Okänd konstnär</strong> — osignerat verk<br>
+            <strong>Oidentifierad konstnär</strong> — signerat men okänd konstnär
+          </div>
+        </div>
+      `;
+
+      const buttons = [
+        {
+          text: 'Okänd konstnär',
+          className: 'btn-secondary',
+          onclick: () => applyChoice('Okänd konstnär')
+        },
+        {
+          text: 'Oidentifierad konstnär',
+          className: 'btn-primary',
+          onclick: () => applyChoice('Oidentifierad konstnär')
+        }
+      ];
+
+      this.callbacks.createTooltip({
+        id: tooltipId,
+        targetElement: titleField,
+        content,
+        buttons,
+        side: 'left',
+        type: 'artist-detection',
+        persistent: true
+      });
+    }, 600);
   }
 
   showArtistDetectionTooltip(artistDetection, options = {}) {

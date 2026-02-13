@@ -1075,6 +1075,101 @@ export class QualityAnalyzer {
       warningLi.dataset.ignoreHandlerAdded = 'true';
       warningLi.dataset.foundIn = warningLi.textContent.includes('titel') ? 'titel' : 'other';
     });
+
+    // --- Handle unknown / unidentified artist warnings ---
+    const unknownArtistWarnings = document.querySelectorAll('li[data-unknown-artist-warning="true"]');
+    unknownArtistWarnings.forEach(warningLi => {
+      if (warningLi.dataset.unknownHandlerAdded) return;
+
+      const warningData = warningLi.warningData;
+      if (!warningData || !warningData.isUnknownArtistWarning) return;
+
+      const phrase = warningData.unknownArtistPhrase;
+
+      // Replace the warning text with an explanation of both terms
+      const issueSpan = warningLi.querySelector('.issue-text');
+      if (issueSpan) {
+        issueSpan.innerHTML = '';
+        const explanationDiv = document.createElement('div');
+        explanationDiv.style.cssText = 'line-height:1.45;';
+        explanationDiv.innerHTML =
+          'Konstnärsterm hittades i titeln — välj rätt term för konstnärsfältet:<br>' +
+          '<strong>Okänd konstnär</strong> — osignerat verk<br>' +
+          '<strong>Oidentifierad konstnär</strong> — signerat men okänd konstnär';
+        issueSpan.appendChild(explanationDiv);
+      }
+
+      // Helper: build cleaned title and apply a chosen term
+      const applyChoice = async (chosenTerm, btn) => {
+        const titleField = document.querySelector('#item_title_sv') ||
+                           document.querySelector('input[name*="title"]') ||
+                           document.querySelector('textarea[name*="title"]');
+        let suggestedTitle = '';
+        if (titleField) {
+          const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          suggestedTitle = titleField.value
+            .replace(regex, '')
+            .replace(/,\s*,/g, ',')
+            .replace(/^\s*,\s*/, '')
+            .replace(/\s*,\s*$/, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+        }
+        const pseudoWarningData = { detectedArtist: chosenTerm, suggestedTitle, foundIn: 'titel' };
+        await this.moveArtistToField(chosenTerm, pseudoWarningData, btn);
+      };
+
+      // Two-button container
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'artist-action-buttons';
+      buttonContainer.style.cssText = `
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        align-items: center;
+      `;
+
+      const btnStyle = {
+        padding: '6px 12px',
+        fontSize: '12px',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontWeight: '300'
+      };
+
+      // "Okänd konstnär" button (unsigned work)
+      const unknownBtn = document.createElement('button');
+      unknownBtn.className = 'move-artist-btn';
+      unknownBtn.textContent = 'Okänd konstnär';
+      unknownBtn.title = 'Osignerat verk — sätt "Okänd konstnär" i konstnärsfältet';
+      Object.assign(unknownBtn.style, { ...btnStyle, background: '#1976d2' });
+      unknownBtn.addEventListener('mouseenter', () => { unknownBtn.style.background = '#1565c0'; });
+      unknownBtn.addEventListener('mouseleave', () => { unknownBtn.style.background = '#1976d2'; });
+      unknownBtn.addEventListener('click', async (e) => {
+        e.preventDefault(); e.stopPropagation();
+        await applyChoice('Okänd konstnär', unknownBtn);
+      });
+
+      // "Oidentifierad konstnär" button (signed work)
+      const unidentifiedBtn = document.createElement('button');
+      unidentifiedBtn.className = 'move-artist-btn';
+      unidentifiedBtn.textContent = 'Oidentifierad konstnär';
+      unidentifiedBtn.title = 'Signerat verk — sätt "Oidentifierad konstnär" i konstnärsfältet';
+      Object.assign(unidentifiedBtn.style, { ...btnStyle, background: '#4caf50' });
+      unidentifiedBtn.addEventListener('mouseenter', () => { unidentifiedBtn.style.background = '#45a049'; });
+      unidentifiedBtn.addEventListener('mouseleave', () => { unidentifiedBtn.style.background = '#4caf50'; });
+      unidentifiedBtn.addEventListener('click', async (e) => {
+        e.preventDefault(); e.stopPropagation();
+        await applyChoice('Oidentifierad konstnär', unidentifiedBtn);
+      });
+
+      buttonContainer.appendChild(unknownBtn);
+      buttonContainer.appendChild(unidentifiedBtn);
+      warningLi.appendChild(buttonContainer);
+      warningLi.dataset.unknownHandlerAdded = 'true';
+    });
   }
 
   // NEW: Setup click handlers for brand corrections

@@ -373,8 +373,8 @@ export class UIManager {
       // Store original value
       this.originalValues.set(fieldType, field.value);
       
-      // Validate and limit keywords if necessary
-      let finalValue = value;
+      // Strip unknown-artist phrases that don't belong in non-artist fields
+      let finalValue = UIManager.stripUnknownArtistTerms(value);
       if (fieldType === 'keywords') {
         // Merge with existing keywords instead of replacing
         const existingKeywords = field.value.trim();
@@ -671,5 +671,38 @@ export class UIManager {
     }
     
     return warningDiv;
+  }
+
+  /**
+   * Remove unknown/unidentified artist phrases from a text value.
+   * These terms belong exclusively in the artist field.
+   */
+  static stripUnknownArtistTerms(text) {
+    if (!text || typeof text !== 'string') return text;
+
+    const phrases = [
+      'oidentifierad konstnär', 'okänd konstnär', 'okänd mästare',
+      'oidentifierad formgivare', 'okänd formgivare', 'oidentifierad upphovsman'
+    ];
+
+    let cleaned = text;
+    for (const phrase of phrases) {
+      const regex = new RegExp(
+        `[,;–—-]?\\s*${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,;–—-]?`,
+        'gi'
+      );
+      cleaned = cleaned.replace(regex, (match) => {
+        const hadLeadingSep = /^[,;–—-]/.test(match.trim());
+        const hadTrailingSep = /[,;–—-]$/.test(match.trim());
+        return (hadLeadingSep && hadTrailingSep) ? ', ' : ' ';
+      });
+    }
+
+    return cleaned
+      .replace(/,\s*,/g, ',')
+      .replace(/^\s*,\s*/, '')
+      .replace(/\s*,\s*$/, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   }
 } 

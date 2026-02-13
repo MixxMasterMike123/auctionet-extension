@@ -53,6 +53,34 @@ export class QualityRulesEngine {
       score -= 15;
     }
 
+    // Check for unknown/unidentified artist phrases in title or description that belong in the artist field
+    const unknownArtistPhrases = [
+      'oidentifierad konstnär', 'okänd konstnär', 'okänd mästare',
+      'oidentifierad formgivare', 'okänd formgivare', 'oidentifierad upphovsman'
+    ];
+    const hasArtistFieldFilled = data.artist && data.artist.trim().length > 0;
+    if (!hasArtistFieldFilled) {
+      const titleLower = data.title.toLowerCase();
+      const descLower = (data.description || '').replace(/<[^>]*>/g, '').toLowerCase();
+      const matchedPhrase = unknownArtistPhrases.find(p => titleLower.includes(p) || descLower.includes(p));
+      if (matchedPhrase) {
+        const foundIn = titleLower.includes(matchedPhrase) ? 'titel' : 'beskrivning';
+        const displayPhrase = matchedPhrase.charAt(0).toUpperCase() + matchedPhrase.slice(1);
+        warnings.push({
+          field: 'Konstnär',
+          issue: `Konstnärsterm hittades i ${foundIn} — välj rätt term för konstnärsfältet`,
+          severity: 'high',
+          source: 'faq',
+          fieldId: 'item_title_sv',
+          isUnknownArtistWarning: true,
+          unknownArtistPhrase: matchedPhrase,
+          unknownArtistDisplay: displayPhrase,
+          dataAttributes: { 'data-unknown-artist-warning': 'true' }
+        });
+        score -= 10;
+      }
+    }
+
     // Check title capitalization based on artist field
     if (data.title && data.title.length > 0) {
       let firstLetterIndex = -1;

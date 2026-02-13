@@ -212,7 +212,8 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
         delete result[fieldType];
       }
 
-      return result;
+      // Strip unknown-artist phrases from non-artist fields
+      return APIManager.filterResultUnknownArtistTerms(result);
     }
 
     // Parse multi-field responses with proper multi-line support
@@ -318,6 +319,60 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
       result.title = response.trim();
     }
 
+    // Strip unknown-artist phrases from non-artist fields
+    return APIManager.filterResultUnknownArtistTerms(result);
+  }
+
+  /**
+   * Remove unknown/unidentified artist phrases from a text string.
+   * These terms belong exclusively in the artist field.
+   */
+  static stripUnknownArtistTerms(text) {
+    if (!text || typeof text !== 'string') return text;
+
+    const phrases = [
+      'oidentifierad konstnär', 'okänd konstnär', 'okänd mästare',
+      'oidentifierad formgivare', 'okänd formgivare', 'oidentifierad upphovsman'
+    ];
+
+    let cleaned = text;
+    for (const phrase of phrases) {
+      // Case-insensitive removal, also cleaning up surrounding commas / dashes
+      const regex = new RegExp(
+        `[,;–—-]?\\s*${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,;–—-]?`,
+        'gi'
+      );
+      cleaned = cleaned.replace(regex, (match, offset) => {
+        // If the match sits between other content (both sides had separators),
+        // keep a single comma to avoid merging unrelated parts
+        const hadLeadingSep = /^[,;–—-]/.test(match.trim());
+        const hadTrailingSep = /[,;–—-]$/.test(match.trim());
+        return (hadLeadingSep && hadTrailingSep) ? ', ' : ' ';
+      });
+    }
+
+    // Tidy up leftover punctuation / whitespace
+    cleaned = cleaned
+      .replace(/,\s*,/g, ',')
+      .replace(/^\s*,\s*/, '')
+      .replace(/\s*,\s*$/, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    return cleaned;
+  }
+
+  /**
+   * Filter all non-artist fields in a parsed result object to remove
+   * unknown-artist phrases that Claude may have included despite instructions.
+   */
+  static filterResultUnknownArtistTerms(result) {
+    const fieldsToFilter = ['title', 'description', 'condition', 'keywords'];
+    for (const field of fieldsToFilter) {
+      if (result[field]) {
+        result[field] = APIManager.stripUnknownArtistTerms(result[field]);
+      }
+    }
     return result;
   }
 
@@ -780,6 +835,12 @@ FÖRBJUDET:
 • Meta-kommentarer: "ytterligare uppgifter behövs", "mer information krävs"
 • Spekulationer och gissningar
 • Överdriven regelefterlevnad - skriv naturligt och autentiskt
+
+KONSTNÄRSTERMER — ALDRIG I TITEL, BESKRIVNING ELLER ANDRA FÄLT:
+• Termerna "okänd konstnär", "oidentifierad konstnär", "okänd mästare", "okänd formgivare", "oidentifierad formgivare", "oidentifierad upphovsman" hör ENBART hemma i konstnärsfältet
+• Inkludera ALDRIG dessa termer i titel, beskrivning, kondition eller sökord
+• Om konstnärsfältet innehåller en sådan term — ignorera den helt vid generering av övriga fält
+• Titeln ska bara beskriva OBJEKTET, inte upprepa att konstnären är okänd
 
 TITELFORMAT:
 Om konstnär-fält tomt: [KONSTNÄR], [Föremål], [Material], [Period] - FÖRSTA ORDET VERSALER
