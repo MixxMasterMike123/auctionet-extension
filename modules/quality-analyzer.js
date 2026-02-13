@@ -3430,8 +3430,21 @@ Regler:
       if (response.success && response.data?.content?.[0]?.text) {
         const text = response.data.content[0].text.trim();
         try {
-          // Try to parse JSON (handle markdown code blocks)
-          const jsonStr = text.replace(/^```json?\s*/, '').replace(/\s*```$/, '');
+          // Extract JSON from response — handle code blocks, preamble text, etc.
+          let jsonStr = text;
+          
+          // If response contains a fenced code block, extract just that
+          const codeBlockMatch = text.match(/```json?\s*([\s\S]*?)```/);
+          if (codeBlockMatch) {
+            jsonStr = codeBlockMatch[1].trim();
+          } else {
+            // Try to find raw JSON object in the text
+            const jsonObjMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonObjMatch) {
+              jsonStr = jsonObjMatch[0];
+            }
+          }
+          
           const parsed = JSON.parse(jsonStr);
           if (parsed === null) return null;
           return {
@@ -3441,8 +3454,17 @@ Regler:
             notableWorks: Array.isArray(parsed.notableWorks) ? parsed.notableWorks : []
           };
         } catch (parseError) {
-          // Fallback: treat as plain text biography
-          return { years: null, biography: text, style: [], notableWorks: [] };
+          // Fallback: extract just readable text, strip any remaining code fences/JSON keys
+          const cleanText = text
+            .replace(/```json?\s*/g, '')
+            .replace(/```/g, '')
+            .replace(/[{}"]/g, '')
+            .replace(/^\s*(years|biography|style|notableWorks)\s*:/gm, '')
+            .replace(/\[.*?\]/g, '')
+            .replace(/,\s*$/gm, '')
+            .replace(/\n{2,}/g, '\n')
+            .trim();
+          return { years: null, biography: cleanText || text, style: [], notableWorks: [] };
         }
       }
     } catch (error) {
