@@ -1071,6 +1071,15 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 • BEHÅLL: "höjd 15,5 cm", "4 snapsglas", "2 vinglas", "består av", "bestående av" - detta är beskrivande information
 • TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
 
+BEVARA LISTFORMAT I BESKRIVNING — KRITISKT:
+• Om originalbeskrivningen har en rad per del/föremål med mått — BEHÅLL radbrytningarna
+• Slå INTE ihop listor till en enda kommaseparerad mening — det förstör läsbarheten
+• Du FÅR förbättra språket på varje rad men BEHÅLL strukturen med en rad per post
+• EXEMPEL KORREKT (bevarat listformat):
+  "8 kaffekoppar, höjd 6,5 cm.\n7 fat, diameter 16 cm.\n8 moccakoppar, höjd 7 cm."
+• EXEMPEL FEL (ihopslaget):
+  "Bestående av 8 kaffekoppar höjd 6,5 cm, 7 fat diameter 16 cm, 8 moccakoppar höjd 7 cm."
+
 VIKTIGT - PARAGRAFSTRUKTUR FÖR BESKRIVNING:
 ${itemData.artist && this.enableArtistInfo ?
             '• STRUKTUR: Befintlig förbättrad beskrivning först, sedan konstnärsinformation i SEPARAT paragraf (\\n\\n)\n• EXEMPEL MED LEVNADSÅR (när data finns): "Blandteknik på papper, signerad.\\n\\nRuth Schloss (1922–2013) var en israelisk konstnär känd för sina socialrealistiska figurstudier.\\n\\nMotivyta 22,5 x 17,5 cm, rammått 46 x 41 cm."\n• EXEMPEL UTAN LEVNADSÅR (när data saknas): "Olja på duk, signerad.\\n\\nSvensk konstnär känd för sina expressiva landskapsmålningar.\\n\\n66 x 80 cm."\n• Inkludera levnadsår BARA om de finns i konstnärsdata ovan — HITTA ALDRIG PÅ årtal\n• Mått i sista paragrafen' :
@@ -1273,6 +1282,15 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 • KRITISKT: BEHÅLL ALLTID MÅTT OCH TEKNISKA SPECIFIKATIONER - dessa är INTE konditionsinformation
 • BEHÅLL: "höjd 15,5 cm", "4 snapsglas", "2 vinglas", "består av", "bestående av" - detta är beskrivande information
 • TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
+
+BEVARA LISTFORMAT I BESKRIVNING — KRITISKT:
+• Om originalbeskrivningen har en rad per del/föremål med mått — BEHÅLL radbrytningarna
+• Slå INTE ihop listor till en enda kommaseparerad mening — det förstör läsbarheten
+• Du FÅR förbättra språket på varje rad men BEHÅLL strukturen med en rad per post
+• EXEMPEL KORREKT (bevarat listformat):
+  "8 kaffekoppar, höjd 6,5 cm.\n7 fat, diameter 16 cm.\n8 moccakoppar, höjd 7 cm."
+• EXEMPEL FEL (ihopslaget):
+  "Bestående av 8 kaffekoppar höjd 6,5 cm, 7 fat diameter 16 cm, 8 moccakoppar höjd 7 cm."
 
 VIKTIGT - PARAGRAFSTRUKTUR:
 ${itemData.artist && this.enableArtistInfo ?

@@ -434,9 +434,17 @@ KRITISKT - BEVARA ALLA MÅTT OCH LISTOR I BESKRIVNINGEN:
 • BEHÅLL ALLTID kvantiteter och specifikationer: "Bestående av:", "Består av:", antal objekt
 • BEHÅLL ALLTID alla mått i cm/mm - dessa är ALDRIG konditionsinformation
 • TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått, kvantiteter eller listor
-• EXEMPEL PÅ VAD SOM MÅSTE BEVARAS: "Bestående av: 4 snapsglas, höjd 15,5 cm, 2 vinglas, höjd 19,5 cm"
 
-VARNING: Om du tar bort mått eller listor kommer detta att betraktas som ett KRITISKT FEL!
+BEVARA LISTFORMAT I BESKRIVNING — KRITISKT:
+• Om originalet har en rad per del/föremål med mått — BEHÅLL radbrytningarna
+• Slå INTE ihop listor till en enda kommaseparerad mening — det förstör läsbarheten
+• Du FÅR förbättra språket på varje rad men BEHÅLL strukturen med en rad per post
+• EXEMPEL KORREKT (bevarat listformat):
+  "8 kaffekoppar, höjd 6,5 cm.\n7 fat, diameter 16 cm.\n8 moccakoppar, höjd 7 cm."
+• EXEMPEL FEL (ihopslaget):
+  "Bestående av 8 kaffekoppar höjd 6,5 cm, 7 fat diameter 16 cm, 8 moccakoppar höjd 7 cm."
+
+VARNING: Om du tar bort mått, listor eller radbrytningar i listor kommer detta att betraktas som ett KRITISKT FEL!
 
 KRITISKT - FÖRSTA ORDETS KAPITALISERING I TITEL:
 ${formData.artist ? 
@@ -484,6 +492,15 @@ FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 • KRITISKT: BEHÅLL ALLTID MÅTT OCH TEKNISKA SPECIFIKATIONER - dessa är INTE konditionsinformation
 • BEHÅLL: "höjd 15,5 cm", "4 snapsglas", "2 vinglas", "består av", "bestående av" - detta är beskrivande information
 • TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
+
+BEVARA LISTFORMAT I BESKRIVNING — KRITISKT:
+• Om originalbeskrivningen har en rad per del/föremål med mått — BEHÅLL radbrytningarna
+• Slå INTE ihop listor till en enda kommaseparerad mening — det förstör läsbarheten
+• Du FÅR förbättra språket på varje rad men BEHÅLL strukturen med en rad per post
+• EXEMPEL KORREKT (bevarat listformat):
+  "8 kaffekoppar, höjd 6,5 cm.\n7 fat, diameter 16 cm.\n8 moccakoppar, höjd 7 cm."
+• EXEMPEL FEL (ihopslaget):
+  "Bestående av 8 kaffekoppar höjd 6,5 cm, 7 fat diameter 16 cm, 8 moccakoppar höjd 7 cm."
 
 VIKTIGT - PARAGRAFSTRUKTUR:
 ${formData.artist && this.apiManager.enableArtistInfo ? 
