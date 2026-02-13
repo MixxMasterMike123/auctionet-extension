@@ -3367,13 +3367,37 @@ Anpassa förslagen till kategorin "${category}".`,
           };
         }
 
-        this.updateKBCard(kbCard, finalBioData, imageUrl);
+        // Re-fetch callback for "Fel person?" feature
+        const refetchWithHint = async (hint) => {
+          // Reset card to loading state
+          const bioEl = kbCard.querySelector('.kb-bio');
+          if (bioEl) bioEl.innerHTML = '<span class="kb-card-spinner"></span> Söker igen...';
+          const tagsEl = kbCard.querySelector('.kb-tags');
+          if (tagsEl) tagsEl.innerHTML = '';
+          const worksEl = kbCard.querySelector('.kb-works');
+          if (worksEl) { worksEl.style.display = 'none'; worksEl.innerHTML = ''; }
+          // Remove old add-bio button so a fresh one gets added
+          const oldBtn = kbCard.querySelector('.kb-add-bio-btn')?.parentElement;
+          if (oldBtn) oldBtn.remove();
+
+          try {
+            const [newBio, newImg] = await Promise.all([
+              this.fetchArtistBiography(artistName, artistDates, hint),
+              this.fetchWikipediaImage(artistName + ' ' + hint)
+            ]);
+            this.updateKBCard(kbCard, newBio, newImg, refetchWithHint, artistName);
+          } catch (e) {
+            if (bioEl) bioEl.textContent = 'Sökning misslyckades. Försök igen.';
+          }
+        };
+
+        this.updateKBCard(kbCard, finalBioData, imageUrl, refetchWithHint, artistName);
       } catch (error) {
         dataLoaded = true;
         if (existingBio) {
-          this.updateKBCard(kbCard, { years: null, biography: existingBio, style: [], notableWorks: [] }, null);
+          this.updateKBCard(kbCard, { years: null, biography: existingBio, style: [], notableWorks: [] }, null, null, artistName);
         } else {
-          this.updateKBCard(kbCard, null, null);
+          this.updateKBCard(kbCard, null, null, null, artistName);
         }
       }
     });
@@ -3388,7 +3412,7 @@ Anpassa förslagen till kategorin "${category}".`,
    * Fetch structured artist biography for KB card
    * Returns: { years, biography, style, notableWorks } or null
    */
-  async fetchArtistBiography(artistName, artistDates = '') {
+  async fetchArtistBiography(artistName, artistDates = '', userHint = '') {
     if (!this.apiManager?.apiKey) {
       return null;
     }
@@ -3402,9 +3426,12 @@ Anpassa förslagen till kategorin "${category}".`,
       }
     }
 
-    const disambiguationHint = knownYears
-      ? `\nVIKTIGT: Det finns flera personer med detta namn. Rätt person levde ${knownYears}. Svara BARA om den personen.`
-      : '';
+    let disambiguationHint = '';
+    if (userHint) {
+      disambiguationHint = `\nVIKTIGT: Användaren söker specifikt efter en konstnär beskriven som: "${userHint}". Svara om den personen.`;
+    } else if (knownYears) {
+      disambiguationHint = `\nVIKTIGT: Det finns flera personer med detta namn. Rätt person levde ${knownYears}. Svara BARA om den personen.`;
+    }
 
     const prompt = `Konstnär/formgivare: "${artistName}"${disambiguationHint}
 
@@ -3684,7 +3711,7 @@ Regler:
   /**
    * Update KB card with fetched data (bio + image)
    */
-  updateKBCard(card, bioData, imageUrl) {
+  updateKBCard(card, bioData, imageUrl, refetchCallback = null, artistName = '') {
     if (!card) return;
 
     // Update image (skip if already loaded)
@@ -3820,6 +3847,133 @@ Regler:
 
       btnArea.appendChild(btn);
       card.appendChild(btnArea);
+    }
+
+    // Add "Fel person?" section with re-search and external links
+    if (!card.querySelector('.kb-wrong-person') && (bioData || refetchCallback)) {
+      const wrongSection = document.createElement('div');
+      wrongSection.className = 'kb-wrong-person';
+      wrongSection.style.cssText = `
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        text-align: center;
+      `;
+
+      // "Fel person?" toggle link
+      const toggleLink = document.createElement('span');
+      toggleLink.textContent = 'Fel person?';
+      toggleLink.style.cssText = `
+        font-size: 11px;
+        color: rgba(255,255,255,0.4);
+        cursor: pointer;
+        transition: color 0.15s;
+      `;
+      toggleLink.addEventListener('mouseenter', () => { toggleLink.style.color = 'rgba(255,255,255,0.7)'; });
+      toggleLink.addEventListener('mouseleave', () => { toggleLink.style.color = 'rgba(255,255,255,0.4)'; });
+
+      // Expandable panel (hidden initially)
+      const panel = document.createElement('div');
+      panel.style.cssText = `
+        display: none;
+        margin-top: 8px;
+        text-align: left;
+      `;
+
+      // Hint input + search button
+      if (refetchCallback) {
+        const hintRow = document.createElement('div');
+        hintRow.style.cssText = 'display: flex; gap: 6px; margin-bottom: 8px;';
+
+        const hintInput = document.createElement('input');
+        hintInput.type = 'text';
+        hintInput.placeholder = 'T.ex. "popkonstnär, samtida"';
+        hintInput.style.cssText = `
+          flex: 1;
+          padding: 5px 8px;
+          font-size: 11px;
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 6px;
+          color: rgba(255,255,255,0.9);
+          outline: none;
+          font-family: inherit;
+        `;
+        hintInput.addEventListener('focus', () => { hintInput.style.borderColor = 'rgba(25,118,210,0.5)'; });
+        hintInput.addEventListener('blur', () => { hintInput.style.borderColor = 'rgba(255,255,255,0.15)'; });
+
+        const searchBtn = document.createElement('button');
+        searchBtn.type = 'button';
+        searchBtn.textContent = 'Sök';
+        searchBtn.style.cssText = `
+          padding: 5px 10px;
+          font-size: 11px;
+          background: rgba(25,118,210,0.3);
+          color: rgba(255,255,255,0.9);
+          border: 1px solid rgba(25,118,210,0.4);
+          border-radius: 6px;
+          cursor: pointer;
+          font-family: inherit;
+          transition: background 0.15s;
+          white-space: nowrap;
+        `;
+        searchBtn.addEventListener('mouseenter', () => { searchBtn.style.background = 'rgba(25,118,210,0.5)'; });
+        searchBtn.addEventListener('mouseleave', () => { searchBtn.style.background = 'rgba(25,118,210,0.3)'; });
+
+        const doSearch = () => {
+          const hint = hintInput.value.trim();
+          if (hint) {
+            // Remove the wrong-person section so it gets rebuilt with new data
+            wrongSection.remove();
+            refetchCallback(hint);
+          }
+        };
+
+        searchBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); doSearch(); });
+        hintInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+
+        hintRow.appendChild(hintInput);
+        hintRow.appendChild(searchBtn);
+        panel.appendChild(hintRow);
+      }
+
+      // External search links
+      const encodedName = encodeURIComponent(artistName || card.querySelector('.kb-name')?.textContent || '');
+      const linksRow = document.createElement('div');
+      linksRow.style.cssText = 'display: flex; gap: 10px; justify-content: center; font-size: 11px;';
+      linksRow.innerHTML = `
+        <a href="https://www.google.com/search?q=${encodedName}+konstnär" target="_blank" rel="noopener"
+           style="color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='rgba(255,255,255,0.8)'" onmouseleave="this.style.color='rgba(255,255,255,0.45)'"
+        >Sök Google</a>
+        <a href="https://sv.wikipedia.org/wiki/${encodedName.replace(/%20/g, '_')}" target="_blank" rel="noopener"
+           style="color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='rgba(255,255,255,0.8)'" onmouseleave="this.style.color='rgba(255,255,255,0.45)'"
+        >Wikipedia</a>
+        <a href="https://www.artnet.com/artists/${encodedName.replace(/%20/g, '-').toLowerCase()}/" target="_blank" rel="noopener"
+           style="color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='rgba(255,255,255,0.8)'" onmouseleave="this.style.color='rgba(255,255,255,0.45)'"
+        >Artnet</a>
+      `;
+      panel.appendChild(linksRow);
+
+      // Toggle panel on click
+      toggleLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const isVisible = panel.style.display !== 'none';
+        panel.style.display = isVisible ? 'none' : 'block';
+        toggleLink.textContent = isVisible ? 'Fel person?' : 'Dölj';
+        if (!isVisible) {
+          // Focus the input when expanding
+          const input = panel.querySelector('input');
+          if (input) setTimeout(() => input.focus(), 50);
+        }
+      });
+
+      wrongSection.appendChild(toggleLink);
+      wrongSection.appendChild(panel);
+      card.appendChild(wrongSection);
     }
   }
 
