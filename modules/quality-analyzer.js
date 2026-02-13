@@ -3263,6 +3263,12 @@ Anpassa förslagen till kategorin "${category}".`,
    * Add biography hover functionality to an element
    */
   addBiographyHover(element, artistName, warningData = null) {
+    // Normalize casing: "mona starfelt" / "CARL MALMSTEN" → "Mona Starfelt" / "Carl Malmsten"
+    artistName = artistName
+      .split(/\s+/)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+
     let kbCard = null;
     let dataLoaded = false;
     let hideTimeout = null;
@@ -3545,7 +3551,12 @@ Regler:
       document.head.appendChild(style);
     }
 
-    const initials = artistName.split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+    // Format name: "mona starfelt" → "Mona Starfelt", "CARL MALMSTEN" → "Carl Malmsten"
+    const formattedName = artistName
+      .split(/\s+/)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+    const initials = formattedName.split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
     const card = document.createElement('div');
     card.className = 'artist-kb-card';
 
@@ -3554,7 +3565,7 @@ Regler:
         <div class="kb-avatar">${initials}</div>
       </div>
       <div class="kb-header">
-        <div class="kb-name">${artistName}</div>
+        <div class="kb-name">${formattedName}</div>
         <div class="kb-years"></div>
       </div>
       <div class="kb-bio">
