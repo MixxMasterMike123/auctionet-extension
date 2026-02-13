@@ -95,6 +95,8 @@ export class BiographyKBCard {
       }).catch(() => {});
     }
 
+    let scrollHandler = null;
+
     const positionCard = () => {
       if (!kbCard) return;
       const rect = element.getBoundingClientRect();
@@ -102,7 +104,43 @@ export class BiographyKBCard {
       let left = rect.left + rect.width / 2 - cardWidth / 2;
       left = Math.max(8, Math.min(left, window.innerWidth - cardWidth - 8));
       kbCard.style.left = `${left}px`;
-      kbCard.style.top = `${rect.bottom + 8}px`;
+
+      // Smart vertical positioning: flip above if not enough space below
+      const cardHeight = kbCard.offsetHeight || 400;
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+
+      if (spaceBelow >= cardHeight || spaceBelow >= spaceAbove) {
+        // Position below the trigger
+        kbCard.style.top = `${rect.bottom + 8}px`;
+      } else {
+        // Position above the trigger
+        kbCard.style.top = `${rect.top - cardHeight - 8}px`;
+      }
+
+      // Clamp to viewport bounds
+      const currentTop = parseFloat(kbCard.style.top);
+      const maxTop = window.innerHeight - cardHeight - 8;
+      kbCard.style.top = `${Math.max(8, Math.min(currentTop, maxTop))}px`;
+    };
+
+    const attachScrollListener = () => {
+      if (scrollHandler) return;
+      scrollHandler = () => {
+        if (kbCard && kbCard.style.visibility === 'visible') {
+          positionCard();
+        }
+      };
+      window.addEventListener('scroll', scrollHandler, { passive: true });
+      window.addEventListener('resize', scrollHandler, { passive: true });
+    };
+
+    const detachScrollListener = () => {
+      if (scrollHandler) {
+        window.removeEventListener('scroll', scrollHandler);
+        window.removeEventListener('resize', scrollHandler);
+        scrollHandler = null;
+      }
     };
 
     const showCard = () => {
@@ -113,6 +151,7 @@ export class BiographyKBCard {
       kbCard.style.visibility = 'visible';
       kbCard.style.transform = 'translateY(0) scale(1)';
       kbCard.style.pointerEvents = 'auto';
+      attachScrollListener();
     };
 
     const scheduleHide = () => {
@@ -123,6 +162,7 @@ export class BiographyKBCard {
           kbCard.style.visibility = 'hidden';
           kbCard.style.transform = 'translateY(6px) scale(0.96)';
           kbCard.style.pointerEvents = 'none';
+          detachScrollListener();
         }
       }, 150);
     };
@@ -391,6 +431,19 @@ Regler:
           margin-right: 6px;
           color: rgba(255,255,255,0.4);
         }
+        .artist-kb-card::-webkit-scrollbar {
+          width: 5px;
+        }
+        .artist-kb-card::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .artist-kb-card::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.2);
+          border-radius: 3px;
+        }
+        .artist-kb-card::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.35);
+        }
       `;
       document.head.appendChild(style);
     }
@@ -426,6 +479,8 @@ Regler:
       padding: 16px 18px 14px;
       border-radius: 14px;
       width: 300px;
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
       white-space: normal;
       word-wrap: break-word;
       box-shadow:
@@ -442,6 +497,8 @@ Regler:
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       text-align: left;
       border: 1px solid rgba(255, 255, 255, 0.06);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.2) transparent;
     `;
 
     const photoArea = card.querySelector('.kb-photo-area');
