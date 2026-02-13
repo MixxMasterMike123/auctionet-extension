@@ -288,6 +288,30 @@ export class QualityAnalyzer {
       // Optional checkbox - no logging needed
     }
 
+    // --- Quick rule-based artist-in-title check (synchronous, no AI dependency) ---
+    if (!data.artist || !data.artist.trim()) {
+      // Artist field is empty — check if title starts with "ARTIST NAME. rest..."
+      const quickArtistPattern = /^([A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+\s+[A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+(?:\s+[A-ZÅÄÖÜ][A-ZÅÄÖÜa-zåäöü]+)?)\.\s+(.+)/;
+      const quickArtistMatch = data.title.match(quickArtistPattern);
+      if (quickArtistMatch) {
+        const potentialName = quickArtistMatch[1].trim();
+        const nameWords = potentialName.split(/\s+/);
+        // Must be 2-3 words, each at least 2 chars, and not a common object type
+        const objectTypes = ['art deco', 'art nouveau', 'carl johan', 'gustav iii', 'louis philippe'];
+        const isNotObject = !objectTypes.includes(potentialName.toLowerCase());
+        if (nameWords.length >= 2 && nameWords.length <= 3 && nameWords.every(w => w.length >= 2) && isNotObject) {
+          warnings.push({
+            field: 'Konstnär',
+            issue: `"${potentialName}" verkar vara en konstnär/formgivare — flytta till konstnärsfältet`,
+            severity: 'high',
+            source: 'faq',
+            fieldId: 'item_artist_name_sv'
+          });
+          score -= 15;
+        }
+      }
+    }
+
     // Title quality checks (aggressively softened: 20 → 14)
     if (data.title.length < 14) {
       warnings.push({ field: 'Titel', issue: 'Överväg att lägga till material och period', severity: 'medium' });
