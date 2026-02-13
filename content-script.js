@@ -33,6 +33,7 @@
     const { DataExtractor } = await import(chrome.runtime.getURL('modules/data-extractor.js'));
     const { SearchQuerySSoT } = await import(chrome.runtime.getURL('modules/search-query-ssot.js'));
     const { SalesAnalysisManager } = await import(chrome.runtime.getURL('modules/sales-analysis-manager.js'));
+    const { escapeHTML } = await import(chrome.runtime.getURL('modules/core/html-escape.js'));
     
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
@@ -346,13 +347,13 @@
         dialog.innerHTML = `
           <div class="dialog-overlay"></div>
           <div class="dialog-content">
-            <h3>📋 Behöver mer information för ${fieldName}</h3>
-            <p>Enligt Auctionets kvalitetskrav behövs mer detaljerad information innan ${fieldName} kan förbättras.</p>
+            <h3>📋 Behöver mer information för ${escapeHTML(fieldName)}</h3>
+            <p>Enligt Auctionets kvalitetskrav behövs mer detaljerad information innan ${escapeHTML(fieldName)} kan förbättras.</p>
             
             <div class="missing-info">
               <h4>Lägg till information om:</h4>
               <ul>
-                ${missingInfo.map(info => `<li>${infoMessages[info] || info}</li>`).join('')}
+                ${missingInfo.map(info => `<li>${escapeHTML(infoMessages[info] || info)}</li>`).join('')}
               </ul>
             </div>
             
@@ -399,12 +400,12 @@
         dialog.innerHTML = `
           <div class="dialog-overlay"></div>
           <div class="dialog-content">
-            <h3>⚡ Förbättra ${fieldName}</h3>
-            <p>Redo att förbättra ${fieldName} enligt Auctionets katalogiseringsstandard.</p>
+            <h3>⚡ Förbättra ${escapeHTML(fieldName)}</h3>
+            <p>Redo att förbättra ${escapeHTML(fieldName)} enligt Auctionets katalogiseringsstandard.</p>
             
             <div class="dialog-buttons">
               <button class="btn btn-link" id="cancel-settings-dialog">Avbryt</button>
-              <button class="btn btn-primary" id="proceed-with-ai" style="background: #007cba;">Förbättra ${fieldName}</button>
+              <button class="btn btn-primary" id="proceed-with-ai" style="background: #007cba;">Förbättra ${escapeHTML(fieldName)}</button>
             </div>
           </div>
         `;
@@ -1544,7 +1545,7 @@
         if (config.buttons && config.buttons.length > 0) {
           tooltipHTML += '<div class="tooltip-buttons">';
           config.buttons.forEach((button, index) => {
-            tooltipHTML += `<button class="tooltip-button ${button.className || ''}" data-button-index="${index}">${button.text}</button>`;
+            tooltipHTML += `<button class="tooltip-button ${escapeHTML(button.className || '')}" data-button-index="${index}">${escapeHTML(button.text)}</button>`;
           });
           tooltipHTML += '</div>';
         }

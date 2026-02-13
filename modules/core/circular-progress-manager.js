@@ -1,3 +1,5 @@
+import { escapeHTML } from './html-escape.js';
+
 export class CircularProgressManager {
   constructor() {
     this.tooltips = new Map(); // Store tooltip references for cleanup
@@ -154,11 +156,11 @@ export class CircularProgressManager {
         <div class="circular-progress">
           <svg>
             <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
-            <circle class="progress-circle ${this.getScoreClass(overallScore)}" 
+            <circle class="progress-circle ${escapeHTML(this.getScoreClass(overallScore))}" 
                     cx="35" cy="35" r="30"
                     stroke-dasharray="${fullCircumference}"
                     stroke-dashoffset="${fullCircumference}"
-                    data-final-score="${overallScore}"></circle>
+                    data-final-score="${escapeHTML(String(overallScore))}"></circle>
           </svg>
           <div class="score-text">0%</div>
         </div>
@@ -169,11 +171,11 @@ export class CircularProgressManager {
         <div class="circular-progress">
           <svg>
             <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
-            <circle class="progress-circle ${this.getScoreClass(completeness)}" 
+            <circle class="progress-circle ${escapeHTML(this.getScoreClass(completeness))}" 
                     cx="35" cy="35" r="30"
                     stroke-dasharray="${fullCircumference}"
                     stroke-dashoffset="${fullCircumference}"
-                    data-final-score="${completeness}"></circle>
+                    data-final-score="${escapeHTML(String(completeness))}"></circle>
           </svg>
           <div class="score-text">0%</div>
         </div>
@@ -184,11 +186,11 @@ export class CircularProgressManager {
         <div class="circular-progress">
           <svg>
             <circle class="bg-circle" cx="35" cy="35" r="30"></circle>
-            <circle class="progress-circle ${this.getScoreClass(accuracy)}" 
+            <circle class="progress-circle ${escapeHTML(this.getScoreClass(accuracy))}" 
                     cx="35" cy="35" r="30"
                     stroke-dasharray="${fullCircumference}"
                     stroke-dashoffset="${fullCircumference}"
-                    data-final-score="${accuracy}"></circle>
+                    data-final-score="${escapeHTML(String(accuracy))}"></circle>
           </svg>
           <div class="score-text">0%</div>
         </div>

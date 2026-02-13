@@ -4,6 +4,8 @@
  * Handles the artist Knowledge Base card: creation, data fetching,
  * Wikipedia images, disambiguation, and add-to-description.
  */
+import { escapeHTML } from './html-escape.js';
+
 export class BiographyKBCard {
   constructor() {
     this.apiManager = null;
@@ -400,10 +402,10 @@ Regler:
 
     card.innerHTML = `
       <div class="kb-photo-area">
-        <div class="kb-avatar">${initials}</div>
+        <div class="kb-avatar">${escapeHTML(initials)}</div>
       </div>
       <div class="kb-header">
-        <div class="kb-name">${formattedName}</div>
+        <div class="kb-name">${escapeHTML(formattedName)}</div>
         <div class="kb-years"></div>
       </div>
       <div class="kb-bio">
@@ -519,7 +521,7 @@ Regler:
       const tagsEl = card.querySelector('.kb-tags');
       if (tagsEl) {
         tagsEl.innerHTML = bioData.style
-          .map(s => `<span class="kb-style-tag">${s}</span>`)
+          .map(s => `<span class="kb-style-tag">${escapeHTML(s)}</span>`)
           .join('');
       }
     }
@@ -531,7 +533,7 @@ Regler:
         worksEl.style.cssText += 'margin-top: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);';
         worksEl.innerHTML = `
           <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Kända verk</div>
-          ${bioData.notableWorks.map(w => `<div class="kb-notable-item">${w}</div>`).join('')}
+          ${bioData.notableWorks.map(w => `<div class="kb-notable-item">${escapeHTML(w)}</div>`).join('')}
         `;
       }
     }
@@ -722,11 +724,11 @@ Regler:
     modal.innerHTML = `
       <div class="artist-bio-modal">
         <div class="artist-bio-header">
-          <h3>🎨 ${artistName}</h3>
+          <h3>🎨 ${escapeHTML(artistName)}</h3>
           <button class="close-bio-modal">&times;</button>
         </div>
         <div class="artist-bio-content">
-          <p>${biography}</p>
+          <p>${escapeHTML(biography)}</p>
           <div class="bio-actions">
             <button class="btn-add-bio-to-description">📝 Lägg till i beskrivning</button>
             <button class="btn-close-bio">Stäng</button>

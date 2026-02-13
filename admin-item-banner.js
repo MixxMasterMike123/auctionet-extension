@@ -1,7 +1,8 @@
 // admin-item-banner.js - Content script for admin item show pages
 (async function() {
   'use strict';
-  
+  const escapeHTML = s => s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
   try {
     // Wait for page to be fully loaded
     if (document.readyState === 'loading') {
@@ -293,7 +294,7 @@
 
     // Create issues list for display
     const issuesList = issues.length > 0 ? 
-      `<br><small>Huvudproblem: ${issues.slice(0, 3).join(', ')}</small>` : '';
+      `<br><small>Huvudproblem: ${escapeHTML(issues.slice(0, 3).join(', '))}</small>` : '';
 
     // Create the banner
     const banner = document.createElement('div');
@@ -302,9 +303,9 @@
       <div class="banner-content">
         <div class="banner-icon">⚡</div>
         <div class="banner-text">
-          <strong>Kvalitetspoäng: ${score}/100</strong> <small>(synlig: ${qualityResult.adminScore}/100)</small>${issuesList}<br>
+          <strong>Kvalitetspoäng: ${escapeHTML(String(score))}/100</strong> <small>(synlig: ${escapeHTML(String(qualityResult.adminScore))}/100)</small>${issuesList}<br>
           Det finns potential att nå högre priser på detta föremål. 
-          <a href="${editLink.href}" class="banner-link">Klicka på "Redigera föremål"</a> för att se hela analysen.
+          <a href="${escapeHTML(editLink.href)}" class="banner-link">Klicka på "Redigera föremål"</a> för att se hela analysen.
         </div>
         <button class="banner-close" onclick="this.parentElement.parentElement.style.display='none'" title="Stäng">×</button>
       </div>

@@ -1,5 +1,6 @@
 // modules/artist-ignore-manager.js
 // Handles ignoring false positive artist detections
+import { escapeHTML } from './core/html-escape.js';
 
 export class ArtistIgnoreManager {
   constructor() {
@@ -406,8 +407,8 @@ export class ArtistIgnoreManager {
     this.ignoredArtists.forEach((artist, index) => {
       html += `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border: 1px solid #ddd; margin: 5px 0; border-radius: 4px;">
-          <span>${artist}</span>
-          <button onclick="window.auctionetAssistant.qualityAnalyzer.artistIgnoreManager.removeIgnoredArtist('${artist}'); this.parentElement.remove();" 
+          <span>${escapeHTML(artist)}</span>
+          <button class="remove-artist-btn" data-artist-index="${index}"
                   style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
             Remove
           </button>
@@ -418,11 +419,11 @@ export class ArtistIgnoreManager {
     html += `
       </div>
       <div style="text-align: center; margin-top: 20px;">
-        <button onclick="window.auctionetAssistant.qualityAnalyzer.artistIgnoreManager.clearAllIgnoredArtists(); document.body.removeChild(this.closest('.ignored-artists-modal'));" 
+        <button class="clear-all-artists-btn"
                 style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
           Clear All
         </button>
-        <button onclick="document.body.removeChild(this.closest('.ignored-artists-modal'));" 
+        <button class="close-modal-btn"
                 style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
           Close
         </button>
@@ -433,6 +434,33 @@ export class ArtistIgnoreManager {
     modal.appendChild(content);
     modal.className = 'ignored-artists-modal';
     document.body.appendChild(modal);
+
+    // Attach event listeners (safe alternative to inline onclick with user data)
+    content.querySelectorAll('.remove-artist-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.artistIndex, 10);
+        const artistToRemove = this.ignoredArtists[idx];
+        if (artistToRemove) {
+          this.removeIgnoredArtist(artistToRemove);
+        }
+        btn.parentElement.remove();
+      });
+    });
+
+    const clearAllBtn = content.querySelector('.clear-all-artists-btn');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        this.clearAllIgnoredArtists();
+        document.body.removeChild(modal);
+      });
+    }
+
+    const closeBtn = content.querySelector('.close-modal-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+      });
+    }
 
     // Close on backdrop click
     modal.addEventListener('click', (e) => {

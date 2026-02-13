@@ -18,6 +18,7 @@
 
 // Import AIImageAnalyzer component (modular architecture)
 import { AIImageAnalyzer } from './ai-image-analyzer.js';
+import { escapeHTML } from '../../core/html-escape.js';
 
 export class FreetextParser {
   constructor(apiManager, addItemsManager) {
@@ -3556,8 +3557,8 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       const previewItem = document.createElement('div');
       previewItem.className = 'image-preview-item';
       previewItem.innerHTML = `
-        <img src="${imageData.dataUrl}" alt="${imageData.name}">
-        <button class="image-remove-btn" data-image-id="${imageId}">×</button>
+        <img src="${imageData.dataUrl}" alt="${escapeHTML(imageData.name)}">
+        <button class="image-remove-btn" data-image-id="${escapeHTML(imageId)}">×</button>
       `;
 
       // Remove button functionality

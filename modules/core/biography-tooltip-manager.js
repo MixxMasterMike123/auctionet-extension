@@ -3,6 +3,8 @@
  * Extracted from working Add Item page implementation
  * Handles biography snippets, tooltips, and full biography popups
  */
+import { escapeHTML } from './html-escape.js';
+
 export class BiographyTooltipManager {
   constructor() {
     this.activeTooltips = new Map();
@@ -95,11 +97,11 @@ export class BiographyTooltipManager {
     popup.innerHTML = `
       <div class="artist-bio-popup">
         <div class="popup-header">
-          <h3>${header}</h3>
+          <h3>${escapeHTML(header)}</h3>
           <button class="popup-close" type="button">✕</button>
         </div>
         <div class="popup-content">
-          <p>${formattedBio}</p>
+          <p>${escapeHTML(formattedBio)}</p>
           <div class="popup-attribution">
             <small>${attribution}</small>
           </div>

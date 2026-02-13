@@ -15,6 +15,7 @@
 
 // Note: AI Rules System v2.0 functions accessed via window.getAIRulesManager() 
 // to ensure we use the singleton instance loaded in content.js
+import { escapeHTML } from '../../core/html-escape.js';
 
 export class AIImageAnalyzer {
   constructor(apiManager, options = {}) {
@@ -1324,8 +1325,8 @@ INSTRUKTIONER:
       reader.onload = (e) => {
         previewImg.src = e.target.result;
         fileInfo.innerHTML = `
-          <strong>${file.name}</strong><br>
-          ${this.formatFileSize(file.size)}
+          <strong>${escapeHTML(file.name)}</strong><br>
+          ${escapeHTML(this.formatFileSize(file.size))}
         `;
         preview.style.display = 'block';
       };
@@ -1395,8 +1396,8 @@ INSTRUKTIONER:
       reader.onload = (e) => {
         previewImg.src = e.target.result;
         fileInfo.innerHTML = `
-          <strong>${file.name}</strong><br>
-          ${this.formatFileSize(file.size)} • ${file.type}
+          <strong>${escapeHTML(file.name)}</strong><br>
+          ${escapeHTML(this.formatFileSize(file.size))} • ${escapeHTML(file.type)}
         `;
         preview.style.display = 'block';
       };
@@ -1559,13 +1560,10 @@ INSTRUKTIONER:
   }
 
   /**
-   * Escape HTML for safe display
+   * Escape HTML for safe display (delegates to centralized utility)
    */
   escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return escapeHTML(text);
   }
 
   /**

@@ -1,6 +1,7 @@
 // modules/ui/tooltip-system-manager.js
 // Dedicated Tooltip System for Add Items Page
 // Extracted from add-items-tooltip-manager.js following edit page patterns
+import { escapeHTML } from '../core/html-escape.js';
 
 export class TooltipSystemManager {
   constructor() {
@@ -45,7 +46,7 @@ export class TooltipSystemManager {
     tooltip.innerHTML = `
       <div class="tooltip-header">
         <div class="tooltip-icon">${this.getTooltipIcon(type)}</div>
-        <h4 class="tooltip-title">${title}</h4>
+        <h4 class="tooltip-title">${escapeHTML(title)}</h4>
         <button class="tooltip-close" aria-label="Close">×</button>
       </div>
       <div class="tooltip-content">
@@ -54,10 +55,10 @@ export class TooltipSystemManager {
       ${buttons.length > 0 ? `
         <div class="tooltip-buttons">
           ${buttons.map(btn => `
-            <button class="tooltip-btn tooltip-btn-${btn.type || 'default'}" 
-                    data-action="${btn.action || ''}"
+            <button class="tooltip-btn tooltip-btn-${escapeHTML(btn.type || 'default')}" 
+                    data-action="${escapeHTML(btn.action || '')}"
                     ${btn.disabled ? 'disabled' : ''}>
-              ${btn.text}
+              ${escapeHTML(btn.text)}
             </button>
           `).join('')}
         </div>

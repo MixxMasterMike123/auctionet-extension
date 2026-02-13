@@ -1,6 +1,7 @@
 // modules/add-items-tooltip-manager.js - Modern tooltip system for add items page
 
 import { ArtistDetectionManager } from './artist-detection-manager.js';
+import { escapeHTML } from './core/html-escape.js';
 
 export class AddItemsTooltipManager {
   constructor(apiManager, qualityAnalyzer) {
@@ -2170,7 +2171,7 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     if (config.buttons && config.buttons.length > 0) {
       tooltipHTML += '<div class="tooltip-buttons">';
       config.buttons.forEach((button, index) => {
-        tooltipHTML += `<button class="tooltip-button ${button.className || ''}" data-button-index="${index}">${button.text}</button>`;
+        tooltipHTML += `<button class="tooltip-button ${escapeHTML(button.className || '')}" data-button-index="${index}">${escapeHTML(button.text)}</button>`;
       });
       tooltipHTML += '</div>';
     }
@@ -3495,11 +3496,11 @@ Returnera ENDAST den korrigerade titeln utan extra formatering eller etiketter.`
     popup.innerHTML = `
       <div class="artist-bio-popup">
         <div class="popup-header">
-          <h3>${artistName}</h3>
+          <h3>${escapeHTML(artistName)}</h3>
           <button class="popup-close" type="button">✕</button>
         </div>
         <div class="popup-content">
-          <p>${biography}</p>
+          <p>${escapeHTML(biography)}</p>
         </div>
       </div>
     `;

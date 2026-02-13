@@ -3,6 +3,7 @@
 import { PillGenerator } from './ui/pill-generator.js';
 import { CheckboxManager } from './ui/checkbox-manager.js';
 import { TermProcessor } from './core/term-processor.js';
+import { escapeHTML } from './core/html-escape.js';
 
 export class DashboardManagerV2 {
   constructor() {
@@ -172,15 +173,15 @@ export class DashboardManagerV2 {
           <div class="market-dashboard-title">Marknadsanalys</div>
           <div class="market-dashboard-query">
             <span class="query-label">Sökning:</span>
-            <span class="query-text">"${currentQuery}"</span>
-            <span class="query-source">(${querySource})</span>
+            <span class="query-text">"${escapeHTML(currentQuery)}"</span>
+            <span class="query-source">(${escapeHTML(querySource)})</span>
           </div>
         </div>
         <div class="header-right-section">
           ${headerPillsHTML}
         </div>
         <div class="market-dashboard-source">
-          ${salesData.dataSource || 'Auctionet API'}
+          ${escapeHTML(salesData.dataSource || 'Auctionet API')}
         </div>
       </div>`;
   }
@@ -420,7 +421,7 @@ export class DashboardManagerV2 {
     return `
       <div class="market-item market-insights">
         <div class="market-label">Marknadstrend</div>
-        <div class="market-value" style="color: ${trendColor};">${trendIcon}</div>
+        <div class="market-value" style="color: ${escapeHTML(trendColor)};">${escapeHTML(trendIcon)}</div>
         <div class="market-help">Konstnärsbaserad analys</div>
       </div>`;
   }
@@ -1100,7 +1101,7 @@ export class DashboardManagerV2 {
     overlay.className = 'loading-overlay';
     overlay.innerHTML = `
       <div class="loading-spinner"></div>
-      <div class="loading-text">${message}</div>
+      <div class="loading-text">${escapeHTML(message)}</div>
     `;
     
     dashboard.appendChild(overlay);
