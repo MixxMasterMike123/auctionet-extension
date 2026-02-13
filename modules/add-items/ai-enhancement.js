@@ -461,11 +461,11 @@ KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
 • EXEMPEL: "Pepparkorn" ska förbli "Pepparkorn" (med citattecken) för att undvika översättning
 • Om originaltiteln har citattecken runt produktnamn - BEHÅLL dem ALLTID
 
-Returnera EXAKT i detta format (en rad per fält):
-TITEL: [förbättrad titel]
-BESKRIVNING: [förbättrad beskrivning utan konditionsinformation]
-KONDITION: [förbättrad konditionsrapport]
-SÖKORD: [kompletterande sökord baserade på FÖRBÄTTRADE fält ovan, separerade med mellanslag, använd "-" för flerordsfraser]
+Returnera i detta format (BESKRIVNING får ha flera paragrafer med tomma rader emellan):
+TITEL: [förbättrad titel — en enda rad]
+BESKRIVNING: [förbättrad beskrivning — använd tomma rader mellan huvudinnehåll, konstnärsinformation och mått]
+KONDITION: [förbättrad konditionsrapport — en enda rad]
+SÖKORD: [kompletterande sökord baserade på FÖRBÄTTRADE fält ovan, separerade med mellanslag, använd "-" för flerordsfraser — en enda rad]
 
 VIKTIGT FÖR SÖKORD: Använd Auctionets format med mellanslag mellan sökord och "-" för flerordsfraser.
 EXEMPEL: "konstglas mundblåst svensk-design 1960-tal samlarobjekt"
