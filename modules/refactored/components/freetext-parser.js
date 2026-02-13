@@ -1242,7 +1242,7 @@ export class FreetextParser {
         
         Returnera förbättrad data i exakt detta JSON-format:
         {
-          "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period (max 60 tecken)",
+          "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period",
           "description": "förbättrad beskrivning här",
           "condition": "förbättrat skick här",
           "artist": "konstnär eller null",
@@ -1421,7 +1421,7 @@ FRITEXT:
 ${keywordInstructions}
 Returnera data i exakt detta JSON-format:
 {
-  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period (max 60 tecken)",
+  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period",
   "description": "beskrivning enligt AI Rules System fieldRules", 
   "condition": "kondition enligt AI Rules System fieldRules",
   "artist": "konstnär om identifierad, annars null",

@@ -585,7 +585,7 @@ Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bar
 
             case 'title':
                 return baseInfo + `
-UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tecken. Skriv naturligt och flytande.
+UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Koncis men komplett — ta aldrig bort viktig information. Skriv naturligt och flytande.
 
 KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
 • BEHÅLL ALLTID citattecken runt produktnamn, modellnamn och svenska designnamn

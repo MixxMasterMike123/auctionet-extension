@@ -457,7 +457,7 @@ ${contextSection}
 ${keywordInstructions}
 Returnera data i exakt detta JSON-format (följ AI Rules System v2.0 fieldRules):
 {
-  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period (max 60 tecken)",
+  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period",
   "description": "beskrivning enligt AI Rules System fieldRules",
   "condition": "kondition enligt AI Rules System fieldRules",
   "artist": "konstnär om identifierad från signatur/stil, annars null",
@@ -544,7 +544,7 @@ BILDANALYS UPPGIFTER:
 
 Returnera data i exakt detta JSON-format (följ AI Rules System v2.0 fieldRules):
 {
-  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period (max 60 tecken)",
+  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period",
   "description": "beskrivning enligt AI Rules System fieldRules",
   "condition": "kondition enligt AI Rules System fieldRules", 
   "artist": "konstnär om identifierad från signatur/stil, annars null",

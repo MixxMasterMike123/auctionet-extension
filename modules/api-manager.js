@@ -589,9 +589,16 @@ Detta är ett föremål i silver eller guld. Följ Auctionets katalogiseringsreg
 
 TITELFORMAT FÖR SILVER:
 • Format: "BÄGARE, 2 st, silver, rokokostil, CG Hallberg, Stockholm, 1942-56 ca 450 gram."
-• Vikt anges ALLTID SIST i titeln för silver och guld
+• Vikt anges ALLTID SIST i titeln för silver och guld — ta ALDRIG bort vikt från titeln!
 • Ange INTE vikt för föremål med fylld fot (vikten blir irrelevant)
 • Kolla ALLTID upp silverstämplar och märken i möjligaste mån
+
+VIKTREGLER FÖR SILVER:
+• "Bruttovikt" = vikt inklusive icke-silverdelar (t.ex. knivar med rostfritt blad) — korrekt för blandade föremål
+• "Vikt" = vikt för rent silverföremål (gafflar, skedar, etc.) — korrekt för helsilver
+• Det är OK att blanda "bruttovikt" och "vikt" i samma post när det speglar materialskillnader
+• Om totalvikt redan anges i TITELN — upprepa INTE totalvikten i beskrivningen (undvik dubblering)
+• Delvikter per besticktyp i beskrivningen är OK om de finns i källdata
 
 KONDITION FÖR SILVER:
 • Nämn ALLTID om silver har gåvogravyr eller monogram`;
@@ -774,9 +781,10 @@ FÖRBJUDET:
 • Spekulationer och gissningar
 • Överdriven regelefterlevnad - skriv naturligt och autentiskt
 
-TITELFORMAT (max 60 tecken):
+TITELFORMAT:
 Om konstnär-fält tomt: [KONSTNÄR], [Föremål], [Material], [Period] - FÖRSTA ORDET VERSALER
 Om konstnär-fält ifyllt: [föremål], [Material], [Period] - FÖRSTA ORDET GEMENER (konstnärens namn läggs till automatiskt)
+Titeln ska vara koncis men komplett — ta aldrig bort viktig information (vikt, antal, modellnamn) för att korta ner.
 
 OSÄKERHETSMARKÖRER - BEHÅLL ALLTID:
 "troligen", "tillskriven", "efter", "stil av", "möjligen"
@@ -838,6 +846,11 @@ ANTI-FÖRKORTNING OCH SEO-REGLER:
 • Skriv INTE "st" efter antal (utom i titlar där "st" är konventionellt): "34 mattallrikar" INTE "34 st mattallrikar"
 • Skriv fullständiga namn: "Josef Frank" INTE "Frank", "nysilver" INTE "NS"
 • Syfte: Auctionet använder automatisk Google-översättning — förkortningar kan inte översättas korrekt
+
+SVENSKA SAMMANSÄTTNINGSREGLER:
+• "Sterling Silver" ska ALLTID skrivas som ETT ord med gemener: "sterlingsilver" — ALDRIG "Sterling Silver" eller "sterling silver"
+• Samma regel gäller alla svenska materialsammansättningar: "rostfritt stål" (två ord), "vitguld" (ett ord), "rödguld" (ett ord)
+• Engelska termer ska anpassas till svensk grammatik när det finns etablerad svensk form
 
 `;
   }
@@ -1099,7 +1112,7 @@ Använd INTE markdown formatering eller extra tecken som ** eller ***. Skriv bar
 
       case 'title':
         return baseInfo + `
-UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Max 60 tecken. Skriv naturligt och flytande.
+UPPGIFT: Förbättra endast titeln enligt svenska auktionsstandarder. Titeln ska vara koncis men komplett — ta aldrig bort viktig information (vikt, antal, modellnamn). Skriv naturligt och flytande.
 
 KRITISKT - BEVARA CITATTECKEN FÖR MASKINÖVERSÄTTNING:
 • BEHÅLL ALLTID citattecken runt produktnamn, modellnamn och svenska designnamn
@@ -1375,10 +1388,8 @@ Return JSON only:
       return { errors, warnings };
     }
 
-    // Length check
-    if (title.length > 60) {
-      errors.push(`Titel för lång: ${title.length}/60 tecken`);
-    }
+    // No hard character limit — Auctionet has no title length restriction
+    // Titles should be concise but complete
 
     // Structure check
     if (!title.match(/^[A-ZÅÄÖÜ]/)) {

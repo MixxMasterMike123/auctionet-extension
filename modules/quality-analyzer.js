@@ -493,7 +493,10 @@ export class QualityAnalyzer {
 
     // --- Silver: weight should be in title ---
     if (category.includes('silver') && !category.includes('smycke')) {
-      if (!/\b\d+\s*(gram|g)\b/i.test(data.title)) {
+      // Match weight patterns: "3882 gram", "150 g", "bruttovikt 3882 gram", "vikt ca 500 g"
+      const hasWeight = /\b\d+\s*(gram|g)\b/i.test(data.title) || 
+        /\b(bruttovikt|nettovikt|vikt)\s*(ca\.?\s*)?\d+/i.test(data.title);
+      if (!hasWeight) {
         warnings.push({ field: 'Titel', issue: 'Silver: Vikt bör anges sist i titeln', severity: 'low', source: 'faq', fieldId: 'item_title_sv' });
         score -= 5;
       }
@@ -520,6 +523,19 @@ export class QualityAnalyzer {
         score -= 5;
         break;
       }
+    }
+
+    // --- General: "Sterling Silver" should be "sterlingsilver" (one word, lowercase) in Swedish ---
+    const sterlingPattern = /\bsterling\s+silver\b/i;
+    const sterlingTitleMatch = data.title.match(sterlingPattern);
+    const sterlingDescMatch = descPlain.match(sterlingPattern);
+    if (sterlingTitleMatch) {
+      warnings.push({ field: 'Titel', issue: `"${sterlingTitleMatch[0]}" ska skrivas som ett ord: "sterlingsilver"`, severity: 'medium', source: 'faq', fieldId: 'item_title_sv' });
+      score -= 5;
+    }
+    if (sterlingDescMatch) {
+      warnings.push({ field: 'Beskrivning', issue: `"${sterlingDescMatch[0]}" ska skrivas som ett ord: "sterlingsilver"`, severity: 'medium', source: 'faq', fieldId: 'item_description_sv' });
+      score -= 5;
     }
 
     // --- General: "centimeter" is acceptable per Auctionet guidelines ("centimeter" or "cm" both OK) ---
@@ -603,6 +619,51 @@ export class QualityAnalyzer {
           vagueCondition: true
         });
       }
+    }
+
+    // === AML / PENNINGTVÄTT COMPLIANCE REMINDERS ===
+    // High-risk category detection for AML awareness
+    const titleAndDesc = (data.title + ' ' + descLower).toLowerCase();
+
+    // Loose gemstones — explicitly flagged as high AML risk by Auctionet policy
+    const isLooseGemstone = /lösa?\s+ädelsten/i.test(titleAndDesc) || 
+      /ädelsten.*lösa?/i.test(titleAndDesc) ||
+      (category.includes('ädelsten') && !/smycke|ring|halsband|armband|brosch/i.test(titleAndDesc));
+    
+    if (isLooseGemstone) {
+      warnings.push({
+        field: 'AML',
+        issue: '⚠️ Lösa ädelstenar: Högrisk för penningtvätt. Kräver certifikat (GIA/HRD/IGI/GRS/DSEF/SSEF), PROVENIENS ska anges, och säljarens identitet måste kontrolleras.',
+        severity: 'high',
+        source: 'aml'
+      });
+    }
+
+    // High-value items — reminder about enhanced due diligence
+    const estimateValue = parseFloat(data.estimate) || 0;
+    const upperEstimateValue = parseFloat(data.upperEstimate) || 0;
+    const highestEstimate = Math.max(estimateValue, upperEstimateValue);
+
+    if (highestEstimate >= 50000) {
+      warnings.push({
+        field: 'AML',
+        issue: `Värdering ${highestEstimate.toLocaleString('sv-SE')} SEK — säkerställ att säljarens riskprofil och ID-verifiering är uppdaterad.`,
+        severity: 'medium',
+        source: 'aml'
+      });
+    }
+
+    // Gold/silver bullion or large quantities — potential high-risk
+    const isBullionOrLargeGold = /\b(guldtacka|silvertacka|tackor|guldmynt.*parti|parti.*guldmynt)\b/i.test(titleAndDesc) ||
+      (/\b(guld|gold)\b/i.test(titleAndDesc) && /\b(parti|samling|lot)\b/i.test(titleAndDesc));
+    
+    if (isBullionOrLargeGold) {
+      warnings.push({
+        field: 'AML',
+        issue: 'Guld/silver i parti eller tackor: Kontrollera säljarens identitet och ägandets varaktighet. Dokumentera i riskprofilen.',
+        severity: 'medium',
+        source: 'aml'
+      });
     }
 
     // === END FAQ GUIDELINE VALIDATION RULES ===
@@ -2608,6 +2669,10 @@ export class QualityAnalyzer {
       '#item_description_sv',
       '#item_condition_sv',
       '#item_hidden_keywords',
+      '#item_current_auction_attributes_estimate',
+      '#item_current_auction_attributes_upper_estimate',
+      '#item_current_auction_attributes_reserve',
+      '#item_current_auction_attributes_accepted_reserve',
       'input[type="checkbox"]#item_no_remarks',
       'input[type="checkbox"][name*="no_remarks"]'
     ];

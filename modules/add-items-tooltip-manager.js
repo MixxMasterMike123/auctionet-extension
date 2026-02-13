@@ -1548,7 +1548,7 @@ FÖRBJUDET:
 • Spekulationer och gissningar
 • Överdriven regelefterlevnad - skriv naturligt och autentiskt
 
-TITELFORMAT (max 60 tecken):
+TITELFORMAT:
 Om konstnär-fält tomt: [MÄRKE/KONSTNÄR]. [föremål], [material], [period] - FÖRSTA ORDET VERSALER + PUNKT
 Om konstnär-fält ifyllt: [Föremål]. [antal], [material], [period] - FÖRSTA ORDET PROPER + PUNKT
 
