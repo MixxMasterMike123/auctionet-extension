@@ -262,7 +262,7 @@ export class QualityAnalyzer {
     let score = 100;
 
     // --- Artist field bio hover (reference guide for filled artist field) ---
-    this.setupArtistFieldBioHover(data.artist);
+    this.setupArtistFieldBioHover(data.artist, data.artistDates);
 
     // --- Bevakningspris vs Värdering validation (Auctionet rule: reserve must NEVER equal or exceed estimate) ---
     const estimateVal = parseFloat(data.estimate);
@@ -1279,7 +1279,7 @@ export class QualityAnalyzer {
    * Add a small "(i) visa biografi" link next to the artist field when it has a value.
    * Hovering shows the KB card as a reference guide.
    */
-  setupArtistFieldBioHover(artistName) {
+  setupArtistFieldBioHover(artistName, artistDates = '') {
     if (!artistName || !artistName.trim()) {
       // Remove existing bio link if artist field was cleared
       const existing = document.querySelector('.artist-field-bio-link');
@@ -1312,8 +1312,8 @@ export class QualityAnalyzer {
       user-select: none;
     `;
 
-    // Add the bio hover using the same KB card system
-    this.addBiographyHover(bioLink, artistName.trim());
+    // Add the bio hover using the same KB card system, pass artistDates for disambiguation
+    this.addBiographyHover(bioLink, artistName.trim(), null, artistDates);
 
     // Insert after the artist field
     artistField.parentNode.insertBefore(bioLink, artistField.nextSibling);
@@ -1350,7 +1350,10 @@ export class QualityAnalyzer {
         clickableSpan.title = `Klicka för att flytta "${artistName}" till konstnärsfält`;
 
         // Add biography hover functionality (pass warningData for existing bio fallback)
-        this.addBiographyHover(clickableSpan, artistName, warningData);
+        // Get artistDates from page for disambiguation
+        const artistHelpSpan = document.querySelector('[data-devbridge-autocomplete-target="help"]');
+        const warnArtistDates = artistHelpSpan ? artistHelpSpan.textContent.trim() : '';
+        this.addBiographyHover(clickableSpan, artistName, warningData, warnArtistDates);
 
         // NEW: Use Biography Manager SSoT component for biography handling
         let biographySpan = null;
@@ -3262,7 +3265,7 @@ Anpassa förslagen till kategorin "${category}".`,
   /**
    * Add biography hover functionality to an element
    */
-  addBiographyHover(element, artistName, warningData = null) {
+  addBiographyHover(element, artistName, warningData = null, artistDates = '') {
     // Normalize casing: "mona starfelt" / "CARL MALMSTEN" → "Mona Starfelt" / "Carl Malmsten"
     artistName = artistName
       .split(/\s+/)
@@ -3349,7 +3352,7 @@ Anpassa förslagen till kategorin "${category}".`,
       // Fetch bio + Wikipedia image in parallel
       try {
         const [bioData, imageUrl] = await Promise.all([
-          this.fetchArtistBiography(artistName),
+          this.fetchArtistBiography(artistName, artistDates),
           this.fetchWikipediaImage(artistName)
         ]);
         dataLoaded = true;
@@ -3385,12 +3388,25 @@ Anpassa förslagen till kategorin "${category}".`,
    * Fetch structured artist biography for KB card
    * Returns: { years, biography, style, notableWorks } or null
    */
-  async fetchArtistBiography(artistName) {
+  async fetchArtistBiography(artistName, artistDates = '') {
     if (!this.apiManager?.apiKey) {
       return null;
     }
 
-    const prompt = `Konstnär/formgivare: "${artistName}"
+    // Extract years from artistDates string like "Sverige, 1914–2002." for disambiguation
+    let knownYears = '';
+    if (artistDates) {
+      const yearsMatch = artistDates.match(/(\d{4})[–-](\d{4})?/);
+      if (yearsMatch) {
+        knownYears = yearsMatch[0];
+      }
+    }
+
+    const disambiguationHint = knownYears
+      ? `\nVIKTIGT: Det finns flera personer med detta namn. Rätt person levde ${knownYears}. Svara BARA om den personen.`
+      : '';
+
+    const prompt = `Konstnär/formgivare: "${artistName}"${disambiguationHint}
 
 Svara med JSON (på svenska):
 {
