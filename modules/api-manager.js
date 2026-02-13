@@ -352,28 +352,31 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
       'oidentifierad formgivare', 'okänd formgivare', 'oidentifierad upphovsman'
     ];
 
+    let changed = false;
     let cleaned = text;
     for (const phrase of phrases) {
-      // Case-insensitive removal, also cleaning up surrounding commas / dashes
       const regex = new RegExp(
         `[,;–—-]?\\s*${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,;–—-]?`,
         'gi'
       );
-      cleaned = cleaned.replace(regex, (match, offset) => {
-        // If the match sits between other content (both sides had separators),
-        // keep a single comma to avoid merging unrelated parts
+      const before = cleaned;
+      cleaned = cleaned.replace(regex, (match) => {
         const hadLeadingSep = /^[,;–—-]/.test(match.trim());
         const hadTrailingSep = /[,;–—-]$/.test(match.trim());
         return (hadLeadingSep && hadTrailingSep) ? ', ' : ' ';
       });
+      if (cleaned !== before) changed = true;
     }
 
-    // Tidy up leftover punctuation / whitespace
+    // Only run cleanup if a phrase was actually removed; use [^\S\r\n] to
+    // collapse horizontal whitespace without destroying paragraph breaks (\n)
+    if (!changed) return text;
+
     cleaned = cleaned
       .replace(/,\s*,/g, ',')
       .replace(/^\s*,\s*/, '')
       .replace(/\s*,\s*$/, '')
-      .replace(/\s{2,}/g, ' ')
+      .replace(/[^\S\r\n]{2,}/g, ' ')
       .trim();
 
     return cleaned;

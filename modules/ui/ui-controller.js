@@ -1284,24 +1284,29 @@ export class UIController {
             'oidentifierad formgivare', 'okänd formgivare', 'oidentifierad upphovsman'
         ];
 
+        let changed = false;
         let cleaned = text;
         for (const phrase of phrases) {
             const regex = new RegExp(
                 `[,;–—-]?\\s*${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[,;–—-]?`,
                 'gi'
             );
+            const before = cleaned;
             cleaned = cleaned.replace(regex, (match) => {
                 const hadLeadingSep = /^[,;–—-]/.test(match.trim());
                 const hadTrailingSep = /[,;–—-]$/.test(match.trim());
                 return (hadLeadingSep && hadTrailingSep) ? ', ' : ' ';
             });
+            if (cleaned !== before) changed = true;
         }
+
+        if (!changed) return text;
 
         return cleaned
             .replace(/,\s*,/g, ',')
             .replace(/^\s*,\s*/, '')
             .replace(/\s*,\s*$/, '')
-            .replace(/\s{2,}/g, ' ')
+            .replace(/[^\S\r\n]{2,}/g, ' ')
             .trim();
     }
 }
