@@ -127,8 +127,16 @@ export class BiographyKBCard {
     const attachScrollListener = () => {
       if (scrollHandler) return;
       scrollHandler = () => {
+        // Hide the card on scroll instead of repositioning — prevents it
+        // from jumping to the top when the trigger scrolls out of view
         if (kbCard && kbCard.style.visibility === 'visible') {
-          positionCard();
+          isHoveringTrigger = false;
+          isHoveringCard = false;
+          kbCard.style.opacity = '0';
+          kbCard.style.visibility = 'hidden';
+          kbCard.style.transform = 'translateY(6px) scale(0.96)';
+          kbCard.style.pointerEvents = 'none';
+          detachScrollListener();
         }
       };
       window.addEventListener('scroll', scrollHandler, { passive: true });
