@@ -58,6 +58,14 @@ export class APIManager {
     const systemPrompt = this.getSystemPrompt();
     const userPrompt = this.getUserPrompt(itemData, fieldType);
 
+    // Format system prompt with cache_control for Anthropic prompt caching
+    // The large system prompt (~3500 tokens) is identical across calls — caching saves ~90% on input cost
+    const systemWithCache = [{
+      type: 'text',
+      text: systemPrompt,
+      cache_control: { type: 'ephemeral' }
+    }];
+
     try {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
@@ -67,7 +75,7 @@ export class APIManager {
             model: this.getCurrentModel().id,
             max_tokens: fieldType === 'title-correct' ? 500 : CONFIG.API.maxTokens,
             temperature: CONFIG.API.temperature,
-            system: systemPrompt,
+            system: systemWithCache,
             messages: [{
               role: 'user',
               content: userPrompt
@@ -129,6 +137,13 @@ ${result.validationWarnings.join('\n')}
 Vänligen korrigera dessa problem och returnera förbättrade versioner som följer alla svenska auktionsstandarder.
 `;
 
+      // Re-use cached system prompt for correction call
+      const systemWithCacheCorrection = [{
+        type: 'text',
+        text: systemPrompt,
+        cache_control: { type: 'ephemeral' }
+      }];
+
       const correctionResponse = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
@@ -137,7 +152,7 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
             model: this.getCurrentModel().id,
             max_tokens: CONFIG.API.maxTokens,
             temperature: CONFIG.API.temperature,
-            system: systemPrompt,
+            system: systemWithCacheCorrection,
             messages: [
               { role: 'user', content: userPrompt },
               { role: 'assistant', content: data.content[0].text },
@@ -1757,6 +1772,7 @@ Return JSON only:
   }
 
   // NEW: Enhanced sales analysis that accepts search context for artist, brand, and freetext searches
+  // COST OPTIMIZATION: localStorage cache for revisits (1 hour expiry)
   async analyzeSales(searchContext, itemData = null) {
 
     const {
@@ -1769,6 +1785,20 @@ Return JSON only:
       confidence,
       termCount
     } = searchContext;
+
+    // COST OPTIMIZATION: Check localStorage cache for this search query
+    const cacheKey = `market_analysis_${btoa(unescape(encodeURIComponent(primarySearch || '')))}`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const ONE_HOUR = 60 * 60 * 1000;
+        if (Date.now() - timestamp < ONE_HOUR) {
+          return data;
+        }
+        localStorage.removeItem(cacheKey); // Expired
+      }
+    } catch { /* ignore cache errors */ }
 
     // Store item context for AI validation of results
     this._currentItemData = itemData;
@@ -1789,9 +1819,15 @@ Return JSON only:
         analysisResult = await this.analyzeComparableSales(primarySearch, objectType, period, technique);
       }
 
-
-      // Keep original SSoT query intact - NO OVERRIDES
-
+      // COST OPTIMIZATION: Cache successful results in localStorage
+      if (analysisResult && analysisResult.hasComparableData) {
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            data: analysisResult,
+            timestamp: Date.now()
+          }));
+        } catch { /* localStorage full or unavailable — no big deal */ }
+      }
 
       return analysisResult;
 

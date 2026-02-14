@@ -51,15 +51,23 @@ async function handleAnthropicRequest(request, sendResponse) {
     
     try {
       const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': request.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      };
+
+      // Enable prompt caching when system messages use cache_control blocks
+      const body = request.body;
+      if (body?.system && Array.isArray(body.system) && body.system.some(b => b.cache_control)) {
+        headers['anthropic-beta'] = 'prompt-caching-2024-07-31';
+      }
+
       const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': request.apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify(request.body),
+        headers,
+        body: JSON.stringify(body),
         signal: controller.signal
       });
 

@@ -20,7 +20,9 @@ export class DashboardManagerV2 {
     // State
     this.dashboardCreated = false;
     this.currentTerms = [];
-    
+
+    // COST OPTIMIZATION: Callback for deferred market analysis loading
+    this.onDashboardOpenCallback = null;
   }
 
   // Set dependencies
@@ -1894,10 +1896,17 @@ export class DashboardManagerV2 {
       // Save state to localStorage
       localStorage.setItem(STORAGE_KEY, isOpen.toString());
       
-      
       // Apply visual state
       this.applyDropdownState(isOpen, floatingToggle, dropdownContainer, dashboardElement, true);
       
+      // COST OPTIMIZATION: Trigger deferred market analysis when dashboard is opened
+      if (isOpen && typeof this.onDashboardOpenCallback === 'function') {
+        const callback = this.onDashboardOpenCallback;
+        this.onDashboardOpenCallback = null; // Clear to prevent re-running
+        // Small delay to let the animation start before loading data
+        setTimeout(() => callback(), 150);
+      }
+
       // Verify state after a brief moment
       setTimeout(() => {
         this.verifyDropdownState(isOpen, floatingToggle, dropdownContainer);

@@ -442,14 +442,12 @@ export class QualityAnalyzer {
               );
 
               // Trigger market analysis with conservative search context
+              // COST OPTIMIZATION: Defer if dashboard is closed
               if (this.apiManager) {
                 const searchContext = this.searchQuerySSoT.buildSearchContext();
 
-                // Start market analysis in background (non-blocking)
-                this.apiManager.analyzeSales(searchContext).then(salesData => {
+                this.marketOrchestrator.runOrDeferAnalysis(searchContext, candidateSearchTerms, 'comprehensive_with_detected_artist').then(salesData => {
                   if (salesData && salesData.hasComparableData) {
-
-                    // Update dashboard with comprehensive results
                     if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
                       this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'comprehensive_with_detected_artist');
                     }
@@ -498,14 +496,12 @@ export class QualityAnalyzer {
               );
 
               // Trigger market analysis with FULL search context
+              // COST OPTIMIZATION: Defer if dashboard is closed
               if (this.apiManager) {
                 const searchContext = this.searchQuerySSoT.buildSearchContext();
 
-                // Start market analysis in background (non-blocking)
-                this.apiManager.analyzeSales(searchContext).then(salesData => {
+                this.marketOrchestrator.runOrDeferAnalysis(searchContext, candidateSearchTerms, 'ai_enhanced_with_field_artist').then(salesData => {
                   if (salesData && salesData.hasComparableData) {
-
-                    // Update dashboard with full results
                     if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
                       this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'ai_enhanced_with_field_artist');
                     }

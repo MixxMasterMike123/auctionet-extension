@@ -104,13 +104,11 @@ export class FreetextParser {
       return;
     }
 
-    // Create the button following existing UI patterns
+    // Create the button following Auctionet admin UI patterns
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'freetext-parser-container';
-    // Simple, small CTA button
-    buttonContainer.style.cssText = 'margin: 10px 0;';
     buttonContainer.innerHTML = `
-      <button type="button" id="freetext-parser-btn" style="background: #007cba; color: white; border: none; border-radius: 4px; padding: 8px 16px; font-size: 14px; cursor: pointer;">
+      <button type="button" id="freetext-parser-btn" class="btn--freetext-parser">
         Snabbkatalogisering
       </button>
     `;
@@ -154,9 +152,6 @@ export class FreetextParser {
     modal.querySelectorAll('.modal-section.highlighted').forEach(el => {
       el.classList.remove('highlighted');
     });
-
-    // Add highlight to target section
-    section.classList.add('highlighted');
 
     // Special handling for results section to show the title
     if (sectionId === 'results-section') {
@@ -238,14 +233,8 @@ export class FreetextParser {
     modal.innerHTML = `
       <div class="freetext-parser-modal">
         <div class="popup-header">
-          <h3>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 8px; vertical-align: text-bottom;">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.5-6.5l-4.24 4.24M7.76 16.24l-4.24 4.24M20.5 20.5l-4.24-4.24M7.76 7.76L3.52 3.52" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-            Snabbkatalogisering
-          </h3>
-          <p>Skriv all information du har om objektet - systemet analyserar och skapar katalogpost</p>
+          <h3>Snabbkatalogisering</h3>
+          <p>Skriv information om objektet eller ladda upp bilder. AI analyserar och skapar katalogpost.</p>
           <button class="popup-close" type="button">✕</button>
         </div>
         
@@ -253,22 +242,18 @@ export class FreetextParser {
           <!-- Input Section -->
           <div id="input-section" class="modal-section">
             <div class="section-title">
-              <div class="section-icon">📝</div>
-              <span>Lägg till information</span>
+              <div class="section-icon">1</div>
+              <span>Information</span>
             </div>
             <!-- Beautiful Image Upload Section -->
             <div class="image-upload-section">
               <div class="upload-header">
-                <div class="upload-title">
-                  📸 Bilder av objektet
-                </div>
-                <p class="upload-subtitle">Ladda upp bilder för bättre analys • Max 5 bilder • JPG, PNG, WebP</p>
+                <div class="upload-title">Bilder av objektet</div>
+                <p class="upload-subtitle">Ladda upp bilder (valfritt) - max 5 st, JPG/PNG/WebP</p>
               </div>
               
               <div class="simple-upload-area" id="simple-upload-trigger">
-                <div class="upload-icon">📷</div>
-                <div class="upload-main-text">Klicka för att ladda upp bilder</div>
-                <div class="upload-sub-text">eller dra och släpp här</div>
+                <div class="upload-main-text">Klicka eller dra bilder hit</div>
               </div>
               
               <div class="image-preview-grid" id="image-preview-grid" style="display: none;"></div>
@@ -284,16 +269,8 @@ export class FreetextParser {
             <!-- Text Input -->
             <div class="text-section">
               <label for="freetext-input" class="freetext-label">
-                <strong>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/>
-                  <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/>
-                  <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
-                  <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-                Beskrivning av objektet (valfritt):
-              </strong>
-                <span class="freetext-hint">Skriv allt du vet: märke, konstnär, material, mått, skick, värdering, etc.</span>
+                <strong>Beskrivning av objektet (valfritt)</strong>
+                <span class="freetext-hint">Skriv allt du vet: märke, konstnär, material, mått, skick, värdering etc.</span>
               </label>
               <textarea 
                 id="freetext-input" 
@@ -312,30 +289,16 @@ export class FreetextParser {
             <!-- Analysis Mode Indicator -->
             <div class="analysis-mode-indicator" id="analysis-mode-indicator">
               <div class="mode-status">
-                <span class="mode-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-                  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-              </span>
-                <span class="mode-text">Lägg till bilder ELLER text (eller båda) för analys</span>
+                <span class="mode-text">Lägg till bilder eller text (eller båda) och klicka Analysera.</span>
               </div>
             </div>
           </div>
           
           <!-- Processing Section -->
           <div id="processing-section" class="modal-section ai-processing-section" style="display: none;">
-            <div class="section-title">
-              <div class="section-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/>
-                </svg>
-              </div>
-              <span>Analyserar</span>
-            </div>
             <div class="processing-spinner"></div>
             <div class="processing-status">
-              <p class="processing-step">Förbereder analys...</p>
+              <p class="processing-step" style="color: #495057; font-size: 13px;">Analyserar...</p>
               <div class="processing-progress">
                 <div class="progress-bar">
                   <div class="progress-fill"></div>
@@ -347,12 +310,8 @@ export class FreetextParser {
           <!-- Results Section -->
           <div id="results-section" class="modal-section parsed-preview-section" style="display: none;">
             <div class="section-title">
-              <div class="section-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <span>Genererad katalogpost</span>
+              <div class="section-icon">2</div>
+              <span>Resultat</span>
             </div>
             <div class="preview-content">
               <!-- Parsed data will be inserted here -->
@@ -361,38 +320,11 @@ export class FreetextParser {
         </div>
         
         <div class="modal-footer">
-          <button class="btn btn--secondary" id="cancel-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Avbryt
-          </button>
-          <button class="btn btn--primary" id="analyze-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor"/>
-            </svg>
-            Analysera
-          </button>
-          <button class="btn btn--success" id="apply-btn" style="display: none;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
-              <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Använd denna katalogpost
-          </button>
-          <button class="btn btn--primary" id="reanalyze-btn" style="display: none;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
-              <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Förbättra analys
-          </button>
-          <button class="btn btn--warning" id="restart-btn" style="display: none;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px; vertical-align: text-bottom;">
-              <path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M21 3v5h-5M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M8 16l-5 5v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Starta om
-          </button>
+          <button class="btn btn--secondary" id="cancel-btn">Avbryt</button>
+          <button class="btn btn--primary" id="analyze-btn">Analysera</button>
+          <button class="btn btn--success" id="apply-btn" style="display: none;">Tillämpa katalogpost</button>
+          <button class="btn btn--primary" id="reanalyze-btn" style="display: none;">Analysera igen</button>
+          <button class="btn btn--warning" id="restart-btn" style="display: none;">Starta om</button>
         </div>
       </div>
     `;
@@ -564,7 +496,7 @@ export class FreetextParser {
     const headerP = this.currentModal.querySelector('.popup-header p');
     if (headerP) {
       headerP.textContent = 'Lägg till mer information för en förbättrad analys';
-      headerP.style.color = '#2563eb';
+      headerP.style.color = '#006ccc';
       headerP.style.fontWeight = '500';
     }
     
@@ -671,7 +603,7 @@ export class FreetextParser {
     // Reset modal header to original text
     const headerP = this.currentModal.querySelector('.popup-header p');
     if (headerP) {
-      headerP.textContent = 'Skriv all information du har om objektet - systemet analyserar och skapar katalogpost';
+      headerP.textContent = 'Skriv information om objektet eller ladda upp bilder. AI analyserar och skapar katalogpost.';
       headerP.style.color = '';
       headerP.style.fontWeight = '';
     }
@@ -1697,43 +1629,60 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
    * Parse response using EXACT SAME logic as edit page
    */
   parseEditPageResponse(response, fieldType) {
-    
-    // Use exact same parsing logic as content.js parseClaudeResponse method
+    // Accumulator pattern: collect multi-line content for each field label
     const result = {};
     const lines = response.split('\n');
-    
-    lines.forEach(line => {
-      const trimmedLine = line.trim();
-      
-      // Handle different formats: "TITEL:", "**TITEL:**", "**TITEL (XX tecken):**"
-      if (trimmedLine.match(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i)) {
-        result.title = trimmedLine.replace(/^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i, '').trim();
-      } else if (trimmedLine.match(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i)) {
-        result.description = trimmedLine.replace(/^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i, '').trim();
-      } else if (trimmedLine.match(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i)) {
-        result.condition = trimmedLine.replace(/^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i, '').trim();
-      } else if (trimmedLine.match(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i)) {
-        result.keywords = trimmedLine.replace(/^\*?\*?SÖKORD\s*:?\*?\*?\s*/i, '').trim();
+
+    // Label patterns — order matters (most specific first)
+    const labelPatterns = [
+      { key: 'title',       regex: /^\*?\*?TITEL(\s*\([^)]*\))?\s*:?\*?\*?\s*/i },
+      { key: 'description', regex: /^\*?\*?BESKRIVNING\s*:?\*?\*?\s*/i },
+      { key: 'condition',   regex: /^\*?\*?KONDITION(SRAPPORT)?\s*:?\*?\*?\s*/i },
+      { key: 'keywords',    regex: /^\*?\*?SÖKORD\s*:?\*?\*?\s*/i },
+    ];
+
+    let currentField = null;
+    let currentValue = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      let matched = false;
+
+      for (const { key, regex } of labelPatterns) {
+        if (trimmed.match(regex)) {
+          // Save previous field
+          if (currentField) {
+            result[currentField] = currentValue.join('\n').trim();
+          }
+          // Start new field
+          currentField = key;
+          const remainder = trimmed.replace(regex, '').trim();
+          currentValue = remainder ? [remainder] : [];
+          matched = true;
+          break;
+        }
       }
-      
-      // Handle simple formats (legacy)
-      else if (trimmedLine.startsWith('TITEL:')) {
-        result.title = trimmedLine.substring(6).trim();
-      } else if (trimmedLine.startsWith('BESKRIVNING:')) {
-        result.description = trimmedLine.substring(12).trim();
-      } else if (trimmedLine.startsWith('KONDITION:')) {
-        result.condition = trimmedLine.substring(10).trim();
-      } else if (trimmedLine.startsWith('SÖKORD:')) {
-        result.keywords = trimmedLine.substring(7).trim();
+
+      if (!matched && currentField) {
+        // Continuation line — accumulate (preserve blank lines as paragraph breaks)
+        if (trimmed === '') {
+          currentValue.push('');
+        } else {
+          currentValue.push(trimmed);
+        }
       }
-    });
-    
-    // If we only got a simple response (like just a title), handle it appropriately
+    }
+
+    // Flush last field
+    if (currentField) {
+      result[currentField] = currentValue.join('\n').trim();
+    }
+
+    // Fallback: if nothing was parsed, treat entire response as title
     if (Object.keys(result).length === 0 && response.trim().length > 0) {
-      // Assume it's a single field response based on the request type
       result.title = response.trim();
     }
-    
+
     return result;
   }
 
@@ -1828,24 +1777,64 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     const data = {};
     const lines = response.split('\n');
 
+    // Known field labels and their normalized keys
+    const labelMap = {
+      'titel': 'title', 'title': 'title',
+      'beskrivning': 'description', 'description': 'description',
+      'skick': 'condition', 'condition': 'condition',
+      'konstnär': 'artist', 'artist': 'artist',
+      'material': 'materials', 'materials': 'materials',
+      'period': 'period', 'årtal': 'period',
+      'värde': 'estimatedValue', 'value': 'estimatedValue',
+      'sökord': 'keywords', 'keywords': 'keywords', 'nyckelord': 'keywords',
+      'motivering': 'reasoning', 'reasoning': 'reasoning',
+    };
+
+    let currentKey = null;
+    let currentValue = [];
+
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.includes(':')) {
-        const [key, ...valueParts] = trimmed.split(':');
-        const value = valueParts.join(':').trim();
-        
-        const normalizedKey = key.toLowerCase()
-          .replace(/titel|title/i, 'title')
-          .replace(/beskrivning|description/i, 'description')
-          .replace(/skick|condition/i, 'condition')
-          .replace(/konstnär|artist/i, 'artist')
-          .replace(/material/i, 'materials')
-          .replace(/period|årtal/i, 'period')
-          .replace(/värde|value/i, 'estimatedValue');
 
-        if (value && value !== '-' && value !== 'N/A') {
-          data[normalizedKey] = value;
+      // Check if this line starts a new labelled field (e.g. "Beskrivning: ...")
+      let matched = false;
+      if (trimmed.includes(':')) {
+        const colonIndex = trimmed.indexOf(':');
+        const rawKey = trimmed.substring(0, colonIndex).trim().toLowerCase()
+          .replace(/^\*+/, '').replace(/\*+$/, ''); // strip markdown bold
+        const normalizedKey = labelMap[rawKey];
+
+        if (normalizedKey) {
+          // Save previous field
+          if (currentKey) {
+            const val = currentValue.join('\n').trim();
+            if (val && val !== '-' && val !== 'N/A') {
+              data[currentKey] = val;
+            }
+          }
+          // Start new field
+          currentKey = normalizedKey;
+          const remainder = trimmed.substring(colonIndex + 1).trim();
+          currentValue = remainder ? [remainder] : [];
+          matched = true;
         }
+      }
+
+      if (!matched && currentKey) {
+        // Continuation line
+        if (trimmed === '') {
+          currentValue.push('');
+        } else {
+          currentValue.push(trimmed);
+        }
+      }
+    }
+
+    // Flush last field
+    if (currentKey) {
+      const val = currentValue.join('\n').trim();
+      if (val && val !== '-' && val !== 'N/A') {
+        data[currentKey] = val;
       }
     }
 
@@ -1878,6 +1867,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       // Start the continuous progress animation
       this.startContinuousProgressAnimation();
     }
+
+    // Show skeleton placeholders immediately for perceived speed
+    this.showSkeletonResults();
 
     // Update buttons
     const analyzeBtn = modal.querySelector('#analyze-btn');
@@ -2054,39 +2046,13 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
 
     return `
       <div class="continuous-processing-container">
-        <div class="processing-header">
-          <div class="ai-brain-animation">
-            <div class="brain-core"></div>
-            <div class="brain-pulse"></div>
-            <div class="brain-waves">
-              <div class="wave wave-1"></div>
-              <div class="wave wave-2"></div>
-              <div class="wave wave-3"></div>
-            </div>
-          </div>
-          <h3 class="processing-title">
-            ${isAdvancedModel ? 'Expertanalys pågår' : 'Analys pågår'}
-          </h3>
-          <p class="processing-subtitle">
-            ${isAdvancedModel ? 'Djupgående marknadsresearch med kontinuerlig analys' : 'Extraherar strukturerad data från fritext'}
-          </p>
-        </div>
-
         <div class="continuous-progress-container">
           <div class="continuous-progress-bar">
             <div class="continuous-progress-fill"></div>
             <div class="continuous-progress-runner"></div>
           </div>
           <div class="progress-status">
-            <div class="status-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="status-spinner">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416">
-                  <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
-                  <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
-                </circle>
-              </svg>
-            </div>
-            <div class="status-text" id="current-status">Förbereder analys...</div>
+            <div class="status-text" id="current-status">Analyserar...</div>
           </div>
         </div>
 
@@ -2324,27 +2290,11 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       if (processingSection) processingSection.style.display = 'none';
     }, 1000);
 
-    // Show preview section
+    // Progressive field reveal — replace skeletons with real data one by one
     const previewSection = modal.querySelector('.parsed-preview-section');
-    const previewContent = modal.querySelector('.preview-content');
-    
-    if (previewSection && previewContent) {
-      const htmlContent = this.generatePreviewHTML(data, sureScore);
-      
-      previewContent.innerHTML = htmlContent;
+    if (previewSection) {
       previewSection.style.display = 'block';
-      
-      
-      // DEBUG: Check what's actually in the DOM after update
-      setTimeout(() => {
-        const titleInput = modal.querySelector('.preview-field--title');
-        const titleValue = titleInput ? titleInput.value : 'NOT FOUND';
-      }, 100);
-    } else {
-      console.error('Preview section or content not found:', {
-        hasPreviewSection: !!previewSection,
-        hasPreviewContent: !!previewContent
-      });
+      this.revealFieldsProgressively(data, sureScore);
     }
 
     // Update buttons for results view
@@ -2372,33 +2322,90 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
   }
 
   /**
+   * Generate skeleton placeholder HTML for progressive field reveal.
+   * Shown immediately when analysis starts so the user sees instant feedback.
+   */
+  generateSkeletonHTML() {
+    const fields = [
+      { label: 'Titel', height: '' },
+      { label: 'Beskrivning', height: 'field-skeleton--tall' },
+      { label: 'Skick', height: 'field-skeleton--medium' },
+      { label: 'Konstnär', height: '' },
+      { label: 'Material', height: '' },
+      { label: 'Sökord', height: 'field-skeleton--medium' },
+    ];
+
+    return `
+      <div class="parsed-fields">
+        ${fields.map(f => `
+          <div class="field-preview">
+            <div class="field-skeleton-label"></div>
+            <div class="field-skeleton ${f.height}"></div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  /**
+   * Show results section with skeleton placeholders immediately.
+   * Called when "Analysera" is clicked, before the API responds.
+   */
+  showSkeletonResults() {
+    const modal = this.currentModal;
+    if (!modal) return;
+
+    const previewSection = modal.querySelector('.parsed-preview-section');
+    const previewContent = modal.querySelector('.preview-content');
+    if (previewSection && previewContent) {
+      previewContent.innerHTML = this.generateSkeletonHTML();
+      previewSection.style.display = 'block';
+    }
+  }
+
+  /**
+   * Reveal parsed fields progressively with a stagger delay,
+   * replacing the skeleton placeholders one by one.
+   */
+  revealFieldsProgressively(data, sureScore) {
+    const modal = this.currentModal;
+    if (!modal) return;
+
+    const previewContent = modal.querySelector('.preview-content');
+    if (!previewContent) return;
+
+    // Generate full HTML but wrap each field-preview in a field-reveal container
+    const fullHTML = this.generatePreviewHTML(data, sureScore);
+    previewContent.innerHTML = fullHTML;
+
+    // Find all field-preview elements and mark them for reveal
+    const fieldPreviews = previewContent.querySelectorAll('.field-preview, .freetext-sure-score, .market-analysis, .ai-reasoning, .preview-actions, .analysis-type-indicator');
+    fieldPreviews.forEach(el => {
+      el.classList.add('field-reveal');
+    });
+
+    // Stagger reveal each element
+    const staggerDelay = 120;
+    fieldPreviews.forEach((el, index) => {
+      setTimeout(() => {
+        el.classList.add('revealed');
+      }, index * staggerDelay);
+    });
+  }
+
+  /**
    * Generate HTML for parsed data preview with optional sure score
    */
   generatePreviewHTML(data, sureScore = null) {
     const sureScoreHTML = sureScore ? `
       <div class="freetext-sure-score">
-        <h4>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-            <circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="1.5"/>
-            <circle cx="12" cy="12" r="2" fill="currentColor"/>
-          </svg>
-          Sure Score: ${Math.round(sureScore.sureScore * 100)}%
-        </h4>
-        <div class="sure-score-level sure-score-level--${sureScore.confidenceLevel.toLowerCase().replace(' ', '-')}">
+        <h4>Sure Score: ${Math.round(sureScore.sureScore * 100)}%</h4>
+        <span class="sure-score-level sure-score-level--${sureScore.confidenceLevel.toLowerCase().replace(' ', '-')}">
           ${sureScore.confidenceLevel} säkerhet
-        </div>
+        </span>
         <p class="sure-score-recommendation">${sureScore.recommendation}</p>
-        
         <div class="sure-score-breakdown">
-          <h5>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
-              <rect x="3" y="3" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
-              <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5"/>
-              <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-            Säkerhetsanalys:
-          </h5>
+          <h5>Säkerhetsanalys</h5>
           <div class="breakdown-items">
             <div class="breakdown-item">
               <span class="breakdown-label">Bildkvalitet:</span>
@@ -2446,54 +2453,34 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       
       ${(data.estimate || data.reserve) ? `
         <div class="market-analysis">
-          <h5>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-            💰 Värdering
-          </h5>
+          <h5>Värdering</h5>
           ${data.estimate ? `
             <div class="field-preview" data-field="estimate" style="margin-bottom: 8px;">
-              <label class="field-label" style="font-size: 12px; font-weight: 600; color: #555; margin-bottom: 2px; display: block;">
+              <label class="field-label">
                 Uppskattat värde (SEK) ${this.getConfidenceBadge(data.confidence?.estimate)}
               </label>
-              <input type="number" class="preview-field preview-field--estimate" data-field="estimate" value="${data.estimate}" style="width: 120px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+              <input type="number" class="preview-field preview-field--estimate" data-field="estimate" value="${data.estimate}">
             </div>` : ''}
           ${data.reserve ? `
             <div class="field-preview" data-field="reserve" style="margin-bottom: 8px;">
-              <label class="field-label" style="font-size: 12px; font-weight: 600; color: #555; margin-bottom: 2px; display: block;">
+              <label class="field-label">
                 Bevakningspris (SEK)
               </label>
-              <input type="number" class="preview-field preview-field--reserve" data-field="reserve" value="${data.reserve}" style="width: 120px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
+              <input type="number" class="preview-field preview-field--reserve" data-field="reserve" value="${data.reserve}">
             </div>` : ''}
-          ${data.shouldDisposeIfUnsold ? '<p><strong>⚠️ Ska skänkas/återvinnas om osålt</strong></p>' : ''}
+          ${data.shouldDisposeIfUnsold ? '<p style="margin: 8px 0 0; font-size: 12px; color: #856404;">Ska skänkas/återvinnas om osålt</p>' : ''}
         </div>
-      ` : `
-        <!-- DEBUG: No estimate data found -->
-        <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 6px; margin: 16px 0;">
-          <p style="margin: 0; color: #dc2626; font-size: 13px;">
-            🔍 DEBUG: Ingen värdering hittades (estimate: ${data.estimate}, reserve: ${data.reserve})
-          </p>
-        </div>
-      `}
+      ` : ''}
       
       ${data.reasoning ? `
         <div class="ai-reasoning">
-          <h5>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display: inline-block; margin-right: 6px; vertical-align: text-bottom;">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-            Analys
-          </h5>
+          <h5>Analys</h5>
           <p><em>${data.reasoning}</em></p>
         </div>
       ` : ''}
       
       <div class="preview-actions">
-        <p class="text-muted">
-          <small>Granska informationen ovan och redigera vid behov innan du tillämpar på formuläret.</small>
-        </p>
+        <p class="text-muted"><small>Granska och redigera vid behov innan du tillämpar på formuläret.</small></p>
       </div>
     `;
   }
@@ -2662,7 +2649,27 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       field.dispatchEvent(new Event('change', { bubbles: true }));
       field.dispatchEvent(new Event('input', { bubbles: true }));
       
+      // Auto-resize textarea to show full content (description, condition, etc.)
+      if (field.tagName.toLowerCase() === 'textarea') {
+        setTimeout(() => {
+          this.autoResizeFormTextarea(field);
+        }, 50);
+      }
     }
+  }
+
+  /**
+   * Auto-resize a textarea on the Auctionet form to fit its content.
+   * Uses the same approach as the existing auto-resize system in ui-manager.js.
+   */
+  autoResizeFormTextarea(textarea) {
+    if (!textarea || textarea.tagName.toLowerCase() !== 'textarea') return;
+    textarea.style.height = 'auto';
+    const scrollHeight = textarea.scrollHeight;
+    const minHeight = 60;
+    const maxHeight = 500;
+    const newHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+    textarea.style.height = newHeight + 'px';
   }
 
   /**
@@ -3427,19 +3434,19 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
     // Drag and drop
     uploadTrigger.addEventListener('dragover', (e) => {
       e.preventDefault();
-      uploadTrigger.style.borderColor = '#667eea';
-      uploadTrigger.style.background = '#fafbff';
+      uploadTrigger.style.borderColor = '#006ccc';
+      uploadTrigger.style.background = '#f0f7ff';
     });
 
     uploadTrigger.addEventListener('dragleave', (e) => {
       e.preventDefault();
-      uploadTrigger.style.borderColor = '#cbd5e0';
+      uploadTrigger.style.borderColor = '#ced4da';
       uploadTrigger.style.background = 'white';
     });
 
     uploadTrigger.addEventListener('drop', (e) => {
       e.preventDefault();
-      uploadTrigger.style.borderColor = '#cbd5e0';
+      uploadTrigger.style.borderColor = '#ced4da';
       uploadTrigger.style.background = 'white';
       
       const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));

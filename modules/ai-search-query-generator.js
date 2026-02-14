@@ -163,47 +163,69 @@ Return JSON format:
     return key.replace(/[^\w\s-]/g, ''); // Remove special characters
   }
 
-  // AI prompt and analysis
+  // AI prompt and analysis — COST OPTIMIZATION: uses Haiku instead of Sonnet
+  // Search term extraction is a simple structured task — Haiku handles it well at 67% lower cost
   async callClaudeAPI(prompt) {
     try {
-      const response = await this.apiManager.callClaudeAPI({
-        title: 'Search Query Generation',
-        description: prompt
-      }, 'search_query');
-      
-      
-      // Parse the JSON response (API returns raw text for search_query field type)
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: {
+            model: 'claude-haiku-4-5',
+            max_tokens: 300,
+            temperature: 0.1,
+            system: 'Du extraherar söktermer för auktionsmarknadsanalys. Svara ALLTID med valid JSON.',
+            messages: [{ role: 'user', content: prompt }]
+          }
+        }, (resp) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (resp?.success) {
+            resolve(resp);
+          } else {
+            reject(new Error(resp?.error || 'Search term AI call failed'));
+          }
+        });
+      });
+
+      if (!response.success || !response.data?.content?.[0]?.text) {
+        throw new Error('Empty response from search term AI');
+      }
+
+      const rawText = response.data.content[0].text;
+
+      // Parse the JSON response
       let parsedResponse;
       try {
-        // CRITICAL FIX: Handle markdown code blocks that AI sometimes returns
-        let cleanResponse = response;
-        
-        // Remove markdown code block wrappers if present
-        if (response.includes('```json')) {
-          cleanResponse = response
+        let cleanResponse = rawText;
+        if (rawText.includes('```json')) {
+          cleanResponse = rawText
             .replace(/```json\s*/g, '')
             .replace(/```\s*/g, '')
             .trim();
         }
-        
         parsedResponse = JSON.parse(cleanResponse);
       } catch (parseError) {
-        console.error('Failed to parse AI JSON response:', parseError);
-        console.error('Raw response was:', response);
-        throw new Error('Invalid JSON format in AI response');
+        // Try extracting JSON object from response
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedResponse = JSON.parse(jsonMatch[0]);
+        } else {
+          console.error('Failed to parse AI JSON response:', parseError);
+          throw new Error('Invalid JSON format in AI response');
+        }
       }
       
       if (parsedResponse && parsedResponse.searchTerms && Array.isArray(parsedResponse.searchTerms)) {
         
-        // NEW: FORCE quote wrapping for artist names in AI response
+        // FORCE quote wrapping for artist names in AI response
         const processedTerms = parsedResponse.searchTerms.map(term => {
-          // Check if this looks like an artist name (2+ words, proper case)
           if (typeof term === 'string' && this.looksLikeArtistName(term)) {
             return this.forceQuoteWrapArtist(term);
           }
           return term;
         });
-        
         
         return {
           success: true,

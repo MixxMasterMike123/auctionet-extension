@@ -275,6 +275,20 @@ export class BiographyKBCard {
       return null;
     }
 
+    // COST OPTIMIZATION: Check localStorage cache for this artist (7-day expiry)
+    const bioCacheKey = `artist_bio_${artistName.toLowerCase().replace(/\s+/g, '_')}`;
+    try {
+      const cached = localStorage.getItem(bioCacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        if (Date.now() - timestamp < SEVEN_DAYS) {
+          return data;
+        }
+        localStorage.removeItem(bioCacheKey); // Expired
+      }
+    } catch { /* ignore cache errors */ }
+
     let knownYears = '';
     if (artistDates) {
       const yearsMatch = artistDates.match(/(\d{4})[–-](\d{4})?/);
@@ -357,12 +371,17 @@ Regler:
           }
           const parsed = JSON.parse(jsonStr);
           if (parsed === null) return null;
-          return {
+          const result = {
             years: parsed.years || null,
             biography: parsed.biography || null,
             style: Array.isArray(parsed.style) ? parsed.style : [],
             notableWorks: Array.isArray(parsed.notableWorks) ? parsed.notableWorks : []
           };
+          // COST OPTIMIZATION: Cache biography in localStorage (7-day expiry)
+          try {
+            localStorage.setItem(bioCacheKey, JSON.stringify({ data: result, timestamp: Date.now() }));
+          } catch { /* localStorage full — no big deal */ }
+          return result;
         } catch (parseError) {
           const cleanText = text
             .replace(/```json?\s*/g, '')
@@ -373,7 +392,12 @@ Regler:
             .replace(/,\s*$/gm, '')
             .replace(/\n{2,}/g, '\n')
             .trim();
-          return { years: null, biography: cleanText || text, style: [], notableWorks: [] };
+          const fallbackResult = { years: null, biography: cleanText || text, style: [], notableWorks: [] };
+          // Cache fallback result too
+          try {
+            localStorage.setItem(bioCacheKey, JSON.stringify({ data: fallbackResult, timestamp: Date.now() }));
+          } catch { /* ignore */ }
+          return fallbackResult;
         }
       }
     } catch (error) {

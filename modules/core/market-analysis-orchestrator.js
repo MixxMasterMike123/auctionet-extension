@@ -17,6 +17,101 @@ export class MarketAnalysisOrchestrator {
     this._detectMisplacedArtistRuleBased = null;
     this._extractObjectType = null;
     this._formatAIDetectedArtistForSSoT = null;
+
+    // COST OPTIMIZATION: Deferred/lazy-load market analysis
+    // When dashboard is closed, we defer the expensive analyzeSales() call
+    // until the user actually opens the dashboard
+    this._deferredAnalysis = null; // { searchContext, candidateSearchTerms, source }
+  }
+
+  /**
+   * Check if market analysis dashboard is currently open (from localStorage)
+   */
+  isDashboardOpen() {
+    try {
+      return localStorage.getItem('auctionet_market_analysis_visible') === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Execute deferred market analysis (called when dashboard is opened)
+   */
+  async executeDeferredAnalysis() {
+    if (!this._deferredAnalysis) return null;
+
+    const { searchContext, candidateSearchTerms, source } = this._deferredAnalysis;
+    this._deferredAnalysis = null; // Clear so it doesn't re-run
+
+    try {
+      // Show loading in dashboard
+      if (this.salesAnalysisManager?.dashboardManager?.showDashboardLoading) {
+        this.salesAnalysisManager.dashboardManager.showDashboardLoading('Laddar marknadsanalys...');
+      }
+
+      const salesData = await this.apiManager.analyzeSales(searchContext);
+
+      if (salesData && salesData.hasComparableData) {
+        if (candidateSearchTerms) salesData.candidateSearchTerms = candidateSearchTerms;
+        if (this.salesAnalysisManager?.dashboardManager) {
+          this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, source);
+        }
+      } else {
+        // Show empty state
+        if (this.salesAnalysisManager?.dashboardManager && candidateSearchTerms) {
+          const minimalSalesData = {
+            hasComparableData: false,
+            candidateSearchTerms,
+            dataSource: 'no_market_data',
+            confidence: 0.3,
+            reasoning: 'No comparable market data found - refine search terms'
+          };
+          this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(minimalSalesData, source + '_no_data');
+        }
+      }
+
+      return salesData;
+    } catch (error) {
+      console.error('Deferred market analysis failed:', error);
+      return null;
+    } finally {
+      if (this.salesAnalysisManager?.dashboardManager?.hideDashboardLoading) {
+        this.salesAnalysisManager.dashboardManager.hideDashboardLoading();
+      }
+    }
+  }
+
+  /**
+   * Run or defer analyzeSales based on dashboard visibility
+   * Returns salesData if executed immediately, or null if deferred
+   */
+  async runOrDeferAnalysis(searchContext, candidateSearchTerms, source) {
+    if (this.isDashboardOpen()) {
+      // Dashboard is open — run immediately for instant UX
+      const salesData = await this.apiManager.analyzeSales(searchContext);
+      return salesData;
+    }
+
+    // Dashboard is closed — defer the expensive API call
+    this._deferredAnalysis = { searchContext, candidateSearchTerms, source };
+
+    // Create a placeholder dashboard so the toggle button exists
+    if (this.salesAnalysisManager?.dashboardManager) {
+      const placeholderData = {
+        hasComparableData: false,
+        candidateSearchTerms,
+        dataSource: 'deferred_pending',
+        confidence: 0,
+        reasoning: 'Marknadsanalys laddas när dashboarden öppnas'
+      };
+      this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(placeholderData, source + '_deferred');
+
+      // Wire the deferred callback to dashboard manager
+      this.salesAnalysisManager.dashboardManager.onDashboardOpenCallback = () => this.executeDeferredAnalysis();
+    }
+
+    return null;
   }
 
   /**
@@ -263,14 +358,17 @@ export class MarketAnalysisOrchestrator {
         );
 
         const searchContext = this.searchQuerySSoT.buildSearchContext();
-        const salesData = await this.apiManager.analyzeSales(searchContext);
+
+        // COST OPTIMIZATION: Defer expensive API call if dashboard is closed
+        const salesData = await this.runOrDeferAnalysis(searchContext, candidateSearchTerms, 'non_art_complete');
 
         if (salesData && salesData.hasComparableData) {
           salesData.candidateSearchTerms = candidateSearchTerms;
           if (this.salesAnalysisManager.dashboardManager) {
             this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'non_art_complete');
           }
-        } else {
+        } else if (salesData) {
+          // salesData returned but no comparable data (not deferred, just no results)
           if (this.salesAnalysisManager.dashboardManager && candidateSearchTerms) {
             const minimalSalesData = {
               hasComparableData: false,
@@ -282,6 +380,7 @@ export class MarketAnalysisOrchestrator {
             this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(minimalSalesData, 'non_art_no_data');
           }
         }
+        // If salesData is null, analysis was deferred — placeholder already created by runOrDeferAnalysis
       }
     } catch (error) {
       console.error('Error during non-art dashboard trigger:', error);
@@ -311,12 +410,16 @@ export class MarketAnalysisOrchestrator {
 
           if (this.apiManager) {
             const searchContext = this.searchQuerySSoT.buildSearchContext();
-            const salesData = await this.apiManager.analyzeSales(searchContext);
+
+            // COST OPTIMIZATION: Defer if dashboard is closed
+            const salesData = await this.runOrDeferAnalysis(searchContext, candidateSearchTerms, 'existing_artist_field');
+
             if (salesData && salesData.hasComparableData) {
-              if (this.salesAnalysisManager && this.salesAnalysisManager.dashboardManager) {
+              if (this.salesAnalysisManager?.dashboardManager) {
                 this.salesAnalysisManager.dashboardManager.addMarketDataDashboard(salesData, 'existing_artist_field');
               }
             }
+            // If null, analysis was deferred — placeholder already shown
           }
         } else {
           await this.triggerDashboardForNonArtItems(data);
