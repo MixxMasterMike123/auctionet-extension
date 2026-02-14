@@ -163,11 +163,13 @@ export class InlineBrandValidator {
       
       if (allIssues.length > 0) {
         this.createSpellMarkers(field, markerContainer, text, allIssues);
+        this.showInlineNotifications(field, allIssues);
         // Add visible border highlight to the field itself
         field.style.boxShadow = '0 0 0 2px rgba(211, 47, 47, 0.3)';
         field.style.borderColor = '#d32f2f';
       } else {
         markerContainer.innerHTML = '';
+        this.removeInlineNotifications(field);
         // Remove field highlight
         field.style.boxShadow = '';
         field.style.borderColor = '';
@@ -245,6 +247,54 @@ export class InlineBrandValidator {
       markerContainer.appendChild(marker);
     });
 
+  }
+
+  // Show persistent inline notifications below the field
+  showInlineNotifications(field, issues) {
+    this.removeInlineNotifications(field);
+
+    const container = document.createElement('div');
+    container.className = 'brand-inline-notifications';
+    container.style.cssText = 'margin-top: 4px;';
+
+    issues.forEach(issue => {
+      const notification = document.createElement('div');
+      notification.className = 'brand-inline-notification';
+
+      const confidence = Math.round((issue.confidence || 0) * 100);
+      const categoryText = issue.displayCategory || 'märke';
+      const errorType = issue.type === 'brand' ? 'Märkesfel' : 'Stavfel';
+
+      notification.innerHTML = `
+        <span class="brand-notif-icon">⚠️</span>
+        <span class="brand-notif-text">
+          <strong>${errorType}:</strong> "${escapeHTML(issue.originalBrand)}" → 
+          <strong>"${escapeHTML(issue.suggestedBrand)}"</strong>
+          <span class="brand-notif-meta">(${confidence}% säkerhet, ${escapeHTML(categoryText)})</span>
+        </span>
+        <button class="brand-notif-fix" type="button">Rätta</button>
+      `;
+
+      const fixBtn = notification.querySelector('.brand-notif-fix');
+      fixBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.applyCorrection(field, issue.originalBrand, issue.suggestedBrand);
+      });
+
+      container.appendChild(notification);
+    });
+
+    // Insert after the field's wrapper (or the field itself)
+    const wrapper = field.closest('.brand-spell-wrapper') || field;
+    wrapper.parentNode.insertBefore(container, wrapper.nextSibling);
+  }
+
+  // Remove inline notifications for a field
+  removeInlineNotifications(field) {
+    const wrapper = field.closest('.brand-spell-wrapper') || field;
+    const existing = wrapper.parentNode?.querySelector('.brand-inline-notifications');
+    if (existing) existing.remove();
   }
 
   // Show correction tooltip
@@ -336,11 +386,16 @@ export class InlineBrandValidator {
     
     field.value = correctedValue;
     
-    // Clear existing markers immediately to prevent duplicate tooltips
+    // Clear existing markers and inline notifications
     const markerContainer = field.parentElement.querySelector('.brand-spell-markers');
     if (markerContainer) {
       markerContainer.innerHTML = '';
     }
+    this.removeInlineNotifications(field);
+    
+    // Remove field highlight
+    field.style.boxShadow = '';
+    field.style.borderColor = '';
     
     // Hide any active tooltip
     this.hideTooltip();
@@ -488,6 +543,55 @@ export class InlineBrandValidator {
       
       .brand-correction-tooltip .correction-button:hover {
         background: #1565c0;
+      }
+      
+      /* Inline notification bar below field */
+      .brand-inline-notification {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        margin-top: 4px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #991b1b;
+        line-height: 1.4;
+        animation: brandNotifSlideIn 0.2s ease-out;
+      }
+      .brand-notif-icon {
+        flex-shrink: 0;
+        font-size: 14px;
+      }
+      .brand-notif-text {
+        flex: 1;
+      }
+      .brand-notif-meta {
+        color: #b91c1c;
+        opacity: 0.7;
+        font-size: 11px;
+      }
+      .brand-notif-fix {
+        flex-shrink: 0;
+        background: #dc2626;
+        color: white;
+        border: none;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+        font-family: inherit;
+      }
+      .brand-notif-fix:hover {
+        background: #b91c1c;
+      }
+      @keyframes brandNotifSlideIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
       }
       
       @keyframes tooltipFadeIn {
