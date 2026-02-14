@@ -37,7 +37,7 @@
   background: #0056b3;
 }
 
-/* Modal Overlay */
+/* Modal Overlay — fixed backdrop, no scroll */
 .freetext-parser-overlay {
   position: fixed;
   top: 0;
@@ -47,12 +47,10 @@
   background: rgba(0, 0, 0, 0.5);
   z-index: 10000;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   animation: ftpFadeIn 0.15s ease-out;
-  overflow-y: auto;
-  scroll-behavior: smooth;
-  padding: 40px 20px;
+  overflow: hidden;
 }
 
 .freetext-parser-modal {
@@ -62,6 +60,7 @@
   max-width: 720px;
   max-height: 85vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   animation: ftpSlideIn 0.2s ease-out;
   position: relative;
