@@ -409,8 +409,8 @@ Regler:
           display: inline-block;
           width: 14px;
           height: 14px;
-          border: 2px solid rgba(255,255,255,0.3);
-          border-top-color: white;
+          border: 2px solid rgba(0,0,0,0.1);
+          border-top-color: #1976d2;
           border-radius: 50%;
           animation: kbSpin 0.6s linear infinite;
           vertical-align: middle;
@@ -421,23 +421,24 @@ Regler:
         }
         .kb-style-tag {
           display: inline-block;
-          padding: 2px 10px;
+          padding: 3px 10px;
           border-radius: 12px;
           font-size: 11px;
-          background: rgba(255,255,255,0.12);
-          color: rgba(255,255,255,0.85);
+          background: #f0f4f8;
+          color: #475569;
           margin: 0 4px 4px 0;
           letter-spacing: 0.3px;
+          border: 1px solid #e2e8f0;
         }
         .kb-notable-item {
           padding: 2px 0;
           font-size: 11.5px;
-          color: rgba(255,255,255,0.8);
+          color: #64748b;
         }
         .kb-notable-item::before {
           content: "\\2022";
           margin-right: 6px;
-          color: rgba(255,255,255,0.4);
+          color: #cbd5e1;
         }
         .artist-kb-card::-webkit-scrollbar {
           width: 5px;
@@ -446,11 +447,11 @@ Regler:
           background: transparent;
         }
         .artist-kb-card::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.2);
+          background: rgba(0,0,0,0.12);
           border-radius: 3px;
         }
         .artist-kb-card::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.35);
+          background: rgba(0,0,0,0.2);
         }
       `;
       document.head.appendChild(style);
@@ -481,20 +482,18 @@ Regler:
       top: 0;
       left: 0;
       transform: translateY(6px) scale(0.96);
-      background: rgba(20, 20, 30, 0.96);
-      backdrop-filter: blur(16px);
-      color: white;
-      padding: 16px 18px 14px;
-      border-radius: 14px;
+      background: #ffffff;
+      color: #1e293b;
+      padding: 20px;
+      border-radius: 16px;
       width: 300px;
       max-height: calc(100vh - 32px);
       overflow-y: auto;
       white-space: normal;
       word-wrap: break-word;
       box-shadow:
-        0 8px 40px rgba(0, 0, 0, 0.25),
-        0 2px 8px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        0 4px 24px rgba(0, 0, 0, 0.12),
+        0 1px 4px rgba(0, 0, 0, 0.08);
       z-index: 2147483647;
       opacity: 0;
       visibility: hidden;
@@ -504,9 +503,9 @@ Regler:
       pointer-events: none;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       text-align: left;
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      border: 1px solid #e2e8f0;
       scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.2) transparent;
+      scrollbar-color: rgba(0,0,0,0.12) transparent;
     `;
 
     const photoArea = card.querySelector('.kb-photo-area');
@@ -520,22 +519,22 @@ Regler:
       width: 72px;
       height: 72px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #4a5568, #2d3748);
-      color: rgba(255,255,255,0.7);
+      background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+      color: #64748b;
       font-size: 24px;
       font-weight: 600;
       letter-spacing: 1px;
-      border: 2px solid rgba(255,255,255,0.1);
+      border: 2px solid #e2e8f0;
     `;
 
     const nameEl = card.querySelector('.kb-name');
-    nameEl.style.cssText = 'font-size: 15px; font-weight: 600; text-align: center; letter-spacing: 0.3px;';
+    nameEl.style.cssText = 'font-size: 16px; font-weight: 700; text-align: center; letter-spacing: 0.2px; color: #1e293b;';
 
     const yearsEl = card.querySelector('.kb-years');
-    yearsEl.style.cssText = 'font-size: 12px; color: rgba(255,255,255,0.5); text-align: center; margin-bottom: 10px;';
+    yearsEl.style.cssText = 'font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 12px;';
 
     const bioEl = card.querySelector('.kb-bio');
-    bioEl.style.cssText = 'font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.85); margin-bottom: 8px;';
+    bioEl.style.cssText = 'font-size: 13px; line-height: 1.6; color: #475569; margin-bottom: 10px;';
 
     card.querySelector('.kb-tags').style.cssText = 'margin-bottom: 6px;';
     card.querySelector('.kb-works').style.cssText = 'display: none;';
@@ -555,7 +554,7 @@ Regler:
       const img = document.createElement('img');
       img.src = imageUrl;
       img.alt = '';
-      img.style.cssText = 'width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.15);';
+      img.style.cssText = 'width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;';
       img.onerror = () => {};
       img.onload = () => {
         const existingImgs = photoArea.querySelectorAll('img');
@@ -595,9 +594,9 @@ Regler:
       const worksEl = card.querySelector('.kb-works');
       if (worksEl) {
         worksEl.style.display = 'block';
-        worksEl.style.cssText += 'margin-top: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);';
+        worksEl.style.cssText += 'margin-top: 8px; padding-top: 10px; border-top: 1px solid #e2e8f0;';
         worksEl.innerHTML = `
-          <div style="font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Kända verk</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Kända verk</div>
           ${bioData.notableWorks.map(w => `<div class="kb-notable-item">${escapeHTML(w)}</div>`).join('')}
         `;
       }
@@ -606,15 +605,15 @@ Regler:
     // Add "Lägg till biografi" button
     if (bioData.biography && !card.querySelector('.kb-add-bio-btn')) {
       const btnArea = document.createElement('div');
-      btnArea.style.cssText = 'margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); text-align: center;';
+      btnArea.style.cssText = 'margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; text-align: center;';
 
       const btn = document.createElement('button');
       btn.className = 'kb-add-bio-btn';
       btn.textContent = 'Lägg till biografi i beskrivning';
       btn.type = 'button';
-      btn.style.cssText = 'background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 7px 14px; font-size: 12px; cursor: pointer; transition: all 0.15s ease; width: 100%; font-family: inherit;';
-      btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(255,255,255,0.2)'; });
-      btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(255,255,255,0.12)'; });
+      btn.style.cssText = 'background: #1e293b; color: #ffffff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; cursor: pointer; transition: all 0.15s ease; width: 100%; font-family: inherit; font-weight: 500;';
+      btn.addEventListener('mouseenter', () => { btn.style.background = '#334155'; });
+      btn.addEventListener('mouseleave', () => { btn.style.background = '#1e293b'; });
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -631,13 +630,11 @@ Regler:
           descField.dispatchEvent(new Event('input', { bubbles: true }));
 
           btn.textContent = 'Tillagd i beskrivning';
-          btn.style.background = 'rgba(76, 175, 80, 0.3)';
-          btn.style.borderColor = 'rgba(76, 175, 80, 0.5)';
+          btn.style.background = '#16a34a';
           btn.disabled = true;
           setTimeout(() => {
             btn.textContent = 'Lägg till biografi i beskrivning';
-            btn.style.background = 'rgba(255,255,255,0.12)';
-            btn.style.borderColor = 'rgba(255,255,255,0.15)';
+            btn.style.background = '#1e293b';
             btn.disabled = false;
           }, 2000);
         }
@@ -651,13 +648,13 @@ Regler:
     if (!card.querySelector('.kb-wrong-person') && (bioData || refetchCallback)) {
       const wrongSection = document.createElement('div');
       wrongSection.className = 'kb-wrong-person';
-      wrongSection.style.cssText = 'margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); text-align: center;';
+      wrongSection.style.cssText = 'margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center;';
 
       const toggleLink = document.createElement('span');
       toggleLink.textContent = 'Fel person?';
-      toggleLink.style.cssText = 'font-size: 11px; color: rgba(255,255,255,0.4); cursor: pointer; transition: color 0.15s;';
-      toggleLink.addEventListener('mouseenter', () => { toggleLink.style.color = 'rgba(255,255,255,0.7)'; });
-      toggleLink.addEventListener('mouseleave', () => { toggleLink.style.color = 'rgba(255,255,255,0.4)'; });
+      toggleLink.style.cssText = 'font-size: 11px; color: #94a3b8; cursor: pointer; transition: color 0.15s;';
+      toggleLink.addEventListener('mouseenter', () => { toggleLink.style.color = '#475569'; });
+      toggleLink.addEventListener('mouseleave', () => { toggleLink.style.color = '#94a3b8'; });
 
       const panel = document.createElement('div');
       panel.style.cssText = 'display: none; margin-top: 8px; text-align: left;';
@@ -669,16 +666,16 @@ Regler:
         const hintInput = document.createElement('input');
         hintInput.type = 'text';
         hintInput.placeholder = 'T.ex. "popkonstnär, samtida"';
-        hintInput.style.cssText = 'flex: 1; padding: 5px 8px; font-size: 11px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: rgba(255,255,255,0.9); outline: none; font-family: inherit;';
-        hintInput.addEventListener('focus', () => { hintInput.style.borderColor = 'rgba(25,118,210,0.5)'; });
-        hintInput.addEventListener('blur', () => { hintInput.style.borderColor = 'rgba(255,255,255,0.15)'; });
+        hintInput.style.cssText = 'flex: 1; padding: 5px 8px; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #1e293b; outline: none; font-family: inherit;';
+        hintInput.addEventListener('focus', () => { hintInput.style.borderColor = '#1976d2'; hintInput.style.boxShadow = '0 0 0 2px rgba(25,118,210,0.15)'; });
+        hintInput.addEventListener('blur', () => { hintInput.style.borderColor = '#cbd5e1'; hintInput.style.boxShadow = 'none'; });
 
         const searchBtn = document.createElement('button');
         searchBtn.type = 'button';
         searchBtn.textContent = 'Sök';
-        searchBtn.style.cssText = 'padding: 5px 10px; font-size: 11px; background: rgba(25,118,210,0.3); color: rgba(255,255,255,0.9); border: 1px solid rgba(25,118,210,0.4); border-radius: 6px; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap;';
-        searchBtn.addEventListener('mouseenter', () => { searchBtn.style.background = 'rgba(25,118,210,0.5)'; });
-        searchBtn.addEventListener('mouseleave', () => { searchBtn.style.background = 'rgba(25,118,210,0.3)'; });
+        searchBtn.style.cssText = 'padding: 5px 10px; font-size: 11px; background: #1976d2; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; font-weight: 500;';
+        searchBtn.addEventListener('mouseenter', () => { searchBtn.style.background = '#1565c0'; });
+        searchBtn.addEventListener('mouseleave', () => { searchBtn.style.background = '#1976d2'; });
 
         const doSearch = () => {
           const hint = hintInput.value.trim();
@@ -701,16 +698,16 @@ Regler:
       linksRow.style.cssText = 'display: flex; gap: 10px; justify-content: center; font-size: 11px;';
       linksRow.innerHTML = `
         <a href="https://www.google.com/search?q=${encodedName}+konstnär" target="_blank" rel="noopener"
-           style="color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.15s;"
-           onmouseenter="this.style.color='rgba(255,255,255,0.8)'" onmouseleave="this.style.color='rgba(255,255,255,0.45)'"
+           style="color: #94a3b8; text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='#1976d2'" onmouseleave="this.style.color='#94a3b8'"
         >Sök Google</a>
         <a href="https://sv.wikipedia.org/wiki/${encodedName.replace(/%20/g, '_')}" target="_blank" rel="noopener"
-           style="color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.15s;"
-           onmouseenter="this.style.color='rgba(255,255,255,0.8)'" onmouseleave="this.style.color='rgba(255,255,255,0.45)'"
+           style="color: #94a3b8; text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='#1976d2'" onmouseleave="this.style.color='#94a3b8'"
         >Wikipedia</a>
         <a href="https://www.artnet.com/artists/${encodedName.replace(/%20/g, '-').toLowerCase()}/" target="_blank" rel="noopener"
-           style="color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.15s;"
-           onmouseenter="this.style.color='rgba(255,255,255,0.8)'" onmouseleave="this.style.color='rgba(255,255,255,0.45)'"
+           style="color: #94a3b8; text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='#1976d2'" onmouseleave="this.style.color='#94a3b8'"
         >Artnet</a>
       `;
       panel.appendChild(linksRow);
