@@ -415,6 +415,7 @@ export class FreetextParser {
       
       // Clean up paste handler
       if (this._pasteHandler) {
+        this.currentModal.removeEventListener('paste', this._pasteHandler, true);
         document.removeEventListener('paste', this._pasteHandler);
         this._pasteHandler = null;
       }
@@ -3496,26 +3497,42 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     });
 
     // Paste image from clipboard (Ctrl+V / Cmd+V)
+    // Listen on both the modal (capturing phase) and document as fallback
     this._pasteHandler = (e) => {
       // Only handle if our modal is open
       if (!this.currentModal || !document.contains(this.currentModal)) return;
-      
-      const items = e.clipboardData?.items;
-      if (!items) return;
+
+      const clipboardData = e.clipboardData || e.originalEvent?.clipboardData;
+      if (!clipboardData) return;
 
       const imageFiles = [];
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          const file = item.getAsFile();
-          if (file) imageFiles.push(file);
+      // Check items (modern browsers)
+      if (clipboardData.items) {
+        for (let i = 0; i < clipboardData.items.length; i++) {
+          const item = clipboardData.items[i];
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
+          }
+        }
+      }
+      // Fallback: check files directly
+      if (imageFiles.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
+        for (let i = 0; i < clipboardData.files.length; i++) {
+          if (clipboardData.files[i].type.startsWith('image/')) {
+            imageFiles.push(clipboardData.files[i]);
+          }
         }
       }
 
       if (imageFiles.length > 0) {
         e.preventDefault();
+        e.stopPropagation();
         this.handleBeautifulImageUpload(imageFiles);
       }
     };
+    // Use capturing phase so we get the event before the textarea swallows it
+    modal.addEventListener('paste', this._pasteHandler, true);
     document.addEventListener('paste', this._pasteHandler);
 
     this.uploadedImages = new Map();
