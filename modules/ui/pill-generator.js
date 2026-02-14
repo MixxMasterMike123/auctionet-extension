@@ -76,6 +76,13 @@ export class PillGenerator {
         </button>`;
     }
 
+    // Freetext input for power users to add custom search terms
+    html += `
+      <input type="text" class="pill-freetext-input" 
+             placeholder="+ sökord" 
+             title="Skriv ett sökord och tryck Enter för att lägga till"
+             autocomplete="off">`;
+
     html += '</div>';
     
     return html;

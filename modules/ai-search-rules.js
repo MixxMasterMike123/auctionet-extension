@@ -309,20 +309,6 @@ function generateBasicSearchTerms(inputData) {
     });
   }
   
-  // Basic brand detection for common cases
-  const commonBrands = ['Dux', 'Royal Copenhagen', 'Omega', 'Yamaha', 'Orrefors'];
-  for (const brand of commonBrands) {
-    if (title.toLowerCase().includes(brand.toLowerCase())) {
-      extractedTerms.push({
-        term: brand,
-        type: 'brand', 
-        priority: 90,
-        source: 'brand_detection',
-        isPreSelected: extractedTerms.filter(t => t.isPreSelected).length < 2
-      });
-    }
-  }
-  
   // Extract quoted model names
   const quotedModels = title.match(/"([^"]+)"/g);
   if (quotedModels) {

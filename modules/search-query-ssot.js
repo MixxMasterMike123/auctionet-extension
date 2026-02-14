@@ -26,23 +26,18 @@ export class SearchQuerySSoT {
     
     // Set or preserve the current query
     if (currentQuery) {
-      this.currentQuery = currentQuery;
-      
       // CRITICAL ENHANCEMENT: Preserve AI-detected quoted artist terms
       const selectedCandidates = candidateTerms.candidates.filter(c => c.preSelected);
       if (selectedCandidates.length > 0) {
         // PRECISION FIX: Use the original terms from AI Rules selection (preserves quoted artist names)
         this.currentTerms = selectedCandidates.map(c => c.term);
-        
-        // LOG AI-detected quoted artists specifically
-        const quotedArtists = this.currentTerms.filter(term => 
-          term.includes('"') && selectedCandidates.find(c => c.term === term && c.source === 'ai_detected')
-        );
-        
       } else {
         // ENHANCED FALLBACK: Smart query parsing that preserves quoted terms
         this.currentTerms = this.parseQueryPreservingQuotes(currentQuery);
       }
+      
+      // AUCTIONET FIX: Rebuild query with all terms quoted so they're treated as required
+      this.currentQuery = SearchQuerySSoT.buildQuotedQuery(this.currentTerms);
     }
     
     // CRITICAL: ALWAYS populate availableTerms from candidateTerms for extended functionality
@@ -74,6 +69,77 @@ export class SearchQuerySSoT {
       availableTerms: this.availableTerms.length,
       selectedTerms: this.currentTerms.length
     });
+  }
+
+  // Ensure a search term is wrapped in quotes for Auctionet's API
+  // Auctionet treats unquoted terms as optional/fuzzy; quoted terms are required
+  static ensureQuoted(term) {
+    if (!term || typeof term !== 'string') return term;
+    const trimmed = term.trim();
+    if (!trimmed) return trimmed;
+    // Already quoted — leave as-is
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      return trimmed;
+    }
+    return `"${trimmed}"`;
+  }
+
+  // Build a query string from terms, ensuring every term is quoted
+  // so Auctionet treats ALL terms as required matches
+  static buildQuotedQuery(terms) {
+    if (!terms || terms.length === 0) return '';
+    return terms.map(t => SearchQuerySSoT.ensureQuoted(t)).join(' ');
+  }
+
+  // Add a user-typed term to the search (from freetext input)
+  addUserTerm(term) {
+    if (!term || typeof term !== 'string') return false;
+    const trimmed = term.trim();
+    if (!trimmed) return false;
+
+    // Check if term already exists (case-insensitive, ignoring quotes)
+    const normalizedNew = trimmed.toLowerCase().replace(/"/g, '');
+    const alreadyExists = this.availableTerms.some(t =>
+      t.term.toLowerCase().replace(/"/g, '') === normalizedNew
+    );
+
+    if (!alreadyExists) {
+      // Add to available terms
+      this.availableTerms.push({
+        term: trimmed,
+        type: this.detectTermType(trimmed),
+        description: 'Eget sökord',
+        priority: this.getTermPriority('keyword'),
+        isSelected: true,
+        isCore: false,
+        score: 100,
+        source: 'user_freetext',
+        isPrecisionQuoted: false
+      });
+    } else {
+      // If it exists but is unselected, select it
+      const existing = this.availableTerms.find(t =>
+        t.term.toLowerCase().replace(/"/g, '') === normalizedNew
+      );
+      if (existing) existing.isSelected = true;
+    }
+
+    // Add to current terms if not already there
+    if (!this.currentTerms.some(t => t.toLowerCase().replace(/"/g, '') === normalizedNew)) {
+      this.currentTerms.push(trimmed);
+    }
+
+    // Rebuild query with all terms quoted
+    this.currentQuery = SearchQuerySSoT.buildQuotedQuery(this.currentTerms);
+
+    this.notifyListeners('user_term_added', {
+      term: trimmed,
+      query: this.currentQuery,
+      selectedTerms: this.currentTerms.length
+    });
+
+    return true;
   }
 
   // NEW: Smart query parsing that preserves quoted terms
@@ -148,16 +214,18 @@ export class SearchQuerySSoT {
   // Set the current authoritative query
   setCurrentQuery(queryData, options = {}) {
     
-    this.currentQuery = queryData.query || '';
-    
     // CRITICAL FIX: Preserve original searchTerms structure to maintain "Niels Thorsson" as one term
     if (queryData.searchTerms && Array.isArray(queryData.searchTerms)) {
       // Use provided searchTerms array (preserves "Niels Thorsson" as one term)
       this.currentTerms = [...queryData.searchTerms];
     } else {
       // CRITICAL FIX: Use quote-preserving parsing instead of destructive split by spaces
-      this.currentTerms = this.parseQueryPreservingQuotes(this.currentQuery);
+      this.currentTerms = this.parseQueryPreservingQuotes(queryData.query || '');
     }
+    
+    // AUCTIONET FIX: Rebuild query with all terms quoted so Auctionet treats them as required
+    // Unquoted terms are treated as optional/fuzzy by Auctionet's search
+    this.currentQuery = SearchQuerySSoT.buildQuotedQuery(this.currentTerms);
     
     // CRITICAL ENHANCEMENT: Populate availableTerms from AI rules data for dashboard pills
     if (queryData.allTerms && Array.isArray(queryData.allTerms)) {
@@ -654,7 +722,7 @@ export class SearchQuerySSoT {
         termObj.isSelected = false;
       });
     } else {
-      this.currentQuery = finalSelectedTerms.join(' ');
+      this.currentQuery = SearchQuerySSoT.buildQuotedQuery(finalSelectedTerms);
       this.currentTerms = [...finalSelectedTerms];
       
       // Update selection state in available terms

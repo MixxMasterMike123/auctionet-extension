@@ -181,9 +181,9 @@ export class DashboardManagerV2 {
             <span class="query-text">"${escapeHTML(currentQuery)}"</span>
             <span class="query-source">(${escapeHTML(querySource)})</span>
           </div>
-        </div>
-        <div class="header-right-section">
-          ${headerPillsHTML}
+          <div class="header-pills-wrapper">
+            ${headerPillsHTML}
+          </div>
         </div>
         <div class="market-dashboard-source">
           ${escapeHTML(salesData.dataSource || 'Auctionet API')}
@@ -201,9 +201,9 @@ export class DashboardManagerV2 {
       contentHTML += this.generatePriceSection(salesData);
     }
     
-    // 2. PRISTREND - Trend section (moved to second position)
-    if (salesData.historical?.trendAnalysis) {
-      contentHTML += this.generateTrendSection(salesData);
+    // 2. MARKNADSSTATUS - Combined insights + trend (merged from old PRISTREND + MARKNADSTREND)
+    if (salesData.insights && salesData.insights.length > 0) {
+      contentHTML += this.generateInsightsSection(salesData);
     }
     
     // 3. DATAUNDERLAG - Data foundation section  
@@ -219,11 +219,6 @@ export class DashboardManagerV2 {
     // 5. MARKNADSAKTIVITET - Market Activity section  
     if (salesData.live?.marketActivity) {
       contentHTML += this.generateMarketActivitySection(salesData);
-    }
-    
-    // 6. MARKNADSTREND - Insights section (last)
-    if (salesData.insights && salesData.insights.length > 0) {
-      contentHTML += this.generateInsightsSection(salesData);
     }
     
     contentHTML += '</div>';
@@ -256,6 +251,7 @@ export class DashboardManagerV2 {
     return `
       <div class="market-item market-price">
         <div class="market-label">Marknadsvärde</div>
+        <div class="market-label-subtitle">Prisintervall från historiska slutpriser</div>
         <div class="market-value">${formattedLow}-${formattedHigh} SEK</div>
         <div class="market-confidence" style="color: ${confidenceColor};">${confidenceIcon} ${confidencePercent}%</div>
         <div class="market-help">Baserat på jämförbara auktionsresultat</div>
@@ -331,6 +327,7 @@ export class DashboardManagerV2 {
     return `
       <div class="market-item market-data">
         <div class="market-label">Dataunderlag</div>
+        <div class="market-label-subtitle">Antal analyserade auktioner</div>
         <div class="market-value">${dataDescription}</div>
         ${dataLinks ? `<div class="market-help">${dataLinks}</div>` : '<div class="market-help">Omfattning av analyserad marknadsdata</div>'}
       </div>`;
@@ -434,18 +431,45 @@ export class DashboardManagerV2 {
     const cleanSummary = summary.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     const cleanDetail = detail.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     
+    // Build inline historical trend line (folded from the old standalone PRISTREND card)
+    let trendLineHTML = '';
+    const trend = salesData.historical?.trendAnalysis;
+    if (trend && trend.trend && trend.trend !== 'insufficient_data') {
+      let trendIcon, trendColor;
+      switch (trend.trend) {
+        case 'rising_strong':
+          trendIcon = '⬆'; trendColor = '#1e7e34'; break;
+        case 'rising':
+          trendIcon = '↗'; trendColor = '#28a745'; break;
+        case 'falling':
+          trendIcon = '↘'; trendColor = '#e67e22'; break;
+        case 'falling_strong':
+          trendIcon = '⬇'; trendColor = '#dc3545'; break;
+        case 'stable':
+        default:
+          trendIcon = '→'; trendColor = '#6c757d'; break;
+      }
+      const sign = trend.changePercent > 0 ? '+' : '';
+      // Extract time span from description (e.g. "11 år tillbaka")
+      const timeMatch = trend.description ? trend.description.match(/(\d+\s*(?:år|månader)\s*tillbaka)/) : null;
+      const timeSpan = timeMatch ? timeMatch[1] : '';
+      trendLineHTML = `<div class="market-trend-inline" style="color: ${trendColor}; font-size: 10px; margin-top: 3px;">${trendIcon} ${sign}${Math.round(trend.changePercent)}% historiskt${timeSpan ? ' (' + escapeHTML(timeSpan) + ')' : ''}</div>`;
+    }
+    
     // Store insight data for KB card (will be picked up by setupInsightKBCard)
     this._lastInsightData = { type, summary: cleanSummary, detail: cleanDetail, statusColor, salesData };
     
     return `
       <div class="market-item market-insights market-insights-trigger" style="cursor: pointer;">
-        <div class="market-label" style="cursor: help; border-bottom: 1px dotted #6c757d;" title="Klicka för detaljer">Marknadstrend</div>
+        <div class="market-label" style="cursor: help; border-bottom: 1px dotted #6c757d;" title="Hovra för värderingsförslag">Marknadsstatus</div>
+        <div class="market-label-subtitle">Aktuell marknadsbedömning</div>
         <div class="market-value" style="color: ${escapeHTML(statusColor)};">${escapeHTML(cleanSummary)}</div>
         <div class="market-help market-insight-detail">${escapeHTML(cleanDetail)}</div>
+        ${trendLineHTML}
       </div>`;
   }
 
-  // Generate trend section
+  // DEPRECATED: Standalone trend card — now folded into generateInsightsSection() as inline trend line
   generateTrendSection(salesData) {
     const trend = salesData.historical.trendAnalysis;
     
@@ -639,14 +663,32 @@ export class DashboardManagerV2 {
     
     // Use MEDIAN for suggested valuation (more robust to outliers than average)
     const medianPrice = stats.median || (priceRange ? (priceRange.low + priceRange.high) / 2 : 0);
-    const suggestedValuation = Math.round(medianPrice / 100) * 100;
-    // Bevakningspris: 80% of market low, but never below 300 SEK (Auctionet minimum starting bid)
-    const suggestedReserve = priceRange ? Math.max(300, Math.round(priceRange.low * 0.8 / 100) * 100) : 300;
     
     // Calculate spread ratio to assess data reliability
     const spreadRatio = priceRange ? priceRange.high / Math.max(priceRange.low, 1) : 0;
     const isWideSpread = spreadRatio > 10;   // 10x+ = very unreliable
     const isModerateSpread = spreadRatio > 5; // 5x+ = somewhat unreliable
+    
+    // AI validation info (needed for discount logic)
+    const aiValidated = historical?.aiValidated || false;
+    
+    // Conservative valuation: apply a discount when data is broad/unreliable.
+    // Better to start low and generate bidding wars than overprice and get no bids.
+    // AI-validated data is trusted more (tighter, filtered results).
+    let valuationDiscount = 1.0; // no discount by default
+    if (isWideSpread && !aiValidated) {
+      valuationDiscount = 0.75; // 25% discount for very broad unvalidated data
+    } else if (isWideSpread && aiValidated) {
+      valuationDiscount = 0.85; // 15% discount — AI filtered but still wide
+    } else if (isModerateSpread && !aiValidated) {
+      valuationDiscount = 0.85; // 15% discount for moderately broad data
+    } else if (isModerateSpread && aiValidated) {
+      valuationDiscount = 0.90; // 10% discount — AI filtered, moderate spread
+    }
+    
+    const suggestedValuation = Math.max(300, Math.round(medianPrice * valuationDiscount / 100) * 100);
+    // Bevakningspris: 80% of market low, but never below 300 SEK (Auctionet minimum starting bid)
+    const suggestedReserve = priceRange ? Math.max(300, Math.round(priceRange.low * 0.8 / 100) * 100) : 300;
     
     // Determine data reliability level
     let reliabilityLevel, reliabilityColor, reliabilityText;
@@ -702,6 +744,33 @@ export class DashboardManagerV2 {
         <div class="insight-kb-query">
           <span class="insight-kb-query-label">Sökning:</span>
           <span class="insight-kb-query-text">"${escapeHTML(searchQuery)}"</span>
+        </div>`;
+    }
+    
+    // AI validation details (aiValidated already declared above for discount logic)
+    const aiFilteredCount = historical?.aiFilteredCount || null;
+    const aiOriginalCount = historical?.aiOriginalCount || null;
+    
+    // AI-validated data gets a reliability boost
+    if (aiValidated && reliabilityLevel === 'low') {
+      reliabilityLevel = 'medium';
+      reliabilityColor = '#f39c12';
+      reliabilityText = `Måttlig — AI-filtrerad data (${aiFilteredCount} av ${aiOriginalCount} bedömda som jämförbara)`;
+    } else if (aiValidated && reliabilityLevel === 'medium') {
+      reliabilityLevel = 'high';
+      reliabilityColor = '#27ae60';
+      reliabilityText = `Hög — AI-verifierad data (${aiFilteredCount} av ${aiOriginalCount} bedömda som jämförbara)`;
+    } else if (aiValidated) {
+      reliabilityText = `Hög — AI-verifierad data med tight prisintervall`;
+    }
+    
+    // Build AI validation badge
+    let aiValidationHTML = '';
+    if (aiValidated) {
+      aiValidationHTML = `
+        <div class="insight-kb-ai-badge">
+          <span class="insight-kb-ai-icon">✓</span>
+          <span class="insight-kb-ai-text">AI-verifierad data — ${aiFilteredCount} av ${aiOriginalCount} resultat bedömda som jämförbara</span>
         </div>`;
     }
     
@@ -764,9 +833,12 @@ export class DashboardManagerV2 {
       const warningNote = reliabilityLevel === 'low' 
         ? `<div class="insight-kb-suggestion-warning">⚠ Bred data — justera sökord i dashboard-pills för bättre träffar</div>` 
         : '';
+      const discountNote = valuationDiscount < 1.0 
+        ? ` — konservativ (${Math.round((1 - valuationDiscount) * 100)}% rabatt pga brett data)`
+        : '';
       suggestionHTML = `
         <div class="insight-kb-suggestion">
-          <div class="insight-kb-section-title">Förslag baserat på median (${fmt(Math.round(medianPrice))} SEK)</div>
+          <div class="insight-kb-section-title">Förslag baserat på median (${fmt(Math.round(medianPrice))} SEK)${discountNote}</div>
           ${warningNote}
           <div class="insight-kb-suggestion-grid">
             <div class="insight-kb-suggestion-item">
@@ -798,13 +870,14 @@ export class DashboardManagerV2 {
         </div>
       </div>
       ${searchQueryHTML}
+      ${aiValidationHTML}
       ${reliabilityHTML}
       <div class="insight-kb-detail">${escapeHTML(detail)}</div>
       ${statsHTML}
       ${comparisonHTML}
       ${suggestionHTML}
       <div class="insight-kb-footer">
-        <span>Baserat enbart på Auctionet-data</span>
+        <span>${aiValidated ? 'AI-verifierad Auctionet-data' : 'Baserat enbart på Auctionet-data'}</span>
       </div>
     `;
     
@@ -983,6 +1056,26 @@ export class DashboardManagerV2 {
         padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);
         font-style: italic;
       }
+      
+      .insight-kb-ai-badge {
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(39, 174, 96, 0.15);
+        border: 1px solid rgba(39, 174, 96, 0.3);
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin-bottom: 8px;
+      }
+      .insight-kb-ai-icon {
+        color: #27ae60;
+        font-weight: 700;
+        font-size: 12px;
+        flex-shrink: 0;
+      }
+      .insight-kb-ai-text {
+        font-size: 10px;
+        color: rgba(39, 174, 96, 0.9);
+        line-height: 1.3;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -1136,27 +1229,55 @@ export class DashboardManagerV2 {
         gap: 8px;
       }
       
-      /* 🖥️ NEW: Desktop-Optimized Header Layout */
+      /* Desktop-Optimized Header Layout — pills next to search query */
       .header-left-section {
         display: flex;
         align-items: center;
         gap: 12px;
         flex: 1;
         min-width: 300px;
+        flex-wrap: wrap;
       }
       
-      .header-right-section {
+      .header-pills-wrapper {
         display: flex;
         align-items: center;
         flex-shrink: 0;
       }
       
-      /* 💊 NEW: Header-Integrated Pills - Desktop Optimized */
+      /* Header-Integrated Pills - Desktop Optimized */
       .header-pills-container {
         display: flex;
         align-items: center;
         gap: 6px;
         flex-wrap: wrap;
+      }
+      
+      /* Freetext input for custom search terms */
+      .pill-freetext-input {
+        height: 24px;
+        padding: 0 8px;
+        border-radius: 12px;
+        border: 1px dashed #cbd5e1;
+        background: rgba(248, 250, 252, 0.6);
+        font-size: 11px;
+        font-weight: 400;
+        color: #64748b;
+        outline: none;
+        width: 80px;
+        transition: all 0.2s ease;
+      }
+      .pill-freetext-input::placeholder {
+        color: #94a3b8;
+        font-style: italic;
+      }
+      .pill-freetext-input:focus {
+        width: 130px;
+        border-color: #007cba;
+        border-style: solid;
+        background: white;
+        color: #1a252f;
+        box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.15);
       }
       
       .header-pill {
@@ -1282,9 +1403,8 @@ export class DashboardManagerV2 {
           width: 100%;
         }
         
-        .header-right-section {
+        .header-pills-wrapper {
           width: 100%;
-          justify-content: flex-start;
         }
         
         .header-pills-container {
@@ -1436,9 +1556,16 @@ export class DashboardManagerV2 {
         color: #6c757d;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        margin-bottom: 3px;
+        margin-bottom: 1px;
         font-weight: 500;
         line-height: 1.2;
+      }
+      .market-label-subtitle {
+        font-size: 8px;
+        color: #adb5bd;
+        margin-bottom: 3px;
+        line-height: 1.2;
+        font-weight: 400;
       }
       
       .market-value {

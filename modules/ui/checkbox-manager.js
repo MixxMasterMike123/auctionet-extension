@@ -62,6 +62,30 @@ export class CheckboxManager {
       }
     });
     
+    // Attach freetext input handler (power user feature)
+    const freetextInput = document.querySelector('.pill-freetext-input');
+    if (freetextInput && !freetextInput.dataset.listenerAttached) {
+      const keydownHandler = (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const value = freetextInput.value.trim();
+          if (!value) return;
+
+          // Add term to SSoT
+          if (this.searchQuerySSoT && this.searchQuerySSoT.addUserTerm) {
+            this.searchQuerySSoT.addUserTerm(value);
+            freetextInput.value = '';
+
+            // Trigger dashboard refresh to re-render pills and re-run search
+            this.triggerDashboardRefresh();
+          }
+        }
+      };
+      freetextInput.addEventListener('keydown', keydownHandler);
+      freetextInput.dataset.listenerAttached = 'true';
+      this.eventListeners.set(freetextInput, keydownHandler);
+    }
+
     return attachedCount;
   }
 
@@ -71,7 +95,10 @@ export class CheckboxManager {
     
     let removedCount = 0;
     this.eventListeners.forEach((handler, element) => {
-      if (element.tagName === 'INPUT') {
+      if (element.tagName === 'INPUT' && element.classList.contains('pill-freetext-input')) {
+        element.removeEventListener('keydown', handler);
+        delete element.dataset.listenerAttached;
+      } else if (element.tagName === 'INPUT') {
         element.removeEventListener('change', handler);
         delete element.dataset.listenerAttached;
       } else if (element.tagName === 'LABEL') {

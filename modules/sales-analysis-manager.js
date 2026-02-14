@@ -236,8 +236,11 @@ export class SalesAnalysisManager {
         throw new Error('ApiManager.analyzeSales method not available');
       }
       
-      // Call the API for sales analysis
-      let salesData = await this.apiManager.analyzeSales(searchContext);
+      // Get full item context for AI validation of market results
+      const itemData = this.dataExtractor?.extractItemData() || null;
+      
+      // Call the API for sales analysis (pass itemData for AI relevance filtering)
+      let salesData = await this.apiManager.analyzeSales(searchContext, itemData);
       
       // Add analysis metadata to sales data
       salesData.analysisType = analysisType;

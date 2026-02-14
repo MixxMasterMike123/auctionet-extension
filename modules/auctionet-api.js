@@ -7,9 +7,15 @@ export class AuctionetAPI {
     this.cache = new Map(); // Cache results to avoid repeated API calls
     this.cacheExpiry = 30 * 60 * 1000; // 30 minutes default cache
     this.excludeCompanyId = null; // Will be loaded from settings
+    this._apiManager = null; // Reference to APIManager for Claude API calls
     
     // Load exclude company setting
     this.loadExcludeCompanySetting();
+  }
+
+  // Set APIManager reference for AI validation calls
+  setAPIManager(apiManager) {
+    this._apiManager = apiManager;
   }
 
   // Load exclude company setting from Chrome storage
@@ -32,6 +38,48 @@ export class AuctionetAPI {
     // Clear cache since exclusion rules have changed
     this.cache.clear();
 
+  }
+
+  // Ensure every term in a search query is quoted for Auctionet's API.
+  // Auctionet treats unquoted terms as optional/fuzzy; quoted terms are required matches.
+  // Input: '"Joel Jonsson" trä'  →  Output: '"Joel Jonsson" "trä"'
+  ensureAllTermsQuoted(query) {
+    if (!query || typeof query !== 'string') return query;
+    
+    // Parse the query into terms, preserving existing quoted groups
+    const terms = [];
+    let current = '';
+    let inQuote = false;
+    let quoteChar = null;
+    
+    for (let i = 0; i < query.length; i++) {
+      const ch = query[i];
+      if ((ch === '"' || ch === "'") && !inQuote) {
+        inQuote = true;
+        quoteChar = ch;
+        current += ch;
+      } else if (ch === quoteChar && inQuote) {
+        inQuote = false;
+        current += ch;
+        quoteChar = null;
+      } else if (ch === ' ' && !inQuote) {
+        if (current.trim()) terms.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    if (current.trim()) terms.push(current.trim());
+    
+    // Quote-wrap any term that isn't already quoted
+    const quoted = terms.map(t => {
+      if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+        return t; // already quoted
+      }
+      return `"${t}"`;
+    });
+    
+    return quoted.join(' ');
   }
 
   // NEW: Format artist name for search queries to ensure it's treated as one entity
@@ -57,7 +105,7 @@ export class AuctionetAPI {
   }
 
   // Main method to analyze comparable sales for an item
-  async analyzeComparableSales(artistName, objectType, period, technique, currentValuation = null, searchQueryManager = null) {
+  async analyzeComparableSales(artistName, objectType, period, technique, currentValuation = null, searchQueryManager = null, itemData = null) {
 
 
     // Ensure company exclusion setting is loaded before searching
@@ -197,8 +245,8 @@ export class AuctionetAPI {
         };
       }
 
-      // Analyze the market data
-      const marketAnalysis = this.analyzeMarketData(bestResult.soldItems, artistName, objectType, totalMatches, currentValuation);
+      // Analyze the market data (pass itemData for AI relevance filtering)
+      const marketAnalysis = await this.analyzeMarketData(bestResult.soldItems, artistName, objectType, totalMatches, currentValuation, itemData);
       
 
       
@@ -206,17 +254,21 @@ export class AuctionetAPI {
         hasComparableData: true,
         dataSource: 'auctionet_api',
         totalMatches: totalMatches,
-        analyzedSales: bestResult.soldItems.length,
+        analyzedSales: marketAnalysis.aiFilteredCount || bestResult.soldItems.length,
         priceRange: marketAnalysis.priceRange,
         confidence: marketAnalysis.confidence,
         marketContext: marketAnalysis.marketContext,
         recentSales: marketAnalysis.recentSales,
         trendAnalysis: marketAnalysis.trendAnalysis,
         limitations: marketAnalysis.limitations,
-        exceptionalSales: marketAnalysis.exceptionalSales, // NEW: Include exceptional sales
-        actualSearchQuery: usedStrategy ? usedStrategy.query : null, // NEW: Include actual query used
-        searchStrategy: usedStrategy ? usedStrategy.description : null, // NEW: Include strategy description
-        artistSearchResults: artistSearchResults // NEW: Include artist search count
+        exceptionalSales: marketAnalysis.exceptionalSales,
+        statistics: marketAnalysis.statistics,
+        aiValidated: marketAnalysis.aiValidated || false,
+        aiFilteredCount: marketAnalysis.aiFilteredCount || null,
+        aiOriginalCount: marketAnalysis.aiOriginalCount || null,
+        actualSearchQuery: usedStrategy ? usedStrategy.query : null,
+        searchStrategy: usedStrategy ? usedStrategy.description : null,
+        artistSearchResults: artistSearchResults
       };
 
     } catch (error) {
@@ -316,6 +368,9 @@ export class AuctionetAPI {
 
   // NEW: Search live auctions (without is=ended parameter)
   async searchLiveAuctions(query, description, maxResults = 200) {
+    // AUCTIONET FIX: Ensure all search terms are quoted so Auctionet treats them as required.
+    query = this.ensureAllTermsQuoted(query);
+    
     // Check cache first (shorter cache for live data)
     // Include excludeCompanyId in cache key to ensure exclusion settings are respected
     const cacheKey = `live_${query}_${maxResults}_exclude_${this.excludeCompanyId || 'none'}`;
@@ -951,6 +1006,10 @@ export class AuctionetAPI {
 
   // Search Auctionet API for auction results
   async searchAuctionResults(query, description, maxResults = 200) {
+    // AUCTIONET FIX: Ensure all search terms are quoted so Auctionet treats them as required.
+    // Unquoted terms are treated as optional/fuzzy by Auctionet's search engine.
+    query = this.ensureAllTermsQuoted(query);
+    
     // Check cache first
     const cacheKey = `search_${query}_${maxResults}`;
     const cached = this.getCachedResult(cacheKey);
@@ -1244,8 +1303,119 @@ export class AuctionetAPI {
     return soldItems;
   }
 
+  // AI-powered relevance validation using Claude Haiku
+  // Filters out irrelevant Auctionet results by comparing each result against the item's full context
+  async validateResultRelevance(soldItems, itemData) {
+    // Guard: need APIManager reference, API key, and item data
+    if (!this._apiManager || !this._apiManager.apiKey || !itemData) {
+      return null; // Return null = use unfiltered results
+    }
+
+    try {
+      // Build compact result list (title + price only to minimize tokens)
+      const resultLines = soldItems.map((item, i) => {
+        return `${i + 1}. ${item.title} | ${item.finalPrice} SEK`;
+      }).join('\n');
+
+      // Build item context from form fields
+      const itemContext = [
+        itemData.title ? `Titel: ${itemData.title}` : '',
+        itemData.category ? `Kategori: ${itemData.category}` : '',
+        itemData.description ? `Beskrivning: ${itemData.description.substring(0, 200)}` : '',
+        itemData.artist ? `Konstnär/Formgivare: ${itemData.artist}` : '',
+        itemData.condition ? `Skick: ${itemData.condition.substring(0, 100)}` : ''
+      ].filter(Boolean).join('\n');
+
+      const prompt = `Du är expert på att värdera auktionsobjekt. Analysera vilka av dessa sålda auktionsobjekt som är JÄMFÖRBARA med objektet som ska värderas.
+
+OBJEKTET SOM SKA VÄRDERAS:
+${itemContext}
+
+SÅLDA AUKTIONSRESULTAT (titel | slutpris):
+${resultLines}
+
+REGLER FÖR JÄMFÖRBARHET:
+- Objektet måste vara av SAMMA TYP (t.ex. oljemålning vs oljemålning, inte oljemålning vs brosch)
+- Storlek/format bör vara i samma storleksklass om det framgår
+- Material/teknik bör matcha (t.ex. akvarell vs akvarell, inte akvarell vs olja)
+- Bruksföremål (smycken, möbler, keramik) ska vara av liknande typ
+- Om konstnär/formgivare matchar är det positivt men INTE tillräckligt om typen skiljer sig
+
+Svara ENBART med en JSON-array. Varje element: {"i": nummer, "r": true/false}
+Där "i" = resultatnummer (1-baserat), "r" = true om jämförbar, false om inte.
+Ingen annan text.`;
+
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this._apiManager.apiKey,
+          body: {
+            model: 'claude-haiku-4-5',
+            max_tokens: 500,
+            temperature: 0,
+            messages: [{
+              role: 'user',
+              content: prompt
+            }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response && response.success) {
+            resolve(response);
+          } else {
+            reject(new Error(response?.error || 'AI validation request failed'));
+          }
+        });
+      });
+
+      if (!response.success || !response.data?.content?.[0]?.text) {
+        return null;
+      }
+
+      const text = response.data.content[0].text.trim();
+      
+      // Parse JSON response — extract array from potential markdown code block
+      let parsed;
+      try {
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+          console.warn('AI validation: no JSON array found in response');
+          return null;
+        }
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        console.warn('AI validation: failed to parse response:', e);
+        return null;
+      }
+
+      // Filter soldItems based on Claude's relevance judgement
+      const relevantIndices = new Set();
+      for (const item of parsed) {
+        if (item.r === true) {
+          relevantIndices.add(item.i - 1); // Convert from 1-based to 0-based
+        }
+      }
+
+      const filteredItems = soldItems.filter((_, index) => relevantIndices.has(index));
+
+      // Only use filtered results if we have enough (at least 3)
+      if (filteredItems.length >= 3) {
+        console.log(`AI validation: kept ${filteredItems.length} of ${soldItems.length} results`);
+        return filteredItems;
+      } else {
+        console.log(`AI validation: too few relevant items (${filteredItems.length}), using unfiltered`);
+        return null;
+      }
+
+    } catch (error) {
+      console.warn('AI validation failed, using unfiltered results:', error.message);
+      return null; // Graceful fallback
+    }
+  }
+
   // Analyze market data from sold items
-  analyzeMarketData(soldItems, artistName, objectType, totalMatches = 0, currentValuation = null) {
+  async analyzeMarketData(soldItems, artistName, objectType, totalMatches = 0, currentValuation = null, itemData = null) {
 
     
     if (!soldItems || soldItems.length === 0) {
@@ -1253,7 +1423,7 @@ export class AuctionetAPI {
     }
     
     // Count actual sales vs unsold items
-    const actualSales = soldItems.filter(item => item.finalPrice > 0);
+    let actualSales = soldItems.filter(item => item.finalPrice > 0);
     const unsoldItems = soldItems.filter(item => item.finalPrice === 0);
 
     
@@ -1261,7 +1431,30 @@ export class AuctionetAPI {
       return null;
     }
     
-    // Extract prices from actual sales
+    // AI Relevance Validation: filter out irrelevant results when data is broad
+    let aiValidated = false;
+    let aiOriginalCount = actualSales.length;
+    let aiFilteredCount = null;
+
+    if (itemData && actualSales.length >= 8) {
+      // Check spread ratio to decide if AI validation is needed
+      const tempPrices = actualSales.map(item => item.finalPrice).filter(p => p > 0);
+      const tempMin = Math.min(...tempPrices);
+      const tempMax = Math.max(...tempPrices);
+      const spreadRatio = tempMin > 0 ? tempMax / tempMin : Infinity;
+
+      // Only invoke AI when spread is high (>5x) or sample is large (>15 items)
+      if (spreadRatio > 5 || actualSales.length > 15) {
+        const filtered = await this.validateResultRelevance(actualSales, itemData);
+        if (filtered) {
+          aiValidated = true;
+          aiFilteredCount = filtered.length;
+          actualSales = filtered;
+        }
+      }
+    }
+
+    // Extract prices from actual sales (possibly AI-filtered)
     const prices = actualSales.map(item => item.finalPrice).filter(price => price > 0);
     
     // CRITICAL: Extract exceptional sales BEFORE outlier filtering
@@ -1312,6 +1505,9 @@ export class AuctionetAPI {
       limitations,
       exceptionalSales,
       totalMatches,
+      aiValidated,
+      aiFilteredCount,
+      aiOriginalCount,
       statistics: {
         average: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
         median: this.calculateMedian(prices),

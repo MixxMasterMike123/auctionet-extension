@@ -10,6 +10,7 @@ export class APIManager {
     this.showDashboard = true; // Default to showing dashboard
     this.currentModel = 'sonnet'; // Claude Sonnet 4.5
     this.auctionetAPI = new AuctionetAPI();
+    this.auctionetAPI.setAPIManager(this); // Give AuctionetAPI access to Claude for AI validation
     this.searchQuerySSoT = null; // NEW: AI-only SearchQuerySSoT support
 
     // Initialize AI Analysis Engine
@@ -1679,7 +1680,7 @@ Return JSON only:
 
       // Run historical and live analysis in parallel
       const [historicalResult, liveResult] = await Promise.all([
-        this.auctionetAPI.analyzeComparableSales(artistName, objectType, period, technique, currentValuation, this.searchQuerySSoT),
+        this.auctionetAPI.analyzeComparableSales(artistName, objectType, period, technique, currentValuation, this.searchQuerySSoT, this._currentItemData),
         this.auctionetAPI.analyzeLiveAuctions(artistName, objectType, period, technique, this.searchQuerySSoT)
       ]);
 
@@ -1710,6 +1711,10 @@ Return JSON only:
             recentSales: historicalResult.recentSales,
             limitations: historicalResult.limitations,
             exceptionalSales: historicalResult.exceptionalSales, // NEW: Pass through exceptional sales
+            statistics: historicalResult.statistics, // Pass through statistics (median, min, max, etc.)
+            aiValidated: historicalResult.aiValidated || false, // AI validation flag
+            aiFilteredCount: historicalResult.aiFilteredCount || null, // How many items AI kept
+            aiOriginalCount: historicalResult.aiOriginalCount || null, // How many items before AI filter
             actualSearchQuery: historicalResult.actualSearchQuery, // NEW: Pass through actual search query
             searchStrategy: historicalResult.searchStrategy // NEW: Pass through search strategy
           } : null,
@@ -1752,7 +1757,7 @@ Return JSON only:
   }
 
   // NEW: Enhanced sales analysis that accepts search context for artist, brand, and freetext searches
-  async analyzeSales(searchContext) {
+  async analyzeSales(searchContext, itemData = null) {
 
     const {
       primarySearch,
@@ -1764,6 +1769,9 @@ Return JSON only:
       confidence,
       termCount
     } = searchContext;
+
+    // Store item context for AI validation of results
+    this._currentItemData = itemData;
 
     // Store original SSoT query for logging purposes only
     const originalSSoTQuery = this.searchQuerySSoT ? this.searchQuerySSoT.getCurrentQuery() : null;
@@ -1987,6 +1995,30 @@ Return JSON only:
           summary: `Begränsad data (${analyzedLiveItems} auktioner)`,
           detail: `Endast ${analyzedLiveItems} pågående auktioner hittades — för få för en pålitlig marknadsanalys. ${totalBids === 0 ? 'Inga bud har lagts ännu.' : `${getMarketSummary()}.`} Använd som vägledning, inte som beslutsunderlag.`,
           significance: totalBids === 0 ? 'medium' : 'low'
+        });
+      }
+    }
+
+    // ALWAYS generate at least one insight when we have historical data
+    // This ensures the MARKNADSTREND section (and KB card hover target) always appears
+    if (insights.length === 0 && historicalResult && historicalResult.priceRange) {
+      const histAvg = (historicalResult.priceRange.low + historicalResult.priceRange.high) / 2;
+      const confidence = historicalResult.confidence || 0;
+      const sampleSize = historicalResult.analyzedSales || 0;
+      
+      if (confidence > 0.7 && sampleSize >= 10) {
+        insights.push({
+          type: 'market_info',
+          summary: `Stabil marknad — god datakvalitet`,
+          detail: `${sampleSize} historiska försäljningar analyserade med ${Math.round(confidence * 100)}% konfidensgrad. Prisintervall ${Math.round(historicalResult.priceRange.low)}–${Math.round(historicalResult.priceRange.high)} SEK. Marknaden verkar stabil för liknande objekt.`,
+          significance: 'low'
+        });
+      } else if (sampleSize >= 3) {
+        insights.push({
+          type: 'market_info',
+          summary: `Marknadsdata tillgänglig (${sampleSize} försäljningar)`,
+          detail: `${sampleSize} historiska försäljningar analyserade. Prisintervall ${Math.round(historicalResult.priceRange.low)}–${Math.round(historicalResult.priceRange.high)} SEK. Hovra för detaljerad värderingsanalys.`,
+          significance: 'low'
         });
       }
     }
