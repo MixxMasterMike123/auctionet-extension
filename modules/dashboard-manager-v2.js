@@ -631,14 +631,39 @@ export class DashboardManagerV2 {
     const confidence = salesData.confidence || 0;
     const historical = salesData.historical;
     const live = salesData.live;
+    const stats = historical?.statistics || {};
     
     // Read current field values
     const currentEstimate = parseFloat(document.querySelector('#item_current_auction_attributes_estimate')?.value) || 0;
     const currentReserve = parseFloat(document.querySelector('#item_current_auction_attributes_reserve')?.value) || 0;
     
-    // Calculate suggested values from market data
-    const suggestedValuation = priceRange ? Math.round((priceRange.low + priceRange.high) / 2 / 100) * 100 : 0;
-    const suggestedReserve = priceRange ? Math.round(priceRange.low * 0.8 / 100) * 100 : 0;
+    // Use MEDIAN for suggested valuation (more robust to outliers than average)
+    const medianPrice = stats.median || (priceRange ? (priceRange.low + priceRange.high) / 2 : 0);
+    const suggestedValuation = Math.round(medianPrice / 100) * 100;
+    // Bevakningspris: 80% of market low, but never below 300 SEK (Auctionet minimum starting bid)
+    const suggestedReserve = priceRange ? Math.max(300, Math.round(priceRange.low * 0.8 / 100) * 100) : 300;
+    
+    // Calculate spread ratio to assess data reliability
+    const spreadRatio = priceRange ? priceRange.high / Math.max(priceRange.low, 1) : 0;
+    const isWideSpread = spreadRatio > 10;   // 10x+ = very unreliable
+    const isModerateSpread = spreadRatio > 5; // 5x+ = somewhat unreliable
+    
+    // Determine data reliability level
+    let reliabilityLevel, reliabilityColor, reliabilityText;
+    const sampleSize = stats.sampleSize || 0;
+    if (isWideSpread || confidence < 0.4) {
+      reliabilityLevel = 'low';
+      reliabilityColor = '#e74c3c';
+      reliabilityText = `Låg — prisintervallet är brett (${Math.round(spreadRatio)}x) — sökorden kanske inte matchar objektet tillräckligt`;
+    } else if (isModerateSpread || confidence < 0.6 || sampleSize < 10) {
+      reliabilityLevel = 'medium';
+      reliabilityColor = '#f39c12';
+      reliabilityText = `Måttlig — ${sampleSize < 10 ? 'få jämförelser' : 'visst prisspann'} — använd som vägledning`;
+    } else {
+      reliabilityLevel = 'high';
+      reliabilityColor = '#27ae60';
+      reliabilityText = `Hög — tight prisintervall med god datamängd`;
+    }
     
     // Format numbers
     const fmt = (n) => new Intl.NumberFormat('sv-SE').format(n);
@@ -659,19 +684,54 @@ export class DashboardManagerV2 {
     const totalMatches = (historical?.totalMatches || 0) + (live?.totalMatches || 0);
     let dataSourceText = '';
     if (historicalCount > 0 && liveCount > 0) {
-      dataSourceText = `${historicalCount} historiska försäljningar + ${liveCount} pågående auktioner (${totalMatches} hittade)`;
+      dataSourceText = `${historicalCount} historiska + ${liveCount} pågående (${totalMatches} hittade)`;
     } else if (historicalCount > 0) {
       dataSourceText = `${historicalCount} historiska försäljningar (${totalMatches} hittade)`;
     } else if (liveCount > 0) {
       dataSourceText = `${liveCount} pågående auktioner`;
     }
     
-    // Price trend info
-    const trendInfo = historical?.trendAnalysis;
-    let trendText = '';
-    if (trendInfo) {
-      const sign = trendInfo.changePercent > 0 ? '+' : '';
-      trendText = `${trendInfo.description || ''} (${sign}${trendInfo.changePercent}%)`;
+    // Get the search query used (from SSoT)
+    const searchQuery = this.searchQuerySSoT?.getCurrentQuery() || '';
+    const querySource = this.searchQuerySSoT?.getQuerySource() || '';
+    
+    // Build search query info section
+    let searchQueryHTML = '';
+    if (searchQuery) {
+      searchQueryHTML = `
+        <div class="insight-kb-query">
+          <span class="insight-kb-query-label">Sökning:</span>
+          <span class="insight-kb-query-text">"${escapeHTML(searchQuery)}"</span>
+        </div>`;
+    }
+    
+    // Build reliability indicator
+    const reliabilityHTML = `
+      <div class="insight-kb-reliability">
+        <div class="insight-kb-reliability-bar">
+          <div class="insight-kb-reliability-fill" style="width: ${reliabilityLevel === 'high' ? '100' : reliabilityLevel === 'medium' ? '60' : '25'}%; background: ${reliabilityColor};"></div>
+        </div>
+        <div class="insight-kb-reliability-text" style="color: ${reliabilityColor};">Tillförlitlighet: ${escapeHTML(reliabilityText)}</div>
+      </div>`;
+    
+    // Build statistics section
+    let statsHTML = '';
+    if (stats.median && stats.min !== undefined && stats.max !== undefined) {
+      statsHTML = `
+        <div class="insight-kb-stats">
+          <div class="insight-kb-stats-row">
+            <span>Median (mittpris):</span>
+            <span style="font-weight: 600;">${fmt(Math.round(stats.median))} SEK</span>
+          </div>
+          <div class="insight-kb-stats-row">
+            <span>Lägsta–Högsta:</span>
+            <span style="font-weight: 600;">${fmt(stats.min)}–${fmt(stats.max)} SEK</span>
+          </div>
+          <div class="insight-kb-stats-row">
+            <span>Medel:</span>
+            <span style="font-weight: 600;">${fmt(stats.average)} SEK</span>
+          </div>
+        </div>`;
     }
     
     // Comparison with current values
@@ -692,23 +752,27 @@ export class DashboardManagerV2 {
             <span style="font-weight: 600;">${fmt(priceRange.low)}–${fmt(priceRange.high)} SEK</span>
           </div>
           <div class="insight-kb-comparison-row">
-            <span>Avvikelse:</span>
+            <span>Avvikelse från median:</span>
             <span style="font-weight: 600; color: ${diffColor};">${diffSign}${Math.round(diff)}%</span>
           </div>
         </div>`;
     }
     
-    // Build suggestion section
+    // Build suggestion section — hide buttons for low reliability
     let suggestionHTML = '';
     if (suggestedValuation > 0) {
+      const warningNote = reliabilityLevel === 'low' 
+        ? `<div class="insight-kb-suggestion-warning">⚠ Bred data — justera sökord i dashboard-pills för bättre träffar</div>` 
+        : '';
       suggestionHTML = `
         <div class="insight-kb-suggestion">
-          <div class="insight-kb-section-title">Förslag baserat på Auctionet-data</div>
+          <div class="insight-kb-section-title">Förslag baserat på median (${fmt(Math.round(medianPrice))} SEK)</div>
+          ${warningNote}
           <div class="insight-kb-suggestion-grid">
             <div class="insight-kb-suggestion-item">
               <div class="insight-kb-suggestion-label">Värdering</div>
               <div class="insight-kb-suggestion-value">${fmt(suggestedValuation)} SEK</div>
-              <button class="insight-kb-apply-btn" data-field="estimate" data-value="${suggestedValuation}" type="button">
+              <button class="insight-kb-apply-btn" data-field="estimate" data-value="${suggestedValuation}" type="button" ${reliabilityLevel === 'low' ? 'title="Låg tillförlitlighet — dubbelkolla innan du applicerar"' : ''}>
                 ${currentEstimate > 0 ? 'Uppdatera' : 'Sätt'} värdering
               </button>
             </div>
@@ -733,8 +797,10 @@ export class DashboardManagerV2 {
           <div class="insight-kb-source">${escapeHTML(dataSourceText)}</div>
         </div>
       </div>
+      ${searchQueryHTML}
+      ${reliabilityHTML}
       <div class="insight-kb-detail">${escapeHTML(detail)}</div>
-      ${trendText ? `<div class="insight-kb-trend"><span class="insight-kb-trend-label">Pristrend:</span> ${escapeHTML(trendText)}</div>` : ''}
+      ${statsHTML}
       ${comparisonHTML}
       ${suggestionHTML}
       <div class="insight-kb-footer">
@@ -833,18 +899,47 @@ export class DashboardManagerV2 {
       .insight-kb-source {
         font-size: 10px; color: rgba(255,255,255,0.45); line-height: 1.3;
       }
+      .insight-kb-query {
+        font-size: 11px; margin-bottom: 8px; padding: 5px 10px;
+        background: rgba(255,255,255,0.05); border-radius: 6px;
+        color: rgba(255,255,255,0.7);
+      }
+      .insight-kb-query-label {
+        color: rgba(255,255,255,0.4); font-size: 10px; margin-right: 4px;
+      }
+      .insight-kb-query-text {
+        font-style: italic; color: rgba(255,255,255,0.8);
+      }
+      .insight-kb-reliability {
+        margin-bottom: 10px;
+      }
+      .insight-kb-reliability-bar {
+        height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px;
+        overflow: hidden; margin-bottom: 4px;
+      }
+      .insight-kb-reliability-fill {
+        height: 100%; border-radius: 2px; transition: width 0.3s ease;
+      }
+      .insight-kb-reliability-text {
+        font-size: 10px; line-height: 1.4;
+      }
       .insight-kb-detail {
         font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.85);
         margin-bottom: 12px; padding-bottom: 12px;
         border-bottom: 1px solid rgba(255,255,255,0.08);
       }
-      .insight-kb-trend {
-        font-size: 11px; color: rgba(255,255,255,0.7);
-        margin-bottom: 10px; padding: 6px 10px;
-        background: rgba(255,255,255,0.05); border-radius: 6px;
+      .insight-kb-stats {
+        margin-bottom: 10px; padding-bottom: 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
       }
-      .insight-kb-trend-label {
-        color: rgba(255,255,255,0.45); font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px;
+      .insight-kb-stats-row {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 11px; color: rgba(255,255,255,0.7); padding: 2px 0;
+      }
+      .insight-kb-suggestion-warning {
+        font-size: 10px; color: #f39c12; margin-bottom: 8px;
+        padding: 5px 8px; background: rgba(243,156,18,0.1);
+        border-radius: 4px; border-left: 2px solid #f39c12;
       }
       .insight-kb-section-title {
         font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase;

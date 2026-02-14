@@ -958,49 +958,65 @@ export class AuctionetAPI {
       return cached;
     }
     
-    
-    
     try {
-      const url = `${this.baseUrl}?is=ended&q=${encodeURIComponent(query)}&per_page=${maxResults}`;
+      // --- Paginated fetching for better data coverage ---
+      const MIN_QUALITY_ITEMS = 25;  // Target: at least 25 usable items for reliable analysis
+      const MAX_PAGES = 4;           // Cap: max 4 pages (800 items) to keep it responsive
+      const PER_PAGE = 200;
       
+      let allRawItems = [];
+      let totalEntries = 0;
+      let totalReturnedItems = 0;
+      let page = 1;
+      let hasMorePages = true;
       
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!data.items || data.items.length === 0) {
-        return null;
-      }
-      
-      
-      
-      // Debug: Check currency distribution before filtering
-      const currencyDistribution = {};
-      data.items.forEach(item => {
-        const currency = item.currency || 'unknown';
-        currencyDistribution[currency] = (currencyDistribution[currency] || 0) + 1;
-      });
-      
-      
-      // Filter for sold items with ANY price data (not as restrictive as before)
-      const soldItems = data.items.filter(item => {
-        // CRITICAL: Only include Swedish currency items to avoid mixing DKK/NOK/EUR with SEK
-        if (item.currency && item.currency !== 'SEK') {
-
-          return false;
+      while (page <= MAX_PAGES && hasMorePages) {
+        const url = `${this.baseUrl}?is=ended&q=${encodeURIComponent(query)}&per_page=${PER_PAGE}&page=${page}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        // Include any item that was hammered/sold OR has an estimate
+        const data = await response.json();
+        
+        if (!data.items || data.items.length === 0) {
+          if (page === 1) return null; // No results at all
+          break; // No more items on this page
+        }
+        
+        if (page === 1) {
+          totalEntries = data.pagination.total_entries;
+        }
+        totalReturnedItems += data.items.length;
+        allRawItems = allRawItems.concat(data.items);
+        
+        // Check if there are more pages
+        const totalPages = Math.ceil(totalEntries / PER_PAGE);
+        hasMorePages = page < totalPages;
+        
+        // After first page, check if we already have enough quality items
+        if (page >= 1) {
+          const quickFilter = allRawItems.filter(item => 
+            (!item.currency || item.currency === 'SEK') &&
+            item.hammered && item.bids && item.bids.length > 0 && item.bids[0].amount > 0
+          );
+          if (quickFilter.length >= MIN_QUALITY_ITEMS) {
+            break; // We have enough good data
+          }
+        }
+        
+        page++;
+      }
+      
+      // Filter for sold items with valid price data
+      const soldItems = allRawItems.filter(item => {
+        if (item.currency && item.currency !== 'SEK') return false;
+        
         const hasValidPrice = (item.hammered && item.bids && item.bids.length > 0 && item.bids[0].amount > 0) ||
                               (item.estimate && item.estimate > 0) ||
                               (item.upper_estimate && item.upper_estimate > 0);
         
-        // Also include items that are clearly ended auctions (historical data)
         const isHistoricalItem = item.hammered || 
                                  (item.ends_at && item.ends_at < (Date.now() / 1000)) ||
                                  item.state === 'ended';
@@ -1008,100 +1024,72 @@ export class AuctionetAPI {
         return hasValidPrice && isHistoricalItem;
       });
       
-
-      
-      // NEW: Validate search results for data quality when no specific artist
+      // Validate search results for data quality when no specific artist
       const isGenericSearch = !description.includes('Artist') || description.includes('freetext') || description.includes('Object +');
       let validatedItems = soldItems;
       
       if (isGenericSearch && soldItems.length > 3) {
-
         validatedItems = this.validateSearchResults(soldItems, query, description);
-        
-        
       }
       
-      // If we still don't have enough, be even more lenient
+      // Lenient fallback if validation was too strict
       if (validatedItems.length === 0) {
-        const lenientItems = data.items.filter(item => {
-          // CRITICAL: Only include Swedish currency items to avoid mixing DKK/NOK/EUR with SEK
-          if (item.currency && item.currency !== 'SEK') {
-
-            return false;
-          }
-          
-          // Accept any item with title matching and some price indication
+        const lenientItems = allRawItems.filter(item => {
+          if (item.currency && item.currency !== 'SEK') return false;
           return item.estimate > 0 || item.upper_estimate > 0 || 
                  (item.bids && item.bids.length > 0);
         });
         
         if (lenientItems.length > 0) {
-          // Use the lenient results but mark them clearly
           const result = {
-            totalEntries: data.pagination.total_entries,
-            returnedItems: data.items.length,
-            soldItems: lenientItems.map(item => ({
-              title: item.title,
-              finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : null,
-              currency: item.currency,
-              estimate: item.estimate,
-              house: item.house,
-              location: item.location,
-              endDate: new Date(item.ends_at * 1000),
-              bidDate: item.bids && item.bids.length > 0 ? 
-                       new Date(item.bids[0].timestamp * 1000) : 
-                       new Date(item.ends_at * 1000),
-              reserveMet: item.reserve_met,
-              reserveAmount: item.reserve_amount,
-              description: item.description,
-              condition: item.condition,
-              url: this.convertToSwedishUrl(item.url),
-              isEstimateBasedPrice: !(item.bids && item.bids.length > 0), // Flag for estimate-based pricing
-              dataQuality: 'lenient' // Mark as potentially mixed data
-            })),
+            totalEntries: totalEntries,
+            returnedItems: totalReturnedItems,
+            soldItems: lenientItems.map(item => this._transformSoldItem(item, 'lenient')),
             dataQuality: 'lenient'
           };
-          
-          // Cache the result
           this.setCachedResult(cacheKey, result);
           return result;
         }
       }
 
+      const dataQuality = isGenericSearch ? 'validated' : 'artist_specific';
       const result = {
-        totalEntries: data.pagination.total_entries,
-        returnedItems: data.items.length,
-        soldItems: validatedItems.map(item => ({
-          title: item.title,
-          finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : null,
-          currency: item.currency,
-          estimate: item.estimate,
-          house: item.house,
-          location: item.location,
-          endDate: new Date(item.ends_at * 1000),
-          bidDate: item.bids && item.bids.length > 0 ? 
-                   new Date(item.bids[0].timestamp * 1000) : 
-                   new Date(item.ends_at * 1000),
-          reserveMet: item.reserve_met,
-          reserveAmount: item.reserve_amount,
-          description: item.description,
-          condition: item.condition,
-          url: this.convertToSwedishUrl(item.url),
-          isEstimateBasedPrice: !(item.bids && item.bids.length > 0), // Flag for estimate-based pricing
-          dataQuality: isGenericSearch ? 'validated' : 'artist_specific'
-        })),
-        dataQuality: isGenericSearch ? 'validated' : 'artist_specific'
+        totalEntries: totalEntries,
+        returnedItems: totalReturnedItems,
+        soldItems: validatedItems.map(item => this._transformSoldItem(item, dataQuality)),
+        dataQuality: dataQuality
       };
       
-      // Cache the result
       this.setCachedResult(cacheKey, result);
-      
       return result;
       
     } catch (error) {
-      console.error(`Search failed for"${description}":`, error);
+      console.error(`Search failed for "${description}":`, error);
       return null;
     }
+  }
+
+  // Helper: Transform raw API item to internal format
+  _transformSoldItem(item, dataQuality) {
+    return {
+      title: item.title,
+      finalPrice: item.bids && item.bids.length > 0 ? item.bids[0].amount : null,
+      currency: item.currency,
+      estimate: item.estimate,
+      house: item.house,
+      location: item.location,
+      endDate: new Date(item.ends_at * 1000),
+      bidDate: item.bids && item.bids.length > 0 ? 
+               new Date(item.bids[0].timestamp * 1000) : 
+               new Date(item.ends_at * 1000),
+      reserveMet: item.reserve_met,
+      reserveAmount: item.reserve_amount,
+      description: item.description,
+      condition: item.condition,
+      url: this.convertToSwedishUrl(item.url),
+      isEstimateBasedPrice: !(item.bids && item.bids.length > 0),
+      dataQuality: dataQuality
+    };
   }
 
   // NEW: Validate search results to prevent mixed/irrelevant data from skewing analysis
