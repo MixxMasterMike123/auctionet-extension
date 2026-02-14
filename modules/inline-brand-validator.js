@@ -157,12 +157,8 @@ export class InlineBrandValidator {
       
       if (allIssues.length > 0) {
         this.showInlineNotifications(field, allIssues);
-        field.style.boxShadow = '0 0 0 2px rgba(211, 47, 47, 0.3)';
-        field.style.borderColor = '#d32f2f';
       } else {
         this.removeInlineNotifications(field);
-        field.style.boxShadow = '';
-        field.style.borderColor = '';
       }
     } catch (error) {
       console.error('Error validating field content:', error);
@@ -253,14 +249,12 @@ export class InlineBrandValidator {
 
       const confidence = Math.round((issue.confidence || 0) * 100);
       const categoryText = issue.displayCategory || 'märke';
-      const errorType = issue.type === 'brand' ? 'Märkesfel' : 'Stavfel';
 
       notification.innerHTML = `
-        <span class="brand-notif-icon">⚠️</span>
+        <span class="brand-notif-icon">💡</span>
         <span class="brand-notif-text">
-          <strong>${errorType}:</strong> "${escapeHTML(issue.originalBrand)}" → 
-          <strong>"${escapeHTML(issue.suggestedBrand)}"</strong>
-          <span class="brand-notif-meta">(${confidence}% säkerhet, ${escapeHTML(categoryText)})</span>
+          Menade du <strong>"${escapeHTML(issue.suggestedBrand)}"</strong> istället för "${escapeHTML(issue.originalBrand)}"?
+          <span class="brand-notif-meta">(${confidence}%, ${escapeHTML(categoryText)})</span>
         </span>
         <button class="brand-notif-fix" type="button">Rätta</button>
       `;
@@ -376,10 +370,8 @@ export class InlineBrandValidator {
     
     field.value = correctedValue;
     
-    // Clear inline notifications and field highlight
+    // Clear inline notifications
     this.removeInlineNotifications(field);
-    field.style.boxShadow = '';
-    field.style.borderColor = '';
     
     // Hide any active tooltip
     this.hideTooltip();
@@ -529,53 +521,57 @@ export class InlineBrandValidator {
         background: #1565c0;
       }
       
-      /* Inline notification bar below field */
+      /* Gentle inline suggestion below field */
       .brand-inline-notification {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 10px;
-        margin-top: 4px;
-        background: #fef2f2;
-        border: 1px solid #fecaca;
+        padding: 5px 10px;
+        margin-top: 3px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
         border-radius: 6px;
         font-size: 12px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        color: #991b1b;
+        color: #64748b;
         line-height: 1.4;
-        animation: brandNotifSlideIn 0.2s ease-out;
+        animation: brandNotifFadeIn 0.3s ease-out;
       }
       .brand-notif-icon {
         flex-shrink: 0;
-        font-size: 14px;
+        font-size: 13px;
       }
       .brand-notif-text {
         flex: 1;
       }
+      .brand-notif-text strong {
+        color: #334155;
+      }
       .brand-notif-meta {
-        color: #b91c1c;
-        opacity: 0.7;
+        color: #94a3b8;
         font-size: 11px;
       }
       .brand-notif-fix {
         flex-shrink: 0;
-        background: #dc2626;
-        color: white;
-        border: none;
-        padding: 4px 12px;
+        background: #f1f5f9;
+        color: #1976d2;
+        border: 1px solid #cbd5e1;
+        padding: 3px 10px;
         border-radius: 4px;
         font-size: 11px;
-        font-weight: 600;
+        font-weight: 500;
         cursor: pointer;
-        transition: background 0.15s;
+        transition: all 0.15s;
         font-family: inherit;
       }
       .brand-notif-fix:hover {
-        background: #b91c1c;
+        background: #1976d2;
+        color: white;
+        border-color: #1976d2;
       }
-      @keyframes brandNotifSlideIn {
-        from { opacity: 0; transform: translateY(-4px); }
-        to { opacity: 1; transform: translateY(0); }
+      @keyframes brandNotifFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       
       @keyframes tooltipFadeIn {
