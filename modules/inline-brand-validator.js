@@ -11,6 +11,7 @@ export class InlineBrandValidator {
     this.activeTooltip = null;
     this.monitoredFields = new Map();
     this.debounceTimeout = null;
+    this.ignoredTerms = new Set(); // Session-based ignore list
     
   }
 
@@ -155,8 +156,13 @@ export class InlineBrandValidator {
         if (!issue.displayCategory) issue.displayCategory = 'märke';
       });
       
-      if (allIssues.length > 0) {
-        this.showInlineNotifications(field, allIssues);
+      // Filter out ignored terms
+      const filteredIssues = allIssues.filter(issue => 
+        !this.ignoredTerms.has(issue.originalBrand.toLowerCase())
+      );
+      
+      if (filteredIssues.length > 0) {
+        this.showInlineNotifications(field, filteredIssues);
       } else {
         this.removeInlineNotifications(field);
       }
@@ -257,6 +263,7 @@ export class InlineBrandValidator {
           <span class="brand-notif-meta">(${confidence}%, ${escapeHTML(categoryText)})</span>
         </span>
         <button class="brand-notif-fix" type="button">Rätta</button>
+        <button class="brand-notif-ignore" type="button">Ignorera</button>
       `;
 
       const fixBtn = notification.querySelector('.brand-notif-fix');
@@ -264,6 +271,17 @@ export class InlineBrandValidator {
         e.preventDefault();
         e.stopPropagation();
         this.applyCorrection(field, issue.originalBrand, issue.suggestedBrand);
+      });
+
+      const ignoreBtn = notification.querySelector('.brand-notif-ignore');
+      ignoreBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Add to session ignore list so it doesn't come back
+        this.ignoredTerms.add(issue.originalBrand.toLowerCase());
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.2s ease';
+        setTimeout(() => notification.remove(), 200);
       });
 
       container.appendChild(notification);
@@ -568,6 +586,20 @@ export class InlineBrandValidator {
         background: #1976d2;
         color: white;
         border-color: #1976d2;
+      }
+      .brand-notif-ignore {
+        flex-shrink: 0;
+        background: transparent;
+        color: #94a3b8;
+        border: none;
+        padding: 3px 6px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: color 0.15s;
+        font-family: inherit;
+      }
+      .brand-notif-ignore:hover {
+        color: #475569;
       }
       @keyframes brandNotifFadeIn {
         from { opacity: 0; }
