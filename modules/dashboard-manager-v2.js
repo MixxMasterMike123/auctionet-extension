@@ -106,8 +106,13 @@ export class DashboardManagerV2 {
     const shouldStayOpen = localStorage.getItem(STORAGE_KEY) === 'true';
     const existingContainer = document.querySelector('.market-dropdown-container');
     
-    // If dropdown should stay open and exists, just update content with spinner
+    // If dropdown should stay open and exists, lock its height and show spinner
     if (shouldStayOpen && existingContainer) {
+      // Lock height to prevent layout shift during content swap
+      const currentHeight = existingContainer.offsetHeight;
+      if (currentHeight > 0) {
+        existingContainer.style.minHeight = currentHeight + 'px';
+      }
       this.showSpinnerOverlay(existingContainer);
       // Don't remove existing elements, just update them
     } else {
@@ -1186,22 +1191,42 @@ export class DashboardManagerV2 {
       font-size: 0;
     `;
 
-    // Create dropdown content container (hidden initially, in document flow)
+    // Check if dashboard should already be open (avoid collapse→expand flash)
+    const STORAGE_KEY_INIT = 'auctionet_market_analysis_visible';
+    const shouldBeOpen = localStorage.getItem(STORAGE_KEY_INIT) === 'true';
+
+    // Create dropdown content container (in document flow)
     const dropdownContainer = document.createElement('div');
     dropdownContainer.className = 'market-dropdown-container';
-    dropdownContainer.style.cssText = `
-      width: 100%;
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      margin-bottom: 0;
-      opacity: 0;
-      transform: translateY(-10px);
-      transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
-                  opacity 0.3s ease 0.1s, 
-                  transform 0.3s ease 0.1s,
-                  margin-bottom 0.5s ease;
-    `;
+
+    if (shouldBeOpen) {
+      // Pre-set to open state so there's no collapse flash
+      dropdownContainer.style.cssText = `
+        width: 100%;
+        max-height: 2000px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        opacity: 1;
+        transform: translateY(0);
+        transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                    opacity 0.3s ease 0.1s, 
+                    transform 0.3s ease 0.1s,
+                    margin-bottom 0.5s ease;
+      `;
+    } else {
+      dropdownContainer.style.cssText = `
+        width: 100%;
+        max-height: 0;
+        overflow: hidden;
+        margin-bottom: 0;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                    opacity 0.3s ease 0.1s, 
+                    transform 0.3s ease 0.1s,
+                    margin-bottom 0.5s ease;
+      `;
+    }
 
     // Style the dashboard element (original design)
     dashboardElement.style.cssText = `
@@ -1589,6 +1614,12 @@ export class DashboardManagerV2 {
     // Replace content smoothly
     existingDashboard.innerHTML = newDashboard.innerHTML;
     existingDashboard.className = newDashboard.className;
+
+    // Release the locked min-height after content is swapped
+    // Use a brief delay so the new content has rendered before we release
+    setTimeout(() => {
+      existingContainer.style.minHeight = '';
+    }, 100);
 
     // Restore button to normal state
     const button = document.querySelector('.minimal-market-toggle');

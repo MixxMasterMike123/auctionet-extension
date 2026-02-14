@@ -1302,10 +1302,11 @@ export class QualityAnalyzer {
             // Get updated form data with artist now in field
             const updatedData = this.dataExtractor.extractItemData();
 
-            // Clear existing dashboard
-            const existingDashboard = document.querySelector('.market-data-dashboard');
-            if (existingDashboard) {
-              existingDashboard.remove();
+            // Show loading state on existing dashboard instead of removing it
+            // (removing causes layout shift when it gets recreated)
+            if (this.salesAnalysisManager.dashboardManager &&
+                typeof this.salesAnalysisManager.dashboardManager.showDashboardLoading === 'function') {
+              this.salesAnalysisManager.dashboardManager.showDashboardLoading('Uppdaterar marknadsanalys...');
             }
 
             // Generate new search query with artist now in field (but don't update Hidden Keywords field)
