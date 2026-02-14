@@ -311,14 +311,19 @@ export class SalesAnalysisManager {
       // Add unique insights from freetext that aren't in artist data
       freetextData.insights.forEach(insight => {
         const isDuplicate = mergedData.insights.some(existing => 
-          existing.message === insight.message || existing.type === insight.type
+          (existing.summary === insight.summary) || (existing.message === insight.message) || existing.type === insight.type
         );
         
         if (!isDuplicate) {
           // Mark as broader market insight
           const enhancedInsight = { ...insight };
-          if (enhancedInsight.message && !enhancedInsight.message.includes('(bredare marknad)')) {
-            enhancedInsight.message += ' (bredare marknad)';
+          const textField = enhancedInsight.summary || enhancedInsight.message || '';
+          if (textField && !textField.includes('(bredare marknad)')) {
+            if (enhancedInsight.summary) {
+              enhancedInsight.summary += ' (bredare marknad)';
+            } else if (enhancedInsight.message) {
+              enhancedInsight.message += ' (bredare marknad)';
+            }
           }
           mergedData.insights.push(enhancedInsight);
         }
@@ -751,26 +756,27 @@ export class SalesAnalysisManager {
     
     const updatedWarnings = [...warnings];
     
-    // Add insights as market warnings
+    // Add insights as market warnings (supports both old 'message' and new 'summary'/'detail' format)
     salesData.insights.forEach(insight => {
+      const displayText = insight.summary || insight.message || '';
       if (insight.type === 'price_variance') {
         updatedWarnings.push({
           field: 'Marknadsvärde',
-          issue: `💰 ${insight.message}`,
+          issue: `💰 ${displayText}`,
           severity: 'medium',
           category: 'market_insight'
         });
       } else if (insight.type === 'availability') {
         updatedWarnings.push({
           field: 'Marknadstillgång',
-          issue: `📊 ${insight.message}`,
+          issue: `📊 ${displayText}`,
           severity: 'low',
           category: 'market_insight'
         });
       } else if (insight.type === 'trend') {
         updatedWarnings.push({
           field: 'Marknadstrend',
-          issue: `📈 ${insight.message}`,
+          issue: `📈 ${displayText}`,
           severity: 'info',
           category: 'market_insight'
         });
@@ -778,7 +784,7 @@ export class SalesAnalysisManager {
         // Generic market insight
         updatedWarnings.push({
           field: 'Marknadsanalys',
-          issue: `💡 ${insight.message}`,
+          issue: `💡 ${displayText}`,
           severity: 'info',
           category: 'market_insight'
         });

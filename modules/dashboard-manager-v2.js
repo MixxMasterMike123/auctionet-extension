@@ -412,22 +412,36 @@ export class DashboardManagerV2 {
   generateInsightsSection(salesData) {
     const significantInsight = salesData.insights.find(insight => insight.significance === 'high') || salesData.insights[0];
     
-    let trendIcon = '';
-    let trendColor = '#6c757d';
+    const type = significantInsight.type || '';
+    const summary = significantInsight.summary || significantInsight.message || '';
+    const detail = significantInsight.detail || significantInsight.message || '';
     
-    if (significantInsight.type === 'price_comparison' && significantInsight.message.includes('höja')) {
-      trendIcon = significantInsight.message; // Use the actual insight message
-      trendColor = '#dc3545';
-    } else {
-      trendIcon = significantInsight.message;
-      trendColor = '#28a745';
+    let statusColor;
+    switch (type) {
+      case 'conflict':      statusColor = '#dc3545'; break;
+      case 'market_weakness': statusColor = '#e67e22'; break;
+      case 'market_strength': statusColor = '#28a745'; break;
+      case 'market_info':    statusColor = '#6c757d'; break;
+      case 'price_comparison':
+      default:
+        if (summary.includes('sänk') || summary.includes('högt')) statusColor = '#e67e22';
+        else if (summary.includes('höja') || summary.includes('lågt') || summary.includes('Starkare')) statusColor = '#28a745';
+        else if (summary.includes('Svag')) statusColor = '#e67e22';
+        else statusColor = '#495057';
+        break;
     }
     
+    const cleanSummary = summary.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const cleanDetail = detail.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    
+    // Store insight data for KB card (will be picked up by setupInsightKBCard)
+    this._lastInsightData = { type, summary: cleanSummary, detail: cleanDetail, statusColor, salesData };
+    
     return `
-      <div class="market-item market-insights">
-        <div class="market-label">Marknadstrend</div>
-        <div class="market-value" style="color: ${escapeHTML(trendColor)};">${escapeHTML(trendIcon)}</div>
-        <div class="market-help">Konstnärsbaserad analys</div>
+      <div class="market-item market-insights market-insights-trigger" style="cursor: pointer;">
+        <div class="market-label" style="cursor: help; border-bottom: 1px dotted #6c757d;" title="Klicka för detaljer">Marknadstrend</div>
+        <div class="market-value" style="color: ${escapeHTML(statusColor)};">${escapeHTML(cleanSummary)}</div>
+        <div class="market-help market-insight-detail">${escapeHTML(cleanDetail)}</div>
       </div>`;
   }
 
@@ -494,6 +508,9 @@ export class DashboardManagerV2 {
     
     // Setup expand/collapse functionality
     this.setupExpandCollapse();
+    
+    // Setup market insight KB card on hover
+    this.setupInsightKBCard();
   }
 
   // Setup expand/collapse functionality
@@ -506,6 +523,373 @@ export class DashboardManagerV2 {
       });
       
     }
+  }
+
+  // Setup market insight KB card on the Marknadstrend card
+  setupInsightKBCard() {
+    // Remove any existing KB card from a previous render
+    const existingCard = document.querySelector('.insight-kb-card');
+    if (existingCard) existingCard.remove();
+    
+    const trigger = document.querySelector('.market-insights-trigger');
+    if (!trigger || !this._lastInsightData) return;
+    
+    const data = this._lastInsightData;
+    let kbCard = null;
+    let hideTimeout = null;
+    let isHoveringTrigger = false;
+    let isHoveringCard = false;
+    let scrollHandler = null;
+    
+    const positionCard = () => {
+      if (!kbCard) return;
+      const rect = trigger.getBoundingClientRect();
+      const cardWidth = 340;
+      let left = rect.left + rect.width / 2 - cardWidth / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - cardWidth - 8));
+      kbCard.style.left = `${left}px`;
+      
+      const cardHeight = kbCard.offsetHeight || 400;
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+      if (spaceBelow >= cardHeight || spaceBelow >= spaceAbove) {
+        kbCard.style.top = `${rect.bottom + 8}px`;
+      } else {
+        kbCard.style.top = `${rect.top - cardHeight - 8}px`;
+      }
+      const currentTop = parseFloat(kbCard.style.top);
+      const maxTop = window.innerHeight - cardHeight - 8;
+      kbCard.style.top = `${Math.max(8, Math.min(currentTop, maxTop))}px`;
+    };
+    
+    const attachScroll = () => {
+      if (scrollHandler) return;
+      scrollHandler = () => { if (kbCard?.style.visibility === 'visible') positionCard(); };
+      window.addEventListener('scroll', scrollHandler, { passive: true });
+      window.addEventListener('resize', scrollHandler, { passive: true });
+    };
+    const detachScroll = () => {
+      if (scrollHandler) {
+        window.removeEventListener('scroll', scrollHandler);
+        window.removeEventListener('resize', scrollHandler);
+        scrollHandler = null;
+      }
+    };
+    
+    const showCard = () => {
+      if (!kbCard) return;
+      if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+      positionCard();
+      kbCard.style.opacity = '1';
+      kbCard.style.visibility = 'visible';
+      kbCard.style.transform = 'translateY(0) scale(1)';
+      kbCard.style.pointerEvents = 'auto';
+      attachScroll();
+    };
+    
+    const scheduleHide = () => {
+      if (hideTimeout) clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        if (!isHoveringTrigger && !isHoveringCard && kbCard) {
+          kbCard.style.opacity = '0';
+          kbCard.style.visibility = 'hidden';
+          kbCard.style.transform = 'translateY(6px) scale(0.96)';
+          kbCard.style.pointerEvents = 'none';
+          detachScroll();
+        }
+      }, 200);
+    };
+    
+    trigger.addEventListener('mouseenter', () => {
+      isHoveringTrigger = true;
+      if (kbCard) { showCard(); return; }
+      
+      kbCard = this.createInsightKBCard(data);
+      kbCard.addEventListener('mouseenter', () => {
+        isHoveringCard = true;
+        if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+      });
+      kbCard.addEventListener('mouseleave', () => {
+        isHoveringCard = false;
+        scheduleHide();
+      });
+      showCard();
+    });
+    
+    trigger.addEventListener('mouseleave', () => {
+      isHoveringTrigger = false;
+      scheduleHide();
+    });
+  }
+  
+  // Create the market insight KB card
+  createInsightKBCard(data) {
+    this.addInsightKBCardStyles();
+    
+    const { type, summary, detail, statusColor, salesData } = data;
+    const priceRange = salesData.priceRange;
+    const confidence = salesData.confidence || 0;
+    const historical = salesData.historical;
+    const live = salesData.live;
+    
+    // Read current field values
+    const currentEstimate = parseFloat(document.querySelector('#item_current_auction_attributes_estimate')?.value) || 0;
+    const currentReserve = parseFloat(document.querySelector('#item_current_auction_attributes_reserve')?.value) || 0;
+    
+    // Calculate suggested values from market data
+    const suggestedValuation = priceRange ? Math.round((priceRange.low + priceRange.high) / 2 / 100) * 100 : 0;
+    const suggestedReserve = priceRange ? Math.round(priceRange.low * 0.8 / 100) * 100 : 0;
+    
+    // Format numbers
+    const fmt = (n) => new Intl.NumberFormat('sv-SE').format(n);
+    
+    // Determine status icon
+    let statusIcon;
+    switch (type) {
+      case 'conflict':      statusIcon = '⚠️'; break;
+      case 'market_weakness': statusIcon = '📉'; break;
+      case 'market_strength': statusIcon = '📈'; break;
+      case 'market_info':    statusIcon = 'ℹ️'; break;
+      default:               statusIcon = '📊'; break;
+    }
+    
+    // Build data source summary
+    const historicalCount = historical?.analyzedSales || 0;
+    const liveCount = live?.analyzedLiveItems || 0;
+    const totalMatches = (historical?.totalMatches || 0) + (live?.totalMatches || 0);
+    let dataSourceText = '';
+    if (historicalCount > 0 && liveCount > 0) {
+      dataSourceText = `${historicalCount} historiska försäljningar + ${liveCount} pågående auktioner (${totalMatches} hittade)`;
+    } else if (historicalCount > 0) {
+      dataSourceText = `${historicalCount} historiska försäljningar (${totalMatches} hittade)`;
+    } else if (liveCount > 0) {
+      dataSourceText = `${liveCount} pågående auktioner`;
+    }
+    
+    // Price trend info
+    const trendInfo = historical?.trendAnalysis;
+    let trendText = '';
+    if (trendInfo) {
+      const sign = trendInfo.changePercent > 0 ? '+' : '';
+      trendText = `${trendInfo.description || ''} (${sign}${trendInfo.changePercent}%)`;
+    }
+    
+    // Comparison with current values
+    let comparisonHTML = '';
+    if (currentEstimate > 0 && priceRange) {
+      const diff = ((currentEstimate - suggestedValuation) / suggestedValuation * 100);
+      const diffSign = diff > 0 ? '+' : '';
+      const diffColor = Math.abs(diff) < 15 ? 'rgba(76,175,80,0.9)' : Math.abs(diff) < 40 ? 'rgba(255,193,7,0.9)' : 'rgba(244,67,54,0.9)';
+      comparisonHTML = `
+        <div class="insight-kb-comparison">
+          <div class="insight-kb-section-title">Jämförelse med ditt utrop</div>
+          <div class="insight-kb-comparison-row">
+            <span>Ditt utrop:</span>
+            <span style="font-weight: 600;">${fmt(currentEstimate)} SEK</span>
+          </div>
+          <div class="insight-kb-comparison-row">
+            <span>Marknadsvärde:</span>
+            <span style="font-weight: 600;">${fmt(priceRange.low)}–${fmt(priceRange.high)} SEK</span>
+          </div>
+          <div class="insight-kb-comparison-row">
+            <span>Avvikelse:</span>
+            <span style="font-weight: 600; color: ${diffColor};">${diffSign}${Math.round(diff)}%</span>
+          </div>
+        </div>`;
+    }
+    
+    // Build suggestion section
+    let suggestionHTML = '';
+    if (suggestedValuation > 0) {
+      suggestionHTML = `
+        <div class="insight-kb-suggestion">
+          <div class="insight-kb-section-title">Förslag baserat på Auctionet-data</div>
+          <div class="insight-kb-suggestion-grid">
+            <div class="insight-kb-suggestion-item">
+              <div class="insight-kb-suggestion-label">Värdering</div>
+              <div class="insight-kb-suggestion-value">${fmt(suggestedValuation)} SEK</div>
+              <button class="insight-kb-apply-btn" data-field="estimate" data-value="${suggestedValuation}" type="button">
+                ${currentEstimate > 0 ? 'Uppdatera' : 'Sätt'} värdering
+              </button>
+            </div>
+            <div class="insight-kb-suggestion-item">
+              <div class="insight-kb-suggestion-label">Bevakningspris</div>
+              <div class="insight-kb-suggestion-value">${fmt(suggestedReserve)} SEK</div>
+              <button class="insight-kb-apply-btn" data-field="reserve" data-value="${suggestedReserve}" type="button">
+                ${currentReserve > 0 ? 'Uppdatera' : 'Sätt'} bevakningspris
+              </button>
+            </div>
+          </div>
+        </div>`;
+    }
+    
+    const card = document.createElement('div');
+    card.className = 'insight-kb-card';
+    card.innerHTML = `
+      <div class="insight-kb-header">
+        <div class="insight-kb-icon" style="background: ${statusColor}20; color: ${statusColor};">${statusIcon}</div>
+        <div class="insight-kb-title">
+          <div class="insight-kb-name" style="color: ${statusColor};">${escapeHTML(summary)}</div>
+          <div class="insight-kb-source">${escapeHTML(dataSourceText)}</div>
+        </div>
+      </div>
+      <div class="insight-kb-detail">${escapeHTML(detail)}</div>
+      ${trendText ? `<div class="insight-kb-trend"><span class="insight-kb-trend-label">Pristrend:</span> ${escapeHTML(trendText)}</div>` : ''}
+      ${comparisonHTML}
+      ${suggestionHTML}
+      <div class="insight-kb-footer">
+        <span>Baserat enbart på Auctionet-data</span>
+      </div>
+    `;
+    
+    card.style.cssText = `
+      position: fixed;
+      top: 0; left: 0;
+      transform: translateY(6px) scale(0.96);
+      background: rgba(20, 20, 30, 0.96);
+      backdrop-filter: blur(16px);
+      color: white;
+      padding: 16px 18px 14px;
+      border-radius: 14px;
+      width: 340px;
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+      white-space: normal;
+      word-wrap: break-word;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.08);
+      z-index: 2147483647;
+      opacity: 0; visibility: hidden;
+      transition: opacity 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1), visibility 0.25s cubic-bezier(0.4,0,0.2,1);
+      pointer-events: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      text-align: left;
+      border: 1px solid rgba(255,255,255,0.06);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.2) transparent;
+    `;
+    
+    // Wire up action buttons
+    card.querySelectorAll('.insight-kb-apply-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const field = btn.dataset.field;
+        const value = btn.dataset.value;
+        
+        let selector;
+        if (field === 'estimate') {
+          selector = '#item_current_auction_attributes_estimate';
+        } else if (field === 'reserve') {
+          selector = '#item_current_auction_attributes_reserve';
+        }
+        
+        const fieldEl = document.querySelector(selector);
+        if (fieldEl) {
+          fieldEl.value = value;
+          fieldEl.dispatchEvent(new Event('input', { bubbles: true }));
+          fieldEl.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          btn.textContent = '✓ Tillagd';
+          btn.style.background = 'rgba(76,175,80,0.3)';
+          btn.style.borderColor = 'rgba(76,175,80,0.5)';
+          btn.disabled = true;
+          
+          setTimeout(() => {
+            btn.textContent = field === 'estimate' ? 'Uppdatera värdering' : 'Uppdatera bevakningspris';
+            btn.style.background = 'rgba(255,255,255,0.12)';
+            btn.style.borderColor = 'rgba(255,255,255,0.15)';
+            btn.disabled = false;
+          }, 2000);
+        }
+      });
+    });
+    
+    document.body.appendChild(card);
+    return card;
+  }
+  
+  // Add styles for the insight KB card
+  addInsightKBCardStyles() {
+    if (document.querySelector('#insight-kb-card-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'insight-kb-card-styles';
+    style.textContent = `
+      .insight-kb-card::-webkit-scrollbar { width: 5px; }
+      .insight-kb-card::-webkit-scrollbar-track { background: transparent; }
+      .insight-kb-card::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+      .insight-kb-card::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+      
+      .insight-kb-header {
+        display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;
+      }
+      .insight-kb-icon {
+        width: 40px; height: 40px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px; flex-shrink: 0;
+      }
+      .insight-kb-name {
+        font-size: 13px; font-weight: 600; line-height: 1.3; margin-bottom: 2px;
+      }
+      .insight-kb-source {
+        font-size: 10px; color: rgba(255,255,255,0.45); line-height: 1.3;
+      }
+      .insight-kb-detail {
+        font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.85);
+        margin-bottom: 12px; padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+      .insight-kb-trend {
+        font-size: 11px; color: rgba(255,255,255,0.7);
+        margin-bottom: 10px; padding: 6px 10px;
+        background: rgba(255,255,255,0.05); border-radius: 6px;
+      }
+      .insight-kb-trend-label {
+        color: rgba(255,255,255,0.45); font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px;
+      }
+      .insight-kb-section-title {
+        font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase;
+        letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 500;
+      }
+      .insight-kb-comparison {
+        margin-bottom: 12px; padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+      .insight-kb-comparison-row {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 12px; color: rgba(255,255,255,0.8); padding: 3px 0;
+      }
+      .insight-kb-suggestion { margin-bottom: 10px; }
+      .insight-kb-suggestion-grid {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      }
+      .insight-kb-suggestion-item {
+        background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px;
+        text-align: center;
+      }
+      .insight-kb-suggestion-label {
+        font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase;
+        letter-spacing: 0.3px; margin-bottom: 4px;
+      }
+      .insight-kb-suggestion-value {
+        font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.95);
+        margin-bottom: 8px;
+      }
+      .insight-kb-apply-btn {
+        background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9);
+        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+        padding: 5px 10px; font-size: 11px; cursor: pointer;
+        transition: all 0.15s ease; width: 100%; font-family: inherit;
+      }
+      .insight-kb-apply-btn:hover {
+        background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.3);
+      }
+      .insight-kb-footer {
+        text-align: center; font-size: 9px; color: rgba(255,255,255,0.3);
+        padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06);
+        font-style: italic;
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   // Expand header pills to show all terms
@@ -924,6 +1308,21 @@ export class DashboardManagerV2 {
       .market-item.market-insights .market-value {
         word-wrap: break-word;
         overflow-wrap: break-word;
+      }
+      
+      /* Clamp insight detail text to 3 lines — full detail shown in KB card on hover */
+      .market-insight-detail {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-style: italic;
+      }
+      
+      /* Highlight the insights trigger on hover */
+      .market-insights-trigger:hover {
+        background: rgba(0,0,0,0.03);
+        border-radius: 6px;
       }
       
       /* Ensure consistent vertical alignment for confidence indicators */
@@ -1695,6 +2094,8 @@ export class DashboardManagerV2 {
       button.title = 'Marknadsanalys (synlig - klicka för att dölja)';
     }
 
+    // Re-setup KB card hover after content swap
+    this.setupInsightKBCard();
   }
 
   // Restore toggle button to normal open state

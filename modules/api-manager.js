@@ -1798,225 +1798,196 @@ Return JSON only:
     const insights = [];
 
     if (historicalResult && liveResult) {
-      // Get market activity context first to inform all other insights
       const marketActivity = liveResult.marketActivity;
       const reserveMetPercentage = marketActivity ? marketActivity.reservesMetPercentage : null;
       const analyzedLiveItems = liveResult.analyzedLiveItems || 0;
       const totalBids = marketActivity ? marketActivity.totalBids : 0;
       const averageBidsPerItem = marketActivity ? marketActivity.averageBidsPerItem : 0;
 
-      // MINIMUM SAMPLE SIZE CHECK: Need at least 4 live auctions for reliable reserve percentage statistics
       const hasReliableMarketData = analyzedLiveItems >= 4;
       const isWeakMarket = hasReliableMarketData && reserveMetPercentage !== null && reserveMetPercentage < 40;
       const isStrongMarket = hasReliableMarketData && reserveMetPercentage !== null && reserveMetPercentage > 70;
 
-      // NEW: Create more specific bidding activity description
-      function getBiddingActivityDescription() {
-        const searchQuery = historicalResult.actualSearchQuery || liveResult.actualSearchQuery || '';
-        let auctionText = `${analyzedLiveItems} auktioner`;
-
-        // Add clickable link if we have a search query (similar to "Pågående" link in data sources)
-        if (searchQuery) {
-          // SAFETY CHECK: Use fallback URL generation since this is a nested function
-          const liveUrl = `${CONFIG.URLS.AUCTIONET_SEARCH}?event_id=&q=${encodeURIComponent(searchQuery)}`;
-          auctionText = `<a href="${liveUrl}" target="_blank" style="color: #e74c3c; text-decoration: none; font-weight: 500;" title="Visa alla pågående auktioner på Auctionet för '${searchQuery}'">${analyzedLiveItems} auktioner</a>`;
-        }
-
+      // Plain-text market activity summary (no HTML)
+      function getMarketSummary() {
         if (totalBids === 0) {
-          return `inga bud (${auctionText})`;
+          return `inga bud på ${analyzedLiveItems} pågående auktioner`;
         } else if (reserveMetPercentage === 0) {
-          return `bud finns men 0% utrop nås (${Math.round(averageBidsPerItem * 10) / 10} bud/auktion, ${auctionText})`;
+          return `bud finns men inget utrop nås (${analyzedLiveItems} auktioner, snitt ${Math.round(averageBidsPerItem * 10) / 10} bud/st)`;
         } else {
-          return `${reserveMetPercentage}% utrop nås (${auctionText})`;
+          return `${reserveMetPercentage}% av utrop nås (${analyzedLiveItems} pågående auktioner)`;
         }
       }
 
-
-      // CRITICAL FIX: Check if priceRange exists before accessing its properties
       if (!historicalResult.priceRange || !historicalResult.priceRange.low || !historicalResult.priceRange.high) {
-        return insights; // Return early with empty insights
+        return insights;
       }
 
-      // Compare historical vs live pricing WITH market context
       const histAvg = (historicalResult.priceRange.low + historicalResult.priceRange.high) / 2;
       const liveAvg = liveResult.currentEstimates ?
         (liveResult.currentEstimates.low + liveResult.currentEstimates.high) / 2 : null;
 
       if (liveAvg && currentValuation) {
-        // SMART LOGIC: Consider cataloger's current valuation in context
         const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
         const catalogerVsHist = ((currentValuation - histAvg) / histAvg) * 100;
         const catalogerVsLive = ((currentValuation - liveAvg) / liveAvg) * 100;
 
-        // Only provide insights if the difference is significant
         if (Math.abs(priceDiff) > 15) {
-          let message = '';
+          let summary = '';
+          let detail = '';
           let significance = 'medium';
+          let type = 'price_comparison';
 
-          // CONTEXT-AWARE LOGIC: Consider market strength AND cataloger's position
           if (isWeakMarket) {
-            // WEAK MARKET: Be more conservative with all recommendations
             if (catalogerVsHist > 50) {
-              // Cataloger is above historical in weak market - definitely too high
-              message = `Svag marknad (${getBiddingActivityDescription()}) och din värdering ${Math.round(catalogerVsHist)}% över historiska värden - sänk betydligt`;
+              summary = `Ditt utrop +${Math.round(catalogerVsHist)}% över historik i svag marknad`;
+              detail = `Din värdering ligger ${Math.round(catalogerVsHist)}% över historiska slutpriser. Marknaden är svag: ${getMarketSummary()}. Rekommendation: Sänk utropet för att undvika att objektet inte säljs.`;
               significance = 'high';
+              type = 'conflict';
             } else if (priceDiff > 30) {
-              // Live estimates are high but market is weak - be cautious
-              message = `Trots att pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar är marknaden svag (${getBiddingActivityDescription()}) - var försiktig`;
+              summary = `Höga utrop men svag efterfrågan`;
+              detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser, men marknaden är svag: ${getMarketSummary()}. Rekommendation: Sätt utropet konservativt — höga startpriser i svag marknad ger ofta osålda objekt.`;
               significance = 'high';
+              type = 'conflict';
             } else if (catalogerVsLive > 20) {
-              // Cataloger above live estimates in weak market
-              message = `Svag marknad (${getBiddingActivityDescription()}) - din värdering ligger över pågående auktioner, överväg att sänka`;
+              summary = `Ditt utrop över marknadsnivå i svag marknad`;
+              detail = `Din värdering överstiger pågående auktioners nivå. Marknaden är svag: ${getMarketSummary()}. Rekommendation: Överväg att sänka utropet.`;
               significance = 'medium';
+              type = 'market_weakness';
             }
           } else if (isStrongMarket) {
-            // STRONG MARKET: Be more optimistic but still realistic
             if (catalogerVsHist < -20 && priceDiff > 30) {
-              // Cataloger is conservative but market is strong and live is high
-              message = `Stark marknad (${getBiddingActivityDescription()}) och pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - överväg att höja`;
+              summary = `Stark marknad — ditt utrop kan vara för lågt`;
+              detail = `Marknaden är stark: ${getMarketSummary()}. Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser, medan ditt utrop ligger ${Math.abs(Math.round(catalogerVsHist))}% under historik. Rekommendation: Överväg att höja utropet.`;
               significance = 'medium';
+              type = 'market_strength';
             } else if (catalogerVsHist > 100) {
-              // Even in strong market, don't be too aggressive
-              message = `Trots stark marknad (${getBiddingActivityDescription()}) är din värdering ${Math.round(catalogerVsHist)}% över historiska värden - överväg att sänka`;
+              summary = `Ditt utrop +${Math.round(catalogerVsHist)}% över historik`;
+              detail = `Trots stark marknad (${getMarketSummary()}) ligger din värdering ${Math.round(catalogerVsHist)}% över historiska slutpriser. Rekommendation: Överväg att sänka — även stark marknad har gränser.`;
               significance = 'medium';
+              type = 'price_comparison';
             } else if (priceDiff > 50) {
-              // Live is much higher and market is strong
-              message = `Stark marknad (${getBiddingActivityDescription()}) och pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - gynnsam marknad`;
+              summary = `Stark marknad — gynnsamt läge`;
+              detail = `Marknaden är stark: ${getMarketSummary()}. Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser. Gynnsam marknad för försäljning.`;
               significance = 'medium';
+              type = 'market_strength';
             }
           } else {
-            // NORMAL MARKET: Use balanced logic
+            // Normal market
             if (catalogerVsHist > 100) {
-              // Cataloger is way above historical
               if (priceDiff > 30) {
-                // Live is also high, but cataloger is even worse
-                message = `Pågående auktioner värderas ${Math.round(priceDiff)}% över historiska försäljningar, men din värdering är ${Math.round(catalogerVsHist)}% över - överväg att sänka`;
+                summary = `Ditt utrop +${Math.round(catalogerVsHist)}% över historik`;
+                detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% över historiska slutpriser, men ditt utrop ligger hela ${Math.round(catalogerVsHist)}% över. Rekommendation: Sänk utropet närmare marknadsnivå.`;
                 significance = 'high';
               } else {
-                // Live is reasonable, cataloger is the problem
-                message = `Din värdering ligger ${Math.round(catalogerVsHist)}% över historiska värden - överväg att sänka`;
+                summary = `Ditt utrop +${Math.round(catalogerVsHist)}% över historik`;
+                detail = `Din värdering ligger ${Math.round(catalogerVsHist)}% över historiska slutpriser. Pågående auktioner ligger närmare historiska nivåer. Rekommendation: Sänk utropet.`;
                 significance = 'high';
               }
             } else if (catalogerVsHist > 50) {
-              // Cataloger is moderately above historical
               if (priceDiff > 50) {
-                // Live is much higher, maybe market is heating up
-                message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - marknad kan vara starkare`;
+                summary = `Stigande marknad — nuvarande utrop rimligt`;
+                detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser. Marknaden kan vara starkare nu. Ditt utrop ligger ${Math.round(catalogerVsHist)}% över historik men i linje med trend.`;
                 significance = 'medium';
               } else {
-                // Live is moderately higher, cataloger should be cautious
-                message = `Både pågående auktioner och din värdering ligger över historiska värden - överväg försiktig prissättning`;
+                summary = `Ditt utrop något högt — var försiktig`;
+                detail = `Både pågående auktioner och din värdering ligger över historiska slutpriser. Rekommendation: Överväg försiktigare prissättning, marknaden stödjer inte fullt ut en kraftig höjning.`;
                 significance = 'medium';
               }
             } else if (catalogerVsHist < -20) {
-              // Cataloger is below historical
               if (priceDiff > 30) {
-                // Live is much higher, cataloger might be too conservative
-                message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - överväg att höja utropet`;
+                summary = `Ditt utrop kan vara lågt — starkare marknad`;
+                detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser, medan ditt utrop ligger ${Math.abs(Math.round(catalogerVsHist))}% under historik. Rekommendation: Överväg att höja utropet.`;
                 significance = 'medium';
               }
             } else {
-              // Cataloger is reasonably close to historical
               if (priceDiff > 50) {
-                // Live is much higher
-                message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - stark marknad för liknande objekt`;
+                summary = `Starkare marknad just nu`;
+                detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser. Marknaden verkar vara på uppgång för liknande objekt.`;
                 significance = 'medium';
               } else if (priceDiff < -30) {
-                // Live is much lower
-                message = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar - marknad kan vara svagare`;
+                summary = `Svagare marknad just nu`;
+                detail = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska slutpriser. Marknaden verkar vara svagare just nu. Rekommendation: Överväg försiktigare prissättning.`;
                 significance = 'medium';
               }
             }
           }
 
-          if (message) {
-            insights.push({
-              type: 'price_comparison',
-              message: message,
-              significance: significance
-            });
+          if (summary) {
+            insights.push({ type, summary, detail, significance });
           }
         }
       } else if (liveAvg && !currentValuation) {
-        // Fallback to old logic if no current valuation provided, but still consider market context
+        // No current valuation — general market comparison
         const priceDiff = ((liveAvg - histAvg) / histAvg) * 100;
         if (Math.abs(priceDiff) > 15) {
-          let message = '';
+          let summary = '';
+          let detail = '';
           let significance = Math.abs(priceDiff) > 30 ? 'high' : 'medium';
+          let type = 'price_comparison';
 
           if (isWeakMarket && priceDiff > 15) {
-            // In weak market, be cautious about higher live estimates
-            message = `KONFLIKT: Pågående auktioner värderas ${Math.round(priceDiff)}% högre än slutpriser, men marknaden är svag (${getBiddingActivityDescription()}) - höga utrop möter låg efterfrågan`;
+            summary = `Höga utrop men svag efterfrågan`;
+            detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser, men marknaden är svag: ${getMarketSummary()}. Höga startpriser möter låg efterfrågan. Rekommendation: Sätt utropet konservativt.`;
             significance = 'high';
+            type = 'conflict';
           } else if (!hasReliableMarketData && reserveMetPercentage !== null && reserveMetPercentage < 40 && priceDiff > 15) {
-            // Even with limited data, warn about weak market indicators
-            message = `VARNING: Pågående auktioner värderas ${Math.round(priceDiff)}% högre än slutpriser, men ${getBiddingActivityDescription()} - höga utrop möter låg efterfrågan`;
+            summary = `Svaga marknadssignaler — var försiktig`;
+            detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser. Marknadssignalerna är svaga: ${getMarketSummary()}. Begränsat dataunderlag — tolka med försiktighet.`;
             significance = 'high';
+            type = 'conflict';
           } else if (isStrongMarket && priceDiff > 15) {
-            // In strong market, higher estimates are more reliable
-            message = `Stark marknad (${getBiddingActivityDescription()}) och pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - gynnsam marknad`;
+            summary = `Stark marknad — gynnsamt läge`;
+            detail = `Marknaden är stark: ${getMarketSummary()}. Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser. Gynnsam tid för försäljning.`;
             significance = 'medium';
+            type = 'market_strength';
           } else {
-            // Normal market logic
             if (priceDiff > 30) {
-              message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar`;
+              summary = `Starkare marknad just nu (+${Math.round(priceDiff)}%)`;
+              detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser. Marknaden verkar vara starkare just nu för liknande objekt.`;
             } else if (priceDiff > 15) {
-              message = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska försäljningar - nuvarande marknad verkar starkare`;
+              summary = `Något starkare marknad (+${Math.round(priceDiff)}%)`;
+              detail = `Pågående auktioner värderas ${Math.round(priceDiff)}% högre än historiska slutpriser. Marknaden verkar vara något starkare just nu.`;
             } else if (priceDiff < -30) {
-              message = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar`;
+              summary = `Svagare marknad just nu (${Math.round(priceDiff)}%)`;
+              detail = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska slutpriser. Marknaden verkar vara svagare just nu. Rekommendation: Var försiktig med prissättningen.`;
             } else if (priceDiff < -15) {
-              message = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska försäljningar - nuvarande marknad verkar svagare`;
+              summary = `Något svagare marknad (${Math.round(priceDiff)}%)`;
+              detail = `Pågående auktioner värderas ${Math.abs(Math.round(priceDiff))}% lägre än historiska slutpriser. Marknaden verkar vara något svagare just nu.`;
             }
           }
 
-          if (message) {
-            insights.push({
-              type: 'price_comparison',
-              message: message,
-              significance: significance
-            });
+          if (summary) {
+            insights.push({ type, summary, detail, significance });
           }
         }
       }
 
-      // Market activity insights - but don't duplicate if already mentioned in price comparison
-      if (marketActivity && hasReliableMarketData && !insights.some(insight => insight.message.includes('utrop nås') || insight.message.includes('inga bud') || insight.message.includes('bud finns'))) {
+      // Market activity insights — only if not already covered above
+      const alreadyCovered = insights.length > 0;
+      if (marketActivity && hasReliableMarketData && !alreadyCovered) {
         if (reserveMetPercentage > 70) {
           insights.push({
             type: 'market_strength',
-            message: `Stark marknad: ${getBiddingActivityDescription()} - gynnsam försäljningsmiljö`,
+            summary: `Stark marknad — ${reserveMetPercentage}% når utrop`,
+            detail: `${getMarketSummary()}. Hög andel auktioner når sina utropspriser, vilket tyder på stark efterfrågan. Gynnsam försäljningsmiljö.`,
             significance: 'high'
           });
         } else if (reserveMetPercentage < 30) {
-          if (totalBids === 0) {
-            insights.push({
-              type: 'market_weakness',
-              message: `Utmanande marknad: ${getBiddingActivityDescription()} - överväg försiktig prissättning`,
-              significance: 'high'
-            });
-          } else {
-            insights.push({
-              type: 'market_weakness',
-              message: `Utmanande marknad: ${getBiddingActivityDescription()} - överväg försiktig prissättning`,
-              significance: 'medium'
-            });
-          }
-        }
-      } else if (marketActivity && !hasReliableMarketData && analyzedLiveItems > 0) {
-        // Alternative message when we have some live data but not enough for reliable statistics
-        if (totalBids === 0) {
           insights.push({
-            type: 'market_info',
-            message: `Begränsad marknadsdata: ${getBiddingActivityDescription()} - för få för pålitlig marknadsanalys`,
-            significance: 'medium'
-          });
-        } else {
-          insights.push({
-            type: 'market_info',
-            message: `Begränsad marknadsdata: Endast ${analyzedLiveItems} pågående auktioner analyserade - för få för pålitlig marknadsanalys`,
-            significance: 'low'
+            type: 'market_weakness',
+            summary: totalBids === 0 ? `Svag marknad — inga bud` : `Svag marknad — ${reserveMetPercentage}% når utrop`,
+            detail: `${getMarketSummary()}. Låg andel auktioner når sina utropspriser. Rekommendation: Sätt utropet konservativt för att locka budgivare.`,
+            significance: totalBids === 0 ? 'high' : 'medium'
           });
         }
+      } else if (marketActivity && !hasReliableMarketData && analyzedLiveItems > 0 && !alreadyCovered) {
+        insights.push({
+          type: 'market_info',
+          summary: `Begränsad data (${analyzedLiveItems} auktioner)`,
+          detail: `Endast ${analyzedLiveItems} pågående auktioner hittades — för få för en pålitlig marknadsanalys. ${totalBids === 0 ? 'Inga bud har lagts ännu.' : `${getMarketSummary()}.`} Använd som vägledning, inte som beslutsunderlag.`,
+          significance: totalBids === 0 ? 'medium' : 'low'
+        });
       }
     }
 

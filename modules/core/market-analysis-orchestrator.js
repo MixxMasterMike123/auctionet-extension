@@ -366,8 +366,9 @@ export class MarketAnalysisOrchestrator {
         const insight = significantInsights[0];
         let severity = 'market-insight';
 
-        if (insight.type === 'price_comparison') {
-          if (insight.message.includes('överväg att höja') || insight.message.includes('överväg att sänka')) {
+        if (insight.type === 'price_comparison' || insight.type === 'conflict') {
+          const text = insight.summary || insight.detail || insight.message || '';
+          if (text.includes('höja') || text.includes('sänk')) {
             severity = 'market-primary';
           }
         } else if (insight.type === 'market_strength' || insight.type === 'market_weakness') {
@@ -376,7 +377,7 @@ export class MarketAnalysisOrchestrator {
 
         warnings.push({
           field: 'Marknadstrend',
-          issue: insight.message,
+          issue: insight.summary || insight.message,
           severity: severity
         });
       }
