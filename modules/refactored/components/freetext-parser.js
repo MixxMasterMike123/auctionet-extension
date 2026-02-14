@@ -495,6 +495,22 @@ export class FreetextParser {
   }
 
   /**
+   * Round valuation to clean auction-appropriate numbers.
+   * - Snaps to nearest 1000 if within 10% of a thousand boundary
+   * - Otherwise rounds to nearest 100
+   */
+  roundValuation(value) {
+    if (!value || value <= 0) return value;
+    // Snap to nearest 1000 if within 10%
+    const nearestThousand = Math.round(value / 1000) * 1000;
+    if (nearestThousand > 0 && Math.abs(value - nearestThousand) / nearestThousand <= 0.1) {
+      return nearestThousand;
+    }
+    // Otherwise round to nearest 100
+    return Math.round(value / 100) * 100;
+  }
+
+  /**
    * Go back to input section while preserving existing data for re-analysis
    */
   goBackToInput() {
@@ -986,9 +1002,12 @@ export class FreetextParser {
         
       }
 
-      // Final safety check: Enforce minimum reserve even if no scaling was applied
+      // Final safety check: Round valuations and enforce minimum reserve
+      if (analysisResult.estimate) {
+        analysisResult.estimate = this.roundValuation(analysisResult.estimate);
+      }
       if (analysisResult.reserve) {
-        analysisResult.reserve = this.enforceMinimumReserve(analysisResult.reserve);
+        analysisResult.reserve = this.enforceMinimumReserve(this.roundValuation(analysisResult.reserve));
       }
 
       // Store results
@@ -1770,8 +1789,8 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       keywords: this.formatKeywordsForAuctionet(data.keywords || data.nyckelord || ''),
       materials: data.materials || data.material || '',
       period: data.period || data.årtal || '',
-      estimate: this.parseNumericValue(data.estimate || data.värdering),
-      reserve: this.parseNumericValue(data.reserve || data.utrop),
+      estimate: this.roundValuation(this.parseNumericValue(data.estimate || data.värdering)),
+      reserve: this.roundValuation(this.parseNumericValue(data.reserve || data.utrop)),
       shouldDisposeIfUnsold: Boolean(data.shouldDisposeIfUnsold),
       confidence: {
         title: this.normalizeConfidence(data.confidence?.title),
@@ -2522,6 +2541,17 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       ${(data.estimate || data.reserve) ? `
         <div class="market-analysis">
           <h5>Värdering</h5>
+          ${data.marketData && data.marketData.hasComparableData ? `
+            <div class="valuation-source valuation-source--market" style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-bottom: 10px; background: #e8f5e9; border-radius: 4px; font-size: 12px; color: #2e7d32;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span>Baserat på <strong>${data.marketData.historical?.analyzedSales || 0} sålda föremål</strong> på Auctionet</span>
+            </div>
+          ` : `
+            <div class="valuation-source valuation-source--ai" style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-bottom: 10px; background: #fff3e0; border-radius: 4px; font-size: 12px; color: #e65100;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+              <span>AI-uppskattning — ingen jämförbar marknadsdata hittades från Auctionet</span>
+            </div>
+          `}
           ${data.estimate ? `
             <div class="field-preview" data-field="estimate" style="margin-bottom: 8px;">
               <label class="field-label">
@@ -2879,9 +2909,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
           const aiEstimate = data.estimate; // Store original AI estimate
           const aiReserve = data.reserve;   // Store original AI reserve
           
-          data.estimate = marketMid;
+          data.estimate = this.roundValuation(marketMid);
           const calculatedReserve = Math.round(marketLow * 0.7); // 70% of market low
-          data.reserve = this.enforceMinimumReserve(calculatedReserve);
+          data.reserve = this.enforceMinimumReserve(this.roundValuation(calculatedReserve));
           
           // Add note about initial vs market estimates
           if (aiEstimate && Math.abs(aiEstimate - marketMid) > marketMid * 0.3) {

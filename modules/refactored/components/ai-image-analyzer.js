@@ -140,13 +140,18 @@ export class AIImageAnalyzer {
     try {
       this.isProcessing = true;
       
-      // Convert all images to base64
+      // Convert all images to base64 (support both File objects and dataUrl strings)
       const imageData = new Map();
       for (const [categoryId, file] of this.currentImages) {
-        const base64 = await this.convertToBase64(file);
+        const isDataUrl = typeof file === 'string' && file.startsWith('data:');
+        const base64 = isDataUrl ? file.split(',')[1] : await this.convertToBase64(file);
+        const mediaType = isDataUrl
+          ? (file.match(/^data:([^;]+);/)?.[1] || 'image/jpeg')
+          : file.type;
         imageData.set(categoryId, {
           file,
           base64,
+          mediaType,
           category: this.config.imageCategories.find(cat => cat.id === categoryId)
         });
       }
@@ -169,7 +174,7 @@ export class AIImageAnalyzer {
             type: 'image',
             source: {
               type: 'base64',
-              media_type: data.file.type,
+              media_type: data.mediaType,
               data: data.base64
             }
           });
