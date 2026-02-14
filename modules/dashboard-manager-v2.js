@@ -1027,11 +1027,11 @@ export class DashboardManagerV2 {
       .market-dashboard-disclaimer {
         margin-top: 12px;
         padding: 8px 12px;
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
+        background: #fff8e1;
+        border: 1px solid #ffe082;
         border-radius: 6px;
-        font-size: 10px;
-        color: #6c757d;
+        font-size: 11px;
+        color: #6d4c00;
         text-align: center;
         font-style: italic;
         line-height: 1.4;
