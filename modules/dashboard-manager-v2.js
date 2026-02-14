@@ -435,15 +435,30 @@ export class DashboardManagerV2 {
   generateTrendSection(salesData) {
     const trend = salesData.historical.trendAnalysis;
     
-    let trendIcon = '→';
-    let trendColor = '#6c757d';
+    let trendIcon, trendColor;
     
-    if (trend.trend === 'rising_strong') {
-      trendIcon = '↗️ +' + Math.abs(trend.changePercent) + '%';
-      trendColor = '#28a745';
-    } else if (trend.trend === 'falling_strong') {
-      trendIcon = '↘️ ' + trend.changePercent + '%';
-      trendColor = '#dc3545';
+    switch (trend.trend) {
+      case 'rising_strong':
+        trendIcon = '⬆ +' + Math.abs(trend.changePercent) + '%';
+        trendColor = '#1e7e34';
+        break;
+      case 'rising':
+        trendIcon = '↗ +' + Math.abs(trend.changePercent) + '%';
+        trendColor = '#28a745';
+        break;
+      case 'falling':
+        trendIcon = '↘ ' + trend.changePercent + '%';
+        trendColor = '#e67e22';
+        break;
+      case 'falling_strong':
+        trendIcon = '⬇ ' + trend.changePercent + '%';
+        trendColor = '#dc3545';
+        break;
+      case 'stable':
+      default:
+        trendIcon = '→ ' + (trend.changePercent > 0 ? '+' : '') + trend.changePercent + '%';
+        trendColor = '#6c757d';
+        break;
     }
     
     return `
@@ -1291,6 +1306,13 @@ export class DashboardManagerV2 {
     // Insert dropdown content into normal document flow (pushes content down when expanded)
     mainContainer.parentNode.insertBefore(dropdownContainer, mainContainer);
 
+    // If dashboard should be open on first load, scroll to top so the user sees it
+    if (isOpen) {
+      setTimeout(() => {
+        dropdownContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+
   }
 
   // Apply dropdown state (open/closed) with optional animation
@@ -1611,15 +1633,45 @@ export class DashboardManagerV2 {
       return;
     }
 
-    // Replace content smoothly
+    // --- Smooth height transition (FLIP technique) ---
+    // 0. Save original transition so we can restore it after animation
+    const originalTransition = existingContainer.style.transition;
+
+    // 1. Record current height
+    const oldHeight = existingContainer.offsetHeight;
+
+    // 2. Swap content
     existingDashboard.innerHTML = newDashboard.innerHTML;
     existingDashboard.className = newDashboard.className;
 
-    // Release the locked min-height after content is swapped
-    // Use a brief delay so the new content has rendered before we release
-    setTimeout(() => {
-      existingContainer.style.minHeight = '';
-    }, 100);
+    // 3. Measure new natural height
+    existingContainer.style.minHeight = '';
+    existingContainer.style.transition = 'none';
+    existingContainer.style.height = 'auto';
+    const newHeight = existingContainer.offsetHeight;
+
+    // 4. If heights are the same, skip animation
+    if (oldHeight === newHeight) {
+      existingContainer.style.height = '';
+      existingContainer.style.transition = originalTransition;
+    } else {
+      // 5. Set back to old height and force reflow
+      existingContainer.style.height = oldHeight + 'px';
+      existingContainer.style.overflow = 'hidden';
+      existingContainer.offsetHeight; // force reflow
+
+      // 6. Add transition and animate to new height
+      existingContainer.style.transition = 'height 0.35s ease';
+      existingContainer.style.height = newHeight + 'px';
+
+      // 7. After transition completes, release explicit height so it flows naturally
+      setTimeout(() => {
+        existingContainer.style.height = '';
+        existingContainer.style.overflow = '';
+        existingContainer.style.transition = originalTransition;
+        existingContainer.style.minHeight = '';
+      }, 380);
+    }
 
     // Restore button to normal state
     const button = document.querySelector('.minimal-market-toggle');
