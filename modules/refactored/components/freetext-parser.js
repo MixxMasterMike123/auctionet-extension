@@ -253,7 +253,7 @@ export class FreetextParser {
               </div>
               
               <div class="simple-upload-area" id="simple-upload-trigger">
-                <div class="upload-main-text">Klicka eller dra bilder hit</div>
+                <div class="upload-main-text">Klicka, dra eller klistra in bilder (Ctrl+V)</div>
               </div>
               
               <div class="image-preview-grid" id="image-preview-grid" style="display: none;"></div>
@@ -411,6 +411,12 @@ export class FreetextParser {
       // Clean up escape key listener
       if (this.currentModal._escapeHandler) {
         document.removeEventListener('keydown', this.currentModal._escapeHandler);
+      }
+      
+      // Clean up paste handler
+      if (this._pasteHandler) {
+        document.removeEventListener('paste', this._pasteHandler);
+        this._pasteHandler = null;
       }
       
       // Remove modal from DOM
@@ -3481,6 +3487,29 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       const files = Array.from(e.target.files);
       this.handleBeautifulImageUpload(files);
     });
+
+    // Paste image from clipboard (Ctrl+V / Cmd+V)
+    this._pasteHandler = (e) => {
+      // Only handle if our modal is open
+      if (!this.currentModal || !document.contains(this.currentModal)) return;
+      
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles = [];
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        this.handleBeautifulImageUpload(imageFiles);
+      }
+    };
+    document.addEventListener('paste', this._pasteHandler);
 
     this.uploadedImages = new Map();
   }
