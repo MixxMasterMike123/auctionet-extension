@@ -163,8 +163,14 @@ export class InlineBrandValidator {
       
       if (allIssues.length > 0) {
         this.createSpellMarkers(field, markerContainer, text, allIssues);
+        // Add visible border highlight to the field itself
+        field.style.boxShadow = '0 0 0 2px rgba(211, 47, 47, 0.3)';
+        field.style.borderColor = '#d32f2f';
       } else {
         markerContainer.innerHTML = '';
+        // Remove field highlight
+        field.style.boxShadow = '';
+        field.style.borderColor = '';
       }
     } catch (error) {
       console.error('Error validating field content:', error);
@@ -217,13 +223,13 @@ export class InlineBrandValidator {
         left: ${paddingLeft + beforeWidth}px;
         top: ${paddingTop}px;
         width: ${wordWidth}px;
-        height: ${parseInt(fieldStyles.fontSize)}px;
+        height: ${parseInt(fieldStyles.fontSize) + 4}px;
         pointer-events: auto;
         cursor: pointer;
         z-index: 1001;
-        border-bottom: 2px wavy ${issue.type === 'brand' ? '#f44336' : '#ff9800'};
-        background: rgba(${issue.type === 'brand' ? '244, 67, 54' : '255, 152, 0'}, 0.1);
-        border-radius: 2px;
+        border-bottom: 3px wavy ${issue.type === 'brand' ? '#d32f2f' : '#e65100'};
+        background: rgba(${issue.type === 'brand' ? '244, 67, 54' : '255, 152, 0'}, 0.25);
+        border-radius: 3px;
       `;
 
       // Add event listeners
@@ -414,12 +420,11 @@ export class InlineBrandValidator {
       }
       
       .spelling-marker:hover {
-        background: rgba(244, 67, 54, 0.2) !important;
-        transform: translateY(-1px);
+        background: rgba(244, 67, 54, 0.35) !important;
       }
       
       .spelling-error:hover {
-        background: rgba(255, 152, 0, 0.25) !important;
+        background: rgba(255, 152, 0, 0.35) !important;
       }
       
       .spelling-tooltip .tooltip-header {
