@@ -400,6 +400,41 @@ export class FreetextParser {
         this.updateAnalysisModeIndicator(modal);
       });
     }
+
+    // Paste image from clipboard (Ctrl+V / Cmd+V)
+    // Use document-level capturing to reliably intercept before any element
+    this._pasteHandler = (e) => {
+      if (!this.currentModal || !document.contains(this.currentModal)) return;
+
+      const clipboardData = e.clipboardData || e.originalEvent?.clipboardData;
+      if (!clipboardData) return;
+
+      const imageFiles = [];
+      if (clipboardData.items) {
+        for (let i = 0; i < clipboardData.items.length; i++) {
+          const item = clipboardData.items[i];
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) imageFiles.push(file);
+          }
+        }
+      }
+      if (imageFiles.length === 0 && clipboardData.files?.length > 0) {
+        for (let i = 0; i < clipboardData.files.length; i++) {
+          if (clipboardData.files[i].type.startsWith('image/')) {
+            imageFiles.push(clipboardData.files[i]);
+          }
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        console.log(`[Snabbkatalogisering] Paste detected: ${imageFiles.length} image(s)`);
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleBeautifulImageUpload(imageFiles);
+      }
+    };
+    document.addEventListener('paste', this._pasteHandler, true); // capturing phase
   }
 
   /**
@@ -413,10 +448,9 @@ export class FreetextParser {
         document.removeEventListener('keydown', this.currentModal._escapeHandler);
       }
       
-      // Clean up paste handler
+      // Clean up paste handler (document-level capturing listener)
       if (this._pasteHandler) {
-        this.currentModal.removeEventListener('paste', this._pasteHandler, true);
-        document.removeEventListener('paste', this._pasteHandler);
+        document.removeEventListener('paste', this._pasteHandler, true);
         this._pasteHandler = null;
       }
       
@@ -3495,45 +3529,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       const files = Array.from(e.target.files);
       this.handleBeautifulImageUpload(files);
     });
-
-    // Paste image from clipboard (Ctrl+V / Cmd+V)
-    // Listen on both the modal (capturing phase) and document as fallback
-    this._pasteHandler = (e) => {
-      // Only handle if our modal is open
-      if (!this.currentModal || !document.contains(this.currentModal)) return;
-
-      const clipboardData = e.clipboardData || e.originalEvent?.clipboardData;
-      if (!clipboardData) return;
-
-      const imageFiles = [];
-      // Check items (modern browsers)
-      if (clipboardData.items) {
-        for (let i = 0; i < clipboardData.items.length; i++) {
-          const item = clipboardData.items[i];
-          if (item.type.startsWith('image/')) {
-            const file = item.getAsFile();
-            if (file) imageFiles.push(file);
-          }
-        }
-      }
-      // Fallback: check files directly
-      if (imageFiles.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
-        for (let i = 0; i < clipboardData.files.length; i++) {
-          if (clipboardData.files[i].type.startsWith('image/')) {
-            imageFiles.push(clipboardData.files[i]);
-          }
-        }
-      }
-
-      if (imageFiles.length > 0) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.handleBeautifulImageUpload(imageFiles);
-      }
-    };
-    // Use capturing phase so we get the event before the textarea swallows it
-    modal.addEventListener('paste', this._pasteHandler, true);
-    document.addEventListener('paste', this._pasteHandler);
 
     this.uploadedImages = new Map();
   }

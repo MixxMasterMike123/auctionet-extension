@@ -47,8 +47,11 @@ export class QualityUIRenderer {
     const warningsElement = document.querySelector('.quality-warnings');
 
     if (warningsElement) {
-      if (warnings.length > 0) {
-        const warningItems = warnings.map((w, warningIndex) => {
+      // Filter out brand warnings — these are handled inline in the title field
+      const displayWarnings = warnings.filter(w => !w.isBrandWarning);
+
+      if (displayWarnings.length > 0) {
+        const warningItems = displayWarnings.map((w, warningIndex) => {
           let issue = w.issue;
 
           if (!issue) {
@@ -71,7 +74,7 @@ export class QualityUIRenderer {
         warningsElement.innerHTML = `<ul>${warningItems}</ul>`;
 
         // Store warning data on DOM elements for handlers to access
-        warnings.forEach((warning, index) => {
+        displayWarnings.forEach((warning, index) => {
           const warningItem = warningsElement.querySelectorAll('li')[index];
           if (warningItem) {
             warningItem.warningData = warning;
