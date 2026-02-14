@@ -247,7 +247,7 @@ export class InlineBrandValidator {
 
     const container = document.createElement('div');
     container.className = 'brand-inline-notifications';
-    container.style.cssText = 'margin-top: 4px;';
+    container.style.cssText = 'margin-top: 4px; margin-bottom: 10px;';
 
     issues.forEach(issue => {
       const notification = document.createElement('div');
