@@ -798,6 +798,8 @@ export class FreetextParser {
     const modeIcon = indicator.querySelector('.mode-icon');
     const modeText = indicator.querySelector('.mode-text');
     
+    if (!modeIcon || !modeText) return;
+    
     if (hasImages && hasText) {
       // Combined analysis
       modeIcon.innerHTML = `
@@ -1062,9 +1064,10 @@ export class FreetextParser {
     // Analyze images using AIImageAnalyzer component
     let imageAnalysis;
     if (this.selectedImages.size === 1) {
-      // Single image analysis
+      // Single image analysis — use dataUrl if image was resized, otherwise use file
       const singleImageData = Array.from(this.selectedImages.values())[0];
-      imageAnalysis = await this.imageAnalyzer.analyzeImage(singleImageData.file);
+      const imageArg = singleImageData.file._resized ? singleImageData.dataUrl : singleImageData.file;
+      imageAnalysis = await this.imageAnalyzer.analyzeImage(imageArg);
     } else {
       // Multiple images analysis
       // First, populate the AIImageAnalyzer's currentImages from our selectedImages
@@ -1076,8 +1079,9 @@ export class FreetextParser {
         const categoryId = categoryIds[categoryIndex] || 'condition';
         const categoryObject = this.imageAnalyzer.config.imageCategories.find(cat => cat.id === categoryId);
         
-        // Store the file with proper category reference
-        this.imageAnalyzer.currentImages.set(categoryId, imageData.file);
+        // Store the resized dataUrl if available, otherwise the file
+        const imageArg = imageData.file._resized ? imageData.dataUrl : imageData.file;
+        this.imageAnalyzer.currentImages.set(categoryId, imageArg);
         
         categoryIndex++;
       }
@@ -1130,9 +1134,10 @@ export class FreetextParser {
     // Analyze images with additional text context
     let imageAnalysis;
     if (this.selectedImages.size === 1) {
-      // Single image analysis with text context
+      // Single image analysis with text context — use dataUrl if resized
       const singleImageData = Array.from(this.selectedImages.values())[0];
-      imageAnalysis = await this.imageAnalyzer.analyzeImage(singleImageData.file, additionalText);
+      const imageArg = singleImageData.file._resized ? singleImageData.dataUrl : singleImageData.file;
+      imageAnalysis = await this.imageAnalyzer.analyzeImage(imageArg, additionalText);
     } else {
       // Multiple images analysis with text context
       // First, populate the AIImageAnalyzer's currentImages from our selectedImages
@@ -1142,7 +1147,8 @@ export class FreetextParser {
       
       for (const [imageId, imageData] of this.selectedImages) {
         const categoryId = categoryIds[categoryIndex] || 'condition';
-        this.imageAnalyzer.currentImages.set(categoryId, imageData.file);
+        const imageArg = imageData.file._resized ? imageData.dataUrl : imageData.file;
+        this.imageAnalyzer.currentImages.set(categoryId, imageArg);
         categoryIndex++;
       }
       
@@ -1176,12 +1182,9 @@ export class FreetextParser {
       additionalContext: additionalText
     };
 
-    // If we have additional text, enhance the analysis further
-    if (additionalText && additionalText.length > 10) {
-      const enhancedData = await this.enhanceWithAdditionalText(parsedData, additionalText);
-      return enhancedData;
-    }
-
+    // Additional text is already passed as context to the image analyzer,
+    // so no separate enhancement step is needed. This avoids a second AI call
+    // that was re-expanding the concise output into verbose text.
     return parsedData;
   }
 
@@ -1393,34 +1396,28 @@ SÖKORD-REGLER (AI Rules System v2.0):
 FRITEXT:
 "${freetext}"${reasoningInstructions}
 ${keywordInstructions}
-Returnera data i exakt detta JSON-format:
+Returnera MINIMALT utkast i JSON. Texten förbättras automatiskt efteråt.
 {
-  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period",
-  "description": "beskrivning enligt AI Rules System fieldRules", 
-  "condition": "kondition enligt AI Rules System fieldRules",
-  "artist": "konstnär om identifierad, annars null",
-  "keywords": "sökord mellanslag-separerade bindestreck-för-flerordsfraser",
+  "title": "VERSALER, nyckelinfo, max 60 tecken",
+  "description": "1-2 meningar. Bara material, mått, antal.",
+  "condition": "En mening om skick.",
+  "artist": "konstnär eller null",
+  "keywords": "max 6-8 termer mellanslag-separerade",
   "estimate": 500,
   "reserve": 300,
-  "materials": "material/teknik",
-  "period": "tidsperiod/datering",
+  "materials": "material",
+  "period": "period",
   "shouldDisposeIfUnsold": false,
-  "confidence": {
-    "title": 0.9,
-    "description": 0.8,
-    "condition": 0.7,
-    "artist": 0.6,
-    "estimate": 0.5
-  },
-  "reasoning": "kort förklaring på svenska"
+  "confidence": { "title": 0.9, "description": 0.8, "condition": 0.7, "artist": 0.6, "estimate": 0.5 },
+  "reasoning": "kort förklaring"
 }
 
-INSTRUKTIONER:
-- Följ AI Rules System v2.0 fieldRules för alla fält
-- TITEL: ALLTID börja med FÖREMÅLSTYP i VERSALER, sedan komma, märke/tillverkare, modell, material, period
-- estimate/reserve ska vara numeriska värden i SEK  
-- confidence-värden mellan 0.0-1.0
-- shouldDisposeIfUnsold: true endast om fritexten nämner skänkning/återvinning
+VIKTIGT: Detta är ett UTKAST. Skriv MINIMALT — bara extrahera kärnfakta.
+- TITEL: VERSALER + komma + nyckelinfo. Max 60 tecken.
+- BESKRIVNING: 1-2 meningar. Material, mått, antal delar. INGET annat.
+- KONDITION: En mening. Om osäker: 'Bruksslitage.'
+- SÖKORD: Max 6-8 kompletterande termer (bindestreck för flerordsfraser).
+- estimate/reserve i SEK, confidence 0.0-1.0
 - ${valuationRules.instruction}${valuationContext}`;
 
     try {
@@ -2659,19 +2656,19 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       // Close modal
       this.closeModal();
       
+      // Show success message
+      this.showSuccessMessage('Data applicerad! Använd "Förbättra"-knapparna för att finslipa.');
+      
       // Trigger quality re-analysis so hints update based on new form content
-      try {
-        setTimeout(() => {
+      setTimeout(() => {
+        try {
           if (window.auctionetAssistant && typeof window.auctionetAssistant.runFaqHints === 'function') {
             window.auctionetAssistant.runFaqHints();
           }
-        }, 300);
-      } catch (e) {
-        console.warn('Quality re-analysis after Snabbkatalogisering not available:', e);
-      }
-      
-      // Show success message
-      this.showSuccessMessage('Fritext har analyserats och tillämpats på formuläret!');
+        } catch (e) {
+          console.warn('Quality re-analysis not available:', e);
+        }
+      }, 300);
       
       
     } catch (error) {
@@ -3420,7 +3417,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
           body: {
             model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: 2000, // Same as blue button
-            temperature: 0.2, // Same as blue button
+            temperature: 0.15, // Match EDIT page config
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
@@ -3539,12 +3536,38 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
   handleBeautifulImageUpload(files) {
     if (!files || files.length === 0) return;
 
+    // Ensure uploadedImages is initialized (may not be if initializeBeautifulImageUpload hasn't run yet)
+    if (!this.uploadedImages) {
+      this.uploadedImages = new Map();
+    }
+
     // Limit to 5 images
     const remainingSlots = 5 - this.uploadedImages.size;
     const filesToProcess = files.slice(0, remainingSlots);
 
     filesToProcess.forEach((file, index) => {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      const fileName = file.name || 'clipboard-image.png';
+
+      // For large images, resize via canvas instead of rejecting
+      if (file.size > 5 * 1024 * 1024) {
+        console.log(`[Snabbkatalogisering] Large image (${(file.size / 1024 / 1024).toFixed(1)}MB), resizing...`);
+        this._resizeImageFile(file, 1600, 0.85).then(resizedDataUrl => {
+          const imageId = `beautiful_${Date.now()}_${index}`;
+          // Mark file as resized so downstream validators skip size check
+          file._resized = true;
+          this.uploadedImages.set(imageId, {
+            file: file,
+            dataUrl: resizedDataUrl,
+            name: fileName
+          });
+          console.log(`[Snabbkatalogisering] Image resized and loaded: ${fileName} (${this.uploadedImages.size} total)`);
+          this.updateBeautifulImagePreview();
+          if (this.selectedImages) {
+            this.selectedImages.set(imageId, { category: 'front', file: file, dataUrl: resizedDataUrl });
+          }
+        }).catch(err => {
+          console.error('[Snabbkatalogisering] Image resize failed:', err);
+        });
         return;
       }
 
@@ -3554,9 +3577,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
         this.uploadedImages.set(imageId, {
           file: file,
           dataUrl: e.target.result,
-          name: file.name
+          name: fileName
         });
         
+        console.log(`[Snabbkatalogisering] Image loaded: ${fileName} (${this.uploadedImages.size} total)`);
         this.updateBeautifulImagePreview();
         
         // Also add to selectedImages for analysis compatibility
@@ -3567,6 +3591,9 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
             dataUrl: e.target.result
           });
         }
+      };
+      reader.onerror = (e) => {
+        console.error('[Snabbkatalogisering] FileReader error:', e);
       };
       reader.readAsDataURL(file);
     });
@@ -3601,6 +3628,36 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     
     // Ensure 0-1 range
     return Math.max(0, Math.min(1, num));
+  }
+
+  /**
+   * Resize an image file using canvas, returns a data URL
+   */
+  _resizeImageFile(file, maxDimension, quality) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDimension || height > maxDimension) {
+          const ratio = Math.min(maxDimension / width, maxDimension / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        URL.revokeObjectURL(img.src);
+        resolve(dataUrl);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        reject(new Error('Failed to load image for resizing'));
+      };
+      img.src = URL.createObjectURL(file);
+    });
   }
 
   /**

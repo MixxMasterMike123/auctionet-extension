@@ -232,7 +232,7 @@ export class AddItemsAIEnhancement {
           body: {
             model: this.apiManager.getCurrentModel().id,
             max_tokens: fieldType === 'title-correct' ? 500 : 4000,
-            temperature: fieldType === 'title-correct' ? 0.1 : 0.2,
+            temperature: fieldType === 'title-correct' ? 0.1 : 0.15,
             system: systemPrompt,
             messages: [{
               role: 'user',

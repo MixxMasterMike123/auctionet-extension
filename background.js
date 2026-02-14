@@ -4,8 +4,9 @@
 // One-time migration: move API key from sync to local storage (for security)
 (async () => {
   try {
+    if (!chrome?.storage?.local) return; // Guard against missing storage API
     const local = await chrome.storage.local.get(['anthropicApiKey']);
-    if (!local.anthropicApiKey) {
+    if (!local.anthropicApiKey && chrome?.storage?.sync) {
       const sync = await chrome.storage.sync.get(['anthropicApiKey']);
       if (sync.anthropicApiKey) {
         await chrome.storage.local.set({ anthropicApiKey: sync.anthropicApiKey });
@@ -13,7 +14,7 @@
       }
     }
   } catch (e) {
-    console.error('API key migration error:', e);
+    // Non-critical: migration will retry on next startup
   }
 })();
 

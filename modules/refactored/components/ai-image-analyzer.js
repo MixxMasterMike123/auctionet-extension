@@ -65,8 +65,8 @@ export class AIImageAnalyzer {
       errors.push(`Filformat ${file.type} stöds inte. Använd: ${this.config.supportedFormats.join(', ')}`);
     }
     
-    // Check file size
-    if (file.size > this.config.maxFileSize) {
+    // Check file size (skip if file has already been resized, indicated by _resized flag)
+    if (!file._resized && file.size > this.config.maxFileSize) {
       const maxSizeMB = Math.round(this.config.maxFileSize / (1024 * 1024));
       const fileSizeMB = Math.round(file.size / (1024 * 1024));
       errors.push(`Filen är för stor (${fileSizeMB}MB). Max storlek: ${maxSizeMB}MB`);
@@ -188,8 +188,8 @@ export class AIImageAnalyzer {
       
       const requestBody = {
         model: this.apiManager.getCurrentModel().id,
-        max_tokens: 3000, // More tokens for multiple images
-        temperature: 0.1,
+        max_tokens: 1500, // Balanced output for multiple images
+        temperature: 0.15,
         system: systemPrompt,
         messages: [{
           role: 'user',
@@ -253,10 +253,15 @@ export class AIImageAnalyzer {
    */
   async analyzeImage(imageFile, additionalContext = '') {
 
-    // Validate image first
-    const validation = this.validateImageFile(imageFile);
-    if (!validation.isValid) {
-      throw new Error(validation.errors.join('. '));
+    // Support both File objects and data URL strings (from resized images)
+    const isDataUrl = typeof imageFile === 'string' && imageFile.startsWith('data:');
+
+    if (!isDataUrl) {
+      // Validate image first (only for File objects)
+      const validation = this.validateImageFile(imageFile);
+      if (!validation.isValid) {
+        throw new Error(validation.errors.join('. '));
+      }
     }
 
     if (!this.apiManager.apiKey) {
@@ -266,8 +271,12 @@ export class AIImageAnalyzer {
     try {
       this.isProcessing = true;
       
-      // Convert image to base64
-      const base64Image = await this.convertToBase64(imageFile);
+      // Convert image to base64 — extract from dataUrl or read from file
+      const base64Image = isDataUrl ? imageFile.split(',')[1] : await this.convertToBase64(imageFile);
+      // Extract media type from dataUrl (e.g. "data:image/jpeg;base64,...") or from File object
+      const mediaType = isDataUrl
+        ? (imageFile.match(/^data:([^;]+);/)?.[1] || 'image/jpeg')
+        : imageFile.type;
       
       // Get AI Rules System v2.0 prompts for image analysis
       const systemPrompt = this.getImageAnalysisSystemPrompt();
@@ -277,8 +286,8 @@ export class AIImageAnalyzer {
       // Debug the request being sent
       const requestBody = {
         model: this.apiManager.getCurrentModel().id,
-        max_tokens: 2000,
-        temperature: 0.1,
+        max_tokens: 1200,
+        temperature: 0.15,
         system: systemPrompt,
         messages: [{
           role: 'user',
@@ -287,7 +296,7 @@ export class AIImageAnalyzer {
               type: 'image',
               source: {
                 type: 'base64',
-                media_type: imageFile.type,
+                media_type: mediaType,
                 data: base64Image
               }
             },
@@ -380,22 +389,8 @@ export class AIImageAnalyzer {
       }
     }
     
-    // Fallback system prompt for image analysis
-    return `Du är en ERFAREN SVENSK AUKTIONSEXPERT med djup kunskap om svenska konstnärer, formgivare och märken. Du har arbetat på svenska auktionshus i årtionden och känner alla viktiga namn inom svensk design och konst.
-
-🎯 DIN EXPERTIS INKLUDERAR:
-• Svenska keramiker: Lisa Larson (Gustavsberg), Stig Lindberg, Carl-Harry Stålhane
-• Svenska glasbruk: Orrefors, Kosta Boda, Reijmyre
-• Svenska porslinsfabriker: Gustavsberg, Rörstrand, Upsala Ekeby (inte Uppsala!)
-• Skandinaviska formgivare: Arne Jacobsen, Finn Juhl, Hans Wegner
-• Svenska möbeldesigners: Bruno Mathsson, Carl Malmsten, Alvar Aalto
-
-🚨 KRITISK EXPERTKUNSKAP - RÄTTA AUTOMATISKT:
-• "Lisa Larsson" → "Lisa Larson" (världsberömd svensk keramiker)
-• "Uppsala Ekeby" → "Upsala Ekeby" (korrekt stavning av märket)
-• "Stig Lindberg" (inte Lindeberg eller Lindburg)
-
-BILDANALYS UPPGIFT: Analysera bilder med din svenska auktionsexpertis och identifiera föremål, konstnärer, märken och kondition.`;
+    // Fallback system prompt — minimal extraction
+    return `Du EXTRAHERAR fakta från bilder av auktionsföremål. Skriv MINIMALT — detta är ett utkast.\n\nTITEL: VERSALER, nyckelinfo, max 60 tecken.\nBESKRIVNING: 1-2 meningar. Material, mått, antal. INGET annat.\nKONDITION: En mening.\nALDRIG: säljande adjektiv, designhistoria, bilddetaljer.\nReturnera JSON.`;
   }
 
   /**
@@ -533,62 +528,31 @@ SÖKORD-REGLER (AI Rules System v2.0):
       fields: ['title', 'description', 'condition', 'keywords']
     });
 
-    return `Analysera denna bild av ett auktionsföremål och extrahera strukturerad data:
+    return `Analysera bilden. Extrahera MINIMALT utkast — texten förbättras automatiskt efteråt.
 ${contextSection}
 ${keywordInstructions}
-BILDANALYS UPPGIFTER:
-1. Identifiera objekttyp och huvudmaterial
-2. Bedöm kondition och synliga skador
-3. Leta efter signaturer, märken, stämplar
-4. Uppskatta stil, period och ursprung
-5. Föreslå söktermer för marknadsanalys
-
-Returnera data i exakt detta JSON-format (följ AI Rules System v2.0 fieldRules):
+Returnera JSON:
 {
-  "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period",
-  "description": "beskrivning enligt AI Rules System fieldRules",
-  "condition": "kondition enligt AI Rules System fieldRules", 
-  "artist": "konstnär om identifierad från signatur/stil, annars null",
-  "keywords": "sökord enligt AI Rules System fieldRules",
+  "title": "VERSALER, nyckelinfo, max 60 tecken",
+  "description": "1-2 meningar. Material, mått, antal delar. INGET annat.",
+  "condition": "En mening om skick.",
+  "artist": "konstnär från signatur eller null",
+  "keywords": "max 6-8 kompletterande termer",
   "estimate": 500,
   "reserve": 300,
-  "materials": "huvudmaterial identifierat från bilden",
-  "period": "uppskattad tidsperiod baserad på stil",
-  "visualObservations": {
-    "objectType": "identifierat objekttyp",
-    "primaryMaterial": "huvudmaterial",
-    "colorScheme": "färgschema/dekor",
-    "condition": "konditionsbedömning",
-    "markings": "synliga märken/signaturer",
-    "dimensions": "uppskattade proportioner",
-    "style": "identifierad stil/period"
-  },
-  "confidence": {
-    "objectIdentification": 0.9,
-    "materialAssessment": 0.8,
-    "conditionAssessment": 0.7,
-    "artistAttribution": 0.6,
-    "periodEstimation": 0.5,
-    "estimate": 0.4
-  },
-  "reasoning": "Förklaring av bildanalysen och grunden för bedömningarna",
-  "imageQuality": {
-    "clarity": 0.8,
-    "lighting": 0.9,
-    "angle": 0.7,
-    "completeness": 0.8
-  }
+  "materials": "material",
+  "period": "period",
+  "confidence": { "objectIdentification": 0.9, "materialAssessment": 0.8, "conditionAssessment": 0.7, "artistAttribution": 0.6, "periodEstimation": 0.5, "estimate": 0.4 },
+  "reasoning": "kort förklaring"
 }
 
-INSTRUKTIONER:
-- Basera alla bedömningar endast på vad som är synligt i bilden
-- TITEL: ALLTID börja med FÖREMÅLSTYP i VERSALER, sedan komma, märke/tillverkare, modell, material, period
-- estimate/reserve ska vara numeriska värden i SEK baserat på visuell bedömning
-- Använd konfidenspoäng för att markera osäkerhet
-- Lämna fält som null om information inte kan bestämmas från bilden
-- Var extra försiktig med konstnärsattribueringar - kräver tydliga signaturer
-- Var konservativ med värderingar baserat på synligt skick och stil
-- Bedöm bildkvalitet för att påverka slutlig "sure score"`;
+VIKTIGT — detta är ett UTKAST:
+- Skriv MINIMALT. Bara kärnfakta.
+- BESKRIVNING: 1-2 meningar. Material, mått, antal. ALDRIG designhistoria, ALDRIG säljande adjektiv, ALDRIG beskriv vad som syns i bilden.
+- KONDITION: En mening. Övergripande skick. ALDRIG specifika placeringar.
+- TITEL: VERSALER + komma + nyckelinfo. Max 60 tecken.
+- Om konstnär identifieras: placera i artist, EXKLUDERA från titel.
+- Lämna fält som null om osäkert.`;
   }
 
   /**

@@ -147,7 +147,7 @@ Om inga felstavningar hittas: {"issues":[]}`;
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-haiku-4-5-20250315',
+            model: 'claude-haiku-4-5',
             max_tokens: 200,
             temperature: 0,
             system: 'Du identifierar felstavade varumärken i auktionstexter. Svara ALLTID med valid JSON.',
