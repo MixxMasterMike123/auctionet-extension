@@ -272,6 +272,7 @@ export class BiographyKBCard {
    */
   async fetchArtistBiography(artistName, artistDates = '', userHint = '', itemTitle = '', itemDescription = '') {
     if (!this.apiManager?.apiKey) {
+      console.warn('[BiographyKB] No API key available — cannot fetch biography');
       return null;
     }
 
@@ -282,10 +283,11 @@ export class BiographyKBCard {
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-        if (Date.now() - timestamp < SEVEN_DAYS) {
+        if (Date.now() - timestamp < SEVEN_DAYS && data && data.biography) {
           return data;
         }
-        localStorage.removeItem(bioCacheKey); // Expired
+        // Expired or empty/null cached data — remove and re-fetch
+        localStorage.removeItem(bioCacheKey);
       }
     } catch { /* ignore cache errors */ }
 
@@ -331,6 +333,7 @@ Regler:
 - Om okänd konstnär, returnera null`;
 
     try {
+      console.log(`[BiographyKB] Fetching biography for "${artistName}" via claude-opus-4-6`);
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
@@ -347,11 +350,13 @@ Regler:
           }
         }, (response) => {
           if (chrome.runtime.lastError) {
+            console.error('[BiographyKB] Chrome runtime error:', chrome.runtime.lastError.message);
             reject(new Error(chrome.runtime.lastError.message));
           } else if (response && response.success) {
             resolve(response);
           } else {
-            reject(new Error('Biography fetch failed'));
+            console.error('[BiographyKB] API response error:', response?.error || 'Unknown error');
+            reject(new Error(response?.error || 'Biography fetch failed'));
           }
         });
       });
@@ -378,9 +383,12 @@ Regler:
             notableWorks: Array.isArray(parsed.notableWorks) ? parsed.notableWorks : []
           };
           // COST OPTIMIZATION: Cache biography in localStorage (7-day expiry)
-          try {
-            localStorage.setItem(bioCacheKey, JSON.stringify({ data: result, timestamp: Date.now() }));
-          } catch { /* localStorage full — no big deal */ }
+          // Only cache if we actually got meaningful data
+          if (result.biography) {
+            try {
+              localStorage.setItem(bioCacheKey, JSON.stringify({ data: result, timestamp: Date.now() }));
+            } catch { /* localStorage full — no big deal */ }
+          }
           return result;
         } catch (parseError) {
           const cleanText = text
@@ -393,15 +401,17 @@ Regler:
             .replace(/\n{2,}/g, '\n')
             .trim();
           const fallbackResult = { years: null, biography: cleanText || text, style: [], notableWorks: [] };
-          // Cache fallback result too
-          try {
-            localStorage.setItem(bioCacheKey, JSON.stringify({ data: fallbackResult, timestamp: Date.now() }));
-          } catch { /* ignore */ }
+          // Cache fallback result only if we got meaningful text
+          if (fallbackResult.biography) {
+            try {
+              localStorage.setItem(bioCacheKey, JSON.stringify({ data: fallbackResult, timestamp: Date.now() }));
+            } catch { /* ignore */ }
+          }
           return fallbackResult;
         }
       }
     } catch (error) {
-      // Silently fail
+      console.error('[BiographyKB] Failed to fetch biography:', error.message);
     }
 
     return null;
