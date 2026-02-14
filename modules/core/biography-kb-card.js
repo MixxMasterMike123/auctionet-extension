@@ -127,9 +127,19 @@ export class BiographyKBCard {
     const attachScrollListener = () => {
       if (scrollHandler) return;
       scrollHandler = () => {
-        // Hide the card on scroll instead of repositioning — prevents it
-        // from jumping to the top when the trigger scrolls out of view
-        if (kbCard && kbCard.style.visibility === 'visible') {
+        if (!kbCard || kbCard.style.visibility !== 'visible') return;
+
+        // Check if the trigger element is still visible in the viewport
+        const triggerRect = element.getBoundingClientRect();
+        const triggerVisible =
+          triggerRect.bottom > 0 &&
+          triggerRect.top < window.innerHeight;
+
+        if (triggerVisible) {
+          // Trigger still on screen — reposition card to follow it
+          positionCard();
+        } else {
+          // Trigger scrolled out of view — hide the card
           isHoveringTrigger = false;
           isHoveringCard = false;
           kbCard.style.opacity = '0';
