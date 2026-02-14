@@ -2017,7 +2017,7 @@ Return JSON only:
         insights.push({
           type: 'market_info',
           summary: `Marknadsdata tillgänglig (${sampleSize} försäljningar)`,
-          detail: `${sampleSize} historiska försäljningar analyserade. Prisintervall ${Math.round(historicalResult.priceRange.low)}–${Math.round(historicalResult.priceRange.high)} SEK. Hovra för detaljerad värderingsanalys.`,
+          detail: `${sampleSize} historiska försäljningar analyserade. Prisintervall ${Math.round(historicalResult.priceRange.low)}–${Math.round(historicalResult.priceRange.high)} SEK.`,
           significance: 'low'
         });
       }
