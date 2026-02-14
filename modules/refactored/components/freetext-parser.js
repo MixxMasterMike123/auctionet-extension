@@ -1179,7 +1179,7 @@ export class FreetextParser {
           "description": "förbättrad beskrivning här",
           "condition": "förbättrat skick här",
           "artist": "konstnär eller null",
-          "keywords": "sökord enligt AI Rules System fieldRules",
+          "keywords": "sökord mellanslag-separerade bindestreck-för-flerordsfraser",
           "materials": "material/teknik",
           "period": "tidsperiod",
           "estimate": 500,
@@ -1358,7 +1358,7 @@ Returnera data i exakt detta JSON-format:
   "description": "beskrivning enligt AI Rules System fieldRules", 
   "condition": "kondition enligt AI Rules System fieldRules",
   "artist": "konstnär om identifierad, annars null",
-  "keywords": "sökord enligt AI Rules System fieldRules",
+  "keywords": "sökord mellanslag-separerade bindestreck-för-flerordsfraser",
   "estimate": 500,
   "reserve": 300,
   "materials": "material/teknik",
@@ -1510,7 +1510,7 @@ INSTRUKTIONER:
           description: enhancedFields.description || parsedData.description,
           condition: enhancedFields.condition || parsedData.condition,
           artist: enhancedFields.artist || parsedData.artist,
-          keywords: enhancedFields.keywords || parsedData.keywords
+          keywords: this.formatKeywordsForAuctionet(enhancedFields.keywords || parsedData.keywords)
         };
         
         return result;
@@ -1622,7 +1622,7 @@ Returnera EXAKT i detta format:
 TITEL: [förbättrad titel enligt ADD ITEM regler - VERSALER första ordet, KOMMA efter, PUNKT i slutet]
 BESKRIVNING: [förbättrad beskrivning]
 KONDITION: [förbättrad konditionsrapport]
-SÖKORD: [kompletterande sökord separerade med mellanslag]`;
+SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds med bindestreck: t.ex. graverad-dekor konisk-form]`;
   }
 
   /**
@@ -1729,7 +1729,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       description: data.description || data.beskrivning || '',
       condition: data.condition || data.skick || '',
       artist: (data.artist === 'Ej identifierad' || data.konstnär === 'Ej identifierad') ? null : (data.artist || data.konstnär || null),
-      keywords: data.keywords || data.nyckelord || '',
+      keywords: this.formatKeywordsForAuctionet(data.keywords || data.nyckelord || ''),
       materials: data.materials || data.material || '',
       period: data.period || data.årtal || '',
       estimate: this.parseNumericValue(data.estimate || data.värdering),
@@ -1758,6 +1758,29 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       return isNaN(num) ? null : Math.max(0, num);
     }
     return null;
+  }
+
+  /**
+   * Format keywords to Auctionet standard:
+   * - Space-separated (not commas)
+   * - Multi-word phrases joined with hyphens: "graverad-dekor"
+   * - Lowercase
+   * Example: "kaffekanna nysilver cötberg 1800-tal graverad-dekor"
+   */
+  formatKeywordsForAuctionet(keywords) {
+    if (!keywords) return '';
+    // Split on commas or spaces (handle both AI formats)
+    const raw = String(keywords)
+      .split(/[,\n]+/)
+      .map(k => k.trim())
+      .filter(k => k);
+    // Convert each keyword: multi-word phrases get hyphens, lowercase
+    const formatted = raw.map(k => {
+      return k.toLowerCase().replace(/\s+/g, '-');
+    });
+    // Deduplicate
+    const unique = [...new Set(formatted)];
+    return unique.join(' ');
   }
 
   /**
@@ -2627,18 +2650,18 @@ SÖKORD: [kompletterande sökord separerade med mellanslag]`;
       }
       
       // Smart keyword merge: append unique new keywords to existing ones
+      // Auctionet format: space-separated, hyphens for multi-word phrases
       if (fieldId === 'item_hidden_keywords' && field.value.trim()) {
-        const existingKeywords = field.value.split(',').map(k => k.trim().toLowerCase()).filter(k => k);
+        const existingKeywords = field.value.split(/\s+/).map(k => k.trim().toLowerCase()).filter(k => k);
         const existingSet = new Set(existingKeywords);
-        const newKeywords = String(value).split(',').map(k => k.trim()).filter(k => k);
-        const uniqueNew = newKeywords.filter(k => !existingSet.has(k.toLowerCase()));
+        const newKeywords = String(value).split(/\s+/).map(k => k.trim().toLowerCase()).filter(k => k);
+        const uniqueNew = newKeywords.filter(k => !existingSet.has(k));
         
         if (uniqueNew.length > 0) {
-          // Append unique new keywords to existing
-          const merged = field.value.trim() + ', ' + uniqueNew.join(', ');
+          const merged = field.value.trim() + ' ' + uniqueNew.join(' ');
           // Enforce 12-keyword limit
-          const allKeywords = merged.split(',').map(k => k.trim()).filter(k => k);
-          field.value = allKeywords.slice(0, 12).join(', ');
+          const allKeywords = merged.split(/\s+/).filter(k => k);
+          field.value = allKeywords.slice(0, 12).join(' ');
         }
         // If no unique new keywords, leave existing content unchanged
       } else {
