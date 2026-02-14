@@ -187,9 +187,9 @@ export class QualityAnalyzer {
   setSearchQuerySSoT(searchQuerySSoT) {
     this.searchQuerySSoT = searchQuerySSoT;
 
-    // CRITICAL FIX: Listen to SSoT events to trigger dashboard refresh when pills are clicked
+    // CRITICAL FIX: Listen to SSoT events to trigger dashboard refresh when pills are clicked or terms added
     this.searchQuerySSoT.addListener((event, data) => {
-      if (event === 'user_selection_updated') {
+      if (event === 'user_selection_updated' || event === 'user_term_added') {
         this.handleUserSelectionUpdate(data);
       }
     });
