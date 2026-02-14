@@ -124,59 +124,66 @@ export class BrandValidationManager {
     return detectedIssues;
   }
 
-  // AI-powered brand validation using Claude
+  // AI-powered brand validation using Claude Haiku
   async validateBrandsWithAI(title, description) {
-    if (!this.apiManager || !this.apiManager.analyzeItemData) {
-
+    if (!this.apiManager || !this.apiManager.apiKey) {
       return [];
     }
 
-    const prompt = `Analysera denna auktionstext och identifiera eventuella felstavade märkesnamn:
+    const prompt = `Analysera denna auktionstext och identifiera eventuella felstavade märkesnamn eller varumärken.
 
-TITEL: "${title}"
-BESKRIVNING: "${description}"
+TEXT: "${title} ${description || ''}"
 
-Leta särskilt efter:
-- Klockfabrikat (t.ex. Lemania, Omega, Rolex)
-- Glas/kristall märken (t.ex. Orrefors, Iittala, Kosta)
-- Keramik märken (t.ex. Gustavsberg, Royal Copenhagen)
-- Möbler/design märken (t.ex. Svenskt Tenn, Källemo)
+Inkludera ALLA typer av varumärken: klockor, glas, keramik, möbler, design, konst, elektronik, lyxmärken, etc.
 
-Svara ENDAST med JSON-format:
-{
-  "issues": [
-    {
-      "original": "felstavat märke",
-      "suggested": "korrekt märke", 
-      "confidence": 0.95,
-      "reason": "kort förklaring"
-    }
-  ]
-}
+Svara ENDAST med JSON:
+{"issues":[{"original":"felstavat","suggested":"korrekt","confidence":0.95}]}
 
-Om inga felstavningar hittas, svara: {"issues": []}`;
+Om inga felstavningar hittas: {"issues":[]}`;
 
     try {
-      const response = await this.apiManager.analyzeItemData(prompt);
-      
-      if (response && response.includes('{')) {
-        const jsonStart = response.indexOf('{');
-        const jsonStr = response.substring(jsonStart);
-        const aiResult = JSON.parse(jsonStr);
-        
-        if (aiResult.issues && Array.isArray(aiResult.issues)) {
-          return aiResult.issues.map(issue => ({
-            originalBrand: issue.original,
-            suggestedBrand: issue.suggested,
-            confidence: issue.confidence || 0.8,
-            category: this.inferCategory(issue.suggested),
-            source: 'ai_detection',
-            foundIn: 'analys',
-            reason: issue.reason
-          }));
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: this.apiManager.apiKey,
+          body: {
+            model: 'claude-haiku-4-5-20250315',
+            max_tokens: 200,
+            temperature: 0,
+            system: 'Du identifierar felstavade varumärken i auktionstexter. Svara ALLTID med valid JSON.',
+            messages: [{ role: 'user', content: prompt }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response?.success) {
+            resolve(response);
+          } else {
+            reject(new Error('Brand validation AI call failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const text = response.data.content[0].text.trim();
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const aiResult = JSON.parse(jsonMatch[0]);
+          if (aiResult.issues && Array.isArray(aiResult.issues)) {
+            return aiResult.issues.map(issue => ({
+              originalBrand: issue.original,
+              suggestedBrand: issue.suggested,
+              confidence: issue.confidence || 0.8,
+              category: this.inferCategory(issue.suggested),
+              source: 'ai_detection',
+              foundIn: 'analys',
+              reason: issue.reason || ''
+            }));
+          }
         }
       }
     } catch (error) {
+      // Silently fail — fuzzy matching still works as fallback
     }
     
     return [];
