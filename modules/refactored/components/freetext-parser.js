@@ -1775,17 +1775,24 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
    */
   formatKeywordsForAuctionet(keywords) {
     if (!keywords) return '';
-    // Split on commas or spaces (handle both AI formats)
-    const raw = String(keywords)
-      .split(/[,\n]+/)
-      .map(k => k.trim())
-      .filter(k => k);
-    // Convert each keyword: multi-word phrases get hyphens, lowercase
-    const formatted = raw.map(k => {
-      return k.toLowerCase().replace(/\s+/g, '-');
-    });
+    const str = String(keywords).trim();
+
+    let tokens;
+    if (str.includes(',')) {
+      // AI returned comma-separated — split on commas, hyphenate multi-word phrases
+      tokens = str.split(/,+/)
+        .map(k => k.trim())
+        .filter(k => k)
+        .map(k => k.toLowerCase().replace(/\s+/g, '-'));
+    } else {
+      // Already space-separated — each space-delimited token is a keyword
+      tokens = str.split(/\s+/)
+        .map(k => k.trim().toLowerCase())
+        .filter(k => k);
+    }
+
     // Deduplicate
-    const unique = [...new Set(formatted)];
+    const unique = [...new Set(tokens)];
     return unique.join(' ');
   }
 
