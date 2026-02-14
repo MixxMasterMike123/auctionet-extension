@@ -50,28 +50,23 @@ export class InlineBrandValidator {
 
     // Store field info
     this.monitoredFields.set(field, { type, originalField: field });
-
-    // Create marker container for highlighting
-    const markerContainer = this.createOverlay(field);
     
-    // Add event listeners
+    // Add event listeners — debounced validation on typing
     const validateHandler = () => {
       clearTimeout(this.debounceTimeout);
       this.debounceTimeout = setTimeout(() => {
-        this.validateFieldContent(field, markerContainer, type);
-      }, 800); // Debounce typing
+        this.validateFieldContent(field, null, type);
+      }, 1200); // Debounce typing (slightly longer for AI calls)
     };
 
     field.addEventListener('input', validateHandler);
     field.addEventListener('paste', validateHandler);
-    field.addEventListener('focus', () => this.showOverlay(markerContainer));
-    field.addEventListener('blur', () => this.hideTooltip());
 
-    // NEW: Validate existing content immediately (important for EDIT pages)
+    // Validate existing content immediately (important for EDIT pages)
     if (field.value && field.value.trim().length > 0) {
       setTimeout(() => {
-        this.validateFieldContent(field, markerContainer, type);
-      }, 100); // Small delay to ensure DOM is ready
+        this.validateFieldContent(field, null, type);
+      }, 500); // Small delay to ensure DOM is ready
     }
 
   }
@@ -124,32 +119,25 @@ export class InlineBrandValidator {
     markerContainer.style.display = 'block';
   }
 
-  // Validate field content and highlight misspellings
-  async validateFieldContent(field, markerContainer, type) {
+  // Validate field content using AI + fuzzy matching
+  async validateFieldContent(field, _unused, type) {
     if (!this.brandValidationManager) {
       return;
     }
 
     const text = field.value;
     if (!text || text.length < 3) {
-      markerContainer.innerHTML = '';
+      this.removeInlineNotifications(field);
+      field.style.boxShadow = '';
+      field.style.borderColor = '';
       return;
     }
 
     try {
-      const allIssues = [];
+      // Use the full validation pipeline (fuzzy + AI) for comprehensive detection
+      const allIssues = await this.brandValidationManager.validateBrandsInContent(text, '');
       
-      // 1. Brand validation (existing)
-      if (this.brandValidationManager) {
-        const brandIssues = this.brandValidationManager.detectFuzzyBrandMatches(text, '');
-        allIssues.push(...brandIssues.map(issue => ({
-          ...issue,
-          type: 'brand',
-          displayCategory: 'märke'
-        })));
-      }
-      
-      // 2. Swedish spell checking (new)
+      // Also add Swedish spell checking
       const spellingErrors = this.swedishSpellChecker.validateSwedishSpelling(text);
       allIssues.push(...spellingErrors.map(error => ({
         originalBrand: error.originalWord,
@@ -161,16 +149,18 @@ export class InlineBrandValidator {
         displayCategory: this.swedishSpellChecker.getCategoryDisplayName(error.category)
       })));
       
+      // Mark type for fuzzy/AI issues that don't have one
+      allIssues.forEach(issue => {
+        if (!issue.type) issue.type = 'brand';
+        if (!issue.displayCategory) issue.displayCategory = 'märke';
+      });
+      
       if (allIssues.length > 0) {
-        this.createSpellMarkers(field, markerContainer, text, allIssues);
         this.showInlineNotifications(field, allIssues);
-        // Add visible border highlight to the field itself
         field.style.boxShadow = '0 0 0 2px rgba(211, 47, 47, 0.3)';
         field.style.borderColor = '#d32f2f';
       } else {
-        markerContainer.innerHTML = '';
         this.removeInlineNotifications(field);
-        // Remove field highlight
         field.style.boxShadow = '';
         field.style.borderColor = '';
       }
@@ -386,14 +376,8 @@ export class InlineBrandValidator {
     
     field.value = correctedValue;
     
-    // Clear existing markers and inline notifications
-    const markerContainer = field.parentElement.querySelector('.brand-spell-markers');
-    if (markerContainer) {
-      markerContainer.innerHTML = '';
-    }
+    // Clear inline notifications and field highlight
     this.removeInlineNotifications(field);
-    
-    // Remove field highlight
     field.style.boxShadow = '';
     field.style.borderColor = '';
     
@@ -407,13 +391,13 @@ export class InlineBrandValidator {
     // Show success feedback
     this.showSuccessAnimation(field, `Rättat till "${suggested}"`);
     
-    // Re-validate after correction with longer delay to ensure field is updated
+    // Re-validate after correction to check for remaining issues
     setTimeout(() => {
       const fieldInfo = this.monitoredFields.get(field);
-      if (fieldInfo && markerContainer) {
-        this.validateFieldContent(field, markerContainer, fieldInfo.type);
+      if (fieldInfo) {
+        this.validateFieldContent(field, null, fieldInfo.type);
       }
-    }, 1000); // Longer delay to ensure everything is settled
+    }, 1500); // Longer delay for AI call to complete
 
   }
 
