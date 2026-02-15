@@ -69,6 +69,21 @@
         "styles/components/admin-dashboard.css"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://auctionet.com/admin/*"
+      ],
+      "exclude_matches": [
+        "https://auctionet.com/admin/login*"
+      ],
+      "js": [
+        "comment-enhancer.js"
+      ],
+      "css": [
+        "styles/components/comment-enhancer.css"
+      ],
+      "run_at": "document_end"
     }
   ],
   "background": {

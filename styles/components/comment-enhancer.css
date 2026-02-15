@@ -1,0 +1,107 @@
+/* Comment Enhancer — Universal comment visibility badge for admin pages */
+
+/* ─── Comment Badge / Indicator ──────────────────────────────────── */
+.ext-comment-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  background: #f8f9fa;
+  border: 1px solid #e2e6ea;
+  border-left: 3px solid #adb5bd;
+  border-radius: 4px;
+  text-decoration: none !important;
+  color: inherit !important;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.ext-comment-indicator:hover {
+  background: #e9ecef;
+  border-left-color: #6c757d;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.ext-comment-indicator--has-comments {
+  background: #e7f3ff;
+  border-color: #b8daff;
+  border-left-color: #006ccc;
+}
+
+.ext-comment-indicator--has-comments:hover {
+  background: #d0e8ff;
+  border-left-color: #004a99;
+}
+
+/* Icon wrapper */
+.ext-comment-indicator__icon-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ext-comment-indicator__icon {
+  font-size: 18px;
+  color: #adb5bd;
+}
+
+.ext-comment-indicator__icon--has-comments {
+  color: #006ccc;
+}
+
+.ext-comment-indicator__count {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: #006ccc;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* Text content */
+.ext-comment-indicator__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ext-comment-indicator__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.3;
+}
+
+.ext-comment-indicator--has-comments .ext-comment-indicator__label {
+  color: #004a99;
+}
+
+.ext-comment-indicator__hint {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.2;
+}
+
+/* ─── Animation ──────────────────────────────────────────────────── */
+@keyframes extCommentFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ext-animate-in {
+  animation: extCommentFadeIn 0.25s ease-out forwards;
+}

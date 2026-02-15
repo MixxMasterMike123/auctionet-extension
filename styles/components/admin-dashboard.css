@@ -346,6 +346,155 @@
   flex-shrink: 0;
 }
 
+/* ─── Comment Feed ───────────────────────────────────────────────── */
+.ext-comment-feed {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.ext-comment-feed__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafbfc;
+}
+
+.ext-comment-feed__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+}
+
+.ext-comment-feed__viewall {
+  font-size: 11px;
+  color: #006ccc;
+  text-decoration: none;
+}
+
+.ext-comment-feed__viewall:hover {
+  text-decoration: underline;
+}
+
+.ext-comment-feed__list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.ext-comment-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f5f5f5;
+  transition: background 0.15s;
+}
+
+.ext-comment-item:last-child {
+  border-bottom: none;
+}
+
+.ext-comment-item:hover {
+  background: #f8f9fa;
+}
+
+.ext-comment-item__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ext-comment-item__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ext-comment-item__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.ext-comment-item__name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+
+.ext-comment-item__time {
+  font-size: 10px;
+  color: #999;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.ext-comment-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 9px;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ext-comment-badge--buyer {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.ext-comment-badge--item {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ext-comment-badge--claim {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+.ext-comment-badge--other {
+  background: #f5f5f5;
+  color: #616161;
+}
+
+.ext-comment-item__entity {
+  font-size: 11px;
+  color: #006ccc;
+  text-decoration: none;
+  display: block;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ext-comment-item__entity:hover {
+  text-decoration: underline;
+}
+
+.ext-comment-item__body {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.4;
+}
+
 /* ─── Animations ──────────────────────────────────────────────────── */
 @keyframes extFadeIn {
   from { opacity: 0; transform: translateY(6px); }

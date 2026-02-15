@@ -138,6 +138,83 @@
     return catalogers;
   }
 
+  // ─── DOM Scraper: Comments ──────────────────────────────────────
+
+  function scrapeComments() {
+    const comments = [];
+    document.querySelectorAll('#comments ul.unstyled li.comment').forEach(li => {
+      const employeeEl = li.querySelector('.employee');
+      const commentedEl = li.querySelector('.commented');
+      const postedAtEl = li.querySelector('.posted_at');
+      const bodyEl = li.querySelector('.body');
+
+      const employee = employeeEl ? employeeEl.textContent.trim() : '';
+      const commentedLink = commentedEl ? commentedEl.querySelector('a') : null;
+      const commentedText = commentedLink ? commentedLink.textContent.trim() : '';
+      const commentedHref = commentedLink ? commentedLink.getAttribute('href') : '';
+      const postedAt = postedAtEl ? postedAtEl.textContent.trim() : '';
+      const body = bodyEl ? bodyEl.textContent.trim() : '';
+
+      // Determine entity type from href
+      let entityType = 'other';
+      if (/\/buyers\//.test(commentedHref)) entityType = 'buyer';
+      else if (/\/items\//.test(commentedHref)) entityType = 'item';
+      else if (/\/return_claims\//.test(commentedHref)) entityType = 'claim';
+
+      comments.push({ employee, commentedText, commentedHref, postedAt, body, entityType });
+    });
+    return comments;
+  }
+
+  function getInitials(name) {
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  function getAvatarColor(name) {
+    // Deterministic color from name hash
+    const colors = ['#006ccc', '#28a745', '#dc3545', '#e65100', '#6f42c1', '#17a2b8', '#d4a017', '#5a6268'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  function relativeTimestamp(postedAtText) {
+    // Parse "13 feb 2026 kl. 13:52 CET" or similar
+    const months = { jan: 0, feb: 1, mar: 2, apr: 3, maj: 4, jun: 5, jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dec: 11 };
+    const match = postedAtText.match(/(\d{1,2})\s+(\w{3})\s+(\d{4})\s+kl\.\s*(\d{1,2}):(\d{2})/);
+    if (!match) return postedAtText.replace(/^.*?(?=\d)/, '');
+    const [, day, mon, year, hour, min] = match;
+    const d = new Date(parseInt(year), months[mon.toLowerCase()] ?? 0, parseInt(day), parseInt(hour), parseInt(min));
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just nu';
+    if (diffMins < 60) return `${diffMins} min sedan`;
+    if (diffHours < 24) return `${diffHours} tim sedan`;
+    if (diffDays === 1) return `Igår ${hour}:${min}`;
+    if (diffDays < 7) return `${diffDays} dagar sedan`;
+    return `${day} ${mon}`;
+  }
+
+  function entityBadgeHTML(type) {
+    const badges = {
+      buyer: { label: 'Köpare', cls: 'ext-comment-badge--buyer' },
+      item: { label: 'Föremål', cls: 'ext-comment-badge--item' },
+      claim: { label: 'Reklamation', cls: 'ext-comment-badge--claim' },
+      other: { label: 'Övrigt', cls: 'ext-comment-badge--other' }
+    };
+    const b = badges[type] || badges.other;
+    return `<span class="ext-comment-badge ${b.cls}">${b.label}</span>`;
+  }
+
   // ─── 1. KPI Hero Cards ────────────────────────────────────────────
 
   function renderKPICards() {
@@ -168,6 +245,22 @@
         cardDefs.push({ count: s.count, label: s.label, href: s.href, color, icon });
       }
     });
+
+    // Comment count KPI card
+    const comments = scrapeComments();
+    if (comments.length > 0) {
+      // Count today's comments
+      const today = new Date();
+      const todayStr = `${today.getDate()} ${['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][today.getMonth()]} ${today.getFullYear()}`;
+      const todayCount = comments.filter(c => c.postedAt.includes(todayStr)).length;
+      cardDefs.push({
+        count: todayCount > 0 ? todayCount : comments.length,
+        label: todayCount > 0 ? 'Kommentarer idag' : 'Senaste kommentarer',
+        href: '/admin/sas/comments',
+        color: 'blue',
+        icon: 'fas fa-comments'
+      });
+    }
 
     if (cardDefs.length === 0) return;
 
@@ -488,6 +581,72 @@
     }
   }
 
+  // ─── 7. Enhanced Comment Feed ──────────────────────────────────────
+
+  function renderCommentFeed() {
+    const comments = scrapeComments();
+    if (comments.length === 0) return;
+
+    const feedHTML = comments.map(c => {
+      const initials = getInitials(c.employee);
+      const avatarColor = getAvatarColor(c.employee);
+      const relTime = relativeTimestamp(c.postedAt);
+      const badge = entityBadgeHTML(c.entityType);
+      const truncatedBody = c.body.length > 140 ? c.body.substring(0, 140) + '...' : c.body;
+
+      return `
+        <div class="ext-comment-item">
+          <div class="ext-comment-item__avatar" style="background: ${avatarColor};">${initials}</div>
+          <div class="ext-comment-item__content">
+            <div class="ext-comment-item__header">
+              <span class="ext-comment-item__name">${c.employee}</span>
+              ${badge}
+              <span class="ext-comment-item__time">${relTime}</span>
+            </div>
+            ${c.commentedHref ? `<a class="ext-comment-item__entity" href="${c.commentedHref}">${c.commentedText}</a>` : ''}
+            <div class="ext-comment-item__body">${truncatedBody}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const feed = document.createElement('div');
+    feed.className = 'ext-comment-feed ext-animate-in';
+    feed.innerHTML = `
+      <div class="ext-comment-feed__header">
+        <span class="ext-comment-feed__title">
+          <i class="icon fas fa-comments" style="opacity: 0.5; margin-right: 6px;"></i>
+          Senaste kommentarer
+        </span>
+        <a class="ext-comment-feed__viewall" href="/admin/sas/comments">Visa alla &raquo;</a>
+      </div>
+      <div class="ext-comment-feed__list">
+        ${feedHTML}
+      </div>
+    `;
+
+    // Insert above the original "Allas kommentarer" section
+    const origSection = document.querySelector('#comments');
+    if (origSection) {
+      // Find the parent .well that contains the "Allas kommentarer" heading
+      const parentWell = origSection.closest('.well');
+      if (parentWell) {
+        parentWell.parentNode.insertBefore(feed, parentWell);
+        // Hide the original section
+        parentWell.style.display = 'none';
+      }
+    }
+
+    // Also hide "Mina kommentarer" section (the other .well next to it)
+    const allWells = document.querySelectorAll('.well');
+    allWells.forEach(well => {
+      const heading = well.querySelector('h3');
+      if (heading && /Mina kommentarer/.test(heading.textContent)) {
+        well.style.display = 'none';
+      }
+    });
+  }
+
   // ─── Initialize ───────────────────────────────────────────────────
 
   let hasRenderedKPI = false;
@@ -496,6 +655,7 @@
   let hasRenderedInsights = false;
   let hasRenderedInventory = false;
   let hasRenderedLeaderboard = false;
+  let hasRenderedComments = false;
 
   function tryRenderAll() {
     try {
@@ -537,6 +697,12 @@
         enhanceCatalogerTable();
         hasRenderedLeaderboard = true;
       }
+
+      // Comment feed — needs #comments with li.comment entries
+      if (!hasRenderedComments && document.querySelector('#comments ul.unstyled li.comment')) {
+        renderCommentFeed();
+        hasRenderedComments = true;
+      }
     } catch (error) {
       console.error('[AdminDashboard] Render error:', error);
     }
@@ -556,7 +722,8 @@
 
       // Stop observing once everything has rendered
       if (hasRenderedKPI && hasRenderedGoal && hasRenderedPipeline &&
-          hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard) {
+          hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard &&
+          hasRenderedComments) {
         observer.disconnect();
         console.log('[AdminDashboard] All enhancements rendered');
       }
