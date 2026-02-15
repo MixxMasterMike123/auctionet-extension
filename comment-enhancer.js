@@ -16,10 +16,19 @@
     const commentsSection = document.querySelector('#comments') || document.querySelector('.comments');
     if (!commentsSection) return;
 
+    // Always inject entity type badges into comment lists
+    injectEntityBadges(commentsSection);
+
     // Check if the page already has Auctionet's built-in comment badge
     if (document.querySelector('.comments-link-block')) {
       // Page already has a badge — just enhance the comment section header
       enhanceCommentSection(commentsSection);
+      return;
+    }
+
+    // On the full comments listing page, badges are all we need (no floating indicator)
+    if (/\/admin\/sas\/comments/.test(path)) {
+      console.log(`[CommentEnhancer] Injected entity badges on comments page`);
       return;
     }
 
@@ -39,6 +48,45 @@
     enhanceCommentSection(commentsSection);
 
     console.log(`[CommentEnhancer] Injected badge (${commentCount} comments) on ${path}`);
+  }
+
+  // ─── Entity Type Badges ─────────────────────────────────────────
+
+  function getEntityType(href) {
+    if (!href) return null;
+    if (/\/buyers\//.test(href)) return { label: 'Köpare', cls: 'ext-entity-badge--buyer' };
+    if (/\/sellers\//.test(href)) return { label: 'Säljare', cls: 'ext-entity-badge--seller' };
+    if (/\/return_claims\//.test(href)) return { label: 'Reklamation', cls: 'ext-entity-badge--claim' };
+    if (/\/items\//.test(href)) return { label: 'Föremål', cls: 'ext-entity-badge--item' };
+    if (/\/invoices\//.test(href)) return { label: 'Faktura', cls: 'ext-entity-badge--invoice' };
+    if (/\/transport/.test(href)) return { label: 'Transport', cls: 'ext-entity-badge--transport' };
+    return null;
+  }
+
+  function injectEntityBadges(section) {
+    const comments = section.querySelectorAll('li.comment');
+    if (comments.length === 0) return;
+
+    comments.forEach(li => {
+      const commentedEl = li.querySelector('.commented');
+      if (!commentedEl) return;
+
+      // Skip if badge already injected
+      if (commentedEl.querySelector('.ext-entity-badge')) return;
+
+      const link = commentedEl.querySelector('a');
+      if (!link) return;
+      const href = link.getAttribute('href') || '';
+      const entity = getEntityType(href);
+      if (!entity) return;
+
+      const badge = document.createElement('span');
+      badge.className = `ext-entity-badge ${entity.cls}`;
+      badge.textContent = entity.label;
+
+      // Insert badge before the link text
+      commentedEl.insertBefore(badge, link);
+    });
   }
 
   function findSidebar() {

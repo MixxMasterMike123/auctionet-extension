@@ -96,6 +96,51 @@
   line-height: 1.2;
 }
 
+/* ─── Entity Type Badges (comment lists) ─────────────────────────── */
+.ext-entity-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 9px;
+  line-height: 1.6;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-right: 5px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.ext-entity-badge--buyer {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.ext-entity-badge--seller {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.ext-entity-badge--item {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.ext-entity-badge--claim {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+.ext-entity-badge--invoice {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.ext-entity-badge--transport {
+  background: #e0f2f1;
+  color: #00695c;
+}
+
 /* ─── Animation ──────────────────────────────────────────────────── */
 @keyframes extCommentFadeIn {
   from { opacity: 0; transform: translateY(-4px); }
