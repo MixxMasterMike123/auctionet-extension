@@ -82,6 +82,52 @@ export class AuctionetAPI {
     return quoted.join(' ');
   }
 
+  // Sanitize search query to prevent overly long URLs that trigger HTTP 403.
+  // Removes problematic characters (slashes, commas), filters out noise words,
+  // and caps the number of terms to avoid URL length issues.
+  sanitizeSearchQuery(query) {
+    if (!query || typeof query !== 'string') return query;
+
+    // Split on slashes to expand "silver/tenn/glas" → "silver tenn glas"
+    query = query.replace(/\//g, ' ');
+
+    // Remove commas (often left over from AI descriptions)
+    query = query.replace(/,/g, ' ');
+
+    // Remove other problematic chars but keep quotes, hyphens, letters, digits, spaces
+    query = query.replace(/[^a-zA-ZåäöÅÄÖéèüûîïôñ0-9\s"'\-]/g, ' ');
+
+    // Normalize whitespace
+    query = query.replace(/\s+/g, ' ').trim();
+
+    // Parse into terms (preserving quoted groups)
+    const terms = [];
+    let current = '';
+    let inQuote = false;
+    for (let i = 0; i < query.length; i++) {
+      const ch = query[i];
+      if (ch === '"' && !inQuote) { inQuote = true; current += ch; }
+      else if (ch === '"' && inQuote) { inQuote = false; current += ch; terms.push(current.trim()); current = ''; }
+      else if (ch === ' ' && !inQuote) { if (current.trim()) terms.push(current.trim()); current = ''; }
+      else { current += ch; }
+    }
+    if (current.trim()) terms.push(current.trim());
+
+    // Filter out noise words (too short, generic Swedish filler, company suffixes)
+    const noise = new Set(['a', 'i', 'av', 'en', 'ett', 'och', 'med', 'för', 'den', 'det', 'som', 'till', 'på',
+                           'ab', 'a/s', 'as', 'co', 'st', 'ca', 'mm', 'cm', 'kg', 'nr']);
+    const filtered = terms.filter(t => {
+      const clean = t.replace(/"/g, '').toLowerCase();
+      return clean.length >= 2 && !noise.has(clean);
+    });
+
+    // Cap at 6 terms max to keep URL reasonable
+    const MAX_TERMS = 6;
+    const capped = filtered.slice(0, MAX_TERMS);
+
+    return capped.join(' ');
+  }
+
   // NEW: Format artist name for search queries to ensure it's treated as one entity
   formatArtistForSearch(artistName) {
     if (!artistName || typeof artistName !== 'string') {
@@ -368,6 +414,8 @@ export class AuctionetAPI {
 
   // NEW: Search live auctions (without is=ended parameter)
   async searchLiveAuctions(query, description, maxResults = 200) {
+    // Sanitize query to prevent overly long URLs that trigger 403
+    query = this.sanitizeSearchQuery(query);
     // AUCTIONET FIX: Ensure all search terms are quoted so Auctionet treats them as required.
     query = this.ensureAllTermsQuoted(query);
     
@@ -1006,6 +1054,10 @@ export class AuctionetAPI {
 
   // Search Auctionet API for auction results
   async searchAuctionResults(query, description, maxResults = 200) {
+    // Sanitize query: remove slashes, commas, and other problematic characters;
+    // limit to max 6 meaningful terms to avoid overly long URLs that trigger 403.
+    query = this.sanitizeSearchQuery(query);
+
     // AUCTIONET FIX: Ensure all search terms are quoted so Auctionet treats them as required.
     // Unquoted terms are treated as optional/fuzzy by Auctionet's search engine.
     query = this.ensureAllTermsQuoted(query);
