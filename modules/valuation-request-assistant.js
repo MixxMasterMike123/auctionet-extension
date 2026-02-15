@@ -340,42 +340,45 @@ VIKTIGT för söktermer:
 
       if (queries.length === 0) return result;
 
+      // Use auctionetAPI.searchAuctionResults directly to bypass formatArtistForSearch
+      // which wraps multi-word queries as exact phrases (e.g., "Robert Högfeldt tavla")
+      // instead of individual required terms ("Robert" "Högfeldt" "tavla").
+      const auctionetAPI = this.apiManager.auctionetAPI;
+
       // Try each query in order (most specific first)
-      let marketData = null;
+      let marketAnalysis = null;
       let usedQuery = '';
+      let salesCount = 0;
       for (const q of queries) {
         console.log(`[ValuationRequest] Trying market search: "${q}"`);
         this._updateStatus(`Söker: "${q}"...`);
 
-        const searchContext = {
-          primarySearch: q,
-          searchTerms: q.split(' '),
-          finalSearch: q,
-          source: 'valuation_request',
-          confidence: 0.7,
-          reasoning: `Valuation request search: ${q}`,
-          generatedAt: Date.now(),
-          isEmpty: false,
-          hasValidQuery: true
-        };
-
-        const data = await this.apiManager.analyzeSales(searchContext);
-        if (data && data.hasComparableData && data.priceRange) {
-          marketData = data;
-          usedQuery = q;
-          break;
+        const searchResult = await auctionetAPI.searchAuctionResults(q, `Valuation search: ${q}`);
+        if (searchResult && searchResult.soldItems && searchResult.soldItems.length > 0) {
+          const analysis = await auctionetAPI.analyzeMarketData(
+            searchResult.soldItems,
+            q,
+            result.objectType || '',
+            searchResult.totalEntries
+          );
+          if (analysis && analysis.priceRange) {
+            marketAnalysis = analysis;
+            usedQuery = q;
+            salesCount = analysis.aiFilteredCount || searchResult.soldItems.length;
+            break;
+          }
         }
       }
 
-      if (marketData && marketData.priceRange) {
-        const marketLow = marketData.priceRange.low;
-        const marketHigh = marketData.priceRange.high;
+      if (marketAnalysis && marketAnalysis.priceRange) {
+        const marketLow = marketAnalysis.priceRange.low;
+        const marketHigh = marketAnalysis.priceRange.high;
         const marketMid = Math.round((marketLow + marketHigh) / 2);
 
         const aiEstimate = result.estimatedValue;
         result.estimatedValue = marketMid;
         result.marketDataUsed = true;
-        result.marketSales = marketData.historical?.analyzedSales || 0;
+        result.marketSales = salesCount;
         result.marketRange = { low: marketLow, high: marketHigh };
         result.marketQuery = usedQuery;
 
@@ -383,8 +386,8 @@ VIKTIGT för söktermer:
           result.reasoning += ` AI-uppskattning: ${aiEstimate} SEK, marknadsdata: ${marketMid} SEK.`;
         }
 
-        result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${result.marketSales} jämförbara försäljningar, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK.`;
-        result.confidence = Math.min(0.9, marketData.confidence || 0.6);
+        result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${salesCount} jämförbara försäljningar, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK.`;
+        result.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
         result.tooLowForAuction = result.estimatedValue < 400;
       }
 
@@ -488,18 +491,18 @@ Tack för din värderingsförfrågan!
 
 ${result.briefDescription}
 
-Vi uppskattar värdet på ditt föremål till ${result.estimatedValue.toLocaleString()} kr.
+Vår preliminära uppskattning av ditt föremål ligger på cirka ${result.estimatedValue.toLocaleString()} kr. Observera att detta är en ungefärlig bedömning baserad på bilder och beskrivning — den slutgiltiga värderingen görs först när vi har möjlighet att fysiskt granska föremålet.
 
-Om du vill att vi säljer ditt föremål får du gärna komma in med det till oss, så kan en av våra experter gå igenom det innan vi lägger ut det på Auctionet.com, en av Europas största marknadsplatser för antikviteter, konst och design som når köpare över hela världen.
+Vi säljer uteslutande via onlineauktioner på Auctionet.com — en av Europas ledande marknadsplatser för konst, antikviteter och design med över 900 000 registrerade köpare i 180 länder och 5,5 miljoner besök varje månad. Det ger ditt föremål en bred internationell exponering.
 
-Försäljning hos oss är trygg och enkel och efter att vi har tagit emot ditt föremål så sköter vi allt! Vi hjälper dig med beskrivning, konditionsrapportering, fotografering, visning för spekulanter, försäljning, betalning och transporter och du får dina pengar utbetalda cirka 25 dagar efter att ditt föremål sålts.
+Om du vill gå vidare är du välkommen att lämna in ditt föremål till oss. En av våra experter granskar det och gör en slutgiltig värdering. Föremålet läggs ut på auktion först efter att du godkänt värderingen och bevakningspriset. Vi tar hand om hela processen: fotografering, katalogisering, auktion, betalning och eventuell transport. Utbetalning sker cirka 25 dagar efter avslutad auktion.
 
-Tänk på att alla värderingar via epost eller telefon är preliminära och kan komma att ändras när vi får undersöka föremålet.
-
-Du är varmt välkommen att höra av dig igen om du har andra föremål du skulle vilja få värderade!
+Hör gärna av dig om du har frågor eller fler föremål du vill få värderade!
 
 Med vänliga hälsningar,
-Stadsauktion Sundsvall`;
+Stadsauktion Sundsvall
+Verkstadsgatan 4, 853 33 Sundsvall
+Telefon: 060 - 17 00 40`;
   }
 
   _generateSwedishRejectionEmail(name, result) {
@@ -509,12 +512,14 @@ Tack för din värderingsförfrågan!
 
 ${result.briefDescription}
 
-Ditt föremål har tyvärr ett för lågt värde för att vi ska kunna auktionera ut det.
+Tyvärr bedömer vi att ditt föremål har ett för lågt uppskattat värde för att vi ska kunna ta in det till försäljning via våra onlineauktioner på Auctionet.com. Observera att detta är en preliminär bedömning baserad på bilder och beskrivning.
 
-Du är varmt välkommen att höra av dig igen om du har andra föremål du skulle vilja få värderade!
+Du är välkommen att höra av dig igen om du har andra föremål du skulle vilja få värderade.
 
 Med vänliga hälsningar,
-Stadsauktion Sundsvall`;
+Stadsauktion Sundsvall
+Verkstadsgatan 4, 853 33 Sundsvall
+Telefon: 060 - 17 00 40`;
   }
 
   _generateEnglishAcceptEmail(name, result) {
@@ -524,18 +529,18 @@ Thank you for your valuation request!
 
 ${result.briefDescription}
 
-We estimate the value of your item at ${result.estimatedValue.toLocaleString()} SEK.
+Our preliminary estimate for your item is approximately ${result.estimatedValue.toLocaleString()} SEK. Please note that this is a rough assessment based on photos and description — the final valuation will be made once we have the opportunity to physically examine the item.
 
-If you would like us to sell your item, please feel free to bring it to us. One of our experts will review it before we list it on Auctionet.com, one of Europe's largest marketplaces for antiques, art, and design, reaching buyers all over the world.
+We sell exclusively through online auctions on Auctionet.com — one of Europe's leading marketplaces for art, antiques and design, with over 900,000 registered buyers in 180 countries and 5.5 million visits every month. This gives your item broad international exposure.
 
-Selling with us is safe and easy — once we receive your item, we take care of everything! We help with description, condition reporting, photography, viewings, sales, payment, and shipping. You will receive your payment approximately 25 days after your item has been sold.
+If you would like to proceed, you are welcome to bring your item to us. One of our experts will examine it and make a final valuation. Your item will only be listed for auction after you have approved the valuation and reserve price. We handle the entire process: photography, cataloging, auction, payment and shipping. Payment is made approximately 25 days after the auction closes.
 
-Please note that all valuations via email or phone are preliminary and may change when we get to examine the item in person.
-
-You are most welcome to contact us again if you have other items you would like valued!
+Please don't hesitate to contact us if you have questions or more items you would like valued!
 
 Best regards,
-Stadsauktion Sundsvall`;
+Stadsauktion Sundsvall
+Verkstadsgatan 4, 853 33 Sundsvall
+Phone: +46 60 17 00 40`;
   }
 
   _generateEnglishRejectionEmail(name, result) {
@@ -545,12 +550,14 @@ Thank you for your valuation request!
 
 ${result.briefDescription}
 
-Unfortunately, your item has too low a value for us to auction it.
+Unfortunately, based on our preliminary assessment from photos and description, we estimate that your item has too low a value for us to include it in our online auctions on Auctionet.com.
 
-You are most welcome to contact us again if you have other items you would like valued!
+You are most welcome to contact us again if you have other items you would like valued.
 
 Best regards,
-Stadsauktion Sundsvall`;
+Stadsauktion Sundsvall
+Verkstadsgatan 4, 853 33 Sundsvall
+Phone: +46 60 17 00 40`;
   }
 
   // ─── UI ───────────────────────────────────────────────────────────────
@@ -689,11 +696,35 @@ Stadsauktion Sundsvall`;
          </div>`
       : '';
 
+    // Build "verify on Auctionet" link using the best available search query
+    const verifyQuery = result.marketQuery || result.brand || result.artist || result.objectType || '';
+    const verifyLink = verifyQuery
+      ? `<a href="https://auctionet.com/sv/search?is=ended&q=${encodeURIComponent(verifyQuery)}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #006ccc; margin-bottom: 10px; text-decoration: none;">
+           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+           Se sålda objekt på Auctionet.com <span style="color: #888;">(${verifyQuery})</span>
+         </a>`
+      : '';
+
+    // Search query editor for manual refinement
+    const searchEditorHTML = `
+      <div style="margin-top: 4px; margin-bottom: 12px;">
+        <label style="font-size: 11px; color: #888; display: block; margin-bottom: 3px;">Sökfråga för marknadsdata:</label>
+        <div style="display: flex; gap: 6px;">
+          <input id="vr-search-query" type="text" value="${this._escapeHTML(verifyQuery)}"
+                 style="flex: 1; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px;">
+          <button id="vr-reanalyze-btn" class="btn btn-small"
+                  style="white-space: nowrap; font-size: 12px;">Sök igen</button>
+        </div>
+        <div id="vr-search-feedback" style="display: none; font-size: 11px; margin-top: 4px;"></div>
+      </div>`;
+
     results.style.display = 'block';
     results.innerHTML = `
       ${sourceHTML}
       ${descHTML}
       ${valueHTML}
+      ${verifyLink}
+      ${searchEditorHTML}
 
       <div style="margin-top: 12px;">
         <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">
@@ -755,8 +786,110 @@ Stadsauktion Sundsvall`;
       updateMailtoHref();
     }
 
+    // Search query re-analyze button + Enter key
+    const reanalyzeBtn = document.getElementById('vr-reanalyze-btn');
+    const searchInput = document.getElementById('vr-search-query');
+    if (reanalyzeBtn) {
+      reanalyzeBtn.addEventListener('click', () => this._rerunMarketSearch());
+    }
+    if (searchInput) {
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this._rerunMarketSearch();
+        }
+      });
+    }
+
     // Also update the existing "Ja tack" button with the AI valuation
     this._updateExistingYesButton();
+  }
+
+  async _rerunMarketSearch() {
+    const input = document.getElementById('vr-search-query');
+    const btn = document.getElementById('vr-reanalyze-btn');
+    const feedback = document.getElementById('vr-search-feedback');
+    if (!input) return;
+
+    const query = input.value.trim();
+    if (query.length < 2) {
+      if (feedback) {
+        feedback.style.display = 'block';
+        feedback.style.color = '#e65100';
+        feedback.textContent = 'Ange minst 2 tecken.';
+      }
+      return;
+    }
+
+    // Loading state
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Söker...';
+    }
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.color = '#006ccc';
+      feedback.textContent = `Söker "${query}" på Auctionet...`;
+    }
+
+    try {
+      // Call searchAuctionResults directly to bypass formatArtistForSearch
+      // which wraps multi-word strings as a single phrase ("Robert Högfeldt print")
+      // instead of individual required terms ("Robert" "Högfeldt" "print").
+      const auctionetAPI = this.apiManager.auctionetAPI;
+      const searchResult = await auctionetAPI.searchAuctionResults(query, `Manual valuation search: ${query}`);
+
+      if (searchResult && searchResult.soldItems && searchResult.soldItems.length > 0) {
+        // Analyze the market data to get proper price ranges
+        const marketAnalysis = await auctionetAPI.analyzeMarketData(
+          searchResult.soldItems,
+          query, // artistName placeholder
+          this.valuationResult.objectType || '',
+          searchResult.totalEntries
+        );
+
+        if (marketAnalysis && marketAnalysis.priceRange) {
+          const marketLow = marketAnalysis.priceRange.low;
+          const marketHigh = marketAnalysis.priceRange.high;
+          const marketMid = Math.round((marketLow + marketHigh) / 2);
+
+          // Update the result object
+          this.valuationResult.estimatedValue = this._roundValuation(marketMid);
+          this.valuationResult.marketDataUsed = true;
+          this.valuationResult.marketSales = marketAnalysis.aiFilteredCount || searchResult.soldItems.length;
+          this.valuationResult.marketRange = { low: marketLow, high: marketHigh };
+          this.valuationResult.marketQuery = query;
+          this.valuationResult.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
+          this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValue < 400;
+
+          // Re-render everything with updated data
+          this._renderResults(this.valuationResult);
+          return;
+        }
+      }
+
+      // No results — show feedback but keep current valuation
+      if (feedback) {
+        feedback.style.display = 'block';
+        feedback.style.color = '#e65100';
+        feedback.textContent = `Inga jämförbara resultat för "${query}". Värderingen behålls.`;
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Sök igen';
+      }
+    } catch (error) {
+      console.error('[ValuationRequest] Re-search failed:', error);
+      if (feedback) {
+        feedback.style.display = 'block';
+        feedback.style.color = '#e65100';
+        feedback.textContent = 'Sökning misslyckades. Försök igen.';
+      }
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Sök igen';
+      }
+    }
   }
 
   _updateExistingYesButton() {
