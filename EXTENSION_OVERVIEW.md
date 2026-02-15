@@ -1,6 +1,6 @@
 # Auctionet AI Cataloging Assistant
 
-**Version 1.5.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 1.6.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
@@ -8,7 +8,7 @@
 
 The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Auctionet admin interface with AI-powered tools for cataloging, quality control, market analysis, valuation, and compliance. It runs directly inside the browser on `auctionet.com/admin` pages — no server infrastructure required. The extension uses Claude AI (Anthropic) for intelligent analysis and the Auctionet public API for real-time market data from 3.65M+ historical auction results.
 
-**Key value proposition:** Faster cataloging, higher data quality, market-informed pricing, customer valuation emails, operational KPI dashboards, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
+**Key value proposition:** Faster cataloging, higher data quality, market-informed pricing, customer valuation emails, operational KPI dashboards, cross-page comment visibility, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
 
 ---
 
@@ -25,12 +25,13 @@ The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Au
 9. [Search Query Intelligence](#9-search-query-intelligence)
 10. [Valuation Request Assistant](#10-valuation-request-assistant)
 11. [Admin Dashboard Enhancements](#11-admin-dashboard-enhancements)
-12. [AML / Anti-Money Laundering Compliance](#12-aml--anti-money-laundering-compliance)
-13. [Unknown Artist Handling](#13-unknown-artist-handling)
-14. [Settings & Configuration](#14-settings--configuration)
-15. [Technical Architecture](#15-technical-architecture)
-16. [Security Considerations](#16-security-considerations)
-17. [Data & Privacy](#17-data--privacy)
+12. [Comment Visibility System](#12-comment-visibility-system)
+13. [AML / Anti-Money Laundering Compliance](#13-aml--anti-money-laundering-compliance)
+14. [Unknown Artist Handling](#14-unknown-artist-handling)
+15. [Settings & Configuration](#15-settings--configuration)
+16. [Technical Architecture](#16-technical-architecture)
+17. [Security Considerations](#17-security-considerations)
+18. [Data & Privacy](#18-data--privacy)
 
 ---
 
@@ -43,7 +44,8 @@ The extension operates on four Auctionet admin page types:
 | **Edit Item** | `/admin/*/items/*/edit` | `content-script.js` | Full cataloging workflow for existing items |
 | **Add Item** | `/admin/*/items/*` (non-edit) | `content.js` | New item creation with Snabbkatalogisering and image analysis |
 | **Valuation Request** | `/admin/sas/valuation_requests/*` | `valuation-request.js` | Valuation of customer submissions with email generation |
-| **Admin Dashboard** | `/admin/sas` | `admin-dashboard.js` | Operational KPI cards, pipeline funnel, pricing insights |
+| **Admin Dashboard** | `/admin/sas` | `admin-dashboard.js` | Operational KPI cards, pipeline funnel, pricing insights, comment feed |
+| **All Admin Pages** | `/admin/*` (excl. dashboard, login) | `comment-enhancer.js` | Comment badges, rich comment feed on /comments, entity filters |
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
@@ -361,8 +363,21 @@ Color-coded, clickable cards injected at the top of the page, replacing the plai
 | Hantera salda foremal | Sidebar turbo-frame count | Green |
 | Hantera plocklista | Sidebar turbo-frame count | Blue |
 | Omlistas ej automatiskt | Sidebar turbo-frame count | Yellow |
+| Reklamationer (7 dagar) | Comment feed (claim-type comments from last 7 days) | Red |
 
-Each card links to the corresponding admin page for immediate action.
+Each card links to the corresponding admin page for immediate action. The Reklamationer card links to `/admin/sas/comments?filter=reklamation`, pre-activating the Reklamation filter on the comments page.
+
+### Comment Feed
+
+The dashboard replaces the default "Allas kommentarer" section with a visually rich comment feed:
+
+- **Avatars** with author initials and color-coded backgrounds
+- **Entity type badges** — color-coded labels (Föremål, Köpare, Säljare, Reklamation, Faktura, Transport)
+- **Relative timestamps** (e.g., "3 tim sedan", "Igår 14:30", "28 jan")
+- **Fully clickable rows** — click anywhere on a comment to navigate to the related entity page
+- **Inner link preservation** — links within comment bodies (e.g., invoice downloads) work independently from the row click
+- Truncated body text (140 chars) for compact display
+- "Visa alla" link to the full comments page
 
 ### Daily Goal Progress Ring
 
@@ -418,7 +433,64 @@ Stacked bar chart showing distribution of items across states:
 
 ---
 
-## 12. AML / Anti-Money Laundering Compliance
+## 12. Comment Visibility System
+
+A cross-page system that makes comments more visible and easier to act on across the entire Auctionet admin. Powered by `comment-enhancer.js` — a lightweight script with zero AI calls that enhances comment UX through pure DOM manipulation.
+
+### Comment Indicator Badge
+
+On item pages, seller pages, buyer pages, and return claim pages, the extension injects a floating indicator badge near the top of the sidebar:
+
+- Shows the number of existing comments
+- Click to smooth-scroll to the comment section with a highlight animation
+- If no comments exist, shows "Lägg till kommentar" and focuses the textarea on click
+- Enhances the comment section with a heading if one is missing
+
+### Rich Comments Feed (`/admin/sas/comments`)
+
+The "All Comments" listing page is transformed from a plain list into a visually rich, interactive feed:
+
+- **Avatars** with initials and deterministic color-coding per author
+- **Entity type badges** — Reklamation (red), Köpare (green), Föremål (blue), Säljare (purple), Faktura (teal), Transport (gray)
+- **Relative timestamps** — "Just nu", "5 min sedan", "Igår 09:48", "28 jan"
+- **Fully clickable rows** — click anywhere on a comment row to navigate to the entity. Inner links (e.g., invoice downloads, item references) work independently and are not intercepted
+- Replaces the original `<ul>` list while preserving it hidden for compatibility
+
+### Entity Type Filter Bar
+
+A horizontal pill-based filter bar above the comments feed on `/admin/sas/comments`:
+
+| Filter | Badge Class | Color |
+|--------|------------|-------|
+| Alla | — | Gray (default) |
+| Reklamation | `--claim` | Red |
+| Köpare | `--buyer` | Green |
+| Föremål | `--item` | Blue |
+| Säljare | `--seller` | Purple |
+| Faktura | `--invoice` | Teal |
+| Transport | `--transport` | Gray |
+
+**Filter behavior:**
+- Click a pill to show only comments of that type; click "Alla" to reset
+- Active filter count displayed ("8 kommentarer")
+- **URL-synced filters:** Active filter is written to the URL (`?filter=reklamation`) so pagination preserves it across pages
+- **Dashboard card integration:** The Reklamationer KPI card links to `?filter=reklamation` which auto-activates the filter on arrival
+- Filters update pagination links in real-time — switching filters immediately updates all page links
+
+### Entity Badges on All Pages
+
+Even on individual item, seller, buyer, and return claim pages, the existing comment lists get color-coded entity type badges injected next to each comment's entity reference. This provides visual consistency across all admin views.
+
+### Technical Details
+
+- **Zero API calls** — all data is scraped from the existing DOM
+- **Universal injection** — runs on all `/admin/*` pages (excluding dashboard and login)
+- **Lightweight IIFE** — no module imports, no dependencies
+- **Graceful degradation** — silently skips pages with no comment sections
+
+---
+
+## 13. AML / Anti-Money Laundering Compliance
 
 The quality rules engine includes automated AML compliance reminders that flag high-risk items during cataloging.
 
@@ -436,7 +508,7 @@ AML warnings appear as highlighted alerts in the quality control sidebar alongsi
 
 ---
 
-## 13. Unknown Artist Handling
+## 14. Unknown Artist Handling
 
 The extension respects Auctionet's convention for unsigned and unidentified works:
 
@@ -458,7 +530,7 @@ When these terms are present in the artist field:
 
 ---
 
-## 14. Settings & Configuration
+## 15. Settings & Configuration
 
 The extension popup (`popup.html`) provides:
 
@@ -474,7 +546,7 @@ All settings are stored in Chrome's sync storage (except the API key, which uses
 
 ---
 
-## 15. Technical Architecture
+## 16. Technical Architecture
 
 ### Module Structure
 
@@ -486,6 +558,7 @@ auctionet-extension/
 ├── content.js                             # Add/view page entry point
 ├── valuation-request.js                   # Valuation request page entry point
 ├── admin-dashboard.js                     # Admin dashboard visual enhancements
+├── comment-enhancer.js                    # Cross-page comment visibility & rich feed
 ├── popup.html / popup.js                  # Settings popup
 ├── styles.css                             # Main stylesheet
 │
@@ -556,7 +629,8 @@ auctionet-extension/
     ├── ai-image-analyzer.css
     ├── add-items-tooltips.css
     ├── valuation-request.css
-    └── admin-dashboard.css
+    ├── admin-dashboard.css
+    └── comment-enhancer.css
 ```
 
 ### Data Flow
@@ -585,8 +659,11 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
         │         │                              ──► Claude Vision API
         │         └──► Auctionet Market Data ──► Email Generation
         │
-        └──► Admin Dashboard ──► DOM Scraping (zero API calls)
-                  └──► KPI Cards / Pipeline Funnel / Pricing Insights
+        ├──► Admin Dashboard ──► DOM Scraping (zero API calls)
+        │         └──► KPI Cards / Pipeline Funnel / Pricing Insights / Comment Feed
+        │
+        └──► Comment Enhancer ──► DOM Scraping (zero API calls)
+                  └──► Comment Badges / Rich Feed / Entity Filters
 ```
 
 ### Performance Characteristics
@@ -599,7 +676,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 
 ---
 
-## 16. Security Considerations
+## 17. Security Considerations
 
 - **API key storage:** The Anthropic API key is stored in Chrome's local storage (not sync storage) to prevent cross-device leakage
 - **XSS prevention:** All dynamic content is sanitized through the `escapeHTML` utility before DOM insertion
@@ -613,7 +690,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 
 ---
 
-## 17. Data & Privacy
+## 18. Data & Privacy
 
 | Data Type | Where it goes | Retention |
 |-----------|---------------|-----------|
@@ -630,4 +707,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated February 16, 2026. Reflects extension version 1.5.0.*
+*Document updated February 15, 2026. Reflects extension version 1.6.0.*
