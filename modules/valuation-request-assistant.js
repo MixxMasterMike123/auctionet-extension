@@ -229,7 +229,9 @@ export class ValuationRequestAssistant {
     const apiKey = this.apiManager.apiKey;
     if (!apiKey) throw new Error('API-nyckel saknas. Ange din Anthropic API-nyckel i tilläggets inställningar.');
 
-    const model = this.apiManager.getCurrentModel().id;
+    // Use Opus 4.6 for valuation — much better at identifying specific models,
+    // brands, and details from images compared to Sonnet
+    const model = 'claude-opus-4-6';
     const description = this.pageData.description || '(Ingen beskrivning angiven)';
 
     const systemPrompt = `Du är expert på värdering av antikviteter, konst, design och samlarprylar för Stadsauktion Sundsvall.
