@@ -57,6 +57,18 @@
         "styles/components/valuation-request.css"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://auctionet.com/admin/sas"
+      ],
+      "js": [
+        "admin-dashboard.js"
+      ],
+      "css": [
+        "styles/components/admin-dashboard.css"
+      ],
+      "run_at": "document_end"
     }
   ],
   "background": {

@@ -1,0 +1,357 @@
+/* Admin Dashboard Enhancement styles */
+
+/* ─── KPI Hero Cards ──────────────────────────────────────────────── */
+.ext-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ext-kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-left: 4px solid #6c757d;
+  border-radius: 4px;
+  text-decoration: none !important;
+  color: inherit !important;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  cursor: pointer;
+}
+
+.ext-kpi-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-left-color: #333;
+}
+
+.ext-kpi-card--red { border-left-color: #dc3545; }
+.ext-kpi-card--orange { border-left-color: #e65100; }
+.ext-kpi-card--blue { border-left-color: #006ccc; }
+.ext-kpi-card--yellow { border-left-color: #f0ad4e; }
+.ext-kpi-card--green { border-left-color: #28a745; }
+
+.ext-kpi-card__count {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: #333;
+}
+
+.ext-kpi-card__label {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.3;
+}
+
+.ext-kpi-card__icon {
+  font-size: 18px;
+  opacity: 0.5;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ─── Daily Goal Ring ─────────────────────────────────────────────── */
+.ext-goal-widget {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.ext-goal-ring {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.ext-goal-ring svg {
+  transform: rotate(-90deg);
+}
+
+.ext-goal-ring__track {
+  fill: none;
+  stroke: #e9ecef;
+  stroke-width: 6;
+}
+
+.ext-goal-ring__fill {
+  fill: none;
+  stroke: #28a745;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s ease-out;
+}
+
+.ext-goal-ring__text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+}
+
+.ext-goal-info {
+  flex: 1;
+}
+
+.ext-goal-info__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.ext-goal-info__subtitle {
+  font-size: 11px;
+  color: #888;
+}
+
+.ext-goal-info__sek {
+  font-size: 16px;
+  font-weight: 600;
+  color: #006ccc;
+  margin-top: 4px;
+}
+
+/* ─── Pipeline Funnel ─────────────────────────────────────────────── */
+.ext-pipeline {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.ext-pipeline__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.ext-pipeline__funnel {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.ext-pipeline__stage {
+  flex: 1;
+  text-align: center;
+  padding: 12px 4px;
+  border-radius: 3px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ext-pipeline__stage-count {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ext-pipeline__stage-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.85);
+  margin-top: 2px;
+}
+
+.ext-pipeline__stage-rate {
+  font-size: 9px;
+  color: rgba(255,255,255,0.7);
+  margin-top: 1px;
+}
+
+.ext-pipeline__arrow {
+  color: #ccc;
+  font-size: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ext-pipeline__yoy {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.ext-pipeline__yoy-item {
+  font-size: 11px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ext-yoy-up { color: #28a745; }
+.ext-yoy-down { color: #dc3545; }
+.ext-yoy-flat { color: #888; }
+
+/* ─── Cataloger Leaderboard ───────────────────────────────────────── */
+.ext-leaderboard-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #d4a017;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.ext-bar-cell {
+  position: relative;
+}
+
+.ext-bar-cell__bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 108, 204, 0.08);
+  border-radius: 2px;
+  transition: width 0.4s ease-out;
+}
+
+.ext-bar-cell__value {
+  position: relative;
+  z-index: 1;
+}
+
+/* Highlight highest cell */
+.employee-stats__cell--highest {
+  font-weight: 600;
+}
+
+/* ─── Pricing Insights ────────────────────────────────────────────── */
+.ext-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ext-insight-card {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  padding: 12px 14px;
+}
+
+.ext-insight-card__label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.ext-insight-card__value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  line-height: 1.2;
+}
+
+.ext-insight-card__detail {
+  font-size: 11px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.ext-insight-card__trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.ext-trend-up { color: #28a745; }
+.ext-trend-down { color: #dc3545; }
+.ext-trend-flat { color: #888; }
+
+/* ─── Inventory Health ────────────────────────────────────────────── */
+.ext-inventory {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.ext-inventory__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.ext-inventory__bar {
+  display: flex;
+  height: 24px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.ext-inventory__segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  min-width: 30px;
+  transition: width 0.4s ease-out;
+}
+
+.ext-inventory__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ext-inventory__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #666;
+}
+
+.ext-inventory__legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── Animations ──────────────────────────────────────────────────── */
+@keyframes extFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ext-animate-in {
+  animation: extFadeIn 0.3s ease-out forwards;
+}

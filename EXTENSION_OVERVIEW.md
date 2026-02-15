@@ -1,6 +1,6 @@
 # Auctionet AI Cataloging Assistant
 
-**Version 1.4.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 1.5.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
@@ -8,7 +8,7 @@
 
 The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Auctionet admin interface with AI-powered tools for cataloging, quality control, market analysis, valuation, and compliance. It runs directly inside the browser on `auctionet.com/admin` pages — no server infrastructure required. The extension uses Claude AI (Anthropic) for intelligent analysis and the Auctionet public API for real-time market data from 3.65M+ historical auction results.
 
-**Key value proposition:** Faster cataloging, higher data quality, market-informed pricing, AI-assisted customer valuation emails, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
+**Key value proposition:** Faster cataloging, higher data quality, market-informed pricing, customer valuation emails, operational KPI dashboards, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
 
 ---
 
@@ -24,24 +24,26 @@ The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Au
 8. [Brand Validation](#8-brand-validation)
 9. [Search Query Intelligence](#9-search-query-intelligence)
 10. [Valuation Request Assistant](#10-valuation-request-assistant)
-11. [AML / Anti-Money Laundering Compliance](#11-aml--anti-money-laundering-compliance)
-12. [Unknown Artist Handling](#12-unknown-artist-handling)
-13. [Settings & Configuration](#13-settings--configuration)
-14. [Technical Architecture](#14-technical-architecture)
-15. [Security Considerations](#15-security-considerations)
-16. [Data & Privacy](#16-data--privacy)
+11. [Admin Dashboard Enhancements](#11-admin-dashboard-enhancements)
+12. [AML / Anti-Money Laundering Compliance](#12-aml--anti-money-laundering-compliance)
+13. [Unknown Artist Handling](#13-unknown-artist-handling)
+14. [Settings & Configuration](#14-settings--configuration)
+15. [Technical Architecture](#15-technical-architecture)
+16. [Security Considerations](#16-security-considerations)
+17. [Data & Privacy](#17-data--privacy)
 
 ---
 
 ## 1. Architecture Overview
 
-The extension operates on three Auctionet admin page types:
+The extension operates on four Auctionet admin page types:
 
 | Page | URL Pattern | Entry Point | Purpose |
 |------|-------------|-------------|---------|
 | **Edit Item** | `/admin/*/items/*/edit` | `content-script.js` | Full cataloging workflow for existing items |
 | **Add Item** | `/admin/*/items/*` (non-edit) | `content.js` | New item creation with Snabbkatalogisering and image analysis |
-| **Valuation Request** | `/admin/sas/valuation_requests/*` | `valuation-request.js` | AI-powered valuation of customer submissions with email generation |
+| **Valuation Request** | `/admin/sas/valuation_requests/*` | `valuation-request.js` | Valuation of customer submissions with email generation |
+| **Admin Dashboard** | `/admin/sas` | `admin-dashboard.js` | Operational KPI cards, pipeline funnel, pricing insights |
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
@@ -342,7 +344,81 @@ The system identifies when a customer submits multiple objects for valuation (e.
 
 ---
 
-## 11. AML / Anti-Money Laundering Compliance
+## 11. Admin Dashboard Enhancements
+
+Visual enhancements for the main admin page (`/admin/sas`) that transform existing data into actionable infographics. No AI calls — all data is scraped from the existing DOM and rendered as visual components.
+
+### KPI Hero Cards
+
+Color-coded, clickable cards injected at the top of the page, replacing the plain text alerts:
+
+| Card | Source | Color |
+|------|--------|-------|
+| Varderingsforfragan att besvara | `.requested-actions` | Orange |
+| Reklamationer/angerratter | `.requested-actions` | Red |
+| Exportinformation | `.requested-actions` | Yellow |
+| Opublicerbara foremal | Sidebar turbo-frame count | Orange |
+| Hantera salda foremal | Sidebar turbo-frame count | Green |
+| Hantera plocklista | Sidebar turbo-frame count | Blue |
+| Omlistas ej automatiskt | Sidebar turbo-frame count | Yellow |
+
+Each card links to the corresponding admin page for immediate action.
+
+### Daily Goal Progress Ring
+
+An SVG circular progress ring visualizing the "Inskrivet idag: X/Y st" navbar counter:
+
+- Fills from 0-100% with color shift (orange → blue → green)
+- Shows items registered vs daily goal
+- Displays total SEK value prominently
+
+### Pipeline Funnel (30-day)
+
+Horizontal funnel visualization of the item lifecycle from the Flodesstatistik table:
+
+```
+Inskrivet (1265) → Publicerat (1131) → Salt (847) → Aterrop (42)
+```
+
+- Conversion rates between stages (e.g., 89% published, 75% sold)
+- **Year-over-year comparison** ("Vecka mot vecka YoY"): Compares last week vs the same week one year ago with colored trend arrows for registered, sold, average price, and recall rate
+
+### Pricing Insights Cards
+
+Four metric cards extracted from the Flodesstatistik:
+
+| Card | What it shows |
+|------|---------------|
+| **Snittpris** | 30-day average price with 7-day trend arrow and 1-year comparison |
+| **Varderingstraff** | Accuracy of valuations vs actual hammer prices (avg valuation / avg price). Green 90-110%, orange 80-90%, red below 80% |
+| **Utropstackning** | How well reserves are covered by final prices (avg price / avg reserve) |
+| **Aterropsandel** | 30-day recall rate with color coding (green ≤5%, orange ≤10%, red >10%) and 1-year trend |
+
+### Cataloger Leaderboard
+
+Enhances the existing Inskrivningsstatistik table:
+
+- Gold star badge on the top performer (by monthly average)
+- Inline bar charts for each employee's monthly cataloging count
+- Zero cells are muted for visual clarity
+
+### Inventory Health Bar
+
+Stacked bar chart showing distribution of items across states:
+
+- Opublicerbara (orange), Salda att hantera (green), Omlistas ej (yellow), Plocklista (blue)
+- Color-coded legend with counts
+- Provides an at-a-glance view of where items are piling up
+
+### Technical details
+
+- **Zero API calls** — all data is scraped from the existing page DOM
+- **Progressive rendering** — components render immediately with available data; lazy-loaded turbo-frame content is picked up via MutationObserver as it arrives
+- Lightweight self-contained IIFE — no module imports needed
+
+---
+
+## 12. AML / Anti-Money Laundering Compliance
 
 The quality rules engine includes automated AML compliance reminders that flag high-risk items during cataloging.
 
@@ -360,7 +436,7 @@ AML warnings appear as highlighted alerts in the quality control sidebar alongsi
 
 ---
 
-## 12. Unknown Artist Handling
+## 13. Unknown Artist Handling
 
 The extension respects Auctionet's convention for unsigned and unidentified works:
 
@@ -382,7 +458,7 @@ When these terms are present in the artist field:
 
 ---
 
-## 13. Settings & Configuration
+## 14. Settings & Configuration
 
 The extension popup (`popup.html`) provides:
 
@@ -398,7 +474,7 @@ All settings are stored in Chrome's sync storage (except the API key, which uses
 
 ---
 
-## 14. Technical Architecture
+## 15. Technical Architecture
 
 ### Module Structure
 
@@ -409,6 +485,7 @@ auctionet-extension/
 ├── content-script.js                      # Edit page entry point
 ├── content.js                             # Add/view page entry point
 ├── valuation-request.js                   # Valuation request page entry point
+├── admin-dashboard.js                     # Admin dashboard visual enhancements
 ├── popup.html / popup.js                  # Settings popup
 ├── styles.css                             # Main stylesheet
 │
@@ -478,7 +555,8 @@ auctionet-extension/
     ├── freetext-parser.css
     ├── ai-image-analyzer.css
     ├── add-items-tooltips.css
-    └── valuation-request.css
+    ├── valuation-request.css
+    └── admin-dashboard.css
 ```
 
 ### Data Flow
@@ -487,7 +565,7 @@ auctionet-extension/
 User action on Auctionet admin page
         │
         ▼
-Content Script (content.js / content-script.js / valuation-request.js)
+Content Script (content.js / content-script.js / valuation-request.js / admin-dashboard.js)
         │
         ├──► Quality Analyzer ──► Quality Rules Engine ──► UI Renderer
         │
@@ -503,9 +581,12 @@ Content Script (content.js / content-script.js / valuation-request.js)
         │
         ├──► Search Query SSoT ──► Pill Generator ──► Dashboard Header
         │
-        └──► Valuation Request Assistant ──► Image Fetch (background.js)
-                  │                              ──► Claude Vision API
-                  └──► Auctionet Market Data ──► Email Generation
+        ├──► Valuation Request Assistant ──► Image Fetch (background.js)
+        │         │                              ──► Claude Vision API
+        │         └──► Auctionet Market Data ──► Email Generation
+        │
+        └──► Admin Dashboard ──► DOM Scraping (zero API calls)
+                  └──► KPI Cards / Pipeline Funnel / Pricing Insights
 ```
 
 ### Performance Characteristics
@@ -518,7 +599,7 @@ Content Script (content.js / content-script.js / valuation-request.js)
 
 ---
 
-## 15. Security Considerations
+## 16. Security Considerations
 
 - **API key storage:** The Anthropic API key is stored in Chrome's local storage (not sync storage) to prevent cross-device leakage
 - **XSS prevention:** All dynamic content is sanitized through the `escapeHTML` utility before DOM insertion
@@ -532,7 +613,7 @@ Content Script (content.js / content-script.js / valuation-request.js)
 
 ---
 
-## 16. Data & Privacy
+## 17. Data & Privacy
 
 | Data Type | Where it goes | Retention |
 |-----------|---------------|-----------|
@@ -549,4 +630,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated February 15, 2026. Reflects extension version 1.4.0.*
+*Document updated February 16, 2026. Reflects extension version 1.5.0.*
