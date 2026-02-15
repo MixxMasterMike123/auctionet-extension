@@ -94,6 +94,10 @@
   font-size: 16px;
 }
 
+.ext-kpi-grid--insights .ext-kpi-card--green .ext-kpi-card__count { color: #28a745; }
+.ext-kpi-grid--insights .ext-kpi-card--blue .ext-kpi-card__count { color: #006ccc; }
+.ext-kpi-grid--insights .ext-kpi-card--red .ext-kpi-card__count { color: #dc3545; }
+
 .ext-kpi-grid--insights .ext-kpi-card__label {
   font-size: 10px;
 }
