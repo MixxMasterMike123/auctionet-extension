@@ -595,7 +595,7 @@
       const truncatedBody = c.body.length > 140 ? c.body.substring(0, 140) + '...' : c.body;
 
       return `
-        <div class="ext-comment-item">
+        <a class="ext-comment-item" href="${c.commentedHref || '#'}">
           <div class="ext-comment-item__avatar" style="background: ${avatarColor};">${initials}</div>
           <div class="ext-comment-item__content">
             <div class="ext-comment-item__header">
@@ -603,10 +603,10 @@
               ${badge}
               <span class="ext-comment-item__time">${relTime}</span>
             </div>
-            ${c.commentedHref ? `<a class="ext-comment-item__entity" href="${c.commentedHref}">${c.commentedText}</a>` : ''}
+            <div class="ext-comment-item__entity-text">${c.commentedText}</div>
             <div class="ext-comment-item__body">${truncatedBody}</div>
           </div>
-        </div>
+        </a>
       `;
     }).join('');
 

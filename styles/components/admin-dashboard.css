@@ -393,6 +393,9 @@
   padding: 10px 16px;
   border-bottom: 1px solid #f5f5f5;
   transition: background 0.15s;
+  text-decoration: none !important;
+  color: inherit !important;
+  cursor: pointer;
 }
 
 .ext-comment-item:last-child {
@@ -400,7 +403,7 @@
 }
 
 .ext-comment-item:hover {
-  background: #f8f9fa;
+  background: #edf4fc;
 }
 
 .ext-comment-item__avatar {
@@ -474,10 +477,9 @@
   color: #616161;
 }
 
-.ext-comment-item__entity {
+.ext-comment-item__entity-text {
   font-size: 11px;
   color: #006ccc;
-  text-decoration: none;
   display: block;
   margin-bottom: 3px;
   white-space: nowrap;
@@ -485,7 +487,7 @@
   text-overflow: ellipsis;
 }
 
-.ext-comment-item__entity:hover {
+.ext-comment-item:hover .ext-comment-item__entity-text {
   text-decoration: underline;
 }
 
