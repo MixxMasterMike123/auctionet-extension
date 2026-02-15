@@ -444,7 +444,12 @@ VIKTIGT för söktermer:
     const objectType = result.objectType;
     const material = result.material;
 
-    // 1. Most specific: brand/artist + model (e.g., "Certina DS Nautic")
+    // 1. Most specific: brand + model + artist (e.g., "Gustavsberg Fjäril Lisa Larson")
+    if (brand && model && artist) {
+      queries.push(`${brand} ${model} ${artist}`);
+    }
+
+    // 2. Brand/artist + model (e.g., "Certina DS Nautic", "Lisa Larson Fjäril")
     if (brand && model) {
       queries.push(`${brand} ${model}`);
     }
@@ -452,7 +457,12 @@ VIKTIGT för söktermer:
       queries.push(`${artist} ${model}`);
     }
 
-    // 2. Brand/artist + object type (e.g., "Certina armbandsur", "Harald Wiberg tavla")
+    // 3. Brand + artist (e.g., "Gustavsberg Lisa Larson")
+    if (brand && artist) {
+      queries.push(`${brand} ${artist}`);
+    }
+
+    // 4. Brand/artist + object type (e.g., "Certina armbandsur", "Harald Wiberg tavla")
     if (brand && objectType) {
       queries.push(`${brand} ${objectType}`);
     }
@@ -460,7 +470,7 @@ VIKTIGT för söktermer:
       queries.push(`${artist} ${objectType}`);
     }
 
-    // 3. Just brand or artist (e.g., "Certina", "Harald Wiberg")
+    // 5. Just brand or artist (e.g., "Certina", "Harald Wiberg")
     if (brand) {
       queries.push(brand);
     }
