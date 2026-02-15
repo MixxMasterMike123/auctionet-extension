@@ -26,9 +26,10 @@
       return;
     }
 
-    // On the full comments listing page, badges are all we need (no floating indicator)
+    // On the full comments listing page, apply full rich feed design
     if (/\/admin\/sas\/comments/.test(path)) {
-      console.log(`[CommentEnhancer] Injected entity badges on comments page`);
+      renderRichCommentsList(commentsSection);
+      console.log(`[CommentEnhancer] Enhanced comments listing page`);
       return;
     }
 
@@ -87,6 +88,101 @@
       // Insert badge before the link text
       commentedEl.insertBefore(badge, link);
     });
+  }
+
+  // ─── Rich Comments List (for /admin/sas/comments page) ──────────
+
+  function getInitials(name) {
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  function getAvatarColor(name) {
+    const colors = ['#006ccc', '#28a745', '#dc3545', '#e65100', '#6f42c1', '#17a2b8', '#d4a017', '#5a6268'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  function relativeTimestamp(postedAtText) {
+    const months = { jan: 0, feb: 1, mar: 2, apr: 3, maj: 4, jun: 5, jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dec: 11 };
+    const match = postedAtText.match(/(\d{1,2})\s+(\w{3})\s+(\d{4})\s+kl\.\s*(\d{1,2}):(\d{2})/);
+    if (!match) return postedAtText.replace(/^.*?(?=\d)/, '');
+    const [, day, mon, year, hour, min] = match;
+    const d = new Date(parseInt(year), months[mon.toLowerCase()] ?? 0, parseInt(day), parseInt(hour), parseInt(min));
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just nu';
+    if (diffMins < 60) return `${diffMins} min sedan`;
+    if (diffHours < 24) return `${diffHours} tim sedan`;
+    if (diffDays === 1) return `Igår ${hour}:${min}`;
+    if (diffDays < 7) return `${diffDays} dagar sedan`;
+    return `${day} ${mon}`;
+  }
+
+  function renderRichCommentsList(section) {
+    const commentItems = section.querySelectorAll('li.comment');
+    if (commentItems.length === 0) return;
+
+    // Build rich HTML for each comment
+    const richItems = [];
+    commentItems.forEach(li => {
+      const employeeEl = li.querySelector('.employee');
+      const commentedEl = li.querySelector('.commented');
+      const postedAtEl = li.querySelector('.posted_at');
+      const bodyEl = li.querySelector('.body');
+
+      const employee = employeeEl ? employeeEl.textContent.trim() : 'Okänd';
+      const initials = getInitials(employee);
+      const avatarColor = getAvatarColor(employee);
+
+      const commentedLink = commentedEl ? commentedEl.querySelector('a') : null;
+      const commentedText = commentedLink ? commentedLink.textContent.trim() : '';
+      const commentedHref = commentedLink ? commentedLink.getAttribute('href') || '' : '';
+      const entity = getEntityType(commentedHref);
+      const badgeHTML = entity
+        ? `<span class="ext-entity-badge ${entity.cls}">${entity.label}</span>`
+        : '';
+
+      const postedAt = postedAtEl ? postedAtEl.textContent.trim() : '';
+      const relTime = relativeTimestamp(postedAt);
+      const body = bodyEl ? bodyEl.innerHTML.trim() : '';
+
+      richItems.push(`
+        <div class="ext-cfeed-item">
+          <div class="ext-cfeed-item__avatar" style="background: ${avatarColor};">${initials}</div>
+          <div class="ext-cfeed-item__content">
+            <div class="ext-cfeed-item__header">
+              <span class="ext-cfeed-item__name">${employee}</span>
+              ${badgeHTML}
+              <span class="ext-cfeed-item__time">${relTime}</span>
+            </div>
+            ${commentedHref ? `<a class="ext-cfeed-item__entity" href="${commentedHref}">${commentedText}</a>` : ''}
+            <div class="ext-cfeed-item__body">${body}</div>
+          </div>
+        </div>
+      `);
+    });
+
+    // Create the rich feed container
+    const feed = document.createElement('div');
+    feed.className = 'ext-cfeed ext-animate-in';
+    feed.innerHTML = richItems.join('');
+
+    // Replace the original <ul> with our rich feed
+    const ul = section.querySelector('ul.unstyled');
+    if (ul) {
+      ul.style.display = 'none';
+      ul.parentNode.insertBefore(feed, ul);
+    }
   }
 
   function findSidebar() {

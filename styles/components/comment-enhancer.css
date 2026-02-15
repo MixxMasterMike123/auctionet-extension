@@ -141,6 +141,95 @@
   color: #00695c;
 }
 
+/* ─── Rich Comment Feed (comments listing page) ─────────────────── */
+.ext-cfeed {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ext-cfeed-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s;
+}
+
+.ext-cfeed-item:last-child {
+  border-bottom: none;
+}
+
+.ext-cfeed-item:hover {
+  background: #f8f9fa;
+}
+
+.ext-cfeed-item__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ext-cfeed-item__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ext-cfeed-item__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+
+.ext-cfeed-item__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.ext-cfeed-item__time {
+  font-size: 11px;
+  color: #999;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.ext-cfeed-item__entity {
+  font-size: 12px;
+  color: #006ccc;
+  text-decoration: none;
+  display: block;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ext-cfeed-item__entity:hover {
+  text-decoration: underline;
+}
+
+.ext-cfeed-item__body {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.5;
+}
+
+.ext-cfeed-item__body p {
+  margin: 0;
+}
+
 /* ─── Animation ──────────────────────────────────────────────────── */
 @keyframes extCommentFadeIn {
   from { opacity: 0; transform: translateY(-4px); }
