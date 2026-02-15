@@ -239,7 +239,7 @@ UPPGIFT: Analysera kundens bilder och beskrivning och ge en realistisk värderin
 REGLER:
 - Basera värderingen på den svenska auktionsmarknaden
 - Var konservativ — hellre för lågt än för högt
-- Om föremålet har för lågt värde för auktion (under 400 SEK), ange det tydligt
+- Om föremålet har för lågt värde för auktion (under 500 SEK), ange det tydligt
 - Beskriv objektet kort och professionellt (1-2 meningar) så kunden ser att vi faktiskt granskat det
 - Räkna ALLTID hur många separata föremål kunden vill ha värderade (baserat på bilder OCH beskrivning). T.ex. "2 soffor", "5 tryck", "1 vas" etc.
 - estimatedValue ska vara TOTAL värdering för ALLA föremål sammanlagt
@@ -281,7 +281,7 @@ Analysera bilderna och beskrivningen. Returnera EXAKT detta JSON-format:
   "briefDescription": "1-2 professionella meningar som beskriver föremålet/föremålen för kunden",
   "estimatedValue": <TOTAL värdering i SEK för ALLA föremål sammanlagt>,
   "estimatedValuePerItem": <uppskattning per styck om numberOfObjects > 1, annars samma som estimatedValue>,
-  "tooLowForAuction": <true om estimatedValuePerItem under 400 SEK>,
+  "tooLowForAuction": <true om estimatedValuePerItem under 500 SEK>,
   "confidence": <0.0-1.0>,
   "reasoning": "intern motivering för värderingen (visas ej för kund)"
 }
@@ -420,7 +420,7 @@ VIKTIGT för söktermer:
           result.reasoning += ` Totalvärde: ${result.estimatedValue.toLocaleString()} SEK (${numObjects} st × ${result.estimatedValuePerItem.toLocaleString()} SEK).`;
         }
         result.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
-        result.tooLowForAuction = result.estimatedValuePerItem < 400;
+        result.tooLowForAuction = result.estimatedValuePerItem < 500;
       }
 
       return result;
@@ -903,7 +903,7 @@ Phone: +46 60 17 00 40`;
           this.valuationResult.marketRange = { low: marketLow, high: marketHigh };
           this.valuationResult.marketQuery = query;
           this.valuationResult.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
-          this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValuePerItem < 400;
+          this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValuePerItem < 500;
 
           // Re-render everything with updated data
           this._renderResults(this.valuationResult);
