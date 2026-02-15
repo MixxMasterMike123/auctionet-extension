@@ -187,8 +187,8 @@ export class ValuationRequestAssistant {
     try {
       this._showLoading();
 
-      // Step 1: Fetch images (cap at 6 to stay within API request size limits)
-      const MAX_IMAGES = 6;
+      // Step 1: Fetch images (cap at 10 to stay within API request size limits)
+      const MAX_IMAGES = 10;
       this._updateStatus('Hämtar bilder...');
       let images = await this.fetchImagesAsBase64();
 
@@ -614,7 +614,7 @@ Phone: +46 60 17 00 40`;
         Analyserar kundens bilder och beskrivning med hjälp av Auctionets marknadsdata.
       </p>
       <div id="vr-image-count" style="font-size: 12px; color: #888; margin-bottom: 8px;">
-        ${this.pageData.imageUrls.length} bild(er)${this.pageData.imageUrls.length > 6 ? ' (max 6 analyseras)' : ''} · ${this.pageData.description ? 'Beskrivning finns' : 'Ingen beskrivning'}
+        ${this.pageData.imageUrls.length} bild(er)${this.pageData.imageUrls.length > 10 ? ' (max 10 analyseras)' : ''} · ${this.pageData.description ? 'Beskrivning finns' : 'Ingen beskrivning'}
       </div>
       <button id="vr-analyze-btn" class="btn btn-block btn-info" style="margin-bottom: 10px;">
         <i class="icon fas fa-magic"></i> Analysera och värdera
