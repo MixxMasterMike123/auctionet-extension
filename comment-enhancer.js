@@ -157,7 +157,7 @@
       const body = bodyEl ? bodyEl.innerHTML.trim() : '';
 
       richItems.push(`
-        <div class="ext-cfeed-item">
+        <a class="ext-cfeed-item" href="${commentedHref || '#'}">
           <div class="ext-cfeed-item__avatar" style="background: ${avatarColor};">${initials}</div>
           <div class="ext-cfeed-item__content">
             <div class="ext-cfeed-item__header">
@@ -165,10 +165,10 @@
               ${badgeHTML}
               <span class="ext-cfeed-item__time">${relTime}</span>
             </div>
-            ${commentedHref ? `<a class="ext-cfeed-item__entity" href="${commentedHref}">${commentedText}</a>` : ''}
+            <div class="ext-cfeed-item__entity-text">${commentedText}</div>
             <div class="ext-cfeed-item__body">${body}</div>
           </div>
-        </div>
+        </a>
       `);
     });
 
