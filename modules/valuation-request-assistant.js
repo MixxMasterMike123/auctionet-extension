@@ -120,10 +120,11 @@ export class ValuationRequestAssistant {
 
         let { base64, mediaType } = response;
 
-        // Ensure within Anthropic 5MB limit
-        const byteSize = Math.ceil(base64.length * 3 / 4);
-        if (byteSize > 5 * 1024 * 1024) {
-          console.log(`[ValuationRequest] Image too large (${(byteSize / 1024 / 1024).toFixed(1)}MB), resizing...`);
+        // Anthropic's 5MB limit is on the base64 STRING length, not decoded bytes.
+        // Use 4.5MB threshold for safety margin.
+        const base64Size = base64.length;
+        if (base64Size > 4.5 * 1024 * 1024) {
+          console.log(`[ValuationRequest] Image base64 too large (${(base64Size / 1024 / 1024).toFixed(1)}MB), resizing...`);
           const resized = await this._resizeBase64Image(base64, mediaType);
           base64 = resized.base64;
           mediaType = resized.mediaType;
@@ -161,9 +162,8 @@ export class ValuationRequestAssistant {
           canvas.getContext('2d').drawImage(img, 0, 0, w, h);
           const resizedUrl = canvas.toDataURL('image/jpeg', quality);
           const resizedBase64 = resizedUrl.split(',')[1];
-          const resizedBytes = Math.ceil(resizedBase64.length * 3 / 4);
 
-          if (resizedBytes <= 5 * 1024 * 1024 || maxDim <= 600) {
+          if (resizedBase64.length <= 4.5 * 1024 * 1024 || maxDim <= 600) {
             resolve({ base64: resizedBase64, mediaType: 'image/jpeg' });
           } else {
             maxDim -= 200;
@@ -235,6 +235,8 @@ REGLER:
 - Var konservativ — hellre för lågt än för högt
 - Om föremålet har för lågt värde för auktion (under 400 SEK), ange det tydligt
 - Beskriv objektet kort och professionellt (1-2 meningar) så kunden ser att vi faktiskt granskat det
+- Räkna ALLTID hur många separata föremål kunden vill ha värderade (baserat på bilder OCH beskrivning). T.ex. "2 soffor", "5 tryck", "1 vas" etc.
+- estimatedValue ska vara TOTAL värdering för ALLA föremål sammanlagt
 - Svara ALLTID i JSON-format`;
 
     // Build content array with images + text
@@ -269,9 +271,11 @@ Analysera bilderna och beskrivningen. Returnera EXAKT detta JSON-format:
   "model": "modellnamn om känt, t.ex. DS Nautic, Graal, annars null",
   "material": "huvudmaterial, t.ex. rostfritt stål, keramik, olja på duk, annars null",
   "period": "ungefärlig period, t.ex. 1960-tal, 2000-tal, annars null",
-  "briefDescription": "1-2 professionella meningar som beskriver föremålet för kunden",
-  "estimatedValue": <nummer i SEK>,
-  "tooLowForAuction": <true om under 400 SEK>,
+  "numberOfObjects": <antal separata föremål kunden vill värdera, t.ex. 1, 2, 5>,
+  "briefDescription": "1-2 professionella meningar som beskriver föremålet/föremålen för kunden",
+  "estimatedValue": <TOTAL värdering i SEK för ALLA föremål sammanlagt>,
+  "estimatedValuePerItem": <uppskattning per styck om numberOfObjects > 1, annars samma som estimatedValue>,
+  "tooLowForAuction": <true om estimatedValuePerItem under 400 SEK>,
   "confidence": <0.0-1.0>,
   "reasoning": "intern motivering för värderingen (visas ej för kund)"
 }
@@ -310,6 +314,7 @@ VIKTIGT för söktermer:
           if (!jsonMatch) throw new Error('Kunde inte tolka svaret');
 
           const parsed = JSON.parse(jsonMatch[0]);
+          const numberOfObjects = parseInt(parsed.numberOfObjects) || 1;
           resolve({
             objectType: parsed.objectType || 'Föremål',
             brand: parsed.brand || null,
@@ -317,8 +322,10 @@ VIKTIGT för söktermer:
             model: parsed.model || null,
             material: parsed.material || null,
             period: parsed.period || null,
+            numberOfObjects,
             briefDescription: parsed.briefDescription || '',
             estimatedValue: parseInt(parsed.estimatedValue) || 0,
+            estimatedValuePerItem: parseInt(parsed.estimatedValuePerItem) || parseInt(parsed.estimatedValue) || 0,
             tooLowForAuction: Boolean(parsed.tooLowForAuction),
             confidence: parseFloat(parsed.confidence) || 0.5,
             reasoning: parsed.reasoning || '',
@@ -374,21 +381,27 @@ VIKTIGT för söktermer:
         const marketLow = marketAnalysis.priceRange.low;
         const marketHigh = marketAnalysis.priceRange.high;
         const marketMid = Math.round((marketLow + marketHigh) / 2);
+        const numObjects = result.numberOfObjects || 1;
 
+        // Market data reflects per-item prices — multiply by object count
         const aiEstimate = result.estimatedValue;
-        result.estimatedValue = marketMid;
+        result.estimatedValuePerItem = this._roundValuation(marketMid);
+        result.estimatedValue = this._roundValuation(marketMid * numObjects);
         result.marketDataUsed = true;
         result.marketSales = salesCount;
         result.marketRange = { low: marketLow, high: marketHigh };
         result.marketQuery = usedQuery;
 
-        if (aiEstimate && Math.abs(aiEstimate - marketMid) > marketMid * 0.3) {
-          result.reasoning += ` Initial uppskattning: ${aiEstimate} SEK, marknadsdata: ${marketMid} SEK.`;
+        if (aiEstimate && Math.abs(aiEstimate - result.estimatedValue) > result.estimatedValue * 0.3) {
+          result.reasoning += ` Initial uppskattning: ${aiEstimate} SEK, marknadsdata: ${result.estimatedValue} SEK.`;
         }
 
-        result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${salesCount} jämförbara försäljningar, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK.`;
+        result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${salesCount} jämförbara försäljningar, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK/st.`;
+        if (numObjects > 1) {
+          result.reasoning += ` Totalvärde: ${result.estimatedValue.toLocaleString()} SEK (${numObjects} st × ${result.estimatedValuePerItem.toLocaleString()} SEK).`;
+        }
         result.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
-        result.tooLowForAuction = result.estimatedValue < 400;
+        result.tooLowForAuction = result.estimatedValuePerItem < 400;
       }
 
       return result;
@@ -689,6 +702,14 @@ Phone: +46 60 17 00 40`;
            <div style="font-size: 11px; color: ${confColor}; margin-top: 2px;">${confLabel} säkerhet</div>
          </div>`;
 
+    // Multi-object hint
+    const multiObjectHTML = (result.numberOfObjects && result.numberOfObjects > 1)
+      ? `<div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-bottom: 10px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1565c0;">
+           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+           <span><strong>${result.numberOfObjects} föremål</strong> identifierade — värderingen avser alla sammanlagt${result.estimatedValuePerItem ? ` (ca ${result.estimatedValuePerItem.toLocaleString()} SEK/st)` : ''}</span>
+         </div>`
+      : '';
+
     // Object description
     const descHTML = result.briefDescription
       ? `<div style="font-size: 13px; color: #555; margin-bottom: 10px; padding: 6px 10px; background: #f8f9fa; border-radius: 4px;">
@@ -723,6 +744,7 @@ Phone: +46 60 17 00 40`;
       ${sourceHTML}
       ${descHTML}
       ${valueHTML}
+      ${multiObjectHTML}
       ${verifyLink}
       ${searchEditorHTML}
 
@@ -852,15 +874,17 @@ Phone: +46 60 17 00 40`;
           const marketLow = marketAnalysis.priceRange.low;
           const marketHigh = marketAnalysis.priceRange.high;
           const marketMid = Math.round((marketLow + marketHigh) / 2);
+          const numObjects = this.valuationResult.numberOfObjects || 1;
 
-          // Update the result object
-          this.valuationResult.estimatedValue = this._roundValuation(marketMid);
+          // Market data reflects per-item prices — multiply by object count
+          this.valuationResult.estimatedValuePerItem = this._roundValuation(marketMid);
+          this.valuationResult.estimatedValue = this._roundValuation(marketMid * numObjects);
           this.valuationResult.marketDataUsed = true;
           this.valuationResult.marketSales = marketAnalysis.aiFilteredCount || searchResult.soldItems.length;
           this.valuationResult.marketRange = { low: marketLow, high: marketHigh };
           this.valuationResult.marketQuery = query;
           this.valuationResult.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
-          this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValue < 400;
+          this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValuePerItem < 400;
 
           // Re-render everything with updated data
           this._renderResults(this.valuationResult);

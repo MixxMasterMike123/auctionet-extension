@@ -1,14 +1,14 @@
 # Auctionet AI Cataloging Assistant
 
-**Version 1.2.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 1.4.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
 ## Executive Summary
 
-The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Auctionet admin interface with AI-powered tools for cataloging, quality control, market analysis, and compliance. It runs directly inside the browser on `auctionet.com/admin` pages — no server infrastructure required. The extension uses Claude AI (Anthropic) for intelligent analysis and the Auctionet public API for real-time market data from 3.65M+ historical auction results.
+The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Auctionet admin interface with AI-powered tools for cataloging, quality control, market analysis, valuation, and compliance. It runs directly inside the browser on `auctionet.com/admin` pages — no server infrastructure required. The extension uses Claude AI (Anthropic) for intelligent analysis and the Auctionet public API for real-time market data from 3.65M+ historical auction results.
 
-**Key value proposition:** Faster cataloging, higher data quality, market-informed pricing, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
+**Key value proposition:** Faster cataloging, higher data quality, market-informed pricing, AI-assisted customer valuation emails, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
 
 ---
 
@@ -16,30 +16,32 @@ The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Au
 
 1. [Architecture Overview](#1-architecture-overview)
 2. [AI-Powered Field Enhancement](#2-ai-powered-field-enhancement)
-3. [Freetext Parser — Bulk Item Entry](#3-freetext-parser--bulk-item-entry)
+3. [Snabbkatalogisering — Quick Cataloging](#3-snabbkatalogisering-quick-cataloging)
 4. [AI Image Analysis](#4-ai-image-analysis)
 5. [Quality Control System](#5-quality-control-system)
 6. [Market Analysis Dashboard](#6-market-analysis-dashboard)
 7. [Artist Detection & Biography System](#7-artist-detection--biography-system)
 8. [Brand Validation](#8-brand-validation)
 9. [Search Query Intelligence](#9-search-query-intelligence)
-10. [AML / Anti-Money Laundering Compliance](#10-aml--anti-money-laundering-compliance)
-11. [Unknown Artist Handling](#11-unknown-artist-handling)
-12. [Settings & Configuration](#12-settings--configuration)
-13. [Technical Architecture](#13-technical-architecture)
-14. [Security Considerations](#14-security-considerations)
-15. [Data & Privacy](#15-data--privacy)
+10. [Valuation Request Assistant](#10-valuation-request-assistant)
+11. [AML / Anti-Money Laundering Compliance](#11-aml--anti-money-laundering-compliance)
+12. [Unknown Artist Handling](#12-unknown-artist-handling)
+13. [Settings & Configuration](#13-settings--configuration)
+14. [Technical Architecture](#14-technical-architecture)
+15. [Security Considerations](#15-security-considerations)
+16. [Data & Privacy](#16-data--privacy)
 
 ---
 
 ## 1. Architecture Overview
 
-The extension operates on two Auctionet admin page types:
+The extension operates on three Auctionet admin page types:
 
 | Page | URL Pattern | Entry Point | Purpose |
 |------|-------------|-------------|---------|
 | **Edit Item** | `/admin/*/items/*/edit` | `content-script.js` | Full cataloging workflow for existing items |
-| **Add Item** | `/admin/*/items/*` (non-edit) | `content.js` | New item creation with freetext parsing and image analysis |
+| **Add Item** | `/admin/*/items/*` (non-edit) | `content.js` | New item creation with Snabbkatalogisering and image analysis |
+| **Valuation Request** | `/admin/sas/valuation_requests/*` | `valuation-request.js` | AI-powered valuation of customer submissions with email generation |
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
@@ -72,22 +74,52 @@ Every text field on the cataloging form gets an AI enhancement button. When clic
 
 ---
 
-## 3. Freetext Parser — Bulk Item Entry
+## 3. Snabbkatalogisering (Quick Cataloging)
 
-The Freetext Parser allows catalogers to paste unstructured text (e.g., from a seller's email or handwritten notes) and have AI parse it into structured catalog fields.
+A full-featured modal for rapid item creation from images, text, or both. Designed to feel fast and professional, matching Auctionet's clean UI style with progressive field reveal and skeleton placeholders.
+
+### Input Modes
+
+| Mode | Input | Use Case |
+|------|-------|----------|
+| **Image only** | Paste (Ctrl+V) or drag-and-drop images | Quick cataloging from photos |
+| **Text only** | Paste unstructured text (seller email, handwritten notes) | Entry from written descriptions |
+| **Image + Text** | Both simultaneously | Most complete analysis |
 
 ### How it works
-1. Cataloger clicks the **"Fritext → Katalogisering"** button on the Add Item page
-2. A modal opens where they paste the raw text
-3. Claude AI parses the text and maps it to Auctionet fields:
-   - Title, Description, Category, Artist, Condition, Dimensions, Materials
-4. Each parsed field shows a confidence score
-5. Cataloger reviews, edits if needed, and confirms to populate the form
+
+1. Cataloger clicks the **"Snabbkatalogisering"** button on the Add Item page
+2. A modal opens with options to paste images and/or text
+3. Claude Sonnet AI analyzes the input and generates structured catalog data:
+   - Title (Auctionet formatting rules applied), Description, Condition, Artist, Material, Period, Keywords, Valuation
+4. Market data is automatically fetched from Auctionet's API to validate/adjust the AI valuation
+5. Each field is shown in a preview with confidence scores and per-field "Forbattra" (enhance) buttons
+6. Cataloger reviews, edits if needed, and applies to the form
+
+### Image handling
+
+- **Paste support:** Ctrl+V directly into the modal — images are captured from clipboard
+- **Drag-and-drop:** Drag images into the upload area
+- **Auto-resize:** Images over 5MB are automatically resized via canvas to fit the Anthropic API limit
+- **Multi-image support:** Multiple images are analyzed together for a more complete assessment
+
+### Valuation intelligence
+
+- AI generates an initial estimate based on image analysis and description
+- Auctionet market data overrides the AI estimate when comparable sales are found
+- **Valuation source indicator:** Green banner = "Baserat pa X salda foremal pa Auctionet", Orange banner = "AI-uppskattning — ingen jamforbar marknadsdata"
+- Values are rounded to clean auction-appropriate numbers (100 SEK steps, snap to nearest 1000 when close)
+- Minimum reserve of 400 SEK enforced
+
+### Keywords
+
+Keywords follow Auctionet standards: space-separated, multi-word phrases hyphenated (e.g., `art-deco guld-halsband jugend`).
 
 ### Integration with other systems
-- Parsed data feeds into the quality control system for immediate validation
-- Market analysis can run on the parsed content before the item is saved
-- Works in conjunction with the AI Image Analyzer for complete item entry
+
+- Applied data feeds into the quality control system for immediate validation
+- Works on both the Add Item and Edit Item pages
+- Per-field "Forbattra" buttons use the same AI enhancement rules as the Edit page
 
 ---
 
@@ -102,10 +134,11 @@ The AI Image Analyzer uses Claude's Vision API to extract catalog-relevant infor
   - Markings / labels
   - Signature / stamps
   - Condition details
-- **Information extraction:** Artist signatures, maker's marks, material identification, condition assessment, style classification
-- **"Sure Score":** Confidence rating for each extracted piece of information
-- **Format support:** JPEG, PNG, WebP up to 10MB
+- **Information extraction:** Artist signatures, maker's marks, material identification, condition assessment, style classification, brand/model identification
+- **"Sure Score":** Composite confidence metric combining image analysis confidence, detail extraction, and market data validation
+- **Format support:** JPEG, PNG, WebP — auto-resize for images exceeding the API limit (4.5MB safety threshold on base64 string length)
 - **Market validation:** Cross-references extracted data with Auctionet historical sales
+- **Conservative scaling:** Valuation is scaled down when market support is low (40-100% multiplier based on confidence)
 
 ---
 
@@ -256,7 +289,60 @@ The dashboard header shows clickable pills for each search term:
 
 ---
 
-## 10. AML / Anti-Money Laundering Compliance
+## 10. Valuation Request Assistant
+
+A dedicated tool for the valuation request pages (`/admin/sas/valuation_requests/*`), where customers submit photos and descriptions of items they want valued. The assistant analyzes the submission and generates a ready-to-send valuation email.
+
+### How it works
+
+1. The extension detects a valuation request page and injects a **"Vardering"** panel in the sidebar
+2. Staff clicks **"Analysera och vardera"**
+3. The system:
+   - Fetches customer images from the page (via background service worker for CORS-safe cross-origin loading)
+   - Auto-resizes oversized images to fit the API limit (4.5MB safety threshold on base64 string length)
+   - Sends images + customer description to Claude Sonnet for analysis
+   - Extracts structured data: object type, brand/maker, artist, model, material, period, **number of objects**
+   - Searches Auctionet market data using progressive fallback queries (brand+model → brand+type → brand → type+material)
+   - Applies valuation rounding and minimum reserve rules
+   - **Multiplies per-item market data by object count** when multiple objects are detected
+4. Results are displayed with:
+   - **Valuation source indicator:** Green = "Baserat pa X salda foremal pa Auctionet", Orange = "Uppskattning — ingen jamforbar marknadsdata fran Auctionet"
+   - **Multi-object hint:** Blue banner when >1 object detected, showing total value and per-item breakdown (e.g., "2 foremal — 9 000 SEK totalt (ca 4 500 SEK/st)")
+   - Object identification and estimated value
+   - **"Se salda objekt pa Auctionet.com"** — verification link to review comparable sold items
+   - **Search query editor** — editable input pre-filled with the market search query + "Sok igen" button. Staff can refine the query (e.g., add "tryck" or "print" to narrow results) and re-run market analysis without re-running the full image analysis. Supports Enter key.
+   - Editable email textarea with the full response pre-filled
+   - "Kopiera text" (copy to clipboard) and "Skicka via e-post" (mailto: link) buttons
+5. The existing "Ja tack" button's placeholder is also updated with the valuation
+
+### Search query handling
+
+The valuation assistant bypasses the standard `formatArtistForSearch` quoting (which wraps multi-word strings as a single exact phrase) and calls the Auctionet API directly. Each word in the query is quoted individually, matching how the Auctionet website search works. This ensures queries like "Robert Hogfeldt print" find results by requiring all terms separately, rather than searching for the exact phrase.
+
+### Multi-object detection
+
+The system identifies when a customer submits multiple objects for valuation (e.g., "2 sofas" or "5 prints"). The AI counts distinct objects from both images and description, and the valuation reflects the total for all items. The per-item value is also shown so staff can verify reasonableness against market data.
+
+### Email templates
+
+- **Accept template (Swedish/English):** Professional response emphasizing online auctions on Auctionet.com with global reach (900k+ buyers, 180 countries, 5.5M monthly visits). Clearly states the valuation is preliminary and that physical inspection is required for a final estimate. Includes auction house address and phone number.
+- **Reject template (Swedish/English):** Polite response explaining the item's estimated value is below the auction threshold, noting the assessment is preliminary.
+- Language follows the page's email language selector
+- No "AI" branding — the tool presents itself neutrally as "Vardering" to avoid user apprehension
+
+### Page data scraped
+
+| Data | Source |
+|------|--------|
+| Customer name | Page heading |
+| Customer email | mailto: link in info table |
+| Description | Text after "Vad som ska varderas" heading |
+| Images | `.valuation-request-page__image img` elements (full-size URLs) |
+| Email language | `#locale_for_mail` selector |
+
+---
+
+## 11. AML / Anti-Money Laundering Compliance
 
 The quality rules engine includes automated AML compliance reminders that flag high-risk items during cataloging.
 
@@ -274,7 +360,7 @@ AML warnings appear as highlighted alerts in the quality control sidebar alongsi
 
 ---
 
-## 11. Unknown Artist Handling
+## 12. Unknown Artist Handling
 
 The extension respects Auctionet's convention for unsigned and unidentified works:
 
@@ -296,7 +382,7 @@ When these terms are present in the artist field:
 
 ---
 
-## 12. Settings & Configuration
+## 13. Settings & Configuration
 
 The extension popup (`popup.html`) provides:
 
@@ -312,22 +398,24 @@ All settings are stored in Chrome's sync storage (except the API key, which uses
 
 ---
 
-## 13. Technical Architecture
+## 14. Technical Architecture
 
 ### Module Structure
 
 ```
 auctionet-extension/
 ├── manifest.json                          # Chrome extension manifest (V3)
-├── background.js                          # Service worker (API proxy)
+├── background.js                          # Service worker (API proxy, image fetching)
 ├── content-script.js                      # Edit page entry point
 ├── content.js                             # Add/view page entry point
+├── valuation-request.js                   # Valuation request page entry point
 ├── popup.html / popup.js                  # Settings popup
 ├── styles.css                             # Main stylesheet
 │
 ├── modules/
 │   ├── api-manager.js                     # Claude API orchestration
 │   ├── auctionet-api.js                   # Auctionet market data API
+│   ├── valuation-request-assistant.js     # AI valuation for customer requests
 │   ├── quality-analyzer.js                # Main quality analysis engine
 │   ├── sales-analysis-manager.js          # Market analysis coordinator
 │   ├── dashboard-manager-v2.js            # Market dashboard UI
@@ -389,7 +477,8 @@ auctionet-extension/
 └── styles/components/                     # Component-specific CSS
     ├── freetext-parser.css
     ├── ai-image-analyzer.css
-    └── add-items-tooltips.css
+    ├── add-items-tooltips.css
+    └── valuation-request.css
 ```
 
 ### Data Flow
@@ -398,7 +487,7 @@ auctionet-extension/
 User action on Auctionet admin page
         │
         ▼
-Content Script (content.js / content-script.js)
+Content Script (content.js / content-script.js / valuation-request.js)
         │
         ├──► Quality Analyzer ──► Quality Rules Engine ──► UI Renderer
         │
@@ -412,7 +501,11 @@ Content Script (content.js / content-script.js)
         │
         ├──► Brand Validation Manager ──► Inline Corrections
         │
-        └──► Search Query SSoT ──► Pill Generator ──► Dashboard Header
+        ├──► Search Query SSoT ──► Pill Generator ──► Dashboard Header
+        │
+        └──► Valuation Request Assistant ──► Image Fetch (background.js)
+                  │                              ──► Claude Vision API
+                  └──► Auctionet Market Data ──► Email Generation
 ```
 
 ### Performance Characteristics
@@ -425,25 +518,28 @@ Content Script (content.js / content-script.js)
 
 ---
 
-## 14. Security Considerations
+## 15. Security Considerations
 
 - **API key storage:** The Anthropic API key is stored in Chrome's local storage (not sync storage) to prevent cross-device leakage
 - **XSS prevention:** All dynamic content is sanitized through the `escapeHTML` utility before DOM insertion
 - **No external servers:** All processing happens locally in the browser. The only external calls are to:
   - Anthropic API (for Claude AI)
   - Auctionet API (for market data)
+  - Auctionet image CDN (for fetching valuation request images)
   - Wikipedia API (for artist images)
 - **Content Security Policy:** Chrome Manifest V3 enforces strict CSP by default
 - **No data collection:** The extension does not collect, store, or transmit any catalog data beyond what is needed for the API calls above
 
 ---
 
-## 15. Data & Privacy
+## 16. Data & Privacy
 
 | Data Type | Where it goes | Retention |
 |-----------|---------------|-----------|
 | Catalog text (title, description, etc.) | Sent to Anthropic API for AI enhancement | Not stored — API calls are stateless |
-| Search queries | Sent to Auctionet API for market data | Cached locally for 30 min |
+| Valuation request images | Fetched from Auctionet CDN, sent to Anthropic API as base64 | Not stored — processed in memory only |
+| Customer info (name, email) | Scraped from page, used locally for email generation | Session only — not persisted |
+| Search queries | Sent to Auctionet API for market data | Cached locally for 30 min / 1 hour |
 | Artist names | Sent to Wikipedia for images | Not stored |
 | API key | Chrome local storage on user's machine | Until user removes it |
 | Settings | Chrome sync storage | Until user changes them |
@@ -453,4 +549,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document generated February 2026. Reflects extension version 1.2.0.*
+*Document updated February 15, 2026. Reflects extension version 1.4.0.*

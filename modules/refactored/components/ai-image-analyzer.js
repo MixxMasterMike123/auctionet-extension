@@ -114,14 +114,15 @@ export class AIImageAnalyzer {
    * Returns { base64, mediaType } — unchanged if already within limits.
    */
   async ensureBase64WithinLimit(base64, mediaType) {
-    const MAX_BASE64_BYTES = 5 * 1024 * 1024; // 5MB API limit
-    const byteSize = Math.ceil(base64.length * 3 / 4); // approximate decoded size
+    // Anthropic's 5MB limit is on the base64 STRING length, not decoded bytes.
+    // Use 4.5MB threshold for safety margin.
+    const MAX_BASE64_SIZE = 4.5 * 1024 * 1024;
     
-    if (byteSize <= MAX_BASE64_BYTES) {
+    if (base64.length <= MAX_BASE64_SIZE) {
       return { base64, mediaType };
     }
     
-    console.log(`[AIImageAnalyzer] Image too large for API (${(byteSize / 1024 / 1024).toFixed(1)}MB), resizing...`);
+    console.log(`[AIImageAnalyzer] Image base64 too large for API (${(base64.length / 1024 / 1024).toFixed(1)}MB), resizing...`);
     
     // Reconstruct a data URL to load into an Image element
     const dataUrl = `data:${mediaType || 'image/jpeg'};base64,${base64}`;
@@ -148,10 +149,9 @@ export class AIImageAnalyzer {
           ctx.drawImage(img, 0, 0, w, h);
           const resizedDataUrl = canvas.toDataURL('image/jpeg', quality);
           const resizedBase64 = resizedDataUrl.split(',')[1];
-          const resizedBytes = Math.ceil(resizedBase64.length * 3 / 4);
           
-          if (resizedBytes <= MAX_BASE64_BYTES || maxDim <= 600) {
-            console.log(`[AIImageAnalyzer] Resized to ${w}x${h} @ q${quality} = ${(resizedBytes / 1024 / 1024).toFixed(1)}MB`);
+          if (resizedBase64.length <= MAX_BASE64_SIZE || maxDim <= 600) {
+            console.log(`[AIImageAnalyzer] Resized to ${w}x${h} @ q${quality} = ${(resizedBase64.length / 1024 / 1024).toFixed(1)}MB base64`);
             resolve({ base64: resizedBase64, mediaType: 'image/jpeg' });
           } else {
             // Still too large — reduce further
