@@ -109,6 +109,65 @@ export class AIImageAnalyzer {
   }
 
   /**
+   * Ensure base64 image data is within the Anthropic API limit (5MB).
+   * If it exceeds the limit, resize via canvas and return smaller base64 + updated mediaType.
+   * Returns { base64, mediaType } — unchanged if already within limits.
+   */
+  async ensureBase64WithinLimit(base64, mediaType) {
+    const MAX_BASE64_BYTES = 5 * 1024 * 1024; // 5MB API limit
+    const byteSize = Math.ceil(base64.length * 3 / 4); // approximate decoded size
+    
+    if (byteSize <= MAX_BASE64_BYTES) {
+      return { base64, mediaType };
+    }
+    
+    console.log(`[AIImageAnalyzer] Image too large for API (${(byteSize / 1024 / 1024).toFixed(1)}MB), resizing...`);
+    
+    // Reconstruct a data URL to load into an Image element
+    const dataUrl = `data:${mediaType || 'image/jpeg'};base64,${base64}`;
+    
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        // Progressively shrink until under limit
+        let quality = 0.82;
+        let maxDim = 1400;
+        
+        const tryResize = () => {
+          let w = width, h = height;
+          if (w > maxDim || h > maxDim) {
+            const ratio = Math.min(maxDim / w, maxDim / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const resizedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          const resizedBase64 = resizedDataUrl.split(',')[1];
+          const resizedBytes = Math.ceil(resizedBase64.length * 3 / 4);
+          
+          if (resizedBytes <= MAX_BASE64_BYTES || maxDim <= 600) {
+            console.log(`[AIImageAnalyzer] Resized to ${w}x${h} @ q${quality} = ${(resizedBytes / 1024 / 1024).toFixed(1)}MB`);
+            resolve({ base64: resizedBase64, mediaType: 'image/jpeg' });
+          } else {
+            // Still too large — reduce further
+            maxDim -= 200;
+            quality = Math.max(0.5, quality - 0.1);
+            tryResize();
+          }
+        };
+        tryResize();
+      };
+      img.onerror = () => reject(new Error('Failed to load image for resizing'));
+      img.src = dataUrl;
+    });
+  }
+
+  /**
    * Analyze multiple images using Claude Vision API
    */
   async analyzeMultipleImages(additionalContext = '') {
@@ -141,13 +200,18 @@ export class AIImageAnalyzer {
       this.isProcessing = true;
       
       // Convert all images to base64 (support both File objects and dataUrl strings)
+      // Then ensure each is within the Anthropic 5MB API limit
       const imageData = new Map();
       for (const [categoryId, file] of this.currentImages) {
         const isDataUrl = typeof file === 'string' && file.startsWith('data:');
-        const base64 = isDataUrl ? file.split(',')[1] : await this.convertToBase64(file);
-        const mediaType = isDataUrl
+        let base64 = isDataUrl ? file.split(',')[1] : await this.convertToBase64(file);
+        let mediaType = isDataUrl
           ? (file.match(/^data:([^;]+);/)?.[1] || 'image/jpeg')
           : file.type;
+        // Resize if base64 exceeds Anthropic's 5MB per-image limit
+        const checked = await this.ensureBase64WithinLimit(base64, mediaType);
+        base64 = checked.base64;
+        mediaType = checked.mediaType;
         imageData.set(categoryId, {
           file,
           base64,
@@ -277,11 +341,15 @@ export class AIImageAnalyzer {
       this.isProcessing = true;
       
       // Convert image to base64 — extract from dataUrl or read from file
-      const base64Image = isDataUrl ? imageFile.split(',')[1] : await this.convertToBase64(imageFile);
+      let base64Image = isDataUrl ? imageFile.split(',')[1] : await this.convertToBase64(imageFile);
       // Extract media type from dataUrl (e.g. "data:image/jpeg;base64,...") or from File object
-      const mediaType = isDataUrl
+      let mediaType = isDataUrl
         ? (imageFile.match(/^data:([^;]+);/)?.[1] || 'image/jpeg')
         : imageFile.type;
+      // Resize if base64 exceeds Anthropic's 5MB per-image limit
+      const checked = await this.ensureBase64WithinLimit(base64Image, mediaType);
+      base64Image = checked.base64;
+      mediaType = checked.mediaType;
       
       // Get AI Rules System v2.0 prompts for image analysis
       const systemPrompt = this.getImageAnalysisSystemPrompt();

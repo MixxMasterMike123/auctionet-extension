@@ -1,0 +1,34 @@
+/* Valuation Request AI Assistant styles */
+
+#vr-ai-assistant {
+  border: 1px solid #d4edda;
+  background: #fff;
+}
+
+#vr-ai-assistant h3 {
+  color: #333;
+}
+
+/* Progress bar animation */
+@keyframes vrProgress {
+  0% { width: 5%; margin-left: 0; }
+  50% { width: 40%; margin-left: 30%; }
+  100% { width: 5%; margin-left: 95%; }
+}
+
+/* Textarea focus */
+#vr-email-text:focus {
+  border-color: #006ccc;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 108, 204, 0.15);
+}
+
+/* Button hover states */
+#vr-copy-btn:hover {
+  background: #e9ecef;
+}
+
+#vr-mailto-btn {
+  text-decoration: none !important;
+  color: #fff !important;
+}

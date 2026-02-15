@@ -27,6 +27,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.type === 'wikipedia-fetch') {
     handleWikipediaRequest(request, sendResponse);
     return true;
+  } else if (request.type === 'fetch-image-base64') {
+    handleFetchImageAsBase64(request, sendResponse);
+    return true;
   } else if (request.type === 'ping') {
     sendResponse({ success: true, message: 'pong' });
     return false;
@@ -97,6 +100,49 @@ async function handleAnthropicRequest(request, sendResponse) {
     
   } catch (error) {
     console.error('Background script error:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleFetchImageAsBase64(request, sendResponse) {
+  try {
+    const url = request.url;
+    if (!url) {
+      sendResponse({ success: false, error: 'URL is required' });
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      sendResponse({ success: false, error: `HTTP ${response.status}` });
+      return;
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Convert to base64 in chunks to avoid call stack issues
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    const base64 = btoa(binary);
+
+    sendResponse({
+      success: true,
+      base64,
+      mediaType: contentType.split(';')[0].trim(),
+      byteSize: arrayBuffer.byteLength
+    });
+  } catch (error) {
     sendResponse({ success: false, error: error.message });
   }
 }

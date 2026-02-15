@@ -10,6 +10,7 @@
   ],
   "host_permissions": [
     "https://auctionet.com/*",
+    "https://images.auctionet.com/*",
     "https://api.anthropic.com/*",
     "https://*.wikipedia.org/*",
     "https://upload.wikimedia.org/*"
@@ -42,6 +43,18 @@
         "styles/components/freetext-parser.css",
         "styles/components/ai-image-analyzer.css",
         "styles/components/add-items-tooltips.css"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://auctionet.com/admin/sas/valuation_requests/*"
+      ],
+      "js": [
+        "valuation-request.js"
+      ],
+      "css": [
+        "styles/components/valuation-request.css"
       ],
       "run_at": "document_end"
     }
