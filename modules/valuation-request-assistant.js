@@ -358,6 +358,14 @@ VIKTIGT för söktermer:
       // instead of individual required terms ("Robert" "Högfeldt" "tavla").
       const auctionetAPI = this.apiManager.auctionetAPI;
 
+      // Build itemData context for AI relevance filtering
+      const itemData = {
+        title: [result.brand, result.artist, result.objectType, result.model].filter(Boolean).join(' '),
+        category: result.objectType || '',
+        description: result.reasoning || '',
+        artist: result.artist || result.brand || ''
+      };
+
       // Try each query in order (most specific first)
       let marketAnalysis = null;
       let usedQuery = '';
@@ -372,7 +380,9 @@ VIKTIGT för söktermer:
             searchResult.soldItems,
             q,
             result.objectType || '',
-            searchResult.totalEntries
+            searchResult.totalEntries,
+            null,      // currentValuation
+            itemData   // enable AI relevance filtering
           );
           if (analysis && analysis.priceRange) {
             marketAnalysis = analysis;
@@ -386,13 +396,16 @@ VIKTIGT för söktermer:
       if (marketAnalysis && marketAnalysis.priceRange) {
         const marketLow = marketAnalysis.priceRange.low;
         const marketHigh = marketAnalysis.priceRange.high;
-        const marketMid = Math.round((marketLow + marketHigh) / 2);
+        // Use median for robust valuation — immune to outliers like multi-piece sets
+        const marketMedian = (marketAnalysis.statistics && marketAnalysis.statistics.median)
+          ? marketAnalysis.statistics.median
+          : Math.round((marketLow + marketHigh) / 2); // fallback only
         const numObjects = result.numberOfObjects || 1;
 
         // Market data reflects per-item prices — multiply by object count
         const aiEstimate = result.estimatedValue;
-        result.estimatedValuePerItem = this._roundValuation(marketMid);
-        result.estimatedValue = this._roundValuation(marketMid * numObjects);
+        result.estimatedValuePerItem = this._roundValuation(marketMedian);
+        result.estimatedValue = this._roundValuation(marketMedian * numObjects);
         result.marketDataUsed = true;
         result.marketSales = salesCount;
         result.marketRange = { low: marketLow, high: marketHigh };
@@ -402,7 +415,7 @@ VIKTIGT för söktermer:
           result.reasoning += ` Initial uppskattning: ${aiEstimate} SEK, marknadsdata: ${result.estimatedValue} SEK.`;
         }
 
-        result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${salesCount} jämförbara försäljningar, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK/st.`;
+        result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${salesCount} jämförbara försäljningar, median ${marketMedian.toLocaleString()} SEK, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK/st.`;
         if (numObjects > 1) {
           result.reasoning += ` Totalvärde: ${result.estimatedValue.toLocaleString()} SEK (${numObjects} st × ${result.estimatedValuePerItem.toLocaleString()} SEK).`;
         }

@@ -1507,14 +1507,14 @@ Ingen annan text.`;
     }
 
     // Extract prices from actual sales (possibly AI-filtered)
-    const prices = actualSales.map(item => item.finalPrice).filter(price => price > 0);
+    const allPrices = actualSales.map(item => item.finalPrice).filter(price => price > 0);
     
     // CRITICAL: Extract exceptional sales BEFORE outlier filtering
-    const exceptionalSales = this.detectExceptionalSales(actualSales, prices, currentValuation);
+    const exceptionalSales = this.detectExceptionalSales(actualSales, allPrices, currentValuation);
 
-    
-    // For luxury brands, keep ALL prices - don't remove "outliers" that might be legitimate premium models
-
+    // Apply IQR outlier removal for statistics (keeps data intact for display/trends)
+    const sortedForIQR = [...allPrices].sort((a, b) => a - b);
+    const prices = this.removeExtremeOutliers(sortedForIQR);
     
     // Calculate confidence based on all data
     const confidence = this.calculateConfidence(actualSales, artistName, objectType, totalMatches);
@@ -1890,7 +1890,8 @@ Ingen annan text.`;
     return { low, high, currency: 'SEK' };
   }
 
-  // NEW: Remove extreme outliers using intelligent analysis
+  // Remove extreme outliers using IQR (Interquartile Range) method
+  // Uses standard 1.5x IQR fences — the textbook approach for outlier detection
   removeExtremeOutliers(sortedPrices) {
     if (sortedPrices.length < 4) {
       return sortedPrices; // Need at least 4 data points for IQR
@@ -1903,29 +1904,21 @@ Ingen annan text.`;
     const q3 = sortedPrices[q3Index];
     const iqr = q3 - q1;
     
-    // Use a very conservative approach for outlier detection
-    // Only remove extreme outliers that are likely data errors (4.0 * IQR)
-    const lowerBound = q1 - (4.0 * iqr);
-    const upperBound = q3 + (4.0 * iqr);
+    // Standard IQR fences (1.5x) for outlier detection
+    // This removes results that are statistically inconsistent with the main group
+    // Example: prices [200, 350, 400, 450, 600, 900, 3896]
+    //   Q1=350, Q3=900, IQR=550 → upper fence = 900 + 825 = 1725 → removes 3896
+    const lowerBound = q1 - (1.5 * iqr);
+    const upperBound = q3 + (1.5 * iqr);
     
-    // Additional check: Only remove outliers if they're EXTREMELY unreasonable
-    // Allow up to 50x median as reasonable (very generous for art market)
-    const median = this.calculateMedian(sortedPrices);
-    const maxReasonablePrice = median * 50; // Much more generous threshold
-    
-    // Filter out only truly extreme outliers
-    const filtered = sortedPrices.filter(price => {
-      const isStatisticalOutlier = price < lowerBound || price > upperBound;
-      const isUnreasonablyHigh = price > maxReasonablePrice;
-      
-      // Only remove if BOTH statistically extreme AND unreasonably high
-      const shouldRemove = isStatisticalOutlier && isUnreasonablyHigh;
-
-      return !shouldRemove;
-    });
+    const filtered = sortedPrices.filter(price => price >= lowerBound && price <= upperBound);
     
     // Only apply filtering if we still have at least 3 data points
     if (filtered.length >= 3) {
+      const removed = sortedPrices.length - filtered.length;
+      if (removed > 0) {
+        console.log(`[AuctionetAPI] IQR outlier removal: removed ${removed} of ${sortedPrices.length} prices (fence: ${Math.round(lowerBound)}-${Math.round(upperBound)} SEK)`);
+      }
       return filtered;
     } else {
       return sortedPrices;
