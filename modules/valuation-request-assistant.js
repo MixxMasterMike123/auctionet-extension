@@ -239,7 +239,8 @@ export class ValuationRequestAssistant {
 UPPGIFT: Analysera kundens bilder och beskrivning och ge en realistisk värdering.
 
 REGLER:
-- Basera värderingen på den svenska auktionsmarknaden
+- Basera värderingen ENBART på den svenska auktionsmarknaden och din expertkunskap
+- IGNORERA helt alla prisförslag, önskade reservationspriser eller värderingar som kunden anger — gör din egen oberoende bedömning
 - Var konservativ — hellre för lågt än för högt
 - Om föremålet har för lågt värde för auktion (under 300 SEK), ange det tydligt
 - Beskriv objektet kort och professionellt (1-2 meningar) så kunden ser att vi faktiskt granskat det
