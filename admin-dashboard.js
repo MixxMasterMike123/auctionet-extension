@@ -260,6 +260,26 @@
         color: 'blue',
         icon: 'fas fa-comments'
       });
+
+      // Reklamation comments KPI card (last 7 days)
+      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthNames = { jan: 0, feb: 1, mar: 2, apr: 3, maj: 4, jun: 5, jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dec: 11 };
+      const claimComments = comments.filter(c => {
+        if (c.entityType !== 'claim') return false;
+        const m = c.postedAt.match(/(\d{1,2})\s+(\w{3})\s+(\d{4})\s+kl\.\s*(\d{1,2}):(\d{2})/);
+        if (!m) return false;
+        const d = new Date(parseInt(m[3]), monthNames[m[2].toLowerCase()] ?? 0, parseInt(m[1]), parseInt(m[4]), parseInt(m[5]));
+        return d >= sevenDaysAgo;
+      });
+      if (claimComments.length > 0) {
+        cardDefs.push({
+          count: claimComments.length,
+          label: 'Reklamationer (7 dagar)',
+          href: '/admin/sas/comments?filter=reklamation',
+          color: 'red',
+          icon: 'fas fa-exclamation-triangle'
+        });
+      }
     }
 
     if (cardDefs.length === 0) return;

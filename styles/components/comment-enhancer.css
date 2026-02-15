@@ -141,6 +141,91 @@
   color: #00695c;
 }
 
+/* ─── Filter Bar ─────────────────────────────────────────────────── */
+.ext-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 10px 0;
+}
+
+.ext-filter-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: 1.5px solid #d0d5da;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.ext-filter-pill:hover {
+  background: #f0f0f0;
+  border-color: #adb5bd;
+}
+
+/* Active states per type */
+.ext-filter-pill--active {
+  color: #fff !important;
+}
+
+.ext-filter-pill--alla.ext-filter-pill--active {
+  background: #495057;
+  border-color: #495057;
+}
+
+.ext-filter-pill--reklamation.ext-filter-pill--active {
+  background: #c62828;
+  border-color: #c62828;
+}
+
+.ext-filter-pill--kopare.ext-filter-pill--active {
+  background: #1565c0;
+  border-color: #1565c0;
+}
+
+.ext-filter-pill--foremal.ext-filter-pill--active {
+  background: #2e7d32;
+  border-color: #2e7d32;
+}
+
+.ext-filter-pill--saljare.ext-filter-pill--active {
+  background: #7b1fa2;
+  border-color: #7b1fa2;
+}
+
+.ext-filter-pill--faktura.ext-filter-pill--active {
+  background: #e65100;
+  border-color: #e65100;
+}
+
+.ext-filter-pill--transport.ext-filter-pill--active {
+  background: #00695c;
+  border-color: #00695c;
+}
+
+/* Inactive colored border hints */
+.ext-filter-pill--reklamation { border-color: #ef9a9a; color: #c62828; }
+.ext-filter-pill--kopare { border-color: #90caf9; color: #1565c0; }
+.ext-filter-pill--foremal { border-color: #a5d6a7; color: #2e7d32; }
+.ext-filter-pill--saljare { border-color: #ce93d8; color: #7b1fa2; }
+.ext-filter-pill--faktura { border-color: #ffcc80; color: #e65100; }
+.ext-filter-pill--transport { border-color: #80cbc4; color: #00695c; }
+
+.ext-filter-count {
+  font-size: 11px;
+  color: #888;
+  margin-left: 8px;
+  line-height: 1.5;
+}
+
 /* ─── Rich Comment Feed (comments listing page) ─────────────────── */
 .ext-cfeed {
   background: #fff;

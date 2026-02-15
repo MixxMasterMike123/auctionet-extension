@@ -26,9 +26,10 @@
       return;
     }
 
-    // On the full comments listing page, apply full rich feed design
+    // On the full comments listing page, apply full rich feed design + filter bar
     if (/\/admin\/sas\/comments/.test(path)) {
       renderRichCommentsList(commentsSection);
+      renderFilterBar(commentsSection);
       console.log(`[CommentEnhancer] Enhanced comments listing page`);
       return;
     }
@@ -182,6 +183,87 @@
     if (ul) {
       ul.style.display = 'none';
       ul.parentNode.insertBefore(feed, ul);
+    }
+  }
+
+  // ─── Filter Bar (for /admin/sas/comments page) ──────────────────
+
+  function renderFilterBar(section) {
+    const feed = section.querySelector('.ext-cfeed');
+    if (!feed) return;
+
+    const filters = [
+      { key: 'alla', label: 'Alla', cls: '' },
+      { key: 'reklamation', label: 'Reklamation', cls: 'ext-entity-badge--claim' },
+      { key: 'kopare', label: 'Köpare', cls: 'ext-entity-badge--buyer' },
+      { key: 'foremal', label: 'Föremål', cls: 'ext-entity-badge--item' },
+      { key: 'saljare', label: 'Säljare', cls: 'ext-entity-badge--seller' },
+      { key: 'faktura', label: 'Faktura', cls: 'ext-entity-badge--invoice' },
+      { key: 'transport', label: 'Transport', cls: 'ext-entity-badge--transport' }
+    ];
+
+    const bar = document.createElement('div');
+    bar.className = 'ext-filter-bar ext-animate-in';
+    bar.innerHTML = filters.map(f =>
+      `<button class="ext-filter-pill ext-filter-pill--${f.key}" data-filter="${f.key}" data-badge-cls="${f.cls}">${f.label}</button>`
+    ).join('');
+
+    // Insert above the feed
+    feed.parentNode.insertBefore(bar, feed);
+
+    // Filter logic
+    let activeFilter = 'alla';
+
+    function applyFilter(key) {
+      activeFilter = key;
+      // Update pill states
+      bar.querySelectorAll('.ext-filter-pill').forEach(pill => {
+        pill.classList.toggle('ext-filter-pill--active', pill.dataset.filter === key);
+      });
+
+      // Show/hide comment items
+      const items = feed.querySelectorAll('.ext-cfeed-item');
+      const filterDef = filters.find(f => f.key === key);
+
+      items.forEach(item => {
+        if (key === 'alla') {
+          item.style.display = '';
+          return;
+        }
+        const badge = item.querySelector(`.ext-entity-badge.${filterDef.cls}`);
+        item.style.display = badge ? '' : 'none';
+      });
+
+      // Update count indicator
+      let countEl = bar.querySelector('.ext-filter-count');
+      if (key !== 'alla') {
+        const visible = feed.querySelectorAll('.ext-cfeed-item:not([style*="display: none"])').length;
+        if (!countEl) {
+          countEl = document.createElement('span');
+          countEl.className = 'ext-filter-count';
+          bar.appendChild(countEl);
+        }
+        countEl.textContent = `${visible} kommentarer`;
+        countEl.style.display = '';
+      } else if (countEl) {
+        countEl.style.display = 'none';
+      }
+    }
+
+    // Click handlers
+    bar.addEventListener('click', (e) => {
+      const pill = e.target.closest('.ext-filter-pill');
+      if (!pill) return;
+      applyFilter(pill.dataset.filter);
+    });
+
+    // Check URL param for initial filter
+    const urlParams = new URLSearchParams(window.location.search);
+    const filterParam = urlParams.get('filter');
+    if (filterParam && filters.some(f => f.key === filterParam)) {
+      applyFilter(filterParam);
+    } else {
+      applyFilter('alla');
     }
   }
 
