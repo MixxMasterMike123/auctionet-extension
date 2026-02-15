@@ -301,7 +301,7 @@ VIKTIGT för söktermer:
         body: {
           model,
           max_tokens: 800,
-          temperature: 0.15,
+          temperature: 0.4, // Higher temp for image analysis — encourages thorough detail extraction
           system: systemPrompt,
           messages: [{ role: 'user', content }]
         }
