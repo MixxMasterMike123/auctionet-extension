@@ -1,6 +1,6 @@
 # Auctionet AI Cataloging Assistant
 
-**Version 1.6.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 1.7.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
@@ -49,7 +49,7 @@ The extension operates on four Auctionet admin page types:
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
-- Claude AI via Anthropic API (Sonnet 4.5 for complex tasks, Haiku 4.5 for fast classification)
+- Claude AI via Anthropic API (Opus 4.6 for valuation and biography, Sonnet 4.5 for cataloging, Haiku 4.5 for fast classification)
 - Auctionet public API for market data (historical + live auctions)
 - Wikipedia API for artist images
 - Pure JavaScript — no frameworks, no build step
@@ -302,13 +302,17 @@ A dedicated tool for the valuation request pages (`/admin/sas/valuation_requests
 1. The extension detects a valuation request page and injects a **"Vardering"** panel in the sidebar
 2. Staff clicks **"Analysera och vardera"**
 3. The system:
-   - Fetches customer images from the page (via background service worker for CORS-safe cross-origin loading)
+   - Fetches up to 10 customer images from the page (via background service worker for CORS-safe cross-origin loading)
    - Auto-resizes oversized images to fit the API limit (4.5MB safety threshold on base64 string length)
-   - Sends images + customer description to Claude Sonnet for analysis
+   - Sends images + customer description to **Claude Opus 4.6** for analysis (significantly better at reading labels, signatures, markings, and identifying specific models from images compared to Sonnet)
    - Extracts structured data: object type, brand/maker, artist, model, material, period, **number of objects**
-   - Searches Auctionet market data using progressive fallback queries (brand+model → brand+type → brand → type+material)
-   - Applies valuation rounding and minimum reserve rules
+   - Searches Auctionet market data using progressive fallback queries (brand+model+artist → brand+model → artist+model → brand+artist → brand+type → artist+type → brand → artist → type+material)
+   - **IQR outlier removal:** Filters statistically extreme prices (e.g., multi-piece sets inflating single-item valuations) using standard 1.5x Interquartile Range fences
+   - **AI relevance filtering:** Claude Haiku validates each search result's relevance to the item when data spread is high (>5x) or sample is large (>15 items)
+   - **Median-based valuation:** Uses the statistical median of filtered comparable sales — robust against remaining outliers
+   - Applies valuation rounding and minimum auction threshold (300 SEK)
    - **Multiplies per-item market data by object count** when multiple objects are detected
+   - **Customer price anchoring prevention:** AI is explicitly instructed to ignore any price suggestions or desired reserve prices stated by the customer
 4. Results are displayed with:
    - **Valuation source indicator:** Green = "Baserat pa X salda foremal pa Auctionet", Orange = "Uppskattning — ingen jamforbar marknadsdata fran Auctionet"
    - **Multi-object hint:** Blue banner when >1 object detected, showing total value and per-item breakdown (e.g., "2 foremal — 9 000 SEK totalt (ca 4 500 SEK/st)")
@@ -715,4 +719,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated February 15, 2026. Reflects extension version 1.6.0.*
+*Document updated February 15, 2026. Reflects extension version 1.7.0.*
