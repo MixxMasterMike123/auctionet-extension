@@ -221,19 +221,17 @@
     const actions = scrapeRequestedActions();
     const sidebar = scrapeSidebarCounts();
 
-    // Map action keywords to colors and icons
-    const cardDefs = [];
+    // ── Row 1: Action items (from Auctionet alerts + sidebar counts) ──
+    const actionCards = [];
 
-    // From requested actions
     actions.forEach(a => {
       let color = 'blue', icon = 'fas fa-bell';
       if (/reklamation|ångerrätt/i.test(a.label)) { color = 'red'; icon = 'fas fa-reply'; }
       else if (/värdering/i.test(a.label)) { color = 'orange'; icon = 'fas fa-balance-scale'; }
       else if (/export/i.test(a.label)) { color = 'yellow'; icon = 'fas fa-globe'; }
-      cardDefs.push({ ...a, color, icon });
+      actionCards.push({ ...a, color, icon });
     });
 
-    // Key sidebar counts
     const keyLabels = ['Opublicerbara', 'Hantera sålda', 'Hantera plocklista', 'Omlistas ej'];
     sidebar.forEach(s => {
       if (keyLabels.some(k => s.label.includes(k))) {
@@ -242,18 +240,18 @@
         else if (/sålda/i.test(s.label)) { color = 'green'; icon = 'fas fa-check-circle'; }
         else if (/plocklista/i.test(s.label)) { color = 'blue'; icon = 'fas fa-dolly'; }
         else if (/omlistas/i.test(s.label)) { color = 'yellow'; icon = 'fas fa-redo'; }
-        cardDefs.push({ count: s.count, label: s.label, href: s.href, color, icon });
+        actionCards.push({ count: s.count, label: s.label, href: s.href, color, icon });
       }
     });
 
-    // Comment count KPI card
+    // ── Row 2: Insight cards (comments, reklamation tracking) ──
+    const insightCards = [];
     const comments = scrapeComments();
     if (comments.length > 0) {
-      // Count today's comments
       const today = new Date();
       const todayStr = `${today.getDate()} ${['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][today.getMonth()]} ${today.getFullYear()}`;
       const todayCount = comments.filter(c => c.postedAt.includes(todayStr)).length;
-      cardDefs.push({
+      insightCards.push({
         count: todayCount > 0 ? todayCount : comments.length,
         label: todayCount > 0 ? 'Kommentarer idag' : 'Senaste kommentarer',
         href: '/admin/sas/comments',
@@ -261,7 +259,6 @@
         icon: 'fas fa-comments'
       });
 
-      // Reklamation comments KPI card (last 7 days)
       const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
       const monthNames = { jan: 0, feb: 1, mar: 2, apr: 3, maj: 4, jun: 5, jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dec: 11 };
       const claimComments = comments.filter(c => {
@@ -272,9 +269,9 @@
         return d >= sevenDaysAgo;
       });
       if (claimComments.length > 0) {
-        cardDefs.push({
+        insightCards.push({
           count: claimComments.length,
-          label: 'Reklamationer (7 dagar)',
+          label: 'Reklamationskommentarer (7d)',
           href: '/admin/sas/comments?filter=reklamation',
           color: 'red',
           icon: 'fas fa-exclamation-triangle'
@@ -282,11 +279,10 @@
       }
     }
 
-    if (cardDefs.length === 0) return;
+    if (actionCards.length === 0 && insightCards.length === 0) return;
 
-    const grid = document.createElement('div');
-    grid.className = 'ext-kpi-grid ext-animate-in';
-    grid.innerHTML = cardDefs.map(c => `
+    // Helper to render a card
+    const cardHTML = (c) => `
       <a class="ext-kpi-card ext-kpi-card--${c.color}" href="${c.href}">
         <div class="ext-kpi-card__icon"><i class="icon ${c.icon}"></i></div>
         <div>
@@ -294,13 +290,38 @@
           <div class="ext-kpi-card__label">${c.label}</div>
         </div>
       </a>
-    `).join('');
+    `;
+
+    const container = document.createElement('div');
+    container.className = 'ext-kpi-container ext-animate-in';
+
+    // Row 1: Action items
+    if (actionCards.length > 0) {
+      const actionGrid = document.createElement('div');
+      actionGrid.className = 'ext-kpi-grid ext-kpi-grid--actions';
+      actionGrid.innerHTML = actionCards.map(cardHTML).join('');
+      container.appendChild(actionGrid);
+    }
+
+    // Row 2: Insights
+    if (insightCards.length > 0) {
+      const insightRow = document.createElement('div');
+      insightRow.className = 'ext-kpi-insights';
+      insightRow.innerHTML = `
+        <div class="ext-kpi-insights__label">
+          <i class="icon fas fa-chart-line" style="opacity: 0.4; margin-right: 4px;"></i>Insikter
+        </div>
+        <div class="ext-kpi-grid ext-kpi-grid--insights">
+          ${insightCards.map(cardHTML).join('')}
+        </div>
+      `;
+      container.appendChild(insightRow);
+    }
 
     // Insert before the requested-actions div
     const target = document.querySelector('.requested-actions') || document.querySelector('.view');
     if (target) {
-      target.parentNode.insertBefore(grid, target);
-      // Hide the original alerts since we're replacing them
+      target.parentNode.insertBefore(container, target);
       const origActions = document.querySelector('.requested-actions');
       if (origActions) origActions.style.display = 'none';
     }
@@ -338,9 +359,9 @@
       </div>
     `;
 
-    const kpiGrid = document.querySelector('.ext-kpi-grid');
-    if (kpiGrid) {
-      kpiGrid.parentNode.insertBefore(widget, kpiGrid.nextSibling);
+    const kpiContainer = document.querySelector('.ext-kpi-container') || document.querySelector('.ext-kpi-grid');
+    if (kpiContainer) {
+      kpiContainer.parentNode.insertBefore(widget, kpiContainer.nextSibling);
     }
   }
 

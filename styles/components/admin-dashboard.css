@@ -1,18 +1,26 @@
 /* Admin Dashboard Enhancement styles */
 
+/* ─── KPI Container ──────────────────────────────────────────────── */
+.ext-kpi-container {
+  margin-bottom: 16px;
+}
+
 /* ─── KPI Hero Cards ──────────────────────────────────────────────── */
 .ext-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.ext-kpi-grid--actions {
+  margin-bottom: 0;
 }
 
 .ext-kpi-card {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: #fff;
   border: 1px solid #e9ecef;
   border-left: 4px solid #6c757d;
@@ -35,7 +43,7 @@
 .ext-kpi-card--green { border-left-color: #28a745; }
 
 .ext-kpi-card__count {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1;
   color: #333;
@@ -48,11 +56,51 @@
 }
 
 .ext-kpi-card__icon {
-  font-size: 18px;
+  font-size: 16px;
   opacity: 0.5;
-  width: 22px;
+  width: 20px;
   text-align: center;
   flex-shrink: 0;
+}
+
+/* ─── Insights Row (smaller, lighter) ────────────────────────────── */
+.ext-kpi-insights {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.ext-kpi-insights__label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+
+.ext-kpi-grid--insights {
+  grid-template-columns: repeat(auto-fit, minmax(140px, max-content));
+}
+
+.ext-kpi-grid--insights .ext-kpi-card {
+  padding: 7px 10px;
+  background: #fafbfc;
+  border-color: #f0f0f0;
+  border-left-width: 3px;
+}
+
+.ext-kpi-grid--insights .ext-kpi-card__count {
+  font-size: 16px;
+}
+
+.ext-kpi-grid--insights .ext-kpi-card__label {
+  font-size: 10px;
+}
+
+.ext-kpi-grid--insights .ext-kpi-card__icon {
+  font-size: 13px;
+  width: 18px;
 }
 
 /* ─── Daily Goal Ring ─────────────────────────────────────────────── */

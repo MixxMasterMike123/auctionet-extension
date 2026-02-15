@@ -352,7 +352,9 @@ Visual enhancements for the main admin page (`/admin/sas`) that transform existi
 
 ### KPI Hero Cards
 
-Color-coded, clickable cards injected at the top of the page, replacing the plain text alerts:
+Organized into two distinct rows for clear visual hierarchy:
+
+**Row 1 — Action Items:** Color-coded, clickable cards from Auctionet's built-in alerts and sidebar counts:
 
 | Card | Source | Color |
 |------|--------|-------|
@@ -363,9 +365,15 @@ Color-coded, clickable cards injected at the top of the page, replacing the plai
 | Hantera salda foremal | Sidebar turbo-frame count | Green |
 | Hantera plocklista | Sidebar turbo-frame count | Blue |
 | Omlistas ej automatiskt | Sidebar turbo-frame count | Yellow |
-| Reklamationer (7 dagar) | Comment feed (claim-type comments from last 7 days) | Red |
 
-Each card links to the corresponding admin page for immediate action. The Reklamationer card links to `/admin/sas/comments?filter=reklamation`, pre-activating the Reklamation filter on the comments page.
+**Row 2 — Insikter (Insights):** Smaller, lighter cards for extension-added metrics, separated by a thin divider and "Insikter" label:
+
+| Card | Source | Color |
+|------|--------|-------|
+| Senaste kommentarer / Kommentarer idag | Comment feed | Blue |
+| Reklamationskommentarer (7d) | Claim-type comments from last 7 days | Red |
+
+Each card links to the corresponding admin page for immediate action. The Reklamationskommentarer card links to `/admin/sas/comments?filter=reklamation`, pre-activating the Reklamation filter on the comments page. The two-row layout clearly separates Auctionet's "Reklamationer" action count from the extension's claim comment tracking.
 
 ### Comment Feed
 
