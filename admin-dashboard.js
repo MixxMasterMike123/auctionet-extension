@@ -244,8 +244,22 @@
       }
     });
 
-    // ── Row 2: Insight cards (comments, reklamation tracking) ──
+    // ── Row 2: Insight cards (daily stats, comments, reklamation tracking) ──
     const insightCards = [];
+
+    // Daily registration count
+    const dailyStats = scrapeDailyGoal();
+    if (dailyStats) {
+      const sekLabel = dailyStats.sek > 0 ? ` · ${formatSEK(dailyStats.sek)} SEK` : '';
+      insightCards.push({
+        count: dailyStats.current,
+        label: `Inskrivet idag${sekLabel}`,
+        href: '#',
+        color: 'green',
+        icon: 'fas fa-pen'
+      });
+    }
+
     const comments = scrapeComments();
     if (comments.length > 0) {
       const today = new Date();
@@ -327,43 +341,7 @@
     }
   }
 
-  // ─── 2. Daily Goal Progress Ring ──────────────────────────────────
-
-  function renderDailyGoal() {
-    const goal = scrapeDailyGoal();
-    if (!goal) return;
-
-    const pct = goal.goal > 0 ? Math.min(100, (goal.current / goal.goal) * 100) : 0;
-    const r = 26;
-    const circ = 2 * Math.PI * r;
-    const offset = circ - (pct / 100) * circ;
-    const strokeColor = pct >= 100 ? '#28a745' : pct >= 50 ? '#006ccc' : '#e65100';
-
-    const widget = document.createElement('div');
-    widget.className = 'ext-goal-widget ext-animate-in';
-    widget.innerHTML = `
-      <div class="ext-goal-ring">
-        <svg width="64" height="64" viewBox="0 0 64 64">
-          <circle class="ext-goal-ring__track" cx="32" cy="32" r="${r}" />
-          <circle class="ext-goal-ring__fill" cx="32" cy="32" r="${r}"
-                  stroke="${strokeColor}"
-                  stroke-dasharray="${circ}"
-                  stroke-dashoffset="${offset}" />
-        </svg>
-        <div class="ext-goal-ring__text">${goal.current}/${goal.goal}</div>
-      </div>
-      <div class="ext-goal-info">
-        <div class="ext-goal-info__title">Inskrivet idag</div>
-        <div class="ext-goal-info__subtitle">${Math.round(pct)}% av dagsmål</div>
-        ${goal.sek > 0 ? `<div class="ext-goal-info__sek">${formatSEK(goal.sek)} SEK</div>` : ''}
-      </div>
-    `;
-
-    const kpiContainer = document.querySelector('.ext-kpi-container') || document.querySelector('.ext-kpi-grid');
-    if (kpiContainer) {
-      kpiContainer.parentNode.insertBefore(widget, kpiContainer.nextSibling);
-    }
-  }
+  // ─── 2. Daily Registration Count (insight card) ─────────────────
 
   // ─── 3. Pipeline Funnel ───────────────────────────────────────────
 
@@ -700,7 +678,6 @@
   // ─── Initialize ───────────────────────────────────────────────────
 
   let hasRenderedKPI = false;
-  let hasRenderedGoal = false;
   let hasRenderedPipeline = false;
   let hasRenderedInsights = false;
   let hasRenderedInventory = false;
@@ -713,12 +690,6 @@
       if (!hasRenderedKPI && document.querySelector('.requested-actions')) {
         renderKPICards();
         hasRenderedKPI = true;
-      }
-
-      // Daily goal — needs navbar counter (immediate)
-      if (!hasRenderedGoal && document.querySelector('.test-new-items')) {
-        renderDailyGoal();
-        hasRenderedGoal = true;
       }
 
       // Pipeline funnel — needs #statistics flow table (immediate)
@@ -771,7 +742,7 @@
       tryRenderAll();
 
       // Stop observing once everything has rendered
-      if (hasRenderedKPI && hasRenderedGoal && hasRenderedPipeline &&
+      if (hasRenderedKPI && hasRenderedPipeline &&
           hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard &&
           hasRenderedComments) {
         observer.disconnect();
