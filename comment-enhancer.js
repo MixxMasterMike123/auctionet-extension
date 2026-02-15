@@ -158,7 +158,7 @@
       const body = bodyEl ? bodyEl.innerHTML.trim() : '';
 
       richItems.push(`
-        <a class="ext-cfeed-item" href="${commentedHref || '#'}">
+        <div class="ext-cfeed-item" data-href="${commentedHref || ''}">
           <div class="ext-cfeed-item__avatar" style="background: ${avatarColor};">${initials}</div>
           <div class="ext-cfeed-item__content">
             <div class="ext-cfeed-item__header">
@@ -169,7 +169,7 @@
             <div class="ext-cfeed-item__entity-text">${commentedText}</div>
             <div class="ext-cfeed-item__body">${body}</div>
           </div>
-        </a>
+        </div>
       `);
     });
 
@@ -177,6 +177,16 @@
     const feed = document.createElement('div');
     feed.className = 'ext-cfeed ext-animate-in';
     feed.innerHTML = richItems.join('');
+
+    // Click handler: navigate to entity unless user clicked an inner link
+    feed.addEventListener('click', function(e) {
+      // If user clicked a real link inside the body, let it work normally
+      if (e.target.closest('a')) return;
+      const item = e.target.closest('.ext-cfeed-item');
+      if (item && item.dataset.href) {
+        window.location.href = item.dataset.href;
+      }
+    });
 
     // Replace the original <ul> with our rich feed
     const ul = section.querySelector('ul.unstyled');
@@ -214,7 +224,7 @@
     // Filter logic
     let activeFilter = 'alla';
 
-    function applyFilter(key) {
+    function applyFilter(key, fromURL) {
       activeFilter = key;
       // Update pill states
       bar.querySelectorAll('.ext-filter-pill').forEach(pill => {
@@ -248,6 +258,36 @@
       } else if (countEl) {
         countEl.style.display = 'none';
       }
+
+      // Sync filter to URL and pagination links (skip if this was the initial URL-based activation)
+      if (!fromURL) {
+        syncFilterToURL(key);
+      }
+    }
+
+    function syncFilterToURL(key) {
+      const params = new URLSearchParams(window.location.search);
+      if (key === 'alla') {
+        params.delete('filter');
+      } else {
+        params.set('filter', key);
+      }
+      const qs = params.toString();
+      const newURL = window.location.pathname + (qs ? '?' + qs : '');
+      history.replaceState(null, '', newURL);
+
+      // Update pagination links to match
+      document.querySelectorAll('.pagination a[href]').forEach(a => {
+        try {
+          const u = new URL(a.href, window.location.origin);
+          if (key === 'alla') {
+            u.searchParams.delete('filter');
+          } else {
+            u.searchParams.set('filter', key);
+          }
+          a.href = u.pathname + u.search;
+        } catch (_) {}
+      });
     }
 
     // Click handlers
@@ -257,13 +297,18 @@
       applyFilter(pill.dataset.filter);
     });
 
-    // Check URL param for initial filter
+    // Check URL param for initial filter (e.g. from dashboard card link)
     const urlParams = new URLSearchParams(window.location.search);
     const filterParam = urlParams.get('filter');
     if (filterParam && filters.some(f => f.key === filterParam)) {
-      applyFilter(filterParam);
+      // Apply filter visually but mark as fromURL so we don't re-write the URL yet
+      applyFilter(filterParam, true);
+      // Ensure pagination links carry the filter forward
+      syncFilterToURL(filterParam);
     } else {
-      applyFilter('alla');
+      applyFilter('alla', true);
+      // Strip any stale filter param from pagination links
+      syncFilterToURL('alla');
     }
   }
 

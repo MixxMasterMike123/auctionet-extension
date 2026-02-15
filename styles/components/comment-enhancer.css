@@ -317,6 +317,17 @@
   margin: 0;
 }
 
+.ext-cfeed-item__body a {
+  color: #006ccc;
+  text-decoration: underline;
+  position: relative;
+  z-index: 1;
+}
+
+.ext-cfeed-item__body a:hover {
+  color: #004a99;
+}
+
 /* ─── Animation ──────────────────────────────────────────────────── */
 @keyframes extCommentFadeIn {
   from { opacity: 0; transform: translateY(-4px); }

@@ -615,7 +615,7 @@
       const truncatedBody = c.body.length > 140 ? c.body.substring(0, 140) + '...' : c.body;
 
       return `
-        <a class="ext-comment-item" href="${c.commentedHref || '#'}">
+        <div class="ext-comment-item" data-href="${c.commentedHref || ''}">
           <div class="ext-comment-item__avatar" style="background: ${avatarColor};">${initials}</div>
           <div class="ext-comment-item__content">
             <div class="ext-comment-item__header">
@@ -626,7 +626,7 @@
             <div class="ext-comment-item__entity-text">${c.commentedText}</div>
             <div class="ext-comment-item__body">${truncatedBody}</div>
           </div>
-        </a>
+        </div>
       `;
     }).join('');
 
@@ -644,6 +644,15 @@
         ${feedHTML}
       </div>
     `;
+
+    // Click handler: navigate to entity unless user clicked an inner link
+    feed.addEventListener('click', function(e) {
+      if (e.target.closest('a')) return;
+      const item = e.target.closest('.ext-comment-item');
+      if (item && item.dataset.href) {
+        window.location.href = item.dataset.href;
+      }
+    });
 
     // Insert above the original "Allas kommentarer" section
     const origSection = document.querySelector('#comments');
