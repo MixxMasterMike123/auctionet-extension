@@ -1,11 +1,11 @@
-/* Valuation Request AI Assistant styles */
+/* Valuation Request Assistant styles */
 
-#vr-ai-assistant {
+#vr-assistant {
   border: 1px solid #d4edda;
   background: #fff;
 }
 
-#vr-ai-assistant h3 {
+#vr-assistant h3 {
   color: #333;
 }
 

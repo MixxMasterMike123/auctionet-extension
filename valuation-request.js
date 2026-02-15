@@ -52,7 +52,7 @@ if (/\/valuation_requests\/\d+/.test(window.location.pathname)) {
     const assistant = new window.ValuationRequestAssistant(apiBridge.getAPIManager());
     assistant.init();
 
-    console.log('[ValuationRequest] AI Valuation Assistant initialized');
+    console.log('[ValuationRequest] Valuation Assistant initialized');
   }).catch(error => {
     console.error('[ValuationRequest] Failed to initialize:', error);
   });

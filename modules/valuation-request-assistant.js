@@ -1,5 +1,5 @@
 // modules/valuation-request-assistant.js
-// AI-powered valuation assistant for Auctionet valuation request pages
+// Valuation assistant for Auctionet valuation request pages
 // Analyzes customer-submitted images and descriptions, generates valuation emails
 
 export class ValuationRequestAssistant {
@@ -178,7 +178,7 @@ export class ValuationRequestAssistant {
     });
   }
 
-  // ─── AI Valuation ─────────────────────────────────────────────────────
+  // ─── Valuation ───────────────────────────────────────────────────────
 
   async runAIValuation() {
     if (this.isProcessing) return;
@@ -196,7 +196,7 @@ export class ValuationRequestAssistant {
       }
 
       // Step 2: AI analysis
-      this._updateStatus(`Analyserar ${images.length} bild(er) med AI...`);
+      this._updateStatus(`Analyserar ${images.length} bild(er)...`);
       const aiResult = await this._callClaudeForValuation(images);
 
       // Step 3: Market data enrichment
@@ -212,7 +212,7 @@ export class ValuationRequestAssistant {
       this._renderResults(enrichedResult);
 
     } catch (error) {
-      console.error('[ValuationRequest] AI valuation failed:', error);
+      console.error('[ValuationRequest] Valuation failed:', error);
       this._showError(error.message);
     } finally {
       this.isProcessing = false;
@@ -299,7 +299,7 @@ VIKTIGT för söktermer:
           return;
         }
         if (!response?.success) {
-          reject(new Error(response?.error || 'AI-analys misslyckades'));
+          reject(new Error(response?.error || 'Analys misslyckades'));
           return;
         }
 
@@ -307,7 +307,7 @@ VIKTIGT för söktermer:
           const text = response.data.content?.[0]?.text || '';
           // Extract JSON from response (may be wrapped in markdown code blocks)
           const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error('Kunde inte tolka AI-svaret');
+          if (!jsonMatch) throw new Error('Kunde inte tolka svaret');
 
           const parsed = JSON.parse(jsonMatch[0]);
           resolve({
@@ -326,7 +326,7 @@ VIKTIGT för söktermer:
             marketSales: 0
           });
         } catch (parseError) {
-          reject(new Error('Kunde inte tolka AI-svaret: ' + parseError.message));
+          reject(new Error('Kunde inte tolka svaret: ' + parseError.message));
         }
       });
     });
@@ -383,7 +383,7 @@ VIKTIGT för söktermer:
         result.marketQuery = usedQuery;
 
         if (aiEstimate && Math.abs(aiEstimate - marketMid) > marketMid * 0.3) {
-          result.reasoning += ` AI-uppskattning: ${aiEstimate} SEK, marknadsdata: ${marketMid} SEK.`;
+          result.reasoning += ` Initial uppskattning: ${aiEstimate} SEK, marknadsdata: ${marketMid} SEK.`;
         }
 
         result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${salesCount} jämförbara försäljningar, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK.`;
@@ -572,14 +572,14 @@ Phone: +46 60 17 00 40`;
 
     // Create container
     const container = document.createElement('div');
-    container.id = 'vr-ai-assistant';
+    container.id = 'vr-assistant';
     container.className = 'well hide-in-print';
     container.innerHTML = `
       <h3 class="center heading heading--size-sm heading--weight-medium heading--with-margin">
-        AI Värdering
+        Värdering
       </h3>
       <p style="font-size: 13px; color: #666; margin-bottom: 12px;">
-        Analyserar kundens bilder och beskrivning med AI och Auctionets marknadsdata.
+        Analyserar kundens bilder och beskrivning med hjälp av Auctionets marknadsdata.
       </p>
       <div id="vr-image-count" style="font-size: 12px; color: #888; margin-bottom: 8px;">
         ${this.pageData.imageUrls.length} bild(er) · ${this.pageData.description ? 'Beskrivning finns' : 'Ingen beskrivning'}
@@ -674,7 +674,7 @@ Phone: +46 60 17 00 40`;
          </div>`
       : `<div class="vr-source" style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-bottom: 10px; background: #fff3e0; border-radius: 4px; font-size: 12px; color: #e65100;">
            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
-           <span>AI-uppskattning — ingen jämförbar marknadsdata hittades från Auctionet</span>
+           <span>Uppskattning — ingen jämförbar marknadsdata hittades från Auctionet</span>
          </div>`;
 
     // Value display
@@ -801,7 +801,7 @@ Phone: +46 60 17 00 40`;
       });
     }
 
-    // Also update the existing "Ja tack" button with the AI valuation
+    // Also update the existing "Ja tack" button with the valuation
     this._updateExistingYesButton();
   }
 
