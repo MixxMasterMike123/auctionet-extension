@@ -7,6 +7,9 @@ export class ValuationRequestAssistant {
     this.apiManager = apiManager;
     this.pageData = null;
     this.valuationResult = null;
+    this.multiGroupResults = null;
+    this.confirmedGroups = null;
+    this.fetchedImages = null;
     this.isProcessing = false;
   }
 
@@ -178,6 +181,237 @@ export class ValuationRequestAssistant {
     });
   }
 
+  // ─── Image Clustering ────────────────────────────────────────────────
+
+  async _clusterImages(images, customerDescription) {
+    const apiKey = this.apiManager.apiKey;
+    if (!apiKey) throw new Error('API-nyckel saknas.');
+
+    const content = [];
+    for (let i = 0; i < images.length; i++) {
+      content.push({
+        type: 'image',
+        source: { type: 'base64', media_type: images[i].mediaType, data: images[i].base64 }
+      });
+      content.push({ type: 'text', text: `[Bild ${i + 1}]` });
+    }
+
+    content.push({
+      type: 'text',
+      text: `Kundens beskrivning: "${customerDescription || '(ingen)'}"
+
+UPPGIFT: Granska bilderna och avgör om de visar ETT eller FLERA OLIKA föremål.
+Bilder av samma föremål (t.ex. framsida och baksida av en tavla, eller närbild av en signatur) ska grupperas ihop.
+Olika föremål (t.ex. en tavla OCH en vas) ska vara separata grupper.
+
+Svara i JSON:
+{
+  "groups": [
+    { "id": 1, "imageIndices": [0, 1, 2], "label": "kort beskrivning, t.ex. Oljemålning, landskap" },
+    { "id": 2, "imageIndices": [3, 4], "label": "kort beskrivning" }
+  ]
+}
+
+imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grupp.`
+    });
+
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({
+        type: 'anthropic-fetch',
+        apiKey,
+        body: {
+          model: 'claude-opus-4-6',
+          max_tokens: 400,
+          temperature: 0.2,
+          messages: [{ role: 'user', content }]
+        }
+      }, (response) => {
+        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+        if (!response?.success) return reject(new Error(response?.error || 'Klustring misslyckades'));
+
+        try {
+          const text = response.data.content?.[0]?.text || '';
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) throw new Error('Kunde inte tolka klustringssvar');
+
+          const parsed = JSON.parse(jsonMatch[0]);
+          const groups = (parsed.groups || []).map((g, i) => ({
+            id: g.id || i + 1,
+            imageIndices: Array.isArray(g.imageIndices) ? g.imageIndices : [],
+            label: g.label || `Grupp ${i + 1}`
+          }));
+
+          resolve(groups);
+        } catch (e) {
+          reject(new Error('Kunde inte tolka klustringssvar: ' + e.message));
+        }
+      });
+    });
+  }
+
+  // ─── Clustering UI (Drag & Drop) ───────────────────────────────────
+
+  _renderClusteringUI(groups, images) {
+    const results = document.getElementById('vr-results');
+    if (!results) return;
+
+    results.style.display = 'block';
+
+    const thumbsHTML = (indices) => indices.map(idx => {
+      const img = images[idx];
+      if (!img) return '';
+      const src = `data:${img.mediaType};base64,${img.base64}`;
+      return `<div class="vr-cluster-thumb" draggable="true" data-img-idx="${idx}">
+        <img src="${src}" alt="Bild ${idx + 1}">
+        <span class="vr-cluster-thumb__label">${idx + 1}</span>
+      </div>`;
+    }).join('');
+
+    const groupsHTML = groups.map(g => `
+      <div class="vr-cluster-group" data-group-id="${g.id}">
+        <div class="vr-cluster-group__header">
+          <input class="vr-cluster-group__label" type="text" value="${this._escapeHTML(g.label)}" data-group-id="${g.id}">
+          <button class="vr-cluster-group__remove" data-group-id="${g.id}" title="Ta bort grupp">&times;</button>
+        </div>
+        <div class="vr-cluster-group__thumbs" data-group-id="${g.id}">
+          ${thumbsHTML(g.imageIndices)}
+        </div>
+      </div>
+    `).join('');
+
+    results.innerHTML = `
+      <div class="vr-cluster-container">
+        <div style="font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px;">
+          AI har identifierat ${groups.length} föremål
+        </div>
+        <div style="font-size: 11px; color: #888; margin-bottom: 10px;">
+          Dra bilder mellan grupper om det behövs. Klicka "Värdera alla" när grupperingen stämmer.
+        </div>
+        <div id="vr-cluster-groups">
+          ${groupsHTML}
+        </div>
+        <button id="vr-add-group-btn" class="btn btn-small" style="margin-top: 8px;">
+          + Ny grupp
+        </button>
+        <button id="vr-run-valuation-btn" class="btn btn-block btn-success" style="margin-top: 12px;">
+          Värdera alla (${groups.length} föremål)
+        </button>
+      </div>
+    `;
+
+    this._attachClusterHandlers(groups, images);
+  }
+
+  _attachClusterHandlers(groups, images) {
+    const container = document.getElementById('vr-cluster-groups');
+    if (!container) return;
+
+    let draggedIdx = null;
+
+    // Drag start
+    container.addEventListener('dragstart', (e) => {
+      const thumb = e.target.closest('.vr-cluster-thumb');
+      if (!thumb) return;
+      draggedIdx = parseInt(thumb.dataset.imgIdx);
+      thumb.classList.add('vr-cluster-thumb--dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', draggedIdx.toString());
+    });
+
+    // Drag end
+    container.addEventListener('dragend', (e) => {
+      const thumb = e.target.closest('.vr-cluster-thumb');
+      if (thumb) thumb.classList.remove('vr-cluster-thumb--dragging');
+      container.querySelectorAll('.vr-cluster-group--dragover').forEach(el =>
+        el.classList.remove('vr-cluster-group--dragover')
+      );
+      draggedIdx = null;
+    });
+
+    // Dragover / dragleave on drop zones
+    container.addEventListener('dragover', (e) => {
+      const zone = e.target.closest('.vr-cluster-group__thumbs');
+      if (!zone) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      zone.closest('.vr-cluster-group')?.classList.add('vr-cluster-group--dragover');
+    });
+
+    container.addEventListener('dragleave', (e) => {
+      const zone = e.target.closest('.vr-cluster-group__thumbs');
+      if (zone) {
+        const group = zone.closest('.vr-cluster-group');
+        if (group && !group.contains(e.relatedTarget)) {
+          group.classList.remove('vr-cluster-group--dragover');
+        }
+      }
+    });
+
+    // Drop
+    container.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const zone = e.target.closest('.vr-cluster-group__thumbs');
+      if (!zone || draggedIdx === null) return;
+
+      const targetGroupId = parseInt(zone.dataset.groupId);
+      const imgIdx = draggedIdx;
+
+      // Remove from old group
+      for (const g of groups) {
+        g.imageIndices = g.imageIndices.filter(i => i !== imgIdx);
+      }
+      // Add to new group
+      const targetGroup = groups.find(g => g.id === targetGroupId);
+      if (targetGroup) targetGroup.imageIndices.push(imgIdx);
+
+      // Re-render
+      this._renderClusteringUI(groups, images);
+    });
+
+    // Remove group button
+    container.querySelectorAll('.vr-cluster-group__remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const gid = parseInt(btn.dataset.groupId);
+        const group = groups.find(g => g.id === gid);
+        if (!group) return;
+
+        // Move images to first remaining group, or create uncategorized
+        const otherGroups = groups.filter(g => g.id !== gid);
+        if (otherGroups.length > 0) {
+          otherGroups[0].imageIndices.push(...group.imageIndices);
+        }
+        const idx = groups.indexOf(group);
+        groups.splice(idx, 1);
+        this._renderClusteringUI(groups, images);
+      });
+    });
+
+    // Label editing
+    container.querySelectorAll('.vr-cluster-group__label').forEach(input => {
+      input.addEventListener('change', () => {
+        const gid = parseInt(input.dataset.groupId);
+        const group = groups.find(g => g.id === gid);
+        if (group) group.label = input.value.trim() || group.label;
+      });
+    });
+
+    // Add group
+    document.getElementById('vr-add-group-btn')?.addEventListener('click', () => {
+      const maxId = Math.max(0, ...groups.map(g => g.id));
+      groups.push({ id: maxId + 1, imageIndices: [], label: 'Nytt föremål' });
+      this._renderClusteringUI(groups, images);
+    });
+
+    // Run valuation for all groups
+    document.getElementById('vr-run-valuation-btn')?.addEventListener('click', () => {
+      // Remove empty groups
+      const validGroups = groups.filter(g => g.imageIndices.length > 0);
+      if (validGroups.length === 0) return;
+      this.confirmedGroups = validGroups;
+      this._runMultiGroupValuation(validGroups, images);
+    });
+  }
+
   // ─── Valuation ───────────────────────────────────────────────────────
 
   async runAIValuation() {
@@ -187,7 +421,7 @@ export class ValuationRequestAssistant {
     try {
       this._showLoading();
 
-      // Step 1: Fetch images (cap at 10 to stay within API request size limits)
+      // Step 1: Fetch images
       const MAX_IMAGES = 10;
       this._updateStatus('Hämtar bilder...');
       let images = await this.fetchImagesAsBase64();
@@ -201,24 +435,92 @@ export class ValuationRequestAssistant {
         images = images.slice(0, MAX_IMAGES);
       }
 
-      // Step 2: AI analysis
-      this._updateStatus(`Analyserar ${images.length} bild(er)${this.pageData.imageUrls.length > MAX_IMAGES ? ` (av ${this.pageData.imageUrls.length})` : ''}...`);
-      const aiResult = await this._callClaudeForValuation(images);
+      this.fetchedImages = images;
 
-      // Step 3: Market data enrichment
-      this._updateStatus('Söker marknadsdata på Auctionet...');
-      const enrichedResult = await this._enrichWithMarketData(aiResult);
+      // Step 2: If multiple images, cluster them to detect multiple objects
+      if (images.length > 1) {
+        this._updateStatus('Analyserar bildgruppering...');
+        try {
+          const groups = await this._clusterImages(images, this.pageData.description);
+          console.log('[ValuationRequest] Clustering result:', groups);
 
-      // Step 4: Round and finalize
-      enrichedResult.estimatedValue = this._roundValuation(enrichedResult.estimatedValue);
+          if (groups.length > 1) {
+            // Multiple objects detected — show grouping UI for confirmation
+            this.isProcessing = false;
+            const btn = document.getElementById('vr-analyze-btn');
+            if (btn) {
+              btn.disabled = false;
+              btn.innerHTML = '<i class="icon fas fa-magic"></i> Analysera igen';
+            }
+            this._renderClusteringUI(groups, images);
+            return;
+          }
+        } catch (clusterError) {
+          console.warn('[ValuationRequest] Clustering failed, proceeding with single-object flow:', clusterError);
+        }
+      }
 
-      this.valuationResult = enrichedResult;
-
-      // Step 5: Render results
-      this._renderResults(enrichedResult);
+      // Single-object flow (original path)
+      await this._runSingleObjectValuation(images);
 
     } catch (error) {
       console.error('[ValuationRequest] Valuation failed:', error);
+      this._showError(error.message);
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  async _runSingleObjectValuation(images) {
+    this._updateStatus(`Analyserar ${images.length} bild(er)...`);
+    const aiResult = await this._callClaudeForValuation(images);
+
+    this._updateStatus('Söker marknadsdata på Auctionet...');
+    const enrichedResult = await this._enrichWithMarketData(aiResult);
+    enrichedResult.estimatedValue = this._roundValuation(enrichedResult.estimatedValue);
+
+    this.valuationResult = enrichedResult;
+    this.multiGroupResults = null;
+    this._renderResults(enrichedResult);
+  }
+
+  async _runMultiGroupValuation(groups, images) {
+    this.isProcessing = true;
+    this._showLoading();
+
+    try {
+      const totalGroups = groups.length;
+      const groupResults = await Promise.all(groups.map(async (group, idx) => {
+        const groupImages = group.imageIndices.map(i => images[i]).filter(Boolean);
+        if (groupImages.length === 0) return null;
+
+        this._updateStatus(`Analyserar föremål ${idx + 1} av ${totalGroups}: ${group.label}...`);
+        const aiResult = await this._callClaudeForValuation(groupImages);
+        aiResult.groupLabel = group.label;
+        aiResult.groupImageIndices = group.imageIndices;
+
+        this._updateStatus(`Söker marknadsdata för ${group.label}...`);
+        const enriched = await this._enrichWithMarketData(aiResult);
+        enriched.estimatedValue = this._roundValuation(enriched.estimatedValue);
+        return enriched;
+      }));
+
+      const validResults = groupResults.filter(Boolean);
+      const totalValue = validResults.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
+
+      this.multiGroupResults = validResults;
+      this.valuationResult = {
+        isMultiGroup: true,
+        groups: validResults,
+        estimatedValue: totalValue,
+        numberOfObjects: validResults.length,
+        tooLowForAuction: false
+      };
+
+      this._renderMultiGroupResults(validResults, images);
+
+    } catch (error) {
+      console.error('[ValuationRequest] Multi-group valuation failed:', error);
       this._showError(error.message);
     } finally {
       this.isProcessing = false;
@@ -244,9 +546,21 @@ REGLER:
 - Var konservativ — hellre för lågt än för högt
 - Om föremålet har för lågt värde för auktion (under 300 SEK), ange det tydligt
 - Beskriv objektet kort och professionellt (1-2 meningar) så kunden ser att vi faktiskt granskat det
-- Räkna ALLTID hur många separata föremål kunden vill ha värderade (baserat på bilder OCH beskrivning). T.ex. "2 soffor", "5 tryck", "1 vas" etc.
-- estimatedValue ska vara TOTAL värdering för ALLA föremål sammanlagt
-- Svara ALLTID i JSON-format`;
+- Svara ALLTID i JSON-format
+
+KRITISKT — ANTAL AUKTIONSPOSTER (numberOfLots):
+- Räkna hur många SEPARATA AUKTIONSPOSTER det blir — INTE enskilda delar.
+- En servis med 56 delar = 1 auktionspost (säljs som ett lot)
+- Ett par stolar = 1 auktionspost (säljs som par)
+- En bestickuppsättning med 69 delar = 1 auktionspost
+- 3 helt OLIKA föremål (t.ex. en tavla + en vas + en stol) = 3 auktionsposter
+- estimatedValue ska vara TOTAL värdering för ALLA poster sammanlagt
+- Ange pieces (totalt antal enskilda delar) separat, t.ex. 56 för en servis
+
+KRITISKT — VÄRDERING AV SAMLINGAR/SET:
+- En servis, bestickuppsättning, par stolar etc. ska värderas som ETT lot — INTE per styck
+- Sök marknadsdata på hela setet (t.ex. "Gefle Tibet servis") — inte per tallrik
+- estimatedValue = vad hela setet säljs för på auktion som ett enda lot`;
 
     // Build content array with images + text
     const content = [];
@@ -274,17 +588,19 @@ Antal bilder: ${images.length}
 
 Analysera bilderna och beskrivningen. Returnera EXAKT detta JSON-format:
 {
-  "objectType": "kort typ, t.ex. Armbandsur, Oljemålning, Vas, Fåtölj",
+  "objectType": "kort typ, t.ex. Armbandsur, Oljemålning, Servis, Bestickuppsättning, Fåtölj",
   "brand": "märke/tillverkare om identifierbart, t.ex. Certina, Rörstrand, Georg Jensen, annars null",
   "artist": "konstnär/formgivare om identifierbar, annars null",
-  "model": "modellnamn om känt, t.ex. DS Nautic, Graal, annars null",
+  "model": "modellnamn om känt, t.ex. DS Nautic, Tibet, Graal, annars null",
   "material": "huvudmaterial, t.ex. rostfritt stål, keramik, olja på duk, annars null",
   "period": "ungefärlig period, t.ex. 1960-tal, 2000-tal, annars null",
-  "numberOfObjects": <antal separata föremål kunden vill värdera, t.ex. 1, 2, 5>,
-  "briefDescription": "1-2 professionella meningar som beskriver föremålet/föremålen för kunden",
-  "estimatedValue": <TOTAL värdering i SEK för ALLA föremål sammanlagt>,
-  "estimatedValuePerItem": <uppskattning per styck om numberOfObjects > 1, annars samma som estimatedValue>,
-  "tooLowForAuction": <true om estimatedValuePerItem under 300 SEK>,
+  "numberOfLots": <antal separata AUKTIONSPOSTER, t.ex. 1 för en servis, 2 för två olika föremål>,
+  "pieces": <totalt antal enskilda delar, t.ex. 56 för en servis med 56 delar, 1 för en enskild tavla>,
+  "isSet": <true om det är en samling/set/par som säljs som ett lot, t.ex. servis, bestickuppsättning, par stolar>,
+  "briefDescription": "1-2 professionella meningar som beskriver föremålet/föremålen för kunden, inkl. antal delar om relevant",
+  "estimatedValue": <TOTAL värdering i SEK för ALLA lots sammanlagt — för set/samlingar: värdera som ETT lot>,
+  "estimatedValuePerLot": <uppskattning per auktionspost om numberOfLots > 1, annars samma som estimatedValue>,
+  "tooLowForAuction": <true om estimatedValuePerLot under 300 SEK>,
   "confidence": <0.0-1.0>,
   "reasoning": "intern motivering för värderingen (visas ej för kund)"
 }
@@ -323,7 +639,9 @@ VIKTIGT för söktermer:
           if (!jsonMatch) throw new Error('Kunde inte tolka svaret');
 
           const parsed = JSON.parse(jsonMatch[0]);
-          const numberOfObjects = parseInt(parsed.numberOfObjects) || 1;
+          const numberOfLots = parseInt(parsed.numberOfLots) || parseInt(parsed.numberOfObjects) || 1;
+          const pieces = parseInt(parsed.pieces) || numberOfLots;
+          const isSet = Boolean(parsed.isSet) || pieces > numberOfLots;
           resolve({
             objectType: parsed.objectType || 'Föremål',
             brand: parsed.brand || null,
@@ -331,10 +649,14 @@ VIKTIGT för söktermer:
             model: parsed.model || null,
             material: parsed.material || null,
             period: parsed.period || null,
-            numberOfObjects,
+            numberOfLots,
+            numberOfObjects: numberOfLots,
+            pieces,
+            isSet,
             briefDescription: parsed.briefDescription || '',
             estimatedValue: parseInt(parsed.estimatedValue) || 0,
-            estimatedValuePerItem: parseInt(parsed.estimatedValuePerItem) || parseInt(parsed.estimatedValue) || 0,
+            estimatedValuePerLot: parseInt(parsed.estimatedValuePerLot) || parseInt(parsed.estimatedValuePerItem) || parseInt(parsed.estimatedValue) || 0,
+            estimatedValuePerItem: parseInt(parsed.estimatedValuePerLot) || parseInt(parsed.estimatedValuePerItem) || parseInt(parsed.estimatedValue) || 0,
             tooLowForAuction: Boolean(parsed.tooLowForAuction),
             confidence: parseFloat(parsed.confidence) || 0.5,
             reasoning: parsed.reasoning || '',
@@ -399,16 +721,29 @@ VIKTIGT för söktermer:
       if (marketAnalysis && marketAnalysis.priceRange) {
         const marketLow = marketAnalysis.priceRange.low;
         const marketHigh = marketAnalysis.priceRange.high;
-        // Use median for robust valuation — immune to outliers like multi-piece sets
         const marketMedian = (marketAnalysis.statistics && marketAnalysis.statistics.median)
           ? marketAnalysis.statistics.median
-          : Math.round((marketLow + marketHigh) / 2); // fallback only
-        const numObjects = result.numberOfObjects || 1;
+          : Math.round((marketLow + marketHigh) / 2);
 
-        // Market data reflects per-item prices — multiply by object count
+        // For sets (servis, bestick, etc.), market data already reflects the whole-lot price.
+        // Only multiply by numberOfLots for genuinely separate auction lots.
+        const numLots = result.numberOfLots || 1;
+        const isSet = result.isSet;
+
         const aiEstimate = result.estimatedValue;
-        result.estimatedValuePerItem = this._roundValuation(marketMedian);
-        result.estimatedValue = this._roundValuation(marketMedian * numObjects);
+
+        if (isSet || numLots <= 1) {
+          // Set or single item — market median IS the total value
+          result.estimatedValuePerLot = this._roundValuation(marketMedian);
+          result.estimatedValuePerItem = result.estimatedValuePerLot;
+          result.estimatedValue = result.estimatedValuePerLot;
+        } else {
+          // Multiple separate lots — multiply
+          result.estimatedValuePerLot = this._roundValuation(marketMedian);
+          result.estimatedValuePerItem = result.estimatedValuePerLot;
+          result.estimatedValue = this._roundValuation(marketMedian * numLots);
+        }
+
         result.marketDataUsed = true;
         result.marketSales = salesCount;
         result.marketRange = { low: marketLow, high: marketHigh };
@@ -418,12 +753,15 @@ VIKTIGT för söktermer:
           result.reasoning += ` Initial uppskattning: ${aiEstimate} SEK, marknadsdata: ${result.estimatedValue} SEK.`;
         }
 
-        result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${salesCount} jämförbara försäljningar, median ${marketMedian.toLocaleString()} SEK, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK/st.`;
-        if (numObjects > 1) {
-          result.reasoning += ` Totalvärde: ${result.estimatedValue.toLocaleString()} SEK (${numObjects} st × ${result.estimatedValuePerItem.toLocaleString()} SEK).`;
+        result.reasoning += ` Marknadsanalys (sök: "${usedQuery}"): ${salesCount} jämförbara försäljningar, median ${marketMedian.toLocaleString()} SEK, prisintervall ${marketLow.toLocaleString()}-${marketHigh.toLocaleString()} SEK.`;
+        if (numLots > 1 && !isSet) {
+          result.reasoning += ` Totalvärde: ${result.estimatedValue.toLocaleString()} SEK (${numLots} poster × ${result.estimatedValuePerLot.toLocaleString()} SEK).`;
+        }
+        if (isSet && result.pieces > 1) {
+          result.reasoning += ` Värderat som ett lot (${result.pieces} delar).`;
         }
         result.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
-        result.tooLowForAuction = result.estimatedValuePerItem < 300;
+        result.tooLowForAuction = result.estimatedValuePerLot < 300;
       }
 
       return result;
@@ -605,6 +943,103 @@ Verkstadsgatan 4, 853 33 Sundsvall
 Phone: +46 60 17 00 40`;
   }
 
+  _generateMultiObjectEmail(groupResults) {
+    const name = this.pageData.customerName || '';
+    const lang = this.pageData.language || 'sv';
+    const totalValue = groupResults.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
+    const acceptableItems = groupResults.filter(r => !r.tooLowForAuction);
+    const lowItems = groupResults.filter(r => r.tooLowForAuction);
+
+    if (lang === 'sv') {
+      return this._generateSwedishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems);
+    }
+    return this._generateEnglishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems);
+  }
+
+  _generateSwedishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems) {
+    const sections = groupResults.map((r, i) => {
+      const label = r.groupLabel || r.objectType || 'Föremål';
+      const value = (r.estimatedValue || 0).toLocaleString();
+      const desc = r.briefDescription || '';
+      const lowNote = r.tooLowForAuction ? '\nObservera att detta föremål har ett för lågt uppskattat värde för auktionsförsäljning.' : '';
+
+      return `--- Föremål ${i + 1}: ${label} ---
+${desc}
+Uppskattat värde: ${value} kr${lowNote}`;
+    }).join('\n\n');
+
+    const totalLine = `Totalt uppskattat värde: ${totalValue.toLocaleString()} kr`;
+
+    const actionText = acceptableItems.length > 0
+      ? `\nVi tar gärna emot ${acceptableItems.length === groupResults.length ? 'alla föremålen' : 'de föremål som uppfyller minimivärdet'} för försäljning via våra onlineauktioner på Auctionet.com — en av Europas ledande marknadsplatser för konst, antikviteter och design med över 900 000 registrerade köpare i 180 länder och 5,5 miljoner besök varje månad.
+
+Om du vill gå vidare är du välkommen att lämna in dina föremål till oss. En av våra experter granskar dem och gör en slutgiltig värdering. Föremålen läggs ut på auktion först efter att du godkänt värderingen och bevakningspriset. Vi tar hand om hela processen: fotografering, katalogisering, auktion, betalning och eventuell transport. Utbetalning sker cirka 25 dagar efter avslutad auktion.`
+      : `\nTyvärr bedömer vi att samtliga föremål har för låga uppskattade värden för försäljning via våra onlineauktioner.`;
+
+    const lowNote = lowItems.length > 0 && acceptableItems.length > 0
+      ? `\nObservera att ${lowItems.length === 1 ? 'ett föremål har' : `${lowItems.length} föremål har`} för lågt uppskattat värde för auktionsförsäljning (under 300 kr).`
+      : '';
+
+    return `Hej ${name},
+
+Tack för din värderingsförfrågan! Vi har granskat dina ${groupResults.length} föremål.
+
+${sections}
+
+${totalLine}
+
+Observera att detta är ungefärliga bedömningar baserade på bilder och beskrivning — den slutgiltiga värderingen görs först när vi har möjlighet att fysiskt granska föremålen.${lowNote}${actionText}
+
+Hör gärna av dig om du har frågor!
+
+Med vänliga hälsningar,
+Stadsauktion Sundsvall
+Verkstadsgatan 4, 853 33 Sundsvall
+Telefon: 060 - 17 00 40`;
+  }
+
+  _generateEnglishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems) {
+    const sections = groupResults.map((r, i) => {
+      const label = r.groupLabel || r.objectType || 'Item';
+      const value = (r.estimatedValue || 0).toLocaleString();
+      const desc = r.briefDescription || '';
+      const lowNote = r.tooLowForAuction ? '\nPlease note that this item has too low an estimated value for auction.' : '';
+
+      return `--- Item ${i + 1}: ${label} ---
+${desc}
+Estimated value: ${value} SEK${lowNote}`;
+    }).join('\n\n');
+
+    const totalLine = `Total estimated value: ${totalValue.toLocaleString()} SEK`;
+
+    const actionText = acceptableItems.length > 0
+      ? `\nWe would be happy to accept ${acceptableItems.length === groupResults.length ? 'all items' : 'the items that meet our minimum value'} for sale through our online auctions on Auctionet.com — one of Europe's leading marketplaces for art, antiques and design, with over 900,000 registered buyers in 180 countries and 5.5 million visits every month.
+
+If you would like to proceed, you are welcome to bring your items to us. One of our experts will examine them and make a final valuation. Items will only be listed for auction after you have approved the valuation and reserve price. We handle the entire process: photography, cataloging, auction, payment and shipping. Payment is made approximately 25 days after the auction closes.`
+      : `\nUnfortunately, we estimate that all items have too low a value for sale through our online auctions.`;
+
+    const lowNote = lowItems.length > 0 && acceptableItems.length > 0
+      ? `\nPlease note that ${lowItems.length === 1 ? 'one item has' : `${lowItems.length} items have`} too low an estimated value for auction (below 300 SEK).`
+      : '';
+
+    return `Hi ${name},
+
+Thank you for your valuation request! We have reviewed your ${groupResults.length} items.
+
+${sections}
+
+${totalLine}
+
+Please note that these are approximate assessments based on photos and description — the final valuation will be made once we have the opportunity to physically examine the items.${lowNote}${actionText}
+
+Please don't hesitate to contact us if you have questions!
+
+Best regards,
+Stadsauktion Sundsvall
+Verkstadsgatan 4, 853 33 Sundsvall
+Phone: +46 60 17 00 40`;
+  }
+
   // ─── UI ───────────────────────────────────────────────────────────────
 
   injectUI() {
@@ -734,13 +1169,19 @@ Phone: +46 60 17 00 40`;
            <div style="font-size: 11px; color: ${confColor}; margin-top: 2px;">${confLabel} säkerhet</div>
          </div>`;
 
-    // Multi-object hint
-    const multiObjectHTML = (result.numberOfObjects && result.numberOfObjects > 1)
-      ? `<div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-bottom: 10px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1565c0;">
+    // Lot/set info hint
+    let multiObjectHTML = '';
+    if (result.isSet && result.pieces > 1) {
+      multiObjectHTML = `<div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-bottom: 10px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1565c0;">
            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-           <span><strong>${result.numberOfObjects} föremål</strong> identifierade — värderingen avser alla sammanlagt${result.estimatedValuePerItem ? ` (ca ${result.estimatedValuePerItem.toLocaleString()} SEK/st)` : ''}</span>
-         </div>`
-      : '';
+           <span><strong>${result.pieces} delar</strong> — värderat som ett lot (säljs samlat)</span>
+         </div>`;
+    } else if (result.numberOfLots > 1) {
+      multiObjectHTML = `<div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-bottom: 10px; background: #e3f2fd; border-radius: 4px; font-size: 12px; color: #1565c0;">
+           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+           <span><strong>${result.numberOfLots} auktionsposter</strong> — totalt${result.estimatedValuePerLot ? ` (ca ${result.estimatedValuePerLot.toLocaleString()} SEK/post)` : ''}</span>
+         </div>`;
+    }
 
     // Object description
     const descHTML = result.briefDescription
@@ -803,6 +1244,192 @@ Phone: +46 60 17 00 40`;
 
     // Attach handlers
     this._attachResultHandlers();
+  }
+
+  _renderMultiGroupResults(groupResults, images) {
+    const results = document.getElementById('vr-results');
+    const btn = document.getElementById('vr-analyze-btn');
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="icon fas fa-magic"></i> Analysera igen';
+    }
+    if (!results) return;
+
+    const totalValue = groupResults.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
+    const emailText = this._generateMultiObjectEmail(groupResults);
+
+    // Summary card
+    const summaryHTML = `
+      <div class="vr-multi-summary">
+        <div class="vr-multi-summary__count">${groupResults.length} föremål identifierade</div>
+        <div class="vr-multi-summary__total">Totalt: ${totalValue.toLocaleString()} SEK</div>
+      </div>`;
+
+    // Per-group result cards — compact horizontal layout
+    const groupCardsHTML = groupResults.map((r, idx) => {
+      const confLabel = r.confidence >= 0.7 ? 'Hög' : r.confidence >= 0.4 ? 'Medel' : 'Låg';
+      const confColor = r.confidence >= 0.7 ? '#28a745' : r.confidence >= 0.4 ? '#006ccc' : '#e65100';
+
+      // Show only first image as a small thumb
+      const firstImgIdx = (r.groupImageIndices || [])[0];
+      const firstImg = firstImgIdx != null ? images[firstImgIdx] : null;
+      const thumbHTML = firstImg
+        ? `<img class="vr-group-result__thumb" src="data:${firstImg.mediaType};base64,${firstImg.base64}">`
+        : '';
+      const imgCount = (r.groupImageIndices || []).length;
+      const imgCountBadge = imgCount > 1 ? `<span class="vr-group-result__imgcount">${imgCount}</span>` : '';
+
+      const sourceTag = r.marketDataUsed
+        ? `<span class="vr-group-result__tag vr-group-result__tag--market">${r.marketSales} sålda</span>`
+        : `<span class="vr-group-result__tag vr-group-result__tag--ai">AI</span>`;
+
+      const verifyQuery = r.marketQuery || r.brand || r.artist || r.objectType || '';
+
+      const lowClass = r.tooLowForAuction ? ' vr-group-result__price--low' : '';
+
+      return `
+        <div class="vr-group-result" data-group-idx="${idx}">
+          <div class="vr-group-result__row">
+            <div class="vr-group-result__img-wrap">
+              ${thumbHTML}${imgCountBadge}
+            </div>
+            <div class="vr-group-result__info">
+              <div class="vr-group-result__top">
+                <span class="vr-group-result__label">${idx + 1}. ${this._escapeHTML(r.groupLabel || r.objectType || 'Föremål')}</span>
+                <span class="vr-group-result__price${lowClass}">${(r.estimatedValue || 0).toLocaleString()} kr</span>
+              </div>
+              <div class="vr-group-result__meta">
+                ${sourceTag}
+                <span style="color:${confColor}">${confLabel}</span>
+                ${r.tooLowForAuction ? '<span class="vr-group-result__low-tag">Under min.</span>' : ''}
+                ${verifyQuery ? `<a href="https://auctionet.com/sv/search?is=ended&q=${encodeURIComponent(verifyQuery)}" target="_blank" class="vr-group-result__link">Sålda</a>` : ''}
+              </div>
+              <div class="vr-group-result__search-row">
+                <input type="text" value="${this._escapeHTML(verifyQuery)}"
+                       class="vr-group-search-input" data-group-idx="${idx}">
+                <button class="vr-group-reanalyze" data-group-idx="${idx}">Sök</button>
+              </div>
+              <div class="vr-group-search-feedback" data-group-idx="${idx}"></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    results.style.display = 'block';
+    results.innerHTML = `
+      ${summaryHTML}
+      ${groupCardsHTML}
+
+      <div style="margin-top: 8px;">
+        <label style="font-size: 11px; font-weight: 600; color: #888; display: block; margin-bottom: 3px;">E-post:</label>
+        <textarea id="vr-email-text" style="width: 100%; min-height: 180px; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; font-family: inherit; resize: vertical; line-height: 1.4;">${this._escapeHTML(emailText)}</textarea>
+      </div>
+
+      <div style="display: flex; gap: 6px; margin-top: 8px;">
+        <button id="vr-copy-btn" class="btn btn-block" style="flex: 1; font-size: 12px;">
+          <i class="icon fas fa-copy"></i> Kopiera
+        </button>
+        <a id="vr-mailto-btn" class="btn btn-block btn-success" style="flex: 1; text-align: center; font-size: 12px;" href="#">
+          <i class="icon fas fa-envelope"></i> Skicka
+        </a>
+      </div>
+      <div id="vr-copy-feedback" style="display: none; text-align: center; font-size: 11px; color: #28a745; margin-top: 4px;">
+        Kopierat!
+      </div>
+    `;
+
+    this._attachResultHandlers();
+    this._attachGroupSearchHandlers(groupResults, images);
+  }
+
+  _attachGroupSearchHandlers(groupResults, images) {
+    document.querySelectorAll('.vr-group-reanalyze').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.groupIdx);
+        this._rerunGroupMarketSearch(idx, groupResults, images);
+      });
+    });
+
+    document.querySelectorAll('.vr-group-search-input').forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const idx = parseInt(input.dataset.groupIdx);
+          this._rerunGroupMarketSearch(idx, groupResults, images);
+        }
+      });
+    });
+  }
+
+  async _rerunGroupMarketSearch(groupIdx, groupResults, images) {
+    const input = document.querySelector(`.vr-group-search-input[data-group-idx="${groupIdx}"]`);
+    const btn = document.querySelector(`.vr-group-reanalyze[data-group-idx="${groupIdx}"]`);
+    const feedback = document.querySelector(`.vr-group-search-feedback[data-group-idx="${groupIdx}"]`);
+    if (!input) return;
+
+    const query = input.value.trim();
+    if (query.length < 2) {
+      if (feedback) {
+        feedback.style.display = 'block';
+        feedback.style.color = '#e65100';
+        feedback.textContent = 'Ange minst 2 tecken.';
+      }
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Söker...'; }
+    if (feedback) {
+      feedback.style.display = 'block';
+      feedback.style.color = '#006ccc';
+      feedback.textContent = `Söker "${query}"...`;
+    }
+
+    try {
+      const auctionetAPI = this.apiManager.auctionetAPI;
+      const searchResult = await auctionetAPI.searchAuctionResults(query, `Group ${groupIdx + 1} search: ${query}`);
+
+      if (searchResult?.soldItems?.length > 0) {
+        const analysis = await auctionetAPI.analyzeMarketData(
+          searchResult.soldItems, query,
+          groupResults[groupIdx].objectType || '',
+          searchResult.totalEntries
+        );
+
+        if (analysis?.priceRange) {
+          const mid = Math.round((analysis.priceRange.low + analysis.priceRange.high) / 2);
+          groupResults[groupIdx].estimatedValue = this._roundValuation(mid);
+          groupResults[groupIdx].marketDataUsed = true;
+          groupResults[groupIdx].marketSales = analysis.aiFilteredCount || searchResult.soldItems.length;
+          groupResults[groupIdx].marketRange = analysis.priceRange;
+          groupResults[groupIdx].marketQuery = query;
+          groupResults[groupIdx].confidence = Math.min(0.9, analysis.confidence || 0.6);
+          groupResults[groupIdx].tooLowForAuction = groupResults[groupIdx].estimatedValue < 300;
+
+          // Update total
+          const totalValue = groupResults.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
+          this.valuationResult.estimatedValue = totalValue;
+
+          this._renderMultiGroupResults(groupResults, images);
+          return;
+        }
+      }
+
+      if (feedback) {
+        feedback.style.display = 'block';
+        feedback.style.color = '#e65100';
+        feedback.textContent = `Inga resultat för "${query}".`;
+      }
+      if (btn) { btn.disabled = false; btn.textContent = 'Sök igen'; }
+    } catch (error) {
+      console.error('[ValuationRequest] Group re-search failed:', error);
+      if (feedback) {
+        feedback.style.display = 'block';
+        feedback.style.color = '#e65100';
+        feedback.textContent = 'Sökning misslyckades.';
+      }
+      if (btn) { btn.disabled = false; btn.textContent = 'Sök igen'; }
+    }
   }
 
   _attachResultHandlers() {
@@ -906,17 +1533,22 @@ Phone: +46 60 17 00 40`;
           const marketLow = marketAnalysis.priceRange.low;
           const marketHigh = marketAnalysis.priceRange.high;
           const marketMid = Math.round((marketLow + marketHigh) / 2);
-          const numObjects = this.valuationResult.numberOfObjects || 1;
+          const numLots = this.valuationResult.numberOfLots || 1;
+          const isSet = this.valuationResult.isSet;
 
-          // Market data reflects per-item prices — multiply by object count
-          this.valuationResult.estimatedValuePerItem = this._roundValuation(marketMid);
-          this.valuationResult.estimatedValue = this._roundValuation(marketMid * numObjects);
+          this.valuationResult.estimatedValuePerLot = this._roundValuation(marketMid);
+          this.valuationResult.estimatedValuePerItem = this.valuationResult.estimatedValuePerLot;
+          if (isSet || numLots <= 1) {
+            this.valuationResult.estimatedValue = this.valuationResult.estimatedValuePerLot;
+          } else {
+            this.valuationResult.estimatedValue = this._roundValuation(marketMid * numLots);
+          }
           this.valuationResult.marketDataUsed = true;
           this.valuationResult.marketSales = marketAnalysis.aiFilteredCount || searchResult.soldItems.length;
           this.valuationResult.marketRange = { low: marketLow, high: marketHigh };
           this.valuationResult.marketQuery = query;
           this.valuationResult.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
-          this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValuePerItem < 300;
+          this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValuePerLot < 300;
 
           // Re-render everything with updated data
           this._renderResults(this.valuationResult);

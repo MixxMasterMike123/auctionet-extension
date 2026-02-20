@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Auctionet AI Cataloging Assistant",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "AI-powered cataloging assistant for Auctionet using Claude AI",
   "permissions": [
     "activeTab",

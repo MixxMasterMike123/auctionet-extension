@@ -1,6 +1,6 @@
 	# Auctionet AI Cataloging Assistant
 
-**Version 1.8.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 1.9.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
@@ -311,7 +311,7 @@ The dashboard header shows clickable pills for each search term:
 
 ## 10. Valuation Request Assistant
 
-A dedicated tool for the valuation request pages (`/admin/sas/valuation_requests/*`), where customers submit photos and descriptions of items they want valued. The assistant analyzes the submission and generates a ready-to-send valuation email.
+A dedicated tool for the valuation request pages (`/admin/sas/valuation_requests/*`), where customers submit photos and descriptions of items they want valued. The assistant analyzes the submission and generates a ready-to-send valuation email — including automatic multi-object detection when a customer sends images of different items in the same request.
 
 ### How it works
 
@@ -320,34 +320,78 @@ A dedicated tool for the valuation request pages (`/admin/sas/valuation_requests
 3. The system:
    - Fetches up to 10 customer images from the page (via background service worker for CORS-safe cross-origin loading)
    - Auto-resizes oversized images to fit the API limit (4.5MB safety threshold on base64 string length)
-   - Sends images + customer description to **Claude Opus 4.6** for analysis (significantly better at reading labels, signatures, markings, and identifying specific models from images compared to Sonnet)
-   - Extracts structured data: object type, brand/maker, artist, model, material, period, **number of objects**
+   - **Image clustering:** If multiple images are present, Claude Opus first classifies them into groups by distinct object (e.g., "Images 1-3 = oil painting, Images 4-5 = glass vase, Image 6 = silverware"). If only one group is detected, the clustering step is skipped silently
+   - **Drag-and-drop grouping UI:** When multiple objects are detected, a confirmation screen shows the AI's proposed grouping with draggable thumbnails. Staff can drag images between groups, add new groups, remove groups, and edit labels before proceeding
+   - **Per-group valuation:** Each confirmed group is analyzed independently in parallel — its own AI analysis, market data search, and valuation
+   - For each group/item, sends images + customer description to **Claude Opus 4.6** for analysis
+   - Extracts structured data: object type, brand/maker, artist, model, material, period, **number of auction lots**, **piece count**, and **set detection**
    - Searches Auctionet market data using progressive fallback queries (brand+model+artist → brand+model → artist+model → brand+artist → brand+type → artist+type → brand → artist → type+material)
-   - **IQR outlier removal:** Filters statistically extreme prices (e.g., multi-piece sets inflating single-item valuations) using standard 1.5x Interquartile Range fences
-   - **AI relevance filtering:** Claude Haiku validates each search result's relevance to the item when data spread is high (>5x) or sample is large (>15 items)
-   - **Median-based valuation:** Uses the statistical median of filtered comparable sales — robust against remaining outliers
+   - **IQR outlier removal:** Filters statistically extreme prices using standard 1.5x Interquartile Range fences
+   - **AI relevance filtering:** Claude Haiku validates each search result's relevance when data spread is high (>5x) or sample is large (>15 items)
+   - **Median-based valuation:** Uses the statistical median of filtered comparable sales
    - Applies valuation rounding and minimum auction threshold (300 SEK)
-   - **Multiplies per-item market data by object count** when multiple objects are detected
    - **Customer price anchoring prevention:** AI is explicitly instructed to ignore any price suggestions or desired reserve prices stated by the customer
 4. Results are displayed with:
-   - **Valuation source indicator:** Green = "Baserat pa X salda foremal pa Auctionet", Orange = "Uppskattning — ingen jamforbar marknadsdata fran Auctionet"
-   - **Multi-object hint:** Blue banner when >1 object detected, showing total value and per-item breakdown (e.g., "2 foremal — 9 000 SEK totalt (ca 4 500 SEK/st)")
-   - Object identification and estimated value
+   - **Multi-group summary:** Green banner with object count and total value when multiple groups exist
+   - **Per-group result cards:** Compact horizontal layout with thumbnail, object label, price, source tag (market/AI), confidence, "Salda" link, and individual search query editor per group
+   - **Single-object results:** Source indicator, description, value box, set/lot info, Auctionet link, search editor, and email textarea
    - **"Se salda objekt pa Auctionet.com"** — verification link to review comparable sold items
-   - **Search query editor** — editable input pre-filled with the market search query + "Sok igen" button. Staff can refine the query (e.g., add "tryck" or "print" to narrow results) and re-run market analysis without re-running the full image analysis. Supports Enter key.
+   - **Search query editor** — editable input per group (or single global one) + "Sok igen" button for manual market search refinement without re-running image analysis
    - Editable email textarea with the full response pre-filled
-   - "Kopiera text" (copy to clipboard) and "Skicka via e-post" (mailto: link) buttons
+   - "Kopiera" (copy to clipboard) and "Skicka" (mailto: link) buttons
 5. The existing "Ja tack" button's placeholder is also updated with the valuation
+
+### Set/Lot valuation logic
+
+The system distinguishes between sets (collections that sell as one auction lot) and genuinely separate items:
+
+| Scenario | numberOfLots | pieces | isSet | Valuation |
+|----------|-------------|--------|-------|-----------|
+| Dinner service, 56 pieces | 1 | 56 | true | Market median for the whole set (e.g., 500 SEK) |
+| Pair of chairs | 1 | 2 | true | Market median for the pair |
+| Cutlery set, 69 pieces | 1 | 2 | true | Market median for the set |
+| 3 different items (painting + vase + chair) | 3 | 3 | false | Market median x 3 |
+
+This prevents the previous bug where a 56-piece dinner service would be valued at 300 SEK/piece x 56 = 16,800 SEK when the whole set actually sells for ~500 SEK.
+
+### Image clustering
+
+When a customer sends photos of multiple different objects in the same valuation request:
+
+1. **Clustering call:** Claude Opus analyzes all images and groups them by distinct object, returning JSON with image indices and labels per group
+2. **Single-object skip:** If only one group is detected, the clustering step is invisible and the existing single-object flow runs directly
+3. **Confirmation UI:** Groups are shown as drop zones with draggable 80x80 thumbnails (HTML5 Drag and Drop API, no external libraries). Staff can:
+   - Drag images between groups to correct misclassifications
+   - Edit group labels
+   - Add new empty groups ("+ Ny grupp")
+   - Remove groups (images are moved to the first remaining group)
+4. **"Vardera alla" button** proceeds to parallel per-group valuation
+
+### Multi-section email templates
+
+When multiple objects are detected, the email uses clear per-object sections:
+
+```
+--- Foremal 1: Oljemalnning, landskap ---
+[description]
+Uppskattat varde: 8 000 kr
+
+--- Foremal 2: Glasvas, morkbla ---
+[description]
+Uppskattat varde: 1 500 kr
+
+Totalt uppskattat varde: 9 500 kr
+```
+
+- Items below the 300 SEK auction threshold are noted individually
+- Accept/reject logic considers each item's value independently
+- Both Swedish and English templates supported
 
 ### Search query handling
 
 The valuation assistant bypasses the standard `formatArtistForSearch` quoting (which wraps multi-word strings as a single exact phrase) and calls the Auctionet API directly. Each word in the query is quoted individually, matching how the Auctionet website search works. This ensures queries like "Robert Hogfeldt print" find results by requiring all terms separately, rather than searching for the exact phrase.
 
-### Multi-object detection
-
-The system identifies when a customer submits multiple objects for valuation (e.g., "2 sofas" or "5 prints"). The AI counts distinct objects from both images and description, and the valuation reflects the total for all items. The per-item value is also shown so staff can verify reasonableness against market data.
-
-### Email templates
+### Email templates (single object)
 
 - **Accept template (Swedish/English):** Professional response emphasizing online auctions on Auctionet.com with global reach (900k+ buyers, 180 countries, 5.5M monthly visits). Clearly states the valuation is preliminary and that physical inspection is required for a final estimate. Includes auction house address and phone number.
 - **Reject template (Swedish/English):** Polite response explaining the item's estimated value is below the auction threshold, noting the assessment is preliminary.
@@ -755,4 +799,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated February 20, 2026. Reflects extension version 1.8.0.*
+*Document updated February 20, 2026. Reflects extension version 1.9.0.*
