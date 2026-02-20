@@ -957,38 +957,61 @@ Phone: +46 60 17 00 40`;
   }
 
   _generateSwedishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems) {
+    const imageUrls = this.pageData.imageUrls || [];
+
     const sections = groupResults.map((r, i) => {
       const label = r.groupLabel || r.objectType || 'Föremål';
       const value = (r.estimatedValue || 0).toLocaleString();
       const desc = r.briefDescription || '';
-      const lowNote = r.tooLowForAuction ? '\nObservera att detta föremål har ett för lågt uppskattat värde för auktionsförsäljning.' : '';
 
-      return `--- Föremål ${i + 1}: ${label} ---
-${desc}
-Uppskattat värde: ${value} kr${lowNote}`;
+      // Reference image URL if available
+      const firstImgIdx = (r.groupImageIndices || [])[0];
+      const imgUrl = firstImgIdx != null ? imageUrls[firstImgIdx] : null;
+      const imgLine = imgUrl ? `Bild: ${imgUrl}` : '';
+
+      const lowLine = r.tooLowForAuction
+        ? 'OBS: Detta föremål har ett för lågt uppskattat värde för auktionsförsäljning.'
+        : '';
+
+      const lines = [
+        `${imgLine}`,
+        `${desc}`,
+        `Uppskattat värde: ${value} kr`,
+        lowLine
+      ].filter(Boolean);
+
+      return `╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+▸ Föremål ${i + 1}: ${label}
+${lines.join('\n')}`;
     }).join('\n\n');
 
-    const totalLine = `Totalt uppskattat värde: ${totalValue.toLocaleString()} kr`;
+    const summaryLine = `════════════════════════════════
+Totalt uppskattat värde: ${totalValue.toLocaleString()} kr (${groupResults.length} föremål)
+════════════════════════════════`;
 
-    const actionText = acceptableItems.length > 0
-      ? `\nVi tar gärna emot ${acceptableItems.length === groupResults.length ? 'alla föremålen' : 'de föremål som uppfyller minimivärdet'} för försäljning via våra onlineauktioner på Auctionet.com — en av Europas ledande marknadsplatser för konst, antikviteter och design med över 900 000 registrerade köpare i 180 länder och 5,5 miljoner besök varje månad.
-
-Om du vill gå vidare är du välkommen att lämna in dina föremål till oss. En av våra experter granskar dem och gör en slutgiltig värdering. Föremålen läggs ut på auktion först efter att du godkänt värderingen och bevakningspriset. Vi tar hand om hela processen: fotografering, katalogisering, auktion, betalning och eventuell transport. Utbetalning sker cirka 25 dagar efter avslutad auktion.`
-      : `\nTyvärr bedömer vi att samtliga föremål har för låga uppskattade värden för försäljning via våra onlineauktioner.`;
+    const disclaimer = 'Observera att detta är ungefärliga bedömningar baserade på bilder och beskrivning — den slutgiltiga värderingen görs först när vi har möjlighet att fysiskt granska föremålen.';
 
     const lowNote = lowItems.length > 0 && acceptableItems.length > 0
-      ? `\nObservera att ${lowItems.length === 1 ? 'ett föremål har' : `${lowItems.length} föremål har`} för lågt uppskattat värde för auktionsförsäljning (under 300 kr).`
+      ? `\n${lowItems.length === 1 ? 'Ett föremål har' : `${lowItems.length} föremål har`} för lågt uppskattat värde för auktionsförsäljning (under 300 kr) och kan tyvärr inte tas in till försäljning.`
       : '';
+
+    const actionText = acceptableItems.length > 0
+      ? `Vi tar gärna emot ${acceptableItems.length === groupResults.length ? 'alla föremålen' : 'de föremål som uppfyller minimivärdet'} för försäljning via våra onlineauktioner på Auctionet.com — en av Europas ledande marknadsplatser för konst, antikviteter och design med över 900 000 registrerade köpare i 180 länder och 5,5 miljoner besök varje månad.
+
+Om du vill gå vidare är du välkommen att lämna in dina föremål till oss. En av våra experter granskar dem och gör en slutgiltig värdering. Föremålen läggs ut på auktion först efter att du godkänt värderingen och bevakningspriset. Vi tar hand om hela processen: fotografering, katalogisering, auktion, betalning och eventuell transport. Utbetalning sker cirka 25 dagar efter avslutad auktion.`
+      : 'Tyvärr bedömer vi att samtliga föremål har för låga uppskattade värden för försäljning via våra onlineauktioner.';
 
     return `Hej ${name},
 
-Tack för din värderingsförfrågan! Vi har granskat dina ${groupResults.length} föremål.
+Tack för din värderingsförfrågan! Vi har granskat dina ${groupResults.length} föremål och gjort en preliminär bedömning av varje:
 
 ${sections}
 
-${totalLine}
+${summaryLine}
 
-Observera att detta är ungefärliga bedömningar baserade på bilder och beskrivning — den slutgiltiga värderingen görs först när vi har möjlighet att fysiskt granska föremålen.${lowNote}${actionText}
+${disclaimer}${lowNote}
+
+${actionText}
 
 Hör gärna av dig om du har frågor!
 
@@ -999,38 +1022,60 @@ Telefon: 060 - 17 00 40`;
   }
 
   _generateEnglishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems) {
+    const imageUrls = this.pageData.imageUrls || [];
+
     const sections = groupResults.map((r, i) => {
       const label = r.groupLabel || r.objectType || 'Item';
       const value = (r.estimatedValue || 0).toLocaleString();
       const desc = r.briefDescription || '';
-      const lowNote = r.tooLowForAuction ? '\nPlease note that this item has too low an estimated value for auction.' : '';
 
-      return `--- Item ${i + 1}: ${label} ---
-${desc}
-Estimated value: ${value} SEK${lowNote}`;
+      const firstImgIdx = (r.groupImageIndices || [])[0];
+      const imgUrl = firstImgIdx != null ? imageUrls[firstImgIdx] : null;
+      const imgLine = imgUrl ? `Image: ${imgUrl}` : '';
+
+      const lowLine = r.tooLowForAuction
+        ? 'Note: This item has too low an estimated value for auction.'
+        : '';
+
+      const lines = [
+        `${imgLine}`,
+        `${desc}`,
+        `Estimated value: ${value} SEK`,
+        lowLine
+      ].filter(Boolean);
+
+      return `╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+▸ Item ${i + 1}: ${label}
+${lines.join('\n')}`;
     }).join('\n\n');
 
-    const totalLine = `Total estimated value: ${totalValue.toLocaleString()} SEK`;
+    const summaryLine = `════════════════════════════════
+Total estimated value: ${totalValue.toLocaleString()} SEK (${groupResults.length} items)
+════════════════════════════════`;
 
-    const actionText = acceptableItems.length > 0
-      ? `\nWe would be happy to accept ${acceptableItems.length === groupResults.length ? 'all items' : 'the items that meet our minimum value'} for sale through our online auctions on Auctionet.com — one of Europe's leading marketplaces for art, antiques and design, with over 900,000 registered buyers in 180 countries and 5.5 million visits every month.
-
-If you would like to proceed, you are welcome to bring your items to us. One of our experts will examine them and make a final valuation. Items will only be listed for auction after you have approved the valuation and reserve price. We handle the entire process: photography, cataloging, auction, payment and shipping. Payment is made approximately 25 days after the auction closes.`
-      : `\nUnfortunately, we estimate that all items have too low a value for sale through our online auctions.`;
+    const disclaimer = 'Please note that these are approximate assessments based on photos and description — the final valuation will be made once we have the opportunity to physically examine the items.';
 
     const lowNote = lowItems.length > 0 && acceptableItems.length > 0
-      ? `\nPlease note that ${lowItems.length === 1 ? 'one item has' : `${lowItems.length} items have`} too low an estimated value for auction (below 300 SEK).`
+      ? `\n${lowItems.length === 1 ? 'One item has' : `${lowItems.length} items have`} too low an estimated value for auction (below 300 SEK) and cannot be accepted for sale.`
       : '';
+
+    const actionText = acceptableItems.length > 0
+      ? `We would be happy to accept ${acceptableItems.length === groupResults.length ? 'all items' : 'the items that meet our minimum value'} for sale through our online auctions on Auctionet.com — one of Europe's leading marketplaces for art, antiques and design, with over 900,000 registered buyers in 180 countries and 5.5 million visits every month.
+
+If you would like to proceed, you are welcome to bring your items to us. One of our experts will examine them and make a final valuation. Items will only be listed for auction after you have approved the valuation and reserve price. We handle the entire process: photography, cataloging, auction, payment and shipping. Payment is made approximately 25 days after the auction closes.`
+      : 'Unfortunately, we estimate that all items have too low a value for sale through our online auctions.';
 
     return `Hi ${name},
 
-Thank you for your valuation request! We have reviewed your ${groupResults.length} items.
+Thank you for your valuation request! We have reviewed your ${groupResults.length} items and made a preliminary assessment of each:
 
 ${sections}
 
-${totalLine}
+${summaryLine}
 
-Please note that these are approximate assessments based on photos and description — the final valuation will be made once we have the opportunity to physically examine the items.${lowNote}${actionText}
+${disclaimer}${lowNote}
+
+${actionText}
 
 Please don't hesitate to contact us if you have questions!
 
