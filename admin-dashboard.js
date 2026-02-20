@@ -854,23 +854,22 @@
     return new Date(parseInt(m[3]), monthIdx, parseInt(m[1]));
   }
 
+  function getWarehouseInsertTarget() {
+    return document.querySelector('.ext-inventory')
+      || document.querySelector('.ext-pipeline')
+      || document.getElementById('statistics');
+  }
+
   function renderWarehouseLoading() {
     let container = document.querySelector('.ext-warehouse');
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-warehouse ext-animate-in';
-      const inventory = document.querySelector('.ext-inventory');
-      const pipeline = document.querySelector('.ext-pipeline');
-      const statsDiv = document.getElementById('statistics');
-      const target = inventory || pipeline || statsDiv;
+      const target = getWarehouseInsertTarget();
       if (target) target.parentNode.insertBefore(container, target.nextSibling);
       else return;
     }
-
     container.innerHTML = `
-      <div class="ext-warehouse__header">
-        <span class="ext-warehouse__title">Lagerkostnader</span>
-      </div>
       <div class="ext-warehouse__loading">
         <div class="ext-warehouse__spinner"></div>
         <span>Hämtar lagerkostnader...</span>
@@ -882,9 +881,6 @@
     const container = document.querySelector('.ext-warehouse');
     if (!container) return;
     container.innerHTML = `
-      <div class="ext-warehouse__header">
-        <span class="ext-warehouse__title">Lagerkostnader</span>
-      </div>
       <div class="ext-warehouse__error">
         Kunde inte hämta data: ${message}
         <button class="ext-warehouse__retry" onclick="this.closest('.ext-warehouse').remove()">Försök igen</button>
@@ -897,7 +893,6 @@
     const now = Date.now();
     const MS_PER_DAY = 86400000;
 
-    // Time-period buckets (cumulative)
     function bucketStats(items) {
       const days = items.reduce((s, i) => s + i.auctionHouseDays, 0);
       return { count: items.length, days, cost: days * WAREHOUSE_FEE_PER_DAY };
@@ -910,17 +905,6 @@
     const bucket90 = bucketStats(items90d);
     const bucketAll = bucketStats(allItems);
 
-    // Top 5 offenders by auction house days
-    const topOffenders = [...allItems]
-      .sort((a, b) => b.auctionHouseDays - a.auctionHouseDays)
-      .slice(0, 5);
-
-    // Distribution badges
-    const over30 = allItems.filter(i => i.auctionHouseDays > 30).length;
-    const over60 = allItems.filter(i => i.auctionHouseDays > 60).length;
-    const over90 = allItems.filter(i => i.auctionHouseDays > 90).length;
-
-    // Format timestamp
     const cacheTime = new Date(data.timestamp);
     const timeStr = cacheTime.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
     const dateStr = cacheTime.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
@@ -929,71 +913,37 @@
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-warehouse ext-animate-in';
-      const inventory = document.querySelector('.ext-inventory');
-      const pipeline = document.querySelector('.ext-pipeline');
-      const statsDiv = document.getElementById('statistics');
-      const target = inventory || pipeline || statsDiv;
+      const target = getWarehouseInsertTarget();
       if (target) target.parentNode.insertBefore(container, target.nextSibling);
       else return;
     }
 
-    const breakdownRowHTML = (label, bucket, highlight) => `
-      <div class="ext-warehouse__breakdown-row ${highlight ? 'ext-warehouse__breakdown-row--highlight' : ''}">
-        <span class="ext-warehouse__breakdown-label">${label}</span>
-        <span class="ext-warehouse__breakdown-items">${bucket.count} st</span>
-        <span class="ext-warehouse__breakdown-days">${formatSEK(bucket.days)} dagar</span>
-        <span class="ext-warehouse__breakdown-cost">${formatSEK(bucket.cost)} SEK</span>
-      </div>
-    `;
-
     container.innerHTML = `
-      <div class="ext-warehouse__header">
-        <span class="ext-warehouse__title">Lagerkostnader (att hämta ut)</span>
-        <span class="ext-warehouse__meta">
-          ${fromCache ? 'Cachad' : 'Uppdaterad'} ${dateStr} ${timeStr}
-          <button class="ext-warehouse__refresh" title="Uppdatera">↻</button>
-        </span>
-      </div>
-
-      <div class="ext-warehouse__hero">
-        <div class="ext-warehouse__hero-amount">${formatSEK(bucketAll.cost)} SEK</div>
-        <div class="ext-warehouse__hero-detail">${bucketAll.count} föremål · ${formatSEK(bucketAll.days)} avgiftsbelagda dagar · ${WAREHOUSE_FEE_PER_DAY} SEK/dag</div>
-      </div>
-
-      <div class="ext-warehouse__breakdown">
-        ${breakdownRowHTML('Senaste 30 dagarna', bucket30, false)}
-        ${breakdownRowHTML('Senaste 90 dagarna', bucket90, false)}
-        ${breakdownRowHTML('Totalt', bucketAll, true)}
-      </div>
-
-      <div class="ext-warehouse__badges">
-        <span class="ext-warehouse__badge ${over30 > 0 ? 'ext-warehouse__badge--warn' : ''}">
-          &gt; 30 lagerdagar: <strong>${over30}</strong>
-        </span>
-        <span class="ext-warehouse__badge ${over60 > 0 ? 'ext-warehouse__badge--alert' : ''}">
-          &gt; 60 lagerdagar: <strong>${over60}</strong>
-        </span>
-        <span class="ext-warehouse__badge ${over90 > 0 ? 'ext-warehouse__badge--critical' : ''}">
-          &gt; 90 lagerdagar: <strong>${over90}</strong>
-        </span>
-      </div>
-
-      ${topOffenders.length > 0 ? `
-        <div class="ext-warehouse__offenders">
-          <div class="ext-warehouse__offenders-title">Mest lagerdagar</div>
-          ${topOffenders.map(item => `
-            <div class="ext-warehouse__offender-row">
-              <a href="${item.url}" class="ext-warehouse__offender-title">${item.title || 'Okänt föremål'}</a>
-              <span class="ext-warehouse__offender-buyer">${item.buyer}</span>
-              <span class="ext-warehouse__offender-days">${item.auctionHouseDays}d</span>
-              <span class="ext-warehouse__offender-cost">${formatSEK(item.auctionHouseDays * WAREHOUSE_FEE_PER_DAY)} SEK</span>
-            </div>
-          `).join('')}
+      <div class="ext-warehouse__card">
+        <div class="ext-warehouse__primary">
+          <div class="ext-warehouse__label">Lagerkostnader (30 dagar)</div>
+          <div class="ext-warehouse__amount">${formatSEK(bucket30.cost)} SEK</div>
+          <div class="ext-warehouse__detail">${bucket30.count} föremål · ${formatSEK(bucket30.days)} dagar</div>
         </div>
-      ` : ''}
+        <div class="ext-warehouse__secondary">
+          <div class="ext-warehouse__sub">
+            <span class="ext-warehouse__sub-label">90 dagar</span>
+            <span class="ext-warehouse__sub-value">${formatSEK(bucket90.cost)} SEK</span>
+            <span class="ext-warehouse__sub-detail">${bucket90.count} st · ${formatSEK(bucket90.days)}d</span>
+          </div>
+          <div class="ext-warehouse__sub">
+            <span class="ext-warehouse__sub-label">Totalt</span>
+            <span class="ext-warehouse__sub-value">${formatSEK(bucketAll.cost)} SEK</span>
+            <span class="ext-warehouse__sub-detail">${bucketAll.count} st · ${formatSEK(bucketAll.days)}d</span>
+          </div>
+          <div class="ext-warehouse__meta">
+            ${fromCache ? 'Cachad' : 'Uppd.'} ${dateStr} ${timeStr}
+            <button class="ext-warehouse__refresh" title="Uppdatera">↻</button>
+          </div>
+        </div>
+      </div>
     `;
 
-    // Refresh button handler
     container.querySelector('.ext-warehouse__refresh')?.addEventListener('click', () => {
       chrome.storage.local.remove(WAREHOUSE_CACHE_KEY);
       fetchWarehouseCosts();
