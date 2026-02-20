@@ -265,6 +265,15 @@ class AuctionetCatalogingAssistant {
         this.faqHintAnalyzer.setupLiveQualityUpdates();
       }, 1500);
     }
+
+    // Ensure inline spellcheck monitoring starts on ALL pages (edit + add)
+    // setupLiveQualityUpdates() handles this for edit, but the quality-indicator
+    // race condition can prevent it on add pages — start it explicitly as a safety net
+    if (this.faqHintAnalyzer && this.faqHintAnalyzer.inlineBrandValidator) {
+      setTimeout(() => {
+        this.faqHintAnalyzer.inlineBrandValidator.startMonitoring();
+      }, 2000);
+    }
   }
 
   handlePageChange() {
