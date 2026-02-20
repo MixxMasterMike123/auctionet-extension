@@ -134,7 +134,12 @@ export class BrandValidationManager {
 
 TEXT: "${title} ${description || ''}"
 
-Inkludera ALLA typer av varumärken: klockor, glas, keramik, möbler, design, konst, elektronik, lyxmärken, etc.
+VIKTIGT:
+- Inkludera ALLA typer av varumärken: klockor, glas, keramik, möbler, design, konst, elektronik, lyxmärken, etc.
+- IGNORERA personnamn/konstnärsnamn — de ska INTE flaggas som stavfel (t.ex. "E. Jarup", "Lars Löfgren" är personnamn, inte märken)
+- IGNORERA ortnamn/stadsnamn (t.ex. Hälsingborg, Stockholm)
+- Flagga BARA om du är SÄKER på att det är ett felstavat varumärke/märkesnamn, inte en person eller plats
+- Confidence ska vara minst 0.90 för att rapporteras
 
 Svara ENDAST med JSON:
 {"issues":[{"original":"felstavat","suggested":"korrekt","confidence":0.95}]}
@@ -170,15 +175,17 @@ Om inga felstavningar hittas: {"issues":[]}`;
         if (jsonMatch) {
           const aiResult = JSON.parse(jsonMatch[0]);
           if (aiResult.issues && Array.isArray(aiResult.issues)) {
-            return aiResult.issues.map(issue => ({
-              originalBrand: issue.original,
-              suggestedBrand: issue.suggested,
-              confidence: issue.confidence || 0.8,
-              category: this.inferCategory(issue.suggested),
-              source: 'ai_detection',
-              foundIn: 'analys',
-              reason: issue.reason || ''
-            }));
+            return aiResult.issues
+              .filter(issue => (issue.confidence || 0) >= 0.85)
+              .map(issue => ({
+                originalBrand: issue.original,
+                suggestedBrand: issue.suggested,
+                confidence: issue.confidence || 0.8,
+                category: this.inferCategory(issue.suggested),
+                source: 'ai_detection',
+                foundIn: 'analys',
+                reason: issue.reason || ''
+              }));
           }
         }
       }

@@ -406,10 +406,14 @@ export class QualityAnalyzer {
 
       // CRITICAL FIX: Show artist detection UI for ALL detected artists, regardless of where found
 
-      if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist) {
+      // Require minimum confidence to show artist detection UI (rule-based ≥ 0.5, AI ≥ 0.75)
+      const minDisplayConfidence = (aiArtistForMarketAnalysis?.source === 'ai' || aiArtistForMarketAnalysis?.source === 'ai-boosted') ? 0.75 : 0.5;
+      const meetsConfidence = aiArtistForMarketAnalysis?.confidence >= minDisplayConfidence;
+
+      if (aiArtistForMarketAnalysis && aiArtistForMarketAnalysis.detectedArtist && meetsConfidence) {
 
 
-        // FIRST: Show the artist detection UI (this was missing!)
+        // FIRST: Show the artist detection UI
         await this.handleArtistDetectionResult(aiArtistForMarketAnalysis, data, currentWarnings, currentScore);
 
         // SECOND: Handle market analysis based on where artist was found

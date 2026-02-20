@@ -13,95 +13,91 @@ export class SwedishSpellChecker {
   // Initialize common Swedish words and their misspellings
   initializeSwedishWords() {
     return [
-      // Colors (common in auction descriptions)
-      { word: 'blå', misspellings: ['blåa', 'blått'], category: 'color' },
-      { word: 'röd', misspellings: ['rött', 'röt'], category: 'color' },
-      { word: 'grön', misspellings: ['grönt', 'groen'], category: 'color' },
-      { word: 'gul', misspellings: ['gult', 'guhl'], category: 'color' },
-      { word: 'vit', misspellings: ['vitt', 'vhit'], category: 'color' },
+      // Colors - only genuine misspellings, NOT valid inflected forms
+      // (blått/rött/grönt/gult/vitt/brunt/grått are valid neuter forms)
+      { word: 'blå', misspellings: ['blåa'], category: 'color' },
+      { word: 'grön', misspellings: ['groen'], category: 'color' },
+      { word: 'gul', misspellings: ['guhl'], category: 'color' },
+      { word: 'vit', misspellings: ['vhit'], category: 'color' },
       { word: 'svart', misspellings: ['swart', 'svat'], category: 'color' },
-      { word: 'brun', misspellings: ['brunt', 'brunn'], category: 'color' },
-      { word: 'grå', misspellings: ['grått', 'gråa'], category: 'color' },
+      { word: 'röd', misspellings: ['röt'], category: 'color' },
       
       // Materials
       { word: 'silver', misspellings: ['sylver', 'silwer'], category: 'material' },
-      { word: 'guld', misspellings: ['gold', 'gull'], category: 'material' },
-      { word: 'koppar', misspellings: ['kopar', 'copper'], category: 'material' },
+      { word: 'guld', misspellings: ['gull'], category: 'material' },
+      { word: 'koppar', misspellings: ['kopar'], category: 'material' },
       { word: 'mässing', misspellings: ['masing', 'mesing'], category: 'material' },
       { word: 'porslin', misspellings: ['porlin', 'porslinn'], category: 'material' },
       { word: 'kristall', misspellings: ['krystal', 'cristall'], category: 'material' },
-      { word: 'marmor', misspellings: ['marmur', 'marmor'], category: 'material' },
+      { word: 'marmor', misspellings: ['marmur'], category: 'material' },
       { word: 'granit', misspellings: ['granitt', 'graniet'], category: 'material' },
       
-      // Conditions  
-      { word: 'skador', misspellings: ['skador', 'skadoor'], category: 'condition' },
+      // Conditions (removed self-references)
+      { word: 'skador', misspellings: ['skadoor'], category: 'condition' },
       { word: 'repor', misspellings: ['reppar', 'repar'], category: 'condition' },
-      { word: 'nagg', misspellings: ['nag', 'nagg'], category: 'condition' },
+      { word: 'nagg', misspellings: ['nag'], category: 'condition' },
       { word: 'fläckar', misspellings: ['fleckar', 'flackar'], category: 'condition' },
-      { word: 'sprickor', misspellings: ['sprikor', 'spricka'], category: 'condition' },
-      { word: 'slitage', misspellings: ['slitasje', 'slitning'], category: 'condition' },
+      { word: 'sprickor', misspellings: ['sprikor'], category: 'condition' },
+      { word: 'slitage', misspellings: ['slitasje'], category: 'condition' },
       
       // Time periods
       { word: 'sekel', misspellings: ['säkel', 'sekkel'], category: 'period' },
       { word: 'århundrade', misspellings: ['aarhundrade', 'arrhundrade'], category: 'period' },
-      { word: 'antik', misspellings: ['antique', 'antikk'], category: 'period' },
+      { word: 'antik', misspellings: ['antikk'], category: 'period' },
       { word: 'vintage', misspellings: ['vintange', 'wintage'], category: 'period' },
       
-      // Common verbs/adjectives
-      { word: 'signerad', misspellings: ['signerad', 'signeradt'], category: 'description' },
+      // Common verbs/adjectives (removed self-references and valid inflections)
+      { word: 'signerad', misspellings: ['signeradt'], category: 'description' },
       { word: 'märkt', misspellings: ['markt', 'märt'], category: 'description' },
       { word: 'daterad', misspellings: ['dateradt', 'datered'], category: 'description' },
-      { word: 'handmålad', misspellings: ['handmalad', 'hand-målad'], category: 'description' },
+      { word: 'handmålad', misspellings: ['handmalad'], category: 'description' },
       { word: 'förgylld', misspellings: ['forgylld', 'förgöld'], category: 'description' },
-      { word: 'oxiderad', misspellings: ['oxyderad', 'oxiderat'], category: 'description' },
+      { word: 'oxiderad', misspellings: ['oxyderad'], category: 'description' },
       
-      // Measurements
+      // Measurements (removed valid inflections: djupt/brett are valid forms)
       { word: 'diameter', misspellings: ['diamater', 'diameeter'], category: 'measurement' },
       { word: 'höjd', misspellings: ['hojd', 'hojt'], category: 'measurement' },
-      { word: 'bredd', misspellings: ['bred', 'brett'], category: 'measurement' },
-      { word: 'djup', misspellings: ['djupt', 'diup'], category: 'measurement' },
       { word: 'längd', misspellings: ['langd', 'lenght'], category: 'measurement' },
-      { word: 'vikt', misspellings: ['viktt', 'weight'], category: 'measurement' },
+      { word: 'vikt', misspellings: ['viktt'], category: 'measurement' },
       
-      // Common words
-      { word: 'tillverkad', misspellings: ['tilverkad', 'tillverkat'], category: 'general' },
-      { word: 'ursprung', misspellings: ['ursprung', 'ursprumg'], category: 'general' },
+      // Common words (removed self-references and valid inflections)
+      { word: 'tillverkad', misspellings: ['tilverkad'], category: 'general' },
+      { word: 'ursprung', misspellings: ['ursprumg'], category: 'general' },
       { word: 'exemplar', misspellings: ['examplar', 'exemplaar'], category: 'general' },
-      { word: 'kollektion', misspellings: ['collection', 'kollection'], category: 'general' },
-      { word: 'provenienser', misspellings: ['proveniens', 'proveniense'], category: 'general' }
+      { word: 'kollektion', misspellings: ['kollection'], category: 'general' },
+      { word: 'provenienser', misspellings: ['proveniense'], category: 'general' }
     ];
   }
 
   // Initialize auction-specific terms
   initializeAuctionTerms() {
     return [
-      // Auction terminology
+      // Auction terminology (removed self-references)
       { word: 'utropspris', misspellings: ['utropris', 'utroppris'], category: 'auction' },
-      { word: 'estimat', misspellings: ['estimaat', 'estimate'], category: 'auction' },
+      { word: 'estimat', misspellings: ['estimaat'], category: 'auction' },
       { word: 'klubbslag', misspellings: ['klubslag', 'clubslag'], category: 'auction' },
-      { word: 'budgivning', misspellings: ['budgiwning', 'budgivning'], category: 'auction' },
+      { word: 'budgivning', misspellings: ['budgiwning'], category: 'auction' },
       { word: 'försäljning', misspellings: ['forsaljning', 'försäljnig'], category: 'auction' },
-      { word: 'katalog', misspellings: ['catalog', 'katlog'], category: 'auction' },
-      { word: 'proveniering', misspellings: ['proveniens', 'proveniering'], category: 'auction' },
+      { word: 'katalog', misspellings: ['katlog'], category: 'auction' },
       
       // Art terms
-      { word: 'oljemålning', misspellings: ['oljemalning', 'olje-målning'], category: 'art' },
+      { word: 'oljemålning', misspellings: ['oljemalning'], category: 'art' },
       { word: 'akvarell', misspellings: ['aquarell', 'akwarelle'], category: 'art' },
       { word: 'litografi', misspellings: ['lithografi', 'litograaf'], category: 'art' },
-      { word: 'etsning', misspellings: ['etsninng', 'etching'], category: 'art' },
-      { word: 'skulptur', misspellings: ['skulptrur', 'sculpture'], category: 'art' },
-      { word: 'målning', misspellings: ['malning', 'painting'], category: 'art' },
+      { word: 'etsning', misspellings: ['etsninng'], category: 'art' },
+      { word: 'skulptur', misspellings: ['skulptrur'], category: 'art' },
+      { word: 'målning', misspellings: ['malning'], category: 'art' },
       
       // Furniture terms  
-      { word: 'möbler', misspellings: ['mobler', 'möbel'], category: 'furniture' },
+      { word: 'möbler', misspellings: ['mobler'], category: 'furniture' },
       { word: 'uppsättning', misspellings: ['upsättning', 'uppsettning'], category: 'furniture' },
       { word: 'stoppning', misspellings: ['stopning', 'stoppninng'], category: 'furniture' },
       { word: 'polstring', misspellings: ['polstreing', 'polstrig'], category: 'furniture' },
       
-      // Jewelry terms
-      { word: 'smycken', misspellings: ['smyken', 'smycke'], category: 'jewelry' },
+      // Jewelry terms (removed self-references)
+      { word: 'smycken', misspellings: ['smyken'], category: 'jewelry' },
       { word: 'berlocker', misspellings: ['berloker', 'berlocks'], category: 'jewelry' },
-      { word: 'diamanter', misspellings: ['diamanter', 'diaments'], category: 'jewelry' },
+      { word: 'diamanter', misspellings: ['diaments'], category: 'jewelry' },
       { word: 'edelstenar', misspellings: ['adelstenar', 'edelstener'], category: 'jewelry' }
     ];
   }
@@ -115,18 +111,30 @@ export class SwedishSpellChecker {
       // Numbers and measurements  
       'cm', 'mm', 'm', 'kg', 'g', 'st', 'stk', 'ca', 'cirka', 'c:a',
       // Very common words
-      'är', 'var', 'har', 'kan', 'ska', 'blir', 'blev', 'been', 'göra', 'ha', 'se', 'få'
+      'är', 'var', 'har', 'kan', 'ska', 'blir', 'blev', 'been', 'göra', 'ha', 'se', 'få',
+      // Valid Swedish inflections that should never be flagged
+      'blått', 'rött', 'grönt', 'gult', 'vitt', 'brunt', 'grått',
+      'brett', 'djupt', 'bred', 'djup',
+      'tillverkat', 'oxiderat', 'signerat',
+      'gold', 'deco', 'nouveau'
     ];
   }
 
   // Check text for Swedish spelling errors
   validateSwedishSpelling(text) {
     const errors = [];
-    const words = text.toLowerCase().match(/\b[a-zåäöü]+\b/gi) || [];
+    // Preserve original case for proper name detection
+    const originalWords = text.match(/\b[a-zåäöüA-ZÅÄÖÜ]+\b/g) || [];
 
-    for (const word of words) {
-      if (word.length < 4 || this.stopWords.includes(word.toLowerCase())) {
-        continue; // Skip short words and stop words
+    for (const originalWord of originalWords) {
+      const word = originalWord.toLowerCase();
+      if (word.length < 4 || this.stopWords.includes(word)) {
+        continue;
+      }
+
+      // Skip words that look like proper names (capitalized, not ALL CAPS object type)
+      if (this.looksLikeProperName(originalWord, text)) {
+        continue;
       }
 
       // Check against common words
@@ -144,6 +152,32 @@ export class SwedishSpellChecker {
     }
 
     return errors;
+  }
+
+  // Detect if a word is likely a proper name (person, place, brand) and should be skipped
+  looksLikeProperName(word, fullText) {
+    // Must start with uppercase to be a proper name
+    if (!/^[A-ZÅÄÖÜ]/.test(word)) return false;
+
+    // ALL CAPS words are object types (TAVLA, STOL etc.), not proper names - don't skip those
+    if (word === word.toUpperCase() && word.length > 1) return false;
+
+    // Capitalized word (Title Case) in a comma-separated auction title → likely a proper name
+    if (/^[A-ZÅÄÖÜ][a-zåäöü]{2,}$/.test(word)) {
+      // Check if preceded by an initial (like "E. Jarup") → definitely a proper name
+      const initialPattern = new RegExp(`[A-ZÅÄÖÜ]\\.\\s*${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+      if (initialPattern.test(fullText)) return true;
+
+      // Check if preceded by another capitalized word (like "Lars Löfgren") → person name
+      const namePattern = new RegExp(`[A-ZÅÄÖÜ][a-zåäöü]+\\s+${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+      if (namePattern.test(fullText)) return true;
+
+      // Check if this word precedes another capitalized word (like "Jarup" in "E. Jarup")
+      const followedByCapPattern = new RegExp(`${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+[A-ZÅÄÖÜ][a-zåäöü]+`);
+      if (followedByCapPattern.test(fullText)) return true;
+    }
+
+    return false;
   }
 
   // Check a word against a word list

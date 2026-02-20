@@ -27,7 +27,9 @@ export class InlineBrandValidator {
       { selector: '#item_title', type: 'title' },
       { selector: 'input[name*="title"]', type: 'title' },
       { selector: '#item_description_sv', type: 'description' },
-      { selector: 'textarea[name*="description"]', type: 'description' }
+      { selector: 'textarea[name*="description"]', type: 'description' },
+      { selector: '#item_artist_name_sv', type: 'artist' },
+      { selector: 'input[name*="artist"]', type: 'artist' }
     ];
 
     fieldsToMonitor.forEach(({ selector, type }) => {
@@ -134,11 +136,27 @@ export class InlineBrandValidator {
       return;
     }
 
+    // Artist field uses specialized validation
+    if (type === 'artist') {
+      return this.validateArtistFieldContent(field, text);
+    }
+
     try {
-      // Use the full validation pipeline (fuzzy + AI) for comprehensive detection
-      const allIssues = await this.brandValidationManager.validateBrandsInContent(text, '');
-      
-      // Also add Swedish spell checking
+      // Run brand validation and AI spellcheck in parallel for speed
+      const apiManager = this.brandValidationManager?.apiManager;
+      const [brandIssues, aiSpellIssues] = await Promise.all([
+        this.brandValidationManager.validateBrandsInContent(text, ''),
+        this.checkSpellingWithAI(text, type, apiManager)
+      ]);
+
+      const allIssues = [...brandIssues];
+
+      // Add AI spellcheck results
+      if (aiSpellIssues && aiSpellIssues.length > 0) {
+        allIssues.push(...aiSpellIssues);
+      }
+
+      // Also add dictionary-based Swedish spell checking as a fast fallback
       const spellingErrors = this.swedishSpellChecker.validateSwedishSpelling(text);
       allIssues.push(...spellingErrors.map(error => ({
         originalBrand: error.originalWord,
@@ -155,11 +173,34 @@ export class InlineBrandValidator {
         if (!issue.type) issue.type = 'brand';
         if (!issue.displayCategory) issue.displayCategory = 'märke';
       });
+
+      // Deduplicate: if AI and dictionary found the same word, prefer AI (higher confidence)
+      const deduped = this.deduplicateIssues(allIssues);
       
-      // Filter out ignored terms
-      const filteredIssues = allIssues.filter(issue => 
-        !this.ignoredTerms.has(issue.originalBrand.toLowerCase())
-      );
+      // Filter out ignored terms and false positives on proper names
+      const filteredIssues = deduped.filter(issue => {
+        if (this.ignoredTerms.has(issue.originalBrand.toLowerCase())) return false;
+        
+        // Filter out suggestions for proper names (artist/person names)
+        if (this.isLikelyProperName(issue.originalBrand, text)) {
+          if ((issue.confidence || 0) < 0.95) return false;
+        }
+        
+        // Filter out diacritical-only differences on proper names
+        if (this.differOnlyInDiacritics(issue.originalBrand, issue.suggestedBrand) && 
+            this.isLikelyProperName(issue.originalBrand, text)) {
+          return false;
+        }
+        
+        // Filter if the artist field already contains this name
+        const artistField = document.querySelector('#item_artist_name_sv');
+        if (artistField && artistField.value) {
+          const artistName = artistField.value.toLowerCase();
+          if (artistName.includes(issue.originalBrand.toLowerCase())) return false;
+        }
+        
+        return true;
+      });
       
       if (filteredIssues.length > 0) {
         this.showInlineNotifications(field, filteredIssues);
@@ -169,6 +210,209 @@ export class InlineBrandValidator {
     } catch (error) {
       console.error('Error validating field content:', error);
     }
+  }
+
+  // AI-powered general spellcheck for title/description fields
+  async checkSpellingWithAI(text, fieldType, apiManager) {
+    if (!apiManager || !apiManager.apiKey) return [];
+    if (text.length < 5) return [];
+
+    const fieldLabel = fieldType === 'title' ? 'titel' : 'beskrivning';
+    const prompt = `Kontrollera stavningen i denna auktions-${fieldLabel} på svenska:
+"${text}"
+
+Hitta ALLA stavfel, t.ex.:
+- Felstavade svenska ord (t.ex. "afisch" → "affisch", "teckninng" → "teckning")
+- Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
+- Felstavade facktermer (t.ex. "litograif" → "litografi")
+
+IGNORERA:
+- Personnamn och konstnärsnamn (t.ex. "E. Jarup", "Beijer") — rätta INTE dessa
+- Ortnamn/stadsnamn
+- Varumärken/märkesnamn (hanteras separat)
+- Förkortningar (cm, st, ca)
+- Korrekt stavade ord — rapportera BARA verkliga stavfel
+
+Svara BARA med JSON-array (tom om inga fel):
+{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
+
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: apiManager.apiKey,
+          body: {
+            model: 'claude-haiku-4-5',
+            max_tokens: 300,
+            temperature: 0,
+            system: 'Du är en svensk stavningskontroll för auktionstexter. Hitta BARA verkliga stavfel. Svara med valid JSON. Var noggrann — rapportera INTE korrekt stavade ord.',
+            messages: [{ role: 'user', content: prompt }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response?.success) {
+            resolve(response);
+          } else {
+            reject(new Error('Spellcheck AI call failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const responseText = response.data.content[0].text.trim();
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const result = JSON.parse(jsonMatch[0]);
+          if (result.issues && Array.isArray(result.issues)) {
+            return result.issues
+              .filter(issue => issue.original && issue.corrected && 
+                      issue.original.toLowerCase() !== issue.corrected.toLowerCase() &&
+                      (issue.confidence || 0.9) >= 0.8)
+              .map(issue => ({
+                originalBrand: issue.original,
+                suggestedBrand: issue.corrected,
+                confidence: issue.confidence || 0.9,
+                type: 'spelling',
+                source: 'ai_spellcheck',
+                displayCategory: 'stavning'
+              }));
+          }
+        }
+      }
+    } catch (error) {
+      // Silently fail — dictionary check still works as fallback
+    }
+
+    return [];
+  }
+
+  // Remove duplicate issues (prefer higher confidence)
+  deduplicateIssues(issues) {
+    const seen = new Map();
+    for (const issue of issues) {
+      const key = issue.originalBrand.toLowerCase();
+      const existing = seen.get(key);
+      if (!existing || (issue.confidence || 0) > (existing.confidence || 0)) {
+        seen.set(key, issue);
+      }
+    }
+    return Array.from(seen.values());
+  }
+
+  // Specialized validation for the artist/designer name field
+  async validateArtistFieldContent(field, text) {
+    const issues = [];
+
+    // Check 1: Capitalization — artist names should be Title Case
+    const titleCased = text.replace(/\b([a-zåäöü])([a-zåäöü]*)\b/g, (match, first, rest) => {
+      // Skip very short words that might be particles (von, van, de, af)
+      if (match.length <= 2 && ['av', 'af', 'de', 'le', 'la', 'di', 'du'].includes(match)) return match;
+      if (['von', 'van', 'den', 'der', 'del'].includes(match)) return match;
+      return first.toUpperCase() + rest;
+    });
+
+    if (titleCased !== text) {
+      issues.push({
+        originalBrand: text,
+        suggestedBrand: titleCased,
+        confidence: 0.95,
+        type: 'artist_case',
+        displayCategory: 'versaler'
+      });
+    }
+
+    // Check 2: AI-powered artist name spelling check (if API available)
+    const apiManager = this.brandValidationManager?.apiManager;
+    if (apiManager && apiManager.apiKey) {
+      try {
+        const aiCorrection = await this.checkArtistNameWithAI(text, apiManager);
+        if (aiCorrection) {
+          // If AI found a correction, prefer it over the simple capitalization fix
+          const existingCaseIssue = issues.findIndex(i => i.type === 'artist_case');
+          if (existingCaseIssue >= 0) {
+            issues.splice(existingCaseIssue, 1);
+          }
+          issues.push(aiCorrection);
+        }
+      } catch (error) {
+        console.error('AI artist name validation failed:', error);
+      }
+    }
+
+    // Filter ignored terms
+    const filteredIssues = issues.filter(issue =>
+      !this.ignoredTerms.has(issue.originalBrand.toLowerCase())
+    );
+
+    if (filteredIssues.length > 0) {
+      this.showInlineNotifications(field, filteredIssues);
+    } else {
+      this.removeInlineNotifications(field);
+    }
+  }
+
+  // Ask AI to check if an artist name is misspelled
+  async checkArtistNameWithAI(artistName, apiManager) {
+    const prompt = `Kontrollera om detta konstnärs-/formgivarnamn är korrekt stavat:
+"${artistName}"
+
+Kontrollera:
+1. Stavfel i för- eller efternamn (t.ex. "christan" → "Christian", "Beijar" → "Beijer")
+2. Korrekt versalisering (t.ex. "christan beijer" → "Christian Beijer")
+3. Vanliga namnförväxlingar
+
+VIKTIGT: Om namnet ser korrekt ut, svara med corrected: null.
+Svara BARA om du är SÄKER på korrekt stavning.
+
+Svara ENDAST med JSON:
+{"corrected":"Korrekt Stavat Namn","confidence":0.95}
+Om korrekt: {"corrected":null}`;
+
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: apiManager.apiKey,
+          body: {
+            model: 'claude-haiku-4-5',
+            max_tokens: 150,
+            temperature: 0,
+            system: 'Du är expert på konstnärs- och formgivarnamn inom skandinavisk konst och design. Svara med valid JSON.',
+            messages: [{ role: 'user', content: prompt }]
+          }
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (response?.success) {
+            resolve(response);
+          } else {
+            reject(new Error('Artist name AI check failed'));
+          }
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const text = response.data.content[0].text.trim();
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const result = JSON.parse(jsonMatch[0]);
+          if (result.corrected && result.corrected.toLowerCase() !== artistName.toLowerCase()) {
+            return {
+              originalBrand: artistName,
+              suggestedBrand: result.corrected,
+              confidence: result.confidence || 0.9,
+              type: 'artist_spelling',
+              displayCategory: 'konstnärsnamn'
+            };
+          }
+        }
+      }
+    } catch (error) {
+      // Silently fail — capitalization check still works
+    }
+
+    return null;
   }
 
   // Create spell markers for misspellings
@@ -249,6 +493,10 @@ export class InlineBrandValidator {
     container.className = 'brand-inline-notifications';
     container.style.cssText = 'margin-top: 4px; margin-bottom: 10px;';
 
+    // Detect if we're in a narrow context (artist field column)
+    const fieldInfo = this.monitoredFields.get(field);
+    const isArtistField = fieldInfo?.type === 'artist';
+
     issues.forEach(issue => {
       const notification = document.createElement('div');
       notification.className = 'brand-inline-notification';
@@ -257,13 +505,14 @@ export class InlineBrandValidator {
       const categoryText = issue.displayCategory || 'märke';
 
       notification.innerHTML = `
-        <span class="brand-notif-icon">💡</span>
         <span class="brand-notif-text">
-          Menade du <strong>"${escapeHTML(issue.suggestedBrand)}"</strong> istället för "${escapeHTML(issue.originalBrand)}"?
+          Menade du <strong>"${escapeHTML(issue.suggestedBrand)}"</strong>?
           <span class="brand-notif-meta">(${confidence}%, ${escapeHTML(categoryText)})</span>
         </span>
-        <button class="brand-notif-fix" type="button">Rätta</button>
-        <button class="brand-notif-ignore" type="button">Ignorera</button>
+        <span class="brand-notif-actions">
+          <button class="brand-notif-fix" type="button">Rätta</button>
+          <button class="brand-notif-ignore" type="button">Ignorera</button>
+        </span>
       `;
 
       const fixBtn = notification.querySelector('.brand-notif-fix');
@@ -540,11 +789,17 @@ export class InlineBrandValidator {
       }
       
       /* Gentle inline suggestion below field */
+      .brand-inline-notifications {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+      }
       .brand-inline-notification {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
-        padding: 5px 10px;
+        gap: 4px 8px;
+        padding: 6px 10px;
         margin-top: 3px;
         background: #f8fafc;
         border: 1px solid #e2e8f0;
@@ -554,13 +809,12 @@ export class InlineBrandValidator {
         color: #64748b;
         line-height: 1.4;
         animation: brandNotifFadeIn 0.3s ease-out;
-      }
-      .brand-notif-icon {
-        flex-shrink: 0;
-        font-size: 13px;
+        width: 100%;
+        box-sizing: border-box;
       }
       .brand-notif-text {
-        flex: 1;
+        flex: 1 1 auto;
+        min-width: 0;
       }
       .brand-notif-text strong {
         color: #334155;
@@ -569,12 +823,18 @@ export class InlineBrandValidator {
         color: #94a3b8;
         font-size: 11px;
       }
+      .brand-notif-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+      }
       .brand-notif-fix {
         flex-shrink: 0;
-        background: #f1f5f9;
-        color: #1976d2;
-        border: 1px solid #cbd5e1;
-        padding: 3px 10px;
+        background: #1976d2;
+        color: white;
+        border: 1px solid #1976d2;
+        padding: 3px 12px;
         border-radius: 4px;
         font-size: 11px;
         font-weight: 500;
@@ -583,9 +843,8 @@ export class InlineBrandValidator {
         font-family: inherit;
       }
       .brand-notif-fix:hover {
-        background: #1976d2;
-        color: white;
-        border-color: #1976d2;
+        background: #1565c0;
+        border-color: #1565c0;
       }
       .brand-notif-ignore {
         flex-shrink: 0;
@@ -618,6 +877,41 @@ export class InlineBrandValidator {
     `;
 
     document.head.appendChild(style);
+  }
+
+  // Detect if a word is likely a proper name in context (person name, place name)
+  isLikelyProperName(word, fullText) {
+    if (!word || word.length < 2) return false;
+    
+    // Check if preceded by an initial (e.g., "E. Jarup" → "Jarup" is a proper name)
+    const escapedWord = this.escapeRegex(word);
+    const initialPattern = new RegExp(`[A-ZÅÄÖÜ]\\.\\s*${escapedWord}`, 'i');
+    if (initialPattern.test(fullText)) return true;
+    
+    // Check if the word itself starts with uppercase (Title Case) and is not ALL CAPS
+    if (/^[A-ZÅÄÖÜ][a-zåäöü]/.test(word)) {
+      // In a comma-separated auction title, capitalized words after commas are often proper names
+      const afterCommaPattern = new RegExp(`,\\s*${escapedWord}\\b`);
+      if (afterCommaPattern.test(fullText)) return true;
+      
+      // Check if next to another capitalized word → person name pattern
+      const namePattern = new RegExp(`[A-ZÅÄÖÜ][a-zåäöü]+\\s+${escapedWord}\\b|${escapedWord}\\s+[A-ZÅÄÖÜ][a-zåäöü]+`);
+      if (namePattern.test(fullText)) return true;
+    }
+    
+    return false;
+  }
+  
+  // Check if two words differ only in diacritical marks (a↔ä, o↔ö, u↔ü)
+  differOnlyInDiacritics(word1, word2) {
+    if (!word1 || !word2) return false;
+    const normalize = (s) => s.toLowerCase()
+      .replace(/[äàáâã]/g, 'a')
+      .replace(/[öòóôõ]/g, 'o')
+      .replace(/[üùúû]/g, 'u')
+      .replace(/[éèêë]/g, 'e')
+      .replace(/[åàáâã]/g, 'a');
+    return normalize(word1) === normalize(word2) && word1.toLowerCase() !== word2.toLowerCase();
   }
 
   // Helper method to escape regex

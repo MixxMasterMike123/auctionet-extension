@@ -88,8 +88,8 @@ export class ArtistDetectionManager {
           }
         }
         
-        // ENHANCED: Use appropriate confidence threshold
-        const requiredConfidence = isInformalPattern ? 0.5 : 0.6; // Lower thresholds to allow corrections
+        // Require reasonable confidence before suggesting artist move
+        const requiredConfidence = isInformalPattern ? 0.65 : 0.75;
         
         
         if (aiResult && aiResult.hasArtist && aiResult.confidence > requiredConfidence) {
@@ -483,11 +483,15 @@ export class ArtistDetectionManager {
         
         // Check if it looks like a person's name (not place/concept)
         if (this.looksLikePersonName(potentialArtist)) {
-          return {
-            detectedArtist: potentialArtist.trim(),
-            suggestedTitle: `${objectType}, ${rest}`.trim(),
-            confidence: this.calculateArtistConfidence(potentialArtist, objectType)
-          };
+          const confidence = this.calculateArtistConfidence(potentialArtist, objectType);
+          // Rule-based detection requires at least 0.5 confidence to avoid noisy suggestions
+          if (confidence >= 0.5) {
+            return {
+              detectedArtist: potentialArtist.trim(),
+              suggestedTitle: `${objectType}, ${rest}`.trim(),
+              confidence: confidence
+            };
+          }
         }
       }
     }
@@ -535,26 +539,39 @@ export class ArtistDetectionManager {
 
     // Exclude common non-person terms that might appear in titles
     const excludeTerms = [
-      // Places (check case-insensitive)
+      // Places - Swedish cities (check case-insensitive)
       'stockholm', 'göteborg', 'malmö', 'uppsala', 'västerås', 'örebro', 'linköping',
-      'helsingborg', 'jönköping', 'norrköping', 'lund', 'umeå', 'gävle', 'borås',
+      'helsingborg', 'hälsingborg', 'jönköping', 'norrköping', 'lund', 'umeå', 'gävle', 'borås',
+      'karlstad', 'sundsvall', 'östersund', 'falun', 'kalmar', 'visby', 'halmstad',
+      'trollhättan', 'uddevalla', 'skövde', 'lidköping', 'mariestad', 'motala',
+      'kristianstad', 'ystad', 'landskrona', 'trelleborg', 'ängelholm', 'eslöv',
+      'nyköping', 'eskilstuna', 'strängnäs', 'katrineholm', 'södertälje',
+      
+      // Places - Nordic/European
+      'danmark', 'norge', 'finland', 'england', 'frankrike', 'tyskland', 'italien',
+      'köpenhamn', 'oslo', 'helsingfors', 'london', 'paris', 'berlin', 'wien',
       
       // Historical figures (subjects, not artists)
       'napoleon bonaparte', 'gustav vasa', 'carl gustaf', 'victoria bernadotte',
       
       // Companies/Manufacturers (case-insensitive)
       'gustavsberg porslin', 'rörstrand porcelain', 'orrefors glasbruk', 'kosta boda',
-      'arabia finland', 'royal copenhagen', 'bing grondahl',
+      'arabia finland', 'royal copenhagen', 'bing grondahl', 'svenskt tenn',
       
       // Common object descriptions that might look like names
       'art deco', 'art nouveau', 'louis philippe', 'carl johan', 'gustav iii',
+      'stora modellen', 'lilla modellen', 'stor modell', 'liten modell',
       
       // Design periods/styles
       'jugend stil', 'empire stil', 'rokoko stil', 'barock stil',
+      'sen empire', 'tidig jugend', 'sen jugend', 'nytt rokoko',
       
-      // ENHANCED: Common object types that might be confused for names in informal entries
+      // Common two-word descriptive phrases confused for names
       'pappaer litografi', 'litografi pappaer', 'olja duk', 'duk olja',
-      'keramik figurin', 'figurin keramik', 'glas vas', 'vas glas'
+      'keramik figurin', 'figurin keramik', 'glas vas', 'vas glas',
+      'rund form', 'oval form', 'stor storlek', 'liten storlek',
+      'matt glasyr', 'blank glasyr', 'polerad yta', 'matt yta',
+      'genombruten dekor', 'reliefdekor mönster', 'vackert skick'
     ];
 
     // Check if the full name matches any exclude terms (case-insensitive)
@@ -564,25 +581,48 @@ export class ArtistDetectionManager {
 
     // Check individual words against common non-name terms (case-insensitive)
     const nonNameWords = [
+      // Cities and places
       'stockholm', 'göteborg', 'malmö', 'gustavsberg', 'rörstrand', 'orrefors', 
+      'helsingborg', 'hälsingborg', 'norrköping', 'linköping', 'jönköping',
+      'uppsala', 'lund', 'kalmar', 'visby', 'falun', 'gävle', 'sundsvall',
+      'karlstad', 'örebro', 'västerås', 'borås', 'uddevalla', 'trollhättan',
+      'halmstad', 'kristianstad', 'ystad', 'eskilstuna', 'nyköping', 'södertälje',
+      'landskrona', 'lidköping', 'skövde', 'motala', 'mariestad',
+      'danmark', 'norge', 'finland', 'england', 'frankrike', 'tyskland', 'italien',
+      'köpenhamn', 'oslo', 'helsingfors', 'london', 'paris', 'berlin', 'wien',
+      
+      // Brands/Companies/Manufacturers
       'kosta', 'arabia', 'royal', 'napoleon', 'louis', 'empire',
-      // Company/Manufacturer names that might appear after artist names
       'ikea', 'tenn', 'lammhults', 'källemo', 'mathsson', 'malmsten', 
-      'boda', 'artek', 'iittala', 'grondahl', 'axeco',
-      // ENHANCED: Object types and materials that might be confused for names
+      'boda', 'artek', 'iittala', 'grondahl', 'axeco', 'svenskt',
+      'copenhagen', 'rosenthal', 'meissen', 'wedgwood', 'herend',
+      
+      // Object types and materials
       'pappaer', 'litografi', 'olja', 'duk', 'keramik', 'glas', 'vas', 'skål',
       'figurin', 'målning', 'tavla', 'stol', 'bord', 'lampa', 'porslin', 'kristall',
-      // Common descriptive terms that appear in figurine/sculpture titles
+      'matta', 'spegel', 'byrå', 'soffa', 'fåtölj', 'skåp', 'hylla', 'klocka',
+      'silver', 'mässing', 'koppar', 'brons', 'tenn', 'järn', 'trä', 'sten',
+      'stengods', 'flintgods', 'fajans', 'lergods', 'terrakotta', 'majolika',
+      'rölakan', 'flossa', 'gobelängteknik', 'handknuten',
+      'etsning', 'akvarell', 'skulptur', 'teckning', 'grafik', 'tryck',
+      
+      // Common descriptive terms
       'kvinna', 'man', 'flicka', 'pojke', 'barn', 'dame', 'herre', 'fru', 'herr',
       'kvinnor', 'män', 'flickor', 'pojkar', 'damer', 'herrar',
-      // ENHANCED: Time periods and dates
       'signerad', 'osignerad', 'daterad', 'omkring', 'cirka', 'troligen',
-      // Common prepositions and descriptive words
+      'numrerad', 'stämplad', 'märkt', 'dekor', 'dekorerad', 'mönster',
+      'förgylld', 'patinerad', 'polerad', 'matt', 'blank', 'glaserad',
+      'rund', 'oval', 'fyrkantig', 'rektangulär', 'stor', 'liten', 'lilla',
+      'moderna', 'samtida', 'antik', 'jugend', 'rokoko', 'barock', 'deco',
+      'nouveau', 'gustaviansk', 'sengustaviansk', 'empire',
+      
+      // Prepositions and common words
       'med', 'och', 'vid', 'på', 'under', 'över', 'utan', 'för', 'till', 'från',
       'som', 'av', 'i', 'ur', 'mot', 'genom', 'mellan', 'bland', 'hos', 'åt',
-      // Common object/animal terms in figurine descriptions
+      
+      // Animal/nature terms in figurine descriptions
       'hundar', 'katter', 'hästar', 'fåglar', 'blommor', 'träd', 'hus', 'båt',
-      'bil', 'cykel', 'stol', 'bord', 'vas', 'skål', 'fat', 'kopp', 'glas'
+      'bil', 'cykel', 'fat', 'kopp'
     ];
 
     if (words.some(word => 
@@ -613,19 +653,32 @@ export class ArtistDetectionManager {
     return true;
   }
 
-  // Helper method to calculate confidence in artist detection - exactly from edit page
   calculateArtistConfidence(artistName, objectType) {
-    let confidence = 0.7; // Base confidence
+    let confidence = 0.6; // Conservative base confidence for rule-based detection
 
-    // Higher confidence for certain object types commonly associated with artists
+    const upperType = objectType.toUpperCase();
+
+    // Higher confidence for object types that almost always have artists
     const artistObjectTypes = ['TAVLA', 'MÅLNING', 'AKVARELL', 'LITOGRAFI', 'ETSNING', 'SKULPTUR', 'TECKNING'];
-    if (artistObjectTypes.some(type => objectType.toUpperCase().includes(type))) {
-      confidence += 0.2;
+    if (artistObjectTypes.some(type => upperType.includes(type))) {
+      confidence += 0.25;
     }
 
-    // Lower confidence for object types that might have designer names legitimately in title
-    const designerObjectTypes = ['STOL', 'BORD', 'LAMPA', 'VAS', 'SKÅL', 'FAT'];
-    if (designerObjectTypes.some(type => objectType.toUpperCase().includes(type))) {
+    // Moderate confidence for craft/design objects
+    const craftObjectTypes = ['MATTA', 'TEXTIL', 'KERAMIK', 'GLAS', 'SILVER'];
+    if (craftObjectTypes.some(type => upperType.includes(type))) {
+      confidence += 0.1;
+    }
+
+    // Lower confidence for object types that commonly have places/manufacturers, not artists
+    const designerObjectTypes = ['STOL', 'BORD', 'LAMPA', 'VAS', 'SKÅL', 'FAT', 'BURK', 'KOPP', 'TALLRIK', 'LJUSSTAKE'];
+    if (designerObjectTypes.some(type => upperType.includes(type))) {
+      confidence -= 0.2;
+    }
+
+    // Very low confidence for generic object types
+    const genericObjectTypes = ['PARTI', 'SAMLING', 'DIVERSE', 'LÅDOR', 'KARTONGER'];
+    if (genericObjectTypes.some(type => upperType.includes(type))) {
       confidence -= 0.3;
     }
 
