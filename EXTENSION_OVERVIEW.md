@@ -1,6 +1,6 @@
-# Auctionet AI Cataloging Assistant
+	# Auctionet AI Cataloging Assistant
 
-**Version 1.7.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 1.8.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
@@ -21,7 +21,7 @@ The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Au
 5. [Quality Control System](#5-quality-control-system)
 6. [Market Analysis Dashboard](#6-market-analysis-dashboard)
 7. [Artist Detection & Biography System](#7-artist-detection--biography-system)
-8. [Brand Validation](#8-brand-validation)
+8. [Brand Validation & Inline Spellcheck](#8-brand-validation--inline-spellcheck)
 9. [Search Query Intelligence](#9-search-query-intelligence)
 10. [Valuation Request Assistant](#10-valuation-request-assistant)
 11. [Admin Dashboard Enhancements](#11-admin-dashboard-enhancements)
@@ -245,22 +245,38 @@ If the system incorrectly detects an artist, the cataloger can dismiss the sugge
 
 ---
 
-## 8. Brand Validation
+## 8. Brand Validation & Inline Spellcheck
 
 ### Real-time Inline Validation
 
-As catalogers type in title and description fields, the brand validator:
+As catalogers type in title, description, and artist fields, the inline validator runs three checks in parallel:
 
-- Checks against a database of known brands (watches, jewelry, glass, ceramics, furniture, electronics, luxury goods)
-- Detects misspellings using fuzzy matching
-- Highlights misspelled brand names directly in the field
-- Shows tooltip corrections — click to auto-correct
-- Integrates with Swedish spell checking
+1. **Brand validation** — checks against a database of known brands (watches, jewelry, glass, ceramics, furniture, electronics, luxury goods) with fuzzy matching
+2. **AI spellcheck** — Claude Haiku detects general spelling errors in Swedish text, catching misspellings that dictionary-based checks miss
+3. **Swedish dictionary check** — validates common Swedish words and auction-specific terms against a built-in word list
+
+Misspelled words are highlighted directly in the field with tooltip corrections — click to auto-correct.
+
+### Artist Field Spellcheck
+
+The artist name field gets specialized validation:
+
+- **Rule-based capitalization** — detects uncapitalized names (e.g., "christan beijer" → "Christan Beijer"), respecting name particles (von, van, de)
+- **AI-powered name correction** — Claude Haiku checks artist/designer name spelling (e.g., "Christan Beijer" → "Christian Beijer")
+- Notification appears below the field with a one-click "Fix" button
+
+### False Positive Prevention
+
+- Proper names and place names are filtered out to avoid incorrect suggestions
+- Artist field contents are cross-referenced to suppress duplicate flags
+- Diacritics-only differences (e.g., "Jarup" → "Järup") require higher confidence
+- AI brand validation explicitly ignores person/artist names and place names
 
 ### Examples
 - "Orrfors" → suggests "Orrefors"
 - "Rollex" → suggests "Rolex"
 - "Gustafsberg" → suggests "Gustavsberg"
+- "christan beijer" (artist field) → suggests "Christian Beijer"
 
 ---
 
@@ -391,13 +407,17 @@ The dashboard replaces the default "Allas kommentarer" section with a visually r
 - Truncated body text (140 chars) for compact display
 - "Visa alla" link to the full comments page
 
-### Daily Goal Progress Ring
+### Warehouse Cost Card
 
-An SVG circular progress ring visualizing the "Inskrivet idag: X/Y st" navbar counter:
+A compact inline card showing accumulated warehouse storage fees for items not yet collected. Data is scraped from the paginated `/admin/sas/solds?filter=to_be_collected` list pages.
 
-- Fills from 0-100% with color shift (orange → blue → green)
-- Shows items registered vs daily goal
-- Displays total SEK value prominently
+- **Primary metric:** 30-day warehouse cost in large text (most actionable — recent items the team can still follow up on)
+- **Secondary metrics:** 90-day and all-time totals shown smaller to the right
+- **Data source:** Parses the "Avgiftsbelagda lagerdagar" column (format: `NN / 0`) from each table row, auto-detecting the column index from `<thead>` headers
+- **Pagination:** Detects total pages via result count text or pagination link inspection, fetches all pages in batches of 5 concurrent requests
+- **Caching:** Results cached in `chrome.storage.local` for 12 hours with manual refresh button
+- **Fee calculation:** Total days x 100 SEK/day
+- **Admin-only:** Only visible when admin mode is unlocked via PIN (see Settings)
 
 ### Pipeline Funnel (30-day)
 
@@ -439,9 +459,10 @@ Stacked bar chart showing distribution of items across states:
 
 ### Technical details
 
-- **Zero API calls** — all data is scraped from the existing page DOM
+- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, and cataloger stats are all scraped from the existing page DOM. The warehouse cost widget fetches additional Auctionet admin pages (same-origin, no external API)
 - **Progressive rendering** — components render immediately with available data; lazy-loaded turbo-frame content is picked up via MutationObserver as it arrives
-- Lightweight self-contained IIFE — no module imports needed
+- **Admin-gated** — all dashboard enhancements require admin mode to be unlocked via PIN; otherwise the page loads as vanilla Auctionet
+- Lightweight self-contained async IIFE — no module imports needed
 
 ---
 
@@ -553,8 +574,18 @@ The extension popup (`popup.html`) provides:
 | **Dashboard Visibility** | Show/hide the market analysis dashboard by default |
 | **Exclude Company ID** | Your auction house's Auctionet company ID — excludes your own historical sales from market analysis to prevent self-referencing |
 | **Connection Test** | One-click API connectivity verification |
+| **Admin PIN** | 4-digit PIN to unlock admin-only features (dashboard enhancements, warehouse costs) |
 
-All settings are stored in Chrome's sync storage (except the API key, which uses local storage for security).
+All settings are stored in Chrome's sync storage (except the API key and admin PIN hash, which use local storage for security).
+
+### Admin Mode (PIN-protected)
+
+The extension supports two roles:
+
+- **User mode (default):** All cataloging features work normally — edit page, add page, spellcheck, artist detection, image analysis, comment enhancer, valuation requests. The admin dashboard page loads without extension enhancements.
+- **Admin mode:** Unlocked by entering a 4-digit PIN in the extension popup. Enables dashboard enhancements (KPI cards, pipeline funnel, warehouse costs, pricing insights, cataloger leaderboard, comment feed).
+
+The PIN is hashed with SHA-256 before storage. Admin state is stored in sync storage so it persists across browser sessions. A "Lock" button in the popup re-locks admin mode instantly. This is a soft lock — it prevents casual access to sensitive operational data, not a cryptographic security boundary.
 
 ---
 
@@ -681,16 +712,19 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 ### Performance Characteristics
 
 - **API caching:** Market data cached for 30 minutes to minimize API calls
+- **Warehouse caching:** Warehouse cost data cached for 12 hours in Chrome local storage with manual refresh
 - **Debounced monitoring:** Field changes are batched (typically 300-800ms) before triggering re-analysis
 - **Lazy loading:** Market dashboard only runs analysis when opened
 - **State persistence:** Dashboard open/closed state, search terms stored in localStorage
 - **Background processing:** All API calls go through the service worker to avoid blocking the UI
+- **Batched fetching:** Warehouse cost pages fetched in concurrent batches of 5 for fast aggregation
 
 ---
 
 ## 17. Security Considerations
 
 - **API key storage:** The Anthropic API key is stored in Chrome's local storage (not sync storage) to prevent cross-device leakage
+- **Admin PIN:** Stored as a SHA-256 hash in local storage — not readable in plain text. Admin mode is a soft lock to prevent casual access to sensitive dashboard data (warehouse costs, KPIs), not a cryptographic security boundary
 - **XSS prevention:** All dynamic content is sanitized through the `escapeHTML` utility before DOM insertion
 - **No external servers:** All processing happens locally in the browser. The only external calls are to:
   - Anthropic API (for Claude AI)
@@ -710,6 +744,8 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 | Valuation request images | Fetched from Auctionet CDN, sent to Anthropic API as base64 | Not stored — processed in memory only |
 | Customer info (name, email) | Scraped from page, used locally for email generation | Session only — not persisted |
 | Search queries | Sent to Auctionet API for market data | Cached locally for 30 min / 1 hour |
+| Warehouse cost data | Scraped from Auctionet solds list pages (same-origin fetch) | Cached locally for 12 hours |
+| Admin PIN | Hashed (SHA-256) in Chrome local storage | Until user changes it |
 | Artist names | Sent to Wikipedia for images | Not stored |
 | API key | Chrome local storage on user's machine | Until user removes it |
 | Settings | Chrome sync storage | Until user changes them |
@@ -719,4 +755,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated February 15, 2026. Reflects extension version 1.7.0.*
+*Document updated February 20, 2026. Reflects extension version 1.8.0.*

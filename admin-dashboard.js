@@ -1,12 +1,24 @@
 // admin-dashboard.js — Visual dashboard enhancements for the Auctionet admin main page
 // No AI calls — pure DOM scraping and visualization
 
-(function() {
+(async function() {
   'use strict';
 
   // Only run on the exact /admin/sas page (not subpages)
   const path = window.location.pathname;
   if (!/\/admin\/sas\/?$/.test(path)) return;
+
+  // Admin mode gate: skip all enhancements unless unlocked via PIN
+  try {
+    const { adminUnlocked } = await chrome.storage.sync.get('adminUnlocked');
+    if (!adminUnlocked) {
+      console.log('[AdminDashboard] Admin mode not active, skipping enhancements');
+      return;
+    }
+  } catch (e) {
+    console.log('[AdminDashboard] Could not check admin status, skipping enhancements');
+    return;
+  }
 
   console.log('[AdminDashboard] Initializing dashboard enhancements');
 

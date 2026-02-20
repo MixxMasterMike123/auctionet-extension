@@ -100,6 +100,55 @@
         .link:hover {
             text-decoration: underline;
         }
+        .admin-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .admin-badge--locked {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .admin-badge--unlocked {
+            background: #d4edda;
+            color: #155724;
+        }
+        .admin-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .admin-pin-input {
+            width: 80px !important;
+            text-align: center;
+            letter-spacing: 4px;
+            font-size: 16px !important;
+            font-weight: 600;
+        }
+        .btn-sm {
+            width: auto;
+            padding: 6px 14px;
+            font-size: 12px;
+        }
+        .btn-outline {
+            background: #fff;
+            color: #007cba;
+            border: 1px solid #007cba;
+        }
+        .btn-outline:hover {
+            background: #007cba;
+            color: #fff;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #b02a37;
+        }
     </style>
 </head>
 <body>
@@ -155,6 +204,11 @@
                 Visa omfattande marknadsdata och försäljningsanalys ovanför objektet. Stäng av för att bara använda AI-förbättringsfunktionerna utan visuella distraktioner.
             </div>
         </div>
+    </div>
+
+    <div class="section" id="admin-section">
+        <h3>Admin Mode</h3>
+        <div id="admin-ui"></div>
     </div>
 
     <div class="section">

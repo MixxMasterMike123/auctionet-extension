@@ -12,11 +12,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const excludeCompanyInput = document.getElementById('exclude-company-id');
   const saveExcludeCompanyButton = document.getElementById('save-exclude-company');
 
+  const adminUI = document.getElementById('admin-ui');
+
   // Load existing API key and settings
   await loadApiKey();
   await loadArtistInfoSetting();
   await loadShowDashboardSetting();
   await loadExcludeCompanySetting();
+  await renderAdminUI();
   
   // Check extension status
   await checkExtensionStatus();
@@ -345,5 +348,138 @@ document.addEventListener('DOMContentLoaded', async () => {
       saveExcludeCompanyButton.disabled = false;
       saveExcludeCompanyButton.textContent = 'Save Exclude Company';
     }
+  }
+
+  // ─── Admin PIN Management ──────────────────────────────────────
+
+  async function hashPin(pin) {
+    const data = new TextEncoder().encode(pin);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function renderAdminUI() {
+    const { adminPinHash } = await chrome.storage.local.get('adminPinHash');
+    const { adminUnlocked } = await chrome.storage.sync.get('adminUnlocked');
+
+    if (!adminPinHash) {
+      // No PIN set yet — show setup form
+      adminUI.innerHTML = `
+        <div class="help-text" style="margin-bottom: 8px;">
+          Sätt en 4-siffrig PIN-kod för att skydda admin-funktioner (dashboard, lagerkostnader m.m.)
+        </div>
+        <div class="admin-row">
+          <input type="password" id="admin-pin-setup" class="admin-pin-input" maxlength="4" placeholder="····" inputmode="numeric" pattern="[0-9]*">
+          <button id="admin-pin-save" class="btn-sm">Sätt PIN</button>
+        </div>
+      `;
+      document.getElementById('admin-pin-save').addEventListener('click', setupPin);
+      document.getElementById('admin-pin-setup').addEventListener('keydown', e => {
+        if (e.key === 'Enter') setupPin();
+      });
+    } else if (adminUnlocked) {
+      // Unlocked — show status + lock button
+      adminUI.innerHTML = `
+        <div class="admin-row">
+          <span class="admin-badge admin-badge--unlocked">Admin aktiv</span>
+          <div>
+            <button id="admin-lock" class="btn-sm btn-outline">Lås</button>
+            <button id="admin-change-pin" class="btn-sm btn-outline" style="margin-left: 4px;">Byt PIN</button>
+          </div>
+        </div>
+        <div class="help-text">Dashboard-funktioner är synliga.</div>
+      `;
+      document.getElementById('admin-lock').addEventListener('click', lockAdmin);
+      document.getElementById('admin-change-pin').addEventListener('click', showChangePinUI);
+    } else {
+      // Locked — show unlock form
+      adminUI.innerHTML = `
+        <div class="admin-row">
+          <span class="admin-badge admin-badge--locked">Låst</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input type="password" id="admin-pin-unlock" class="admin-pin-input" maxlength="4" placeholder="····" inputmode="numeric" pattern="[0-9]*">
+            <button id="admin-unlock" class="btn-sm">Lås upp</button>
+          </div>
+        </div>
+        <div class="help-text">Ange PIN för att aktivera admin-funktioner.</div>
+      `;
+      document.getElementById('admin-unlock').addEventListener('click', unlockAdmin);
+      document.getElementById('admin-pin-unlock').addEventListener('keydown', e => {
+        if (e.key === 'Enter') unlockAdmin();
+      });
+    }
+  }
+
+  async function setupPin() {
+    const input = document.getElementById('admin-pin-setup');
+    const pin = input.value.trim();
+    if (!/^\d{4}$/.test(pin)) {
+      showStatus('PIN måste vara exakt 4 siffror.', 'error');
+      return;
+    }
+    const hash = await hashPin(pin);
+    await chrome.storage.local.set({ adminPinHash: hash });
+    await chrome.storage.sync.set({ adminUnlocked: true });
+    showStatus('Admin-PIN satt! Admin-läge aktiverat.', 'success');
+    await renderAdminUI();
+  }
+
+  async function unlockAdmin() {
+    const input = document.getElementById('admin-pin-unlock');
+    const pin = input.value.trim();
+    if (!/^\d{4}$/.test(pin)) {
+      showStatus('Ange 4 siffror.', 'error');
+      return;
+    }
+    const hash = await hashPin(pin);
+    const { adminPinHash } = await chrome.storage.local.get('adminPinHash');
+    if (hash === adminPinHash) {
+      await chrome.storage.sync.set({ adminUnlocked: true });
+      showStatus('Admin-läge aktiverat!', 'success');
+      await renderAdminUI();
+    } else {
+      showStatus('Fel PIN-kod.', 'error');
+      input.value = '';
+      input.focus();
+    }
+  }
+
+  async function lockAdmin() {
+    await chrome.storage.sync.set({ adminUnlocked: false });
+    showStatus('Admin-läge låst.', 'success');
+    await renderAdminUI();
+  }
+
+  function showChangePinUI() {
+    adminUI.innerHTML = `
+      <div class="help-text" style="margin-bottom: 8px;">Ange nuvarande PIN och sedan ny PIN:</div>
+      <div class="admin-row">
+        <input type="password" id="admin-pin-old" class="admin-pin-input" maxlength="4" placeholder="Nuv." inputmode="numeric" pattern="[0-9]*">
+        <input type="password" id="admin-pin-new" class="admin-pin-input" maxlength="4" placeholder="Ny" inputmode="numeric" pattern="[0-9]*">
+        <button id="admin-pin-change-save" class="btn-sm">Spara</button>
+        <button id="admin-pin-change-cancel" class="btn-sm btn-outline">Avbryt</button>
+      </div>
+    `;
+    document.getElementById('admin-pin-change-save').addEventListener('click', changePin);
+    document.getElementById('admin-pin-change-cancel').addEventListener('click', () => renderAdminUI());
+  }
+
+  async function changePin() {
+    const oldPin = document.getElementById('admin-pin-old').value.trim();
+    const newPin = document.getElementById('admin-pin-new').value.trim();
+    if (!/^\d{4}$/.test(oldPin) || !/^\d{4}$/.test(newPin)) {
+      showStatus('Båda PIN-koder måste vara 4 siffror.', 'error');
+      return;
+    }
+    const oldHash = await hashPin(oldPin);
+    const { adminPinHash } = await chrome.storage.local.get('adminPinHash');
+    if (oldHash !== adminPinHash) {
+      showStatus('Nuvarande PIN är fel.', 'error');
+      return;
+    }
+    const newHash = await hashPin(newPin);
+    await chrome.storage.local.set({ adminPinHash: newHash });
+    showStatus('PIN-kod ändrad!', 'success');
+    await renderAdminUI();
   }
 }); 
