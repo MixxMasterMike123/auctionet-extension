@@ -957,25 +957,17 @@ Phone: +46 60 17 00 40`;
   }
 
   _generateSwedishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems) {
-    const imageUrls = this.pageData.imageUrls || [];
-
     const sections = groupResults.map((r, i) => {
       const label = r.groupLabel || r.objectType || 'Föremål';
       const value = (r.estimatedValue || 0).toLocaleString();
       const desc = r.briefDescription || '';
-
-      // Reference image URL if available
-      const firstImgIdx = (r.groupImageIndices || [])[0];
-      const imgUrl = firstImgIdx != null ? imageUrls[firstImgIdx] : null;
-      const imgLine = imgUrl ? `Bild: ${imgUrl}` : '';
 
       const lowLine = r.tooLowForAuction
         ? 'OBS: Detta föremål har ett för lågt uppskattat värde för auktionsförsäljning.'
         : '';
 
       const lines = [
-        `${imgLine}`,
-        `${desc}`,
+        desc,
         `Uppskattat värde: ${value} kr`,
         lowLine
       ].filter(Boolean);
@@ -1022,24 +1014,17 @@ Telefon: 060 - 17 00 40`;
   }
 
   _generateEnglishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems) {
-    const imageUrls = this.pageData.imageUrls || [];
-
     const sections = groupResults.map((r, i) => {
       const label = r.groupLabel || r.objectType || 'Item';
       const value = (r.estimatedValue || 0).toLocaleString();
       const desc = r.briefDescription || '';
-
-      const firstImgIdx = (r.groupImageIndices || [])[0];
-      const imgUrl = firstImgIdx != null ? imageUrls[firstImgIdx] : null;
-      const imgLine = imgUrl ? `Image: ${imgUrl}` : '';
 
       const lowLine = r.tooLowForAuction
         ? 'Note: This item has too low an estimated value for auction.'
         : '';
 
       const lines = [
-        `${imgLine}`,
-        `${desc}`,
+        desc,
         `Estimated value: ${value} SEK`,
         lowLine
       ].filter(Boolean);
