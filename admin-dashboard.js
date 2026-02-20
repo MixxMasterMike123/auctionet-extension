@@ -675,6 +675,331 @@
     });
   }
 
+  // ─── 8. Warehouse Cost Widget ────────────────────────────────────
+
+  const WAREHOUSE_CACHE_KEY = 'warehouseCostCache';
+  const WAREHOUSE_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
+  const WAREHOUSE_FEE_PER_DAY = 100; // SEK
+
+  async function fetchWarehouseCosts() {
+    // Check cache first
+    try {
+      const cached = await new Promise(resolve => {
+        chrome.storage.local.get(WAREHOUSE_CACHE_KEY, r => resolve(r[WAREHOUSE_CACHE_KEY]));
+      });
+      if (cached && (Date.now() - cached.timestamp) < WAREHOUSE_CACHE_TTL) {
+        console.log('[AdminDashboard] Warehouse costs loaded from cache');
+        renderWarehouseCosts(cached, true);
+        return;
+      }
+    } catch (e) { /* no cache, fetch fresh */ }
+
+    // Show loading state
+    renderWarehouseLoading();
+
+    try {
+      const result = await fetchSoldsPages('to_be_collected');
+
+      const data = {
+        timestamp: Date.now(),
+        items: result.items,
+        totalItems: result.totalItems,
+        totalDays: result.totalDays
+      };
+
+      // Cache results
+      chrome.storage.local.set({ [WAREHOUSE_CACHE_KEY]: data });
+      renderWarehouseCosts(data, false);
+    } catch (error) {
+      console.error('[AdminDashboard] Warehouse cost fetch failed:', error);
+      renderWarehouseError(error.message);
+    }
+  }
+
+  async function fetchSoldsPages(filter) {
+    const baseUrl = `/admin/sas/solds?filter=${filter}`;
+    const firstPageHtml = await fetchPageHtml(baseUrl);
+
+    const totalPages = detectTotalPages(firstPageHtml);
+    console.log(`[AdminDashboard] Warehouse: filter=${filter}, totalPages=${totalPages}`);
+
+    // Parse first page
+    const items = parseWarehouseTable(firstPageHtml);
+    console.log(`[AdminDashboard] Warehouse: page 1 → ${items.length} items, sample days: ${items.slice(0, 3).map(i => i.auctionHouseDays).join(',')}`);
+
+    // Fetch remaining pages concurrently (batches of 5)
+    if (totalPages > 1) {
+      const pageNumbers = [];
+      for (let p = 2; p <= totalPages; p++) pageNumbers.push(p);
+
+      const batchSize = 5;
+      for (let i = 0; i < pageNumbers.length; i += batchSize) {
+        const batch = pageNumbers.slice(i, i + batchSize);
+        const pages = await Promise.all(
+          batch.map(p => fetchPageHtml(`${baseUrl}&page=${p}`))
+        );
+        pages.forEach(html => items.push(...parseWarehouseTable(html)));
+      }
+    }
+
+    const totalDays = items.reduce((sum, item) => sum + item.auctionHouseDays, 0);
+    console.log(`[AdminDashboard] Warehouse: filter=${filter} done → ${items.length} items, ${totalDays} total days`);
+    return { totalItems: items.length, totalDays, items };
+  }
+
+  function detectTotalPages(html) {
+    // Strategy 1: "Visar resultat 1 - 30 av 337" (handles &nbsp; as \u00a0)
+    const normalized = html.replace(/&nbsp;/g, ' ').replace(/\u00a0/g, ' ');
+    const resultMatch = normalized.match(/Visar resultat\s+\d+\s*[-–]\s*\d+\s+av\s+(\d[\d\s]*)/i);
+    if (resultMatch) {
+      const total = parseInt(resultMatch[1].replace(/\s/g, ''));
+      if (total > 0) return Math.ceil(total / 30);
+    }
+
+    // Strategy 2: find highest page number in pagination links
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    let maxPage = 1;
+    doc.querySelectorAll('a[href*="page="]').forEach(a => {
+      const m = a.getAttribute('href').match(/page=(\d+)/);
+      if (m) maxPage = Math.max(maxPage, parseInt(m[1]));
+    });
+    if (maxPage > 1) return maxPage;
+
+    // Strategy 3: look for .pagination links with page numbers
+    doc.querySelectorAll('.pagination a, .pagination span, nav a').forEach(el => {
+      const num = parseInt(el.textContent.trim());
+      if (!isNaN(num) && num > maxPage) maxPage = num;
+    });
+
+    return maxPage;
+  }
+
+  async function fetchPageHtml(url) {
+    const response = await fetch(url, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+    return response.text();
+  }
+
+  function parseWarehouseTable(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const table = doc.querySelector('table');
+    if (!table) return [];
+
+    // Auto-detect column indices from table headers
+    let daysColIdx = -1;
+    let sluttidColIdx = -1;
+    const headers = table.querySelectorAll('thead th');
+    headers.forEach((th, i) => {
+      const text = th.textContent.trim().toLowerCase();
+      if (text.includes('lagerdagar')) daysColIdx = i;
+      if (text.includes('sluttid')) sluttidColIdx = i;
+    });
+
+    // Fallback: scan all cells for the "NN / NN" pattern if header detection failed
+    const rows = table.querySelectorAll('tbody tr');
+    if (daysColIdx === -1 && rows.length > 0) {
+      const firstRowCells = rows[0].querySelectorAll('td');
+      for (let i = 0; i < firstRowCells.length; i++) {
+        if (/\d+\s*\/\s*\d+/.test(firstRowCells[i].textContent.trim())) {
+          daysColIdx = i;
+          break;
+        }
+      }
+    }
+
+    const items = [];
+    rows.forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length < 2) return;
+
+      const titleLink = tr.querySelector('a[href*="/items/"]');
+      const title = titleLink ? titleLink.textContent.trim() : '';
+      const url = titleLink ? titleLink.getAttribute('href') : '';
+
+      // Warehouse days from detected column
+      let auctionHouseDays = 0;
+      if (daysColIdx >= 0 && cells[daysColIdx]) {
+        const daysText = cells[daysColIdx].textContent.trim();
+        const daysMatch = daysText.match(/(\d+)\s*\/\s*(\d+)/);
+        if (daysMatch) auctionHouseDays = parseInt(daysMatch[1]);
+      }
+
+      // Sluttid (auction end date) from detected column
+      let endDate = null;
+      if (sluttidColIdx >= 0 && cells[sluttidColIdx]) {
+        endDate = parseSwedishDate(cells[sluttidColIdx].textContent.trim());
+      }
+
+      let buyer = '';
+      cells.forEach(cell => {
+        const buyerLink = cell.querySelector('a[href*="/buyers/"]');
+        if (buyerLink) buyer = buyerLink.textContent.trim();
+      });
+
+      items.push({ title, url, buyer, auctionHouseDays, endDate: endDate ? endDate.getTime() : null });
+    });
+
+    return items;
+  }
+
+  function parseSwedishDate(text) {
+    // Handles "20 feb 2026 13:52" or "20 feb 2026 kl. 13:52" etc.
+    const months = { jan: 0, feb: 1, mar: 2, apr: 3, maj: 4, jun: 5, jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dec: 11 };
+    const m = text.match(/(\d{1,2})\s+(\w{3})\s+(\d{4})/);
+    if (!m) return null;
+    const monthIdx = months[m[2].toLowerCase()];
+    if (monthIdx === undefined) return null;
+    return new Date(parseInt(m[3]), monthIdx, parseInt(m[1]));
+  }
+
+  function renderWarehouseLoading() {
+    let container = document.querySelector('.ext-warehouse');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'ext-warehouse ext-animate-in';
+      const inventory = document.querySelector('.ext-inventory');
+      const pipeline = document.querySelector('.ext-pipeline');
+      const statsDiv = document.getElementById('statistics');
+      const target = inventory || pipeline || statsDiv;
+      if (target) target.parentNode.insertBefore(container, target.nextSibling);
+      else return;
+    }
+
+    container.innerHTML = `
+      <div class="ext-warehouse__header">
+        <span class="ext-warehouse__title">Lagerkostnader</span>
+      </div>
+      <div class="ext-warehouse__loading">
+        <div class="ext-warehouse__spinner"></div>
+        <span>Hämtar lagerkostnader...</span>
+      </div>
+    `;
+  }
+
+  function renderWarehouseError(message) {
+    const container = document.querySelector('.ext-warehouse');
+    if (!container) return;
+    container.innerHTML = `
+      <div class="ext-warehouse__header">
+        <span class="ext-warehouse__title">Lagerkostnader</span>
+      </div>
+      <div class="ext-warehouse__error">
+        Kunde inte hämta data: ${message}
+        <button class="ext-warehouse__retry" onclick="this.closest('.ext-warehouse').remove()">Försök igen</button>
+      </div>
+    `;
+  }
+
+  function renderWarehouseCosts(data, fromCache) {
+    const allItems = data.items;
+    const now = Date.now();
+    const MS_PER_DAY = 86400000;
+
+    // Time-period buckets (cumulative)
+    function bucketStats(items) {
+      const days = items.reduce((s, i) => s + i.auctionHouseDays, 0);
+      return { count: items.length, days, cost: days * WAREHOUSE_FEE_PER_DAY };
+    }
+
+    const items30d = allItems.filter(i => i.endDate && (now - i.endDate) <= 30 * MS_PER_DAY);
+    const items90d = allItems.filter(i => i.endDate && (now - i.endDate) <= 90 * MS_PER_DAY);
+
+    const bucket30 = bucketStats(items30d);
+    const bucket90 = bucketStats(items90d);
+    const bucketAll = bucketStats(allItems);
+
+    // Top 5 offenders by auction house days
+    const topOffenders = [...allItems]
+      .sort((a, b) => b.auctionHouseDays - a.auctionHouseDays)
+      .slice(0, 5);
+
+    // Distribution badges
+    const over30 = allItems.filter(i => i.auctionHouseDays > 30).length;
+    const over60 = allItems.filter(i => i.auctionHouseDays > 60).length;
+    const over90 = allItems.filter(i => i.auctionHouseDays > 90).length;
+
+    // Format timestamp
+    const cacheTime = new Date(data.timestamp);
+    const timeStr = cacheTime.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = cacheTime.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' });
+
+    let container = document.querySelector('.ext-warehouse');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'ext-warehouse ext-animate-in';
+      const inventory = document.querySelector('.ext-inventory');
+      const pipeline = document.querySelector('.ext-pipeline');
+      const statsDiv = document.getElementById('statistics');
+      const target = inventory || pipeline || statsDiv;
+      if (target) target.parentNode.insertBefore(container, target.nextSibling);
+      else return;
+    }
+
+    const breakdownRowHTML = (label, bucket, highlight) => `
+      <div class="ext-warehouse__breakdown-row ${highlight ? 'ext-warehouse__breakdown-row--highlight' : ''}">
+        <span class="ext-warehouse__breakdown-label">${label}</span>
+        <span class="ext-warehouse__breakdown-items">${bucket.count} st</span>
+        <span class="ext-warehouse__breakdown-days">${formatSEK(bucket.days)} dagar</span>
+        <span class="ext-warehouse__breakdown-cost">${formatSEK(bucket.cost)} SEK</span>
+      </div>
+    `;
+
+    container.innerHTML = `
+      <div class="ext-warehouse__header">
+        <span class="ext-warehouse__title">Lagerkostnader (att hämta ut)</span>
+        <span class="ext-warehouse__meta">
+          ${fromCache ? 'Cachad' : 'Uppdaterad'} ${dateStr} ${timeStr}
+          <button class="ext-warehouse__refresh" title="Uppdatera">↻</button>
+        </span>
+      </div>
+
+      <div class="ext-warehouse__hero">
+        <div class="ext-warehouse__hero-amount">${formatSEK(bucketAll.cost)} SEK</div>
+        <div class="ext-warehouse__hero-detail">${bucketAll.count} föremål · ${formatSEK(bucketAll.days)} avgiftsbelagda dagar · ${WAREHOUSE_FEE_PER_DAY} SEK/dag</div>
+      </div>
+
+      <div class="ext-warehouse__breakdown">
+        ${breakdownRowHTML('Senaste 30 dagarna', bucket30, false)}
+        ${breakdownRowHTML('Senaste 90 dagarna', bucket90, false)}
+        ${breakdownRowHTML('Totalt', bucketAll, true)}
+      </div>
+
+      <div class="ext-warehouse__badges">
+        <span class="ext-warehouse__badge ${over30 > 0 ? 'ext-warehouse__badge--warn' : ''}">
+          &gt; 30 lagerdagar: <strong>${over30}</strong>
+        </span>
+        <span class="ext-warehouse__badge ${over60 > 0 ? 'ext-warehouse__badge--alert' : ''}">
+          &gt; 60 lagerdagar: <strong>${over60}</strong>
+        </span>
+        <span class="ext-warehouse__badge ${over90 > 0 ? 'ext-warehouse__badge--critical' : ''}">
+          &gt; 90 lagerdagar: <strong>${over90}</strong>
+        </span>
+      </div>
+
+      ${topOffenders.length > 0 ? `
+        <div class="ext-warehouse__offenders">
+          <div class="ext-warehouse__offenders-title">Mest lagerdagar</div>
+          ${topOffenders.map(item => `
+            <div class="ext-warehouse__offender-row">
+              <a href="${item.url}" class="ext-warehouse__offender-title">${item.title || 'Okänt föremål'}</a>
+              <span class="ext-warehouse__offender-buyer">${item.buyer}</span>
+              <span class="ext-warehouse__offender-days">${item.auctionHouseDays}d</span>
+              <span class="ext-warehouse__offender-cost">${formatSEK(item.auctionHouseDays * WAREHOUSE_FEE_PER_DAY)} SEK</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    `;
+
+    // Refresh button handler
+    container.querySelector('.ext-warehouse__refresh')?.addEventListener('click', () => {
+      chrome.storage.local.remove(WAREHOUSE_CACHE_KEY);
+      fetchWarehouseCosts();
+    });
+  }
+
   // ─── Initialize ───────────────────────────────────────────────────
 
   let hasRenderedKPI = false;
@@ -683,6 +1008,7 @@
   let hasRenderedInventory = false;
   let hasRenderedLeaderboard = false;
   let hasRenderedComments = false;
+  let hasStartedWarehouseFetch = false;
 
   function tryRenderAll() {
     try {
@@ -724,6 +1050,12 @@
         renderCommentFeed();
         hasRenderedComments = true;
       }
+
+      // Warehouse costs — start once the page has basic structure
+      if (!hasStartedWarehouseFetch && hasRenderedKPI) {
+        hasStartedWarehouseFetch = true;
+        fetchWarehouseCosts();
+      }
     } catch (error) {
       console.error('[AdminDashboard] Render error:', error);
     }
@@ -744,7 +1076,7 @@
       // Stop observing once everything has rendered
       if (hasRenderedKPI && hasRenderedPipeline &&
           hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard &&
-          hasRenderedComments) {
+          hasRenderedComments && hasStartedWarehouseFetch) {
         observer.disconnect();
         console.log('[AdminDashboard] All enhancements rendered');
       }
