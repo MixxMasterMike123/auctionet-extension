@@ -369,21 +369,26 @@ When a customer sends photos of multiple different objects in the same valuation
 
 ### Multi-section email templates
 
-When multiple objects are detected, the email uses clear per-object sections:
+When multiple objects are detected, the email uses clear per-object sections with unicode visual separators for readability:
 
 ```
---- Foremal 1: Oljemalnning, landskap ---
-[description]
-Uppskattat varde: 8 000 kr
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+▸ Foremal 1: Arabia Kaira kaffeservis
+Stor Arabia Kaira te- och kaffeservis i stengods...
+Uppskattat varde: 600 kr
 
---- Foremal 2: Glasvas, morkbla ---
-[description]
-Uppskattat varde: 1 500 kr
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+▸ Foremal 2: Arabia Tunturi teservis
+Arabia Tunturi teservis i stengods...
+Uppskattat varde: 400 kr
 
-Totalt uppskattat varde: 9 500 kr
+════════════════════════════════
+Totalt uppskattat varde: 1 000 kr (2 foremal)
+════════════════════════════════
 ```
 
-- Items below the 300 SEK auction threshold are noted individually
+- **Plain text only** — no HTML, no links, no images to minimize spam filter risk (even with DMARC/SPF verified domains)
+- Items below the 300 SEK auction threshold are noted individually per section
 - Accept/reject logic considers each item's value independently
 - Both Swedish and English templates supported
 
