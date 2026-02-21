@@ -560,7 +560,18 @@ KRITISKT — ANTAL AUKTIONSPOSTER (numberOfLots):
 KRITISKT — VÄRDERING AV SAMLINGAR/SET:
 - En servis, bestickuppsättning, par stolar etc. ska värderas som ETT lot — INTE per styck
 - Sök marknadsdata på hela setet (t.ex. "Gefle Tibet servis") — inte per tallrik
-- estimatedValue = vad hela setet säljs för på auktion som ett enda lot`;
+- estimatedValue = vad hela setet säljs för på auktion som ett enda lot
+
+IDENTIFIERING — HÖGSTA PRIORITET:
+- Granska VARJE bild noggrant efter: etiketter, stämplar, signaturer, märkningar, logotyper, serienummer
+- För möbler: undersök ben, beslag, konstruktion, klädselns mönster, formspråk — jämför med kända skandinaviska designers (Bruno Mathsson, Hans Wegner, Arne Jacobsen, Alvar Aalto, Carl Malmsten, Josef Frank, etc.)
+- För glas/keramik: leta efter bottenstämplar, signaturer i glaset/godset, produktionsnummer
+- För konst: leta efter signatur, monogram, tryckteknik, ateljéstämpel
+- För klockor/smycken: leta efter urtavletext, baksidegraveringar, stämplar, punsar
+- För belysning: leta efter tillverkarstämpel, designernamn, modellnummer
+- Om du ser en etikett eller text i bilden — TRANSKRIBERA den exakt
+- GISSA INTE märke/modell om du inte ser tydliga bevis — null är bättre än fel
+- Om du är osäker men har en stark misstanke, ange det i reasoning-fältet`;
 
     // Build content array with images + text
     const content = [];
@@ -605,10 +616,13 @@ Analysera bilderna och beskrivningen. Returnera EXAKT detta JSON-format:
   "reasoning": "intern motivering för värderingen (visas ej för kund)"
 }
 
-VIKTIGT för söktermer:
-- brand/artist/model är KRITISKA — de avgör hur vi söker i Auctionets databas
-- Identifiera ALLTID märke och modell om det går att se på bilder eller i beskrivning
-- Skriv brand/artist exakt som det stavas (t.ex. "Certina", inte "certina")`
+VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
+- brand/artist/model är de VIKTIGASTE fälten — de styr hur vi söker i Auctionets databas med 3,65 miljoner historiska resultat
+- Rätt identifiering = rätt marknadspris. Fel eller saknad identifiering = opålitlig värdering
+- Identifiera ALLTID märke och modell om det går att se på bilder, etiketter eller i beskrivning
+- Skriv brand/artist EXAKT som det stavas (t.ex. "Certina", inte "certina", "DUX" inte "Dux")
+- För möbler: ange BÅDE tillverkare (t.ex. "DUX", "Swedese", "Fritz Hansen") OCH designer (t.ex. "Arne Norell", "Bruno Mathsson") om båda är kända
+- För modellnamn: var specifik (t.ex. "Kröken", "Lamino", "Egg Chair", "DS Nautic" — inte bara "fåtölj")`
     });
 
     return new Promise((resolve, reject) => {
@@ -617,8 +631,8 @@ VIKTIGT för söktermer:
         apiKey,
         body: {
           model,
-          max_tokens: 800,
-          temperature: 0.4, // Higher temp for image analysis — encourages thorough detail extraction
+          max_tokens: 1200,
+          temperature: 0.5,
           system: systemPrompt,
           messages: [{ role: 'user', content }]
         }
