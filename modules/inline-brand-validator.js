@@ -28,6 +28,8 @@ export class InlineBrandValidator {
       { selector: 'input[name*="title"]', type: 'title' },
       { selector: '#item_description_sv', type: 'description' },
       { selector: 'textarea[name*="description"]', type: 'description' },
+      { selector: '#item_condition_sv', type: 'condition' },
+      { selector: 'textarea[name*="condition"]', type: 'condition' },
       { selector: '#item_artist_name_sv', type: 'artist' },
       { selector: 'input[name*="artist"]', type: 'artist' }
     ];
@@ -217,7 +219,7 @@ export class InlineBrandValidator {
     if (!apiManager || !apiManager.apiKey) return [];
     if (text.length < 5) return [];
 
-    const fieldLabel = fieldType === 'title' ? 'titel' : 'beskrivning';
+    const fieldLabel = fieldType === 'title' ? 'titel' : fieldType === 'condition' ? 'konditionsrapport' : 'beskrivning';
     const prompt = `Kontrollera stavningen i denna auktions-${fieldLabel} på svenska:
 "${text}"
 
