@@ -740,25 +740,79 @@
     'tavlla': 'tavla', 'spegell': 'spegel', 'fåtöllj': 'fåtölj', 'kandelabrer': 'kandelaber'
   };
 
-  const PUB_SCAN_SPELL_STOP_WORDS = new Set([
-    'en', 'ett', 'den', 'det', 'de', 'på', 'i', 'av', 'för', 'med', 'till', 'från', 'om',
-    'vid', 'under', 'över', 'genom', 'och', 'eller', 'men', 'att', 'som', 'när', 'där',
-    'här', 'var', 'vad', 'hur', 'cm', 'mm', 'kg', 'st', 'ca', 'är', 'har', 'kan', 'ska',
-    'blått', 'rött', 'grönt', 'gult', 'vitt', 'brunt', 'grått', 'brett', 'djupt',
-    'gold', 'deco', 'nouveau'
-  ]);
+  // AI-based spellcheck — same approach as inline-brand-validator.js checkSpellingWithAI()
+  // Uses chrome.runtime.sendMessage → background.js → Anthropic API (Haiku)
+  async function checkSpellingAI(text, apiKey) {
+    if (!apiKey || !text || text.length < 5) return [];
 
-  function checkSpelling(text) {
+    const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
+"${text}"
+
+Hitta ALLA stavfel, t.ex.:
+- Felstavade svenska ord (t.ex. "afisch" → "affisch", "teckninng" → "teckning")
+- Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
+- Felstavade facktermer (t.ex. "litograif" → "litografi")
+
+IGNORERA:
+- Personnamn och konstnärsnamn (t.ex. "E. Jarup", "Beijer") — rätta INTE dessa
+- Ortnamn/stadsnamn
+- Varumärken/märkesnamn
+- Förkortningar (cm, st, ca, m/)
+- Modellbeteckningar (m/1914, Nr, etc.)
+- Korrekt stavade ord — rapportera BARA verkliga stavfel
+
+Svara BARA med JSON (tom array om inga fel):
+{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
+
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: apiKey,
+          body: {
+            model: 'claude-haiku-4-5',
+            max_tokens: 300,
+            temperature: 0,
+            system: 'Du är en svensk stavningskontroll för auktionstexter. Hitta BARA verkliga stavfel. Svara med valid JSON. Var noggrann — rapportera INTE korrekt stavade ord.',
+            messages: [{ role: 'user', content: prompt }]
+          }
+        }, (resp) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else if (resp?.success) resolve(resp);
+          else reject(new Error('Spellcheck AI call failed'));
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const responseText = response.data.content[0].text.trim();
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const result = JSON.parse(jsonMatch[0]);
+          if (result.issues && Array.isArray(result.issues)) {
+            return result.issues
+              .filter(i => i.original && i.corrected &&
+                      i.original.toLowerCase() !== i.corrected.toLowerCase() &&
+                      (i.confidence || 0.9) >= 0.8)
+              .map(i => ({ word: i.original, correction: i.corrected }));
+          }
+        }
+      }
+    } catch (e) {
+      // Silently fail — no spellcheck for this item
+    }
+    return [];
+  }
+
+  // Dictionary fallback when no API key is available
+  function checkSpellingDict(text) {
     if (!text) return [];
     const words = text.match(/\b[a-zåäöüA-ZÅÄÖÜ]{4,}\b/g) || [];
     const found = [];
     const seen = new Set();
     for (const word of words) {
       const lower = word.toLowerCase();
-      if (PUB_SCAN_SPELL_STOP_WORDS.has(lower)) continue;
-      if (seen.has(lower)) continue;
       const correction = PUB_SCAN_MISSPELLINGS[lower];
-      if (correction) {
+      if (correction && !seen.has(lower)) {
         seen.add(lower);
         found.push({ word: lower, correction });
       }
@@ -1145,7 +1199,7 @@
     return keywords;
   }
 
-  function runPhase2Checks(editData) {
+  async function runPhase2Checks(editData, apiKey) {
     const issues = [];
 
     // Image checks — critical (red): too few images is a key quality issue
@@ -1192,8 +1246,11 @@
     }
 
     // Spellcheck on title + description + condition text
+    // AI-based (Haiku) if API key available, dictionary fallback otherwise
     const combinedText = [editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
-    const spellingErrors = checkSpelling(combinedText);
+    const spellingErrors = apiKey
+      ? await checkSpellingAI(combinedText, apiKey)
+      : checkSpellingDict(combinedText);
     if (spellingErrors.length > 0) {
       const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
       issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
@@ -1211,6 +1268,13 @@
 
   async function runPublicationScan(onProgress) {
     const report = (msg) => { if (onProgress) onProgress(msg); };
+
+    // Load API key for AI spellcheck (falls back to dictionary if unavailable)
+    let apiKey = null;
+    try {
+      const stored = await chrome.storage.local.get(['anthropicApiKey']);
+      apiKey = stored.anthropicApiKey || null;
+    } catch (e) { /* no API key — dictionary fallback */ }
 
     report('Hämtar publiceringslista...');
     const baseUrl = '/admin/sas/publishables';
@@ -1262,7 +1326,7 @@
           };
           item.showUrl = showUrl;
           item.editData = editData;
-          item.phase2Issues = runPhase2Checks(editData);
+          item.phase2Issues = await runPhase2Checks(editData, apiKey);
         } catch (e) {
           console.error(`[PublicationScanner] Failed to scan item ${item.itemId}:`, e);
           item.phase2Issues = [{ text: 'Kunde inte skannas', severity: 'warning' }];
