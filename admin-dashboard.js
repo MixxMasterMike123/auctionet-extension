@@ -1291,8 +1291,8 @@ Svara BARA med JSON (tom array om inga fel):
     return response.text();
   }
 
-  // incremental = true: reuse cached results for already-scanned items, only deep-scan new ones
-  // incremental = false (manual "Kör nu"): full scan of all items
+  // incremental = true: re-check images for ALL items but skip AI spellcheck for cached items
+  // incremental = false (manual "Kör nu"): full deep-scan of all items including AI spellcheck
   async function runPublicationScan(onProgress, { incremental = false } = {}) {
     const report = (msg) => { if (onProgress) onProgress(msg); };
 
@@ -1303,8 +1303,9 @@ Svara BARA med JSON (tom array om inga fel):
       apiKey = stored.anthropicApiKey || null;
     } catch (e) { /* no API key — dictionary fallback */ }
 
-    // For incremental scans, build a lookup of previously scanned items
-    let cachedItemMap = {};
+    // For incremental scans, build lookup of previously scanned items' spellcheck results
+    // We keep their text-quality issues (spelling, description, condition) but re-check images
+    let cachedSpellMap = {}; // itemId → { spellingIssues: [], textIssues: [], editData: {} }
     if (incremental) {
       try {
         const prev = await new Promise(resolve => {
@@ -1312,11 +1313,16 @@ Svara BARA med JSON (tom array om inga fel):
         });
         if (prev) {
           [...(prev.critical || []), ...(prev.warnings || [])].forEach(entry => {
-            cachedItemMap[entry.itemId] = entry;
+            // Keep non-image issues from cache (spelling, text quality, artist-in-title)
+            const textIssues = (entry.issues || []).filter(i => {
+              const t = typeof i === 'string' ? i : i.text;
+              return !t.match(/^\d+ bild/) && t !== '0 bilder (saknar primärbild)' && t !== '0 bilder';
+            });
+            cachedSpellMap[entry.itemId] = { textIssues, editUrl: entry.editUrl, showUrl: entry.showUrl };
           });
-          // Also track items that passed (no issues) — store their IDs
+          // Track passed items (they had no issues at all — still need image re-check)
           if (prev._passedIds) {
-            prev._passedIds.forEach(id => { cachedItemMap[id] = { _passed: true }; });
+            prev._passedIds.forEach(id => { cachedSpellMap[id] = { textIssues: [], _passed: true }; });
           }
         }
       } catch (e) { /* no cache — full scan */ }
@@ -1341,73 +1347,44 @@ Svara BARA med JSON (tom array om inga fel):
       return { scannedAt: new Date().toISOString(), totalItems: 0, critical: [], warnings: [], passed: 0 };
     }
 
-    // Separate items into: needs-scan (new) vs already-cached
-    const itemsToScan = [];
-    const cachedEntries = []; // reused from previous scan
-    const cachedPassedIds = [];
+    allItems.forEach(item => { item.phase1Issues = runPhase1Checks(item); });
 
+    // Determine which items need full deep-scan vs image-only re-check
+    const newItems = []; // never scanned — need full deep-scan
+    const cachedItems = []; // previously scanned — only re-check images
     allItems.forEach(item => {
-      item.phase1Issues = runPhase1Checks(item);
-      const cached = cachedItemMap[item.itemId];
-      if (incremental && cached) {
-        if (cached._passed) {
-          cachedPassedIds.push(item.itemId);
-        } else {
-          cachedEntries.push(cached);
-        }
+      if (incremental && cachedSpellMap[item.itemId]) {
+        cachedItems.push(item);
       } else {
-        itemsToScan.push(item);
+        newItems.push(item);
       }
     });
 
-    if (incremental && itemsToScan.length === 0) {
-      // No new items — keep previous results, just update timestamp
-      report('Inga nya föremål');
-      const prev = await new Promise(resolve => {
-        chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
-      });
-      if (prev) {
-        prev.scannedAt = new Date().toISOString();
-        prev.totalItems = totalItems;
-        try { chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: prev }); } catch (e) { /* ignore */ }
-        return prev;
-      }
-      // Cache lost — fall through to full scan
+    if (incremental && newItems.length > 0) {
+      report(`${newItems.length} nya föremål att skanna...`);
     }
 
-    if (incremental && itemsToScan.length > 0) {
-      report(`${itemsToScan.length} nya föremål att skanna...`);
-    }
-
-    // Deep-scan items that need it
+    // Full deep-scan for new items (show page + edit page + AI spellcheck)
     let scanned = 0;
-    for (let i = 0; i < itemsToScan.length; i += PUB_SCAN_BATCH_SIZE) {
-      const batch = itemsToScan.slice(i, i + PUB_SCAN_BATCH_SIZE);
+    for (let i = 0; i < newItems.length; i += PUB_SCAN_BATCH_SIZE) {
+      const batch = newItems.slice(i, i + PUB_SCAN_BATCH_SIZE);
       await Promise.all(batch.map(async (item) => {
         if (!item.editUrl) {
           item.phase2Issues = [{ text: 'Saknar redigera-länk', severity: 'warning' }];
           return;
         }
         try {
-          // Show page = edit URL minus /edit — has images, description, condition
           const showUrl = item.editUrl.replace(/\/edit$/, '');
-          // Fetch show page and edit page in parallel
           const [showHtml, editHtml] = await Promise.all([
             fetchPublicationPageHtml(showUrl),
             fetchPublicationPageHtml(item.editUrl)
           ]);
-
           const showData = parseShowPageForScan(showHtml);
           const editFields = parseEditPageFields(editHtml);
-
           const editData = {
-            title: item.title,
-            editTitle: editFields.editTitle,
-            artist: editFields.artist,
-            imageCount: showData.imageCount,
-            description: showData.description,
-            condition: showData.condition,
-            keywords: editFields.keywords
+            title: item.title, editTitle: editFields.editTitle, artist: editFields.artist,
+            imageCount: showData.imageCount, description: showData.description,
+            condition: showData.condition, keywords: editFields.keywords
           };
           item.showUrl = showUrl;
           item.editData = editData;
@@ -1418,43 +1395,70 @@ Svara BARA med JSON (tom array om inga fel):
         }
       }));
       scanned += batch.length;
-      report(`Skannar ${Math.min(scanned, itemsToScan.length)}/${itemsToScan.length}...`);
+      report(`Skannar ${Math.min(scanned, newItems.length)}/${newItems.length}...`);
     }
 
-    // Build results: merge newly scanned items with cached entries
+    // Image re-check for cached items (show page only — no API cost)
+    if (cachedItems.length > 0) {
+      report(incremental ? 'Kontrollerar bilder...' : `Kontrollerar bilder (${cachedItems.length})...`);
+      for (let i = 0; i < cachedItems.length; i += PUB_SCAN_BATCH_SIZE) {
+        const batch = cachedItems.slice(i, i + PUB_SCAN_BATCH_SIZE);
+        await Promise.all(batch.map(async (item) => {
+          const cached = cachedSpellMap[item.itemId];
+          try {
+            const showUrl = item.editUrl ? item.editUrl.replace(/\/edit$/, '') : (cached.showUrl || '');
+            if (!showUrl) { item.phase2Issues = cached.textIssues || []; return; }
+            const showHtml = await fetchPublicationPageHtml(showUrl);
+            const showData = parseShowPageForScan(showHtml);
+            item.showUrl = showUrl;
+            item.editData = { imageCount: showData.imageCount };
+
+            // Build phase2 issues: fresh image check + cached text issues
+            const imageIssues = [];
+            if (showData.imageCount === 0) imageIssues.push({ text: '0 bilder', severity: 'critical' });
+            else if (showData.imageCount === 1) imageIssues.push({ text: '1 bild', severity: 'critical' });
+            else if (showData.imageCount === 2) imageIssues.push({ text: '2 bilder', severity: 'critical' });
+
+            item.phase2Issues = [...imageIssues, ...(cached.textIssues || [])];
+          } catch (e) {
+            // Image re-check failed — keep cached issues as-is
+            item.phase2Issues = cached.textIssues || [];
+          }
+        }));
+      }
+    }
+
+    // Build final results from all items
     const critical = [];
     const warnings = [];
-    let passed = cachedPassedIds.length;
+    let passed = 0;
     let missingKeywords = 0;
-    const passedIds = [...cachedPassedIds];
+    const passedIds = [];
 
-    // Add back cached entries (items we didn't re-scan)
-    cachedEntries.forEach(entry => {
-      if (entry.severity === 'critical') critical.push(entry);
-      else warnings.push(entry);
-    });
-
-    // Process newly scanned items
-    itemsToScan.forEach(item => {
-      if (item.editData && !item.editData.keywords) missingKeywords++;
+    allItems.forEach(item => {
+      if (item.editData && item.editData.keywords === '') missingKeywords++;
+      if (item.editData && item.editData.keywords === undefined && !cachedSpellMap[item.itemId]) {
+        // new item without editData.keywords
+      }
 
       const allIssues = [...item.phase1Issues];
       if (item.phase2Issues) {
         item.phase2Issues.forEach(p2 => {
-          const isDupImage = p2.text.match(/^\d+ bild/) && allIssues.some(p1 => p1.text.includes('bilder'));
+          const p2Text = typeof p2 === 'string' ? p2 : p2.text;
+          const isDupImage = p2Text.match(/^\d+ bild/) && allIssues.some(p1 => (typeof p1 === 'string' ? p1 : p1.text).includes('bilder'));
           if (!isDupImage) allIssues.push(p2);
         });
       }
       if (allIssues.length === 0) { passed++; passedIds.push(item.itemId); return; }
 
-      const hasCritical = allIssues.some(i => i.severity === 'critical');
+      const hasCritical = allIssues.some(i => (typeof i === 'string' ? 'warning' : i.severity) === 'critical');
       const showUrl = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : null);
       const entry = {
         itemId: item.itemId,
         title: item.title,
         editUrl: item.editUrl,
         showUrl: showUrl,
-        issues: allIssues.map(i => ({ text: i.text, severity: i.severity })),
+        issues: allIssues.map(i => typeof i === 'string' ? { text: i, severity: 'warning' } : { text: i.text, severity: i.severity }),
         severity: hasCritical ? 'critical' : 'warning',
         imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0)
       };
