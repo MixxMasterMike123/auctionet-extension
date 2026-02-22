@@ -121,11 +121,25 @@ async function handleAnthropicRequest(request, sendResponse) {
   }
 }
 
+const ALLOWED_IMAGE_DOMAINS = ['images.auctionet.com', 'auctionet.com', 'upload.wikimedia.org'];
+
 async function handleFetchImageAsBase64(request, sendResponse) {
   try {
     const url = request.url;
     if (!url) {
       sendResponse({ success: false, error: 'URL is required' });
+      return;
+    }
+
+    // Security: only allow fetching images from trusted domains
+    try {
+      const parsed = new URL(url);
+      if (!ALLOWED_IMAGE_DOMAINS.some(d => parsed.hostname === d || parsed.hostname.endsWith('.' + d))) {
+        sendResponse({ success: false, error: 'Domain not allowed' });
+        return;
+      }
+    } catch (e) {
+      sendResponse({ success: false, error: 'Invalid URL' });
       return;
     }
 

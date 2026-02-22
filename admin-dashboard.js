@@ -897,7 +897,7 @@ Svara BARA med JSON (tom array om inga fel):
         </div>
       </div>
     `;
-    container.querySelector('.ext-pubscan__run')?.addEventListener('click', triggerPublicationScan);
+    container.querySelector('.ext-pubscan__run')?.addEventListener('click', () => triggerPublicationScan());
   }
 
   function renderPublicationResults(data) {
@@ -910,9 +910,9 @@ Svara BARA med JSON (tom array om inga fel):
       else return;
     }
 
-    const criticalCount = data.critical.length;
-    const warningCount = data.warnings.length;
-    const passedCount = data.passed;
+    const criticalCount = (data.critical || []).length;
+    const warningCount = (data.warnings || []).length;
+    const passedCount = data.passed || 0;
     const timeStr = new Date(data.scannedAt).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
     const relTime = relativeTimeFromISO(data.scannedAt);
     const allGood = criticalCount === 0 && warningCount === 0;
@@ -1032,7 +1032,7 @@ Svara BARA med JSON (tom array om inga fel):
     `;
 
     // Wire up button
-    container.querySelector('.ext-pubscan__run')?.addEventListener('click', triggerPublicationScan);
+    container.querySelector('.ext-pubscan__run')?.addEventListener('click', () => triggerPublicationScan());
 
     // Wire up "Redigera" links
     container.querySelectorAll('.ext-pubscan__edit-link[data-href]').forEach(link => {
@@ -1070,15 +1070,6 @@ Svara BARA med JSON (tom array om inga fel):
           row.classList.add('ext-pubscan__filter-row--active');
           const arrow = row.querySelector('.ext-pubscan__filter-arrow');
           if (arrow) arrow.textContent = '▲';
-
-          // Wire edit links in newly shown panel
-          panel.querySelectorAll('.ext-pubscan__edit-link[data-href]').forEach(link => {
-            link.addEventListener('click', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              window.location.href = link.dataset.href;
-            });
-          });
         }
       });
     });
@@ -1272,7 +1263,7 @@ Svara BARA med JSON (tom array om inga fel):
 
     // Spellcheck on title + description + condition text
     // AI-based (Haiku) if API key available, dictionary fallback otherwise
-    const combinedText = [editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
+    const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
     const spellingErrors = apiKey
       ? await checkSpellingAI(combinedText, apiKey)
       : checkSpellingDict(combinedText);
@@ -1286,9 +1277,15 @@ Svara BARA med JSON (tom array om inga fel):
   }
 
   async function fetchPublicationPageHtml(url) {
-    const response = await fetch(url, { credentials: 'same-origin' });
-    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
-    return response.text();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(url, { credentials: 'same-origin', signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+      return response.text();
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   // incremental = true: re-check images for ALL items but skip AI spellcheck for cached items
@@ -1465,7 +1462,7 @@ Svara BARA med JSON (tom array om inga fel):
       if (hasCritical) critical.push(entry); else warnings.push(entry);
     });
 
-    const result = { scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords, _passedIds: passedIds };
+    const result = { _version: 2, scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords, _passedIds: passedIds };
     try { chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result }); } catch (e) { /* ignore */ }
     return result;
   }
@@ -1502,7 +1499,7 @@ Svara BARA med JSON (tom array om inga fel):
             </div>
           </div>
         `;
-        container.querySelector('.ext-pubscan__run')?.addEventListener('click', triggerPublicationScan);
+        container.querySelector('.ext-pubscan__run')?.addEventListener('click', () => triggerPublicationScan());
       }
     } finally {
       publicationScanRunning = false;
@@ -1514,9 +1511,11 @@ Svara BARA med JSON (tom array om inga fel):
       const cached = await new Promise(resolve => {
         chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
       });
-      if (cached) {
+      if (cached && cached._version === 2) {
         renderPublicationResults(cached);
       } else {
+        // Cache missing or from older version — discard and show empty
+        if (cached) chrome.storage.local.remove(PUB_SCAN_CACHE_KEY);
         renderPublicationEmpty();
       }
     } catch (e) {
