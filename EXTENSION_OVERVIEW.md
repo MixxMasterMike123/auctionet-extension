@@ -514,10 +514,10 @@ A quality scanner that proactively checks all items in the publication queue bef
 
 1. Fetches the `/admin/sas/publishables` page and parses all item rows from the table
 2. **Phase 1 (fast):** Checks for missing images and empty/short titles from the list page data
-3. **Phase 2 (deep):** For each item, fetches the show page (images, description, condition) and edit page (hidden keywords) in parallel, in batches of 5 concurrent requests
+3. **Phase 2 (deep):** For each item, fetches the show page (images, description, condition) and edit page (title, artist, hidden keywords) in parallel, in batches of 5 concurrent requests
 4. Runs quality checks against the same thresholds as the quality rules engine
 5. Caches results in `chrome.storage.local` for fast reload
-6. Scheduled to re-scan every 2 hours via `chrome.alarms`
+6. **Incremental scheduled scan every 10 minutes** via `chrome.alarms` — only deep-scans new items not already in cache, keeping API costs near zero when queue is stable. Manual "Kör nu" button triggers a full re-scan of all items.
 
 **Quality checks performed:**
 
@@ -805,7 +805,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 
 - **API caching:** Market data cached for 30 minutes to minimize API calls
 - **Warehouse caching:** Warehouse cost data cached for 12 hours in Chrome local storage with manual refresh
-- **Publication scan caching:** Scan results cached in Chrome local storage; auto-rescan every 2 hours via `chrome.alarms`
+- **Publication scan caching:** Scan results cached in Chrome local storage; incremental auto-rescan every 10 minutes via `chrome.alarms` (only new items deep-scanned)
 - **Debounced monitoring:** Field changes are batched (typically 300-800ms) before triggering re-analysis
 - **Lazy loading:** Market dashboard only runs analysis when opened
 - **State persistence:** Dashboard open/closed state, search terms stored in localStorage
@@ -838,7 +838,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 | Customer info (name, email) | Scraped from page, used locally for email generation | Session only — not persisted |
 | Search queries | Sent to Auctionet API for market data | Cached locally for 30 min / 1 hour |
 | Warehouse cost data | Scraped from Auctionet solds list pages (same-origin fetch) | Cached locally for 12 hours |
-| Publication scan data | Scraped from Auctionet publishables, show, and edit pages (same-origin fetch) | Cached locally; re-scanned every 2 hours |
+| Publication scan data | Scraped from Auctionet publishables, show, and edit pages (same-origin fetch) | Cached locally; incremental rescan every 10 min |
 | Admin PIN | Hashed (SHA-256) in Chrome local storage | Until user changes it |
 | Artist names | Sent to Wikipedia for images | Not stored |
 | API key | Chrome local storage on user's machine | Until user removes it |
