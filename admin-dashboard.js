@@ -1110,7 +1110,7 @@ Svara BARA med JSON (tom array om inga fel):
       arrow.className = 'ext-pubscan-nav-arrow';
       arrow.textContent = ' ↓';
       arrow.title = 'Visa publiceringskontroll';
-      arrow.style.cssText = `cursor: pointer; font-size: 12px; color: ${issueColor}; font-weight: 700;`;
+      arrow.style.cssText = 'cursor: pointer; font-size: 14px; color: #006ccc; font-weight: 900; text-decoration: none;';
       arrow.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
