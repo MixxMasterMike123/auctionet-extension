@@ -1185,8 +1185,8 @@ Svara BARA med JSON (tom array om inga fel):
     return { imageCount, description, condition };
   }
 
-  // Parse the item EDIT page for hidden keywords (only available on edit page)
-  function parseEditPageKeywords(html) {
+  // Parse the item EDIT page for fields only available there (keywords, raw title, artist)
+  function parseEditPageFields(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
@@ -1196,7 +1196,17 @@ Svara BARA med JSON (tom array om inga fel):
                  doc.querySelector('textarea[name*="keywords"]');
     if (kwEl) keywords = (kwEl.getAttribute('value') || kwEl.value || kwEl.textContent || '').trim();
 
-    return keywords;
+    // Raw title from the edit form (without item ID prefix)
+    let editTitle = '';
+    const titleEl = doc.querySelector('#item_title_sv');
+    if (titleEl) editTitle = (titleEl.getAttribute('value') || titleEl.value || titleEl.textContent || '').trim();
+
+    // Artist/konstnär field
+    let artist = '';
+    const artistEl = doc.querySelector('#item_artist_name_sv');
+    if (artistEl) artist = (artistEl.getAttribute('value') || artistEl.value || artistEl.textContent || '').trim();
+
+    return { keywords, editTitle, artist };
   }
 
   async function runPhase2Checks(editData, apiKey) {
@@ -1209,6 +1219,21 @@ Svara BARA med JSON (tom array om inga fel):
       issues.push({ text: '1 bild', severity: 'critical' });
     } else if (editData.imageCount === 2) {
       issues.push({ text: '2 bilder', severity: 'critical' });
+    }
+
+    // Artist name in title field check — critical (red)
+    // Detects pattern: "SIGURD MALMFJORD. Kniv, halvhorn..." (ALL CAPS name followed by period)
+    // Only reliable from edit page title field (editTitle), not the publishables list title
+    if (editData.editTitle) {
+      const capsMatch = editData.editTitle.match(/^([A-ZÅÄÖÜ][A-ZÅÄÖÜ\s,-]+?)\.\s+/);
+      if (capsMatch) {
+        const capsName = capsMatch[1].trim();
+        // Must be at least 2 words (first + last name), each 2+ chars, all uppercase
+        const nameWords = capsName.split(/[\s,]+/).filter(w => w.length >= 2);
+        if (nameWords.length >= 2 && nameWords.every(w => /^[A-ZÅÄÖÜ-]+$/.test(w))) {
+          issues.push({ text: `Konstnärsnamn i titel ("${capsName}") — flytta till konstnärsfält`, severity: 'critical' });
+        }
+      }
     }
 
     // Description checks — warning (orange): text quality, not blocking
@@ -1315,14 +1340,16 @@ Svara BARA med JSON (tom array om inga fel):
           ]);
 
           const showData = parseShowPageForScan(showHtml);
-          const keywords = parseEditPageKeywords(editHtml);
+          const editFields = parseEditPageFields(editHtml);
 
           const editData = {
             title: item.title,
+            editTitle: editFields.editTitle,
+            artist: editFields.artist,
             imageCount: showData.imageCount,
             description: showData.description,
             condition: showData.condition,
-            keywords: keywords
+            keywords: editFields.keywords
           };
           item.showUrl = showUrl;
           item.editData = editData;
