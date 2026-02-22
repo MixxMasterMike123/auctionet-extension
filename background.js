@@ -19,8 +19,8 @@
 })();
 
 // ─── Publication Scanner Alarm ──────────────────────────────────────
-// Register a periodic alarm to trigger publication queue scans every 2 hours
-chrome.alarms.create('publicationScan', { periodInMinutes: 120 });
+// Register a periodic alarm to trigger incremental publication queue scans every 10 minutes
+chrome.alarms.create('publicationScan', { periodInMinutes: 10 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'publicationScan') {

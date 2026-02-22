@@ -1291,7 +1291,9 @@ Svara BARA med JSON (tom array om inga fel):
     return response.text();
   }
 
-  async function runPublicationScan(onProgress) {
+  // incremental = true: reuse cached results for already-scanned items, only deep-scan new ones
+  // incremental = false (manual "Kör nu"): full scan of all items
+  async function runPublicationScan(onProgress, { incremental = false } = {}) {
     const report = (msg) => { if (onProgress) onProgress(msg); };
 
     // Load API key for AI spellcheck (falls back to dictionary if unavailable)
@@ -1301,7 +1303,26 @@ Svara BARA med JSON (tom array om inga fel):
       apiKey = stored.anthropicApiKey || null;
     } catch (e) { /* no API key — dictionary fallback */ }
 
-    report('Hämtar publiceringslista...');
+    // For incremental scans, build a lookup of previously scanned items
+    let cachedItemMap = {};
+    if (incremental) {
+      try {
+        const prev = await new Promise(resolve => {
+          chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
+        });
+        if (prev) {
+          [...(prev.critical || []), ...(prev.warnings || [])].forEach(entry => {
+            cachedItemMap[entry.itemId] = entry;
+          });
+          // Also track items that passed (no issues) — store their IDs
+          if (prev._passedIds) {
+            prev._passedIds.forEach(id => { cachedItemMap[id] = { _passed: true }; });
+          }
+        }
+      } catch (e) { /* no cache — full scan */ }
+    }
+
+    report(incremental ? 'Kontrollerar publiceringskö...' : 'Hämtar publiceringslista...');
     const baseUrl = '/admin/sas/publishables';
     const firstPageHtml = await fetchPublicationPageHtml(baseUrl);
     const totalPages = detectPublishablePages(firstPageHtml);
@@ -1320,11 +1341,48 @@ Svara BARA med JSON (tom array om inga fel):
       return { scannedAt: new Date().toISOString(), totalItems: 0, critical: [], warnings: [], passed: 0 };
     }
 
-    allItems.forEach(item => { item.phase1Issues = runPhase1Checks(item); });
+    // Separate items into: needs-scan (new) vs already-cached
+    const itemsToScan = [];
+    const cachedEntries = []; // reused from previous scan
+    const cachedPassedIds = [];
 
+    allItems.forEach(item => {
+      item.phase1Issues = runPhase1Checks(item);
+      const cached = cachedItemMap[item.itemId];
+      if (incremental && cached) {
+        if (cached._passed) {
+          cachedPassedIds.push(item.itemId);
+        } else {
+          cachedEntries.push(cached);
+        }
+      } else {
+        itemsToScan.push(item);
+      }
+    });
+
+    if (incremental && itemsToScan.length === 0) {
+      // No new items — keep previous results, just update timestamp
+      report('Inga nya föremål');
+      const prev = await new Promise(resolve => {
+        chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
+      });
+      if (prev) {
+        prev.scannedAt = new Date().toISOString();
+        prev.totalItems = totalItems;
+        try { chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: prev }); } catch (e) { /* ignore */ }
+        return prev;
+      }
+      // Cache lost — fall through to full scan
+    }
+
+    if (incremental && itemsToScan.length > 0) {
+      report(`${itemsToScan.length} nya föremål att skanna...`);
+    }
+
+    // Deep-scan items that need it
     let scanned = 0;
-    for (let i = 0; i < allItems.length; i += PUB_SCAN_BATCH_SIZE) {
-      const batch = allItems.slice(i, i + PUB_SCAN_BATCH_SIZE);
+    for (let i = 0; i < itemsToScan.length; i += PUB_SCAN_BATCH_SIZE) {
+      const batch = itemsToScan.slice(i, i + PUB_SCAN_BATCH_SIZE);
       await Promise.all(batch.map(async (item) => {
         if (!item.editUrl) {
           item.phase2Issues = [{ text: 'Saknar redigera-länk', severity: 'warning' }];
@@ -1360,16 +1418,24 @@ Svara BARA med JSON (tom array om inga fel):
         }
       }));
       scanned += batch.length;
-      report(`Skannar ${Math.min(scanned, totalItems)}/${totalItems}...`);
+      report(`Skannar ${Math.min(scanned, itemsToScan.length)}/${itemsToScan.length}...`);
     }
 
+    // Build results: merge newly scanned items with cached entries
     const critical = [];
     const warnings = [];
-    let passed = 0;
+    let passed = cachedPassedIds.length;
     let missingKeywords = 0;
+    const passedIds = [...cachedPassedIds];
 
-    allItems.forEach(item => {
-      // Track items without hidden keywords (info only, not an error)
+    // Add back cached entries (items we didn't re-scan)
+    cachedEntries.forEach(entry => {
+      if (entry.severity === 'critical') critical.push(entry);
+      else warnings.push(entry);
+    });
+
+    // Process newly scanned items
+    itemsToScan.forEach(item => {
       if (item.editData && !item.editData.keywords) missingKeywords++;
 
       const allIssues = [...item.phase1Issues];
@@ -1379,7 +1445,7 @@ Svara BARA med JSON (tom array om inga fel):
           if (!isDupImage) allIssues.push(p2);
         });
       }
-      if (allIssues.length === 0) { passed++; return; }
+      if (allIssues.length === 0) { passed++; passedIds.push(item.itemId); return; }
 
       const hasCritical = allIssues.some(i => i.severity === 'critical');
       const showUrl = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : null);
@@ -1395,7 +1461,7 @@ Svara BARA med JSON (tom array om inga fel):
       if (hasCritical) critical.push(entry); else warnings.push(entry);
     });
 
-    const result = { scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords };
+    const result = { scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords, _passedIds: passedIds };
     try { chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result }); } catch (e) { /* ignore */ }
     return result;
   }
@@ -1404,17 +1470,17 @@ Svara BARA med JSON (tom array om inga fel):
 
   let publicationScanRunning = false;
 
-  async function triggerPublicationScan() {
+  async function triggerPublicationScan({ incremental = false } = {}) {
     if (publicationScanRunning) return;
     publicationScanRunning = true;
 
     try {
-      chrome.storage.local.remove(PUB_SCAN_CACHE_KEY);
-      renderPublicationLoading('Skannar...');
+      if (!incremental) chrome.storage.local.remove(PUB_SCAN_CACHE_KEY);
+      renderPublicationLoading(incremental ? 'Kontrollerar...' : 'Skannar...');
 
       const result = await runPublicationScan((progress) => {
         renderPublicationLoading(progress);
-      });
+      }, { incremental });
 
       renderPublicationResults(result);
     } catch (error) {
@@ -1455,10 +1521,10 @@ Svara BARA med JSON (tom array om inga fel):
     }
   }
 
-  // Listen for alarm-triggered scans from background.js
+  // Listen for alarm-triggered scans from background.js — use incremental mode
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'trigger-publication-scan') {
-      triggerPublicationScan();
+      triggerPublicationScan({ incremental: true });
     }
   });
 
