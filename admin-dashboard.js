@@ -1091,6 +1091,10 @@ Svara BARA med JSON (tom array om inga fel):
     const issueColor = criticalCount > 0 ? '#dc3545' : '#e65100';
     const icon = navLink.querySelector('i');
 
+    // Remove previous scroll arrow
+    const oldArrow = navLink.querySelector('.ext-pubscan-nav-arrow');
+    if (oldArrow) oldArrow.remove();
+
     if (totalIssues > 0) {
       navLink.style.color = issueColor;
       navLink.style.fontWeight = '600';
@@ -1101,6 +1105,19 @@ Svara BARA med JSON (tom array om inga fel):
       badge.textContent = ` (${totalIssues} ⚠)`;
       badge.style.cssText = `font-size: 11px; color: ${issueColor};`;
       navLink.appendChild(badge);
+      // Add scroll-down arrow that jumps to the scanner panel
+      const arrow = document.createElement('span');
+      arrow.className = 'ext-pubscan-nav-arrow';
+      arrow.textContent = ' ↓';
+      arrow.title = 'Visa publiceringskontroll';
+      arrow.style.cssText = `cursor: pointer; font-size: 12px; color: ${issueColor}; font-weight: 700;`;
+      arrow.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const panel = document.querySelector('.ext-pubscan');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      navLink.appendChild(arrow);
     } else {
       navLink.style.color = '';
       navLink.style.fontWeight = '';
