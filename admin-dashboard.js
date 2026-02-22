@@ -687,7 +687,694 @@
     });
   }
 
-  // ─── 8. Warehouse Cost Widget ────────────────────────────────────
+  // ─── 8. Publication Queue Scanner ────────────────────────────────
+
+  const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
+  const PUB_SCAN_MIN_IMAGES = 3;            // 3+ images = pass (per codebase standard)
+  const PUB_SCAN_MIN_DESC_LENGTH = 80;       // warning threshold for publication readiness
+  const PUB_SCAN_CRITICAL_DESC_LENGTH = 35;  // critical: matches quality-rules-engine threshold
+  const PUB_SCAN_MIN_TITLE_LENGTH = 14;      // matches quality-rules-engine threshold
+  const PUB_SCAN_MIN_CONDITION_LENGTH = 25;  // matches quality-rules-engine threshold
+  const PUB_SCAN_BATCH_SIZE = 5;
+  const PUB_SCAN_EXPANDED_KEY = 'ext_pubscan_warnings_expanded';
+
+  // Vague condition terms from quality-rules-engine.js
+  const PUB_SCAN_VAGUE_CONDITION_TERMS = [
+    'bruksskick', 'bruksslitage',
+    'normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'
+  ];
+
+  // Spellcheck: misspelling → correction map (from swedish-spellchecker.js)
+  const PUB_SCAN_MISSPELLINGS = {
+    'blåa': 'blå', 'groen': 'grön', 'guhl': 'gul', 'vhit': 'vit',
+    'swart': 'svart', 'svat': 'svart', 'röt': 'röd',
+    'sylver': 'silver', 'silwer': 'silver', 'gull': 'guld', 'kopar': 'koppar',
+    'masing': 'mässing', 'mesing': 'mässing', 'porlin': 'porslin', 'porslinn': 'porslin',
+    'krystal': 'kristall', 'cristall': 'kristall', 'marmur': 'marmor',
+    'granitt': 'granit', 'graniet': 'granit',
+    'skadoor': 'skador', 'reppar': 'repor', 'repar': 'repor',
+    'nag': 'nagg', 'fleckar': 'fläckar', 'flackar': 'fläckar',
+    'sprikor': 'sprickor', 'slitasje': 'slitage',
+    'säkel': 'sekel', 'sekkel': 'sekel', 'aarhundrade': 'århundrade',
+    'arrhundrade': 'århundrade', 'antikk': 'antik', 'vintange': 'vintage', 'wintage': 'vintage',
+    'signeradt': 'signerad', 'markt': 'märkt', 'märt': 'märkt',
+    'dateradt': 'daterad', 'datered': 'daterad', 'handmalad': 'handmålad',
+    'forgylld': 'förgylld', 'förgöld': 'förgylld', 'oxyderad': 'oxiderad',
+    'diamater': 'diameter', 'diameeter': 'diameter', 'hojd': 'höjd', 'hojt': 'höjd',
+    'langd': 'längd', 'lenght': 'längd', 'viktt': 'vikt',
+    'tilverkad': 'tillverkad', 'ursprumg': 'ursprung',
+    'examplar': 'exemplar', 'exemplaar': 'exemplar', 'kollection': 'kollektion',
+    'proveniense': 'provenienser',
+    'utropris': 'utropspris', 'utroppris': 'utropspris', 'estimaat': 'estimat',
+    'klubslag': 'klubbslag', 'clubslag': 'klubbslag', 'budgiwning': 'budgivning',
+    'forsaljning': 'försäljning', 'försäljnig': 'försäljning', 'katlog': 'katalog',
+    'oljemalning': 'oljemålning', 'aquarell': 'akvarell', 'akwarelle': 'akvarell',
+    'lithografi': 'litografi', 'litograaf': 'litografi', 'etsninng': 'etsning',
+    'skulptrur': 'skulptur', 'malning': 'målning',
+    'mobler': 'möbler', 'upsättning': 'uppsättning', 'uppsettning': 'uppsättning',
+    'stopning': 'stoppning', 'stoppninng': 'stoppning',
+    'polstreing': 'polstring', 'polstrig': 'polstring',
+    'smyken': 'smycken', 'berloker': 'berlocker', 'berlocks': 'berlocker',
+    'diaments': 'diamanter', 'adelstenar': 'edelstenar', 'edelstener': 'edelstenar'
+  };
+
+  const PUB_SCAN_SPELL_STOP_WORDS = new Set([
+    'en', 'ett', 'den', 'det', 'de', 'på', 'i', 'av', 'för', 'med', 'till', 'från', 'om',
+    'vid', 'under', 'över', 'genom', 'och', 'eller', 'men', 'att', 'som', 'när', 'där',
+    'här', 'var', 'vad', 'hur', 'cm', 'mm', 'kg', 'st', 'ca', 'är', 'har', 'kan', 'ska',
+    'blått', 'rött', 'grönt', 'gult', 'vitt', 'brunt', 'grått', 'brett', 'djupt',
+    'gold', 'deco', 'nouveau'
+  ]);
+
+  function checkSpelling(text) {
+    if (!text) return [];
+    const words = text.match(/\b[a-zåäöüA-ZÅÄÖÜ]{4,}\b/g) || [];
+    const found = [];
+    const seen = new Set();
+    for (const word of words) {
+      const lower = word.toLowerCase();
+      if (PUB_SCAN_SPELL_STOP_WORDS.has(lower)) continue;
+      if (seen.has(lower)) continue;
+      const correction = PUB_SCAN_MISSPELLINGS[lower];
+      if (correction) {
+        seen.add(lower);
+        found.push({ word: lower, correction });
+      }
+    }
+    return found;
+  }
+
+  function getPublicationInsertTarget() {
+    return document.querySelector('.ext-warehouse')
+      || document.querySelector('.ext-inventory')
+      || document.querySelector('.ext-pipeline')
+      || document.getElementById('statistics');
+  }
+
+  function escapeHTML(s) {
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  }
+
+  function truncateTitle(title, max) {
+    if (!title) return '';
+    // Strip leading item ID like "4901772. "
+    const clean = title.replace(/^\d+\.\s*/, '');
+    if (clean.length <= max) return clean;
+    return clean.substring(0, max) + '...';
+  }
+
+  function relativeTimeFromISO(isoStr) {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    if (diffMins < 1) return 'just nu';
+    if (diffMins < 60) return `${diffMins} min sedan`;
+    if (diffHours < 24) return `${diffHours} tim sedan`;
+    const timeStr = d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) + ' ' + timeStr;
+  }
+
+  function renderPublicationLoading(progressText) {
+    let container = document.querySelector('.ext-pubscan');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'ext-pubscan ext-animate-in';
+      const target = getPublicationInsertTarget();
+      if (target) target.parentNode.insertBefore(container, target.nextSibling);
+      else return;
+    }
+    container.innerHTML = `
+      <div class="ext-pubscan__card">
+        <div class="ext-pubscan__header">
+          <span class="ext-pubscan__title">📋 Publiceringskontroll</span>
+        </div>
+        <div class="ext-pubscan__loading">
+          <div class="ext-pubscan__spinner"></div>
+          <span>${escapeHTML(progressText || 'Skannar...')}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderPublicationEmpty() {
+    let container = document.querySelector('.ext-pubscan');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'ext-pubscan ext-animate-in';
+      const target = getPublicationInsertTarget();
+      if (target) target.parentNode.insertBefore(container, target.nextSibling);
+      else return;
+    }
+    container.innerHTML = `
+      <div class="ext-pubscan__card">
+        <div class="ext-pubscan__header">
+          <span class="ext-pubscan__title">📋 Publiceringskontroll</span>
+          <button class="ext-pubscan__run" title="Kör skanning">Kör nu ↻</button>
+        </div>
+        <div class="ext-pubscan__body">
+          <div class="ext-pubscan__empty">Klicka på Kör nu för att skanna</div>
+        </div>
+      </div>
+    `;
+    container.querySelector('.ext-pubscan__run')?.addEventListener('click', triggerPublicationScan);
+  }
+
+  function renderPublicationResults(data) {
+    let container = document.querySelector('.ext-pubscan');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'ext-pubscan ext-animate-in';
+      const target = getPublicationInsertTarget();
+      if (target) target.parentNode.insertBefore(container, target.nextSibling);
+      else return;
+    }
+
+    const criticalCount = data.critical.length;
+    const warningCount = data.warnings.length;
+    const passedCount = data.passed;
+    const timeStr = new Date(data.scannedAt).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+    const relTime = relativeTimeFromISO(data.scannedAt);
+    const allGood = criticalCount === 0 && warningCount === 0;
+
+    // Build unified groups: group ALL items (critical + warning) by each issue string
+    const issueGroups = {}; // { issueText: { severity: 'critical'|'warning', items: [] } }
+    data.critical.forEach(item => {
+      item.issues.forEach(issue => {
+        if (!issueGroups[issue]) issueGroups[issue] = { severity: 'critical', items: [] };
+        issueGroups[issue].items.push(item);
+      });
+    });
+    data.warnings.forEach(item => {
+      item.issues.forEach(issue => {
+        if (!issueGroups[issue]) issueGroups[issue] = { severity: 'warning', items: [] };
+        issueGroups[issue].items.push(item);
+      });
+    });
+
+    // Helper to render a single issue row
+    function issueRowHTML(item, cssModifier) {
+      const showHref = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : '');
+      return `
+        <a class="ext-pubscan__issue ext-pubscan__issue--${cssModifier}" href="${escapeHTML(showHref)}">
+          <div class="ext-pubscan__issue-main">
+            <span class="ext-pubscan__issue-text">${escapeHTML(item.issues.join(' + '))}</span>
+            ${item.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(item.editUrl)}">Redigera →</span>` : ''}
+          </div>
+          <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(item.title, 40))}"</div>
+        </a>
+      `;
+    }
+
+    // Keywords insight (not an error, just info)
+    const kwNote = (data.missingKeywords > 0)
+      ? `<span class="ext-pubscan__stat ext-pubscan__stat--info">🔑 ${data.missingKeywords} utan sökord</span>`
+      : '';
+
+    let bodyHTML;
+    if (allGood) {
+      bodyHTML = `<div class="ext-pubscan__allgood">Allt ser bra ut ✅ ${kwNote}</div>`;
+    } else {
+      // Build group rows — each is a clickable filter
+      const groupEntries = Object.entries(issueGroups);
+      // Sort: critical groups first, then warning groups
+      groupEntries.sort((a, b) => {
+        if (a[1].severity === b[1].severity) return 0;
+        return a[1].severity === 'critical' ? -1 : 1;
+      });
+
+      // Build each group: header row + inline items (hidden by default)
+      const allItems = [...data.critical, ...data.warnings];
+
+      const groupsHTML = groupEntries.map(([issue, group], idx) => {
+        const dot = group.severity === 'critical' ? '🔴' : '🟡';
+        const cssModifier = group.severity === 'critical' ? 'critical' : 'warning';
+        return `
+          <div class="ext-pubscan__filter-group">
+            <div class="ext-pubscan__filter-row" data-group-idx="${idx}">
+              <span class="ext-pubscan__filter-dot">${dot}</span>
+              <span class="ext-pubscan__filter-label">${escapeHTML(issue)}</span>
+              <span class="ext-pubscan__filter-count">(${group.items.length})</span>
+              <span class="ext-pubscan__filter-arrow">▼</span>
+            </div>
+            <div class="ext-pubscan__filter-items" data-group-items="${idx}" style="display: none;">
+              ${group.items.map(item => issueRowHTML(item, cssModifier)).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // "Visa alla" group at the top
+      const allaHTML = `
+        <div class="ext-pubscan__filter-group">
+          <div class="ext-pubscan__filter-row ext-pubscan__filter-row--alla" data-group-idx="all">
+            <span class="ext-pubscan__filter-dot">📋</span>
+            <span class="ext-pubscan__filter-label">Visa alla</span>
+            <span class="ext-pubscan__filter-count">(${allItems.length})</span>
+            <span class="ext-pubscan__filter-arrow">▼</span>
+          </div>
+          <div class="ext-pubscan__filter-items" data-group-items="all" style="display: none;">
+            ${allItems.map(item => {
+              const isCritical = data.critical.includes(item);
+              return issueRowHTML(item, isCritical ? 'critical' : 'warning');
+            }).join('')}
+          </div>
+        </div>
+      `;
+
+      bodyHTML = `
+        <div class="ext-pubscan__summary">
+          ${criticalCount > 0 ? `<span class="ext-pubscan__stat ext-pubscan__stat--critical">🔴 ${criticalCount} kritiska</span>` : ''}
+          ${warningCount > 0 ? `<span class="ext-pubscan__stat ext-pubscan__stat--warning">🟡 ${warningCount} varningar</span>` : ''}
+          <span class="ext-pubscan__stat ext-pubscan__stat--passed">✅ ${passedCount} OK</span>
+          ${kwNote}
+        </div>
+        <div class="ext-pubscan__filters">
+          ${allaHTML}
+          ${groupsHTML}
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
+      <div class="ext-pubscan__card">
+        <div class="ext-pubscan__header">
+          <div>
+            <span class="ext-pubscan__title">📋 Publiceringskontroll</span>
+            <div class="ext-pubscan__meta">
+              Senast skannad: ${timeStr} (${relTime}) · ${data.totalItems} föremål granskade
+            </div>
+          </div>
+          <button class="ext-pubscan__run" title="Kör skanning">Kör nu ↻</button>
+        </div>
+        <div class="ext-pubscan__body">
+          ${bodyHTML}
+        </div>
+      </div>
+    `;
+
+    // Wire up button
+    container.querySelector('.ext-pubscan__run')?.addEventListener('click', triggerPublicationScan);
+
+    // Wire up "Redigera" links
+    container.querySelectorAll('.ext-pubscan__edit-link[data-href]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.href = link.dataset.href;
+      });
+    });
+
+    // Wire up filter group rows — click to expand/collapse inline
+    container.querySelectorAll('.ext-pubscan__filter-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const group = row.closest('.ext-pubscan__filter-group');
+        const panel = group?.querySelector('.ext-pubscan__filter-items');
+        if (!panel) return;
+
+        const isVisible = panel.style.display !== 'none';
+
+        // Close all other groups
+        container.querySelectorAll('.ext-pubscan__filter-group').forEach(g => {
+          const p = g.querySelector('.ext-pubscan__filter-items');
+          const r = g.querySelector('.ext-pubscan__filter-row');
+          if (p) p.style.display = 'none';
+          if (r) {
+            r.classList.remove('ext-pubscan__filter-row--active');
+            const arrow = r.querySelector('.ext-pubscan__filter-arrow');
+            if (arrow) arrow.textContent = '▼';
+          }
+        });
+
+        // Toggle this group open (if it was closed)
+        if (!isVisible) {
+          panel.style.display = 'block';
+          row.classList.add('ext-pubscan__filter-row--active');
+          const arrow = row.querySelector('.ext-pubscan__filter-arrow');
+          if (arrow) arrow.textContent = '▲';
+
+          // Wire edit links in newly shown panel
+          panel.querySelectorAll('.ext-pubscan__edit-link[data-href]').forEach(link => {
+            link.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.location.href = link.dataset.href;
+            });
+          });
+        }
+      });
+    });
+  }
+
+  // ─── Publication Scanner: page parsing ─────────────────────────
+
+  function parsePublishablesPage(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const items = [];
+
+    doc.querySelectorAll('tr').forEach(tr => {
+      const imgTd = tr.querySelector('td.square-image');
+      if (!imgTd) return;
+
+      const itemLink = tr.querySelector('a[title]');
+      if (!itemLink) return;
+
+      const title = (itemLink.getAttribute('title') || '').trim();
+      const idMatch = title.match(/^(\d+)\./);
+      const itemId = idMatch ? parseInt(idMatch[1]) : null;
+      if (!itemId) return;
+
+      const editLink = Array.from(tr.querySelectorAll('a')).find(a =>
+        a.textContent.trim() === 'Redigera'
+      );
+      const editUrl = editLink ? editLink.getAttribute('href') : null;
+      const hasImage = !!imgTd.querySelector('img');
+
+      items.push({ itemId, title, editUrl, hasImage });
+    });
+    return items;
+  }
+
+  function detectPublishablePages(html) {
+    const normalized = html.replace(/&nbsp;/g, ' ').replace(/\u00a0/g, ' ');
+    const match = normalized.match(/Visar resultat\s+\d+\s*[-–]\s*(\d+)\s+av\s+(\d[\d\s]*)/i);
+    if (match) {
+      const perPage = parseInt(match[1]);
+      const total = parseInt(match[2].replace(/\s/g, ''));
+      if (total > 0 && perPage > 0) return Math.ceil(total / perPage);
+    }
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    let maxPage = 1;
+    doc.querySelectorAll('a[href*="page="]').forEach(a => {
+      const m = a.getAttribute('href').match(/page=(\d+)/);
+      if (m) maxPage = Math.max(maxPage, parseInt(m[1]));
+    });
+    return maxPage;
+  }
+
+  function runPhase1Checks(item) {
+    const issues = [];
+    if (!item.hasImage) {
+      issues.push({ text: '0 bilder (saknar primärbild)', severity: 'critical' });
+    }
+    if (!item.title || !item.title.trim()) {
+      issues.push({ text: 'Saknar titel', severity: 'critical' });
+    } else if (item.title.replace(/^\d+\.\s*/, '').length < PUB_SCAN_MIN_TITLE_LENGTH) {
+      // Matches quality-rules-engine: title < 14 chars → "Överväg att lägga till material och period"
+      issues.push({ text: 'Titel för kort (< 14 tecken)', severity: 'critical' });
+    }
+    return issues;
+  }
+
+  // Parse the item SHOW page for images and text fields (title, description, condition)
+  // Show page URL = edit URL minus /edit
+  // Structure: div.row.details-texts contains h5 headings followed by div.bottom-vspace with values
+  function parseShowPageForScan(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Count images from images.auctionet.com
+    let imageCount = 0;
+    doc.querySelectorAll('img').forEach(img => {
+      const src = img.getAttribute('src') || '';
+      if (src.includes('images.auctionet.com') && !src.includes('placeholder')) {
+        imageCount++;
+      }
+    });
+
+    // Extract text fields from the details-texts section
+    let description = '';
+    let condition = '';
+
+    const detailsSection = doc.querySelector('.details-texts') || doc.querySelector('.row.details-texts');
+    if (detailsSection) {
+      const headings = detailsSection.querySelectorAll('h5');
+      headings.forEach(h5 => {
+        const label = h5.textContent.trim().toLowerCase();
+        const valueDiv = h5.nextElementSibling;
+        if (!valueDiv) return;
+        const text = valueDiv.textContent.trim();
+
+        if (label.includes('beskrivning')) {
+          description = text;
+        } else if (label.includes('kondition')) {
+          condition = text;
+        }
+      });
+    }
+
+    return { imageCount, description, condition };
+  }
+
+  // Parse the item EDIT page for hidden keywords (only available on edit page)
+  function parseEditPageKeywords(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    let keywords = '';
+    const kwEl = doc.querySelector('#item_hidden_keywords') ||
+                 doc.querySelector('input[name*="keywords"]') ||
+                 doc.querySelector('textarea[name*="keywords"]');
+    if (kwEl) keywords = (kwEl.getAttribute('value') || kwEl.value || kwEl.textContent || '').trim();
+
+    return keywords;
+  }
+
+  function runPhase2Checks(editData) {
+    const issues = [];
+
+    // Image checks
+    if (editData.imageCount === 0) {
+      issues.push({ text: '0 bilder', severity: 'critical' });
+    } else if (editData.imageCount === 1) {
+      issues.push({ text: '1 bild', severity: 'critical' });
+    } else if (editData.imageCount === 2) {
+      issues.push({ text: '2 bilder', severity: 'warning' });
+    }
+
+    // Description checks — aligned with quality-rules-engine thresholds
+    if (!editData.description) {
+      issues.push({ text: 'Saknar beskrivning', severity: 'critical' });
+    } else if (editData.description.length < PUB_SCAN_CRITICAL_DESC_LENGTH) {
+      // < 35 chars: quality-rules-engine flags this as medium (-20)
+      issues.push({ text: 'Beskrivning för kort (< 35 tecken)', severity: 'critical' });
+    } else if (editData.description.length < PUB_SCAN_MIN_DESC_LENGTH) {
+      issues.push({ text: 'Kort beskrivning (< 80 tecken)', severity: 'warning' });
+    }
+
+    // Condition checks — aligned with quality-rules-engine
+    if (!editData.condition) {
+      issues.push({ text: 'Saknar kondition', severity: 'critical' });
+    } else {
+      const condLower = editData.condition.toLowerCase();
+
+      // Check for "only bruksslitage" pattern — quality-rules-engine: -35 score, high severity
+      if (/^bruksslitage\.?\s*$/i.test(editData.condition.trim())) {
+        issues.push({ text: 'Endast "bruksslitage" — specificera typ av slitage', severity: 'critical' });
+      }
+      // Check for vague condition terms — quality-rules-engine: medium severity
+      else if (PUB_SCAN_VAGUE_CONDITION_TERMS.some(term => condLower.includes(term))) {
+        const matched = PUB_SCAN_VAGUE_CONDITION_TERMS.find(term => condLower.includes(term));
+        if (editData.condition.length < 40) {
+          // Short + vague = higher concern
+          issues.push({ text: `Vag kondition ("${matched}")`, severity: 'warning' });
+        } else {
+          // Vague term but longer text — lighter warning
+          issues.push({ text: `"${matched}" i kondition — överväg att specificera`, severity: 'warning' });
+        }
+      }
+      // Check condition length — quality-rules-engine: < 25 chars = high (-20)
+      else if (editData.condition.length < PUB_SCAN_MIN_CONDITION_LENGTH) {
+        issues.push({ text: 'Kondition för kort (< 25 tecken)', severity: 'warning' });
+      }
+    }
+
+    // Spellcheck on description + condition text
+    const combinedText = [editData.description, editData.condition].filter(Boolean).join(' ');
+    const spellingErrors = checkSpelling(combinedText);
+    if (spellingErrors.length > 0) {
+      const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
+      issues.push({ text: `Stavfel: ${corrections}`, severity: 'warning' });
+    }
+
+    // Keywords: not an error, just tracked as a count in the summary
+    return issues;
+  }
+
+  async function fetchPublicationPageHtml(url) {
+    const response = await fetch(url, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+    return response.text();
+  }
+
+  async function runPublicationScan(onProgress) {
+    const report = (msg) => { if (onProgress) onProgress(msg); };
+
+    report('Hämtar publiceringslista...');
+    const baseUrl = '/admin/sas/publishables';
+    const firstPageHtml = await fetchPublicationPageHtml(baseUrl);
+    const totalPages = detectPublishablePages(firstPageHtml);
+    let allItems = parsePublishablesPage(firstPageHtml);
+
+    if (totalPages > 1) {
+      for (let p = 2; p <= totalPages; p++) {
+        report(`Hämtar sida ${p}/${totalPages}...`);
+        const html = await fetchPublicationPageHtml(`${baseUrl}?page=${p}`);
+        allItems.push(...parsePublishablesPage(html));
+      }
+    }
+
+    const totalItems = allItems.length;
+    if (totalItems === 0) {
+      return { scannedAt: new Date().toISOString(), totalItems: 0, critical: [], warnings: [], passed: 0 };
+    }
+
+    allItems.forEach(item => { item.phase1Issues = runPhase1Checks(item); });
+
+    let scanned = 0;
+    for (let i = 0; i < allItems.length; i += PUB_SCAN_BATCH_SIZE) {
+      const batch = allItems.slice(i, i + PUB_SCAN_BATCH_SIZE);
+      await Promise.all(batch.map(async (item) => {
+        if (!item.editUrl) {
+          item.phase2Issues = [{ text: 'Saknar redigera-länk', severity: 'warning' }];
+          return;
+        }
+        try {
+          // Show page = edit URL minus /edit — has images, description, condition
+          const showUrl = item.editUrl.replace(/\/edit$/, '');
+          // Fetch show page and edit page in parallel
+          const [showHtml, editHtml] = await Promise.all([
+            fetchPublicationPageHtml(showUrl),
+            fetchPublicationPageHtml(item.editUrl)
+          ]);
+
+          const showData = parseShowPageForScan(showHtml);
+          const keywords = parseEditPageKeywords(editHtml);
+
+          const editData = {
+            imageCount: showData.imageCount,
+            description: showData.description,
+            condition: showData.condition,
+            keywords: keywords
+          };
+          item.showUrl = showUrl;
+          item.editData = editData;
+          item.phase2Issues = runPhase2Checks(editData);
+        } catch (e) {
+          console.error(`[PublicationScanner] Failed to scan item ${item.itemId}:`, e);
+          item.phase2Issues = [{ text: 'Kunde inte skannas', severity: 'warning' }];
+        }
+      }));
+      scanned += batch.length;
+      report(`Skannar ${Math.min(scanned, totalItems)}/${totalItems}...`);
+    }
+
+    const critical = [];
+    const warnings = [];
+    let passed = 0;
+    let missingKeywords = 0;
+
+    allItems.forEach(item => {
+      // Track items without hidden keywords (info only, not an error)
+      if (item.editData && !item.editData.keywords) missingKeywords++;
+
+      const allIssues = [...item.phase1Issues];
+      if (item.phase2Issues) {
+        item.phase2Issues.forEach(p2 => {
+          const isDupImage = p2.text.match(/^\d+ bild/) && allIssues.some(p1 => p1.text.includes('bilder'));
+          if (!isDupImage) allIssues.push(p2);
+        });
+      }
+      if (allIssues.length === 0) { passed++; return; }
+
+      const hasCritical = allIssues.some(i => i.severity === 'critical');
+      const showUrl = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : null);
+      const entry = {
+        itemId: item.itemId,
+        title: item.title,
+        editUrl: item.editUrl,
+        showUrl: showUrl,
+        issues: allIssues.map(i => i.text),
+        severity: hasCritical ? 'critical' : 'warning',
+        imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0)
+      };
+      if (hasCritical) critical.push(entry); else warnings.push(entry);
+    });
+
+    const result = { scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords };
+    try { chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result }); } catch (e) { /* ignore */ }
+    return result;
+  }
+
+  // ─── Publication Scanner: trigger & init ──────────────────────
+
+  let publicationScanRunning = false;
+
+  async function triggerPublicationScan() {
+    if (publicationScanRunning) return;
+    publicationScanRunning = true;
+
+    try {
+      chrome.storage.local.remove(PUB_SCAN_CACHE_KEY);
+      renderPublicationLoading('Skannar...');
+
+      const result = await runPublicationScan((progress) => {
+        renderPublicationLoading(progress);
+      });
+
+      renderPublicationResults(result);
+    } catch (error) {
+      console.error('[AdminDashboard] Publication scan failed:', error);
+      let container = document.querySelector('.ext-pubscan');
+      if (container) {
+        container.innerHTML = `
+          <div class="ext-pubscan__card">
+            <div class="ext-pubscan__header">
+              <span class="ext-pubscan__title">📋 Publiceringskontroll</span>
+              <button class="ext-pubscan__run" title="Kör skanning">Kör nu ↻</button>
+            </div>
+            <div class="ext-pubscan__error">
+              Kunde inte slutföra skanning: ${escapeHTML(error.message)}
+            </div>
+          </div>
+        `;
+        container.querySelector('.ext-pubscan__run')?.addEventListener('click', triggerPublicationScan);
+      }
+    } finally {
+      publicationScanRunning = false;
+    }
+  }
+
+  async function initPublicationScanner() {
+    try {
+      const cached = await new Promise(resolve => {
+        chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
+      });
+      if (cached) {
+        renderPublicationResults(cached);
+      } else {
+        renderPublicationEmpty();
+      }
+    } catch (e) {
+      console.error('[AdminDashboard] Publication scanner init failed:', e);
+      renderPublicationEmpty();
+    }
+  }
+
+  // Listen for alarm-triggered scans from background.js
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'trigger-publication-scan') {
+      triggerPublicationScan();
+    }
+  });
+
+  // ─── 9. Warehouse Cost Widget ────────────────────────────────────
 
   const WAREHOUSE_CACHE_KEY = 'warehouseCostCache';
   const WAREHOUSE_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
@@ -971,6 +1658,7 @@
   let hasRenderedLeaderboard = false;
   let hasRenderedComments = false;
   let hasStartedWarehouseFetch = false;
+  let hasStartedPublicationScan = false;
 
   function tryRenderAll() {
     try {
@@ -1018,6 +1706,12 @@
         hasStartedWarehouseFetch = true;
         fetchWarehouseCosts();
       }
+
+      // Publication scanner — start after warehouse widget is placed
+      if (!hasStartedPublicationScan && hasStartedWarehouseFetch) {
+        hasStartedPublicationScan = true;
+        initPublicationScanner();
+      }
     } catch (error) {
       console.error('[AdminDashboard] Render error:', error);
     }
@@ -1038,7 +1732,7 @@
       // Stop observing once everything has rendered
       if (hasRenderedKPI && hasRenderedPipeline &&
           hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard &&
-          hasRenderedComments && hasStartedWarehouseFetch) {
+          hasRenderedComments && hasStartedWarehouseFetch && hasStartedPublicationScan) {
         observer.disconnect();
         console.log('[AdminDashboard] All enhancements rendered');
       }

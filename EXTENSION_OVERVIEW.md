@@ -506,9 +506,52 @@ Stacked bar chart showing distribution of items across states:
 - Color-coded legend with counts
 - Provides an at-a-glance view of where items are piling up
 
+### Publication Queue Scanner
+
+A quality scanner that proactively checks all items in the publication queue before they go live, identifying critical errors and warnings without leaving the dashboard.
+
+**How it works:**
+
+1. Fetches the `/admin/sas/publishables` page and parses all item rows from the table
+2. **Phase 1 (fast):** Checks for missing images and empty/short titles from the list page data
+3. **Phase 2 (deep):** For each item, fetches the show page (images, description, condition) and edit page (hidden keywords) in parallel, in batches of 5 concurrent requests
+4. Runs quality checks against the same thresholds as the quality rules engine
+5. Caches results in `chrome.storage.local` for fast reload
+6. Scheduled to re-scan every 2 hours via `chrome.alarms`
+
+**Quality checks performed:**
+
+| Check | Threshold | Severity |
+|-------|-----------|----------|
+| Missing images | 0 images | Critical |
+| Few images | < 3 images | Warning |
+| Empty title | No title | Critical |
+| Short title | < 14 characters | Critical |
+| Very short description | < 35 characters | Critical |
+| Short description | < 80 characters | Warning |
+| Vague condition | Only "bruksslitage" etc. | Warning |
+| Short condition | < 25 characters | Warning |
+| Spelling errors | Dictionary-based Swedish spellcheck | Warning |
+| Missing keywords | No hidden keywords | Info (count only) |
+
+**UI — Collapsible filter groups:**
+
+- Summary bar shows totals: critical count, warning count, OK count, and keywords info
+- Issues are grouped by type (e.g., "Kort beskrivning (< 80 tecken)") as clickable accordion rows
+- Each group shows a severity dot (red/yellow), issue description, and item count
+- Click a group to expand inline and see the matching items underneath
+- "Visa alla" group at the top shows all items with issues at once
+- Accordion behavior — only one group expanded at a time
+- Each item row links to the show page; separate "Redigera" link navigates to the edit page
+- "Kor nu" button triggers a manual re-scan with live progress indicator
+
+**Spellcheck integration:**
+
+The scanner includes an inlined dictionary from `swedish-spellchecker.js` (~80 misspelling-to-correction pairs covering Swedish auction terms, colors, materials, conditions, art terms, furniture terms, and jewelry terms). This runs against the description and condition text of each item without any AI API calls.
+
 ### Technical details
 
-- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, and cataloger stats are all scraped from the existing page DOM. The warehouse cost widget fetches additional Auctionet admin pages (same-origin, no external API)
+- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, cataloger stats, and publication scanner are all scraped from the existing page DOM. The warehouse cost widget and publication scanner fetch additional Auctionet admin pages (same-origin, no external API)
 - **Progressive rendering** — components render immediately with available data; lazy-loaded turbo-frame content is picked up via MutationObserver as it arrives
 - **Admin-gated** — all dashboard enhancements require admin mode to be unlocked via PIN; otherwise the page loads as vanilla Auctionet
 - Lightweight self-contained async IIFE — no module imports needed
@@ -762,6 +805,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 
 - **API caching:** Market data cached for 30 minutes to minimize API calls
 - **Warehouse caching:** Warehouse cost data cached for 12 hours in Chrome local storage with manual refresh
+- **Publication scan caching:** Scan results cached in Chrome local storage; auto-rescan every 2 hours via `chrome.alarms`
 - **Debounced monitoring:** Field changes are batched (typically 300-800ms) before triggering re-analysis
 - **Lazy loading:** Market dashboard only runs analysis when opened
 - **State persistence:** Dashboard open/closed state, search terms stored in localStorage
@@ -794,6 +838,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 | Customer info (name, email) | Scraped from page, used locally for email generation | Session only — not persisted |
 | Search queries | Sent to Auctionet API for market data | Cached locally for 30 min / 1 hour |
 | Warehouse cost data | Scraped from Auctionet solds list pages (same-origin fetch) | Cached locally for 12 hours |
+| Publication scan data | Scraped from Auctionet publishables, show, and edit pages (same-origin fetch) | Cached locally; re-scanned every 2 hours |
 | Admin PIN | Hashed (SHA-256) in Chrome local storage | Until user changes it |
 | Artist names | Sent to Wikipedia for images | Not stored |
 | API key | Chrome local storage on user's machine | Until user removes it |
@@ -804,4 +849,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated February 20, 2026. Reflects extension version 1.9.0.*
+*Document updated February 22, 2026. Reflects extension version 1.9.0.*

@@ -18,6 +18,23 @@
   }
 })();
 
+// ─── Publication Scanner Alarm ──────────────────────────────────────
+// Register a periodic alarm to trigger publication queue scans every 2 hours
+chrome.alarms.create('publicationScan', { periodInMinutes: 120 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'publicationScan') {
+    // Send message to any open admin dashboard tab to trigger a scan
+    chrome.tabs.query({ url: 'https://auctionet.com/admin/sas' }, (tabs) => {
+      tabs.forEach(tab => {
+        chrome.tabs.sendMessage(tab.id, { type: 'trigger-publication-scan' }).catch(() => {
+          // Tab may not have the content script active, ignore
+        });
+      });
+    });
+  }
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   if (request.type === 'anthropic-fetch') {
