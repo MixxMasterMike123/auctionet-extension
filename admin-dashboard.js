@@ -1114,8 +1114,16 @@ Svara BARA med JSON (tom array om inga fel):
       arrow.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const panel = document.querySelector('.ext-pubscan');
-        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const scrollToPanel = () => {
+          const panel = document.querySelector('.ext-pubscan');
+          if (!panel) return;
+          const y = panel.getBoundingClientRect().top + window.scrollY - 20;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        };
+        // Scroll once, then re-adjust after lazy content may have shifted layout
+        scrollToPanel();
+        setTimeout(scrollToPanel, 500);
+        setTimeout(scrollToPanel, 1200);
       });
       navLink.appendChild(arrow);
     } else {
