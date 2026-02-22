@@ -545,6 +545,7 @@ A quality scanner that proactively checks all items in the publication queue bef
 - Each item row links to the show page; separate "Redigera" link navigates to the edit page
 - "Kör nu" button triggers a manual full re-scan with live progress indicator
 - **Sidebar nav indicator:** The "Publicerbara föremål" menu item turns red with critical count `(2 🔴) ↓` when critical issues exist, or orange `(⚠) ↓` for warnings only. The ↓ arrow scrolls smoothly to the scanner panel.
+- **Per-item ignore:** Each issue row has a ✕ button to ignore false positives (e.g. litografi items that only need 2 images). Ignored items are stored persistently in `chrome.storage.local` and excluded from active counts and nav badge. A "Visa ignorerade (N)" toggle at the bottom shows ignored items with ↩ unignore buttons to restore them.
 
 **Spellcheck integration:**
 
@@ -806,7 +807,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 
 - **API caching:** Market data cached for 30 minutes to minimize API calls
 - **Warehouse caching:** Warehouse cost data cached for 12 hours in Chrome local storage with manual refresh
-- **Publication scan caching:** Scan results cached in Chrome local storage; incremental auto-rescan every 10 minutes via `chrome.alarms` (only new items deep-scanned)
+- **Publication scan caching:** Scan results cached in Chrome local storage; incremental auto-rescan every 10 minutes via `chrome.alarms` (only new items deep-scanned). Ignored items persisted separately in `publicationScanIgnored` storage key.
 - **Debounced monitoring:** Field changes are batched (typically 300-800ms) before triggering re-analysis
 - **Lazy loading:** Market dashboard only runs analysis when opened
 - **State persistence:** Dashboard open/closed state, search terms stored in localStorage

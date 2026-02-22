@@ -696,6 +696,7 @@
   const PUB_SCAN_MIN_CONDITION_LENGTH = 15;  // warning threshold: very short condition
   const PUB_SCAN_BATCH_SIZE = 5;
   const PUB_SCAN_EXPANDED_KEY = 'ext_pubscan_warnings_expanded';
+  const PUB_SCAN_IGNORED_KEY = 'publicationScanIgnored'; // { itemId: true }
 
   // Vague condition terms from quality-rules-engine.js
   const PUB_SCAN_VAGUE_CONDITION_TERMS = [
@@ -900,7 +901,7 @@ Svara BARA med JSON (tom array om inga fel):
     container.querySelector('.ext-pubscan__run')?.addEventListener('click', () => triggerPublicationScan());
   }
 
-  function renderPublicationResults(data) {
+  async function renderPublicationResults(data) {
     let container = document.querySelector('.ext-pubscan');
     if (!container) {
       container = document.createElement('div');
@@ -910,15 +911,29 @@ Svara BARA med JSON (tom array om inga fel):
       else return;
     }
 
-    const criticalCount = (data.critical || []).length;
-    const warningCount = (data.warnings || []).length;
-    const passedCount = data.passed || 0;
+    // Load ignored items set
+    let ignoredItems = {};
+    try {
+      const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_IGNORED_KEY, r => resolve(r[PUB_SCAN_IGNORED_KEY])));
+      if (stored) ignoredItems = stored;
+    } catch (e) { /* no ignored items */ }
+
+    // Separate ignored from active
+    const activeCritical = (data.critical || []).filter(item => !ignoredItems[item.itemId]);
+    const activeWarnings = (data.warnings || []).filter(item => !ignoredItems[item.itemId]);
+    const ignoredCritical = (data.critical || []).filter(item => ignoredItems[item.itemId]);
+    const ignoredWarnings = (data.warnings || []).filter(item => ignoredItems[item.itemId]);
+    const ignoredCount = ignoredCritical.length + ignoredWarnings.length;
+
+    const criticalCount = activeCritical.length;
+    const warningCount = activeWarnings.length;
+    const passedCount = (data.passed || 0);
     const timeStr = new Date(data.scannedAt).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
     const relTime = relativeTimeFromISO(data.scannedAt);
     const allGood = criticalCount === 0 && warningCount === 0;
 
-    // Build unified groups: group ALL items by each issue string, using per-issue severity
-    const allItemsWithIssues = [...data.critical, ...data.warnings];
+    // Build unified groups: group ALL active items by each issue string, using per-issue severity
+    const allItemsWithIssues = [...activeCritical, ...activeWarnings];
     const issueGroups = {}; // { issueText: { severity: 'critical'|'warning', items: [] } }
     allItemsWithIssues.forEach(item => {
       item.issues.forEach(issue => {
@@ -930,17 +945,23 @@ Svara BARA med JSON (tom array om inga fel):
     });
 
     // Helper to render a single issue row
-    function issueRowHTML(item, cssModifier) {
+    function issueRowHTML(item, cssModifier, showIgnore = true) {
       const showHref = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : '');
       const issueLabels = item.issues.map(i => typeof i === 'string' ? i : i.text).join(' + ');
+      const ignoreBtn = showIgnore
+        ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}" title="Ignorera detta föremål">✕</span>`
+        : `<span class="ext-pubscan__unignore-btn" data-item-id="${item.itemId}" title="Sluta ignorera">↩</span>`;
       return `
-        <a class="ext-pubscan__issue ext-pubscan__issue--${cssModifier}" href="${escapeHTML(showHref)}">
-          <div class="ext-pubscan__issue-main">
-            <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
-            ${item.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(item.editUrl)}">Redigera →</span>` : ''}
-          </div>
-          <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(item.title, 40))}"</div>
-        </a>
+        <div class="ext-pubscan__issue-row" data-item-id="${item.itemId}">
+          <a class="ext-pubscan__issue ext-pubscan__issue--${cssModifier}" href="${escapeHTML(showHref)}">
+            <div class="ext-pubscan__issue-main">
+              <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
+              ${item.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(item.editUrl)}">Redigera →</span>` : ''}
+            </div>
+            <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(item.title, 40))}"</div>
+          </a>
+          ${ignoreBtn}
+        </div>
       `;
     }
 
@@ -962,8 +983,6 @@ Svara BARA med JSON (tom array om inga fel):
       });
 
       // Build each group: header row + inline items (hidden by default)
-      const allItems = [...data.critical, ...data.warnings];
-
       const groupsHTML = groupEntries.map(([issue, group], idx) => {
         const dot = group.severity === 'critical' ? '🔴' : '🟡';
         const cssModifier = group.severity === 'critical' ? 'critical' : 'warning';
@@ -982,23 +1001,40 @@ Svara BARA med JSON (tom array om inga fel):
         `;
       }).join('');
 
-      // "Visa alla" group at the top
+      // "Visa alla" group at the top — uses active (non-ignored) items only
+      const allActiveItems = [...activeCritical, ...activeWarnings];
       const allaHTML = `
         <div class="ext-pubscan__filter-group">
           <div class="ext-pubscan__filter-row ext-pubscan__filter-row--alla" data-group-idx="all">
             <span class="ext-pubscan__filter-dot">📋</span>
             <span class="ext-pubscan__filter-label">Visa alla</span>
-            <span class="ext-pubscan__filter-count">(${allItems.length})</span>
+            <span class="ext-pubscan__filter-count">(${allActiveItems.length})</span>
             <span class="ext-pubscan__filter-arrow">▼</span>
           </div>
           <div class="ext-pubscan__filter-items" data-group-items="all" style="display: none;">
-            ${allItems.map(item => {
-              const isCritical = data.critical.includes(item);
+            ${allActiveItems.map(item => {
+              const isCritical = activeCritical.includes(item);
               return issueRowHTML(item, isCritical ? 'critical' : 'warning');
             }).join('')}
           </div>
         </div>
       `;
+
+      // Build ignored items section (collapsed by default)
+      const ignoredHTML = ignoredCount > 0 ? `
+        <div class="ext-pubscan__ignored-section">
+          <div class="ext-pubscan__ignored-toggle">
+            <span class="ext-pubscan__ignored-label">Visa ignorerade (${ignoredCount})</span>
+            <span class="ext-pubscan__ignored-arrow">▼</span>
+          </div>
+          <div class="ext-pubscan__ignored-items" style="display: none;">
+            ${[...ignoredCritical, ...ignoredWarnings].map(item => {
+              const isCrit = ignoredCritical.includes(item);
+              return issueRowHTML(item, isCrit ? 'critical' : 'warning', false);
+            }).join('')}
+          </div>
+        </div>
+      ` : '';
 
       bodyHTML = `
         <div class="ext-pubscan__summary">
@@ -1011,6 +1047,7 @@ Svara BARA med JSON (tom array om inga fel):
           ${allaHTML}
           ${groupsHTML}
         </div>
+        ${ignoredHTML}
       `;
     }
 
@@ -1073,6 +1110,59 @@ Svara BARA med JSON (tom array om inga fel):
           row.classList.add('ext-pubscan__filter-row--active');
           const arrow = row.querySelector('.ext-pubscan__filter-arrow');
           if (arrow) arrow.textContent = '▲';
+        }
+      });
+    });
+
+    // Wire up "Visa ignorerade" toggle
+    const ignoredToggle = container.querySelector('.ext-pubscan__ignored-toggle');
+    if (ignoredToggle) {
+      ignoredToggle.addEventListener('click', () => {
+        const items = container.querySelector('.ext-pubscan__ignored-items');
+        const arrow = ignoredToggle.querySelector('.ext-pubscan__ignored-arrow');
+        if (!items) return;
+        const isVisible = items.style.display !== 'none';
+        items.style.display = isVisible ? 'none' : 'block';
+        if (arrow) arrow.textContent = isVisible ? '▼' : '▲';
+      });
+    }
+
+    // Wire up ignore buttons (✕) — add item to ignored set and re-render
+    container.querySelectorAll('.ext-pubscan__ignore-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const itemId = btn.dataset.itemId;
+        if (!itemId) return;
+        try {
+          const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_IGNORED_KEY, r => resolve(r[PUB_SCAN_IGNORED_KEY])));
+          const ignored = stored || {};
+          ignored[itemId] = true;
+          await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
+          // Re-render with same scan data
+          await renderPublicationResults(data);
+        } catch (err) {
+          console.error('[AdminDashboard] Failed to ignore item:', err);
+        }
+      });
+    });
+
+    // Wire up unignore buttons (↩) — remove item from ignored set and re-render
+    container.querySelectorAll('.ext-pubscan__unignore-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const itemId = btn.dataset.itemId;
+        if (!itemId) return;
+        try {
+          const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_IGNORED_KEY, r => resolve(r[PUB_SCAN_IGNORED_KEY])));
+          const ignored = stored || {};
+          delete ignored[itemId];
+          await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
+          // Re-render with same scan data
+          await renderPublicationResults(data);
+        } catch (err) {
+          console.error('[AdminDashboard] Failed to unignore item:', err);
         }
       });
     });
@@ -1541,7 +1631,7 @@ Svara BARA med JSON (tom array om inga fel):
         renderPublicationLoading(progress);
       }, { incremental });
 
-      renderPublicationResults(result);
+      await renderPublicationResults(result);
     } catch (error) {
       console.error('[AdminDashboard] Publication scan failed:', error);
       let container = document.querySelector('.ext-pubscan');
@@ -1570,7 +1660,7 @@ Svara BARA med JSON (tom array om inga fel):
         chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
       });
       if (cached && cached._version === 2) {
-        renderPublicationResults(cached);
+        await renderPublicationResults(cached);
       } else {
         // Cache missing or from older version — discard and show empty
         if (cached) chrome.storage.local.remove(PUB_SCAN_CACHE_KEY);

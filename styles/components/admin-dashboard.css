@@ -921,6 +921,94 @@
   border-top: 1px solid #f0f0f0;
 }
 
+/* Issue row: wraps the link + ignore/unignore button */
+.ext-pubscan__issue-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.ext-pubscan__issue-row .ext-pubscan__issue {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Ignore button (✕) */
+.ext-pubscan__ignore-btn {
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: #aaa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.ext-pubscan__ignore-btn:hover {
+  color: #dc3545;
+  background: #fff0f0;
+}
+
+/* Unignore button (↩) */
+.ext-pubscan__unignore-btn {
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: #aaa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.ext-pubscan__unignore-btn:hover {
+  color: #28a745;
+  background: #f0fff4;
+}
+
+/* Ignored section */
+.ext-pubscan__ignored-section {
+  margin-top: 10px;
+  border-top: 1px dashed #ddd;
+  padding-top: 8px;
+}
+
+.ext-pubscan__ignored-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.ext-pubscan__ignored-toggle:hover {
+  background: #f5f5f5;
+}
+
+.ext-pubscan__ignored-label {
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+}
+
+.ext-pubscan__ignored-arrow {
+  font-size: 10px;
+  color: #bbb;
+}
+
+.ext-pubscan__ignored-items {
+  padding: 4px 0 6px 10px;
+  opacity: 0.6;
+}
+
+.ext-pubscan__ignored-items .ext-pubscan__issue-row {
+  opacity: 0.7;
+}
+
 /* ─── Animations ──────────────────────────────────────────────────── */
 @keyframes extFadeIn {
   from { opacity: 0; transform: translateY(6px); }
