@@ -1031,6 +1031,9 @@ Svara BARA med JSON (tom array om inga fel):
       </div>
     `;
 
+    // Highlight nav sidebar link based on scan results
+    updatePublishableNavLink(criticalCount, warningCount);
+
     // Wire up button
     container.querySelector('.ext-pubscan__run')?.addEventListener('click', () => triggerPublicationScan());
 
@@ -1073,6 +1076,36 @@ Svara BARA med JSON (tom array om inga fel):
         }
       });
     });
+  }
+
+  // Highlight the "Publicerbara föremål" nav link red/green based on scan results
+  function updatePublishableNavLink(criticalCount, warningCount) {
+    const navLink = document.querySelector('a[href="/admin/sas/publishables"]');
+    if (!navLink) return;
+
+    // Remove any previous badge
+    const oldBadge = navLink.querySelector('.ext-pubscan-nav-badge');
+    if (oldBadge) oldBadge.remove();
+
+    const totalIssues = criticalCount + warningCount;
+    const issueColor = criticalCount > 0 ? '#dc3545' : '#e65100';
+    const icon = navLink.querySelector('i');
+
+    if (totalIssues > 0) {
+      navLink.style.color = issueColor;
+      navLink.style.fontWeight = '600';
+      if (icon) icon.style.color = issueColor;
+      // Add issue count badge
+      const badge = document.createElement('span');
+      badge.className = 'ext-pubscan-nav-badge';
+      badge.textContent = ` (${totalIssues} ⚠)`;
+      badge.style.cssText = `font-size: 11px; color: ${issueColor};`;
+      navLink.appendChild(badge);
+    } else {
+      navLink.style.color = '';
+      navLink.style.fontWeight = '';
+      if (icon) icon.style.color = '';
+    }
   }
 
   // ─── Publication Scanner: page parsing ─────────────────────────
