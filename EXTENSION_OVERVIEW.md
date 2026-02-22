@@ -543,7 +543,8 @@ A quality scanner that proactively checks all items in the publication queue bef
 - "Visa alla" group at the top shows all items with issues at once
 - Accordion behavior — only one group expanded at a time
 - Each item row links to the show page; separate "Redigera" link navigates to the edit page
-- "Kor nu" button triggers a manual re-scan with live progress indicator
+- "Kör nu" button triggers a manual full re-scan with live progress indicator
+- **Sidebar nav indicator:** The "Publicerbara föremål" menu item turns red with critical count `(2 🔴) ↓` when critical issues exist, or orange `(⚠) ↓` for warnings only. The ↓ arrow scrolls smoothly to the scanner panel.
 
 **Spellcheck integration:**
 
