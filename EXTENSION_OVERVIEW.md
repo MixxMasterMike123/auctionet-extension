@@ -525,7 +525,8 @@ A quality scanner that proactively checks all items in the publication queue bef
 |-------|-----------|----------|
 | Missing images | 0 images | Critical 🔴 |
 | Few images | 1–2 images (< 3) | Critical 🔴 |
-| Spelling errors | Dictionary-based Swedish spellcheck | Critical 🔴 |
+| Spelling errors | AI spellcheck (Haiku), dictionary fallback | Critical 🔴 |
+| Artist name in title | ALL CAPS name at start of title (edit page only) | Critical 🔴 |
 | Short title | < 15 characters | Warning 🟡 |
 | Short description | < 40 characters | Warning 🟡 |
 | Vague condition | Only "bruksslitage" etc. | Warning 🟡 |
