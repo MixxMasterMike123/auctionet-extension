@@ -546,11 +546,11 @@ A quality scanner that proactively checks all items in the publication queue bef
 
 **Spellcheck integration:**
 
-The scanner includes an inlined dictionary from `swedish-spellchecker.js` (~90 misspelling-to-correction pairs covering Swedish auction terms, colors, materials, conditions, art terms, furniture terms, and jewelry terms). This runs against the title, description, and condition text of each item without any AI API calls.
+The scanner uses the same AI-based spellcheck as the edit page — Claude Haiku via `chrome.runtime.sendMessage` → `background.js` → Anthropic API. This runs against the combined title, description, and condition text of each item, catching all Swedish spelling errors (not just known dictionary entries). Falls back to an inlined dictionary (~90 misspelling-to-correction pairs) if no API key is configured.
 
 ### Technical details
 
-- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, cataloger stats, and publication scanner are all scraped from the existing page DOM. The warehouse cost widget and publication scanner fetch additional Auctionet admin pages (same-origin, no external API)
+- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, cataloger stats are all scraped from the existing page DOM. The warehouse cost widget and publication scanner fetch additional Auctionet admin pages (same-origin). The publication scanner also uses Claude Haiku for spellcheck (one API call per item with text content)
 - **Progressive rendering** — components render immediately with available data; lazy-loaded turbo-frame content is picked up via MutationObserver as it arrives
 - **Admin-gated** — all dashboard enhancements require admin mode to be unlocked via PIN; otherwise the page loads as vanilla Auctionet
 - Lightweight self-contained async IIFE — no module imports needed
