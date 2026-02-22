@@ -523,22 +523,21 @@ A quality scanner that proactively checks all items in the publication queue bef
 
 | Check | Threshold | Severity |
 |-------|-----------|----------|
-| Missing images | 0 images | Critical |
-| Few images | < 3 images | Warning |
-| Empty title | No title | Critical |
-| Short title | < 14 characters | Critical |
-| Very short description | < 35 characters | Critical |
-| Short description | < 80 characters | Warning |
-| Vague condition | Only "bruksslitage" etc. | Warning |
-| Short condition | < 25 characters | Warning |
-| Spelling errors | Dictionary-based Swedish spellcheck | Warning |
+| Missing images | 0 images | Critical 🔴 |
+| Few images | 1–2 images (< 3) | Critical 🔴 |
+| Spelling errors | Dictionary-based Swedish spellcheck | Critical 🔴 |
+| Short title | < 15 characters | Warning 🟡 |
+| Short description | < 40 characters | Warning 🟡 |
+| Vague condition | Only "bruksslitage" etc. | Warning 🟡 |
+| Short condition | < 15 characters | Warning 🟡 |
 | Missing keywords | No hidden keywords | Info (count only) |
 
 **UI — Collapsible filter groups:**
 
 - Summary bar shows totals: critical count, warning count, OK count, and keywords info
-- Issues are grouped by type (e.g., "Kort beskrivning (< 80 tecken)") as clickable accordion rows
-- Each group shows a severity dot (red/yellow), issue description, and item count
+- Issues are grouped by type (e.g., "Kort beskrivning (< 40 tecken)") as clickable accordion rows
+- Each group shows a severity dot (🔴 critical / 🟡 warning), issue description, and item count
+- Critical groups (images, spelling) sort first, warning groups (text quality) follow
 - Click a group to expand inline and see the matching items underneath
 - "Visa alla" group at the top shows all items with issues at once
 - Accordion behavior — only one group expanded at a time
@@ -547,7 +546,7 @@ A quality scanner that proactively checks all items in the publication queue bef
 
 **Spellcheck integration:**
 
-The scanner includes an inlined dictionary from `swedish-spellchecker.js` (~80 misspelling-to-correction pairs covering Swedish auction terms, colors, materials, conditions, art terms, furniture terms, and jewelry terms). This runs against the description and condition text of each item without any AI API calls.
+The scanner includes an inlined dictionary from `swedish-spellchecker.js` (~90 misspelling-to-correction pairs covering Swedish auction terms, colors, materials, conditions, art terms, furniture terms, and jewelry terms). This runs against the title, description, and condition text of each item without any AI API calls.
 
 ### Technical details
 
