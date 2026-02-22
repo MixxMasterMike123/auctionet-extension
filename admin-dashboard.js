@@ -864,28 +864,26 @@
     const relTime = relativeTimeFromISO(data.scannedAt);
     const allGood = criticalCount === 0 && warningCount === 0;
 
-    // Build unified groups: group ALL items (critical + warning) by each issue string
+    // Build unified groups: group ALL items by each issue string, using per-issue severity
+    const allItemsWithIssues = [...data.critical, ...data.warnings];
     const issueGroups = {}; // { issueText: { severity: 'critical'|'warning', items: [] } }
-    data.critical.forEach(item => {
+    allItemsWithIssues.forEach(item => {
       item.issues.forEach(issue => {
-        if (!issueGroups[issue]) issueGroups[issue] = { severity: 'critical', items: [] };
-        issueGroups[issue].items.push(item);
-      });
-    });
-    data.warnings.forEach(item => {
-      item.issues.forEach(issue => {
-        if (!issueGroups[issue]) issueGroups[issue] = { severity: 'warning', items: [] };
-        issueGroups[issue].items.push(item);
+        const issueText = typeof issue === 'string' ? issue : issue.text;
+        const issueSeverity = typeof issue === 'string' ? item.severity : issue.severity;
+        if (!issueGroups[issueText]) issueGroups[issueText] = { severity: issueSeverity, items: [] };
+        issueGroups[issueText].items.push(item);
       });
     });
 
     // Helper to render a single issue row
     function issueRowHTML(item, cssModifier) {
       const showHref = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : '');
+      const issueLabels = item.issues.map(i => typeof i === 'string' ? i : i.text).join(' + ');
       return `
         <a class="ext-pubscan__issue ext-pubscan__issue--${cssModifier}" href="${escapeHTML(showHref)}">
           <div class="ext-pubscan__issue-main">
-            <span class="ext-pubscan__issue-text">${escapeHTML(item.issues.join(' + '))}</span>
+            <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
             ${item.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(item.editUrl)}">Redigera →</span>` : ''}
           </div>
           <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(item.title, 40))}"</div>
@@ -1087,10 +1085,9 @@
       issues.push({ text: '0 bilder (saknar primärbild)', severity: 'critical' });
     }
     if (!item.title || !item.title.trim()) {
-      issues.push({ text: 'Saknar titel', severity: 'critical' });
+      issues.push({ text: 'Saknar titel', severity: 'warning' });
     } else if (item.title.replace(/^\d+\.\s*/, '').length < PUB_SCAN_MIN_TITLE_LENGTH) {
-      // Matches quality-rules-engine: title < 14 chars → "Överväg att lägga till material och period"
-      issues.push({ text: 'Titel för kort (< 14 tecken)', severity: 'critical' });
+      issues.push({ text: 'Titel för kort (< 14 tecken)', severity: 'warning' });
     }
     return issues;
   }
@@ -1152,34 +1149,33 @@
   function runPhase2Checks(editData) {
     const issues = [];
 
-    // Image checks
+    // Image checks — critical (red): too few images is a key quality issue
     if (editData.imageCount === 0) {
       issues.push({ text: '0 bilder', severity: 'critical' });
     } else if (editData.imageCount === 1) {
       issues.push({ text: '1 bild', severity: 'critical' });
     } else if (editData.imageCount === 2) {
-      issues.push({ text: '2 bilder', severity: 'warning' });
+      issues.push({ text: '2 bilder', severity: 'critical' });
     }
 
-    // Description checks — aligned with quality-rules-engine thresholds
+    // Description checks — warning (orange): text quality, not blocking
     if (!editData.description) {
-      issues.push({ text: 'Saknar beskrivning', severity: 'critical' });
+      issues.push({ text: 'Saknar beskrivning', severity: 'warning' });
     } else if (editData.description.length < PUB_SCAN_CRITICAL_DESC_LENGTH) {
-      // < 35 chars: quality-rules-engine flags this as medium (-20)
-      issues.push({ text: 'Beskrivning för kort (< 35 tecken)', severity: 'critical' });
+      issues.push({ text: 'Beskrivning för kort (< 35 tecken)', severity: 'warning' });
     } else if (editData.description.length < PUB_SCAN_MIN_DESC_LENGTH) {
       issues.push({ text: 'Kort beskrivning (< 80 tecken)', severity: 'warning' });
     }
 
-    // Condition checks — aligned with quality-rules-engine
+    // Condition checks — warning (orange): text quality
     if (!editData.condition) {
-      issues.push({ text: 'Saknar kondition', severity: 'critical' });
+      issues.push({ text: 'Saknar kondition', severity: 'warning' });
     } else {
       const condLower = editData.condition.toLowerCase();
 
       // Check for "only bruksslitage" pattern — quality-rules-engine: -35 score, high severity
       if (/^bruksslitage\.?\s*$/i.test(editData.condition.trim())) {
-        issues.push({ text: 'Endast "bruksslitage" — specificera typ av slitage', severity: 'critical' });
+        issues.push({ text: 'Endast "bruksslitage" — specificera typ av slitage', severity: 'warning' });
       }
       // Check for vague condition terms — quality-rules-engine: medium severity
       else if (PUB_SCAN_VAGUE_CONDITION_TERMS.some(term => condLower.includes(term))) {
@@ -1203,7 +1199,7 @@
     const spellingErrors = checkSpelling(combinedText);
     if (spellingErrors.length > 0) {
       const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
-      issues.push({ text: `Stavfel: ${corrections}`, severity: 'warning' });
+      issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
     }
 
     // Keywords: not an error, just tracked as a count in the summary
@@ -1304,7 +1300,7 @@
         title: item.title,
         editUrl: item.editUrl,
         showUrl: showUrl,
-        issues: allIssues.map(i => i.text),
+        issues: allIssues.map(i => ({ text: i.text, severity: i.severity })),
         severity: hasCritical ? 'critical' : 'warning',
         imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0)
       };
