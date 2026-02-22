@@ -735,7 +735,10 @@
     'stopning': 'stoppning', 'stoppninng': 'stoppning',
     'polstreing': 'polstring', 'polstrig': 'polstring',
     'smyken': 'smycken', 'berloker': 'berlocker', 'berlocks': 'berlocker',
-    'diaments': 'diamanter', 'adelstenar': 'edelstenar', 'edelstener': 'edelstenar'
+    'diaments': 'diamanter', 'adelstenar': 'edelstenar', 'edelstener': 'edelstenar',
+    // Common doubled-letter misspellings
+    'ballja': 'balja', 'byråa': 'byrå', 'skåpp': 'skåp', 'bordd': 'bord',
+    'tavlla': 'tavla', 'spegell': 'spegel', 'fåtöllj': 'fåtölj', 'kandelabrer': 'kandelaber'
   };
 
   const PUB_SCAN_SPELL_STOP_WORDS = new Set([
@@ -1195,8 +1198,8 @@
       }
     }
 
-    // Spellcheck on description + condition text
-    const combinedText = [editData.description, editData.condition].filter(Boolean).join(' ');
+    // Spellcheck on title + description + condition text
+    const combinedText = [editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
     const spellingErrors = checkSpelling(combinedText);
     if (spellingErrors.length > 0) {
       const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
@@ -1258,6 +1261,7 @@
           const keywords = parseEditPageKeywords(editHtml);
 
           const editData = {
+            title: item.title,
             imageCount: showData.imageCount,
             description: showData.description,
             condition: showData.condition,
