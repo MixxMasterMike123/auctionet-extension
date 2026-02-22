@@ -691,11 +691,9 @@
 
   const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
   const PUB_SCAN_MIN_IMAGES = 3;            // 3+ images = pass (per codebase standard)
-  const PUB_SCAN_MIN_DESC_LENGTH = 80;       // warning threshold for publication readiness
-  const PUB_SCAN_CRITICAL_DESC_LENGTH = 35;  // critical: matches quality-rules-engine threshold
-  const PUB_SCAN_MIN_TITLE_LENGTH = 14;      // critical threshold: matches quality-rules-engine
-  const PUB_SCAN_SHORT_TITLE_LENGTH = 30;   // warning threshold: short but not critical
-  const PUB_SCAN_MIN_CONDITION_LENGTH = 25;  // matches quality-rules-engine threshold
+  const PUB_SCAN_MIN_DESC_LENGTH = 40;       // warning threshold: short description
+  const PUB_SCAN_MIN_TITLE_LENGTH = 15;      // warning threshold: very short title
+  const PUB_SCAN_MIN_CONDITION_LENGTH = 15;  // warning threshold: very short condition
   const PUB_SCAN_BATCH_SIZE = 5;
   const PUB_SCAN_EXPANDED_KEY = 'ext_pubscan_warnings_expanded';
 
@@ -1087,13 +1085,8 @@
     }
     if (!item.title || !item.title.trim()) {
       issues.push({ text: 'Saknar titel', severity: 'warning' });
-    } else {
-      const titleLen = item.title.replace(/^\d+\.\s*/, '').length;
-      if (titleLen < PUB_SCAN_MIN_TITLE_LENGTH) {
-        issues.push({ text: 'Mycket kort titel (< 14 tecken)', severity: 'warning' });
-      } else if (titleLen < PUB_SCAN_SHORT_TITLE_LENGTH) {
-        issues.push({ text: 'Kort titel (< 30 tecken)', severity: 'warning' });
-      }
+    } else if (item.title.replace(/^\d+\.\s*/, '').length < PUB_SCAN_MIN_TITLE_LENGTH) {
+      issues.push({ text: 'Kort titel (< 15 tecken)', severity: 'warning' });
     }
     return issues;
   }
@@ -1167,10 +1160,8 @@
     // Description checks — warning (orange): text quality, not blocking
     if (!editData.description) {
       issues.push({ text: 'Saknar beskrivning', severity: 'warning' });
-    } else if (editData.description.length < PUB_SCAN_CRITICAL_DESC_LENGTH) {
-      issues.push({ text: 'Mycket kort beskrivning (< 35 tecken)', severity: 'warning' });
     } else if (editData.description.length < PUB_SCAN_MIN_DESC_LENGTH) {
-      issues.push({ text: 'Kort beskrivning (< 80 tecken)', severity: 'warning' });
+      issues.push({ text: 'Kort beskrivning (< 40 tecken)', severity: 'warning' });
     }
 
     // Condition checks — warning (orange): text quality
@@ -1196,7 +1187,7 @@
       }
       // Check condition length — quality-rules-engine: < 25 chars = high (-20)
       else if (editData.condition.length < PUB_SCAN_MIN_CONDITION_LENGTH) {
-        issues.push({ text: 'Kondition för kort (< 25 tecken)', severity: 'warning' });
+        issues.push({ text: 'Kort kondition (< 15 tecken)', severity: 'warning' });
       }
     }
 
