@@ -1087,25 +1087,26 @@ Svara BARA med JSON (tom array om inga fel):
     const oldBadge = navLink.querySelector('.ext-pubscan-nav-badge');
     if (oldBadge) oldBadge.remove();
 
-    const totalIssues = criticalCount + warningCount;
-    const issueColor = criticalCount > 0 ? '#dc3545' : '#e65100';
+    const hasCritical = criticalCount > 0;
+    const hasWarnings = warningCount > 0;
     const icon = navLink.querySelector('i');
 
     // Remove previous scroll arrow
     const oldArrow = navLink.querySelector('.ext-pubscan-nav-arrow');
     if (oldArrow) oldArrow.remove();
 
-    if (totalIssues > 0) {
+    if (hasCritical || hasWarnings) {
+      const issueColor = hasCritical ? '#dc3545' : '#e65100';
       navLink.style.color = issueColor;
       navLink.style.fontWeight = '600';
       if (icon) icon.style.color = issueColor;
-      // Add issue count badge
+      // Badge: critical shows count, warnings-only just a subtle nudge
       const badge = document.createElement('span');
       badge.className = 'ext-pubscan-nav-badge';
-      badge.textContent = ` (${totalIssues} ⚠)`;
+      badge.textContent = hasCritical ? ` (${criticalCount} 🔴)` : ' (⚠)';
       badge.style.cssText = `font-size: 11px; color: ${issueColor};`;
       navLink.appendChild(badge);
-      // Add scroll-down arrow that jumps to the scanner panel
+      // Scroll-down arrow to jump to scanner panel
       const arrow = document.createElement('span');
       arrow.className = 'ext-pubscan-nav-arrow';
       arrow.textContent = ' ↓';
@@ -1120,7 +1121,6 @@ Svara BARA med JSON (tom array om inga fel):
           const y = panel.getBoundingClientRect().top + window.scrollY - 20;
           window.scrollTo({ top: y, behavior: 'smooth' });
         };
-        // Scroll once, then re-adjust after lazy content may have shifted layout
         scrollToPanel();
         setTimeout(scrollToPanel, 500);
         setTimeout(scrollToPanel, 1200);
