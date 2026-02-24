@@ -1136,6 +1136,12 @@ Phone: +46 60 17 00 40`;
       btn.innerHTML = '<i class="icon fas fa-spinner fa-spin"></i> Analyserar...';
     }
     if (results) {
+      // Preserve container height to prevent layout shift when replacing
+      // large content (e.g. clustering UI with image thumbnails) with small loading spinner
+      const currentHeight = results.offsetHeight;
+      if (currentHeight > 0) {
+        results.style.minHeight = currentHeight + 'px';
+      }
       results.style.display = 'block';
       results.innerHTML = `
         <div class="vr-loading">
@@ -1257,6 +1263,7 @@ Phone: +46 60 17 00 40`;
       </div>`;
 
     results.style.display = 'block';
+    results.style.minHeight = '';  // Clear loading height lock
     results.innerHTML = `
       ${sourceHTML}
       ${descHTML}
@@ -1288,6 +1295,12 @@ Phone: +46 60 17 00 40`;
 
     // Attach handlers
     this._attachResultHandlers();
+
+    // Scroll results into view so user sees valuation (not stuck on customer images)
+    const assistant = document.getElementById('vr-assistant');
+    if (assistant) {
+      setTimeout(() => assistant.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
   }
 
   _renderMultiGroupResults(groupResults, images) {
@@ -1361,6 +1374,7 @@ Phone: +46 60 17 00 40`;
     }).join('');
 
     results.style.display = 'block';
+    results.style.minHeight = '';  // Clear loading height lock
     results.innerHTML = `
       ${summaryHTML}
       ${groupCardsHTML}
@@ -1385,6 +1399,12 @@ Phone: +46 60 17 00 40`;
 
     this._attachResultHandlers();
     this._attachGroupSearchHandlers(groupResults, images);
+
+    // Scroll results into view so user sees valuations (not stuck on customer images)
+    const assistant = document.getElementById('vr-assistant');
+    if (assistant) {
+      setTimeout(() => assistant.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
   }
 
   _attachGroupSearchHandlers(groupResults, images) {
