@@ -490,20 +490,28 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
 
     try {
       const totalGroups = groups.length;
-      const groupResults = await Promise.all(groups.map(async (group, idx) => {
+
+      // Run groups sequentially to avoid race conditions on status updates
+      // and provide clear progress feedback to the user
+      const groupResults = [];
+      for (let idx = 0; idx < groups.length; idx++) {
+        const group = groups[idx];
         const groupImages = group.imageIndices.map(i => images[i]).filter(Boolean);
-        if (groupImages.length === 0) return null;
+        if (groupImages.length === 0) {
+          groupResults.push(null);
+          continue;
+        }
 
         this._updateStatus(`Analyserar föremål ${idx + 1} av ${totalGroups}: ${group.label}...`);
-        const aiResult = await this._callClaudeForValuation(groupImages);
+        const aiResult = await this._callClaudeForValuation(groupImages, group.label);
         aiResult.groupLabel = group.label;
         aiResult.groupImageIndices = group.imageIndices;
 
         this._updateStatus(`Söker marknadsdata för ${group.label}...`);
         const enriched = await this._enrichWithMarketData(aiResult);
         enriched.estimatedValue = this._roundValuation(enriched.estimatedValue);
-        return enriched;
-      }));
+        groupResults.push(enriched);
+      }
 
       const validResults = groupResults.filter(Boolean);
       const totalValue = validResults.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
@@ -527,7 +535,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
     }
   }
 
-  async _callClaudeForValuation(images) {
+  async _callClaudeForValuation(images, groupLabel = null) {
     const apiKey = this.apiManager.apiKey;
     if (!apiKey) throw new Error('API-nyckel saknas. Ange din Anthropic API-nyckel i tilläggets inställningar.');
 
@@ -591,10 +599,15 @@ IDENTIFIERING — HÖGSTA PRIORITET:
       });
     }
 
+    // When processing a specific group, tell Claude to focus on that item only
+    const groupContext = groupLabel
+      ? `\nVIKTIGT: Dessa bilder visar ENBART "${groupLabel}". Kundens meddelande kan nämna andra föremål — IGNORERA allt som inte rör detta specifika föremål. Fyll BARA i brand/artist/model baserat på vad du ser i DESSA bilder.\n`
+      : '';
+
     content.push({
       type: 'text',
       text: `Kundens beskrivning: "${description}"
-
+${groupContext}
 Antal bilder: ${images.length}
 
 Analysera bilderna och beskrivningen. Returnera EXAKT detta JSON-format:
