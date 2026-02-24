@@ -599,18 +599,21 @@ IDENTIFIERING — HÖGSTA PRIORITET:
       });
     }
 
-    // When processing a specific group, tell Claude to focus on that item only
-    const groupContext = groupLabel
-      ? `\nVIKTIGT: Dessa bilder visar ENBART "${groupLabel}". Kundens meddelande kan nämna andra föremål — IGNORERA allt som inte rör detta specifika föremål. Fyll BARA i brand/artist/model baserat på vad du ser i DESSA bilder.\n`
-      : '';
+    // For multi-group valuations: don't include the full customer description,
+    // because it mentions ALL items and Claude picks up brands/terms from unrelated
+    // items (e.g. customer writes "Bå Vinge service, kökssoffa, slagbord" and Claude
+    // assigns "Bå Vinge" as brand for the kitchen sofa). Use only group label + images.
+    const descriptionBlock = groupLabel
+      ? `Föremål att värdera: "${groupLabel}"\nOBS: Basera brand/artist/model ENBART på vad du ser i bilderna — inte på text utanför bilderna.`
+      : `Kundens beskrivning: "${description}"`;
 
     content.push({
       type: 'text',
-      text: `Kundens beskrivning: "${description}"
-${groupContext}
+      text: `${descriptionBlock}
+
 Antal bilder: ${images.length}
 
-Analysera bilderna och beskrivningen. Returnera EXAKT detta JSON-format:
+Analysera bilderna${groupLabel ? '' : ' och beskrivningen'}. Returnera EXAKT detta JSON-format:
 {
   "objectType": "kort typ, t.ex. Armbandsur, Oljemålning, Servis, Bestickuppsättning, Fåtölj",
   "brand": "märke/tillverkare om identifierbart, t.ex. Certina, Rörstrand, Georg Jensen, annars null",
