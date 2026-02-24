@@ -1152,12 +1152,6 @@ Phone: +46 60 17 00 40`;
       btn.innerHTML = '<i class="icon fas fa-spinner fa-spin"></i> Analyserar...';
     }
     if (results) {
-      // Preserve container height to prevent layout shift when replacing
-      // large content (e.g. clustering UI with image thumbnails) with small loading spinner
-      const currentHeight = results.offsetHeight;
-      if (currentHeight > 0) {
-        results.style.minHeight = currentHeight + 'px';
-      }
       results.style.display = 'block';
       results.innerHTML = `
         <div class="vr-loading">
@@ -1279,7 +1273,6 @@ Phone: +46 60 17 00 40`;
       </div>`;
 
     results.style.display = 'block';
-    results.style.minHeight = '';  // Clear loading height lock
     results.innerHTML = `
       ${sourceHTML}
       ${descHTML}
@@ -1390,7 +1383,6 @@ Phone: +46 60 17 00 40`;
     }).join('');
 
     results.style.display = 'block';
-    results.style.minHeight = '';  // Clear loading height lock
     results.innerHTML = `
       ${summaryHTML}
       ${groupCardsHTML}
