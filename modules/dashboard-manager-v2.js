@@ -2274,19 +2274,22 @@ export class DashboardManagerV2 {
     existingDashboard.innerHTML = newDashboard.innerHTML;
     existingDashboard.className = newDashboard.className;
 
-    // 3. Measure new natural height
+    // 3. Measure new natural height (remove stale max-height constraint from deferred load)
     existingContainer.style.minHeight = '';
     existingContainer.style.transition = 'none';
+    existingContainer.style.maxHeight = 'none';
     existingContainer.style.height = 'auto';
     const newHeight = existingContainer.offsetHeight;
 
     // 4. If heights are the same, skip animation
     if (oldHeight === newHeight) {
       existingContainer.style.height = '';
+      existingContainer.style.maxHeight = newHeight + 'px';
       existingContainer.style.transition = originalTransition;
     } else {
       // 5. Set back to old height and force reflow
       existingContainer.style.height = oldHeight + 'px';
+      existingContainer.style.maxHeight = newHeight + 'px';
       existingContainer.style.overflow = 'hidden';
       existingContainer.offsetHeight; // force reflow
 
@@ -2300,6 +2303,7 @@ export class DashboardManagerV2 {
         existingContainer.style.overflow = '';
         existingContainer.style.transition = originalTransition;
         existingContainer.style.minHeight = '';
+        existingContainer.style.maxHeight = newHeight + 'px';
       }, 380);
     }
 
