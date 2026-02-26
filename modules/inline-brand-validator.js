@@ -233,6 +233,11 @@ IGNORERA:
 - Ortnamn/stadsnamn
 - Varumärken/märkesnamn (hanteras separat)
 - Förkortningar (cm, st, ca)
+- Legitima svenska auktions- och antiktermer — dessa ÄR korrekta ord:
+  plymå, plymåer, karott, karotter, karaff, karaffer, dosa, tablå,
+  terrin, skänk, chiffonjé, psykemålning, bonadsväv, röllakan,
+  tenn, emalj, porfyr, intarsia, tuschlavering, lavering, gouache,
+  plaquette, applique, pendyl, konfektskål, dragspelsstol
 - Korrekt stavade ord — rapportera BARA verkliga stavfel
 
 Svara BARA med JSON-array (tom om inga fel):
@@ -247,7 +252,7 @@ Svara BARA med JSON-array (tom om inga fel):
             model: 'claude-haiku-4-5',
             max_tokens: 300,
             temperature: 0,
-            system: 'Du är en svensk stavningskontroll för auktionstexter. Hitta BARA verkliga stavfel. Svara med valid JSON. Var noggrann — rapportera INTE korrekt stavade ord.',
+            system: 'Du är en svensk stavningskontroll för auktions- och antiktexter. Hitta BARA verkliga stavfel. Svara med valid JSON. Var noggrann — rapportera INTE korrekt stavade ord. Många ovanliga men korrekta facktermer förekommer i auktionstexter (plymå, karott, terrin, pendyl, etc.) — dessa ska INTE flaggas.',
             messages: [{ role: 'user', content: prompt }]
           }
         }, (response) => {
