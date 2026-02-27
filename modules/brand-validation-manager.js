@@ -1,51 +1,17 @@
 // modules/brand-validation-manager.js - AI-Powered Brand Validation
 // Detects misspelled brand names and provides corrections
 
+import { SpellcheckDictionary } from './spellcheck-dictionary.js';
+
 export class BrandValidationManager {
   constructor(apiManager = null) {
     this.apiManager = apiManager;
-    this.knownBrands = this.initializeKnownBrands();
-    
+    this.knownBrands = SpellcheckDictionary.getInstance().getBrands();
   }
 
   // Set API manager for AI-powered validation
   setApiManager(apiManager) {
     this.apiManager = apiManager;
-  }
-
-  // Initialize comprehensive brand database
-  initializeKnownBrands() {
-    return [
-      // Swiss Watch Brands
-      { name: 'Lemania', variants: ['Lemonia', 'Lemaina', 'Lemenia'], category: 'watches', confidence: 0.95 },
-      { name: 'Omega', variants: ['Omaga', 'Omege'], category: 'watches', confidence: 0.95 },
-      { name: 'Rolex', variants: ['Rollex', 'Roleex'], category: 'watches', confidence: 0.95 },
-      { name: 'Patek Philippe', variants: ['Pateck Philippe', 'Patek Philip'], category: 'watches', confidence: 0.95 },
-      { name: 'Vacheron Constantin', variants: ['Vacheron Konstatin'], category: 'watches', confidence: 0.95 },
-      
-      // Scandinavian Glass/Crystal
-      { name: 'Orrefors', variants: ['Orefors', 'Orrefross'], category: 'glass', confidence: 0.90 },
-      { name: 'Kosta Boda', variants: ['Kosta', 'Kostaboda'], category: 'glass', confidence: 0.90 },
-      { name: 'Iittala', variants: ['Itala', 'Iitala'], category: 'glass', confidence: 0.90 },
-      { name: 'Nuutajärvi', variants: ['Nuutajarvi', 'Nutajarvi'], category: 'glass', confidence: 0.85 },
-      
-      // Scandinavian Ceramics
-      { name: 'Gustavsberg', variants: ['Gustavberg', 'Gustavsber'], category: 'ceramics', confidence: 0.90 },
-      { name: 'Rörstrand', variants: ['Rorstrand', 'Rörstran'], category: 'ceramics', confidence: 0.90 },
-      { name: 'Arabia', variants: ['Arabie', 'Aravia'], category: 'ceramics', confidence: 0.90 },
-      { name: 'Royal Copenhagen', variants: ['Royal Kopenhagen', 'Rojal Copenhagen'], category: 'ceramics', confidence: 0.95 },
-      { name: 'Bing & Grøndahl', variants: ['Bing Grondahl', 'Bing Gröndahl'], category: 'ceramics', confidence: 0.90 },
-      
-      // Furniture/Design
-      { name: 'Svenskt Tenn', variants: ['Svensk Tenn', 'Svenskttenn'], category: 'furniture', confidence: 0.85 },
-      { name: 'Källemo', variants: ['Kallemo', 'Kälemo'], category: 'furniture', confidence: 0.85 },
-      { name: 'Lammhults', variants: ['Lamhults', 'Lammmhults'], category: 'furniture', confidence: 0.85 },
-      
-      // International Luxury
-      { name: 'Hermès', variants: ['Hermes', 'Hermés'], category: 'luxury', confidence: 0.95 },
-      { name: 'Louis Vuitton', variants: ['Louis Vitton', 'Luis Vuitton'], category: 'luxury', confidence: 0.95 },
-      { name: 'Cartier', variants: ['Cartie', 'Cartier'], category: 'luxury', confidence: 0.95 }
-    ];
   }
 
   // Main brand validation method - AI + fuzzy matching
@@ -218,44 +184,13 @@ Om inga felstavningar hittas: {"issues":[]}`;
     return unique.sort((a, b) => b.confidence - a.confidence);
   }
 
-  // Calculate string similarity (Levenshtein-based)
+  // Delegates to SpellcheckDictionary's single implementation
   calculateStringSimilarity(str1, str2) {
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
-    
-    if (longer.length === 0) return 1.0;
-    
-    const distance = this.levenshteinDistance(longer, shorter);
-    return (longer.length - distance) / longer.length;
+    return SpellcheckDictionary.calculateSimilarity(str1, str2);
   }
 
-  // Levenshtein distance calculation
   levenshteinDistance(str1, str2) {
-    const matrix = [];
-    
-    for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
-    }
-    
-    for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
-    }
-    
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
-        }
-      }
-    }
-    
-    return matrix[str2.length][str1.length];
+    return SpellcheckDictionary.levenshteinDistance(str1, str2);
   }
 
   // Infer brand category from name

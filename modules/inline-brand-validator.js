@@ -1,18 +1,18 @@
 // modules/inline-brand-validator.js - Inline Brand Spell Checking with Tooltips
 // Real-time brand validation with in-field highlighting and correction tooltips
 
-import { SwedishSpellChecker } from './swedish-spellchecker.js';
+import { SpellcheckService } from './spellcheck-service.js';
 import { escapeHTML } from './core/html-escape.js';
 
 export class InlineBrandValidator {
   constructor(brandValidationManager = null) {
     this.brandValidationManager = brandValidationManager;
-    this.swedishSpellChecker = new SwedishSpellChecker();
+    this.spellcheckService = SpellcheckService.getInstance();
     this.activeTooltip = null;
     this.monitoredFields = new Map();
     this.debounceTimeout = null;
     this.ignoredTerms = new Set(); // Session-based ignore list
-    
+
   }
 
   // Set brand validation manager
@@ -144,68 +144,33 @@ export class InlineBrandValidator {
     }
 
     try {
-      // Run brand validation and AI spellcheck in parallel for speed
       const apiManager = this.brandValidationManager?.apiManager;
-      const [brandIssues, aiSpellIssues] = await Promise.all([
-        this.brandValidationManager.validateBrandsInContent(text, ''),
-        this.checkSpellingWithAI(text, type, apiManager)
-      ]);
+      const artistField = document.querySelector('#item_artist_name_sv');
 
-      const allIssues = [...brandIssues];
-
-      // Add AI spellcheck results
-      if (aiSpellIssues && aiSpellIssues.length > 0) {
-        allIssues.push(...aiSpellIssues);
-      }
-
-      // Also add dictionary-based Swedish spell checking as a fast fallback
-      const spellingErrors = this.swedishSpellChecker.validateSwedishSpelling(text);
-      allIssues.push(...spellingErrors.map(error => ({
-        originalBrand: error.originalWord,
-        suggestedBrand: error.suggestedWord,
-        confidence: error.confidence,
-        category: error.category,
-        source: error.source,
-        type: 'spelling',
-        displayCategory: this.swedishSpellChecker.getCategoryDisplayName(error.category)
-      })));
-      
-      // Mark type for fuzzy/AI issues that don't have one
-      allIssues.forEach(issue => {
-        if (!issue.type) issue.type = 'brand';
-        if (!issue.displayCategory) issue.displayCategory = 'märke';
+      // Delegate all spellcheck logic to the unified SpellcheckService
+      const issues = await this.spellcheckService.checkText(text, {
+        fieldType: type,
+        includeAI: !!(apiManager && apiManager.apiKey),
+        apiKey: apiManager?.apiKey,
+        includeBrands: true,
+        brandValidationManager: this.brandValidationManager,
+        artistFieldValue: artistField?.value || '',
+        ignoredTerms: this.ignoredTerms
       });
 
-      // Deduplicate: if AI and dictionary found the same word, prefer AI (higher confidence)
-      const deduped = this.deduplicateIssues(allIssues);
-      
-      // Filter out ignored terms and false positives on proper names
-      const filteredIssues = deduped.filter(issue => {
-        if (this.ignoredTerms.has(issue.originalBrand.toLowerCase())) return false;
-        
-        // Filter out suggestions for proper names (artist/person names)
-        if (this.isLikelyProperName(issue.originalBrand, text)) {
-          if ((issue.confidence || 0) < 0.95) return false;
-        }
-        
-        // Filter out diacritical-only differences on proper names
-        if (this.differOnlyInDiacritics(issue.originalBrand, issue.suggestedBrand) && 
-            this.isLikelyProperName(issue.originalBrand, text)) {
-          return false;
-        }
-        
-        // Filter if the artist field already contains this name
-        const artistField = document.querySelector('#item_artist_name_sv');
-        if (artistField && artistField.value) {
-          const artistName = artistField.value.toLowerCase();
-          if (artistName.includes(issue.originalBrand.toLowerCase())) return false;
-        }
-        
-        return true;
-      });
-      
-      if (filteredIssues.length > 0) {
-        this.showInlineNotifications(field, filteredIssues);
+      // Map to the UI format expected by showInlineNotifications
+      const uiIssues = issues.map(issue => ({
+        originalBrand: issue.original,
+        suggestedBrand: issue.corrected,
+        confidence: issue.confidence,
+        type: issue.type || 'spelling',
+        source: issue.source,
+        category: issue.category,
+        displayCategory: issue.displayCategory
+      }));
+
+      if (uiIssues.length > 0) {
+        this.showInlineNotifications(field, uiIssues);
       } else {
         this.removeInlineNotifications(field);
       }
@@ -214,98 +179,8 @@ export class InlineBrandValidator {
     }
   }
 
-  // AI-powered general spellcheck for title/description fields
-  async checkSpellingWithAI(text, fieldType, apiManager) {
-    if (!apiManager || !apiManager.apiKey) return [];
-    if (text.length < 5) return [];
-
-    const fieldLabel = fieldType === 'title' ? 'titel' : fieldType === 'condition' ? 'konditionsrapport' : 'beskrivning';
-    const prompt = `Kontrollera stavningen i denna auktions-${fieldLabel} på svenska:
-"${text}"
-
-Hitta ALLA stavfel, t.ex.:
-- Felstavade svenska ord (t.ex. "afisch" → "affisch", "teckninng" → "teckning")
-- Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
-- Felstavade facktermer (t.ex. "litograif" → "litografi")
-
-IGNORERA:
-- Personnamn och konstnärsnamn (t.ex. "E. Jarup", "Beijer") — rätta INTE dessa
-- Ortnamn/stadsnamn
-- Varumärken/märkesnamn (hanteras separat)
-- Förkortningar (cm, st, ca)
-- Legitima svenska auktions- och antiktermer — dessa ÄR korrekta ord:
-  plymå, plymåer, karott, karotter, karaff, karaffer, dosa, tablå,
-  terrin, skänk, chiffonjé, psykemålning, bonadsväv, röllakan,
-  tenn, emalj, porfyr, intarsia, tuschlavering, lavering, gouache,
-  plaquette, applique, pendyl, konfektskål, dragspelsstol
-- Korrekt stavade ord — rapportera BARA verkliga stavfel
-
-Svara BARA med JSON-array (tom om inga fel):
-{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
-
-    try {
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          type: 'anthropic-fetch',
-          apiKey: apiManager.apiKey,
-          body: {
-            model: 'claude-haiku-4-5',
-            max_tokens: 300,
-            temperature: 0,
-            system: 'Du är en svensk stavningskontroll för auktions- och antiktexter. Hitta BARA verkliga stavfel. Svara med valid JSON. Var noggrann — rapportera INTE korrekt stavade ord. Många ovanliga men korrekta facktermer förekommer i auktionstexter (plymå, karott, terrin, pendyl, etc.) — dessa ska INTE flaggas.',
-            messages: [{ role: 'user', content: prompt }]
-          }
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else if (response?.success) {
-            resolve(response);
-          } else {
-            reject(new Error('Spellcheck AI call failed'));
-          }
-        });
-      });
-
-      if (response.success && response.data?.content?.[0]?.text) {
-        const responseText = response.data.content[0].text.trim();
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const result = JSON.parse(jsonMatch[0]);
-          if (result.issues && Array.isArray(result.issues)) {
-            return result.issues
-              .filter(issue => issue.original && issue.corrected && 
-                      issue.original.toLowerCase() !== issue.corrected.toLowerCase() &&
-                      (issue.confidence || 0.9) >= 0.8)
-              .map(issue => ({
-                originalBrand: issue.original,
-                suggestedBrand: issue.corrected,
-                confidence: issue.confidence || 0.9,
-                type: 'spelling',
-                source: 'ai_spellcheck',
-                displayCategory: 'stavning'
-              }));
-          }
-        }
-      }
-    } catch (error) {
-      // Silently fail — dictionary check still works as fallback
-    }
-
-    return [];
-  }
-
-  // Remove duplicate issues (prefer higher confidence)
-  deduplicateIssues(issues) {
-    const seen = new Map();
-    for (const issue of issues) {
-      const key = issue.originalBrand.toLowerCase();
-      const existing = seen.get(key);
-      if (!existing || (issue.confidence || 0) > (existing.confidence || 0)) {
-        seen.set(key, issue);
-      }
-    }
-    return Array.from(seen.values());
-  }
+  // Removed: checkSpellingWithAI() — now in SpellcheckService.checkTextAI()
+  // Removed: deduplicateIssues() — now in SpellcheckService.deduplicateIssues()
 
   // Specialized validation for the artist/designer name field
   async validateArtistFieldContent(field, text) {
@@ -886,45 +761,9 @@ Om korrekt: {"corrected":null}`;
     document.head.appendChild(style);
   }
 
-  // Detect if a word is likely a proper name in context (person name, place name)
-  isLikelyProperName(word, fullText) {
-    if (!word || word.length < 2) return false;
-    
-    // Check if preceded by an initial (e.g., "E. Jarup" → "Jarup" is a proper name)
-    const escapedWord = this.escapeRegex(word);
-    const initialPattern = new RegExp(`[A-ZÅÄÖÜ]\\.\\s*${escapedWord}`, 'i');
-    if (initialPattern.test(fullText)) return true;
-    
-    // Check if the word itself starts with uppercase (Title Case) and is not ALL CAPS
-    if (/^[A-ZÅÄÖÜ][a-zåäöü]/.test(word)) {
-      // In a comma-separated auction title, capitalized words after commas are often proper names
-      const afterCommaPattern = new RegExp(`,\\s*${escapedWord}\\b`);
-      if (afterCommaPattern.test(fullText)) return true;
-      
-      // Check if next to another capitalized word → person name pattern
-      const namePattern = new RegExp(`[A-ZÅÄÖÜ][a-zåäöü]+\\s+${escapedWord}\\b|${escapedWord}\\s+[A-ZÅÄÖÜ][a-zåäöü]+`);
-      if (namePattern.test(fullText)) return true;
-    }
-    
-    return false;
-  }
-  
-  // Check if two words differ only in diacritical marks (a↔ä, o↔ö, u↔ü)
-  differOnlyInDiacritics(word1, word2) {
-    if (!word1 || !word2) return false;
-    const normalize = (s) => s.toLowerCase()
-      .replace(/[äàáâã]/g, 'a')
-      .replace(/[öòóôõ]/g, 'o')
-      .replace(/[üùúû]/g, 'u')
-      .replace(/[éèêë]/g, 'e')
-      .replace(/[åàáâã]/g, 'a');
-    return normalize(word1) === normalize(word2) && word1.toLowerCase() !== word2.toLowerCase();
-  }
-
-  // Helper method to escape regex
-  escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
+  // Removed: isLikelyProperName() — now in SpellcheckService
+  // Removed: differOnlyInDiacritics() — now in SpellcheckService
+  // Removed: escapeRegex() — now inlined in SpellcheckService
 
   // Stop monitoring (cleanup)
   stopMonitoring() {
