@@ -46,6 +46,7 @@ export class SpellcheckService {
       includeBrands = true,
       brandValidationManager = null,
       artistFieldValue = '',
+      titleValue = '',
       ignoredTerms = new Set()
     } = options;
 
@@ -55,7 +56,7 @@ export class SpellcheckService {
     ];
 
     if (includeAI && apiKey) {
-      checks.push(this.checkTextAI(text, fieldType, apiKey));
+      checks.push(this.checkTextAI(text, fieldType, apiKey, titleValue));
     }
 
     if (includeBrands && brandValidationManager) {
@@ -127,7 +128,7 @@ export class SpellcheckService {
    * @param {string} apiKey
    * @returns {Promise<Array>}
    */
-  async checkTextAI(text, fieldType, apiKey) {
+  async checkTextAI(text, fieldType, apiKey, titleValue = '') {
     if (!apiKey || !text || text.length < 5) return [];
 
     const fieldLabel = fieldType === 'title' ? 'titel'
@@ -137,11 +138,19 @@ export class SpellcheckService {
     // Build whitelist dynamically from dictionary — always complete and current
     const whitelistStr = this.dictionary.getWhitelistForAIPrompt();
 
+    // Cross-field context: when checking description/condition, include the title
+    // so the AI can detect truncated/misspelled words that appear correctly in the title
+    // (e.g., title says "turkoser" but condition says "turko" → should suggest "turkos")
+    const titleContext = (titleValue && fieldType !== 'title')
+      ? `\nTiteln på detta föremål är: "${titleValue}"\nAnvänd titeln som referens — om ett ord i texten liknar ett ord i titeln men är felstavat eller avkortat, flagga det.\n`
+      : '';
+
     const prompt = `Kontrollera stavningen i denna auktions-${fieldLabel} på svenska:
 "${text}"
-
+${titleContext}
 Hitta ALLA stavfel, inklusive subtila fel med en bokstav fel:
 - Saknade dubbelbokstäver (t.ex. "brutovikt" → "bruttovikt", "stopning" → "stoppning")
+- Avkortade/stympade ord (t.ex. "turko" → "turkos", "silve" → "silver")
 - Felstavade svenska ord (t.ex. "afisch" → "affisch", "teckninng" → "teckning")
 - Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
 - Felstavade facktermer (t.ex. "litograif" → "litografi")

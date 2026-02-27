@@ -149,6 +149,7 @@ export class InlineBrandValidator {
     try {
       const apiManager = this.brandValidationManager?.apiManager;
       const artistField = document.querySelector('#item_artist_name_sv');
+      const titleField = document.querySelector('#item_title_sv');
 
       // Delegate all spellcheck logic to the unified SpellcheckService
       const issues = await this.spellcheckService.checkText(text, {
@@ -158,6 +159,7 @@ export class InlineBrandValidator {
         includeBrands: true,
         brandValidationManager: this.brandValidationManager,
         artistFieldValue: artistField?.value || '',
+        titleValue: titleField?.value || '',
         ignoredTerms: this.ignoredTerms
       });
 
