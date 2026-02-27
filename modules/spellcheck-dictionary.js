@@ -234,11 +234,13 @@ export class SpellcheckDictionary {
       { correct: 'förgylld', misspellings: ['forgylld', 'förgöld'], category: 'description' },
       { correct: 'oxiderad', misspellings: ['oxyderad'], category: 'description' },
 
-      // Measurements
+      // Measurements & weights
       { correct: 'diameter', misspellings: ['diamater', 'diameeter'], category: 'measurement' },
       { correct: 'höjd', misspellings: ['hojd', 'hojt'], category: 'measurement' },
       { correct: 'längd', misspellings: ['langd', 'lenght'], category: 'measurement' },
       { correct: 'vikt', misspellings: ['viktt'], category: 'measurement' },
+      { correct: 'bruttovikt', misspellings: ['brutovikt', 'bruttovigt'], category: 'measurement' },
+      { correct: 'nettovikt', misspellings: ['netovikt', 'nettovigt'], category: 'measurement' },
 
       // General
       { correct: 'tillverkad', misspellings: ['tilverkad'], category: 'general' },

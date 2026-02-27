@@ -140,10 +140,12 @@ export class SpellcheckService {
     const prompt = `Kontrollera stavningen i denna auktions-${fieldLabel} på svenska:
 "${text}"
 
-Hitta ALLA stavfel, t.ex.:
+Hitta ALLA stavfel, inklusive subtila fel med en bokstav fel:
+- Saknade dubbelbokstäver (t.ex. "brutovikt" → "bruttovikt", "stopning" → "stoppning")
 - Felstavade svenska ord (t.ex. "afisch" → "affisch", "teckninng" → "teckning")
 - Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
 - Felstavade facktermer (t.ex. "litograif" → "litografi")
+- Felstavade mått- och vikttermer (t.ex. "brutovikt" → "bruttovikt")
 
 IGNORERA:
 - Personnamn och konstnärsnamn (t.ex. "E. Jarup", "Beijer") — rätta INTE dessa
