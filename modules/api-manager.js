@@ -68,6 +68,12 @@ export class APIManager {
 
     try {
       const response = await new Promise((resolve, reject) => {
+        // Guard against the service worker being terminated — without this the
+        // Promise would hang forever if the background script never responds.
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Claude API request timed out (background script did not respond)'));
+        }, 35000);
+
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiKey,
@@ -82,6 +88,7 @@ export class APIManager {
             }]
           }
         }, (response) => {
+          clearTimeout(timeoutId);
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else if (response.success) {

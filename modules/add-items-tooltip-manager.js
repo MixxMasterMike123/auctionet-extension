@@ -320,7 +320,7 @@ export class AddItemsTooltipManager {
                        document.querySelector('form');
     
     if (targetElement) {
-      targetElement.insertBefore(indicator, targetElement.firstChild);
+        targetElement.insertBefore(indicator, targetElement.firstChild);
       this.analyzeQuality();
     }
   }
@@ -679,4 +679,4 @@ export class AddItemsTooltipManager {
 
     return true;
   }
-}
+} 

@@ -151,8 +151,20 @@ export class ValuationRequestAssistant {
       img.onload = () => {
         let maxDim = 1400;
         let quality = 0.82;
+        let attempts = 0;
+        const MAX_ATTEMPTS = 10;
 
         const tryResize = () => {
+          if (attempts++ >= MAX_ATTEMPTS) {
+            // Resolve with best effort rather than risking a stack overflow
+            const canvas = document.createElement('canvas');
+            const ratio = Math.min(600 / img.width, 600 / img.height, 1);
+            canvas.width = Math.round(img.width * ratio);
+            canvas.height = Math.round(img.height * ratio);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve({ base64: canvas.toDataURL('image/jpeg', 0.5).split(',')[1], mediaType: 'image/jpeg' });
+            return;
+          }
           let w = img.width, h = img.height;
           if (w > maxDim || h > maxDim) {
             const ratio = Math.min(maxDim / w, maxDim / h);
@@ -303,8 +315,13 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
   }
 
   _attachClusterHandlers(groups, images) {
-    const container = document.getElementById('vr-cluster-groups');
-    if (!container) return;
+    const original = document.getElementById('vr-cluster-groups');
+    if (!original) return;
+
+    // Strip all previously attached listeners by replacing the node with a deep clone.
+    // This prevents listener accumulation when _renderClusteringUI re-calls this method.
+    const container = original.cloneNode(true);
+    original.parentNode.replaceChild(container, original);
 
     let draggedIdx = null;
 
@@ -395,21 +412,30 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
       });
     });
 
-    // Add group
-    document.getElementById('vr-add-group-btn')?.addEventListener('click', () => {
-      const maxId = Math.max(0, ...groups.map(g => g.id));
-      groups.push({ id: maxId + 1, imageIndices: [], label: 'Nytt föremål' });
-      this._renderClusteringUI(groups, images);
-    });
+    // Add group — clone button to strip any previously attached click listeners
+    const addBtnOrig = document.getElementById('vr-add-group-btn');
+    if (addBtnOrig) {
+      const addBtn = addBtnOrig.cloneNode(true);
+      addBtnOrig.parentNode.replaceChild(addBtn, addBtnOrig);
+      addBtn.addEventListener('click', () => {
+        const maxId = Math.max(0, ...groups.map(g => g.id));
+        groups.push({ id: maxId + 1, imageIndices: [], label: 'Nytt föremål' });
+        this._renderClusteringUI(groups, images);
+      });
+    }
 
-    // Run valuation for all groups
-    document.getElementById('vr-run-valuation-btn')?.addEventListener('click', () => {
-      // Remove empty groups
-      const validGroups = groups.filter(g => g.imageIndices.length > 0);
-      if (validGroups.length === 0) return;
-      this.confirmedGroups = validGroups;
-      this._runMultiGroupValuation(validGroups, images);
-    });
+    // Run valuation for all groups — clone button to strip any previously attached click listeners
+    const runBtnOrig = document.getElementById('vr-run-valuation-btn');
+    if (runBtnOrig) {
+      const runBtn = runBtnOrig.cloneNode(true);
+      runBtnOrig.parentNode.replaceChild(runBtn, runBtnOrig);
+      runBtn.addEventListener('click', () => {
+        const validGroups = groups.filter(g => g.imageIndices.length > 0);
+        if (validGroups.length === 0) return;
+        this.confirmedGroups = validGroups;
+        this._runMultiGroupValuation(validGroups, images);
+      });
+    }
   }
 
   // ─── Valuation ───────────────────────────────────────────────────────

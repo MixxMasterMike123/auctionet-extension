@@ -74,6 +74,8 @@ import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module =
   const aiRulesManager = new module.AIRulesManager();
 
   // Wait for rules to load (they auto-load in constructor)
+  let waitForRulesAttempts = 0;
+  const MAX_WAIT_ATTEMPTS = 50; // 50 × 200ms = 10s max
   const waitForRules = () => {
     if (aiRulesManager.loaded) {
       // CRITICAL: Override ALL global functions to use our loaded instance
@@ -88,8 +90,10 @@ import('./modules/refactored/ai-rules-system/ai-rules-manager.js').then(module =
       window.getModelSpecificValuationRules = aiRulesManager.getModelSpecificValuationRules.bind(aiRulesManager);
       window.getBrandCorrections = aiRulesManager.getBrandCorrections.bind(aiRulesManager);
       window.getArtistCorrections = aiRulesManager.getBrandCorrections.bind(aiRulesManager);
-    } else {
+    } else if (waitForRulesAttempts++ < MAX_WAIT_ATTEMPTS) {
       setTimeout(waitForRules, 200);
+    } else {
+      console.error('AIRulesManager failed to load after 10s — AI rules will be unavailable.');
     }
   };
 

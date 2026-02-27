@@ -185,14 +185,20 @@ export class QualityAnalyzer {
 
   // NEW: Set AI-only search query system
   setSearchQuerySSoT(searchQuerySSoT) {
+    // Remove previous listener before replacing the SSoT reference to avoid accumulation.
+    if (this._ssotListener && this.searchQuerySSoT) {
+      this.searchQuerySSoT.removeListener(this._ssotListener);
+    }
+
     this.searchQuerySSoT = searchQuerySSoT;
 
     // CRITICAL FIX: Listen to SSoT events to trigger dashboard refresh when pills are clicked or terms added
-    this.searchQuerySSoT.addListener((event, data) => {
+    this._ssotListener = (event, data) => {
       if (event === 'user_selection_updated' || event === 'user_term_added') {
         this.handleUserSelectionUpdate(data);
       }
-    });
+    };
+    this.searchQuerySSoT.addListener(this._ssotListener);
 
     // Connect SearchQuerySSoT to apiManager for SSoT-consistent queries
     if (this.apiManager) {
@@ -303,7 +309,9 @@ export class QualityAnalyzer {
 
     // Now run AI artist detection asynchronously and update when complete (only if API is available)
     if (this.apiManager) {
-      this.runAIArtistDetection(data, warnings, score);
+      this.runAIArtistDetection(data, warnings, score).catch(error => {
+        console.error('QualityAnalyzer: AI artist detection failed:', error);
+      });
     }
   }
 

@@ -559,14 +559,21 @@ export class DashboardManagerV2 {
     
     const trigger = document.querySelector('.market-insights-trigger');
     if (!trigger || !this._lastInsightData) return;
-    
+
+    // Detach any scroll/resize handler left over from a previous render cycle.
+    if (this._kbScrollHandler) {
+      window.removeEventListener('scroll', this._kbScrollHandler);
+      window.removeEventListener('resize', this._kbScrollHandler);
+      this._kbScrollHandler = null;
+    }
+
     const data = this._lastInsightData;
     let kbCard = null;
     let hideTimeout = null;
     let isHoveringTrigger = false;
     let isHoveringCard = false;
     let scrollHandler = null;
-    
+
     const positionCard = () => {
       if (!kbCard) return;
       const rect = trigger.getBoundingClientRect();
@@ -591,6 +598,7 @@ export class DashboardManagerV2 {
     const attachScroll = () => {
       if (scrollHandler) return;
       scrollHandler = () => { if (kbCard?.style.visibility === 'visible') positionCard(); };
+      this._kbScrollHandler = scrollHandler;
       window.addEventListener('scroll', scrollHandler, { passive: true });
       window.addEventListener('resize', scrollHandler, { passive: true });
     };
@@ -599,6 +607,7 @@ export class DashboardManagerV2 {
         window.removeEventListener('scroll', scrollHandler);
         window.removeEventListener('resize', scrollHandler);
         scrollHandler = null;
+        this._kbScrollHandler = null;
       }
     };
     
