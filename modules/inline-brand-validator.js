@@ -763,7 +763,11 @@ Om korrekt: {"corrected":null}`;
 
   // Removed: isLikelyProperName() — now in SpellcheckService
   // Removed: differOnlyInDiacritics() — now in SpellcheckService
-  // Removed: escapeRegex() — now inlined in SpellcheckService
+
+  // Helper to escape regex special characters (still used by applyCorrection)
+  escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
 
   // Stop monitoring (cleanup)
   stopMonitoring() {
