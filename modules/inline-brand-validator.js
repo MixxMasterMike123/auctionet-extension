@@ -57,15 +57,18 @@ export class InlineBrandValidator {
     this.monitoredFields.set(field, { type, originalField: field });
     
     // Add event listeners — debounced validation on typing
+    // Each field gets its own debounce timer so they don't cancel each other
+    let fieldDebounce = null;
     const validateHandler = () => {
-      clearTimeout(this.debounceTimeout);
-      this.debounceTimeout = setTimeout(() => {
+      clearTimeout(fieldDebounce);
+      fieldDebounce = setTimeout(() => {
         this.validateFieldContent(field, null, type);
       }, 1200); // Debounce typing (slightly longer for AI calls)
     };
 
     field.addEventListener('input', validateHandler);
     field.addEventListener('paste', validateHandler);
+    field.addEventListener('keyup', validateHandler);
 
     // Validate existing content immediately (important for EDIT pages)
     if (field.value && field.value.trim().length > 0) {
@@ -418,15 +421,21 @@ Om korrekt: {"corrected":null}`;
       container.appendChild(notification);
     });
 
+    // Tag container with field ID so we can remove the right one later
+    const fieldId = field.id || field.name || type;
+    container.dataset.fieldId = fieldId;
+
     // Insert after the field's wrapper (or the field itself)
     const wrapper = field.closest('.brand-spell-wrapper') || field;
     wrapper.parentNode.insertBefore(container, wrapper.nextSibling);
   }
 
-  // Remove inline notifications for a field
+  // Remove inline notifications for a specific field
   removeInlineNotifications(field) {
+    const fieldInfo = this.monitoredFields.get(field);
+    const fieldId = field.id || field.name || fieldInfo?.type;
     const wrapper = field.closest('.brand-spell-wrapper') || field;
-    const existing = wrapper.parentNode?.querySelector('.brand-inline-notifications');
+    const existing = wrapper.parentNode?.querySelector(`.brand-inline-notifications[data-field-id="${fieldId}"]`);
     if (existing) existing.remove();
   }
 
