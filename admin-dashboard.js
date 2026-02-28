@@ -22,16 +22,6 @@
 
   console.log('[AdminDashboard] Initializing dashboard enhancements');
 
-  // ─── Spellcheck Service (lazy-loaded from unified module) ─────────
-  let _spellcheckService = null;
-  async function getSpellcheckService() {
-    if (!_spellcheckService) {
-      const { SpellcheckService } = await import(chrome.runtime.getURL('modules/spellcheck-service.js'));
-      _spellcheckService = SpellcheckService.getInstance();
-    }
-    return _spellcheckService;
-  }
-
   // ─── Utility ──────────────────────────────────────────────────────
 
   function parseNumber(str) {
@@ -714,8 +704,127 @@
     'normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'
   ];
 
-  // Spellcheck: PUB_SCAN_MISSPELLINGS, checkSpellingAI(), checkSpellingDict()
-  // → Replaced by SpellcheckService (lazy-loaded above)
+  // Spellcheck: misspelling → correction map (from swedish-spellchecker.js)
+  const PUB_SCAN_MISSPELLINGS = {
+    'blåa': 'blå', 'groen': 'grön', 'guhl': 'gul', 'vhit': 'vit',
+    'swart': 'svart', 'svat': 'svart', 'röt': 'röd',
+    'sylver': 'silver', 'silwer': 'silver', 'gull': 'guld', 'kopar': 'koppar',
+    'masing': 'mässing', 'mesing': 'mässing', 'porlin': 'porslin', 'porslinn': 'porslin',
+    'krystal': 'kristall', 'cristall': 'kristall', 'marmur': 'marmor',
+    'granitt': 'granit', 'graniet': 'granit',
+    'skadoor': 'skador', 'reppar': 'repor', 'repar': 'repor',
+    'nag': 'nagg', 'fleckar': 'fläckar', 'flackar': 'fläckar',
+    'sprikor': 'sprickor', 'slitasje': 'slitage',
+    'säkel': 'sekel', 'sekkel': 'sekel', 'aarhundrade': 'århundrade',
+    'arrhundrade': 'århundrade', 'antikk': 'antik', 'vintange': 'vintage', 'wintage': 'vintage',
+    'signeradt': 'signerad', 'markt': 'märkt', 'märt': 'märkt',
+    'dateradt': 'daterad', 'datered': 'daterad', 'handmalad': 'handmålad',
+    'forgylld': 'förgylld', 'förgöld': 'förgylld', 'oxyderad': 'oxiderad',
+    'diamater': 'diameter', 'diameeter': 'diameter', 'hojd': 'höjd', 'hojt': 'höjd',
+    'langd': 'längd', 'lenght': 'längd', 'viktt': 'vikt',
+    'tilverkad': 'tillverkad', 'ursprumg': 'ursprung',
+    'examplar': 'exemplar', 'exemplaar': 'exemplar', 'kollection': 'kollektion',
+    'proveniense': 'provenienser',
+    'utropris': 'utropspris', 'utroppris': 'utropspris', 'estimaat': 'estimat',
+    'klubslag': 'klubbslag', 'clubslag': 'klubbslag', 'budgiwning': 'budgivning',
+    'forsaljning': 'försäljning', 'försäljnig': 'försäljning', 'katlog': 'katalog',
+    'oljemalning': 'oljemålning', 'aquarell': 'akvarell', 'akwarelle': 'akvarell',
+    'lithografi': 'litografi', 'litograaf': 'litografi', 'etsninng': 'etsning',
+    'skulptrur': 'skulptur', 'malning': 'målning',
+    'mobler': 'möbler', 'upsättning': 'uppsättning', 'uppsettning': 'uppsättning',
+    'stopning': 'stoppning', 'stoppninng': 'stoppning',
+    'polstreing': 'polstring', 'polstrig': 'polstring',
+    'smyken': 'smycken', 'berloker': 'berlocker', 'berlocks': 'berlocker',
+    'diaments': 'diamanter', 'adelstenar': 'edelstenar', 'edelstener': 'edelstenar',
+    // Common doubled-letter misspellings
+    'ballja': 'balja', 'byråa': 'byrå', 'skåpp': 'skåp', 'bordd': 'bord',
+    'tavlla': 'tavla', 'spegell': 'spegel', 'fåtöllj': 'fåtölj', 'kandelabrer': 'kandelaber'
+  };
+
+  // AI-based spellcheck — same approach as inline-brand-validator.js checkSpellingWithAI()
+  // Uses chrome.runtime.sendMessage → background.js → Anthropic API (Haiku)
+  async function checkSpellingAI(text, apiKey) {
+    if (!apiKey || !text || text.length < 5) return [];
+
+    const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
+"${text}"
+
+Hitta ALLA stavfel, t.ex.:
+- Felstavade svenska ord (t.ex. "afisch" → "affisch", "teckninng" → "teckning")
+- Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
+- Felstavade facktermer (t.ex. "litograif" → "litografi")
+
+IGNORERA:
+- Personnamn och konstnärsnamn (t.ex. "E. Jarup", "Beijer") — rätta INTE dessa
+- Ortnamn/stadsnamn
+- Varumärken/märkesnamn
+- Förkortningar (cm, st, ca, m/)
+- Modellbeteckningar (m/1914, Nr, etc.)
+- Legitima svenska auktions- och antiktermer — dessa ÄR korrekta ord:
+  plymå, plymåer, karott, karotter, karaff, karaffer, dosa, tablå,
+  terrin, terrin, skänk, chiffonjé, psykemålning, bonadsväv, röllakan,
+  tenn, emalj, porfyr, intarsia, tuschlavering, lavering, gouache,
+  plaquette, applique, pendyl, sockerdricka, konfektskål, dragspelsstol
+- Korrekt stavade ord — rapportera BARA verkliga stavfel
+
+Svara BARA med JSON (tom array om inga fel):
+{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
+
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'anthropic-fetch',
+          apiKey: apiKey,
+          body: {
+            model: 'claude-haiku-4-5',
+            max_tokens: 300,
+            temperature: 0,
+            system: 'Du är en svensk stavningskontroll för auktions- och antiktexter. Hitta BARA verkliga stavfel. Svara med valid JSON. Var noggrann — rapportera INTE korrekt stavade ord. Många ovanliga men korrekta facktermer förekommer i auktionstexter (plymå, karott, terrin, pendyl, etc.) — dessa ska INTE flaggas.',
+            messages: [{ role: 'user', content: prompt }]
+          }
+        }, (resp) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else if (resp?.success) resolve(resp);
+          else reject(new Error('Spellcheck AI call failed'));
+        });
+      });
+
+      if (response.success && response.data?.content?.[0]?.text) {
+        const responseText = response.data.content[0].text.trim();
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const result = JSON.parse(jsonMatch[0]);
+          if (result.issues && Array.isArray(result.issues)) {
+            return result.issues
+              .filter(i => i.original && i.corrected &&
+                      i.original.toLowerCase() !== i.corrected.toLowerCase() &&
+                      (i.confidence || 0.9) >= 0.8)
+              .map(i => ({ word: i.original, correction: i.corrected }));
+          }
+        }
+      }
+    } catch (e) {
+      // Silently fail — no spellcheck for this item
+    }
+    return [];
+  }
+
+  // Dictionary fallback when no API key is available
+  function checkSpellingDict(text) {
+    if (!text) return [];
+    const words = text.match(/\b[a-zåäöüA-ZÅÄÖÜ]{4,}\b/g) || [];
+    const found = [];
+    const seen = new Set();
+    for (const word of words) {
+      const lower = word.toLowerCase();
+      const correction = PUB_SCAN_MISSPELLINGS[lower];
+      if (correction && !seen.has(lower)) {
+        seen.add(lower);
+        found.push({ word: lower, correction });
+      }
+    }
+    return found;
+  }
 
   function getPublicationInsertTarget() {
     return document.querySelector('.ext-warehouse')
@@ -1305,21 +1414,15 @@
       }
     }
 
-    // Spellcheck on title + description + condition text via unified SpellcheckService
+    // Spellcheck on title + description + condition text
+    // AI-based (Haiku) if API key available, dictionary fallback otherwise
     const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
-    try {
-      const svc = await getSpellcheckService();
-      const spellingErrors = await svc.checkText(combinedText, {
-        fieldType: 'description',
-        includeAI: !!apiKey,
-        apiKey
-      });
-      if (spellingErrors.length > 0) {
-        const corrections = spellingErrors.map(e => `"${e.original}" → "${e.corrected}"`).join(', ');
-        issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
-      }
-    } catch (_) {
-      // Spellcheck failed — continue without it
+    const spellingErrors = apiKey
+      ? await checkSpellingAI(combinedText, apiKey)
+      : checkSpellingDict(combinedText);
+    if (spellingErrors.length > 0) {
+      const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
+      issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
     }
 
     // Keywords: not an error, just tracked as a count in the summary
