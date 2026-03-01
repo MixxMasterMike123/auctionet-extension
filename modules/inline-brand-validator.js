@@ -288,14 +288,18 @@ Svara BARA med JSON-array (tom om inga fel):
         });
       });
 
+      console.log(`[Spellcheck:${fieldType}] AI response:`, response.success, response.data?.content?.[0]?.text?.substring(0, 200));
+
       if (response.success && response.data?.content?.[0]?.text) {
         const responseText = response.data.content[0].text.trim();
+        console.log(`[Spellcheck:${fieldType}] AI raw:`, responseText);
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const result = JSON.parse(jsonMatch[0]);
+          console.log(`[Spellcheck:${fieldType}] AI parsed:`, result);
           if (result.issues && Array.isArray(result.issues)) {
             return result.issues
-              .filter(issue => issue.original && issue.corrected && 
+              .filter(issue => issue.original && issue.corrected &&
                       issue.original.toLowerCase() !== issue.corrected.toLowerCase() &&
                       (issue.confidence || 0.9) >= 0.8)
               .map(issue => ({
@@ -310,7 +314,7 @@ Svara BARA med JSON-array (tom om inga fel):
         }
       }
     } catch (error) {
-      // Silently fail — dictionary check still works as fallback
+      console.error(`[Spellcheck:${fieldType}] AI ERROR:`, error.message);
     }
 
     return [];
