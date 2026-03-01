@@ -238,22 +238,25 @@ export class InlineBrandValidator {
 "${text}"
 
 Hitta stavfel av ALLA typer:
-- Saknade eller extra bokstäver (t.ex. "Colier" → "Collier", "silverr" → "silver", "teckninng" → "teckning")
-- Felstavade förkortningar (t.ex. "respt." → "resp.", "ungf." → "ungefär")
-- Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
-- Felstavade facktermer (t.ex. "litograif" → "litografi")
-- Dubbelbokstavsfel (t.ex. "bruttovikt" → "bruttovikt" men "brutovikt" → "bruttovikt")
+- Saknade eller extra bokstäver (t.ex. "Colier" → "Collier", "silverr" → "silver")
+- Felstavade förkortningar (t.ex. "respt." → "resp.")
+- Felstavade material/tekniker (t.ex. "olija" → "olja")
+- Dubbelbokstavsfel (t.ex. "brutovikt" → "bruttovikt")
 
-IGNORERA BARA:
+IGNORERA:
 - Personnamn (t.ex. "E. Jarup", "Beijer")
 - Ortnamn/stadsnamn
 - Måttenheter: cm, mm, st, ca, m/
-- Dessa auktionsfacktermer ÄR korrekta:
+- Korrekta svenska böjningsformer — dessa ÄR rätt:
+  hängd, längd, höjd, bredd, djup, vikt, märkt, signerad, daterad,
+  blått, rött, grönt, gult, vitt, brunt, grått, brett, djupt,
+  gravyr, dekor, slitage, patina, lagning
+- Auktionsfacktermer — dessa ÄR korrekta:
   plymå, karott, karaff, tablå, terrin, skänk, chiffonjé, röllakan,
   tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
-  collier, rivière, cabochon, pavé, solitär, entourage
+  collier, rivière, cabochon, pavé, solitär, entourage, resp.
 
-Svara BARA med JSON:
+Svara BARA med JSON, ingen annan text:
 {"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
 
     try {
@@ -265,7 +268,7 @@ Svara BARA med JSON:
             model: 'claude-haiku-4-5',
             max_tokens: 300,
             temperature: 0,
-            system: 'Du är en strikt svensk stavningskontroll. Hitta ALLA stavfel inklusive saknade/extra bokstäver och felaktiga förkortningar. Svara BARA med valid JSON, ingen annan text. Om du är osäker, flagga ändå — det är bättre att rapportera ett potentiellt fel än att missa ett verkligt stavfel.',
+            system: 'Du är en svensk stavningskontroll för auktionstexter. Hitta stavfel som saknade/extra bokstäver och felaktiga förkortningar. Flagga INTE korrekta svenska böjningsformer (hängd, längd, märkt etc.). Svara BARA med valid JSON, ingen annan text.',
             messages: [{ role: 'user', content: prompt }]
           }
         }, (response) => {
@@ -310,11 +313,11 @@ Svara BARA med JSON:
   // Check for common misspellings including abbreviations with periods
   checkCommonMisspellings(text) {
     const misspellingMap = {
-      // Abbreviation errors
-      'respt.': 'resp.', 'respt': 'resp.',
-      'ungf.': 'ungefär', 'ungf': 'ungefär',
-      'inkll.': 'inkl.', 'inkll': 'inkl.',
-      'exkll.': 'exkl.', 'exkll': 'exkl.',
+      // Abbreviation errors (only period variants — bare variants would leave orphan periods)
+      'respt.': 'resp.', 'respkt.': 'resp.',
+      'ungf.': 'ungefär',
+      'inkll.': 'inkl.',
+      'exkll.': 'exkl.',
       // Common word misspellings not in SwedishSpellChecker
       'colier': 'collier', 'collie': 'collier', 'kolier': 'collier',
       'briliant': 'briljant', 'brilljant': 'briljant',
@@ -330,12 +333,15 @@ Svara BARA med JSON:
 
     for (const [wrong, correct] of Object.entries(misspellingMap)) {
       if (!correct) continue;
-      // Match as word boundary (handle periods in abbreviations)
       const escapedWrong = wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(?:^|[\\s,;("'])${escapedWrong}(?=[\\s,;.)'"!?]|$)`, 'gi');
+      // For period-ending abbreviations: match word + period, followed by space/end
+      // For regular words: use word boundaries
+      const hasPeriod = wrong.endsWith('.');
+      const regex = hasPeriod
+        ? new RegExp(`(?:^|[\\s,;("'])${escapedWrong}(?=[\\s,;)'"!?]|$)`, 'gi')
+        : new RegExp(`(?:^|[\\s,;("'])${escapedWrong}(?=[\\s,;.)'"!?]|$)`, 'gi');
       const match = regex.exec(lowerText);
       if (match) {
-        // Extract the actual matched word (trim leading whitespace/punctuation)
         const matchedText = match[0].replace(/^[\s,;("']+/, '');
         issues.push({
           originalBrand: matchedText,
@@ -701,9 +707,14 @@ Om korrekt: {"corrected":null}`;
   // Apply correction to field
   applyCorrection(field, original, suggested) {
     const currentValue = field.value;
-    
-    // Create case-insensitive regex to find the word regardless of current case
-    const regex = new RegExp(`\\b${this.escapeRegex(original)}\\b`, 'gi');
+
+    // Build regex — handle words with periods (abbreviations like "respt.")
+    const escaped = this.escapeRegex(original);
+    const hasPeriod = original.endsWith('.');
+    // Use word boundary at start, but for period-ending words match the period directly
+    const regex = hasPeriod
+      ? new RegExp(`\\b${escaped}`, 'gi')
+      : new RegExp(`\\b${escaped}\\b`, 'gi');
     const correctedValue = currentValue.replace(regex, suggested);
     
     field.value = correctedValue;

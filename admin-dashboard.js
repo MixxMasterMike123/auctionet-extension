@@ -755,23 +755,26 @@
 "${text}"
 
 Hitta stavfel av ALLA typer:
-- Saknade eller extra bokstäver (t.ex. "Colier" → "Collier", "silverr" → "silver", "teckninng" → "teckning")
-- Felstavade förkortningar (t.ex. "respt." → "resp.", "ungf." → "ungefär")
-- Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
-- Felstavade facktermer (t.ex. "litograif" → "litografi")
-- Dubbelbokstavsfel (t.ex. "bruttovikt" → "bruttovikt" men "brutovikt" → "bruttovikt")
+- Saknade eller extra bokstäver (t.ex. "Colier" → "Collier", "silverr" → "silver")
+- Felstavade förkortningar (t.ex. "respt." → "resp.")
+- Felstavade material/tekniker (t.ex. "olija" → "olja")
+- Dubbelbokstavsfel (t.ex. "brutovikt" → "bruttovikt")
 
-IGNORERA BARA:
+IGNORERA:
 - Personnamn (t.ex. "E. Jarup", "Beijer")
 - Ortnamn/stadsnamn
 - Måttenheter: cm, mm, st, ca, m/
 - Modellbeteckningar (m/1914, Nr)
-- Dessa auktionsfacktermer ÄR korrekta:
+- Korrekta svenska böjningsformer — dessa ÄR rätt:
+  hängd, längd, höjd, bredd, djup, vikt, märkt, signerad, daterad,
+  blått, rött, grönt, gult, vitt, brunt, grått, brett, djupt,
+  gravyr, dekor, slitage, patina, lagning
+- Auktionsfacktermer — dessa ÄR korrekta:
   plymå, karott, karaff, tablå, terrin, skänk, chiffonjé, röllakan,
   tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
-  collier, rivière, cabochon, pavé, solitär, entourage
+  collier, rivière, cabochon, pavé, solitär, entourage, resp.
 
-Svara BARA med JSON:
+Svara BARA med JSON, ingen annan text:
 {"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
 
     try {
@@ -783,7 +786,7 @@ Svara BARA med JSON:
             model: 'claude-haiku-4-5',
             max_tokens: 300,
             temperature: 0,
-            system: 'Du är en strikt svensk stavningskontroll. Hitta ALLA stavfel inklusive saknade/extra bokstäver och felaktiga förkortningar. Svara BARA med valid JSON, ingen annan text. Om du är osäker, flagga ändå — det är bättre att rapportera ett potentiellt fel än att missa ett verkligt stavfel.',
+            system: 'Du är en svensk stavningskontroll för auktionstexter. Hitta stavfel som saknade/extra bokstäver och felaktiga förkortningar. Flagga INTE korrekta svenska böjningsformer (hängd, längd, märkt etc.). Svara BARA med valid JSON, ingen annan text.',
             messages: [{ role: 'user', content: prompt }]
           }
         }, (resp) => {
