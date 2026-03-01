@@ -98,7 +98,12 @@ export class SwedishSpellChecker {
       { word: 'smycken', misspellings: ['smyken'], category: 'jewelry' },
       { word: 'berlocker', misspellings: ['berloker', 'berlocks'], category: 'jewelry' },
       { word: 'diamanter', misspellings: ['diaments'], category: 'jewelry' },
-      { word: 'edelstenar', misspellings: ['adelstenar', 'edelstener'], category: 'jewelry' }
+      { word: 'edelstenar', misspellings: ['adelstenar', 'edelstener'], category: 'jewelry' },
+      { word: 'collier', misspellings: ['colier', 'kolier'], category: 'jewelry' },
+      { word: 'briljant', misspellings: ['briliant', 'brilljant'], category: 'jewelry' },
+      { word: 'halsband', misspellings: ['halstband', 'halband'], category: 'jewelry' },
+      { word: 'örhänge', misspellings: ['örhange', 'orhänge'], category: 'jewelry' },
+      { word: 'bruttovikt', misspellings: ['brutovikt', 'brutovigt'], category: 'measurement' }
     ];
   }
 

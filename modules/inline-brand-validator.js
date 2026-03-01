@@ -148,7 +148,6 @@ export class InlineBrandValidator {
     try {
       // Run brand validation and AI spellcheck in parallel for speed
       const apiManager = this.brandValidationManager?.apiManager;
-      console.log(`[Spellcheck:${type}] validating "${text.substring(0, 50)}..." apiManager:`, !!apiManager, 'apiKey:', !!apiManager?.apiKey);
       const [brandIssues, aiSpellIssues] = await Promise.all([
         this.brandValidationManager.validateBrandsInContent(text, ''),
         this.checkSpellingWithAI(text, type, apiManager)
@@ -173,15 +172,15 @@ export class InlineBrandValidator {
         displayCategory: this.swedishSpellChecker.getCategoryDisplayName(error.category)
       })));
 
+      // Check common abbreviation and word misspellings (handles periods, short words)
+      const abbrErrors = this.checkCommonMisspellings(text);
+      allIssues.push(...abbrErrors);
+
       // Mark type for fuzzy/AI issues that don't have one
       allIssues.forEach(issue => {
         if (!issue.type) issue.type = 'brand';
         if (!issue.displayCategory) issue.displayCategory = 'märke';
       });
-
-      // DEBUG: Log what each source found
-      console.log(`[Spellcheck:${type}] brands:`, brandIssues.length, 'ai:', aiSpellIssues?.length || 0, 'dict:', spellingErrors.length, 'total:', allIssues.length);
-      if (allIssues.length > 0) console.log(`[Spellcheck:${type}] issues:`, allIssues.map(i => `${i.originalBrand}→${i.suggestedBrand} (${i.source||i.type})`));
 
       // Deduplicate: if AI and dictionary found the same word, prefer AI (higher confidence)
       const deduped = this.deduplicateIssues(allIssues);
@@ -189,14 +188,12 @@ export class InlineBrandValidator {
       // Filter out ignored terms and false positives on proper names
       const filteredIssues = deduped.filter(issue => {
         if (this.ignoredTerms.has(issue.originalBrand.toLowerCase())) {
-          console.log(`[Spellcheck:${type}] FILTERED (ignored): ${issue.originalBrand}`);
           return false;
         }
 
         // Filter out suggestions for proper names (artist/person names)
         if (this.isLikelyProperName(issue.originalBrand, text)) {
           if ((issue.confidence || 0) < 0.95) {
-            console.log(`[Spellcheck:${type}] FILTERED (proper name, conf ${issue.confidence}): ${issue.originalBrand}`);
             return false;
           }
         }
@@ -204,7 +201,6 @@ export class InlineBrandValidator {
         // Filter out diacritical-only differences on proper names
         if (this.differOnlyInDiacritics(issue.originalBrand, issue.suggestedBrand) &&
             this.isLikelyProperName(issue.originalBrand, text)) {
-          console.log(`[Spellcheck:${type}] FILTERED (diacritics): ${issue.originalBrand}`);
           return false;
         }
 
@@ -213,15 +209,12 @@ export class InlineBrandValidator {
         if (artistField && artistField.value) {
           const artistName = artistField.value.toLowerCase();
           if (artistName.includes(issue.originalBrand.toLowerCase())) {
-            console.log(`[Spellcheck:${type}] FILTERED (artist field): ${issue.originalBrand}`);
             return false;
           }
         }
 
         return true;
       });
-
-      console.log(`[Spellcheck:${type}] after filter: ${filteredIssues.length} issues`);
 
       if (filteredIssues.length > 0) {
         this.showInlineNotifications(field, filteredIssues);
@@ -236,33 +229,31 @@ export class InlineBrandValidator {
   // AI-powered general spellcheck for title/description fields
   async checkSpellingWithAI(text, fieldType, apiManager) {
     if (!apiManager || !apiManager.apiKey) {
-      console.log(`[Spellcheck:${fieldType}] AI SKIPPED — no apiManager/apiKey`, { hasManager: !!apiManager, hasKey: !!apiManager?.apiKey });
       return [];
     }
     if (text.length < 5) return [];
 
     const fieldLabel = fieldType === 'title' ? 'titel' : fieldType === 'condition' ? 'konditionsrapport' : 'beskrivning';
-    const prompt = `Kontrollera stavningen i denna auktions-${fieldLabel} på svenska:
+    const prompt = `Hitta stavfel i denna auktions-${fieldLabel} på svenska:
 "${text}"
 
-Hitta ALLA stavfel, t.ex.:
-- Felstavade svenska ord (t.ex. "afisch" → "affisch", "teckninng" → "teckning")
+Hitta stavfel av ALLA typer:
+- Saknade eller extra bokstäver (t.ex. "Colier" → "Collier", "silverr" → "silver", "teckninng" → "teckning")
+- Felstavade förkortningar (t.ex. "respt." → "resp.", "ungf." → "ungefär")
 - Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
 - Felstavade facktermer (t.ex. "litograif" → "litografi")
+- Dubbelbokstavsfel (t.ex. "bruttovikt" → "bruttovikt" men "brutovikt" → "bruttovikt")
 
-IGNORERA:
-- Personnamn och konstnärsnamn (t.ex. "E. Jarup", "Beijer") — rätta INTE dessa
+IGNORERA BARA:
+- Personnamn (t.ex. "E. Jarup", "Beijer")
 - Ortnamn/stadsnamn
-- Varumärken/märkesnamn (hanteras separat)
-- Förkortningar (cm, st, ca)
-- Legitima svenska auktions- och antiktermer — dessa ÄR korrekta ord:
-  plymå, plymåer, karott, karotter, karaff, karaffer, dosa, tablå,
-  terrin, skänk, chiffonjé, psykemålning, bonadsväv, röllakan,
-  tenn, emalj, porfyr, intarsia, tuschlavering, lavering, gouache,
-  plaquette, applique, pendyl, konfektskål, dragspelsstol
-- Korrekt stavade ord — rapportera BARA verkliga stavfel
+- Måttenheter: cm, mm, st, ca, m/
+- Dessa auktionsfacktermer ÄR korrekta:
+  plymå, karott, karaff, tablå, terrin, skänk, chiffonjé, röllakan,
+  tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
+  collier, rivière, cabochon, pavé, solitär, entourage
 
-Svara BARA med JSON-array (tom om inga fel):
+Svara BARA med JSON:
 {"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
 
     try {
@@ -274,7 +265,7 @@ Svara BARA med JSON-array (tom om inga fel):
             model: 'claude-haiku-4-5',
             max_tokens: 300,
             temperature: 0,
-            system: 'Du är en svensk stavningskontroll för auktions- och antiktexter. Hitta BARA verkliga stavfel. Svara med valid JSON. Var noggrann — rapportera INTE korrekt stavade ord. Många ovanliga men korrekta facktermer förekommer i auktionstexter (plymå, karott, terrin, pendyl, etc.) — dessa ska INTE flaggas.',
+            system: 'Du är en strikt svensk stavningskontroll. Hitta ALLA stavfel inklusive saknade/extra bokstäver och felaktiga förkortningar. Svara BARA med valid JSON, ingen annan text. Om du är osäker, flagga ändå — det är bättre att rapportera ett potentiellt fel än att missa ett verkligt stavfel.',
             messages: [{ role: 'user', content: prompt }]
           }
         }, (response) => {
@@ -288,15 +279,11 @@ Svara BARA med JSON-array (tom om inga fel):
         });
       });
 
-      console.log(`[Spellcheck:${fieldType}] AI response:`, response.success, response.data?.content?.[0]?.text?.substring(0, 200));
-
       if (response.success && response.data?.content?.[0]?.text) {
         const responseText = response.data.content[0].text.trim();
-        console.log(`[Spellcheck:${fieldType}] AI raw:`, responseText);
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const result = JSON.parse(jsonMatch[0]);
-          console.log(`[Spellcheck:${fieldType}] AI parsed:`, result);
           if (result.issues && Array.isArray(result.issues)) {
             return result.issues
               .filter(issue => issue.original && issue.corrected &&
@@ -314,10 +301,54 @@ Svara BARA med JSON-array (tom om inga fel):
         }
       }
     } catch (error) {
-      console.error(`[Spellcheck:${fieldType}] AI ERROR:`, error.message);
+      // Silently fail — dictionary and common misspellings still work as fallback
     }
 
     return [];
+  }
+
+  // Check for common misspellings including abbreviations with periods
+  checkCommonMisspellings(text) {
+    const misspellingMap = {
+      // Abbreviation errors
+      'respt.': 'resp.', 'respt': 'resp.',
+      'ungf.': 'ungefär', 'ungf': 'ungefär',
+      'inkll.': 'inkl.', 'inkll': 'inkl.',
+      'exkll.': 'exkl.', 'exkll': 'exkl.',
+      // Common word misspellings not in SwedishSpellChecker
+      'colier': 'collier', 'collie': 'collier', 'kolier': 'collier',
+      'briliant': 'briljant', 'brilljant': 'briljant',
+      'brutovikt': 'bruttovikt', 'brutovigt': 'bruttovikt',
+      'nettovigt': 'nettovikt',
+      'halstband': 'halsband', 'halband': 'halsband',
+      'armand': 'armband',
+      'örhange': 'örhänge', 'orhänge': 'örhänge',
+      'brosch': null, // correct, don't flag
+    };
+    const issues = [];
+    const lowerText = text.toLowerCase();
+
+    for (const [wrong, correct] of Object.entries(misspellingMap)) {
+      if (!correct) continue;
+      // Match as word boundary (handle periods in abbreviations)
+      const escapedWrong = wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(?:^|[\\s,;("'])${escapedWrong}(?=[\\s,;.)'"!?]|$)`, 'gi');
+      const match = regex.exec(lowerText);
+      if (match) {
+        // Extract the actual matched word (trim leading whitespace/punctuation)
+        const matchedText = match[0].replace(/^[\s,;("']+/, '');
+        issues.push({
+          originalBrand: matchedText,
+          suggestedBrand: correct,
+          confidence: 0.95,
+          category: 'spelling',
+          source: 'common_misspellings',
+          type: 'spelling',
+          displayCategory: 'stavning'
+        });
+      }
+    }
+    return issues;
   }
 
   // Remove duplicate issues (prefer higher confidence)

@@ -738,7 +738,12 @@
     'diaments': 'diamanter', 'adelstenar': 'edelstenar', 'edelstener': 'edelstenar',
     // Common doubled-letter misspellings
     'ballja': 'balja', 'byråa': 'byrå', 'skåpp': 'skåp', 'bordd': 'bord',
-    'tavlla': 'tavla', 'spegell': 'spegel', 'fåtöllj': 'fåtölj', 'kandelabrer': 'kandelaber'
+    'tavlla': 'tavla', 'spegell': 'spegel', 'fåtöllj': 'fåtölj', 'kandelabrer': 'kandelaber',
+    // Jewelry terms
+    'colier': 'collier', 'kolier': 'collier', 'briliant': 'briljant', 'brilljant': 'briljant',
+    'halstband': 'halsband', 'halband': 'halsband', 'örhange': 'örhänge',
+    // Weight/measurement
+    'brutovikt': 'bruttovikt', 'brutovigt': 'bruttovikt'
   };
 
   // AI-based spellcheck — same approach as inline-brand-validator.js checkSpellingWithAI()
@@ -746,28 +751,27 @@
   async function checkSpellingAI(text, apiKey) {
     if (!apiKey || !text || text.length < 5) return [];
 
-    const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
+    const prompt = `Hitta stavfel i denna auktionstext på svenska:
 "${text}"
 
-Hitta ALLA stavfel, t.ex.:
-- Felstavade svenska ord (t.ex. "afisch" → "affisch", "teckninng" → "teckning")
+Hitta stavfel av ALLA typer:
+- Saknade eller extra bokstäver (t.ex. "Colier" → "Collier", "silverr" → "silver", "teckninng" → "teckning")
+- Felstavade förkortningar (t.ex. "respt." → "resp.", "ungf." → "ungefär")
 - Felstavade material/tekniker (t.ex. "olija" → "olja", "akverell" → "akvarell")
 - Felstavade facktermer (t.ex. "litograif" → "litografi")
+- Dubbelbokstavsfel (t.ex. "bruttovikt" → "bruttovikt" men "brutovikt" → "bruttovikt")
 
-IGNORERA:
-- Personnamn och konstnärsnamn (t.ex. "E. Jarup", "Beijer") — rätta INTE dessa
+IGNORERA BARA:
+- Personnamn (t.ex. "E. Jarup", "Beijer")
 - Ortnamn/stadsnamn
-- Varumärken/märkesnamn
-- Förkortningar (cm, st, ca, m/)
-- Modellbeteckningar (m/1914, Nr, etc.)
-- Legitima svenska auktions- och antiktermer — dessa ÄR korrekta ord:
-  plymå, plymåer, karott, karotter, karaff, karaffer, dosa, tablå,
-  terrin, terrin, skänk, chiffonjé, psykemålning, bonadsväv, röllakan,
-  tenn, emalj, porfyr, intarsia, tuschlavering, lavering, gouache,
-  plaquette, applique, pendyl, sockerdricka, konfektskål, dragspelsstol
-- Korrekt stavade ord — rapportera BARA verkliga stavfel
+- Måttenheter: cm, mm, st, ca, m/
+- Modellbeteckningar (m/1914, Nr)
+- Dessa auktionsfacktermer ÄR korrekta:
+  plymå, karott, karaff, tablå, terrin, skänk, chiffonjé, röllakan,
+  tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
+  collier, rivière, cabochon, pavé, solitär, entourage
 
-Svara BARA med JSON (tom array om inga fel):
+Svara BARA med JSON:
 {"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
 
     try {
@@ -779,7 +783,7 @@ Svara BARA med JSON (tom array om inga fel):
             model: 'claude-haiku-4-5',
             max_tokens: 300,
             temperature: 0,
-            system: 'Du är en svensk stavningskontroll för auktions- och antiktexter. Hitta BARA verkliga stavfel. Svara med valid JSON. Var noggrann — rapportera INTE korrekt stavade ord. Många ovanliga men korrekta facktermer förekommer i auktionstexter (plymå, karott, terrin, pendyl, etc.) — dessa ska INTE flaggas.',
+            system: 'Du är en strikt svensk stavningskontroll. Hitta ALLA stavfel inklusive saknade/extra bokstäver och felaktiga förkortningar. Svara BARA med valid JSON, ingen annan text. Om du är osäker, flagga ändå — det är bättre att rapportera ett potentiellt fel än att missa ett verkligt stavfel.',
             messages: [{ role: 'user', content: prompt }]
           }
         }, (resp) => {
