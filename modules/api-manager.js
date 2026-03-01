@@ -646,7 +646,7 @@ BESKRIVNING FÖR MÖBLER:
 • Skriv ALLTID ut träslag i beskrivningen (om känt/angivet) — särskilt om det togs bort från titeln
 • Träslaget ska stå FÖRST i beskrivningen
 • Var försiktig med träslag — om osäker, nämn det inte alls (undvik reklamationer)
-• Mått anges SIST i beskrivningen: "Längd 84 cm, bredd 47 cm, höjd 92 cm"
+• Mått anges SIST i beskrivningen: "Längd 84, bredd 47, höjd 92 cm." (enhet bara efter sista måttet)
 
 ANTI-HALLUCINATION FÖR MÖBLER:
 • Lägg ALDRIG till träslag som inte är angivet i källan
@@ -1121,13 +1121,14 @@ MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
 • Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
 • KRITISKT: Denna regel gäller ALLA kategorier — möbler, konst, kameror, keramik, glas, allt!
-• Format för möbler: "Längd 84 cm, bredd 47 cm, höjd 92 cm" (cm efter VARJE mått)
-• Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
+• Format för möbler: "Längd 84, bredd 47, höjd 92 cm." — enheten (cm) skrivs BARA efter sista måttet
+• Format för runda/cylindriska: "Diameter 69, höjd 36 cm."
 • Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
-• Små föremål: ett mått räcker (höjd eller diameter)
+• Små föremål: ett mått räcker, t.ex. "Höjd 15 cm." eller "Diameter 12 cm."
+• Partier/set: mått från minsta till största, t.ex. "Höjd 8-27 cm."
 • Ringar: ange BARA ringstorlek, inga mått
 • Grafik: förtydliga om det är bladstorlek eller bildstorlek
-• "cm" och "mm" som måttenheter är OK — "centimeter"/"millimeter" är också acceptabelt
+• VIKTIGT: Skriv INTE enheten efter varje mått — "Längd 84, bredd 47, höjd 92 cm." är RÄTT, "Längd 84 cm, bredd 47 cm, höjd 92 cm." är FEL
 • Undvik svenska förkortningar som "bl a", "osv", "mm" (med mera) — skriv ut dem för översättning
 • EXEMPEL — Kamera: "Canon AV-1, nummer 321063. Canon Zoom lens FD 35-70 mm.\n\nHusets längd 14 cm."
 
@@ -1333,13 +1334,14 @@ MÅTTFORMATERING I BESKRIVNING:
 • Mått placeras ALLTID SIST i beskrivningen (undantag: taklampor och mattor)
 • Mått ska ALLTID stå i en EGEN paragraf — separera med dubbel radbrytning (\n\n) före måtten
 • KRITISKT: Denna regel gäller ALLA kategorier — möbler, konst, kameror, keramik, glas, allt!
-• Format för möbler: "Längd 84 cm, bredd 47 cm, höjd 92 cm" (cm efter VARJE mått)
-• Format för runda/cylindriska: "Diameter 69 cm, höjd 36 cm"
+• Format för möbler: "Längd 84, bredd 47, höjd 92 cm." — enheten (cm) skrivs BARA efter sista måttet
+• Format för runda/cylindriska: "Diameter 69, höjd 36 cm."
 • Format för konst: "45 x 78 cm" — ALLTID höjden först, ALLTID utan ram
-• Små föremål: ett mått räcker (höjd eller diameter)
+• Små föremål: ett mått räcker, t.ex. "Höjd 15 cm." eller "Diameter 12 cm."
+• Partier/set: mått från minsta till största, t.ex. "Höjd 8-27 cm."
 • Ringar: ange BARA ringstorlek, inga mått
 • Grafik: förtydliga om det är bladstorlek eller bildstorlek
-• "cm" och "mm" som måttenheter är OK — "centimeter"/"millimeter" är också acceptabelt
+• VIKTIGT: Skriv INTE enheten efter varje mått — "Längd 84, bredd 47, höjd 92 cm." är RÄTT, "Längd 84 cm, bredd 47 cm, höjd 92 cm." är FEL
 • Undvik svenska förkortningar som "bl a", "osv", "mm" (med mera) — skriv ut dem för översättning
 • EXEMPEL — Kamera: "Canon AV-1, nummer 321063. Canon Zoom lens FD 35-70 mm.\n\nHusets längd 14 cm."
 

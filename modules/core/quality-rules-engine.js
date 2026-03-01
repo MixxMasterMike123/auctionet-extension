@@ -119,6 +119,13 @@ export class QualityRulesEngine {
       score -= 10;
     }
 
+    // Check for repeated measurement units (should only be at the end)
+    const repeatedUnitWarning = this.checkRepeatedMeasurementUnits(data.description);
+    if (repeatedUnitWarning) {
+      warnings.push({ field: 'Beskrivning', issue: repeatedUnitWarning, severity: 'medium' });
+      score -= 5;
+    }
+
     // CONDITION QUALITY CHECKS
     if (!noRemarksChecked) {
       const condLength = data.condition.replace(/<[^>]*>/g, '').length;
@@ -457,6 +464,31 @@ export class QualityRulesEngine {
     ];
 
     return measurementPatterns.some(pattern => text.match(pattern));
+  }
+
+  /**
+   * Check if measurements repeat the unit unnecessarily.
+   * Correct: "Längd 84, bredd 47, höjd 92 cm."
+   * Wrong:   "Längd 84 cm, bredd 47 cm, höjd 92 cm."
+   */
+  checkRepeatedMeasurementUnits(text) {
+    const plainText = text.replace(/<[^>]*>/g, '');
+    // Match patterns like "Längd 84 cm, bredd 47 cm" or "höjd 15 cm, diameter 20 cm"
+    // on the SAME line (not across separate list items)
+    const lines = plainText.split(/\n/);
+    for (const line of lines) {
+      // Count occurrences of "number cm" or "number mm" on this line
+      const unitMatches = line.match(/\d+([.,]\d+)?\s*(cm|mm)\b/gi);
+      if (unitMatches && unitMatches.length >= 3) {
+        // Check if they share the same unit — if so, it's likely repeated
+        const units = unitMatches.map(m => m.match(/(cm|mm)/i)?.[1]?.toLowerCase());
+        const sameUnit = units.every(u => u === units[0]);
+        if (sameUnit) {
+          return `Måttenhet upprepas — skriv "${units[0]}" bara efter sista måttet, t.ex. "Längd 84, bredd 47, höjd 92 ${units[0]}."`;
+        }
+      }
+    }
+    return null;
   }
 
   /**
