@@ -1429,7 +1429,21 @@ Svara BARA med JSON, ingen annan text:
       : checkSpellingDict(combinedText);
     if (spellingErrors.length > 0) {
       const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
-      issues.push({ text: `Stavfel: ${corrections}`, severity: 'warning' });
+      issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
+    }
+
+    // Check for repeated measurement units (cm/mm after every dimension instead of just at the end)
+    const descText = editData.description || '';
+    const descLines = descText.replace(/<[^>]*>/g, '').split(/\n/);
+    for (const line of descLines) {
+      const unitMatches = line.match(/\d+([.,]\d+)?\s*(cm|mm)\b/gi);
+      if (unitMatches && unitMatches.length >= 3) {
+        const units = unitMatches.map(m => m.match(/(cm|mm)/i)?.[1]?.toLowerCase());
+        if (units.every(u => u === units[0])) {
+          issues.push({ text: `Måttenhet upprepas — skriv "${units[0]}" bara efter sista måttet`, severity: 'warning' });
+          break;
+        }
+      }
     }
 
     // Keywords: not an error, just tracked as a count in the summary
