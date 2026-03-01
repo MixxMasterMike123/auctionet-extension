@@ -945,7 +945,13 @@ Svara BARA med JSON, ingen annan text:
     const allGood = criticalCount === 0 && warningCount === 0;
 
     // Build unified groups: group ALL active items by each issue string, using per-issue severity
-    const allItemsWithIssues = [...activeCritical, ...activeWarnings];
+    // Deduplicate: an item can appear in both activeCritical and activeWarnings, so dedupe by itemId
+    const seenItemIds = new Set();
+    const allItemsWithIssues = [...activeCritical, ...activeWarnings].filter(item => {
+      if (seenItemIds.has(item.itemId)) return false;
+      seenItemIds.add(item.itemId);
+      return true;
+    });
     const issueGroups = {}; // { issueText: { severity: 'critical'|'warning', items: [] } }
     allItemsWithIssues.forEach(item => {
       item.issues.forEach(issue => {
