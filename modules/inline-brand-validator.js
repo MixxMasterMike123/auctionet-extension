@@ -171,41 +171,57 @@ export class InlineBrandValidator {
         type: 'spelling',
         displayCategory: this.swedishSpellChecker.getCategoryDisplayName(error.category)
       })));
-      
+
       // Mark type for fuzzy/AI issues that don't have one
       allIssues.forEach(issue => {
         if (!issue.type) issue.type = 'brand';
         if (!issue.displayCategory) issue.displayCategory = 'märke';
       });
 
+      // DEBUG: Log what each source found
+      console.log(`[Spellcheck:${type}] brands:`, brandIssues.length, 'ai:', aiSpellIssues?.length || 0, 'dict:', spellingErrors.length, 'total:', allIssues.length);
+      if (allIssues.length > 0) console.log(`[Spellcheck:${type}] issues:`, allIssues.map(i => `${i.originalBrand}→${i.suggestedBrand} (${i.source||i.type})`));
+
       // Deduplicate: if AI and dictionary found the same word, prefer AI (higher confidence)
       const deduped = this.deduplicateIssues(allIssues);
-      
+
       // Filter out ignored terms and false positives on proper names
       const filteredIssues = deduped.filter(issue => {
-        if (this.ignoredTerms.has(issue.originalBrand.toLowerCase())) return false;
-        
-        // Filter out suggestions for proper names (artist/person names)
-        if (this.isLikelyProperName(issue.originalBrand, text)) {
-          if ((issue.confidence || 0) < 0.95) return false;
-        }
-        
-        // Filter out diacritical-only differences on proper names
-        if (this.differOnlyInDiacritics(issue.originalBrand, issue.suggestedBrand) && 
-            this.isLikelyProperName(issue.originalBrand, text)) {
+        if (this.ignoredTerms.has(issue.originalBrand.toLowerCase())) {
+          console.log(`[Spellcheck:${type}] FILTERED (ignored): ${issue.originalBrand}`);
           return false;
         }
-        
+
+        // Filter out suggestions for proper names (artist/person names)
+        if (this.isLikelyProperName(issue.originalBrand, text)) {
+          if ((issue.confidence || 0) < 0.95) {
+            console.log(`[Spellcheck:${type}] FILTERED (proper name, conf ${issue.confidence}): ${issue.originalBrand}`);
+            return false;
+          }
+        }
+
+        // Filter out diacritical-only differences on proper names
+        if (this.differOnlyInDiacritics(issue.originalBrand, issue.suggestedBrand) &&
+            this.isLikelyProperName(issue.originalBrand, text)) {
+          console.log(`[Spellcheck:${type}] FILTERED (diacritics): ${issue.originalBrand}`);
+          return false;
+        }
+
         // Filter if the artist field already contains this name
         const artistField = document.querySelector('#item_artist_name_sv');
         if (artistField && artistField.value) {
           const artistName = artistField.value.toLowerCase();
-          if (artistName.includes(issue.originalBrand.toLowerCase())) return false;
+          if (artistName.includes(issue.originalBrand.toLowerCase())) {
+            console.log(`[Spellcheck:${type}] FILTERED (artist field): ${issue.originalBrand}`);
+            return false;
+          }
         }
-        
+
         return true;
       });
-      
+
+      console.log(`[Spellcheck:${type}] after filter: ${filteredIssues.length} issues`);
+
       if (filteredIssues.length > 0) {
         this.showInlineNotifications(field, filteredIssues);
       } else {
