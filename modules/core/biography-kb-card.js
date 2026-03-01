@@ -277,7 +277,7 @@ export class BiographyKBCard {
     }
 
     // COST OPTIMIZATION: Check localStorage cache for this artist (7-day expiry)
-    const bioCacheKey = `artist_bio_${artistName.toLowerCase().replace(/\s+/g, '_')}`;
+    const bioCacheKey = `artist_bio_v2_${artistName.toLowerCase().replace(/\s+/g, '_')}`;
     try {
       const cached = localStorage.getItem(bioCacheKey);
       if (cached) {
@@ -317,20 +317,16 @@ export class BiographyKBCard {
 
     const prompt = `Konstnär/formgivare: "${artistName}"${disambiguationHint}
 
-Svara med JSON (på svenska):
-{
-  "years": "födelseår–dödsår eller födelseår–",
-  "biography": "kort biografi, max 80 ord",
-  "style": ["stilriktning1", "stilriktning2"],
-  "notableWorks": ["verk1", "verk2", "verk3"]
-}
+Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
+{"years":"födelseår–dödsår","biography":"kort biografi max 80 ord","style":["stil1","stil2"],"notableWorks":["verk1","verk2"]}
 
 Regler:
 - years: t.ex. "1888–1972" eller "1945–"
-- biography: fokusera på karriär och betydelse
+- biography: fokusera på karriär och betydelse, max 80 ord
 - style: max 3 stilar/material/perioder
 - notableWorks: max 3 kända verk med årtal om känt
-- Om okänd konstnär, returnera null`;
+- Om okänd konstnär, returnera null
+- VIKTIGT: Svara BARA med JSON, ingen text före eller efter`;
 
     try {
       console.log(`[BiographyKB] Fetching biography for "${artistName}" via claude-opus-4-6`);
@@ -391,12 +387,35 @@ Regler:
           }
           return result;
         } catch (parseError) {
+          // Try to extract fields individually from malformed JSON
+          const yearsMatch = text.match(/"years"\s*:\s*"([^"]+)"/);
+          const bioMatch = text.match(/"biography"\s*:\s*"([^"]+)"/);
+          const styleMatch = text.match(/"style"\s*:\s*\[([^\]]*)\]/);
+          const worksMatch = text.match(/"notableWorks"\s*:\s*\[([^\]]*)\]/);
+
+          if (bioMatch) {
+            // Extracted at least the biography field
+            const fallbackResult = {
+              years: yearsMatch ? yearsMatch[1] : null,
+              biography: bioMatch[1],
+              style: styleMatch ? styleMatch[1].match(/"([^"]+)"/g)?.map(s => s.replace(/"/g, '')) || [] : [],
+              notableWorks: worksMatch ? worksMatch[1].match(/"([^"]+)"/g)?.map(s => s.replace(/"/g, '')) || [] : []
+            };
+            if (fallbackResult.biography) {
+              try {
+                localStorage.setItem(bioCacheKey, JSON.stringify({ data: fallbackResult, timestamp: Date.now() }));
+              } catch { /* ignore */ }
+            }
+            return fallbackResult;
+          }
+
+          // Last resort: strip all JSON artifacts
           const cleanText = text
             .replace(/```json?\s*/g, '')
             .replace(/```/g, '')
             .replace(/[{}"]/g, '')
             .replace(/^\s*(years|biography|style|notableWorks)\s*:/gm, '')
-            .replace(/\[.*?\]/g, '')
+            .replace(/\[[\s\S]*?\]/g, '')
             .replace(/,\s*$/gm, '')
             .replace(/\n{2,}/g, '\n')
             .trim();
@@ -665,9 +684,18 @@ Regler:
         if (descField) {
           const cardArtistName = card.querySelector('.kb-name')?.textContent || '';
           const years = card.querySelector('.kb-years')?.textContent || '';
-          const bioLine = years
-            ? `${cardArtistName} (${years}). ${bioData.biography}`
-            : `${cardArtistName}. ${bioData.biography}`;
+          // Clean biography text — strip any leftover JSON artifacts
+          const cleanBio = (bioData.biography || '')
+            .replace(/\[[\s\S]*$/g, '')  // Remove trailing array data
+            .replace(/[{}\[\]"]/g, '')   // Remove JSON brackets/quotes
+            .trim();
+          const parts = [];
+          parts.push(years ? `${cardArtistName}. ${years}` : cardArtistName);
+          if (cleanBio) parts.push(cleanBio);
+          if (bioData.notableWorks && bioData.notableWorks.length > 0) {
+            parts.push(bioData.notableWorks.join('\n'));
+          }
+          const bioLine = parts.join('\n');
 
           const current = descField.value.trim();
           descField.value = current ? `${current}\n\n${bioLine}` : bioLine;
