@@ -751,28 +751,28 @@
   async function checkSpellingAI(text, apiKey) {
     if (!apiKey || !text || text.length < 5) return [];
 
-    const prompt = `Hitta stavfel i denna auktionstext på svenska:
+    const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
 "${text}"
 
-Hitta stavfel av ALLA typer:
-- Saknade eller extra bokstäver (t.ex. "Colier" → "Collier", "silverr" → "silver")
-- Felstavade förkortningar (t.ex. "respt." → "resp.")
-- Felstavade material/tekniker (t.ex. "olija" → "olja")
-- Dubbelbokstavsfel (t.ex. "brutovikt" → "bruttovikt")
+Hitta BARA enskilda ord som är felstavade, t.ex.:
+- "Colier" → "Collier" (saknad bokstav)
+- "silverr" → "silver" (extra bokstav)
+- "olija" → "olja" (felstavat)
+- "brutovikt" → "bruttovikt" (saknad dubbelbokstav)
 
-IGNORERA:
-- Personnamn (t.ex. "E. Jarup", "Beijer")
-- Ortnamn/stadsnamn
-- Måttenheter: cm, mm, st, ca, m/
-- Modellbeteckningar (m/1914, Nr)
-- Korrekta svenska böjningsformer — dessa ÄR rätt:
-  hängd, längd, höjd, bredd, djup, vikt, märkt, signerad, daterad,
-  blått, rött, grönt, gult, vitt, brunt, grått, brett, djupt,
-  gravyr, dekor, slitage, patina, lagning
-- Auktionsfacktermer — dessa ÄR korrekta:
-  plymå, karott, karaff, tablå, terrin, skänk, chiffonjé, röllakan,
-  tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
-  collier, rivière, cabochon, pavé, solitär, entourage, resp.
+RAPPORTERA INTE:
+- Grammatikfel, interpunktion, kommatering eller ordföljd
+- Saknade eller extra mellanslag eller kommatecken
+- Förkortningar (ink, bl.a, osv, resp, ca)
+- Personnamn, ortnamn, varumärken
+- Sammansatta ord som kan vara ovanliga men korrekta (bomärkt, väggbonad, plunta, kaffepetter)
+- Versaler/gemener-fel
+- Korrekta svenska böjningsformer (hängd, längd, höjd, märkt, etc.)
+- Auktionsfacktermer: plymå, karott, karaff, tablå, terrin, skänk, chiffonjé,
+  röllakan, tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
+  collier, rivière, cabochon, pavé, solitär, entourage
+
+Var MYCKET säker innan du rapporterar — rapportera BARA verkliga stavfel med confidence >= 0.95.
 
 Svara BARA med JSON, ingen annan text:
 {"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
@@ -786,7 +786,7 @@ Svara BARA med JSON, ingen annan text:
             model: 'claude-haiku-4-5',
             max_tokens: 300,
             temperature: 0,
-            system: 'Du är en svensk stavningskontroll för auktionstexter. Hitta stavfel som saknade/extra bokstäver och felaktiga förkortningar. Flagga INTE korrekta svenska böjningsformer (hängd, längd, märkt etc.). Svara BARA med valid JSON, ingen annan text.',
+            system: 'Du är en svensk stavningskontroll. Hitta BARA enskilda felstavade ord. Rapportera INTE grammatik, interpunktion, kommatering, mellanslag, förkortningar eller ovanliga men korrekta sammansatta ord. Svara BARA med valid JSON.',
             messages: [{ role: 'user', content: prompt }]
           }
         }, (resp) => {
