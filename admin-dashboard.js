@@ -1429,7 +1429,7 @@ Svara BARA med JSON, ingen annan text:
       : checkSpellingDict(combinedText);
     if (spellingErrors.length > 0) {
       const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
-      issues.push({ text: `Stavfel: ${corrections}`, severity: 'warning' });
+      issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
     }
 
     // Check for repeated measurement units (cm/mm after every dimension instead of just at the end)
