@@ -55,11 +55,12 @@ export class InlineBrandValidator {
 
     // Store field info
     this.monitoredFields.set(field, { type, originalField: field });
-    
-    // Add event listeners — debounced validation on typing
+
+    // Each field gets its own debounce timer so they don't cancel each other
+    let fieldDebounce = null;
     const validateHandler = () => {
-      clearTimeout(this.debounceTimeout);
-      this.debounceTimeout = setTimeout(() => {
+      clearTimeout(fieldDebounce);
+      fieldDebounce = setTimeout(() => {
         this.validateFieldContent(field, null, type);
       }, 1200); // Debounce typing (slightly longer for AI calls)
     };
@@ -68,10 +69,11 @@ export class InlineBrandValidator {
     field.addEventListener('paste', validateHandler);
 
     // Validate existing content immediately (important for EDIT pages)
+    // Uses its own setTimeout — independent of the typing debounce
     if (field.value && field.value.trim().length > 0) {
       setTimeout(() => {
         this.validateFieldContent(field, null, type);
-      }, 500); // Small delay to ensure DOM is ready
+      }, 800 + Math.random() * 400); // Stagger to avoid API rate limits
     }
 
   }
@@ -543,15 +545,22 @@ Om korrekt: {"corrected":null}`;
       container.appendChild(notification);
     });
 
+    // Tag with field ID so removeInlineNotifications removes the right one
+    const fieldId = field.id || field.name || fieldInfo?.type || '';
+    container.dataset.fieldId = fieldId;
+
     // Insert after the field's wrapper (or the field itself)
     const wrapper = field.closest('.brand-spell-wrapper') || field;
     wrapper.parentNode.insertBefore(container, wrapper.nextSibling);
   }
 
-  // Remove inline notifications for a field
+  // Remove inline notifications for a specific field
   removeInlineNotifications(field) {
+    const fieldInfo = this.monitoredFields.get(field);
+    const fieldId = field.id || field.name || fieldInfo?.type || '';
     const wrapper = field.closest('.brand-spell-wrapper') || field;
-    const existing = wrapper.parentNode?.querySelector('.brand-inline-notifications');
+    // Find the notification container for THIS specific field
+    const existing = wrapper.parentNode?.querySelector(`.brand-inline-notifications[data-field-id="${fieldId}"]`);
     if (existing) existing.remove();
   }
 
