@@ -148,6 +148,7 @@ export class InlineBrandValidator {
     try {
       // Run brand validation and AI spellcheck in parallel for speed
       const apiManager = this.brandValidationManager?.apiManager;
+      console.log(`[Spellcheck:${type}] validating "${text.substring(0, 50)}..." apiManager:`, !!apiManager, 'apiKey:', !!apiManager?.apiKey);
       const [brandIssues, aiSpellIssues] = await Promise.all([
         this.brandValidationManager.validateBrandsInContent(text, ''),
         this.checkSpellingWithAI(text, type, apiManager)
@@ -234,7 +235,10 @@ export class InlineBrandValidator {
 
   // AI-powered general spellcheck for title/description fields
   async checkSpellingWithAI(text, fieldType, apiManager) {
-    if (!apiManager || !apiManager.apiKey) return [];
+    if (!apiManager || !apiManager.apiKey) {
+      console.log(`[Spellcheck:${fieldType}] AI SKIPPED — no apiManager/apiKey`, { hasManager: !!apiManager, hasKey: !!apiManager?.apiKey });
+      return [];
+    }
     if (text.length < 5) return [];
 
     const fieldLabel = fieldType === 'title' ? 'titel' : fieldType === 'condition' ? 'konditionsrapport' : 'beskrivning';
