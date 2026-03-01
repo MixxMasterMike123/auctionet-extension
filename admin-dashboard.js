@@ -1429,7 +1429,7 @@ Svara BARA med JSON, ingen annan text:
       : checkSpellingDict(combinedText);
     if (spellingErrors.length > 0) {
       const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
-      issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
+      issues.push({ text: `Stavfel: ${corrections}`, severity: 'warning' });
     }
 
     // Keywords: not an error, just tracked as a count in the summary
