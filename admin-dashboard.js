@@ -229,7 +229,7 @@
 
   // ─── 1. KPI Hero Cards ────────────────────────────────────────────
 
-  function renderKPICards() {
+  async function renderKPICards() {
     const actions = scrapeRequestedActions();
     const sidebar = scrapeSidebarCounts();
 
@@ -304,6 +304,22 @@
         });
       }
     }
+
+    // High-value items with issues (from publication scan cache)
+    try {
+      const scanCache = await new Promise(resolve => {
+        chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
+      });
+      if (scanCache && scanCache.highValueWithIssues > 0) {
+        insightCards.push({
+          count: scanCache.highValueWithIssues,
+          label: 'Högvärde med fel',
+          href: '#ext-pubscan',
+          color: 'purple',
+          icon: 'fas fa-gem'
+        });
+      }
+    } catch (e) { /* no scan cache */ }
 
     if (actionCards.length === 0 && insightCards.length === 0) return;
 
@@ -919,6 +935,7 @@ Svara BARA med JSON, ingen annan text:
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-pubscan ext-animate-in';
+      container.id = 'ext-pubscan';
       const target = getPublicationInsertTarget();
       if (target) target.parentNode.insertBefore(container, target.nextSibling);
       else return;
