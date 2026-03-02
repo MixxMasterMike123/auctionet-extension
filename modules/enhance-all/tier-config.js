@@ -129,38 +129,30 @@ const TIER_PROMPTS = {
   tidy: `${SHARED_PREAMBLE}
 
 DIN UPPGIFT — NIVÅ 1 (STÄDA):
-Du ska ENBART strukturera och formatera. Lägg ALDRIG till information som inte finns i indata.
+Du ska ENBART strukturera och formatera om det som redan finns. Lägg ALDRIG till ny information.
 
 BESKRIVNING:
-- Extrahera fakta från den råa frittexten och strukturera i ordning: material, teknik, märkning/stämplar, modell.
-- Flytta ALL konditionsrelaterad text till konditionsfältet.
-- Flytta ALL måttinformation till slutet av beskrivningen.
-- Formatera mått korrekt: "Höjd ca 25 cm. Diameter ca 15 cm."
-- Skriv i korta, sakliga meningar.
-- Lägg INTE till hook, kontext, makerhistorik eller annan text som inte finns i indata.
-- VIKTIGT: Separera varje avsnitt (detaljer, mått) med en tom rad (\\n\\n) i JSON-svaret.
+- Omformulera BARA det som finns i indata. Lägg INTE till något nytt.
+- Ordning: material, teknik, märkning/stämplar, modell.
+- Flytta konditionstext till konditionsfältet.
+- Mått sist, formaterat med "ca": "Höjd ca 25 cm."
+- Separera avsnitt med \\n\\n.
 
 KONDITION:
-- Konditionstext som hittades i beskrivningen, omformulerad till specifika termer.
-- Ersätt "bruksskick" med specifik observation ur indata.
-- Om ingen konditionsinfo finns: skriv "Se bilder för konditionsbedömning."
-- Lägg INTE till "positive absence"-formuleringar.
+- Flytta konditionstext från beskrivningen hit.
+- Om ingen konditionsinfo finns: "Se bilder för konditionsbedömning."
+- INGA "positive absence"-formuleringar.
 
 TITEL:
-- Lämna oförändrad om den följer Auctionet-konventioner.
-- Korrigera ENBART uppenbara formatfel (saknad versal, felaktig förkortning).
+- Korrigera ENBART formatfel. Lämna annars oförändrad.
 
 NYCKELORD:
-- 5-10 relevanta söktermer baserade på titel, beskrivning och kategori.
-
-FORMATERING I JSON:
-- Använd \\n\\n (dubbla radbrytningar) mellan stycken i "description"-fältet.
-- Varje avsnitt ska vara ett eget stycke separerat med tom rad.
+- 5-10 söktermer baserade på titel och beskrivning.
 
 Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
 {
   "title": "korrigerad titel eller null om oförändrad",
-  "description": "stycke 1 text\\n\\nstycke 2 text\\n\\nHöjd ca 25 cm.",
+  "description": "fakta från indata\\n\\nHöjd ca 25 cm.",
   "condition": "konditionstext",
   "keywords": "mellanslag-separerade nyckelord"
 }`,
@@ -168,40 +160,36 @@ Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
   enrich: `${SHARED_PREAMBLE}
 
 DIN UPPGIFT — NIVÅ 2 (BERIKA):
-Strukturera OCH berika med kort kontext. Var KONCIS — detta är en auktionskatalog, inte en encyklopedi.
+Strukturera OCH berika med kort kontext. Skillnaden mot Nivå 1: du FÅR lägga till kort kontext om material, teknik eller maker — men bara 1-2 meningar. Var KONCIS.
 
-BESKRIVNING — Var kort och saklig. Separera stycken med \\n\\n:
+BESKRIVNING — Separera stycken med \\n\\n:
 
-STYCKE 1 — HOOK (1 mening):
-Identifiera objektet kort. Exempel: "Ugnsform i flintgods, modell 8, formgiven av Stig Lindberg för Gustavsberg."
+STYCKE 1 — IDENTIFIERING (1 mening):
+Vad är objektet? Material, tillverkare/märke om känt. Exempel: "Tre ringar och ett hänge i 18 karats guld, varav en ring stämplad av Hjalmar Wickholms Guldsmedsaffär, Sundsvall, 1928."
 
-STYCKE 2 — DETALJER (1-2 meningar):
-Material, teknik, stämplar. Enbart fakta från indata.
-
-STYCKE 3 — MAKERKONTEXT (max 1-2 meningar, BARA om namngiven maker finns):
-Kort om makerns betydelse. Skriv INTE en biografi. Hoppa över om ingen namngiven maker finns.
+STYCKE 2 — KONTEXT (1 mening, tillåtet att lägga till):
+Kort kontextuell mening om material, teknik, verkstad eller maker. Du FÅR använda din kunskap här — men MAX 1 mening.
+Exempel: "Wickholms var en av Sundsvalls ledande guldsmedsverkstäder under tidigt 1900-tal."
+Om inget relevant kan tillföras: hoppa över detta stycke.
 
 SIST — MÅTT (1 mening):
 Formaterat korrekt.
 
 KONDITION:
-- Kort sammanfattning av kondition från indata (1-2 meningar).
-- Max 1-2 "positive absence"-formuleringar.
+- Kondition från indata (1-2 meningar).
+- Max 1 "positive absence"-formulering.
 
 TITEL:
-- Samma som Nivå 1.
+- Korrigera formatfel. Lämna annars oförändrad.
 
 NYCKELORD:
-- 8-15 termer. Inkludera stilperiod, designervarianter.
-
-FORMATERING I JSON:
-- Använd \\n\\n mellan varje stycke i "description" och "condition".
+- 8-15 termer.
 
 Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
 {
   "title": "korrigerad titel eller null om oförändrad",
-  "description": "Hook här.\\n\\nDetaljer här.\\n\\nKort makerkontext.\\n\\nHöjd ca 25 cm.",
-  "condition": "Konditionstext.\\n\\nPositive absence.",
+  "description": "Identifiering.\\n\\nKontext.\\n\\nMått.",
+  "condition": "Kondition.\\n\\nPositive absence.",
   "keywords": "mellanslag-separerade nyckelord",
   "makerContextUsed": true
 }`,
@@ -209,43 +197,39 @@ Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
   full: `${SHARED_PREAMBLE}
 
 DIN UPPGIFT — NIVÅ 3 (FULL BEHANDLING):
-Skapa en katalogbeskrivning av hög kvalitet. Var KONCIS — auktionskatalog, inte Wikipedia.
+Skapa en professionell katalogbeskrivning. Skillnaden mot Nivå 2: du FÅR skriva mer kontext (2-3 meningar) och lägga till samlarrelevans. Fortfarande KONCIST — auktionskatalog, inte uppslagsverk.
 
-BESKRIVNING — Kort och professionellt. Separera stycken med \\n\\n:
+BESKRIVNING — Separera stycken med \\n\\n:
 
-STYCKE 1 — HOOK (1-2 meningar):
-Positionera objektet kort — typ, period, sammanhang. Basera på fakta i indata.
+STYCKE 1 — IDENTIFIERING (1-2 meningar):
+Vad är objektet? Material, tillverkare, period. Specifika stämplar/märkningar.
 
-STYCKE 2 — DETALJER (1-3 meningar):
-Material, teknik, stämplar, modellnummer. Beskriv stämplar specifikt om de är värdedrivande.
+STYCKE 2 — KONTEXT OCH SAMLARRELEVANS (2-3 meningar, tillåtet att lägga till):
+Placera objektet i sammanhang — varför är det intressant för samlare? Verkstadens/makerns betydelse, stilperiod, marknadstrend. Du FÅR använda din kunskap här.
+Exempel: "Wickholms Guldsmedsaffär i Sundsvall var verksam under tidigt 1900-tal och representerar den tradition av lokala guldsmedsverkstäder som producerade kvalitetsarbeten. Arbeten från regionala verkstäder har blivit alltmer eftersökta bland samlare."
+Om inget relevant kan tillföras: hoppa över.
 
 STYCKE 3 — PROVENIENS (1-2 meningar, BARA om info finns i indata):
-Inköpsplats, tidigare ägare, utställningshistorik.
-
-STYCKE 4 — MAKERKONTEXT (max 2-3 meningar, BARA om namngiven maker finns):
-Kort om makerns betydelse och aktiv period. Skriv INTE en lång biografi. Hoppa över om ingen namngiven maker finns.
+Inköpsplats, tidigare ägare. Hitta ALDRIG på proveniens.
 
 SIST — MÅTT (1 mening):
 Formaterat korrekt.
 
 KONDITION:
-- Systematisk men kort bedömning (2-3 meningar).
+- Bedömning från indata (2-3 meningar).
 - Max 2-3 "positive absence"-formuleringar.
-- Avsluta med helhetsbild: "Överlag i gott skick med hänsyn till ålder."
+- Helhetsbild: "Överlag i gott skick med hänsyn till ålder."
 
 TITEL:
-- Samma som Nivå 1-2.
+- Korrigera formatfel. Lämna annars oförändrad.
 
 NYCKELORD:
-- 12-20 termer. Inkludera internationella söktermer (engelska), modellnamn.
-
-FORMATERING I JSON:
-- Använd \\n\\n mellan varje stycke i "description" och "condition".
+- 12-20 termer. Inkludera internationella söktermer (engelska).
 
 Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
 {
   "title": "korrigerad titel eller null om oförändrad",
-  "description": "Hook här.\\n\\nDetaljer här.\\n\\nMakerkontext.\\n\\nHöjd ca 25 cm.",
+  "description": "Identifiering.\\n\\nKontext och samlarrelevans.\\n\\nMått.",
   "condition": "Bedömning.\\n\\nPositive absence.\\n\\nHelhetsbild.",
   "keywords": "mellanslag-separerade nyckelord",
   "makerContextUsed": true,
