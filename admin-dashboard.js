@@ -937,12 +937,9 @@ Svara BARA med JSON, ingen annan text:
     const ignoredWarnings = (data.warnings || []).filter(item => ignoredItems[item.itemId]);
     const ignoredCount = ignoredCritical.length + ignoredWarnings.length;
 
-    const criticalCount = activeCritical.length;
-    const warningCount = activeWarnings.length;
     const passedCount = (data.passed || 0);
     const timeStr = new Date(data.scannedAt).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
     const relTime = relativeTimeFromISO(data.scannedAt);
-    const allGood = criticalCount === 0 && warningCount === 0;
 
     // Build unified groups: group ALL active items by each issue string, using per-issue severity
     // Deduplicate: an item can appear in both activeCritical and activeWarnings, so dedupe by itemId
@@ -961,6 +958,19 @@ Svara BARA med JSON, ingen annan text:
         issueGroups[issueText].items.push(item);
       });
     });
+
+    // Derive header counts from groups so they match what the user sees
+    const criticalItemIds = new Set();
+    const warningItemIds = new Set();
+    Object.values(issueGroups).forEach(group => {
+      const idSet = group.severity === 'critical' ? criticalItemIds : warningItemIds;
+      group.items.forEach(item => idSet.add(item.itemId));
+    });
+    // Items in both critical and warning groups count as critical only
+    warningItemIds.forEach(id => { if (criticalItemIds.has(id)) warningItemIds.delete(id); });
+    const criticalCount = criticalItemIds.size;
+    const warningCount = warningItemIds.size;
+    const allGood = criticalCount === 0 && warningCount === 0;
 
     // Helper to render a single issue row
     function issueRowHTML(item, cssModifier, showIgnore = true) {
@@ -1019,19 +1029,18 @@ Svara BARA med JSON, ingen annan text:
         `;
       }).join('');
 
-      // "Visa alla" group at the top — uses active (non-ignored) items only
-      const allActiveItems = [...activeCritical, ...activeWarnings];
+      // "Visa alla" group at the top — uses deduplicated active items
       const allaHTML = `
         <div class="ext-pubscan__filter-group">
           <div class="ext-pubscan__filter-row ext-pubscan__filter-row--alla" data-group-idx="all">
             <span class="ext-pubscan__filter-dot">📋</span>
             <span class="ext-pubscan__filter-label">Visa alla</span>
-            <span class="ext-pubscan__filter-count">(${allActiveItems.length})</span>
+            <span class="ext-pubscan__filter-count">(${allItemsWithIssues.length})</span>
             <span class="ext-pubscan__filter-arrow">▼</span>
           </div>
           <div class="ext-pubscan__filter-items" data-group-items="all" style="display: none;">
-            ${allActiveItems.map(item => {
-              const isCritical = activeCritical.includes(item);
+            ${allItemsWithIssues.map(item => {
+              const isCritical = criticalItemIds.has(item.itemId);
               return issueRowHTML(item, isCritical ? 'critical' : 'warning');
             }).join('')}
           </div>
