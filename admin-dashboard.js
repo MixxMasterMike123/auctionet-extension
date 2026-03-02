@@ -1351,7 +1351,17 @@ Svara BARA med JSON, ingen annan text:
     const kwEl = doc.querySelector('#item_hidden_keywords') ||
                  doc.querySelector('input[name*="keywords"]') ||
                  doc.querySelector('textarea[name*="keywords"]');
-    if (kwEl) keywords = (kwEl.getAttribute('value') || kwEl.value || kwEl.textContent || '').trim();
+    if (kwEl) {
+      // For <input type="hidden"> getAttribute('value') works.
+      // For <textarea>, content is between tags so use textContent.
+      // DOMParser does NOT set .value property, so skip that.
+      const tagName = kwEl.tagName.toLowerCase();
+      if (tagName === 'textarea') {
+        keywords = (kwEl.textContent || '').trim();
+      } else {
+        keywords = (kwEl.getAttribute('value') || '').trim();
+      }
+    }
 
     // Raw title from the edit form (without item ID prefix)
     let editTitle = '';
@@ -1495,11 +1505,11 @@ Svara BARA med JSON, ingen annan text:
               const t = typeof i === 'string' ? i : i.text;
               return !t.match(/^\d+ bild/) && t !== '0 bilder (saknar primärbild)' && t !== '0 bilder';
             });
-            cachedSpellMap[entry.itemId] = { textIssues, editUrl: entry.editUrl, showUrl: entry.showUrl };
+            cachedSpellMap[entry.itemId] = { textIssues, editUrl: entry.editUrl, showUrl: entry.showUrl, hasKeywords: entry.hasKeywords };
           });
           // Track passed items (they had no issues at all — still need image re-check)
           if (prev._passedIds) {
-            prev._passedIds.forEach(id => { cachedSpellMap[id] = { textIssues: [], _passed: true }; });
+            prev._passedIds.forEach(id => { cachedSpellMap[id] = { textIssues: [], _passed: true, hasKeywords: prev._keywordMap?.[id] ?? null }; });
           }
         }
       } catch (e) { /* no cache — full scan */ }
@@ -1611,12 +1621,18 @@ Svara BARA med JSON, ingen annan text:
     let passed = 0;
     let missingKeywords = 0;
     const passedIds = [];
+    const keywordMap = {}; // itemId → boolean (true = has keywords)
 
     allItems.forEach(item => {
-      if (item.editData && item.editData.keywords === '') missingKeywords++;
-      if (item.editData && item.editData.keywords === undefined && !cachedSpellMap[item.itemId]) {
-        // new item without editData.keywords
+      // Determine keyword status: from fresh edit page scan or from cache
+      let hasKeywords = null;
+      if (item.editData && item.editData.keywords !== undefined) {
+        hasKeywords = item.editData.keywords !== '';
+      } else if (cachedSpellMap[item.itemId]?.hasKeywords !== undefined && cachedSpellMap[item.itemId]?.hasKeywords !== null) {
+        hasKeywords = cachedSpellMap[item.itemId].hasKeywords;
       }
+      if (hasKeywords === false) missingKeywords++;
+      if (hasKeywords !== null) keywordMap[item.itemId] = hasKeywords;
 
       const allIssues = [...item.phase1Issues];
       if (item.phase2Issues) {
@@ -1637,12 +1653,13 @@ Svara BARA med JSON, ingen annan text:
         showUrl: showUrl,
         issues: allIssues.map(i => typeof i === 'string' ? { text: i, severity: 'warning' } : { text: i.text, severity: i.severity }),
         severity: hasCritical ? 'critical' : 'warning',
-        imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0)
+        imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0),
+        hasKeywords: hasKeywords
       };
       if (hasCritical) critical.push(entry); else warnings.push(entry);
     });
 
-    const result = { _version: 2, scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords, _passedIds: passedIds };
+    const result = { _version: 3, scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords, _passedIds: passedIds, _keywordMap: keywordMap };
     try { chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result }); } catch (e) { /* ignore */ }
     return result;
   }
@@ -1691,7 +1708,7 @@ Svara BARA med JSON, ingen annan text:
       const cached = await new Promise(resolve => {
         chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
       });
-      if (cached && cached._version === 2) {
+      if (cached && cached._version === 3) {
         await renderPublicationResults(cached);
       } else {
         // Cache missing or from older version — discard and show empty
