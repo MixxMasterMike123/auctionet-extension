@@ -34,7 +34,10 @@
     const { SearchQuerySSoT } = await import(chrome.runtime.getURL('modules/search-query-ssot.js'));
     const { SalesAnalysisManager } = await import(chrome.runtime.getURL('modules/sales-analysis-manager.js'));
     const { escapeHTML } = await import(chrome.runtime.getURL('modules/core/html-escape.js'));
-    
+    const { EnhanceAllManager } = await import(chrome.runtime.getURL('modules/enhance-all/enhance-all-manager.js'));
+    const { EnhanceAllUI } = await import(chrome.runtime.getURL('modules/enhance-all/enhance-all-ui.js'));
+    const { FieldDistributor } = await import(chrome.runtime.getURL('modules/enhance-all/field-distributor.js'));
+
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
       constructor() {
@@ -74,6 +77,28 @@
         // CRITICAL FIX: Ensure dashboard manager has direct ApiManager reference for hot reload
         this.dashboardManager.setApiManager(this.apiManager);
         
+        // Initialize Enhance All system
+        this.enhanceAllManager = new EnhanceAllManager();
+        this.enhanceAllUI = new EnhanceAllUI();
+        this.fieldDistributor = new FieldDistributor();
+
+        // Wire enhance-all dependencies
+        this.enhanceAllManager.setApiManager(this.apiManager);
+        this.enhanceAllManager.setDataExtractor(this.dataExtractor);
+        this.enhanceAllManager.setQualityAnalyzer(this.qualityAnalyzer);
+        this.enhanceAllManager.setUI(this.enhanceAllUI);
+
+        // Reuse existing biography system for Tier 2 maker context
+        if (this.qualityAnalyzer.biographyKBCard) {
+          this.enhanceAllManager.setBiographyKBCard(this.qualityAnalyzer.biographyKBCard);
+        }
+
+        this.enhanceAllUI.setEnhanceAllManager(this.enhanceAllManager);
+        this.enhanceAllUI.setFieldDistributor(this.fieldDistributor);
+
+        this.fieldDistributor.setQualityAnalyzer(this.qualityAnalyzer);
+        this.fieldDistributor.setUIManager(this.uiManager);
+
         // Initialize condition guidance system
         this.dismissedTooltips = new Set();
         this.activeTooltips = new Map();
@@ -94,10 +119,11 @@
 
       async init() {
         await this.apiManager.loadSettings();
-        
+
         this.uiManager.injectUI();
+        this.enhanceAllUI.injectEnhanceAllButton();
         this.attachEventListeners();
-        
+
         // Run initial quality analysis after API key is loaded
         await this.uiManager.runInitialQualityAnalysis();
       }

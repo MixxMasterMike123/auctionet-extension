@@ -100,6 +100,7 @@
         "modules/*.js",
         "modules/core/*.js",
         "modules/add-items/*.js",
+        "modules/enhance-all/*.js",
         "modules/refactored/components/*.js",
         "modules/refactored/ai-rules-system/*.js",
         "modules/refactored/ai-rules-system/*.json"

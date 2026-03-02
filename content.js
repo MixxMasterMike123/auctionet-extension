@@ -133,7 +133,20 @@ import('./modules/api-manager.js').then(module => {
 // Import QualityAnalyzer for FAQ inline hints (shared with edit page)
 import('./modules/quality-analyzer.js').then(module => {
   window.QualityAnalyzer = module.QualityAnalyzer;
-}).catch(error => console.error('❌ Failed to load QualityAnalyzer:', error));
+}).catch(error => console.error('Failed to load QualityAnalyzer:', error));
+
+// Import Enhance All modules
+import('./modules/enhance-all/enhance-all-manager.js').then(module => {
+  window.EnhanceAllManager = module.EnhanceAllManager;
+}).catch(error => console.error('Failed to load EnhanceAllManager:', error));
+
+import('./modules/enhance-all/enhance-all-ui.js').then(module => {
+  window.EnhanceAllUI = module.EnhanceAllUI;
+}).catch(error => console.error('Failed to load EnhanceAllUI:', error));
+
+import('./modules/enhance-all/field-distributor.js').then(module => {
+  window.FieldDistributor = module.FieldDistributor;
+}).catch(error => console.error('Failed to load FieldDistributor:', error));
 
 // SPA detection will be handled by the AuctionetCatalogingAssistant class
 
@@ -251,13 +264,33 @@ class AuctionetCatalogingAssistant {
       }
     }
 
+    // Initialize Enhance All system (shared with content-script.js)
+    if (window.EnhanceAllManager && window.EnhanceAllUI && window.FieldDistributor) {
+      this.enhanceAllManager = new window.EnhanceAllManager();
+      this.enhanceAllUI = new window.EnhanceAllUI();
+      this.fieldDistributor = new window.FieldDistributor();
+
+      if (this.apiManager) {
+        this.enhanceAllManager.setApiManager(this.apiManager);
+      }
+      this.enhanceAllManager.setUI(this.enhanceAllUI);
+      if (this.faqHintAnalyzer) {
+        this.enhanceAllManager.setQualityAnalyzer(this.faqHintAnalyzer);
+        this.fieldDistributor.setQualityAnalyzer(this.faqHintAnalyzer);
+      }
+
+      this.enhanceAllUI.setEnhanceAllManager(this.enhanceAllManager);
+      this.enhanceAllUI.setFieldDistributor(this.fieldDistributor);
+    }
+
     if (this.currentPage === 'edit') {
       this.uiController.injectUI();
-      // attachEventListeners is handled by UIController
+      if (this.enhanceAllUI) this.enhanceAllUI.injectEnhanceAllButton();
     } else if (this.currentPage === 'add') {
       await this.initializeFreetextParser();
       // Also inject AI enhance buttons + quality sidebar on Add page
       this.uiController.injectUI();
+      if (this.enhanceAllUI) this.enhanceAllUI.injectEnhanceAllButton();
     }
 
     // FAQ inline hints are triggered via the UIController's quality callback chain:
