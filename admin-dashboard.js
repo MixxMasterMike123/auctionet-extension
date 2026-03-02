@@ -697,6 +697,7 @@
   const PUB_SCAN_BATCH_SIZE = 5;
   const PUB_SCAN_EXPANDED_KEY = 'ext_pubscan_warnings_expanded';
   const PUB_SCAN_IGNORED_KEY = 'publicationScanIgnored'; // { itemId: true }
+  const PUB_SCAN_HIGH_VALUE_THRESHOLD = 3000; // SEK — items at or above this estimate are "high value"
 
   // Vague condition terms from quality-rules-engine.js
   const PUB_SCAN_VAGUE_CONDITION_TERMS = [
@@ -979,11 +980,15 @@ Svara BARA med JSON, ingen annan text:
       const ignoreBtn = showIgnore
         ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}" title="Ignorera detta föremål">✕</span>`
         : `<span class="ext-pubscan__unignore-btn" data-item-id="${item.itemId}" title="Sluta ignorera">↩</span>`;
+      const estimateLabel = item.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD
+        ? `<span class="ext-pubscan__estimate">💎 ${formatSEK(item.estimate)} SEK</span>`
+        : (item.estimate > 0 ? `<span class="ext-pubscan__estimate">${formatSEK(item.estimate)} SEK</span>` : '');
       return `
         <div class="ext-pubscan__issue-row" data-item-id="${item.itemId}">
           <a class="ext-pubscan__issue ext-pubscan__issue--${cssModifier}" href="${escapeHTML(showHref)}">
             <div class="ext-pubscan__issue-main">
               <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
+              ${estimateLabel}
               ${item.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(item.editUrl)}">Redigera →</span>` : ''}
             </div>
             <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(item.title, 40))}"</div>
@@ -996,6 +1001,12 @@ Svara BARA med JSON, ingen annan text:
     // Keywords insight (not an error, just info)
     const kwNote = (data.missingKeywords > 0)
       ? `<span class="ext-pubscan__stat ext-pubscan__stat--info">🔑 ${data.missingKeywords} utan sökord</span>`
+      : '';
+
+    // High-value items with issues
+    const highValueItems = allItemsWithIssues.filter(item => item.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD);
+    const hvNote = highValueItems.length > 0
+      ? `<span class="ext-pubscan__stat ext-pubscan__stat--highvalue">💎 ${highValueItems.length} högvärde med fel</span>`
       : '';
 
     let bodyHTML;
@@ -1063,15 +1074,38 @@ Svara BARA med JSON, ingen annan text:
         </div>
       ` : '';
 
+      // "Högvärde" group — high-value items with issues, sorted by estimate descending
+      const hvGroupHTML = highValueItems.length > 0 ? (() => {
+        const sorted = [...highValueItems].sort((a, b) => (b.estimate || 0) - (a.estimate || 0));
+        return `
+          <div class="ext-pubscan__filter-group">
+            <div class="ext-pubscan__filter-row ext-pubscan__filter-row--highvalue" data-group-idx="highvalue">
+              <span class="ext-pubscan__filter-dot">💎</span>
+              <span class="ext-pubscan__filter-label">Högvärde (≥ ${formatSEK(PUB_SCAN_HIGH_VALUE_THRESHOLD)} SEK) med fel</span>
+              <span class="ext-pubscan__filter-count">(${highValueItems.length})</span>
+              <span class="ext-pubscan__filter-arrow">▼</span>
+            </div>
+            <div class="ext-pubscan__filter-items" data-group-items="highvalue" style="display: none;">
+              ${sorted.map(item => {
+                const isCritical = criticalItemIds.has(item.itemId);
+                return issueRowHTML(item, isCritical ? 'critical' : 'warning');
+              }).join('')}
+            </div>
+          </div>
+        `;
+      })() : '';
+
       bodyHTML = `
         <div class="ext-pubscan__summary">
           ${criticalCount > 0 ? `<span class="ext-pubscan__stat ext-pubscan__stat--critical">🔴 ${criticalCount} kritiska</span>` : ''}
           ${warningCount > 0 ? `<span class="ext-pubscan__stat ext-pubscan__stat--warning">🟡 ${warningCount} varningar</span>` : ''}
           <span class="ext-pubscan__stat ext-pubscan__stat--passed">✅ ${passedCount} OK</span>
           ${kwNote}
+          ${hvNote}
         </div>
         <div class="ext-pubscan__filters">
           ${allaHTML}
+          ${hvGroupHTML}
           ${groupsHTML}
         </div>
         ${ignoredHTML}
@@ -1382,7 +1416,12 @@ Svara BARA med JSON, ingen annan text:
     const artistEl = doc.querySelector('#item_artist_name_sv');
     if (artistEl) artist = (artistEl.getAttribute('value') || artistEl.value || artistEl.textContent || '').trim();
 
-    return { keywords, editTitle, artist };
+    // Estimate/valuation (input field)
+    let estimate = 0;
+    const estEl = doc.querySelector('#item_current_auction_attributes_estimate');
+    if (estEl) estimate = parseFloat(estEl.getAttribute('value')) || 0;
+
+    return { keywords, editTitle, artist, estimate };
   }
 
   async function runPhase2Checks(editData, apiKey) {
@@ -1514,11 +1553,11 @@ Svara BARA med JSON, ingen annan text:
               const t = typeof i === 'string' ? i : i.text;
               return !t.match(/^\d+ bild/) && t !== '0 bilder (saknar primärbild)' && t !== '0 bilder';
             });
-            cachedSpellMap[entry.itemId] = { textIssues, editUrl: entry.editUrl, showUrl: entry.showUrl, hasKeywords: entry.hasKeywords };
+            cachedSpellMap[entry.itemId] = { textIssues, editUrl: entry.editUrl, showUrl: entry.showUrl, hasKeywords: entry.hasKeywords, estimate: entry.estimate ?? 0 };
           });
           // Track passed items (they had no issues at all — still need image re-check)
           if (prev._passedIds) {
-            prev._passedIds.forEach(id => { cachedSpellMap[id] = { textIssues: [], _passed: true, hasKeywords: prev._keywordMap?.[id] ?? null }; });
+            prev._passedIds.forEach(id => { cachedSpellMap[id] = { textIssues: [], _passed: true, hasKeywords: prev._keywordMap?.[id] ?? null, estimate: prev._estimateMap?.[id] ?? 0 }; });
           }
         }
       } catch (e) { /* no cache — full scan */ }
@@ -1580,7 +1619,8 @@ Svara BARA med JSON, ingen annan text:
           const editData = {
             title: item.title, editTitle: editFields.editTitle, artist: editFields.artist,
             imageCount: showData.imageCount, description: showData.description,
-            condition: showData.condition, keywords: editFields.keywords
+            condition: showData.condition, keywords: editFields.keywords,
+            estimate: editFields.estimate
           };
           item.showUrl = showUrl;
           item.editData = editData;
@@ -1607,7 +1647,7 @@ Svara BARA med JSON, ingen annan text:
             const showHtml = await fetchPublicationPageHtml(showUrl);
             const showData = parseShowPageForScan(showHtml);
             item.showUrl = showUrl;
-            item.editData = { imageCount: showData.imageCount };
+            item.editData = { imageCount: showData.imageCount, estimate: cached.estimate ?? 0 };
 
             // Build phase2 issues: fresh image check + cached text issues
             const imageIssues = [];
@@ -1629,8 +1669,10 @@ Svara BARA med JSON, ingen annan text:
     const warnings = [];
     let passed = 0;
     let missingKeywords = 0;
+    let highValueWithIssues = 0;
     const passedIds = [];
     const keywordMap = {}; // itemId → boolean (true = has keywords)
+    const estimateMap = {}; // itemId → number (estimate in SEK)
 
     allItems.forEach(item => {
       // Determine keyword status: from fresh edit page scan or from cache
@@ -1643,6 +1685,15 @@ Svara BARA med JSON, ingen annan text:
       if (hasKeywords === false) missingKeywords++;
       if (hasKeywords !== null) keywordMap[item.itemId] = hasKeywords;
 
+      // Determine estimate: from fresh edit page scan or from cache
+      let estimate = 0;
+      if (item.editData && item.editData.estimate !== undefined) {
+        estimate = item.editData.estimate || 0;
+      } else if (cachedSpellMap[item.itemId]?.estimate) {
+        estimate = cachedSpellMap[item.itemId].estimate;
+      }
+      if (estimate > 0) estimateMap[item.itemId] = estimate;
+
       const allIssues = [...item.phase1Issues];
       if (item.phase2Issues) {
         item.phase2Issues.forEach(p2 => {
@@ -1652,6 +1703,8 @@ Svara BARA med JSON, ingen annan text:
         });
       }
       if (allIssues.length === 0) { passed++; passedIds.push(item.itemId); return; }
+
+      if (estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD) highValueWithIssues++;
 
       const hasCritical = allIssues.some(i => (typeof i === 'string' ? 'warning' : i.severity) === 'critical');
       const showUrl = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : null);
@@ -1663,12 +1716,13 @@ Svara BARA med JSON, ingen annan text:
         issues: allIssues.map(i => typeof i === 'string' ? { text: i, severity: 'warning' } : { text: i.text, severity: i.severity }),
         severity: hasCritical ? 'critical' : 'warning',
         imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0),
-        hasKeywords: hasKeywords
+        hasKeywords: hasKeywords,
+        estimate: estimate
       };
       if (hasCritical) critical.push(entry); else warnings.push(entry);
     });
 
-    const result = { _version: 3, scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords, _passedIds: passedIds, _keywordMap: keywordMap };
+    const result = { _version: 4, scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords, highValueWithIssues, _passedIds: passedIds, _keywordMap: keywordMap, _estimateMap: estimateMap };
     try { chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result }); } catch (e) { /* ignore */ }
     return result;
   }
@@ -1717,7 +1771,7 @@ Svara BARA med JSON, ingen annan text:
       const cached = await new Promise(resolve => {
         chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
       });
-      if (cached && cached._version === 3) {
+      if (cached && cached._version === 4) {
         await renderPublicationResults(cached);
       } else {
         // Cache missing or from older version — discard and show empty

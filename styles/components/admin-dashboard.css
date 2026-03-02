@@ -746,6 +746,7 @@
 .ext-pubscan__stat--warning { color: #e65100; }
 .ext-pubscan__stat--passed { color: #28a745; }
 .ext-pubscan__stat--info { color: #888; font-weight: 400; }
+.ext-pubscan__stat--highvalue { color: #6f42c1; }
 
 /* Sections */
 .ext-pubscan__section {
@@ -886,6 +887,20 @@
   border-bottom: 1px solid #eee;
   margin-bottom: 2px;
   border-radius: 3px 3px 0 0;
+}
+
+.ext-pubscan__filter-row--highvalue {
+  border-bottom: 1px solid #e8daef;
+  margin-bottom: 2px;
+  background: #faf5ff;
+}
+
+.ext-pubscan__estimate {
+  font-size: 11px;
+  color: #6f42c1;
+  font-weight: 500;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .ext-pubscan__filter-dot {
