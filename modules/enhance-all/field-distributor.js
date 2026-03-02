@@ -195,7 +195,10 @@ export class FieldDistributor {
     if (!text) return text;
     return text
       .replace(/\b(okänd|oidentifierad)\s*(konstnär|formgivare|maker|designer)\b/gi, '')
-      .replace(/\s{2,}/g, ' ')
+      .split('\n')
+      .map(line => line.replace(/  +/g, ' ').trim())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
 }

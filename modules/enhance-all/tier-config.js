@@ -168,47 +168,40 @@ Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
   enrich: `${SHARED_PREAMBLE}
 
 DIN UPPGIFT — NIVÅ 2 (BERIKA):
-Strukturera OCH berika med kort kontext. Du får lägga till en hook-mening och kort makerkontext, men ALDRIG hitta på fakta om objektet själv.
+Strukturera OCH berika med kort kontext. Var KONCIS — detta är en auktionskatalog, inte en encyklopedi.
 
-BESKRIVNING — Följ denna struktur exakt, med TOMMA RADER (\\n\\n) mellan varje stycke:
+BESKRIVNING — Var kort och saklig. Separera stycken med \\n\\n:
 
-STYCKE 1 — HOOK:
-1-2 meningar som identifierar objektet och varför det är intressant. Basera ENBART på fakta i indata. Exempel: "Ugnsform i flintgods, modell 8. Formgiven av Stig Lindberg för Gustavsberg."
+STYCKE 1 — HOOK (1 mening):
+Identifiera objektet kort. Exempel: "Ugnsform i flintgods, modell 8, formgiven av Stig Lindberg för Gustavsberg."
 
-STYCKE 2 — DETALJER:
-Material, teknik, märkning/stämplar, modellnummer. Sakligt och specifikt.
+STYCKE 2 — DETALJER (1-2 meningar):
+Material, teknik, stämplar. Enbart fakta från indata.
 
-STYCKE 3 — MAKERKONTEXT (om namngiven maker/designer/konstnär finns):
-2-3 meningar om makerns/formgivarens/konstnärens betydelse. Detta FÅR du hämta ur din kunskap — det handlar om personen, inte om objektet. Om ingen namngiven maker finns: hoppa över detta stycke helt.
+STYCKE 3 — MAKERKONTEXT (max 1-2 meningar, BARA om namngiven maker finns):
+Kort om makerns betydelse. Skriv INTE en biografi. Hoppa över om ingen namngiven maker finns.
 
-SIST — MÅTT:
-Alltid sist, formaterat korrekt.
+SIST — MÅTT (1 mening):
+Formaterat korrekt.
 
 KONDITION:
-- Strukturerade observationer från indata.
-- Lägg till relevanta "positive absence"-formuleringar baserat på objekttyp:
-  - Keramik/glas: "Inga kantnagg observerade", "Dekoren utan synligt slitage"
-  - Möbler: "Inga synliga reparationer"
-  - Silver/metall: "Stämplar tydligt läsbara"
-  - Smycken: "Sten/stenar fastsittande"
-- Max 2-3 sådana formuleringar. Överdrift minskar trovärdigheten.
+- Kort sammanfattning av kondition från indata (1-2 meningar).
+- Max 1-2 "positive absence"-formuleringar.
 
 TITEL:
 - Samma som Nivå 1.
 
 NYCKELORD:
-- 8-15 termer. Inkludera stilperiod, designervarianter, samlarkategorier.
+- 8-15 termer. Inkludera stilperiod, designervarianter.
 
 FORMATERING I JSON:
-- VIKTIGT: Använd \\n\\n (dubbla radbrytningar) mellan varje stycke i "description"-fältet.
-- Varje stycke (hook, detaljer, makerkontext, mått) ska vara separerat med en tom rad.
-- Samma gäller "condition"-fältet om det har flera avsnitt.
+- Använd \\n\\n mellan varje stycke i "description" och "condition".
 
 Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
 {
   "title": "korrigerad titel eller null om oförändrad",
-  "description": "Hook-stycke här.\\n\\nDetaljer-stycke här.\\n\\nMakerkontext här.\\n\\nHöjd ca 25 cm.",
-  "condition": "konditionstext med positive absence",
+  "description": "Hook här.\\n\\nDetaljer här.\\n\\nKort makerkontext.\\n\\nHöjd ca 25 cm.",
+  "condition": "Konditionstext.\\n\\nPositive absence.",
   "keywords": "mellanslag-separerade nyckelord",
   "makerContextUsed": true
 }`,
@@ -216,48 +209,44 @@ Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
   full: `${SHARED_PREAMBLE}
 
 DIN UPPGIFT — NIVÅ 3 (FULL BEHANDLING):
-Skapa en komplett auktionskatalogisering av hög kvalitet. Du har frihet att skriva utförligare, men ALDRIG att hitta på fakta om objektet.
+Skapa en katalogbeskrivning av hög kvalitet. Var KONCIS — auktionskatalog, inte Wikipedia.
 
-BESKRIVNING — Följ denna struktur exakt, med TOMMA RADER (\\n\\n) mellan varje stycke:
+BESKRIVNING — Kort och professionellt. Separera stycken med \\n\\n:
 
-STYCKE 1 — HOOK:
-1-3 meningar som positionerar objektet i sitt sammanhang — marknad, period, samlartrend. Mer utvecklad än Nivå 2. Basera på fakta i indata och din kunskap om typen av objekt.
+STYCKE 1 — HOOK (1-2 meningar):
+Positionera objektet kort — typ, period, sammanhang. Basera på fakta i indata.
 
-STYCKE 2 — DETALJER:
-Material, teknik, märkning/stämplar, modellnummer. Utförligare vid behov — beskriv stämplar detaljerat, notera teknik som är värdedrivande.
+STYCKE 2 — DETALJER (1-3 meningar):
+Material, teknik, stämplar, modellnummer. Beskriv stämplar specifikt om de är värdedrivande.
 
-STYCKE 3 — PROVENIENS (om info finns i indata):
-Formatera proveniensuppgifter korrekt: inköpsplats, tidigare ägare, utställningshistorik, tidigare auktionsförsäljningar.
+STYCKE 3 — PROVENIENS (1-2 meningar, BARA om info finns i indata):
+Inköpsplats, tidigare ägare, utställningshistorik.
 
-STYCKE 4 — MAKERKONTEXT (om namngiven maker/designer/konstnär finns):
-3-5 meningar. Täck betydelse, aktiv period, stilistisk placering, samlarvärde och -trender. Mer djupgående än Nivå 2. Om ingen namngiven maker finns: hoppa över.
+STYCKE 4 — MAKERKONTEXT (max 2-3 meningar, BARA om namngiven maker finns):
+Kort om makerns betydelse och aktiv period. Skriv INTE en lång biografi. Hoppa över om ingen namngiven maker finns.
 
-SIST — MÅTT:
-Alltid sist, formaterat korrekt.
+SIST — MÅTT (1 mening):
+Formaterat korrekt.
 
 KONDITION:
-- Systematisk bedömning, uppifrån och ner eller utifrån och in.
-- Specifika mått på eventuella skador ("nagg ca 3 mm vid fotring").
-- Om "Ej funktionstestad" finns i indata: formulera om till vad som observerats ("Urverket ej testat — visare kan förflyttas manuellt").
-- Utförliga "positive absence"-formuleringar (3-5 stycken).
-- Beskriv helhetsbild: "Överlag i gott skick med hänsyn till ålder och typ."
+- Systematisk men kort bedömning (2-3 meningar).
+- Max 2-3 "positive absence"-formuleringar.
+- Avsluta med helhetsbild: "Överlag i gott skick med hänsyn till ålder."
 
 TITEL:
 - Samma som Nivå 1-2.
 
 NYCKELORD:
-- 12-20 termer. Inkludera internationella söktermer (engelska), specifika modellnamn, relaterade samlarkategorier.
+- 12-20 termer. Inkludera internationella söktermer (engelska), modellnamn.
 
 FORMATERING I JSON:
-- VIKTIGT: Använd \\n\\n (dubbla radbrytningar) mellan varje stycke i "description"-fältet.
-- Varje stycke (hook, detaljer, proveniens, makerkontext, mått) ska vara separerat med en tom rad.
-- Samma gäller "condition"-fältet — separera avsnitt med \\n\\n.
+- Använd \\n\\n mellan varje stycke i "description" och "condition".
 
 Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
 {
   "title": "korrigerad titel eller null om oförändrad",
-  "description": "Hook-stycke här.\\n\\nDetaljer-stycke här.\\n\\nProveniens här.\\n\\nMakerkontext här.\\n\\nHöjd ca 25 cm.",
-  "condition": "Systematisk bedömning.\\n\\nPositive absence-formuleringar.",
+  "description": "Hook här.\\n\\nDetaljer här.\\n\\nMakerkontext.\\n\\nHöjd ca 25 cm.",
+  "condition": "Bedömning.\\n\\nPositive absence.\\n\\nHelhetsbild.",
   "keywords": "mellanslag-separerade nyckelord",
   "makerContextUsed": true,
   "provenanceFound": true
