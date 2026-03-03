@@ -277,7 +277,7 @@ export class EnhanceAllUI {
 
   // ─── Preview modal ───
 
-  showPreview(result, originalData, tier, provenanceReminder) {
+  showPreview(result, originalData, tier) {
     this._removeLoading();
     this._removePreview();
 
@@ -297,22 +297,13 @@ export class EnhanceAllUI {
           <button type="button" class="enhance-all-preview-close" title="Stäng">&#10005;</button>
         </div>
         <div class="enhance-all-preview-body">
+          ${result._artistDetection ? this._buildArtistDetectionUI(result._artistDetection, result, originalData) : ''}
           ${this._buildFieldPreview('Titel', 'title', result.title, originalData.title)}
           ${this._buildFieldPreview('Beskrivning', 'description', result.description, originalData.description)}
           ${result._noRemarks
             ? this._buildSkippedFieldPreview('Kondition', 'Inga anmärkningar markerad — ej förbättrad')
             : this._buildFieldPreview('Kondition', 'condition', result.condition, originalData.condition)}
           ${this._buildFieldPreview('Nyckelord', 'keywords', result.keywords, originalData.keywords)}
-          ${result._artistDetection ? this._buildArtistDetectionUI(result._artistDetection, result, originalData) : ''}
-          ${provenanceReminder ? `
-            <div class="enhance-all-provenance-reminder">
-              <span class="provenance-icon">&#9888;</span>
-              <div>
-                <strong>Proveniens ej angiven</strong><br>
-                Har säljaren tillfrågats om: inköpsplats, tidigare ägare, utställningshistorik?
-              </div>
-            </div>
-          ` : ''}
         </div>
         <div class="enhance-all-preview-footer">
           <button type="button" class="enhance-all-btn-secondary" id="enhance-all-cancel">Avbryt</button>
@@ -373,21 +364,11 @@ export class EnhanceAllUI {
 
     return `
       <div class="enhance-all-artist-detection">
-        <div class="artist-detection-header">
-          <span class="artist-detection-icon">&#128100;</span>
-          <strong>Konstnär/formgivare identifierad i titel</strong>
-        </div>
-        <div class="artist-detection-body">
-          <div class="artist-detection-name">${this._escapeHTML(detection.detectedName)}</div>
-          <label class="artist-detection-toggle">
-            <input type="checkbox" id="enhance-all-move-artist" checked>
-            <span>Flytta <strong>${this._escapeHTML(detection.detectedName)}</strong> till konstnärsfältet och ta bort från titeln</span>
-          </label>
-          <div class="artist-detection-preview" id="artist-detection-title-preview">
-            <span class="artist-preview-label">Ny titel:</span>
-            <span class="artist-preview-value">${this._escapeHTML(detection.suggestedTitle)}</span>
-          </div>
-        </div>
+        <label class="artist-detection-toggle">
+          <input type="checkbox" id="enhance-all-move-artist" checked>
+          <span>Flytta <strong>${this._escapeHTML(detection.detectedName)}</strong> till konstnärsfältet</span>
+        </label>
+        <span class="artist-detection-title-preview">Ny titel: ${this._escapeHTML(detection.suggestedTitle)}</span>
       </div>
     `;
   }

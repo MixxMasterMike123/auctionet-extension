@@ -1655,89 +1655,36 @@
   margin: 0;
 }
 
-/* Provenance reminder */
-.enhance-all-provenance-reminder {
-  display: flex;
-  gap: 10px;
-  padding: 12px 16px;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: 8px;
-  margin-top: 16px;
-  font-size: 13px;
-  color: #92400e;
-}
-
-.provenance-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
 /* Artist detection in title */
 .enhance-all-artist-detection {
-  margin-top: 16px;
-  padding: 14px 16px;
-  background: #eff6ff;
-  border: 1px solid #93c5fd;
-  border-left: 3px solid #3b82f6;
-  border-radius: 8px;
-}
-
-.artist-detection-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #1e40af;
-  margin-bottom: 10px;
-}
-
-.artist-detection-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
-
-.artist-detection-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.artist-detection-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1e3a5f;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 12px;
 }
 
 .artist-detection-toggle {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
-  font-size: 13px;
-  color: #374151;
+  font-size: 12px;
+  color: #1e40af;
+  white-space: nowrap;
 }
 
 .artist-detection-toggle input[type="checkbox"] {
-  margin-top: 2px;
   accent-color: #3b82f6;
 }
 
-.artist-detection-preview {
-  font-size: 12px;
+.artist-detection-title-preview {
   color: #6b7280;
-  padding: 6px 10px;
-  background: #f0f4ff;
-  border-radius: 4px;
-}
-
-.artist-preview-label {
-  font-weight: 500;
-  margin-right: 4px;
-}
-
-.artist-preview-value {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 11px;
 }
 
 /* Preview footer buttons */

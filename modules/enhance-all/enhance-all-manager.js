@@ -99,12 +99,8 @@ export class EnhanceAllManager {
       // 7. Detect artist name in title (if artist field is empty)
       result._artistDetection = this._detectArtistInTitle(result, formData);
 
-      // 8. Check provenance reminder (Tier 3 only)
-      const provenanceReminder = tier.features.provenanceReminder &&
-        result.provenanceFound === false;
-
-      // 9. Show preview
-      this.ui?.showPreview(result, formData, tier, provenanceReminder);
+      // 8. Show preview
+      this.ui?.showPreview(result, formData, tier);
 
       return result;
 
