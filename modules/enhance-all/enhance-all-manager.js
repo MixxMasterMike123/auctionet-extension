@@ -540,15 +540,27 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
       const words = segment.split(/\s+/);
       if (words.length < 2 || words.length > 4) continue;
 
-      // All words should be alphabetic and at least 2 chars
+      // Every word must start with uppercase (person names are capitalized)
       const allNameLike = words.every(w =>
-        w.length >= 2 && /^[A-ZÅÄÖÜ]/i.test(w) && /^[a-zA-ZåäöÅÄÖüÜéèêëàáâãñ'.-]+$/.test(w)
+        w.length >= 2 && /^[A-ZÅÄÖÜ]/.test(w) && /^[a-zA-ZåäöÅÄÖüÜéèêëàáâãñ'.-]+$/.test(w)
       );
       if (!allNameLike) continue;
 
-      // Check none of the words are known non-name terms
+      // Check none of the words are known non-name terms or common Swedish words
       const hasNonNameWord = words.some(w => nonNameTerms.has(w.toLowerCase()));
       if (hasNonNameWord) continue;
+
+      // Skip common Swedish quantity/descriptor words that appear in titles
+      const commonWords = new Set([
+        'ett', 'par', 'set', 'tre', 'två', 'fyra', 'fem', 'sex', 'sju',
+        'stor', 'liten', 'bred', 'hög', 'lång', 'rund',
+        'del', 'delar', 'styck', 'samt', 'med', 'från', 'till', 'och',
+        'sen', 'tidig', 'tidigt', 'sent', 'andra', 'första',
+        'halft', 'hälft', 'mitt', 'mitten', 'talets',
+        'typ', 'stil', 'modell', 'nummer'
+      ]);
+      const hasCommonWord = words.some(w => commonWords.has(w.toLowerCase()));
+      if (hasCommonWord) continue;
 
       // Check it's not all uppercase (likely an object type like "PARTI" or location "STOCKHOLM")
       const allUpperCase = words.every(w => w === w.toUpperCase() && w.length > 1);
