@@ -1,6 +1,6 @@
 	# Auctionet AI Cataloging Assistant
 
-**Version 1.9.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 2.0.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
@@ -8,7 +8,7 @@
 
 The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Auctionet admin interface with AI-powered tools for cataloging, quality control, market analysis, valuation, and compliance. It runs directly inside the browser on `auctionet.com/admin` pages — no server infrastructure required. The extension uses Claude AI (Anthropic) for intelligent analysis and the Auctionet public API for real-time market data from 3.65M+ historical auction results.
 
-**Key value proposition:** Faster cataloging, higher data quality, market-informed pricing, customer valuation emails, operational KPI dashboards, cross-page comment visibility, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
+**Key value proposition:** Faster cataloging, higher data quality, tiered AI enhancement based on item value, market-informed pricing, customer valuation emails, operational KPI dashboards, cross-page comment visibility, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
 
 ---
 
@@ -16,40 +16,41 @@ The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Au
 
 1. [Architecture Overview](#1-architecture-overview)
 2. [AI-Powered Field Enhancement](#2-ai-powered-field-enhancement)
-3. [Snabbkatalogisering — Quick Cataloging](#3-snabbkatalogisering-quick-cataloging)
-4. [AI Image Analysis](#4-ai-image-analysis)
-5. [Quality Control System](#5-quality-control-system)
-6. [Market Analysis Dashboard](#6-market-analysis-dashboard)
-7. [Artist Detection & Biography System](#7-artist-detection--biography-system)
-8. [Brand Validation & Inline Spellcheck](#8-brand-validation--inline-spellcheck)
-9. [Search Query Intelligence](#9-search-query-intelligence)
-10. [Valuation Request Assistant](#10-valuation-request-assistant)
-11. [Admin Dashboard Enhancements](#11-admin-dashboard-enhancements)
-12. [Comment Visibility System](#12-comment-visibility-system)
-13. [AML / Anti-Money Laundering Compliance](#13-aml--anti-money-laundering-compliance)
-14. [Unknown Artist Handling](#14-unknown-artist-handling)
-15. [Settings & Configuration](#15-settings--configuration)
-16. [Technical Architecture](#16-technical-architecture)
-17. [Security Considerations](#17-security-considerations)
-18. [Data & Privacy](#18-data--privacy)
+3. [Enhance All — Tiered AI Enhancement](#3-enhance-all--tiered-ai-enhancement)
+4. [Snabbkatalogisering — Quick Cataloging](#4-snabbkatalogisering-quick-cataloging)
+5. [AI Image Analysis](#5-ai-image-analysis)
+6. [Quality Control System](#6-quality-control-system)
+7. [Market Analysis Dashboard](#7-market-analysis-dashboard)
+8. [Artist Detection & Biography System](#8-artist-detection--biography-system)
+9. [Brand Validation & Inline Spellcheck](#9-brand-validation--inline-spellcheck)
+10. [Search Query Intelligence](#10-search-query-intelligence)
+11. [Valuation Request Assistant](#11-valuation-request-assistant)
+12. [Admin Dashboard Enhancements](#12-admin-dashboard-enhancements)
+13. [Comment Visibility System](#13-comment-visibility-system)
+14. [AML / Anti-Money Laundering Compliance](#14-aml--anti-money-laundering-compliance)
+15. [Unknown Artist Handling](#15-unknown-artist-handling)
+16. [Settings & Configuration](#16-settings--configuration)
+17. [Technical Architecture](#17-technical-architecture)
+18. [Security Considerations](#18-security-considerations)
+19. [Data & Privacy](#19-data--privacy)
 
 ---
 
 ## 1. Architecture Overview
 
-The extension operates on four Auctionet admin page types:
+The extension operates on five Auctionet admin page types:
 
 | Page | URL Pattern | Entry Point | Purpose |
 |------|-------------|-------------|---------|
-| **Edit Item** | `/admin/*/items/*/edit` | `content-script.js` | Full cataloging workflow for existing items |
-| **Add Item** | `/admin/*/items/*` (non-edit) | `content.js` | New item creation with Snabbkatalogisering and image analysis |
+| **Edit Item** | `/admin/*/items/*/edit` | `content-script.js` | Full cataloging workflow with quality scoring, Enhance All, and market analysis |
+| **Add Item / Contracts** | `/admin/*/items/*` (non-edit), `/admin/sas/sellers/*/contracts/*` | `content.js` | New item creation with Snabbkatalogisering, image analysis, and Enhance All |
 | **Valuation Request** | `/admin/sas/valuation_requests/*` | `valuation-request.js` | Valuation of customer submissions with email generation |
 | **Admin Dashboard** | `/admin/sas` | `admin-dashboard.js` | Operational KPI cards, pipeline funnel, pricing insights, comment feed |
 | **All Admin Pages** | `/admin/*` (excl. dashboard, login) | `comment-enhancer.js` | Comment badges, rich comment feed on /comments, entity filters |
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
-- Claude AI via Anthropic API (Opus 4.6 for valuation and biography, Sonnet 4.5 for cataloging, Haiku 4.5 for fast classification)
+- Claude AI via Anthropic API (Opus 4.6 for valuation, biography, and full-tier enhancement; Sonnet 4.5 for cataloging and enrich-tier enhancement; Haiku 4.5 for tidy-tier enhancement, fast classification, and spellcheck)
 - Auctionet public API for market data (historical + live auctions)
 - Wikipedia API for artist images
 - Pure JavaScript — no frameworks, no build step
@@ -78,7 +79,81 @@ Every text field on the cataloging form gets an AI enhancement button. When clic
 
 ---
 
-## 3. Snabbkatalogisering (Quick Cataloging)
+## 3. Enhance All — Tiered AI Enhancement (Förbättra alla)
+
+A single-click feature that processes ALL form fields simultaneously using a three-tier AI system. The tier is automatically selected based on the item's valuation (bevakningspris), but can be manually overridden. Available on both Edit Item and Add Item pages.
+
+### Tier System
+
+| Tier | Label | Valuation | AI Model | Purpose |
+|------|-------|-----------|----------|---------|
+| **1 — Städa** | Tidy | < 3,000 SEK | Haiku 4.5 | Mechanical cleanup — reformat and restructure only |
+| **2 — Berika** | Enrich | 3,000–10,000 SEK | Sonnet 4.5 + Opus 4.6 (bio) | Structure + short maker/material context |
+| **3 — Full** | Complete | > 10,000 SEK | Opus 4.6 | Professional catalog entry with collector relevance |
+
+### What Each Tier Does
+
+**Tier 1 — Städa (< 3,000 SEK)**
+- Restructures freetext descriptions into proper order (material, technique, markings, model)
+- Moves condition-related text from description to the condition field
+- Formats measurements with "ca" prefix at end of description
+- Corrects title formatting errors
+- Generates 5–10 keywords
+- Adds **nothing** that isn't already in the source data
+
+**Tier 2 — Berika (3,000–10,000 SEK)**
+- Everything Tier 1 does, plus:
+- Adds 1 identifying sentence about the object
+- May add 1 contextual sentence about maker, workshop, or technique (from AI knowledge)
+- Adds 1 "positive absence" statement (e.g., "Inga kantnagg observerade")
+- Generates 8–15 keywords including style periods and designer variants
+- Parallel API calls: Sonnet for structure + Opus for maker biography (when artist field is populated)
+
+**Tier 3 — Full (> 10,000 SEK)**
+- Everything Tier 2 does, plus:
+- 2–3 sentences on context and collector relevance (market positioning, historical significance)
+- Provenance section (only if provenance data exists in source — never invented)
+- Provenance reminder notification when no provenance data is detected
+- Systematic condition assessment with 2–3 "positive absence" statements
+- 12–20 keywords including international English search terms
+- Uses Opus 4.6 for highest quality output
+
+### User Interface
+
+1. **Panel** in the sidebar (`.grid-col4`) with three tier selector buttons showing price ranges
+2. **Auto-selection** based on bevakningspris — updates live when the valuation field changes
+3. **Manual override** — click any tier button to force a different tier (shows "Manuellt vald" indicator)
+4. **"Förbättra alla fält"** run button triggers the enhancement
+5. **Loading progress** — step-by-step indicators (extract → tier → enhance → bio → preview)
+6. **Preview modal** — shows before/after for each field (title, description, condition, keywords) with per-field accept/reject checkboxes
+7. **Three action buttons:** Cancel, Accept Selected (only checked fields), Accept All
+
+### Safeguards
+
+- **Hallucination prevention:** Tier 1 adds zero new information. Tier 2–3 may only add context about makers/techniques, never facts about the specific object
+- **Artist exclusion from title:** When the artist field is populated, the AI excludes the artist name from the title (enforced both in prompt and by post-processing validation)
+- **Unknown artist protection:** "Okänd konstnär" / "Oidentifierad konstnär" terms are stripped from all AI output
+- **Subjective word filter:** Forbidden words (fin, vacker, värdefull, unik, elegant, etc.) are automatically removed from results
+- **Keyword deduplication:** Keywords already present in the title are removed
+- **Paragraph preservation:** Description paragraphs are separated with proper line breaks in both preview and form fields
+- **Quality re-analysis:** After applying changes, the quality scoring system re-runs automatically
+
+### Architecture
+
+Four dedicated modules in `/modules/enhance-all/`:
+
+| Module | Purpose |
+|--------|---------|
+| `tier-config.js` | Tier definitions, thresholds, model assignments, system prompts, user message builder |
+| `enhance-all-manager.js` | Main orchestrator — tier selection, API calls (parallel for Tier 2), response parsing, hallucination validation |
+| `enhance-all-ui.js` | Panel injection, tier selector, loading progress, preview modal, success notifications |
+| `field-distributor.js` | Writes AI results to form fields, undo tracking, change event dispatching, quality re-analysis trigger |
+
+Dependencies are wired via setter injection (same pattern as the rest of the extension). The biography system (`BiographyKBCard`) is reused for Tier 2 maker context with its existing 7-day localStorage cache.
+
+---
+
+## 4. Snabbkatalogisering (Quick Cataloging)
 
 A full-featured modal for rapid item creation from images, text, or both. Designed to feel fast and professional, matching Auctionet's clean UI style with progressive field reveal and skeleton placeholders.
 
@@ -127,7 +202,7 @@ Keywords follow Auctionet standards: space-separated, multi-word phrases hyphena
 
 ---
 
-## 4. AI Image Analysis
+## 5. AI Image Analysis
 
 The AI Image Analyzer uses Claude's Vision API to extract catalog-relevant information from item photographs.
 
@@ -146,7 +221,7 @@ The AI Image Analyzer uses Claude's Vision API to extract catalog-relevant infor
 
 ---
 
-## 5. Quality Control System
+## 6. Quality Control System
 
 A real-time quality scoring system that monitors all catalog fields and provides actionable feedback.
 
@@ -179,7 +254,7 @@ The rules engine checks for:
 
 ---
 
-## 6. Market Analysis Dashboard
+## 7. Market Analysis Dashboard
 
 A comprehensive market intelligence dashboard powered by the Auctionet API, providing real-time pricing data from 3.65M+ historical auction results.
 
@@ -216,7 +291,7 @@ Hovering over the market status reveals a detailed Knowledge Base card with:
 
 ---
 
-## 7. Artist Detection & Biography System
+## 8. Artist Detection & Biography System
 
 ### Automatic Artist Detection
 
@@ -245,7 +320,7 @@ If the system incorrectly detects an artist, the cataloger can dismiss the sugge
 
 ---
 
-## 8. Brand Validation & Inline Spellcheck
+## 9. Brand Validation & Inline Spellcheck
 
 ### Real-time Inline Validation
 
@@ -280,7 +355,7 @@ The artist name field gets specialized validation:
 
 ---
 
-## 9. Search Query Intelligence
+## 10. Search Query Intelligence
 
 ### Single Source of Truth (SSoT)
 
@@ -309,7 +384,7 @@ The dashboard header shows clickable pills for each search term:
 
 ---
 
-## 10. Valuation Request Assistant
+## 11. Valuation Request Assistant
 
 A dedicated tool for the valuation request pages (`/admin/sas/valuation_requests/*`), where customers submit photos and descriptions of items they want valued. The assistant analyzes the submission and generates a ready-to-send valuation email — including automatic multi-object detection when a customer sends images of different items in the same request.
 
@@ -415,7 +490,7 @@ The valuation assistant bypasses the standard `formatArtistForSearch` quoting (w
 
 ---
 
-## 11. Admin Dashboard Enhancements
+## 12. Admin Dashboard Enhancements
 
 Visual enhancements for the main admin page (`/admin/sas`) that transform existing data into actionable infographics. No AI calls — all data is scraped from the existing DOM and rendered as visual components.
 
@@ -439,10 +514,12 @@ Organized into two distinct rows for clear visual hierarchy:
 
 | Card | Source | Color |
 |------|--------|-------|
+| Inskrivet idag | Daily registration count + SEK value from Flödesstatistik | Blue |
 | Senaste kommentarer / Kommentarer idag | Comment feed | Blue |
 | Reklamationskommentarer (7d) | Claim-type comments from last 7 days | Red |
+| Högvärde med fel | Publication scan cache — high-value items (≥ 3,000 SEK) with quality issues | Purple |
 
-Each card links to the corresponding admin page for immediate action. The Reklamationskommentarer card links to `/admin/sas/comments?filter=reklamation`, pre-activating the Reklamation filter on the comments page. The two-row layout clearly separates Auctionet's "Reklamationer" action count from the extension's claim comment tracking.
+Each card links to the corresponding admin page for immediate action. The Reklamationskommentarer card links to `/admin/sas/comments?filter=reklamation`, pre-activating the Reklamation filter on the comments page. The "Högvärde med fel" card links to the publication scanner panel (`#ext-pubscan`). The two-row layout clearly separates Auctionet's "Reklamationer" action count from the extension's claim comment tracking.
 
 ### Comment Feed
 
@@ -533,9 +610,17 @@ A quality scanner that proactively checks all items in the publication queue bef
 | Short condition | < 15 characters | Warning 🟡 |
 | Missing keywords | No hidden keywords | Info (count only) |
 
+**High-value item tracking:**
+
+Items with an estimate ≥ 3,000 SEK are flagged as "high value" throughout the scanner:
+- Each high-value item displays a 💎 badge with its estimate in the item row
+- A dedicated **"Högvärde (≥ 3 000 SEK) med fel"** accordion group appears at the top, sorted by estimate descending, so the most valuable items with issues are immediately visible
+- The summary bar includes a 💎 count of high-value items with issues
+- A KPI insight card on the dashboard shows the total count for at-a-glance awareness
+
 **UI — Collapsible filter groups:**
 
-- Summary bar shows totals: critical count, warning count, OK count, and keywords info
+- Summary bar shows totals: critical count, warning count, OK count, keywords info, and high-value issue count
 - Issues are grouped by type (e.g., "Kort beskrivning (< 40 tecken)") as clickable accordion rows
 - Each group shows a severity dot (🔴 critical / 🟡 warning), issue description, and item count
 - Critical groups (images, spelling) sort first, warning groups (text quality) follow
@@ -560,7 +645,7 @@ The scanner uses the same AI-based spellcheck as the edit page — Claude Haiku 
 
 ---
 
-## 12. Comment Visibility System
+## 13. Comment Visibility System
 
 A cross-page system that makes comments more visible and easier to act on across the entire Auctionet admin. Powered by `comment-enhancer.js` — a lightweight script with zero AI calls that enhances comment UX through pure DOM manipulation.
 
@@ -617,7 +702,7 @@ Even on individual item, seller, buyer, and return claim pages, the existing com
 
 ---
 
-## 13. AML / Anti-Money Laundering Compliance
+## 14. AML / Anti-Money Laundering Compliance
 
 The quality rules engine includes automated AML compliance reminders that flag high-risk items during cataloging.
 
@@ -635,7 +720,7 @@ AML warnings appear as highlighted alerts in the quality control sidebar alongsi
 
 ---
 
-## 14. Unknown Artist Handling
+## 15. Unknown Artist Handling
 
 The extension respects Auctionet's convention for unsigned and unidentified works:
 
@@ -657,7 +742,7 @@ When these terms are present in the artist field:
 
 ---
 
-## 15. Settings & Configuration
+## 16. Settings & Configuration
 
 The extension popup (`popup.html`) provides:
 
@@ -683,7 +768,7 @@ The PIN is hashed with SHA-256 before storage. Admin state is stored in sync sto
 
 ---
 
-## 16. Technical Architecture
+## 17. Technical Architecture
 
 ### Module Structure
 
@@ -695,6 +780,7 @@ auctionet-extension/
 ├── content.js                             # Add/view page entry point
 ├── valuation-request.js                   # Valuation request page entry point
 ├── admin-dashboard.js                     # Admin dashboard visual enhancements
+├── admin-item-banner.js                   # Item show page enhancement banner
 ├── comment-enhancer.js                    # Cross-page comment visibility & rich feed
 ├── popup.html / popup.js                  # Settings popup
 ├── styles.css                             # Main stylesheet
@@ -721,6 +807,15 @@ auctionet-extension/
 │   ├── item-type-handlers.js              # Category-specific logic
 │   ├── swedish-spellchecker.js            # Swedish language spell checking
 │   ├── auctionet-artist-lookup.js         # Auctionet artist API (future)
+│   ├── add-items-api-bridge.js            # Bridge between Add Items and Edit page API
+│   ├── add-items-integration-manager.js   # Add page component wiring and UI features
+│   ├── add-items-tooltip-manager.js       # Add page tooltip orchestrator
+│   │
+│   ├── enhance-all/                       # Enhance All tiered AI enhancement
+│   │   ├── tier-config.js                 # Tier definitions, thresholds, system prompts
+│   │   ├── enhance-all-manager.js         # Main orchestrator (API calls, validation)
+│   │   ├── enhance-all-ui.js             # Panel, tier selector, preview modal
+│   │   └── field-distributor.js           # Field writing, undo, change events
 │   │
 │   ├── core/                              # Shared core modules
 │   │   ├── biography-kb-card.js           # Artist biography Knowledge Base card
@@ -738,14 +833,19 @@ auctionet-extension/
 │   │   ├── page-detector.js               # Page type detection
 │   │   ├── artist-field-manager.js        # Artist field operations
 │   │   ├── title-cleanup-utility.js       # Title formatting after edits
+│   │   ├── field-quality-analyzer.js      # Add page field quality analysis
 │   │   └── term-processor.js              # Search term processing
 │   │
 │   ├── ui/                                # UI-specific modules
 │   │   ├── ui-controller.js               # Edit page UI orchestration
+│   │   ├── ai-enhancement-ui.js           # Reusable AI enhancement UI components
 │   │   ├── pill-generator.js              # Search pill HTML generation
 │   │   ├── checkbox-manager.js            # Pill checkbox state management
 │   │   ├── field-monitor-manager.js       # Real-time field change detection
 │   │   └── tooltip-system-manager.js      # Tooltip positioning system
+│   │
+│   ├── utils/                             # Utility modules
+│   │   └── typing-simulator.js            # Human-like typing for autocomplete fields
 │   │
 │   ├── add-items/                         # Add Item page modules
 │   │   ├── ai-enhancement.js             # AI enhancement for add page
@@ -782,6 +882,12 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
         │
         ├──► API Manager ──► background.js ──► Claude API (Anthropic)
         │
+        ├──► Enhance All Manager ──► Tier Config (auto or manual)
+        │         ├──► Haiku / Sonnet / Opus (by tier) ──► Response Parsing
+        │         ├──► Biography KB Card (Tier 2 parallel) ──► Maker Context
+        │         ├──► Hallucination Validation ──► Preview Modal
+        │         └──► Field Distributor ──► Form Fields ──► Quality Re-analysis
+        │
         ├──► Sales Analysis Manager ──► Auctionet API ──► Dashboard
         │         │
         │         └──► AI Relevance Validation (Claude Haiku)
@@ -806,17 +912,20 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 ### Performance Characteristics
 
 - **API caching:** Market data cached for 30 minutes to minimize API calls
+- **Biography caching:** Artist biographies cached in localStorage for 7 days (reused by both Biography KB Card and Enhance All Tier 2)
 - **Warehouse caching:** Warehouse cost data cached for 12 hours in Chrome local storage with manual refresh
 - **Publication scan caching:** Scan results cached in Chrome local storage; incremental auto-rescan every 10 minutes via `chrome.alarms` (only new items deep-scanned). Ignored items persisted separately in `publicationScanIgnored` storage key.
+- **Prompt caching:** System prompts use Anthropic's `cache_control: { type: 'ephemeral' }` for ~90% token savings on repeated calls
 - **Debounced monitoring:** Field changes are batched (typically 300-800ms) before triggering re-analysis
 - **Lazy loading:** Market dashboard only runs analysis when opened
+- **Enhance All parallel calls:** Tier 2 runs Sonnet (structure) and Opus (biography) API calls in parallel for faster results
 - **State persistence:** Dashboard open/closed state, search terms stored in localStorage
 - **Background processing:** All API calls go through the service worker to avoid blocking the UI
 - **Batched fetching:** Warehouse cost pages fetched in concurrent batches of 5 for fast aggregation
 
 ---
 
-## 17. Security Considerations
+## 18. Security Considerations
 
 - **API key storage:** The Anthropic API key is stored in Chrome's local storage (not sync storage) to prevent cross-device leakage
 - **Admin PIN:** Stored as a SHA-256 hash in local storage — not readable in plain text. Admin mode is a soft lock to prevent casual access to sensitive dashboard data (warehouse costs, KPIs), not a cryptographic security boundary
@@ -831,7 +940,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 
 ---
 
-## 18. Data & Privacy
+## 19. Data & Privacy
 
 | Data Type | Where it goes | Retention |
 |-----------|---------------|-----------|
@@ -843,6 +952,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 | Publication scan data | Scraped from Auctionet publishables, show, and edit pages (same-origin fetch) | Cached locally; incremental rescan every 10 min |
 | Admin PIN | Hashed (SHA-256) in Chrome local storage | Until user changes it |
 | Artist names | Sent to Wikipedia for images | Not stored |
+| Artist biographies | Generated via Anthropic API, used for Enhance All and Biography KB Card | Cached locally for 7 days |
 | API key | Chrome local storage on user's machine | Until user removes it |
 | Settings | Chrome sync storage | Until user changes them |
 | Quality scores | Calculated in-browser | Session only — not persisted |
@@ -851,4 +961,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated February 22, 2026. Reflects extension version 1.9.0.*
+*Document updated March 2, 2026. Reflects extension version 2.0.0.*

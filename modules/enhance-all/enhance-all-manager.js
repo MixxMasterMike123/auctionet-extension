@@ -90,11 +90,20 @@ export class EnhanceAllManager {
       // 5. Validate response (hallucination guard)
       result = this._validateResponse(result, formData);
 
-      // 6. Check provenance reminder (Tier 3 only)
+      // 6. If "Inga anmärkningar" is checked, discard AI condition output
+      if (formData.noRemarks) {
+        result.condition = null;
+        result._noRemarks = true;
+      }
+
+      // 7. Detect artist name in title (if artist field is empty)
+      result._artistDetection = this._detectArtistInTitle(result, formData);
+
+      // 8. Check provenance reminder (Tier 3 only)
       const provenanceReminder = tier.features.provenanceReminder &&
         result.provenanceFound === false;
 
-      // 7. Show preview
+      // 9. Show preview
       this.ui?.showPreview(result, formData, tier, provenanceReminder);
 
       return result;
@@ -353,23 +362,27 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
       }
     }
 
-    // 3. Remove duplicate keywords that exist in title
-    if (result.keywords && (result.title || originalData.title)) {
-      const titleWords = (result.title || originalData.title)
-        .toLowerCase()
-        .split(/[\s,]+/)
-        .filter(w => w.length > 2);
+    // 3. Remove keywords that already exist in title, description, or condition
+    if (result.keywords) {
+      const allFieldText = [
+        result.title || originalData.title || '',
+        result.description || '',
+        result.condition || ''
+      ].join(' ').toLowerCase();
 
       const keywords = result.keywords.split(/\s+/).filter(kw => {
-        const kwLower = kw.toLowerCase();
-        return !titleWords.includes(kwLower);
+        if (kw.length < 2) return false;
+        const kwLower = kw.toLowerCase().replace(/-/g, ' ');
+        // Check both hyphenated and unhyphenated forms
+        return !allFieldText.includes(kwLower) && !allFieldText.includes(kw.toLowerCase());
       });
       result.keywords = keywords.join(' ');
     }
 
     // 4. Strip artist name from title if artist field is populated
-    if (result.title && originalData.artist && originalData.artist.trim() &&
-        !this._isUnknownArtist(originalData.artist)) {
+    const artistFieldPopulated = originalData.artist && originalData.artist.trim() &&
+      !this._isUnknownArtist(originalData.artist);
+    if (result.title && artistFieldPopulated) {
       const artistName = originalData.artist.trim();
       // Remove artist name from end of title (common AI mistake: "UGNSFORM, flintgods, Stig Lindberg")
       // Also handle UPPERCASE variant
@@ -383,6 +396,10 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
       }
       // Clean trailing comma/space
       result.title = result.title.replace(/,\s*$/, '').trim();
+
+      // When artist field is populated, NO uppercase words allowed in title
+      result.title = result.title.replace(/\b[A-ZÅÄÖÜ]{2,}\b/g, (w) => w.toLowerCase());
+      result.title = result.title.charAt(0).toUpperCase() + result.title.slice(1);
     }
 
     // 5. Don't return a title if it's essentially unchanged
@@ -399,24 +416,45 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
   // ─── Helpers ───
 
   _extractFormData() {
+    let data;
     if (this.dataExtractor) {
-      return this.dataExtractor.extractItemData();
+      data = this.dataExtractor.extractItemData();
+    } else {
+      // Fallback: read DOM directly (for content.js which uses different extraction)
+      data = {
+        category: document.querySelector('#item_category_id option:checked')?.textContent || '',
+        title: document.querySelector('#item_title_sv')?.value || '',
+        description: document.querySelector('#item_description_sv')?.value || '',
+        condition: document.querySelector('#item_condition_sv')?.value || '',
+        artist: document.querySelector('#item_artist_name_sv')?.value || '',
+        artistDates: document.querySelector('[data-devbridge-autocomplete-target="help"]')?.textContent?.trim() || '',
+        keywords: document.querySelector('#item_hidden_keywords')?.value || '',
+        estimate: document.querySelector('#item_current_auction_attributes_estimate')?.value || '',
+        upperEstimate: document.querySelector('#item_current_auction_attributes_upper_estimate')?.value || '',
+        reserve: document.querySelector('#item_current_auction_attributes_reserve')?.value || '',
+        acceptedReserve: document.querySelector('#item_current_auction_attributes_accepted_reserve')?.value || ''
+      };
     }
 
-    // Fallback: read DOM directly (for content.js which uses different extraction)
-    return {
-      category: document.querySelector('#item_category_id option:checked')?.textContent || '',
-      title: document.querySelector('#item_title_sv')?.value || '',
-      description: document.querySelector('#item_description_sv')?.value || '',
-      condition: document.querySelector('#item_condition_sv')?.value || '',
-      artist: document.querySelector('#item_artist_name_sv')?.value || '',
-      artistDates: document.querySelector('[data-devbridge-autocomplete-target="help"]')?.textContent?.trim() || '',
-      keywords: document.querySelector('#item_hidden_keywords')?.value || '',
-      estimate: document.querySelector('#item_current_auction_attributes_estimate')?.value || '',
-      upperEstimate: document.querySelector('#item_current_auction_attributes_upper_estimate')?.value || '',
-      reserve: document.querySelector('#item_current_auction_attributes_reserve')?.value || '',
-      acceptedReserve: document.querySelector('#item_current_auction_attributes_accepted_reserve')?.value || ''
-    };
+    // Detect "Inga anmärkningar" checkbox
+    data.noRemarks = this._isNoRemarksChecked();
+    return data;
+  }
+
+  /**
+   * Check if the "Inga anmärkningar" checkbox is checked
+   */
+  _isNoRemarksChecked() {
+    const selectors = [
+      '#item_no_remarks',
+      'input[name="item[no_remarks]"]',
+      'input[type="checkbox"][name*="no_remarks"]'
+    ];
+    for (const sel of selectors) {
+      const cb = document.querySelector(sel);
+      if (cb) return cb.checked;
+    }
+    return false;
   }
 
   _isUnknownArtist(artistName) {
@@ -457,6 +495,112 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
     lines.splice(insertIndex, 0, '', bioText, '');
 
     return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  // ─── Artist detection in enhanced title ───
+
+  /**
+   * Detect if the enhanced title contains an artist/designer name
+   * Only runs when the artist field is currently empty
+   * @param {object} result — the AI enhancement result
+   * @param {object} formData — the original form data
+   * @returns {object|null} detection result or null
+   */
+  _detectArtistInTitle(result, formData) {
+    // Only detect if artist field is empty (or unknown)
+    if (formData.artist && formData.artist.trim() && !this._isUnknownArtist(formData.artist)) {
+      return null;
+    }
+
+    const title = result.title || formData.title || '';
+    if (!title || title.length < 5) return null;
+
+    // Common non-name terms that appear in titles (companies, places, materials, etc.)
+    const nonNameTerms = new Set([
+      'gustavsberg', 'orrefors', 'kosta', 'boda', 'arabia', 'iittala', 'rörstrand',
+      'gefle', 'höganäs', 'upsala', 'ekeby', 'nittsjö', 'jie', 'gantofta',
+      'stockholm', 'göteborg', 'malmö', 'london', 'paris', 'copenhagen', 'wien',
+      'ikea', 'svenskt', 'tenn', 'nordiska', 'kompaniet', 'firma',
+      'art', 'deco', 'nouveau', 'jugend', 'empire', 'gustaviansk', 'sengustaviansk',
+      'carraragods', 'flintgods', 'stengods', 'fajans', 'porslin', 'keramik',
+      'nysilver', 'silver', 'mässing', 'brons', 'teak', 'ek', 'mahogny',
+      'sverige', 'sweden', 'danish', 'finland'
+    ]);
+
+    // Pattern: Auctionet titles are "OBJEKTTYP, material, Artist Name, optional details"
+    // We look for capitalized person names (First Last) in comma-separated segments
+    const segments = title.split(',').map(s => s.trim());
+
+    for (let i = 1; i < segments.length; i++) {
+      const segment = segments[i].trim();
+      // Skip segments that are too short or too long for a name
+      if (segment.length < 4 || segment.length > 50) continue;
+
+      // Skip if segment looks like a measurement, year, or pure number
+      if (/^\d/.test(segment) || /\d\s*(cm|mm|kg|g|ml|cl)/.test(segment)) continue;
+      if (/^ca\s/i.test(segment)) continue;
+
+      // Check if it looks like a person name: 2-3 words, each starting with uppercase
+      const words = segment.split(/\s+/);
+      if (words.length < 2 || words.length > 4) continue;
+
+      // All words should be alphabetic and at least 2 chars
+      const allNameLike = words.every(w =>
+        w.length >= 2 && /^[A-ZÅÄÖÜ]/i.test(w) && /^[a-zA-ZåäöÅÄÖüÜéèêëàáâãñ'.-]+$/.test(w)
+      );
+      if (!allNameLike) continue;
+
+      // Check none of the words are known non-name terms
+      const hasNonNameWord = words.some(w => nonNameTerms.has(w.toLowerCase()));
+      if (hasNonNameWord) continue;
+
+      // Check it's not all uppercase (likely an object type like "PARTI" or location "STOCKHOLM")
+      const allUpperCase = words.every(w => w === w.toUpperCase() && w.length > 1);
+      if (allUpperCase) continue;
+
+      // Looks like a person name!
+      const detectedName = words
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+
+      // Build suggested title: remove the artist segment and clean up
+      const suggestedTitle = this._buildTitleWithoutArtist(title, segments, i);
+
+      return {
+        detectedName,
+        originalSegment: segment,
+        suggestedTitle,
+        segmentIndex: i
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Build a cleaned title with the artist segment removed
+   * When artist is moved to artist field, the object type should NOT be UPPERCASE
+   * per Auctionet convention: "FIGURIN, material" → "Figurin, material"
+   */
+  _buildTitleWithoutArtist(originalTitle, segments, removeIndex) {
+    const remaining = segments.filter((_, i) => i !== removeIndex);
+    let cleaned = remaining.join(', ').trim();
+
+    // Clean up double commas, trailing commas, leading commas
+    cleaned = cleaned
+      .replace(/,\s*,/g, ',')
+      .replace(/^,\s*/, '')
+      .replace(/,\s*$/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // When artist field is populated, NO uppercase words allowed in title
+    // All UPPERCASE words → lowercase, then capitalize first letter of entire title
+    // "FIGURIN, 'Drakvalp', carraragods" → "figurin, 'Drakvalp', carraragods" → "Figurin, 'Drakvalp', carraragods"
+    cleaned = cleaned.replace(/\b[A-ZÅÄÖÜ]{2,}\b/g, (word) => word.toLowerCase());
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+
+    return cleaned;
   }
 
   get isProcessing() {

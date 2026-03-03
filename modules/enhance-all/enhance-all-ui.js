@@ -299,8 +299,11 @@ export class EnhanceAllUI {
         <div class="enhance-all-preview-body">
           ${this._buildFieldPreview('Titel', 'title', result.title, originalData.title)}
           ${this._buildFieldPreview('Beskrivning', 'description', result.description, originalData.description)}
-          ${this._buildFieldPreview('Kondition', 'condition', result.condition, originalData.condition)}
+          ${result._noRemarks
+            ? this._buildSkippedFieldPreview('Kondition', 'Inga anmärkningar markerad — ej förbättrad')
+            : this._buildFieldPreview('Kondition', 'condition', result.condition, originalData.condition)}
           ${this._buildFieldPreview('Nyckelord', 'keywords', result.keywords, originalData.keywords)}
+          ${result._artistDetection ? this._buildArtistDetectionUI(result._artistDetection, result, originalData) : ''}
           ${provenanceReminder ? `
             <div class="enhance-all-provenance-reminder">
               <span class="provenance-icon">&#9888;</span>
@@ -324,6 +327,19 @@ export class EnhanceAllUI {
     this._attachPreviewListeners(modal, result, originalData);
   }
 
+  _buildSkippedFieldPreview(label, reason) {
+    return `
+      <div class="enhance-all-field-preview" data-field="skipped">
+        <div class="field-preview-header">
+          <span class="field-preview-label">${label}</span>
+          <div class="field-preview-actions">
+            <span class="field-preview-unchanged">${this._escapeHTML(reason)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   _buildFieldPreview(label, fieldType, newValue, originalValue) {
     const isUnchanged = !newValue || (fieldType === 'title' && newValue === null);
     const displayValue = isUnchanged ? originalValue : newValue;
@@ -344,6 +360,33 @@ export class EnhanceAllUI {
         </div>
         <div class="field-preview-content ${isUnchanged ? 'unchanged' : 'changed'}">
           <pre class="field-preview-text">${this._escapeHTML(displayValue || '(tom)')}</pre>
+        </div>
+      </div>
+    `;
+  }
+
+  _buildArtistDetectionUI(detection, result, originalData) {
+    const currentArtist = originalData.artist?.trim() || '';
+    const artistEmpty = !currentArtist || this._isUnknownArtist(currentArtist);
+
+    if (!artistEmpty) return '';
+
+    return `
+      <div class="enhance-all-artist-detection">
+        <div class="artist-detection-header">
+          <span class="artist-detection-icon">&#128100;</span>
+          <strong>Konstnär/formgivare identifierad i titel</strong>
+        </div>
+        <div class="artist-detection-body">
+          <div class="artist-detection-name">${this._escapeHTML(detection.detectedName)}</div>
+          <label class="artist-detection-toggle">
+            <input type="checkbox" id="enhance-all-move-artist" checked>
+            <span>Flytta <strong>${this._escapeHTML(detection.detectedName)}</strong> till konstnärsfältet och ta bort från titeln</span>
+          </label>
+          <div class="artist-detection-preview" id="artist-detection-title-preview">
+            <span class="artist-preview-label">Ny titel:</span>
+            <span class="artist-preview-value">${this._escapeHTML(detection.suggestedTitle)}</span>
+          </div>
         </div>
       </div>
     `;
@@ -377,9 +420,17 @@ export class EnhanceAllUI {
     // Accept all
     modal.querySelector('#enhance-all-accept-all').addEventListener('click', () => {
       const accepted = { title: true, description: true, condition: true, keywords: true };
+
+      // Handle artist move
+      const artistMove = this._getArtistMoveData(modal, result);
+      if (artistMove) {
+        accepted.artist = true;
+        result._artistMove = artistMove;
+      }
+
       this.fieldDistributor.applyResults(result, accepted);
       this._removePreview();
-      this._showSuccessNotification('Alla fält uppdaterade');
+      this._showSuccessNotification(artistMove ? 'Alla fält uppdaterade + konstnär flyttad' : 'Alla fält uppdaterade');
     });
 
     // Accept selected
@@ -392,6 +443,13 @@ export class EnhanceAllUI {
         }
       });
 
+      // Handle artist move
+      const artistMove = this._getArtistMoveData(modal, result);
+      if (artistMove) {
+        accepted.artist = true;
+        result._artistMove = artistMove;
+      }
+
       const count = Object.values(accepted).filter(Boolean).length;
       if (count === 0) {
         this._removePreview();
@@ -402,6 +460,19 @@ export class EnhanceAllUI {
       this._removePreview();
       this._showSuccessNotification(`${count} fält uppdaterade`);
     });
+  }
+
+  /**
+   * Check if the artist move checkbox is checked and return move data
+   */
+  _getArtistMoveData(modal, result) {
+    const moveCheckbox = modal.querySelector('#enhance-all-move-artist');
+    if (!moveCheckbox?.checked || !result._artistDetection) return null;
+
+    return {
+      artistName: result._artistDetection.detectedName,
+      suggestedTitle: result._artistDetection.suggestedTitle
+    };
   }
 
   _removePreview() {

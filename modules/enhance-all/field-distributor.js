@@ -21,7 +21,8 @@ export class FieldDistributor {
     title: '#item_title_sv',
     description: '#item_description_sv',
     condition: '#item_condition_sv',
-    keywords: '#item_hidden_keywords'
+    keywords: '#item_hidden_keywords',
+    artist: '#item_artist_name_sv'
   };
 
   /**
@@ -50,6 +51,19 @@ export class FieldDistributor {
     if (acceptedFields.keywords && result.keywords) {
       this._applyKeywords(result.keywords);
       applied.push('keywords');
+    }
+
+    // Handle artist move (from title to artist field)
+    if (acceptedFields.artist && result._artistMove) {
+      const { artistName, suggestedTitle } = result._artistMove;
+      this._applyField('artist', artistName);
+      applied.push('artist');
+
+      // Override title with the cleaned version (artist removed)
+      if (suggestedTitle) {
+        this._applyField('title', suggestedTitle);
+        if (!applied.includes('title')) applied.push('title');
+      }
     }
 
     // Trigger quality re-analysis after all fields are updated
