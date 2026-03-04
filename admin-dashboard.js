@@ -722,46 +722,15 @@
   ];
 
   // Spellcheck: misspelling → correction map (from swedish-spellchecker.js)
-  const PUB_SCAN_MISSPELLINGS = {
-    'blåa': 'blå', 'groen': 'grön', 'guhl': 'gul', 'vhit': 'vit',
-    'swart': 'svart', 'svat': 'svart', 'röt': 'röd',
-    'sylver': 'silver', 'silwer': 'silver', 'gull': 'guld', 'kopar': 'koppar',
-    'masing': 'mässing', 'mesing': 'mässing', 'porlin': 'porslin', 'porslinn': 'porslin',
-    'krystal': 'kristall', 'cristall': 'kristall', 'marmur': 'marmor',
-    'granitt': 'granit', 'graniet': 'granit',
-    'skadoor': 'skador', 'reppar': 'repor', 'repar': 'repor',
-    'nag': 'nagg', 'fleckar': 'fläckar', 'flackar': 'fläckar',
-    'sprikor': 'sprickor', 'slitasje': 'slitage',
-    'säkel': 'sekel', 'sekkel': 'sekel', 'aarhundrade': 'århundrade',
-    'arrhundrade': 'århundrade', 'antikk': 'antik', 'vintange': 'vintage', 'wintage': 'vintage',
-    'signeradt': 'signerad', 'markt': 'märkt', 'märt': 'märkt',
-    'dateradt': 'daterad', 'datered': 'daterad', 'handmalad': 'handmålad',
-    'forgylld': 'förgylld', 'förgöld': 'förgylld', 'oxyderad': 'oxiderad',
-    'diamater': 'diameter', 'diameeter': 'diameter', 'hojd': 'höjd', 'hojt': 'höjd',
-    'langd': 'längd', 'lenght': 'längd', 'viktt': 'vikt',
-    'tilverkad': 'tillverkad', 'ursprumg': 'ursprung',
-    'examplar': 'exemplar', 'exemplaar': 'exemplar', 'kollection': 'kollektion',
-    'proveniense': 'provenienser',
-    'utropris': 'utropspris', 'utroppris': 'utropspris', 'estimaat': 'estimat',
-    'klubslag': 'klubbslag', 'clubslag': 'klubbslag', 'budgiwning': 'budgivning',
-    'forsaljning': 'försäljning', 'försäljnig': 'försäljning', 'katlog': 'katalog',
-    'oljemalning': 'oljemålning', 'aquarell': 'akvarell', 'akwarelle': 'akvarell',
-    'lithografi': 'litografi', 'litograaf': 'litografi', 'etsninng': 'etsning',
-    'skulptrur': 'skulptur', 'malning': 'målning',
-    'mobler': 'möbler', 'upsättning': 'uppsättning', 'uppsettning': 'uppsättning',
-    'stopning': 'stoppning', 'stoppninng': 'stoppning',
-    'polstreing': 'polstring', 'polstrig': 'polstring',
-    'smyken': 'smycken', 'berloker': 'berlocker', 'berlocks': 'berlocker',
-    'diaments': 'diamanter', 'adelstenar': 'edelstenar', 'edelstener': 'edelstenar',
-    // Common doubled-letter misspellings
-    'ballja': 'balja', 'byråa': 'byrå', 'skåpp': 'skåp', 'bordd': 'bord',
-    'tavlla': 'tavla', 'spegell': 'spegel', 'fåtöllj': 'fåtölj', 'kandelabrer': 'kandelaber',
-    // Jewelry terms
-    'colier': 'collier', 'kolier': 'collier', 'briliant': 'briljant', 'brilljant': 'briljant',
-    'halstband': 'halsband', 'halband': 'halsband', 'örhange': 'örhänge',
-    // Weight/measurement
-    'brutovikt': 'bruttovikt', 'brutovigt': 'bruttovikt'
-  };
+  // Load misspellings from shared SwedishSpellChecker (single source of truth)
+  let PUB_SCAN_MISSPELLINGS = {};
+  try {
+    const spellUrl = chrome.runtime.getURL('modules/swedish-spellchecker.js');
+    const { SwedishSpellChecker } = await import(spellUrl);
+    PUB_SCAN_MISSPELLINGS = SwedishSpellChecker.getMisspellingsMap();
+  } catch (e) {
+    console.warn('[Dashboard] Failed to load SwedishSpellChecker, using empty dict:', e.message);
+  }
 
   // AI-based spellcheck — same approach as inline-brand-validator.js checkSpellingWithAI()
   // Uses chrome.runtime.sendMessage → background.js → Anthropic API (Haiku)

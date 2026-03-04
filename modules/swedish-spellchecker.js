@@ -93,7 +93,7 @@ export class SwedishSpellChecker {
       { word: 'uppsättning', misspellings: ['upsättning', 'uppsettning'], category: 'furniture' },
       { word: 'stoppning', misspellings: ['stopning', 'stoppninng'], category: 'furniture' },
       { word: 'polstring', misspellings: ['polstreing', 'polstrig'], category: 'furniture' },
-      
+
       // Jewelry terms (removed self-references)
       { word: 'smycken', misspellings: ['smyken'], category: 'jewelry' },
       { word: 'berlocker', misspellings: ['berloker', 'berlocks'], category: 'jewelry' },
@@ -265,13 +265,18 @@ export class SwedishSpellChecker {
     return categoryMap[category] || 'stavning';
   }
 
-  // Debug information
-  debug() {
-    
-    // Show category distribution
-    const categories = {};
-    [...this.commonWords, ...this.auctionTerms].forEach(entry => {
-      categories[entry.category] = (categories[entry.category] || 0) + 1;
-    });
+  /**
+   * Export all misspellings as a flat { misspelling: correction } map.
+   * Used by dashboard and other consumers that need a quick lookup.
+   */
+  static getMisspellingsMap() {
+    const instance = new SwedishSpellChecker();
+    const map = {};
+    for (const entry of [...instance.commonWords, ...instance.auctionTerms]) {
+      for (const ms of entry.misspellings) {
+        map[ms.toLowerCase()] = entry.word;
+      }
+    }
+    return map;
   }
 } 

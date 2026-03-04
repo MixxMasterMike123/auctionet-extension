@@ -185,23 +185,25 @@ export class InlineBrandValidator {
       // Deduplicate: if AI and dictionary found the same word, prefer AI (higher confidence)
       const deduped = this.deduplicateIssues(allIssues);
 
-      // Filter out ignored terms and false positives on proper names
+      // Filter out ignored terms and false positives
       const filteredIssues = deduped.filter(issue => {
         if (this.ignoredTerms.has(issue.originalBrand.toLowerCase())) {
           return false;
         }
 
-        // Filter out suggestions for proper names (artist/person names)
-        if (this.isLikelyProperName(issue.originalBrand, text)) {
-          if ((issue.confidence || 0) < 0.95) {
+        // Only apply proper-name filtering to dictionary/brand results, NOT AI spellcheck results.
+        // The AI prompt already excludes proper names — if AI flags it, trust the AI.
+        if (issue.source !== 'ai_spellcheck') {
+          if (this.isLikelyProperName(issue.originalBrand, text)) {
+            if ((issue.confidence || 0) < 0.95) {
+              return false;
+            }
+          }
+
+          if (this.differOnlyInDiacritics(issue.originalBrand, issue.suggestedBrand) &&
+              this.isLikelyProperName(issue.originalBrand, text)) {
             return false;
           }
-        }
-
-        // Filter out diacritical-only differences on proper names
-        if (this.differOnlyInDiacritics(issue.originalBrand, issue.suggestedBrand) &&
-            this.isLikelyProperName(issue.originalBrand, text)) {
-          return false;
         }
 
         // Filter if the artist field already contains this name

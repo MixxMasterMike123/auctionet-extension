@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const showDashboardCheckbox = document.getElementById('show-dashboard');
   const excludeCompanyInput = document.getElementById('exclude-company-id');
   const saveExcludeCompanyButton = document.getElementById('save-exclude-company');
+  const searchDefaultsCheckbox = document.getElementById('search-defaults');
 
   const adminUI = document.getElementById('admin-ui');
 
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadArtistInfoSetting();
   await loadShowDashboardSetting();
   await loadExcludeCompanySetting();
+  await loadSearchDefaultsSetting();
   await renderAdminUI();
   
   // Check extension status
@@ -30,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   enableArtistInfoCheckbox.addEventListener('change', saveArtistInfoSetting);
   showDashboardCheckbox.addEventListener('change', saveShowDashboardSetting);
   saveExcludeCompanyButton.addEventListener('click', saveExcludeCompanySetting);
+  searchDefaultsCheckbox.addEventListener('change', saveSearchDefaultsSetting);
   apiKeyInput.addEventListener('input', () => {
     clearStatus();
   });
@@ -307,6 +310,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       
     } catch (error) {
       console.error('Error saving show dashboard setting:', error);
+    }
+  }
+
+  async function loadSearchDefaultsSetting() {
+    try {
+      const result = await chrome.storage.sync.get(['searchDefaults']);
+      // Default to true (enabled)
+      const isEnabled = result.searchDefaults !== undefined ? result.searchDefaults : true;
+      searchDefaultsCheckbox.checked = isEnabled;
+    } catch (error) {
+      console.error('Error loading search defaults setting:', error);
+      searchDefaultsCheckbox.checked = true;
+    }
+  }
+
+  async function saveSearchDefaultsSetting() {
+    try {
+      await chrome.storage.sync.set({ searchDefaults: searchDefaultsCheckbox.checked });
+    } catch (error) {
+      console.error('Error saving search defaults setting:', error);
     }
   }
 

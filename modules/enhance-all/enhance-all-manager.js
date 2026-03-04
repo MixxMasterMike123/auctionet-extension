@@ -181,13 +181,13 @@ export class EnhanceAllManager {
   // ─── API helpers ───
 
   /**
-   * Call Claude API via background.js proxy
+   * Call Claude API via background.js proxy (Opus → Sonnet fallback on overload)
    */
   async _callAPI(model, systemPrompt, userMessage, maxTokens, temperature) {
-    return new Promise((resolve, reject) => {
+    const result = await new Promise((resolve) => {
       const timeout = setTimeout(() => {
         console.error('[EnhanceAll] API call timed out');
-        resolve(null);
+        resolve({ success: false, error: 'timeout' });
       }, 45000); // 45s timeout
 
       chrome.runtime.sendMessage({
@@ -211,15 +211,33 @@ export class EnhanceAllManager {
         clearTimeout(timeout);
         if (chrome.runtime.lastError) {
           console.error('[EnhanceAll] Chrome runtime error:', chrome.runtime.lastError.message);
-          resolve(null);
+          resolve({ success: false, error: chrome.runtime.lastError.message });
         } else if (response?.success && response.data?.content?.[0]?.text) {
-          resolve(response.data.content[0].text);
+          resolve({ success: true, text: response.data.content[0].text });
         } else {
-          console.error('[EnhanceAll] API error:', response?.error || response?.data?.error?.message || 'Unknown');
-          resolve(null);
+          const errorMsg = response?.error || response?.data?.error?.message || 'Unknown';
+          resolve({ success: false, error: errorMsg });
         }
       });
     });
+
+    if (result.success) return result.text;
+
+    // Retry on overload/rate-limit (up to 3 attempts)
+    const isOverloaded = result.error && (
+      result.error.includes('Overloaded') || result.error.includes('overloaded') ||
+      result.error.includes('rate limit') || result.error.includes('429')
+    );
+    // Opus overloaded → fall back to Sonnet immediately
+    if (isOverloaded && model.includes('opus')) {
+      console.warn(`[EnhanceAll] Opus overloaded — falling back to Sonnet`);
+      return this._callAPI('claude-sonnet-4-5', systemPrompt, userMessage, maxTokens, temperature);
+    }
+
+    if (result.error !== 'timeout') {
+      console.error('[EnhanceAll] API error:', result.error);
+    }
+    return null;
   }
 
   /**

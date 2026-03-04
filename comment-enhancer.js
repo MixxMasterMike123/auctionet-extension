@@ -11,6 +11,57 @@
   // Skip login pages
   if (/\/admin\/login/.test(path)) return;
 
+  // Search defaults: type=item & sorting=desc (toggleable on the search page)
+  if (/\/admin\/\w+\/search/.test(path)) {
+    chrome.storage.sync.get(['searchDefaults'], (result) => {
+      const enabled = result.searchDefaults !== undefined ? result.searchDefaults : true;
+
+      // Inject a small toggle bar below the navbar
+      const navbar = document.querySelector('.navbar-fixed-top, .navbar');
+      if (navbar) {
+        const bar = document.createElement('div');
+        bar.style.cssText = 'background:#f0f0f0;border-bottom:1px solid #ddd;padding:4px 16px;font-size:12px;color:#555;';
+        const toggle = document.createElement('label');
+        toggle.style.cssText = 'display:inline-flex;align-items:center;gap:5px;cursor:pointer;margin:0;font-weight:normal;';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = enabled;
+        cb.style.cursor = 'pointer';
+        cb.addEventListener('change', () => {
+          chrome.storage.sync.set({ searchDefaults: cb.checked }, () => {
+            const params = new URLSearchParams(window.location.search);
+            if (cb.checked) {
+              let changed = false;
+              if (!params.has('type')) { params.set('type', 'item'); changed = true; }
+              if (!params.has('sorting')) { params.set('sorting', 'desc'); changed = true; }
+              if (changed) window.location.replace(path + '?' + params.toString());
+            } else {
+              let changed = false;
+              if (params.get('type') === 'item') { params.delete('type'); changed = true; }
+              if (params.get('sorting') === 'desc') { params.delete('sorting'); changed = true; }
+              if (changed) window.location.replace(path + '?' + params.toString());
+            }
+          });
+        });
+        toggle.appendChild(cb);
+        toggle.appendChild(document.createTextNode('Objekt, nyast först'));
+        bar.appendChild(toggle);
+        navbar.insertAdjacentElement('afterend', bar);
+      }
+
+      // Auto-redirect if enabled and params are missing
+      if (enabled) {
+        const params = new URLSearchParams(window.location.search);
+        let changed = false;
+        if (!params.has('type')) { params.set('type', 'item'); changed = true; }
+        if (!params.has('sorting')) { params.set('sorting', 'desc'); changed = true; }
+        if (changed) {
+          window.location.replace(path + '?' + params.toString());
+        }
+      }
+    });
+  }
+
   function init() {
     // Find the comment section
     const commentsSection = document.querySelector('#comments') || document.querySelector('.comments');
