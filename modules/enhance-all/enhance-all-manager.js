@@ -397,19 +397,28 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
       }
     }
 
-    // 3. Remove keywords that already exist in title, description, or condition
+    // 3. Remove keywords that already exist in title, description, condition, or existing keywords
     if (result.keywords) {
       const allFieldText = [
         result.title || originalData.title || '',
         result.description || '',
-        result.condition || ''
+        result.condition || '',
+        originalData.keywords || ''
       ].join(' ').toLowerCase();
+
+      const existingKwSet = new Set(
+        (originalData.keywords || '').split(/\s+/).map(kw => kw.toLowerCase()).filter(kw => kw.length > 0)
+      );
 
       const keywords = result.keywords.split(/\s+/).filter(kw => {
         if (kw.length < 2) return false;
-        const kwLower = kw.toLowerCase().replace(/-/g, ' ');
-        // Check both hyphenated and unhyphenated forms
-        return !allFieldText.includes(kwLower) && !allFieldText.includes(kw.toLowerCase());
+        const kwLower = kw.toLowerCase();
+        const kwUnhyphenated = kwLower.replace(/-/g, ' ');
+        // Skip if exact match in existing keywords
+        if (existingKwSet.has(kwLower)) return false;
+        // Skip if the word (or unhyphenated form) appears in any field text
+        if (allFieldText.includes(kwUnhyphenated) || allFieldText.includes(kwLower)) return false;
+        return true;
       });
       result.keywords = keywords.join(' ');
     }

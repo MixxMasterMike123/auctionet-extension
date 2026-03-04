@@ -19,7 +19,7 @@ export const TIER_CONFIG = {
         systematicCondition: false,
         internationalKeywords: false
       },
-      keywordCount: { min: 5, max: 10 }
+      keywordCount: { min: 8, max: 12 }
     },
     enrich: {
       id: 'enrich',
@@ -38,7 +38,7 @@ export const TIER_CONFIG = {
         systematicCondition: false,
         internationalKeywords: false
       },
-      keywordCount: { min: 8, max: 15 },
+      keywordCount: { min: 8, max: 12 },
       positiveAbsenceMax: 3
     },
     full: {
@@ -55,9 +55,9 @@ export const TIER_CONFIG = {
         positiveAbsence: true,
         provenanceReminder: true,
         systematicCondition: true,
-        internationalKeywords: true
+        internationalKeywords: false
       },
-      keywordCount: { min: 12, max: 20 },
+      keywordCount: { min: 8, max: 12 },
       positiveAbsenceMax: 5
     }
   },
@@ -128,13 +128,27 @@ AUCTIONET-KONVENTIONER FÖR TITEL:
 - Mattor: ange mått i titeln
 - Konst: ange mått höjd × bredd (utan ram)
 
-NYCKELORD — KOMPLETTERANDE TERMER (KRITISKT):
-- Sökord ska KOMPLETTERA titel, beskrivning och kondition — ALDRIG upprepa ord som redan finns i dessa fält.
+NYCKELORD — KOMPLETTERANDE DOLDA SÖKORD (KRITISKT):
+Sökbara på Auctionet men visas ej för köpare. Dessa ska KOMPLETTERA — ALDRIG upprepa ord som redan finns i titel, beskrivning, kondition eller befintliga nyckelord.
+
+KRITISKT — UNDVIK ALLA UPPREPNINGAR:
 - Läs noggrant igenom dina förbättrade titel/beskrivning INNAN du skapar sökord.
-- Kontrollera även partiella matchningar: "litografi" matchar "färglitografi".
-- Fokusera på ALTERNATIVA söktermer som köpare kan använda: stilperioder, tekniker, användningsområden, alternativa namn.
-- Exempel: Om beskrivning säger "vas" → lägg till "dekoration inredning samlarobjekt", INTE "vas" igen.
-- Format: mellanslag mellan ord, bindestreck för flerordstermer: "art-deco guld-halsband jugend 1970-tal"
+- Om ordet redan finns någonstans i titel, beskrivning, kondition eller befintliga nyckelord — använd det INTE.
+- Kontrollera även PARTIELLA matchningar: "litografi" matchar "färglitografi".
+- Exempel: Om titel säger "färglitografi" — använd INTE "litografi" eller "färglitografi".
+- Fokusera på HELT NYA alternativa söktermer som köpare kan använda.
+
+KOMPLETTERANDE SÖKORD — EXEMPEL:
+- För konsttryck: "grafik reproduktion konstprint limited-edition"
+- För målningar: "oljemålning akvarell konstverk originalverk"
+- För skulptur: "skulptur plastik konstföremål tredimensionell"
+- För möbler: "funktionalism dansk-design skandinavisk-design"
+- För perioder: Använd decennier istället för exakta år: "1970-tal" istället för "1974"
+
+OBLIGATORISKT FORMAT:
+- Separera sökord med MELLANSLAG (ALDRIG kommatecken).
+- Använd "-" för flerordsfraser: "svensk-design", "1970-tal", "limited-edition".
+- SKRIV ENBART PÅ SVENSKA — inga engelska ord.
 - Inga generiska ord som "fin", "gammal", "vintage".`;
 
 // ─── Tier-specific system prompts ───
@@ -162,8 +176,9 @@ TITEL:
 - Korrigera ENBART formatfel. Lämna annars oförändrad.
 
 NYCKELORD:
-- 5-10 KOMPLETTERANDE söktermer som INTE redan finns i titel, beskrivning eller kondition.
+- MAX 10-12 KOMPLETTERANDE söktermer som INTE redan finns i titel, beskrivning, kondition eller befintliga nyckelord.
 - Läs igenom dina förbättrade fält först — generera BARA nya alternativa termer.
+- Returnera ENBART sökorden separerade med mellanslag — inga förklaringar.
 
 Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
 {
@@ -201,8 +216,9 @@ TITEL:
 - Korrigera formatfel. Lämna annars oförändrad.
 
 NYCKELORD:
-- 8-15 KOMPLETTERANDE termer som INTE redan finns i titel, beskrivning eller kondition.
+- MAX 10-12 KOMPLETTERANDE söktermer som INTE redan finns i titel, beskrivning, kondition eller befintliga nyckelord.
 - Fokusera på alternativa söktermer, stilperioder, tekniker, användningsområden.
+- Returnera ENBART sökorden separerade med mellanslag — inga förklaringar.
 
 Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
 {
@@ -244,9 +260,9 @@ TITEL:
 - Korrigera formatfel. Lämna annars oförändrad.
 
 NYCKELORD:
-- 12-20 KOMPLETTERANDE termer som INTE redan finns i titel, beskrivning eller kondition.
+- MAX 10-12 KOMPLETTERANDE söktermer som INTE redan finns i titel, beskrivning, kondition eller befintliga nyckelord.
 - Fokusera på alternativa söktermer, stilperioder, tekniker, användningsområden.
-- Inkludera internationella söktermer (engelska).
+- Returnera ENBART sökorden separerade med mellanslag — inga förklaringar.
 
 Svara med EXAKT detta JSON-format (inget annat, inga markdown-kodblock):
 {
