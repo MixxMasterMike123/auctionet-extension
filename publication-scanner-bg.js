@@ -2,6 +2,9 @@
  * Publication Scanner — Background Service Worker Module
  * Runs publication queue quality scans independently of any open tab.
  * Results are cached in chrome.storage.local for the dashboard to render.
+ *
+ * DOMParser is not available in service workers, so HTML parsing is
+ * delegated to an offscreen document (offscreen.html / offscreen.js).
  */
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -35,6 +38,50 @@ async function loadMisspellingsMap() {
   return misspellingsMap;
 }
 
+// ─── Offscreen document management ──────────────────────────────────
+// Only one offscreen document can exist at a time per extension.
+
+let offscreenReady = false;
+
+async function ensureOffscreen() {
+  if (offscreenReady) return;
+  // Check if already exists (e.g. from a previous scan)
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [chrome.runtime.getURL('offscreen.html')]
+  });
+  if (existingContexts.length > 0) {
+    offscreenReady = true;
+    return;
+  }
+  await chrome.offscreen.createDocument({
+    url: 'offscreen.html',
+    reasons: ['DOM_PARSER'],
+    justification: 'Parse Auctionet HTML pages using DOMParser for publication scan'
+  });
+  offscreenReady = true;
+}
+
+async function closeOffscreen() {
+  try {
+    await chrome.offscreen.closeDocument();
+  } catch (e) { /* already closed or never opened */ }
+  offscreenReady = false;
+}
+
+// Send a parse request to the offscreen document and return the result
+function sendParseRequest(type, html) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ target: 'offscreen', type, html }, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
 // ─── HTML fetching ──────────────────────────────────────────────────
 
 async function fetchPageHtml(path) {
@@ -53,119 +100,22 @@ async function fetchPageHtml(path) {
   }
 }
 
-// ─── HTML parsing (DOMParser works in service worker) ───────────────
+// ─── HTML parsing (delegated to offscreen document) ──────────────────
 
-function parsePublishablesPage(html) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const items = [];
-
-  doc.querySelectorAll('tr').forEach(tr => {
-    const imgTd = tr.querySelector('td.square-image');
-    if (!imgTd) return;
-
-    const itemLink = tr.querySelector('a[title]');
-    if (!itemLink) return;
-
-    const title = (itemLink.getAttribute('title') || '').trim();
-    const idMatch = title.match(/^(\d+)\./);
-    const itemId = idMatch ? parseInt(idMatch[1]) : null;
-    if (!itemId) return;
-
-    const editLink = Array.from(tr.querySelectorAll('a')).find(a =>
-      a.textContent.trim() === 'Redigera'
-    );
-    const editUrl = editLink ? editLink.getAttribute('href') : null;
-    const hasImage = !!imgTd.querySelector('img');
-
-    items.push({ itemId, title, editUrl, hasImage });
-  });
-  return items;
+async function parsePublishablesPage(html) {
+  return sendParseRequest('parse-publishables', html);
 }
 
-function detectPublishablePages(html) {
-  const normalized = html.replace(/&nbsp;/g, ' ').replace(/\u00a0/g, ' ');
-  const match = normalized.match(/Visar resultat\s+\d+\s*[-–]\s*(\d+)\s+av\s+(\d[\d\s]*)/i);
-  if (match) {
-    const perPage = parseInt(match[1]);
-    const total = parseInt(match[2].replace(/\s/g, ''));
-    if (total > 0 && perPage > 0) return Math.ceil(total / perPage);
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  let maxPage = 1;
-  doc.querySelectorAll('a[href*="page="]').forEach(a => {
-    const m = a.getAttribute('href').match(/page=(\d+)/);
-    if (m) maxPage = Math.max(maxPage, parseInt(m[1]));
-  });
-  return maxPage;
+async function detectPublishablePages(html) {
+  return sendParseRequest('detect-pages', html);
 }
 
-function parseShowPageForScan(html) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-
-  let imageCount = 0;
-  doc.querySelectorAll('img').forEach(img => {
-    const src = img.getAttribute('src') || '';
-    if (src.includes('images.auctionet.com') && !src.includes('placeholder')) {
-      imageCount++;
-    }
-  });
-
-  let description = '';
-  let condition = '';
-
-  const detailsSection = doc.querySelector('.details-texts') || doc.querySelector('.row.details-texts');
-  if (detailsSection) {
-    const headings = detailsSection.querySelectorAll('h5');
-    headings.forEach(h5 => {
-      const label = h5.textContent.trim().toLowerCase();
-      const valueDiv = h5.nextElementSibling;
-      if (!valueDiv) return;
-      const text = valueDiv.textContent.trim();
-
-      if (label.includes('beskrivning')) {
-        description = text;
-      } else if (label.includes('kondition')) {
-        condition = text;
-      }
-    });
-  }
-
-  return { imageCount, description, condition };
+async function parseShowPageForScan(html) {
+  return sendParseRequest('parse-show-page', html);
 }
 
-function parseEditPageFields(html) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-
-  let keywords = '';
-  const kwEl = doc.querySelector('#item_hidden_keywords') ||
-               doc.querySelector('input[name*="keywords"]') ||
-               doc.querySelector('textarea[name*="keywords"]');
-  if (kwEl) {
-    const tagName = kwEl.tagName.toLowerCase();
-    if (tagName === 'textarea') {
-      keywords = (kwEl.textContent || '').trim();
-    } else {
-      keywords = (kwEl.getAttribute('value') || '').trim();
-    }
-  }
-
-  let editTitle = '';
-  const titleEl = doc.querySelector('#item_title_sv');
-  if (titleEl) editTitle = (titleEl.getAttribute('value') || titleEl.textContent || '').trim();
-
-  let artist = '';
-  const artistEl = doc.querySelector('#item_artist_name_sv');
-  if (artistEl) artist = (artistEl.getAttribute('value') || artistEl.textContent || '').trim();
-
-  let estimate = 0;
-  const estEl = doc.querySelector('#item_current_auction_attributes_estimate');
-  if (estEl) estimate = parseFloat(estEl.getAttribute('value')) || 0;
-
-  return { keywords, editTitle, artist, estimate };
+async function parseEditPageFields(html) {
+  return sendParseRequest('parse-edit-page', html);
 }
 
 // ─── Quality checks ─────────────────────────────────────────────────
@@ -373,6 +323,9 @@ export async function runBackgroundPublicationScan() {
   scanRunning = true;
 
   try {
+    // Create offscreen document for HTML parsing
+    await ensureOffscreen();
+
     // Load API key
     let apiKey = null;
     try {
@@ -403,14 +356,15 @@ export async function runBackgroundPublicationScan() {
       return null;
     }
 
-    const totalPages = detectPublishablePages(firstPageHtml);
-    let allItems = parsePublishablesPage(firstPageHtml);
+    const totalPages = await detectPublishablePages(firstPageHtml);
+    let allItems = await parsePublishablesPage(firstPageHtml);
 
     if (totalPages > 1) {
       for (let p = 2; p <= totalPages; p++) {
         reportProgress(`Hämtar sida ${p}/${totalPages}...`);
         const html = await fetchPageHtml(`${baseUrl}?page=${p}`);
-        allItems.push(...parsePublishablesPage(html));
+        const pageItems = await parsePublishablesPage(html);
+        allItems.push(...pageItems);
       }
     }
 
@@ -440,8 +394,8 @@ export async function runBackgroundPublicationScan() {
             fetchPageHtml(showUrl),
             fetchPageHtml(item.editUrl)
           ]);
-          const showData = parseShowPageForScan(showHtml);
-          const editFields = parseEditPageFields(editHtml);
+          const showData = await parseShowPageForScan(showHtml);
+          const editFields = await parseEditPageFields(editHtml);
           const editData = {
             title: item.title, editTitle: editFields.editTitle, artist: editFields.artist,
             imageCount: showData.imageCount, description: showData.description,
@@ -536,6 +490,8 @@ export async function runBackgroundPublicationScan() {
     return null;
   } finally {
     scanRunning = false;
+    // Close offscreen document to free resources
+    closeOffscreen();
   }
 }
 

@@ -1188,9 +1188,9 @@
     }
   }
 
-  // Listen for background scan completion — reload cache and re-render
+  // Listen for background scan completion or failure — reload cache and re-render
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'publication-scan-complete') {
+    if (message.type === 'publication-scan-complete' || message.type === 'publication-scan-failed') {
       (async () => {
         try {
           const cached = await new Promise(resolve =>
@@ -1198,9 +1198,12 @@
           );
           if (cached && cached._version === 4) {
             await renderPublicationResults(cached);
+          } else {
+            renderPublicationEmpty();
           }
         } catch (e) {
-          console.error('[AdminDashboard] Failed to render after scan completion:', e);
+          console.error('[AdminDashboard] Failed to render after scan:', e);
+          renderPublicationEmpty();
         }
       })();
     }

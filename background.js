@@ -33,21 +33,27 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 async function runPublicationScanAndNotify() {
   try {
     const result = await runBackgroundPublicationScan();
-    if (result) {
-      // Notify any open dashboard tab to re-render
-      chrome.tabs.query({ url: 'https://auctionet.com/admin/sas' }, (tabs) => {
-        tabs.forEach(tab => {
-          chrome.tabs.sendMessage(tab.id, { type: 'publication-scan-complete' }).catch(() => {});
-        });
-      });
-    }
+    // Always notify dashboard tabs — even if result is null (e.g., not logged in),
+    // so the dashboard can stop showing the spinner and render cached data or empty state.
+    notifyDashboardTabs(result ? 'publication-scan-complete' : 'publication-scan-failed');
   } catch (e) {
     console.error('[Background] Publication scan failed:', e);
+    notifyDashboardTabs('publication-scan-failed');
   }
 }
 
+function notifyDashboardTabs(messageType) {
+  chrome.tabs.query({ url: 'https://auctionet.com/admin/sas' }, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, { type: messageType }).catch(() => {});
+    });
+  });
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  
+  // Skip messages targeted at the offscreen document
+  if (request.target === 'offscreen') return false;
+
   if (request.type === 'anthropic-fetch') {
     // Handle async operation properly
     handleAnthropicRequest(request, sendResponse);
