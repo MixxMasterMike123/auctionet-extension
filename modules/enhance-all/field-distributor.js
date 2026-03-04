@@ -71,6 +71,11 @@ export class FieldDistributor {
       this._triggerReanalysis();
     }
 
+    // Add per-field undo buttons
+    if (applied.length > 0) {
+      this._addUndoButtons(applied);
+    }
+
     console.log(`[FieldDistributor] Applied ${applied.length} fields:`, applied);
     return applied;
   }
@@ -156,6 +161,7 @@ export class FieldDistributor {
       }
     }
     this.originalValues.clear();
+    this._removeAllUndoButtons();
     this._triggerReanalysis();
   }
 
@@ -185,6 +191,50 @@ export class FieldDistributor {
    */
   hasUndoData() {
     return this.originalValues.size > 0;
+  }
+
+  // ─── Undo buttons ───
+
+  /**
+   * Add per-field undo buttons next to each enhanced field.
+   * Reuses the same .ai-undo-button styling as individual "Förbättra" buttons.
+   */
+  _addUndoButtons(appliedFields) {
+    for (const fieldType of appliedFields) {
+      const selector = FieldDistributor.FIELD_MAP[fieldType];
+      const field = document.querySelector(selector);
+      if (!field) continue;
+
+      // Find the AI button wrapper (same approach as UIManager.addUndoButton)
+      const searchType = fieldType === 'title-correct' ? 'title' : fieldType;
+      const aiButton = document.querySelector(`.ai-assist-button[data-field-type="${searchType}"]`);
+      const wrapper = aiButton?.closest('.ai-button-wrapper');
+      if (!wrapper) continue;
+
+      // Remove any existing undo button in this wrapper
+      const existing = wrapper.querySelector('.ai-undo-button');
+      if (existing) existing.remove();
+
+      const undoButton = document.createElement('button');
+      undoButton.className = 'ai-undo-button';
+      undoButton.textContent = '\u21A9 \u00C5ngra';
+      undoButton.type = 'button';
+      undoButton.dataset.undoField = fieldType;
+
+      undoButton.addEventListener('click', () => {
+        this.undoField(fieldType);
+        undoButton.remove();
+      });
+
+      wrapper.appendChild(undoButton);
+    }
+  }
+
+  /**
+   * Remove all undo buttons from the DOM
+   */
+  _removeAllUndoButtons() {
+    document.querySelectorAll('.ai-undo-button[data-undo-field]').forEach(btn => btn.remove());
   }
 
   // ─── Helpers ───
