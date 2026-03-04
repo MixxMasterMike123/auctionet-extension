@@ -223,7 +223,7 @@ export class EnhanceAllManager {
 
     if (result.success) return result.text;
 
-    // Retry on overload/rate-limit (up to 3 attempts)
+    // Overload/rate-limit → fall back to Sonnet immediately
     const isOverloaded = result.error && (
       result.error.includes('Overloaded') || result.error.includes('overloaded') ||
       result.error.includes('rate limit') || result.error.includes('429')
@@ -327,7 +327,28 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
         return null;
       }
 
-      const parsed = JSON.parse(match[0]);
+      let jsonStr = match[0];
+
+      // Fix unescaped quotes inside JSON string values (e.g. "Daisy" inside a value)
+      // Try parsing first; if it fails, attempt to sanitize
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch {
+        // Replace unescaped inner quotes: find "value with "inner" quotes" patterns
+        // Strategy: process each "key": "value" pair, escaping inner quotes
+        jsonStr = jsonStr.replace(
+          /("(?:title|description|condition|keywords|biography)")\s*:\s*"([\s\S]*?)"\s*(?=[,}])/g,
+          (fullMatch, key, value) => {
+            // Escape any unescaped double quotes within the value
+            const escaped = value.replace(/\\"/g, '\x00') // preserve already-escaped
+              .replace(/"/g, '\\"')
+              .replace(/\x00/g, '\\"'); // restore
+            return `${key}: "${escaped}"`;
+          }
+        );
+        parsed = JSON.parse(jsonStr);
+      }
 
       return {
         title: parsed.title || null,

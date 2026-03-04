@@ -227,38 +227,40 @@ Svara i JSON:
 imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grupp.`
     });
 
-    return new Promise((resolve, reject) => {
+    const callAPI = (model) => new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
         apiKey,
-        body: {
-          model: 'claude-opus-4-6',
-          max_tokens: 400,
-          temperature: 0.2,
-          messages: [{ role: 'user', content }]
-        }
+        body: { model, max_tokens: 400, temperature: 0.2, messages: [{ role: 'user', content }] }
       }, (response) => {
         if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
         if (!response?.success) return reject(new Error(response?.error || 'Klustring misslyckades'));
-
-        try {
-          const text = response.data.content?.[0]?.text || '';
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error('Kunde inte tolka klustringssvar');
-
-          const parsed = JSON.parse(jsonMatch[0]);
-          const groups = (parsed.groups || []).map((g, i) => ({
-            id: g.id || i + 1,
-            imageIndices: Array.isArray(g.imageIndices) ? g.imageIndices : [],
-            label: g.label || `Grupp ${i + 1}`
-          }));
-
-          resolve(groups);
-        } catch (e) {
-          reject(new Error('Kunde inte tolka klustringssvar: ' + e.message));
-        }
+        resolve(response);
       });
     });
+
+    let response;
+    try {
+      response = await callAPI('claude-opus-4-6');
+    } catch (err) {
+      if (err.message?.includes('Overloaded') || err.message?.includes('overloaded') || err.message?.includes('429')) {
+        console.warn('[ValuationRequest] Opus overloaded — falling back to Sonnet for clustering');
+        response = await callAPI('claude-sonnet-4-5');
+      } else {
+        throw err;
+      }
+    }
+
+    const text = response.data.content?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Kunde inte tolka klustringssvar');
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return (parsed.groups || []).map((g, i) => ({
+      id: g.id || i + 1,
+      imageIndices: Array.isArray(g.imageIndices) ? g.imageIndices : [],
+      label: g.label || `Grupp ${i + 1}`
+    }));
   }
 
   // ─── Clustering UI (Drag & Drop) ───────────────────────────────────
@@ -667,63 +669,59 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
 - För modellnamn: var specifik (t.ex. "Kröken", "Lamino", "Egg Chair", "DS Nautic" — inte bara "fåtölj")`
     });
 
-    return new Promise((resolve, reject) => {
+    const callValuationAPI = (m) => new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
         apiKey,
-        body: {
-          model,
-          max_tokens: 1200,
-          temperature: 0.5,
-          system: systemPrompt,
-          messages: [{ role: 'user', content }]
-        }
+        body: { model: m, max_tokens: 1200, temperature: 0.5, system: systemPrompt, messages: [{ role: 'user', content }] }
       }, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        if (!response?.success) {
-          reject(new Error(response?.error || 'Analys misslyckades'));
-          return;
-        }
-
-        try {
-          const text = response.data.content?.[0]?.text || '';
-          // Extract JSON from response (may be wrapped in markdown code blocks)
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error('Kunde inte tolka svaret');
-
-          const parsed = JSON.parse(jsonMatch[0]);
-          const numberOfLots = parseInt(parsed.numberOfLots) || parseInt(parsed.numberOfObjects) || 1;
-          const pieces = parseInt(parsed.pieces) || numberOfLots;
-          const isSet = Boolean(parsed.isSet) || pieces > numberOfLots;
-          resolve({
-            objectType: parsed.objectType || 'Föremål',
-            brand: parsed.brand || null,
-            artist: parsed.artist || null,
-            model: parsed.model || null,
-            material: parsed.material || null,
-            period: parsed.period || null,
-            numberOfLots,
-            numberOfObjects: numberOfLots,
-            pieces,
-            isSet,
-            briefDescription: parsed.briefDescription || '',
-            estimatedValue: parseInt(parsed.estimatedValue) || 0,
-            estimatedValuePerLot: parseInt(parsed.estimatedValuePerLot) || parseInt(parsed.estimatedValuePerItem) || parseInt(parsed.estimatedValue) || 0,
-            estimatedValuePerItem: parseInt(parsed.estimatedValuePerLot) || parseInt(parsed.estimatedValuePerItem) || parseInt(parsed.estimatedValue) || 0,
-            tooLowForAuction: Boolean(parsed.tooLowForAuction),
-            confidence: parseFloat(parsed.confidence) || 0.5,
-            reasoning: parsed.reasoning || '',
-            marketDataUsed: false,
-            marketSales: 0
-          });
-        } catch (parseError) {
-          reject(new Error('Kunde inte tolka svaret: ' + parseError.message));
-        }
+        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+        if (!response?.success) return reject(new Error(response?.error || 'Analys misslyckades'));
+        resolve(response);
       });
     });
+
+    let response;
+    try {
+      response = await callValuationAPI(model);
+    } catch (err) {
+      if ((err.message?.includes('Overloaded') || err.message?.includes('overloaded') || err.message?.includes('429')) && model.includes('opus')) {
+        console.warn('[ValuationRequest] Opus overloaded — falling back to Sonnet for valuation');
+        response = await callValuationAPI('claude-sonnet-4-5');
+      } else {
+        throw err;
+      }
+    }
+
+    const text = response.data.content?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Kunde inte tolka svaret');
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const numberOfLots = parseInt(parsed.numberOfLots) || parseInt(parsed.numberOfObjects) || 1;
+    const pieces = parseInt(parsed.pieces) || numberOfLots;
+    const isSet = Boolean(parsed.isSet) || pieces > numberOfLots;
+    return {
+      objectType: parsed.objectType || 'Föremål',
+      brand: parsed.brand || null,
+      artist: parsed.artist || null,
+      model: parsed.model || null,
+      material: parsed.material || null,
+      period: parsed.period || null,
+      numberOfLots,
+      numberOfObjects: numberOfLots,
+      pieces,
+      isSet,
+      briefDescription: parsed.briefDescription || '',
+      estimatedValue: parseInt(parsed.estimatedValue) || 0,
+      estimatedValuePerLot: parseInt(parsed.estimatedValuePerLot) || parseInt(parsed.estimatedValuePerItem) || parseInt(parsed.estimatedValue) || 0,
+      estimatedValuePerItem: parseInt(parsed.estimatedValuePerLot) || parseInt(parsed.estimatedValuePerItem) || parseInt(parsed.estimatedValue) || 0,
+      tooLowForAuction: Boolean(parsed.tooLowForAuction),
+      confidence: parseFloat(parsed.confidence) || 0.5,
+      reasoning: parsed.reasoning || '',
+      marketDataUsed: false,
+      marketSales: 0
+    };
   }
 
   async _enrichWithMarketData(result) {

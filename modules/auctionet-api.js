@@ -1397,18 +1397,15 @@ Svara ENBART med en JSON-array. Varje element: {"i": nummer, "r": true/false}
 Där "i" = resultatnummer (1-baserat), "r" = true om jämförbar, false om inte.
 Ingen annan text.`;
 
-      const response = await new Promise((resolve, reject) => {
+      const callValidationAPI = (model) => new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this._apiManager.apiKey,
           body: {
-            model: 'claude-haiku-4-5',
+            model,
             max_tokens: 500,
             temperature: 0,
-            messages: [{
-              role: 'user',
-              content: prompt
-            }]
+            messages: [{ role: 'user', content: prompt }]
           }
         }, (response) => {
           if (chrome.runtime.lastError) {
@@ -1421,12 +1418,28 @@ Ingen annan text.`;
         });
       });
 
+      let response;
+      try {
+        response = await callValidationAPI('claude-haiku-4-5');
+      } catch (haikuError) {
+        const isOverloaded = haikuError.message && (
+          haikuError.message.includes('Overloaded') || haikuError.message.includes('overloaded') ||
+          haikuError.message.includes('rate limit') || haikuError.message.includes('429')
+        );
+        if (isOverloaded) {
+          console.warn('AI validation: Haiku overloaded — retrying with Sonnet');
+          response = await callValidationAPI('claude-sonnet-4-5');
+        } else {
+          throw haikuError;
+        }
+      }
+
       if (!response.success || !response.data?.content?.[0]?.text) {
         return null;
       }
 
       const text = response.data.content[0].text.trim();
-      
+
       // Parse JSON response — extract array from potential markdown code block
       let parsed;
       try {

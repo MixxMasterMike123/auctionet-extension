@@ -329,33 +329,44 @@ Regler:
 - VIKTIGT: Svara BARA med JSON, ingen text före eller efter`;
 
     try {
-      console.log(`[BiographyKB] Fetching biography for "${artistName}" via claude-opus-4-6`);
-      const response = await new Promise((resolve, reject) => {
+      const callBioAPI = (model) => new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           apiKey: this.apiManager.apiKey,
           body: {
-            model: 'claude-opus-4-6',
+            model,
             max_tokens: 250,
             temperature: 0.2,
             system: 'Du är en konstexpert. Svara ALLTID med valid JSON. Inga kommentarer utanför JSON.',
-            messages: [{
-              role: 'user',
-              content: prompt
-            }]
+            messages: [{ role: 'user', content: prompt }]
           }
         }, (response) => {
           if (chrome.runtime.lastError) {
-            console.error('[BiographyKB] Chrome runtime error:', chrome.runtime.lastError.message);
             reject(new Error(chrome.runtime.lastError.message));
           } else if (response && response.success) {
             resolve(response);
           } else {
-            console.error('[BiographyKB] API response error:', response?.error || 'Unknown error');
             reject(new Error(response?.error || 'Biography fetch failed'));
           }
         });
       });
+
+      console.log(`[BiographyKB] Fetching biography for "${artistName}" via claude-opus-4-6`);
+      let response;
+      try {
+        response = await callBioAPI('claude-opus-4-6');
+      } catch (opusError) {
+        const isOverloaded = opusError.message && (
+          opusError.message.includes('Overloaded') || opusError.message.includes('overloaded') ||
+          opusError.message.includes('rate limit') || opusError.message.includes('429')
+        );
+        if (isOverloaded) {
+          console.warn('[BiographyKB] Opus overloaded — falling back to Sonnet');
+          response = await callBioAPI('claude-sonnet-4-5');
+        } else {
+          throw opusError;
+        }
+      }
 
       if (response.success && response.data?.content?.[0]?.text) {
         const text = response.data.content[0].text.trim();
