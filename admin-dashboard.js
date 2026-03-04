@@ -1166,7 +1166,20 @@
   // ─── Publication Scanner: trigger & init ──────────────────────
 
   function triggerPublicationScan() {
-    renderPublicationLoading('Startar skanning...');
+    // If results are already showing, keep them visible and just add an inline spinner
+    const header = document.querySelector('.ext-pubscan__header');
+    const runBtn = header?.querySelector('.ext-pubscan__run');
+    if (runBtn && !header.querySelector('.ext-pubscan__inline-progress')) {
+      runBtn.disabled = true;
+      runBtn.style.opacity = '0.5';
+      const progress = document.createElement('span');
+      progress.className = 'ext-pubscan__inline-progress';
+      progress.innerHTML = '<span class="ext-pubscan__spinner"></span> Skannar...';
+      header.insertBefore(progress, runBtn);
+    } else if (!header) {
+      // No results yet — show the full loading screen
+      renderPublicationLoading('Startar skanning...');
+    }
     chrome.runtime.sendMessage({ type: 'run-publication-scan' });
   }
 
@@ -1214,7 +1227,13 @@
     if (area === 'local' && changes.publicationScanProgress) {
       const progress = changes.publicationScanProgress.newValue;
       if (progress) {
-        renderPublicationLoading(progress);
+        // Update inline progress if results are visible, otherwise full loading screen
+        const inlineProgress = document.querySelector('.ext-pubscan__inline-progress');
+        if (inlineProgress) {
+          inlineProgress.innerHTML = `<span class="ext-pubscan__spinner"></span> ${escapeHTML(progress)}`;
+        } else {
+          renderPublicationLoading(progress);
+        }
       }
     }
   });
