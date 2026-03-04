@@ -1,6 +1,6 @@
 	# Auctionet AI Cataloging Assistant
 
-**Version 2.1.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 2.2.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
@@ -98,7 +98,7 @@ A single-click feature that processes ALL form fields simultaneously using a thr
 - Moves condition-related text from description to the condition field
 - Formats measurements with "ca" prefix at end of description
 - Corrects title formatting errors
-- Generates 5–10 keywords
+- Generates 10–12 complementary Swedish keywords
 - Adds **nothing** that isn't already in the source data
 
 **Tier 2 — Berika (3,000–10,000 SEK)**
@@ -106,7 +106,7 @@ A single-click feature that processes ALL form fields simultaneously using a thr
 - Adds 1 identifying sentence about the object
 - May add 1 contextual sentence about maker, workshop, or technique (from AI knowledge)
 - Adds 1 "positive absence" statement (e.g., "Inga kantnagg observerade")
-- Generates 8–15 keywords including style periods and designer variants
+- Generates 10–12 complementary Swedish keywords including style periods and designer variants
 - Parallel API calls: Sonnet for structure + Opus for maker biography (when artist field is populated)
 
 **Tier 3 — Full (> 10,000 SEK)**
@@ -115,7 +115,7 @@ A single-click feature that processes ALL form fields simultaneously using a thr
 - Provenance section (only if provenance data exists in source — never invented)
 - Provenance reminder notification when no provenance data is detected
 - Systematic condition assessment with 2–3 "positive absence" statements
-- 12–20 keywords including international English search terms
+- Generates 10–12 complementary Swedish keywords
 - Uses Opus 4.6 for highest quality output
 
 ### User Interface
@@ -127,6 +127,7 @@ A single-click feature that processes ALL form fields simultaneously using a thr
 5. **Loading progress** — step-by-step indicators (extract → tier → enhance → bio → preview)
 6. **Preview modal** — shows before/after for each field (title, description, condition, keywords) with per-field accept/reject checkboxes
 7. **Three action buttons:** Cancel, Accept Selected (only checked fields), Accept All
+8. **Per-field undo buttons** — after applying enhancements, each enhanced field gets a red "↩ Ångra" button (same styling as individual "Förbättra" buttons) that restores the original value for that field, allowing users to try different tiers without refreshing the page
 
 ### Safeguards
 
@@ -134,7 +135,8 @@ A single-click feature that processes ALL form fields simultaneously using a thr
 - **Artist exclusion from title:** When the artist field is populated, the AI excludes the artist name from the title (enforced both in prompt and by post-processing validation)
 - **Unknown artist protection:** "Okänd konstnär" / "Oidentifierad konstnär" terms are stripped from all AI output
 - **Subjective word filter:** Forbidden words (fin, vacker, värdefull, unik, elegant, etc.) are automatically removed from results
-- **Keyword deduplication:** Keywords already present in the title are removed
+- **Keyword deduplication:** Keywords already present in title, description, condition, or existing keywords are removed. Both exact and partial matches are checked (e.g., "litografi" matches "färglitografi")
+- **Swedish only:** All keywords are generated in Swedish — no English terms. Format: space-separated, hyphens for multi-word phrases (e.g., "svensk-design 1970-tal limited-edition")
 - **Paragraph preservation:** Description paragraphs are separated with proper line breaks in both preview and form fields
 - **Quality re-analysis:** After applying changes, the quality scoring system re-runs automatically
 
@@ -585,16 +587,24 @@ Stacked bar chart showing distribution of items across states:
 
 ### Publication Queue Scanner
 
-A quality scanner that proactively checks all items in the publication queue before they go live, identifying critical errors and warnings without leaving the dashboard.
+A quality scanner that proactively checks all items in the publication queue before they go live, identifying critical errors and warnings without leaving the dashboard. Runs entirely in the background service worker — scans execute every 10 minutes regardless of whether the dashboard tab is open, so users always see fresh data when they navigate to the dashboard.
+
+**Architecture:**
+
+The scanner runs in the background service worker (`publication-scanner-bg.js`), not in the dashboard content script. This means scans happen automatically even when the user is working on other pages. Since Chrome MV3 service workers don't have `DOMParser`, HTML parsing is delegated to a Chrome Offscreen Document (`offscreen.html` / `offscreen.js`) via `chrome.runtime.sendMessage`.
 
 **How it works:**
 
-1. Fetches the `/admin/sas/publishables` page and parses all item rows from the table
-2. **Phase 1 (fast):** Checks for missing images and empty/short titles from the list page data
-3. **Phase 2 (deep):** For each item, fetches the show page (images, description, condition) and edit page (title, artist, hidden keywords) in parallel, in batches of 5 concurrent requests
-4. Runs quality checks against the same thresholds as the quality rules engine
-5. Caches results in `chrome.storage.local` for fast reload
-6. **Scheduled full scan every 10 minutes** via `chrome.alarms` — every scan (automatic or manual) performs a full deep-scan of all items: images, spelling, descriptions, conditions, and keywords. Items that have left the publication queue are automatically removed from results. Manual "Kör nu" button triggers an immediate full scan.
+1. **Background alarm** fires every 10 minutes via `chrome.alarms`, plus an immediate scan on extension install/update via `chrome.runtime.onInstalled`
+2. Service worker creates an offscreen document for DOMParser access
+3. Fetches the `/admin/sas/publishables` page (with `credentials: 'include'` for cookie-based auth) and delegates HTML parsing to the offscreen document
+4. **Phase 1 (fast):** Checks for missing images and empty/short titles from the list page data
+5. **Phase 2 (deep):** For each item, fetches the show page (images, description, condition) and edit page (title, artist, hidden keywords) in parallel, in batches of 5 concurrent requests
+6. Runs quality checks against the same thresholds as the quality rules engine
+7. Caches results in `chrome.storage.local` and notifies any open dashboard tabs via `chrome.tabs.sendMessage`
+8. Dashboard renders cached results immediately on load; listens for `publication-scan-complete` / `publication-scan-failed` messages to refresh
+9. Progress updates (e.g., "Skannar 12/32...") are written to `chrome.storage.local` and picked up reactively by the dashboard via `chrome.storage.onChanged`
+10. Manual "Kör nu" button sends `run-publication-scan` message to the background service worker for an immediate full scan
 
 **Quality checks performed:**
 
@@ -634,11 +644,12 @@ Items with an estimate ≥ 3,000 SEK are flagged as "high value" throughout the 
 
 **Spellcheck integration:**
 
-The scanner uses the same AI-based spellcheck as the edit page — Claude Sonnet via `chrome.runtime.sendMessage` → `background.js` → Anthropic API. Both pages share identical prompts and model configuration for consistent results. This runs against the combined title, description, and condition text of each item, catching all Swedish spelling errors (not just known dictionary entries). Falls back to a dictionary imported from `SwedishSpellChecker.getMisspellingsMap()` if no API key is configured.
+The scanner calls the Anthropic API directly from the service worker (no message-passing needed since it's already in the background). Claude Sonnet checks the combined title, description, and condition text of each item for Swedish spelling errors. Falls back to a dictionary imported from `SwedishSpellChecker.getMisspellingsMap()` if no API key is configured.
 
 ### Technical details
 
-- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, cataloger stats are all scraped from the existing page DOM. The warehouse cost widget and publication scanner fetch additional Auctionet admin pages (same-origin). The publication scanner uses Claude Sonnet for spellcheck (one API call per item with text content)
+- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, cataloger stats are all scraped from the existing page DOM. The warehouse cost widget fetches additional Auctionet admin pages (same-origin). The publication scanner runs in the background service worker and calls Claude Sonnet for spellcheck (one API call per item with text content)
+- **Background scanning** — the publication scanner runs in `publication-scanner-bg.js` (background service worker), independent of the dashboard tab. The dashboard content script (`admin-dashboard.js`) only reads cached results from `chrome.storage.local` and listens for completion messages
 - **Progressive rendering** — components render immediately with available data; lazy-loaded turbo-frame content is picked up via MutationObserver as it arrives
 - **Admin-gated** — all dashboard enhancements require admin mode to be unlocked via PIN; otherwise the page loads as vanilla Auctionet
 - Lightweight self-contained async IIFE — no module imports needed
@@ -776,7 +787,9 @@ The PIN is hashed with SHA-256 before storage. Admin state is stored in sync sto
 ```
 auctionet-extension/
 ├── manifest.json                          # Chrome extension manifest (V3)
-├── background.js                          # Service worker (API proxy, image fetching)
+├── background.js                          # Service worker (API proxy, image fetching, scan scheduling)
+├── publication-scanner-bg.js              # Background publication scanner (ES module)
+├── offscreen.html / offscreen.js          # Offscreen document for DOMParser (service worker can't use DOM)
 ├── content-script.js                      # Edit page entry point
 ├── content.js                             # Add/view page entry point
 ├── valuation-request.js                   # Valuation request page entry point
@@ -906,8 +919,16 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
         ├──► Admin Dashboard ──► DOM Scraping (zero API calls)
         │         └──► KPI Cards / Pipeline Funnel / Pricing Insights / Comment Feed
         │
-        └──► Comment Enhancer ──► DOM Scraping (zero API calls)
-                  └──► Comment Badges / Rich Feed / Entity Filters
+        ├──► Comment Enhancer ──► DOM Scraping (zero API calls)
+        │         └──► Comment Badges / Rich Feed / Entity Filters
+        │
+        └──► Background Service Worker (independent of open tabs)
+                  ├──► chrome.alarms (10 min) / onInstalled ──► Publication Scanner
+                  ├──► publication-scanner-bg.js ──► fetch (with cookies)
+                  ├──► offscreen.js ──► DOMParser (HTML parsing)
+                  ├──► Anthropic API (spellcheck, direct call)
+                  ├──► chrome.storage.local (cache results + progress)
+                  └──► chrome.tabs.sendMessage ──► Dashboard (notify on completion)
 ```
 
 ### Performance Characteristics
@@ -915,7 +936,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 - **API caching:** Market data cached for 30 minutes to minimize API calls
 - **Biography caching:** Artist biographies cached in localStorage for 7 days (reused by both Biography KB Card and Enhance All Tier 2)
 - **Warehouse caching:** Warehouse cost data cached for 12 hours in Chrome local storage with manual refresh
-- **Publication scan caching:** Scan results cached in Chrome local storage; full auto-rescan every 10 minutes via `chrome.alarms` (all items re-checked for images, spelling, descriptions, conditions, and keywords). Items no longer in the publication queue are automatically removed. Ignored items persisted separately in `publicationScanIgnored` storage key.
+- **Publication scan caching:** Scan results cached in Chrome local storage; full auto-rescan every 10 minutes via `chrome.alarms` in the background service worker (runs regardless of open tabs). Initial scan on extension install/update via `onInstalled`. HTML parsing delegated to offscreen document. Items no longer in the publication queue are automatically removed. Ignored items persisted separately in `publicationScanIgnored` storage key.
 - **Prompt caching:** System prompts use Anthropic's `cache_control: { type: 'ephemeral' }` for ~90% token savings on repeated calls
 - **Debounced monitoring:** Field changes are batched (typically 300-800ms) before triggering re-analysis
 - **Lazy loading:** Market dashboard only runs analysis when opened
@@ -950,7 +971,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 | Customer info (name, email) | Scraped from page, used locally for email generation | Session only — not persisted |
 | Search queries | Sent to Auctionet API for market data | Cached locally for 30 min / 1 hour |
 | Warehouse cost data | Scraped from Auctionet solds list pages (same-origin fetch) | Cached locally for 12 hours |
-| Publication scan data | Scraped from Auctionet publishables, show, and edit pages (same-origin fetch) | Cached locally; incremental rescan every 10 min |
+| Publication scan data | Fetched from Auctionet publishables, show, and edit pages (background service worker with cookie auth) | Cached locally; full rescan every 10 min |
 | Admin PIN | Hashed (SHA-256) in Chrome local storage | Until user changes it |
 | Artist names | Sent to Wikipedia for images | Not stored |
 | Artist biographies | Generated via Anthropic API, used for Enhance All and Biography KB Card | Cached locally for 7 days |
@@ -962,4 +983,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated March 4, 2026. Reflects extension version 2.1.0.*
+*Document updated March 4, 2026. Reflects extension version 2.2.0.*
