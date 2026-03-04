@@ -46,24 +46,33 @@ export class ArtistDetectionManager {
       }
     }
 
+    // COST OPTIMIZATION: When artist field is empty, try rule-based detection first.
+    // Only call AI if rule-based or informal patterns suggest a person name is present.
+    if (!artistFieldFilled && !isInformalPattern) {
+      const ruleBasedResult = this.detectMisplacedArtistRuleBased(title, artistField);
+      if (!ruleBasedResult || !ruleBasedResult.detectedArtist) {
+        // No person name found by rules or informal patterns — skip expensive AI call
+        return null;
+      }
+    }
+
     // Try AI-powered detection first (if API key available)
     if (this.apiManager && this.apiManager.apiKey) {
-      
+
       let aiResult = null;
       let aiError = false;
-      
+
       try {
         const objectType = this.extractObjectType(title);
-        
+
         // Get description from current form data for AI analysis
         const descriptionField = document.querySelector('#item_description_sv');
         const description = descriptionField ? descriptionField.value : '';
-        
+
         // Always pass the actual artist field value to AI for proper analysis
         const artistForAnalysis = artistField || '';
-        // UPDATED: Use the new AI Analysis Engine which doesn't skip prefilled artists by default
-        const options = forceReDetection ? {} : {}; // No skipIfArtistExists for normal flow
-        
+        const options = {};
+
         const startTime = Date.now();
         aiResult = await this.apiManager.analyzeForArtist(title, objectType, artistForAnalysis, description, options);
         const endTime = Date.now();
