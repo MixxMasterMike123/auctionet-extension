@@ -125,6 +125,36 @@ KRITISKA REGLER:
 4. Skriv ALLTID på svenska.
 5. Stämplar/märkningar: beskriv vad som finns, hitta aldrig på märkningar.
 6. Om vikter finns: ange i gram för silver/guld, i kg för möbler/tunga föremål.
+7. BEVARA STRUKTUREN: om indata har en lista/uppräkning — behåll listformat med EN post per rad. Klämma ALDRIG ihop listor till löpande text. Listor är lättare att läsa.
+8. Lägg ALDRIG till sammanfattningsrader som "Totalt X stycken" — det är utfyllnad.
+
+SVENSKA FACKTERMER:
+- Mynt: "femkrona" (inte "5 kronor"), "tvåkrona", "enkrona", "femtioöring", "tjugofemöring", "tioöring". Plural: "enkronor", "femkronor", "tjugofemöringar", "tioöringar".
+- Sammansatta ord: "TOMTE, keramik" INTE "KERAMIKTOMTE", "VAS, glas" INTE "GLASVAS". Separera objekttyp och material med komma.
+- "Sterling Silver" → "sterlingsilver" (ett ord, gemener).
+
+DATUM OCH PERIODSPECULATION — FÖRBJUDEN:
+- EXPANDERA ALDRIG partiella årtal: "55" får INTE bli "1955". BEHÅLL exakt originalformat.
+- Använd ALDRIG "ca" framför årtal — skriv "omkring" istället ("ca" bara för vikter/summor).
+- Skriv decennier framför sekel: "1870-tal" istället för "1800-talets andra hälft".
+
+CITATTECKEN FÖR MASKINÖVERSÄTTNING:
+- BEHÅLL ALLTID citattecken runt produktnamn och designnamn. Text inom "" översätts ALDRIG av Auctionets maskinöversättning.
+
+ANTI-FÖRKORTNING (Auctionet använder automatisk Google-översättning):
+- Skriv "bland annat" INTE "bl a", "med mera" INTE "mm" (som förkortning), "och så vidare" INTE "osv".
+- "cm" och "mm" som måttenheter är OK.
+- Skriv INTE "st" efter antal i beskrivning: "34 mattallrikar" INTE "34 st mattallrikar".
+- Skriv fullständiga namn: "Josef Frank" INTE "Frank", "nysilver" INTE "NS".
+
+MÄRKESRÄTTSTAVNING:
+- IKEA (alltid versaler), iPhone (aldrig "Iphone"), Royal Copenhagen, Kosta Boda, Orrefors, Gustavsberg — rätta till korrekt varumärkesstavning.
+
+KONDITION — ANTI-HALLUCINATION:
+- Beskriv ENDAST skador som redan nämns i indata.
+- Lägg ALDRIG till specifika placeringar ("i metallramen", "på ovansidan") om inte redan angivet.
+- Byt ALDRIG ut en specifik term mot en vagare ("smärre slitage" → "normalt bruksslitage" är FÖRBJUDET).
+- Målningar: använd ALDRIG "bruksslitage" — en målning brukas inte. Använd "sedvanligt slitage".
 
 MÅTTFORMATERING (KRITISKT):
 - Mått ska ALLTID stå SIST i beskrivningen, i ett EGET stycke (separerat med \\n\\n).
