@@ -1,6 +1,6 @@
 	# Auctionet AI Cataloging Assistant
 
-**Version 2.0.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 2.1.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
@@ -50,7 +50,7 @@ The extension operates on five Auctionet admin page types:
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
-- Claude AI via Anthropic API (Opus 4.6 for valuation, biography, and full-tier enhancement; Sonnet 4.5 for cataloging and enrich-tier enhancement; Haiku 4.5 for tidy-tier enhancement, fast classification, and spellcheck)
+- Claude AI via Anthropic API (Opus 4.6 for valuation, biography, and full-tier enhancement; Sonnet 4.5 for cataloging, enrich-tier enhancement, and spellcheck; Haiku 4.5 for tidy-tier enhancement and fast classification). All Opus calls automatically fall back to Sonnet on API overload.
 - Auctionet public API for market data (historical + live auctions)
 - Wikipedia API for artist images
 - Pure JavaScript — no frameworks, no build step
@@ -145,7 +145,7 @@ Four dedicated modules in `/modules/enhance-all/`:
 | Module | Purpose |
 |--------|---------|
 | `tier-config.js` | Tier definitions, thresholds, model assignments, system prompts, user message builder |
-| `enhance-all-manager.js` | Main orchestrator — tier selection, API calls (parallel for Tier 2), response parsing, hallucination validation |
+| `enhance-all-manager.js` | Main orchestrator — tier selection, API calls (parallel for Tier 2), response parsing with JSON quote sanitizer, hallucination validation, Opus→Sonnet overload fallback |
 | `enhance-all-ui.js` | Panel injection, tier selector, loading progress, preview modal, success notifications |
 | `field-distributor.js` | Writes AI results to form fields, undo tracking, change event dispatching, quality re-analysis trigger |
 
@@ -272,7 +272,7 @@ A comprehensive market intelligence dashboard powered by the Auctionet API, prov
 - **Quoted search terms:** All search terms are quoted for exact matching in the Auctionet API, preventing false positives
 - **Search pills:** Interactive toggleable pills let catalogers refine the search by adding/removing terms
 - **Freetext search input:** Power users can type custom search terms to refine results
-- **AI relevance validation:** When data spread is high (>5x range), Claude Haiku verifies each result's relevance to the item, filtering out false matches
+- **AI relevance validation:** When data spread is high (>5x range), Claude Haiku verifies each result's relevance to the item, filtering out false matches (falls back to Sonnet on overload)
 - **Conservative valuations:** Automatic discount applied to suggestions when data is unreliable (10-25% based on spread ratio and AI validation status)
 - **Minimum price enforcement:** Suggested reserve price ("Bevakningspris") never goes below Auctionet's 300 SEK minimum
 - **Own company exclusion:** Configurable company ID filter to exclude the auction house's own past sales from analysis
@@ -327,7 +327,7 @@ If the system incorrectly detects an artist, the cataloger can dismiss the sugge
 As catalogers type in title, description, and artist fields, the inline validator runs three checks in parallel:
 
 1. **Brand validation** — checks against a database of known brands (watches, jewelry, glass, ceramics, furniture, electronics, luxury goods) with fuzzy matching
-2. **AI spellcheck** — Claude Haiku detects general spelling errors in Swedish text, catching misspellings that dictionary-based checks miss
+2. **AI spellcheck** — Claude Sonnet detects general spelling errors in Swedish text, catching misspellings that dictionary-based checks miss (upgraded from Haiku for more reliable detection)
 3. **Swedish dictionary check** — validates common Swedish words and auction-specific terms against a built-in word list
 
 Misspelled words are highlighted directly in the field with tooltip corrections — click to auto-correct.
@@ -337,7 +337,7 @@ Misspelled words are highlighted directly in the field with tooltip corrections 
 The artist name field gets specialized validation:
 
 - **Rule-based capitalization** — detects uncapitalized names (e.g., "christan beijer" → "Christan Beijer"), respecting name particles (von, van, de)
-- **AI-powered name correction** — Claude Haiku checks artist/designer name spelling (e.g., "Christan Beijer" → "Christian Beijer")
+- **AI-powered name correction** — Claude Haiku checks artist/designer name spelling (e.g., "Christan Beijer" → "Christian Beijer") — Haiku is sufficient for the simpler name validation task
 - Notification appears below the field with a one-click "Fix" button
 
 ### False Positive Prevention
@@ -398,7 +398,7 @@ A dedicated tool for the valuation request pages (`/admin/sas/valuation_requests
    - **Image clustering:** If multiple images are present, Claude Opus first classifies them into groups by distinct object (e.g., "Images 1-3 = oil painting, Images 4-5 = glass vase, Image 6 = silverware"). If only one group is detected, the clustering step is skipped silently
    - **Drag-and-drop grouping UI:** When multiple objects are detected, a confirmation screen shows the AI's proposed grouping with draggable thumbnails. Staff can drag images between groups, add new groups, remove groups, and edit labels before proceeding
    - **Per-group valuation:** Each confirmed group is analyzed independently in parallel — its own AI analysis, market data search, and valuation
-   - For each group/item, sends images + customer description to **Claude Opus 4.6** for analysis
+   - For each group/item, sends images + customer description to **Claude Opus 4.6** for analysis (falls back to Sonnet on overload)
    - Extracts structured data: object type, brand/maker, artist, model, material, period, **number of auction lots**, **piece count**, and **set detection**
    - Searches Auctionet market data using progressive fallback queries (brand+model+artist → brand+model → artist+model → brand+artist → brand+type → artist+type → brand → artist → type+material)
    - **IQR outlier removal:** Filters statistically extreme prices using standard 1.5x Interquartile Range fences
@@ -433,7 +433,7 @@ This prevents the previous bug where a 56-piece dinner service would be valued a
 
 When a customer sends photos of multiple different objects in the same valuation request:
 
-1. **Clustering call:** Claude Opus analyzes all images and groups them by distinct object, returning JSON with image indices and labels per group
+1. **Clustering call:** Claude Opus analyzes all images and groups them by distinct object, returning JSON with image indices and labels per group (falls back to Sonnet on overload)
 2. **Single-object skip:** If only one group is detected, the clustering step is invisible and the existing single-object flow runs directly
 3. **Confirmation UI:** Groups are shown as drop zones with draggable 80x80 thumbnails (HTML5 Drag and Drop API, no external libraries). Staff can:
    - Drag images between groups to correct misclassifications
@@ -594,7 +594,7 @@ A quality scanner that proactively checks all items in the publication queue bef
 3. **Phase 2 (deep):** For each item, fetches the show page (images, description, condition) and edit page (title, artist, hidden keywords) in parallel, in batches of 5 concurrent requests
 4. Runs quality checks against the same thresholds as the quality rules engine
 5. Caches results in `chrome.storage.local` for fast reload
-6. **Incremental scheduled scan every 10 minutes** via `chrome.alarms` — only deep-scans new items not already in cache, keeping API costs near zero when queue is stable. Manual "Kör nu" button triggers a full re-scan of all items.
+6. **Scheduled full scan every 10 minutes** via `chrome.alarms` — every scan (automatic or manual) performs a full deep-scan of all items: images, spelling, descriptions, conditions, and keywords. Items that have left the publication queue are automatically removed from results. Manual "Kör nu" button triggers an immediate full scan.
 
 **Quality checks performed:**
 
@@ -602,7 +602,7 @@ A quality scanner that proactively checks all items in the publication queue bef
 |-------|-----------|----------|
 | Missing images | 0 images | Critical 🔴 |
 | Few images | 1–2 images (< 3) | Critical 🔴 |
-| Spelling errors | AI spellcheck (Haiku), dictionary fallback | Critical 🔴 |
+| Spelling errors | AI spellcheck (Sonnet), dictionary fallback | Critical 🔴 |
 | Artist name in title | ALL CAPS name at start of title (edit page only) | Critical 🔴 |
 | Short title | < 15 characters | Warning 🟡 |
 | Short description | < 40 characters | Warning 🟡 |
@@ -634,11 +634,11 @@ Items with an estimate ≥ 3,000 SEK are flagged as "high value" throughout the 
 
 **Spellcheck integration:**
 
-The scanner uses the same AI-based spellcheck as the edit page — Claude Haiku via `chrome.runtime.sendMessage` → `background.js` → Anthropic API. This runs against the combined title, description, and condition text of each item, catching all Swedish spelling errors (not just known dictionary entries). Falls back to an inlined dictionary (~90 misspelling-to-correction pairs) if no API key is configured.
+The scanner uses the same AI-based spellcheck as the edit page — Claude Sonnet via `chrome.runtime.sendMessage` → `background.js` → Anthropic API. Both pages share identical prompts and model configuration for consistent results. This runs against the combined title, description, and condition text of each item, catching all Swedish spelling errors (not just known dictionary entries). Falls back to a dictionary imported from `SwedishSpellChecker.getMisspellingsMap()` if no API key is configured.
 
 ### Technical details
 
-- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, cataloger stats are all scraped from the existing page DOM. The warehouse cost widget and publication scanner fetch additional Auctionet admin pages (same-origin). The publication scanner also uses Claude Haiku for spellcheck (one API call per item with text content)
+- **Mostly zero API calls** — KPI cards, pipeline, pricing insights, cataloger stats are all scraped from the existing page DOM. The warehouse cost widget and publication scanner fetch additional Auctionet admin pages (same-origin). The publication scanner uses Claude Sonnet for spellcheck (one API call per item with text content)
 - **Progressive rendering** — components render immediately with available data; lazy-loaded turbo-frame content is picked up via MutationObserver as it arrives
 - **Admin-gated** — all dashboard enhancements require admin mode to be unlocked via PIN; otherwise the page loads as vanilla Auctionet
 - Lightweight self-contained async IIFE — no module imports needed
@@ -752,6 +752,7 @@ The extension popup (`popup.html`) provides:
 | **Artist Info Toggle** | Enable/disable automatic artist detection and biography features |
 | **Dashboard Visibility** | Show/hide the market analysis dashboard by default |
 | **Exclude Company ID** | Your auction house's Auctionet company ID — excludes your own historical sales from market analysis to prevent self-referencing |
+| **Search Defaults** | Auto-add `type=item&sorting=desc` to search pages (newest items first). Toggleable via popup checkbox and an on-page toggle bar below the navbar on search pages |
 | **Connection Test** | One-click API connectivity verification |
 | **Admin PIN** | 4-digit PIN to unlock admin-only features (dashboard enhancements, warehouse costs) |
 
@@ -914,7 +915,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 - **API caching:** Market data cached for 30 minutes to minimize API calls
 - **Biography caching:** Artist biographies cached in localStorage for 7 days (reused by both Biography KB Card and Enhance All Tier 2)
 - **Warehouse caching:** Warehouse cost data cached for 12 hours in Chrome local storage with manual refresh
-- **Publication scan caching:** Scan results cached in Chrome local storage; incremental auto-rescan every 10 minutes via `chrome.alarms` (only new items deep-scanned). Ignored items persisted separately in `publicationScanIgnored` storage key.
+- **Publication scan caching:** Scan results cached in Chrome local storage; full auto-rescan every 10 minutes via `chrome.alarms` (all items re-checked for images, spelling, descriptions, conditions, and keywords). Items no longer in the publication queue are automatically removed. Ignored items persisted separately in `publicationScanIgnored` storage key.
 - **Prompt caching:** System prompts use Anthropic's `cache_control: { type: 'ephemeral' }` for ~90% token savings on repeated calls
 - **Debounced monitoring:** Field changes are batched (typically 300-800ms) before triggering re-analysis
 - **Lazy loading:** Market dashboard only runs analysis when opened
@@ -961,4 +962,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated March 2, 2026. Reflects extension version 2.0.0.*
+*Document updated March 4, 2026. Reflects extension version 2.1.0.*
