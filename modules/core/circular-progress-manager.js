@@ -127,7 +127,7 @@ export class CircularProgressManager {
   attachButtonEventListener(button) {
     button.addEventListener('click', (e) => {
       e.preventDefault();
-      
+
       // Use the global assistant methods to trigger improvement
       if (window.assistant && typeof window.assistant.improveAllFields === 'function') {
         window.assistant.improveAllFields();

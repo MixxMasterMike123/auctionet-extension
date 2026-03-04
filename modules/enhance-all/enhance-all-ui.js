@@ -41,12 +41,12 @@ export class EnhanceAllUI {
 
     panel.innerHTML = this._buildPanelHTML(autoTier, valuation);
 
-    // Insert into sidebar before quality indicator, or at top of sidebar
+    // Insert into sidebar after quality indicator (quality first, enhance below)
     const sidebar = document.querySelector('.grid-col4');
     if (sidebar) {
       const qualityIndicator = sidebar.querySelector('.quality-indicator');
       if (qualityIndicator) {
-        sidebar.insertBefore(panel, qualityIndicator);
+        qualityIndicator.after(panel);
       } else {
         sidebar.insertBefore(panel, sidebar.firstChild);
       }
@@ -116,7 +116,7 @@ export class EnhanceAllUI {
     // Watch bevakningspris field for changes to auto-update tier
     const valuationField = document.querySelector('#item_current_auction_attributes_accepted_reserve');
     if (valuationField) {
-      valuationField.addEventListener('change', () => {
+      const updateTier = () => {
         const panel = document.getElementById('enhance-all-panel');
         if (!panel) return;
         // Only update if not manually overridden
@@ -134,16 +134,25 @@ export class EnhanceAllUI {
         // Update label
         const autoLabel = panel.querySelector('.enhance-all-auto-label');
         autoLabel.textContent = `Auto-vald: ${autoTier.label} (bevakningspris ${valuationDisplay})`;
-      });
+      };
+
+      valuationField.addEventListener('change', updateTier);
+      valuationField.addEventListener('input', updateTier);
+
+      // Re-check after a delay to catch values populated by Auctionet's own JS
+      setTimeout(updateTier, 1500);
     }
   }
 
   async _onRunClick() {
     if (this.enhanceAllManager?.isProcessing) return;
 
-    // Get selected tier
+    // If user manually overrode the tier, use that; otherwise pass null
+    // so enhance() reads the valuation field at click time (avoids stale init value)
+    const panel = document.getElementById('enhance-all-panel');
+    const isManualOverride = panel?.querySelector('.enhance-all-auto-label.manual-override');
     const activeBtn = document.querySelector('.enhance-all-tier-btn.active');
-    const tierId = activeBtn?.dataset.tier || null;
+    const tierId = isManualOverride ? (activeBtn?.dataset.tier || null) : null;
 
     // Disable run button during processing
     const runBtn = document.getElementById('enhance-all-run-btn');

@@ -71,8 +71,10 @@ export const TIER_CONFIG = {
  * @returns {object} tier config object
  */
 export function determineTier(valuation) {
-  const value = parseInt(valuation, 10);
-  if (!value || value <= 0) {
+  // Strip non-numeric characters (handles "5 000", "5000 kr", etc.) but keep digits and dots
+  const cleaned = String(valuation || '').replace(/[^\d.]/g, '');
+  const value = parseInt(cleaned, 10);
+  if (isNaN(value) || value <= 0) {
     return TIER_CONFIG.tiers[TIER_CONFIG.defaultTierWhenNoValuation];
   }
   if (value < 3000) return TIER_CONFIG.tiers.tidy;
