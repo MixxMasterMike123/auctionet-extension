@@ -740,27 +740,27 @@
     const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
 "${text}"
 
-Hitta BARA enskilda ord som är felstavade, t.ex.:
-- "Colier" → "Collier" (saknad bokstav)
-- "silverr" → "silver" (extra bokstav)
-- "olija" → "olja" (felstavat)
-- "brutovikt" → "bruttovikt" (saknad dubbelbokstav)
+Hitta enskilda ord som är felstavade. Exempel:
+- "Colier" → "Collier"
+- "silverr" → "silver"
+- "olija" → "olja"
+- "brutovikt" → "bruttovikt"
+- "Jardinjär" → "Jardinär"
+- "kandelabrer" → "kandelaber"
+
+Kontrollera ALLA ord noggrant — även objekttyper, materialnamn och svenska substantiv.
 
 RAPPORTERA INTE:
-- Grammatikfel, interpunktion, kommatering eller ordföljd
-- Saknade eller extra mellanslag eller kommatecken
+- Grammatik, interpunktion, kommatering
 - Förkortningar (ink, bl.a, osv, resp, ca)
 - Personnamn, ortnamn, varumärken
-- Sammansatta ord som kan vara ovanliga men korrekta (bomärkt, väggbonad, plunta, kaffepetter)
 - Versaler/gemener-fel
-- Korrekta svenska böjningsformer (hängd, längd, höjd, märkt, etc.)
+- Korrekta böjningsformer (hängd, längd, höjd, märkt)
 - Auktionsfacktermer: plymå, karott, karaff, tablå, terrin, skänk, chiffonjé,
   röllakan, tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
   collier, rivière, cabochon, pavé, solitär, entourage
 
-Var MYCKET säker innan du rapporterar — rapportera BARA verkliga stavfel med confidence >= 0.95.
-
-Svara BARA med JSON, ingen annan text:
+Svara BARA med JSON:
 {"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
 
     try {
@@ -769,10 +769,10 @@ Svara BARA med JSON, ingen annan text:
           type: 'anthropic-fetch',
           apiKey: apiKey,
           body: {
-            model: 'claude-haiku-4-5',
+            model: 'claude-sonnet-4-5',
             max_tokens: 300,
             temperature: 0,
-            system: 'Du är en svensk stavningskontroll. Hitta BARA enskilda felstavade ord. Rapportera INTE grammatik, interpunktion, kommatering, mellanslag, förkortningar eller ovanliga men korrekta sammansatta ord. Svara BARA med valid JSON.',
+            system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
             messages: [{ role: 'user', content: prompt }]
           }
         }, (resp) => {
