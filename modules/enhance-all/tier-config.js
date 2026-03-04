@@ -9,7 +9,7 @@ export const TIER_CONFIG = {
       description: 'Strukturera och formatera',
       maxValuation: 3000,
       model: 'claude-haiku-4-5',
-      maxTokens: 1500,
+      maxTokens: 2000,
       temperature: 0.15,
       features: {
         hook: false,

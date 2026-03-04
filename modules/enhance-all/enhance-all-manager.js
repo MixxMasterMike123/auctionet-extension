@@ -329,24 +329,26 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
 
       let jsonStr = match[0];
 
-      // Fix unescaped quotes inside JSON string values (e.g. "Daisy" inside a value)
+      // Fix unescaped quotes inside JSON string values (e.g. "Axet" inside a value)
       // Try parsing first; if it fails, attempt to sanitize
       let parsed;
       try {
         parsed = JSON.parse(jsonStr);
       } catch {
-        // Replace unescaped inner quotes: find "value with "inner" quotes" patterns
-        // Strategy: process each "key": "value" pair, escaping inner quotes
-        jsonStr = jsonStr.replace(
-          /("(?:title|description|condition|keywords|biography)")\s*:\s*"([\s\S]*?)"\s*(?=[,}])/g,
-          (fullMatch, key, value) => {
-            // Escape any unescaped double quotes within the value
-            const escaped = value.replace(/\\"/g, '\x00') // preserve already-escaped
-              .replace(/"/g, '\\"')
-              .replace(/\x00/g, '\\"'); // restore
-            return `${key}: "${escaped}"`;
-          }
-        );
+        // Robust approach: walk the JSON character by character, fixing unescaped
+        // quotes inside string values for known field keys.
+        jsonStr = this._fixUnescapedQuotes(jsonStr);
+
+        // Handle truncated response (e.g. Haiku ran out of tokens):
+        // close any unterminated string and add missing closing brace
+        if (!jsonStr.trim().endsWith('}')) {
+          // Find the last complete "key": "value" pair and close the JSON
+          jsonStr = jsonStr.replace(/,?\s*"[^"]*$/, '') // remove trailing partial key
+            .replace(/,?\s*$/, '') + '}';
+          // If still no closing brace, just append one
+          if (!jsonStr.trim().endsWith('}')) jsonStr = jsonStr.trim() + '"}';
+        }
+
         parsed = JSON.parse(jsonStr);
       }
 
@@ -455,6 +457,82 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
     }
 
     return result;
+  }
+
+  // ─── JSON repair ───
+
+  /**
+   * Fix unescaped double quotes inside JSON string values.
+   * Walks character by character to reliably handle cases like:
+   *   "title": "MATGRUPP, "Axet", gustaviansk"
+   * The known JSON keys act as anchors to determine where values start and end.
+   */
+  _fixUnescapedQuotes(jsonStr) {
+    const knownKeys = ['title', 'description', 'condition', 'keywords', 'biography',
+      'makerContextUsed', 'provenanceFound'];
+    // Build a pattern to find key-value boundaries
+    const keyPattern = new RegExp(
+      `"(${knownKeys.join('|')})"\\s*:\\s*`, 'g'
+    );
+
+    // Find all key positions
+    const keyPositions = [];
+    let m;
+    while ((m = keyPattern.exec(jsonStr)) !== null) {
+      keyPositions.push({
+        key: m[1],
+        valueStart: m.index + m[0].length // position right after ": "
+      });
+    }
+
+    if (keyPositions.length === 0) return jsonStr;
+
+    // Process from last to first to preserve indices
+    for (let i = keyPositions.length - 1; i >= 0; i--) {
+      const pos = keyPositions[i];
+      const valueStart = pos.valueStart;
+
+      // Check if value starts with a quote (string value)
+      if (jsonStr[valueStart] !== '"') continue; // boolean/number — skip
+
+      // Find the end of this value: look for the next key pattern or closing brace
+      let valueEnd = -1;
+      if (i + 1 < keyPositions.length) {
+        // End is just before the comma + next key
+        // Search backwards from next key for the comma and closing quote
+        const nextKeyArea = jsonStr.lastIndexOf(',', keyPositions[i + 1].valueStart);
+        if (nextKeyArea > valueStart) {
+          // Find the last quote before the comma
+          let q = nextKeyArea - 1;
+          while (q > valueStart && jsonStr[q] !== '"') q--;
+          if (q > valueStart) valueEnd = q;
+        }
+      } else {
+        // Last value — find the closing brace and work backwards
+        const closingBrace = jsonStr.lastIndexOf('}');
+        if (closingBrace > valueStart) {
+          let q = closingBrace - 1;
+          while (q > valueStart && jsonStr[q] !== '"') q--;
+          if (q > valueStart) valueEnd = q;
+        }
+      }
+
+      if (valueEnd <= valueStart) continue;
+
+      // Extract the inner value (between opening and closing quotes)
+      const inner = jsonStr.substring(valueStart + 1, valueEnd);
+
+      // Escape any unescaped quotes in the inner value
+      const fixed = inner
+        .replace(/\\"/g, '\x00')   // preserve already-escaped quotes
+        .replace(/"/g, '\\"')      // escape bare quotes
+        .replace(/\x00/g, '\\"');  // restore
+
+      // Reconstruct
+      jsonStr = jsonStr.substring(0, valueStart + 1) + fixed + jsonStr.substring(valueEnd);
+    }
+
+    return jsonStr;
   }
 
   // ─── Helpers ───
