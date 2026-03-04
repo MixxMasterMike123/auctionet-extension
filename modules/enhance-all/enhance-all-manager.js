@@ -64,12 +64,12 @@ export class EnhanceAllManager {
         return null;
       }
 
-      // 2. Determine tier
+      // 2. Determine tier (use highest of estimate, upper estimate, accepted reserve)
       const tier = tierOverride
         ? getTierById(tierOverride)
-        : determineTier(formData.acceptedReserve);
+        : determineTier(formData.estimate, formData.upperEstimate, formData.acceptedReserve);
 
-      console.log(`[EnhanceAll] Tier: ${tier.label} (${tier.id}), valuation: ${formData.acceptedReserve || 'ej angivet'}`);
+      console.log(`[EnhanceAll] Tier: ${tier.label} (${tier.id}), estimate: ${formData.estimate || '-'}, upperEstimate: ${formData.upperEstimate || '-'}, acceptedReserve: ${formData.acceptedReserve || '-'}`);
 
       // 3. Show loading state
       this.ui?.showLoading(tier);

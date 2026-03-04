@@ -35,11 +35,10 @@ export class EnhanceAllUI {
     panel.id = 'enhance-all-panel';
     panel.className = 'enhance-all-panel';
 
-    // Read current valuation for auto tier selection
-    const valuation = document.querySelector('#item_current_auction_attributes_accepted_reserve')?.value || '';
-    const autoTier = determineTier(valuation);
+    // Read all pricing fields for auto tier selection (use highest value)
+    const { autoTier, displayValue } = this._readPricingTier();
 
-    panel.innerHTML = this._buildPanelHTML(autoTier, valuation);
+    panel.innerHTML = this._buildPanelHTML(autoTier, displayValue);
 
     // Insert into sidebar after quality indicator (quality first, enhance below)
     const sidebar = document.querySelector('.grid-col4');
@@ -62,8 +61,7 @@ export class EnhanceAllUI {
     this._setupValuationWatcher();
   }
 
-  _buildPanelHTML(autoTier, valuation) {
-    const valuationDisplay = valuation ? `${parseInt(valuation).toLocaleString('sv-SE')} kr` : 'ej angivet';
+  _buildPanelHTML(autoTier, displayValue) {
     const tiers = TIER_CONFIG.tiers;
 
     return `
@@ -85,7 +83,7 @@ export class EnhanceAllUI {
           <span class="tier-range">&gt; 10 000 kr</span>
         </button>
       </div>
-      <div class="enhance-all-auto-label">Auto-vald: ${autoTier.label} (bevakningspris ${valuationDisplay})</div>
+      <div class="enhance-all-auto-label">Auto-vald: ${autoTier.label} (${displayValue})</div>
       <button type="button" class="enhance-all-run-btn" id="enhance-all-run-btn">
         <span class="enhance-all-run-icon">&#10024;</span> Förbättra alla fält
       </button>
@@ -113,35 +111,41 @@ export class EnhanceAllUI {
   }
 
   _setupValuationWatcher() {
-    // Watch bevakningspris field for changes to auto-update tier
-    const valuationField = document.querySelector('#item_current_auction_attributes_accepted_reserve');
-    if (valuationField) {
-      const updateTier = () => {
-        const panel = document.getElementById('enhance-all-panel');
-        if (!panel) return;
-        // Only update if not manually overridden
-        if (panel.querySelector('.enhance-all-auto-label.manual-override')) return;
+    // Watch all pricing fields for changes to auto-update tier
+    const pricingSelectors = [
+      '#item_current_auction_attributes_accepted_reserve',
+      '#item_current_auction_attributes_estimate',
+      '#item_current_auction_attributes_upper_estimate'
+    ];
 
-        const valuation = valuationField.value;
-        const autoTier = determineTier(valuation);
-        const valuationDisplay = valuation ? `${parseInt(valuation).toLocaleString('sv-SE')} kr` : 'ej angivet';
+    const updateTier = () => {
+      const panel = document.getElementById('enhance-all-panel');
+      if (!panel) return;
+      // Only update if not manually overridden
+      if (panel.querySelector('.enhance-all-auto-label.manual-override')) return;
 
-        // Update active tier
-        panel.querySelectorAll('.enhance-all-tier-btn').forEach(btn => {
-          btn.classList.toggle('active', btn.dataset.tier === autoTier.id);
-        });
+      const { autoTier, displayValue } = this._readPricingTier();
 
-        // Update label
-        const autoLabel = panel.querySelector('.enhance-all-auto-label');
-        autoLabel.textContent = `Auto-vald: ${autoTier.label} (bevakningspris ${valuationDisplay})`;
-      };
+      // Update active tier
+      panel.querySelectorAll('.enhance-all-tier-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tier === autoTier.id);
+      });
 
-      valuationField.addEventListener('change', updateTier);
-      valuationField.addEventListener('input', updateTier);
+      // Update label
+      const autoLabel = panel.querySelector('.enhance-all-auto-label');
+      autoLabel.textContent = `Auto-vald: ${autoTier.label} (${displayValue})`;
+    };
 
-      // Re-check after a delay to catch values populated by Auctionet's own JS
-      setTimeout(updateTier, 1500);
+    for (const sel of pricingSelectors) {
+      const field = document.querySelector(sel);
+      if (field) {
+        field.addEventListener('change', updateTier);
+        field.addEventListener('input', updateTier);
+      }
     }
+
+    // Re-check after a delay to catch values populated by Auctionet's own JS
+    setTimeout(updateTier, 1500);
   }
 
   async _onRunClick() {
@@ -487,6 +491,35 @@ export class EnhanceAllUI {
   }
 
   // ─── Helpers ───
+
+  /**
+   * Read all pricing fields and determine tier from the highest value.
+   * Returns the auto tier and a display string showing which field was used.
+   */
+  _readPricingTier() {
+    const estimate = document.querySelector('#item_current_auction_attributes_estimate')?.value || '';
+    const upperEstimate = document.querySelector('#item_current_auction_attributes_upper_estimate')?.value || '';
+    const acceptedReserve = document.querySelector('#item_current_auction_attributes_accepted_reserve')?.value || '';
+
+    const autoTier = determineTier(estimate, upperEstimate, acceptedReserve);
+
+    // Build display string showing the highest value and its source
+    const vals = [
+      { label: 'värdering', raw: estimate },
+      { label: 'övre värdering', raw: upperEstimate },
+      { label: 'bevakningspris', raw: acceptedReserve }
+    ];
+    const parsed = vals
+      .map(v => ({ ...v, num: parseInt(String(v.raw || '').replace(/[^\d.]/g, ''), 10) || 0 }))
+      .filter(v => v.num > 0)
+      .sort((a, b) => b.num - a.num);
+
+    const displayValue = parsed.length > 0
+      ? `${parsed[0].label} ${parsed[0].num.toLocaleString('sv-SE')} kr`
+      : 'ej angivet';
+
+    return { autoTier, displayValue };
+  }
 
   _isUnknownArtist(name) {
     const lower = name.toLowerCase().trim();
