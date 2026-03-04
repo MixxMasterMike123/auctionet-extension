@@ -733,7 +733,7 @@
   }
 
   // AI-based spellcheck — same approach as inline-brand-validator.js checkSpellingWithAI()
-  // Uses chrome.runtime.sendMessage → background.js → Anthropic API (Haiku)
+  // Uses chrome.runtime.sendMessage → background.js → Anthropic API (Sonnet)
   async function checkSpellingAI(text, apiKey) {
     if (!apiKey || !text || text.length < 5) return [];
 
@@ -1472,7 +1472,7 @@ Svara BARA med JSON:
     }
 
     // Spellcheck on title + description + condition text
-    // AI-based (Haiku) if API key available, dictionary fallback otherwise
+    // AI-based (Sonnet) if API key available, dictionary fallback otherwise
     const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
     const spellingErrors = apiKey
       ? await checkSpellingAI(combinedText, apiKey)
@@ -1512,8 +1512,9 @@ Svara BARA med JSON:
     }
   }
 
-  // incremental = true: re-check images for ALL items but skip AI spellcheck for cached items
-  // incremental = false (manual "Kör nu"): full deep-scan of all items including AI spellcheck
+  // Every scan (incremental or manual) does a full deep-scan of all items:
+  // images, spelling, descriptions, conditions, keywords.
+  // Items that left the publication queue are automatically removed from results.
   async function runPublicationScan(onProgress, { incremental = false } = {}) {
     const report = (msg) => { if (onProgress) onProgress(msg); };
 
@@ -1524,32 +1525,7 @@ Svara BARA med JSON:
       apiKey = stored.anthropicApiKey || null;
     } catch (e) { /* no API key — dictionary fallback */ }
 
-    // For incremental scans, build lookup of previously scanned items' spellcheck results
-    // We keep their text-quality issues (spelling, description, condition) but re-check images
-    let cachedSpellMap = {}; // itemId → { spellingIssues: [], textIssues: [], editData: {} }
-    if (incremental) {
-      try {
-        const prev = await new Promise(resolve => {
-          chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
-        });
-        if (prev) {
-          [...(prev.critical || []), ...(prev.warnings || [])].forEach(entry => {
-            // Keep non-image issues from cache (spelling, text quality, artist-in-title)
-            const textIssues = (entry.issues || []).filter(i => {
-              const t = typeof i === 'string' ? i : i.text;
-              return !t.match(/^\d+ bild/) && t !== '0 bilder (saknar primärbild)' && t !== '0 bilder';
-            });
-            cachedSpellMap[entry.itemId] = { textIssues, editUrl: entry.editUrl, showUrl: entry.showUrl, hasKeywords: entry.hasKeywords, estimate: entry.estimate ?? 0 };
-          });
-          // Track passed items (they had no issues at all — still need image re-check)
-          if (prev._passedIds) {
-            prev._passedIds.forEach(id => { cachedSpellMap[id] = { textIssues: [], _passed: true, hasKeywords: prev._keywordMap?.[id] ?? null, estimate: prev._estimateMap?.[id] ?? 0 }; });
-          }
-        }
-      } catch (e) { /* no cache — full scan */ }
-    }
-
-    report(incremental ? 'Kontrollerar publiceringskö...' : 'Hämtar publiceringslista...');
+    report('Hämtar publiceringslista...');
     const baseUrl = '/admin/sas/publishables';
     const firstPageHtml = await fetchPublicationPageHtml(baseUrl);
     const totalPages = detectPublishablePages(firstPageHtml);
@@ -1570,25 +1546,10 @@ Svara BARA med JSON:
 
     allItems.forEach(item => { item.phase1Issues = runPhase1Checks(item); });
 
-    // Determine which items need full deep-scan vs image-only re-check
-    const newItems = []; // never scanned — need full deep-scan
-    const cachedItems = []; // previously scanned — only re-check images
-    allItems.forEach(item => {
-      if (incremental && cachedSpellMap[item.itemId]) {
-        cachedItems.push(item);
-      } else {
-        newItems.push(item);
-      }
-    });
-
-    if (incremental && newItems.length > 0) {
-      report(`${newItems.length} nya föremål att skanna...`);
-    }
-
-    // Full deep-scan for new items (show page + edit page + AI spellcheck)
+    // Full deep-scan for all items (show page + edit page + AI spellcheck)
     let scanned = 0;
-    for (let i = 0; i < newItems.length; i += PUB_SCAN_BATCH_SIZE) {
-      const batch = newItems.slice(i, i + PUB_SCAN_BATCH_SIZE);
+    for (let i = 0; i < allItems.length; i += PUB_SCAN_BATCH_SIZE) {
+      const batch = allItems.slice(i, i + PUB_SCAN_BATCH_SIZE);
       await Promise.all(batch.map(async (item) => {
         if (!item.editUrl) {
           item.phase2Issues = [{ text: 'Saknar redigera-länk', severity: 'warning' }];
@@ -1617,37 +1578,7 @@ Svara BARA med JSON:
         }
       }));
       scanned += batch.length;
-      report(`Skannar ${Math.min(scanned, newItems.length)}/${newItems.length}...`);
-    }
-
-    // Image re-check for cached items (show page only — no API cost)
-    if (cachedItems.length > 0) {
-      report(incremental ? 'Kontrollerar bilder...' : `Kontrollerar bilder (${cachedItems.length})...`);
-      for (let i = 0; i < cachedItems.length; i += PUB_SCAN_BATCH_SIZE) {
-        const batch = cachedItems.slice(i, i + PUB_SCAN_BATCH_SIZE);
-        await Promise.all(batch.map(async (item) => {
-          const cached = cachedSpellMap[item.itemId];
-          try {
-            const showUrl = item.editUrl ? item.editUrl.replace(/\/edit$/, '') : (cached.showUrl || '');
-            if (!showUrl) { item.phase2Issues = cached.textIssues || []; return; }
-            const showHtml = await fetchPublicationPageHtml(showUrl);
-            const showData = parseShowPageForScan(showHtml);
-            item.showUrl = showUrl;
-            item.editData = { imageCount: showData.imageCount, estimate: cached.estimate ?? 0 };
-
-            // Build phase2 issues: fresh image check + cached text issues
-            const imageIssues = [];
-            if (showData.imageCount === 0) imageIssues.push({ text: '0 bilder', severity: 'critical' });
-            else if (showData.imageCount === 1) imageIssues.push({ text: '1 bild', severity: 'critical' });
-            else if (showData.imageCount === 2) imageIssues.push({ text: '2 bilder', severity: 'critical' });
-
-            item.phase2Issues = [...imageIssues, ...(cached.textIssues || [])];
-          } catch (e) {
-            // Image re-check failed — keep cached issues as-is
-            item.phase2Issues = cached.textIssues || [];
-          }
-        }));
-      }
+      report(`Skannar ${Math.min(scanned, totalItems)}/${totalItems}...`);
     }
 
     // Build final results from all items
@@ -1661,22 +1592,18 @@ Svara BARA med JSON:
     const estimateMap = {}; // itemId → number (estimate in SEK)
 
     allItems.forEach(item => {
-      // Determine keyword status: from fresh edit page scan or from cache
+      // Keyword status from edit page scan
       let hasKeywords = null;
       if (item.editData && item.editData.keywords !== undefined) {
         hasKeywords = item.editData.keywords !== '';
-      } else if (cachedSpellMap[item.itemId]?.hasKeywords !== undefined && cachedSpellMap[item.itemId]?.hasKeywords !== null) {
-        hasKeywords = cachedSpellMap[item.itemId].hasKeywords;
       }
       if (hasKeywords === false) missingKeywords++;
       if (hasKeywords !== null) keywordMap[item.itemId] = hasKeywords;
 
-      // Determine estimate: from fresh edit page scan or from cache
+      // Estimate from edit page scan
       let estimate = 0;
       if (item.editData && item.editData.estimate !== undefined) {
         estimate = item.editData.estimate || 0;
-      } else if (cachedSpellMap[item.itemId]?.estimate) {
-        estimate = cachedSpellMap[item.itemId].estimate;
       }
       if (estimate > 0) estimateMap[item.itemId] = estimate;
 
