@@ -888,9 +888,25 @@
       ? `<span class="ext-pubscan__stat ext-pubscan__stat--highvalue">💎 ${highValueItems.length} högvärde med fel</span>`
       : '';
 
+    // Build ignored items section (used in both allGood and issues branches)
+    const ignoredHTML = ignoredCount > 0 ? `
+      <div class="ext-pubscan__ignored-section">
+        <div class="ext-pubscan__ignored-toggle">
+          <span class="ext-pubscan__ignored-label">Visa ignorerade (${ignoredCount})</span>
+          <span class="ext-pubscan__ignored-arrow">▼</span>
+        </div>
+        <div class="ext-pubscan__ignored-items" style="display: none;">
+          ${[...ignoredCritical, ...ignoredWarnings].map(item => {
+            const isCrit = ignoredCritical.includes(item);
+            return issueRowHTML(item, isCrit ? 'critical' : 'warning', false);
+          }).join('')}
+        </div>
+      </div>
+    ` : '';
+
     let bodyHTML;
     if (allGood) {
-      bodyHTML = `<div class="ext-pubscan__allgood">Allt ser bra ut ✅ ${kwNote}</div>`;
+      bodyHTML = `<div class="ext-pubscan__allgood">Allt ser bra ut ✅ ${kwNote}</div>${ignoredHTML}`;
     } else {
       // Build group rows — each is a clickable filter
       const groupEntries = Object.entries(issueGroups);
@@ -936,22 +952,6 @@
           </div>
         </div>
       `;
-
-      // Build ignored items section (collapsed by default)
-      const ignoredHTML = ignoredCount > 0 ? `
-        <div class="ext-pubscan__ignored-section">
-          <div class="ext-pubscan__ignored-toggle">
-            <span class="ext-pubscan__ignored-label">Visa ignorerade (${ignoredCount})</span>
-            <span class="ext-pubscan__ignored-arrow">▼</span>
-          </div>
-          <div class="ext-pubscan__ignored-items" style="display: none;">
-            ${[...ignoredCritical, ...ignoredWarnings].map(item => {
-              const isCrit = ignoredCritical.includes(item);
-              return issueRowHTML(item, isCrit ? 'critical' : 'warning', false);
-            }).join('')}
-          </div>
-        </div>
-      ` : '';
 
       // "Högvärde" group — high-value items with issues, sorted by estimate descending
       const hvGroupHTML = highValueItems.length > 0 ? (() => {
