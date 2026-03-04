@@ -1,5 +1,6 @@
 // admin-dashboard.js — Visual dashboard enhancements for the Auctionet admin main page
-// No AI calls — pure DOM scraping and visualization
+// Pure DOM scraping, rendering, and cache display.
+// Publication scan logic runs in background service worker (publication-scanner-bg.js).
 
 (async function() {
   'use strict';
@@ -705,119 +706,11 @@
 
   // ─── 8. Publication Queue Scanner ────────────────────────────────
 
+  // Scan logic runs in background service worker (publication-scanner-bg.js).
+  // Dashboard only reads cached results and renders them.
   const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
-  const PUB_SCAN_MIN_IMAGES = 3;            // 3+ images = pass (per codebase standard)
-  const PUB_SCAN_MIN_DESC_LENGTH = 40;       // warning threshold: short description
-  const PUB_SCAN_MIN_TITLE_LENGTH = 15;      // warning threshold: very short title
-  const PUB_SCAN_MIN_CONDITION_LENGTH = 15;  // warning threshold: very short condition
-  const PUB_SCAN_BATCH_SIZE = 5;
-  const PUB_SCAN_EXPANDED_KEY = 'ext_pubscan_warnings_expanded';
   const PUB_SCAN_IGNORED_KEY = 'publicationScanIgnored'; // { itemId: true }
   const PUB_SCAN_HIGH_VALUE_THRESHOLD = 3000; // SEK — items at or above this estimate are "high value"
-
-  // Vague condition terms from quality-rules-engine.js
-  const PUB_SCAN_VAGUE_CONDITION_TERMS = [
-    'bruksskick', 'bruksslitage',
-    'normalt slitage', 'vanligt slitage', 'åldersslitage', 'slitage förekommer'
-  ];
-
-  // Spellcheck: misspelling → correction map (from swedish-spellchecker.js)
-  // Load misspellings from shared SwedishSpellChecker (single source of truth)
-  let PUB_SCAN_MISSPELLINGS = {};
-  try {
-    const spellUrl = chrome.runtime.getURL('modules/swedish-spellchecker.js');
-    const { SwedishSpellChecker } = await import(spellUrl);
-    PUB_SCAN_MISSPELLINGS = SwedishSpellChecker.getMisspellingsMap();
-  } catch (e) {
-    console.warn('[Dashboard] Failed to load SwedishSpellChecker, using empty dict:', e.message);
-  }
-
-  // AI-based spellcheck — same approach as inline-brand-validator.js checkSpellingWithAI()
-  // Uses chrome.runtime.sendMessage → background.js → Anthropic API (Sonnet)
-  async function checkSpellingAI(text, apiKey) {
-    if (!apiKey || !text || text.length < 5) return [];
-
-    const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
-"${text}"
-
-Hitta enskilda ord som är felstavade. Exempel:
-- "Colier" → "Collier"
-- "silverr" → "silver"
-- "olija" → "olja"
-- "brutovikt" → "bruttovikt"
-- "Jardinjär" → "Jardinär"
-- "kandelabrer" → "kandelaber"
-
-Kontrollera ALLA ord noggrant — även objekttyper, materialnamn och svenska substantiv.
-
-RAPPORTERA INTE:
-- Grammatik, interpunktion, kommatering
-- Förkortningar (ink, bl.a, osv, resp, ca)
-- Personnamn, ortnamn, varumärken
-- Versaler/gemener-fel
-- Korrekta böjningsformer (hängd, längd, höjd, märkt)
-- Auktionsfacktermer: plymå, karott, karaff, tablå, terrin, skänk, chiffonjé,
-  röllakan, tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
-  collier, rivière, cabochon, pavé, solitär, entourage
-
-Svara BARA med JSON:
-{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
-
-    try {
-      const response = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          type: 'anthropic-fetch',
-          apiKey: apiKey,
-          body: {
-            model: 'claude-sonnet-4-5',
-            max_tokens: 300,
-            temperature: 0,
-            system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
-            messages: [{ role: 'user', content: prompt }]
-          }
-        }, (resp) => {
-          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-          else if (resp?.success) resolve(resp);
-          else reject(new Error('Spellcheck AI call failed'));
-        });
-      });
-
-      if (response.success && response.data?.content?.[0]?.text) {
-        const responseText = response.data.content[0].text.trim();
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const result = JSON.parse(jsonMatch[0]);
-          if (result.issues && Array.isArray(result.issues)) {
-            return result.issues
-              .filter(i => i.original && i.corrected &&
-                      i.original.toLowerCase() !== i.corrected.toLowerCase() &&
-                      (i.confidence || 0.9) >= 0.8)
-              .map(i => ({ word: i.original, correction: i.corrected }));
-          }
-        }
-      }
-    } catch (e) {
-      // Silently fail — no spellcheck for this item
-    }
-    return [];
-  }
-
-  // Dictionary fallback when no API key is available
-  function checkSpellingDict(text) {
-    if (!text) return [];
-    const words = text.match(/\b[a-zåäöüA-ZÅÄÖÜ]{4,}\b/g) || [];
-    const found = [];
-    const seen = new Set();
-    for (const word of words) {
-      const lower = word.toLowerCase();
-      const correction = PUB_SCAN_MISSPELLINGS[lower];
-      if (correction && !seen.has(lower)) {
-        seen.add(lower);
-        found.push({ word: lower, correction });
-      }
-    }
-    return found;
-  }
 
   function getPublicationInsertTarget() {
     return document.querySelector('.ext-warehouse')
@@ -1270,413 +1163,11 @@ Svara BARA med JSON:
     }
   }
 
-  // ─── Publication Scanner: page parsing ─────────────────────────
-
-  function parsePublishablesPage(html) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const items = [];
-
-    doc.querySelectorAll('tr').forEach(tr => {
-      const imgTd = tr.querySelector('td.square-image');
-      if (!imgTd) return;
-
-      const itemLink = tr.querySelector('a[title]');
-      if (!itemLink) return;
-
-      const title = (itemLink.getAttribute('title') || '').trim();
-      const idMatch = title.match(/^(\d+)\./);
-      const itemId = idMatch ? parseInt(idMatch[1]) : null;
-      if (!itemId) return;
-
-      const editLink = Array.from(tr.querySelectorAll('a')).find(a =>
-        a.textContent.trim() === 'Redigera'
-      );
-      const editUrl = editLink ? editLink.getAttribute('href') : null;
-      const hasImage = !!imgTd.querySelector('img');
-
-      items.push({ itemId, title, editUrl, hasImage });
-    });
-    return items;
-  }
-
-  function detectPublishablePages(html) {
-    const normalized = html.replace(/&nbsp;/g, ' ').replace(/\u00a0/g, ' ');
-    const match = normalized.match(/Visar resultat\s+\d+\s*[-–]\s*(\d+)\s+av\s+(\d[\d\s]*)/i);
-    if (match) {
-      const perPage = parseInt(match[1]);
-      const total = parseInt(match[2].replace(/\s/g, ''));
-      if (total > 0 && perPage > 0) return Math.ceil(total / perPage);
-    }
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    let maxPage = 1;
-    doc.querySelectorAll('a[href*="page="]').forEach(a => {
-      const m = a.getAttribute('href').match(/page=(\d+)/);
-      if (m) maxPage = Math.max(maxPage, parseInt(m[1]));
-    });
-    return maxPage;
-  }
-
-  function runPhase1Checks(item) {
-    const issues = [];
-    if (!item.hasImage) {
-      issues.push({ text: '0 bilder (saknar primärbild)', severity: 'critical' });
-    }
-    if (!item.title || !item.title.trim()) {
-      issues.push({ text: 'Saknar titel', severity: 'warning' });
-    } else if (item.title.replace(/^\d+\.\s*/, '').length < PUB_SCAN_MIN_TITLE_LENGTH) {
-      issues.push({ text: 'Kort titel (< 15 tecken)', severity: 'warning' });
-    }
-    return issues;
-  }
-
-  // Parse the item SHOW page for images and text fields (title, description, condition)
-  // Show page URL = edit URL minus /edit
-  // Structure: div.row.details-texts contains h5 headings followed by div.bottom-vspace with values
-  function parseShowPageForScan(html) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    // Count images from images.auctionet.com
-    let imageCount = 0;
-    doc.querySelectorAll('img').forEach(img => {
-      const src = img.getAttribute('src') || '';
-      if (src.includes('images.auctionet.com') && !src.includes('placeholder')) {
-        imageCount++;
-      }
-    });
-
-    // Extract text fields from the details-texts section
-    let description = '';
-    let condition = '';
-
-    const detailsSection = doc.querySelector('.details-texts') || doc.querySelector('.row.details-texts');
-    if (detailsSection) {
-      const headings = detailsSection.querySelectorAll('h5');
-      headings.forEach(h5 => {
-        const label = h5.textContent.trim().toLowerCase();
-        const valueDiv = h5.nextElementSibling;
-        if (!valueDiv) return;
-        const text = valueDiv.textContent.trim();
-
-        if (label.includes('beskrivning')) {
-          description = text;
-        } else if (label.includes('kondition')) {
-          condition = text;
-        }
-      });
-    }
-
-    return { imageCount, description, condition };
-  }
-
-  // Parse the item EDIT page for fields only available there (keywords, raw title, artist)
-  function parseEditPageFields(html) {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    let keywords = '';
-    const kwEl = doc.querySelector('#item_hidden_keywords') ||
-                 doc.querySelector('input[name*="keywords"]') ||
-                 doc.querySelector('textarea[name*="keywords"]');
-    if (kwEl) {
-      // For <input type="hidden"> getAttribute('value') works.
-      // For <textarea>, content is between tags so use textContent.
-      // DOMParser does NOT set .value property, so skip that.
-      const tagName = kwEl.tagName.toLowerCase();
-      if (tagName === 'textarea') {
-        keywords = (kwEl.textContent || '').trim();
-      } else {
-        keywords = (kwEl.getAttribute('value') || '').trim();
-      }
-    }
-
-    // Raw title from the edit form (without item ID prefix)
-    let editTitle = '';
-    const titleEl = doc.querySelector('#item_title_sv');
-    if (titleEl) editTitle = (titleEl.getAttribute('value') || titleEl.value || titleEl.textContent || '').trim();
-
-    // Artist/konstnär field
-    let artist = '';
-    const artistEl = doc.querySelector('#item_artist_name_sv');
-    if (artistEl) artist = (artistEl.getAttribute('value') || artistEl.value || artistEl.textContent || '').trim();
-
-    // Estimate/valuation (input field)
-    let estimate = 0;
-    const estEl = doc.querySelector('#item_current_auction_attributes_estimate');
-    if (estEl) estimate = parseFloat(estEl.getAttribute('value')) || 0;
-
-    return { keywords, editTitle, artist, estimate };
-  }
-
-  async function runPhase2Checks(editData, apiKey) {
-    const issues = [];
-
-    // Image checks — critical (red): too few images is a key quality issue
-    if (editData.imageCount === 0) {
-      issues.push({ text: '0 bilder', severity: 'critical' });
-    } else if (editData.imageCount === 1) {
-      issues.push({ text: '1 bild', severity: 'critical' });
-    } else if (editData.imageCount === 2) {
-      issues.push({ text: '2 bilder', severity: 'critical' });
-    }
-
-    // Artist name in title field check — critical (red)
-    // Detects pattern: "SIGURD MALMFJORD. Kniv, halvhorn..." (ALL CAPS name followed by period)
-    // Only reliable from edit page title field (editTitle), not the publishables list title
-    if (editData.editTitle) {
-      const capsMatch = editData.editTitle.match(/^([A-ZÅÄÖÜ][A-ZÅÄÖÜ\s,-]+?)\.\s+/);
-      if (capsMatch) {
-        const capsName = capsMatch[1].trim();
-        // Must be at least 2 words (first + last name), each 2+ chars, all uppercase
-        const nameWords = capsName.split(/[\s,]+/).filter(w => w.length >= 2);
-        if (nameWords.length >= 2 && nameWords.every(w => /^[A-ZÅÄÖÜ-]+$/.test(w))) {
-          issues.push({ text: `Konstnärsnamn i titel ("${capsName}") — flytta till konstnärsfält`, severity: 'critical' });
-        }
-      }
-    }
-
-    // Description checks — warning (orange): text quality, not blocking
-    if (!editData.description) {
-      issues.push({ text: 'Saknar beskrivning', severity: 'warning' });
-    } else if (editData.description.length < PUB_SCAN_MIN_DESC_LENGTH) {
-      issues.push({ text: 'Kort beskrivning (< 40 tecken)', severity: 'warning' });
-    }
-
-    // Condition checks — warning (orange): text quality
-    if (!editData.condition) {
-      issues.push({ text: 'Saknar kondition', severity: 'warning' });
-    } else {
-      const condLower = editData.condition.toLowerCase();
-
-      // Check for "only bruksslitage" pattern — quality-rules-engine: -35 score, high severity
-      if (/^bruksslitage\.?\s*$/i.test(editData.condition.trim())) {
-        issues.push({ text: 'Endast "bruksslitage" — specificera typ av slitage', severity: 'warning' });
-      }
-      // Check for vague condition terms — quality-rules-engine: medium severity
-      else if (PUB_SCAN_VAGUE_CONDITION_TERMS.some(term => condLower.includes(term))) {
-        const matched = PUB_SCAN_VAGUE_CONDITION_TERMS.find(term => condLower.includes(term));
-        if (editData.condition.length < 40) {
-          // Short + vague = higher concern
-          issues.push({ text: `Vag kondition ("${matched}")`, severity: 'warning' });
-        } else {
-          // Vague term but longer text — lighter warning
-          issues.push({ text: `"${matched}" i kondition — överväg att specificera`, severity: 'warning' });
-        }
-      }
-      // Check condition length — quality-rules-engine: < 25 chars = high (-20)
-      else if (editData.condition.length < PUB_SCAN_MIN_CONDITION_LENGTH) {
-        issues.push({ text: 'Kort kondition (< 15 tecken)', severity: 'warning' });
-      }
-    }
-
-    // Spellcheck on title + description + condition text
-    // AI-based (Sonnet) if API key available, dictionary fallback otherwise
-    const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
-    const spellingErrors = apiKey
-      ? await checkSpellingAI(combinedText, apiKey)
-      : checkSpellingDict(combinedText);
-    if (spellingErrors.length > 0) {
-      const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
-      issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
-    }
-
-    // Check for repeated measurement units (cm/mm after every dimension instead of just at the end)
-    const descText = editData.description || '';
-    const descLines = descText.replace(/<[^>]*>/g, '').split(/\n/);
-    for (const line of descLines) {
-      const unitMatches = line.match(/\d+([.,]\d+)?\s*(cm|mm)\b/gi);
-      if (unitMatches && unitMatches.length >= 3) {
-        const units = unitMatches.map(m => m.match(/(cm|mm)/i)?.[1]?.toLowerCase());
-        if (units.every(u => u === units[0])) {
-          issues.push({ text: `Måttenhet upprepas — skriv "${units[0]}" bara efter sista måttet`, severity: 'warning' });
-          break;
-        }
-      }
-    }
-
-    // Keywords: not an error, just tracked as a count in the summary
-    return issues;
-  }
-
-  async function fetchPublicationPageHtml(url) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    try {
-      const response = await fetch(url, { credentials: 'same-origin', signal: controller.signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
-      return response.text();
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  // Every scan (incremental or manual) does a full deep-scan of all items:
-  // images, spelling, descriptions, conditions, keywords.
-  // Items that left the publication queue are automatically removed from results.
-  async function runPublicationScan(onProgress, { incremental = false } = {}) {
-    const report = (msg) => { if (onProgress) onProgress(msg); };
-
-    // Load API key for AI spellcheck (falls back to dictionary if unavailable)
-    let apiKey = null;
-    try {
-      const stored = await chrome.storage.local.get(['anthropicApiKey']);
-      apiKey = stored.anthropicApiKey || null;
-    } catch (e) { /* no API key — dictionary fallback */ }
-
-    report('Hämtar publiceringslista...');
-    const baseUrl = '/admin/sas/publishables';
-    const firstPageHtml = await fetchPublicationPageHtml(baseUrl);
-    const totalPages = detectPublishablePages(firstPageHtml);
-    let allItems = parsePublishablesPage(firstPageHtml);
-
-    if (totalPages > 1) {
-      for (let p = 2; p <= totalPages; p++) {
-        report(`Hämtar sida ${p}/${totalPages}...`);
-        const html = await fetchPublicationPageHtml(`${baseUrl}?page=${p}`);
-        allItems.push(...parsePublishablesPage(html));
-      }
-    }
-
-    const totalItems = allItems.length;
-    if (totalItems === 0) {
-      return { scannedAt: new Date().toISOString(), totalItems: 0, critical: [], warnings: [], passed: 0 };
-    }
-
-    allItems.forEach(item => { item.phase1Issues = runPhase1Checks(item); });
-
-    // Full deep-scan for all items (show page + edit page + AI spellcheck)
-    let scanned = 0;
-    for (let i = 0; i < allItems.length; i += PUB_SCAN_BATCH_SIZE) {
-      const batch = allItems.slice(i, i + PUB_SCAN_BATCH_SIZE);
-      await Promise.all(batch.map(async (item) => {
-        if (!item.editUrl) {
-          item.phase2Issues = [{ text: 'Saknar redigera-länk', severity: 'warning' }];
-          return;
-        }
-        try {
-          const showUrl = item.editUrl.replace(/\/edit$/, '');
-          const [showHtml, editHtml] = await Promise.all([
-            fetchPublicationPageHtml(showUrl),
-            fetchPublicationPageHtml(item.editUrl)
-          ]);
-          const showData = parseShowPageForScan(showHtml);
-          const editFields = parseEditPageFields(editHtml);
-          const editData = {
-            title: item.title, editTitle: editFields.editTitle, artist: editFields.artist,
-            imageCount: showData.imageCount, description: showData.description,
-            condition: showData.condition, keywords: editFields.keywords,
-            estimate: editFields.estimate
-          };
-          item.showUrl = showUrl;
-          item.editData = editData;
-          item.phase2Issues = await runPhase2Checks(editData, apiKey);
-        } catch (e) {
-          console.error(`[PublicationScanner] Failed to scan item ${item.itemId}:`, e);
-          item.phase2Issues = [{ text: 'Kunde inte skannas', severity: 'warning' }];
-        }
-      }));
-      scanned += batch.length;
-      report(`Skannar ${Math.min(scanned, totalItems)}/${totalItems}...`);
-    }
-
-    // Build final results from all items
-    const critical = [];
-    const warnings = [];
-    let passed = 0;
-    let missingKeywords = 0;
-    let highValueWithIssues = 0;
-    const passedIds = [];
-    const keywordMap = {}; // itemId → boolean (true = has keywords)
-    const estimateMap = {}; // itemId → number (estimate in SEK)
-
-    allItems.forEach(item => {
-      // Keyword status from edit page scan
-      let hasKeywords = null;
-      if (item.editData && item.editData.keywords !== undefined) {
-        hasKeywords = item.editData.keywords !== '';
-      }
-      if (hasKeywords === false) missingKeywords++;
-      if (hasKeywords !== null) keywordMap[item.itemId] = hasKeywords;
-
-      // Estimate from edit page scan
-      let estimate = 0;
-      if (item.editData && item.editData.estimate !== undefined) {
-        estimate = item.editData.estimate || 0;
-      }
-      if (estimate > 0) estimateMap[item.itemId] = estimate;
-
-      const allIssues = [...item.phase1Issues];
-      if (item.phase2Issues) {
-        item.phase2Issues.forEach(p2 => {
-          const p2Text = typeof p2 === 'string' ? p2 : p2.text;
-          const isDupImage = p2Text.match(/^\d+ bild/) && allIssues.some(p1 => (typeof p1 === 'string' ? p1 : p1.text).includes('bilder'));
-          if (!isDupImage) allIssues.push(p2);
-        });
-      }
-      if (allIssues.length === 0) { passed++; passedIds.push(item.itemId); return; }
-
-      if (estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD) highValueWithIssues++;
-
-      const hasCritical = allIssues.some(i => (typeof i === 'string' ? 'warning' : i.severity) === 'critical');
-      const showUrl = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : null);
-      const entry = {
-        itemId: item.itemId,
-        title: item.title,
-        editUrl: item.editUrl,
-        showUrl: showUrl,
-        issues: allIssues.map(i => typeof i === 'string' ? { text: i, severity: 'warning' } : { text: i.text, severity: i.severity }),
-        severity: hasCritical ? 'critical' : 'warning',
-        imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0),
-        hasKeywords: hasKeywords,
-        estimate: estimate
-      };
-      if (hasCritical) critical.push(entry); else warnings.push(entry);
-    });
-
-    const result = { _version: 4, scannedAt: new Date().toISOString(), totalItems, critical, warnings, passed, missingKeywords, highValueWithIssues, _passedIds: passedIds, _keywordMap: keywordMap, _estimateMap: estimateMap };
-    try { chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result }); } catch (e) { /* ignore */ }
-    return result;
-  }
-
   // ─── Publication Scanner: trigger & init ──────────────────────
 
-  let publicationScanRunning = false;
-
-  async function triggerPublicationScan({ incremental = false } = {}) {
-    if (publicationScanRunning) return;
-    publicationScanRunning = true;
-
-    try {
-      if (!incremental) chrome.storage.local.remove(PUB_SCAN_CACHE_KEY);
-      renderPublicationLoading(incremental ? 'Kontrollerar...' : 'Skannar...');
-
-      const result = await runPublicationScan((progress) => {
-        renderPublicationLoading(progress);
-      }, { incremental });
-
-      await renderPublicationResults(result);
-    } catch (error) {
-      console.error('[AdminDashboard] Publication scan failed:', error);
-      let container = document.querySelector('.ext-pubscan');
-      if (container) {
-        container.innerHTML = `
-          <div class="ext-pubscan__card">
-            <div class="ext-pubscan__header">
-              <span class="ext-pubscan__title">📋 Publiceringskontroll</span>
-              <button class="ext-pubscan__run" title="Kör skanning">Kör nu ↻</button>
-            </div>
-            <div class="ext-pubscan__error">
-              Kunde inte slutföra skanning: ${escapeHTML(error.message)}
-            </div>
-          </div>
-        `;
-        container.querySelector('.ext-pubscan__run')?.addEventListener('click', () => triggerPublicationScan());
-      }
-    } finally {
-      publicationScanRunning = false;
-    }
+  function triggerPublicationScan() {
+    renderPublicationLoading('Startar skanning...');
+    chrome.runtime.sendMessage({ type: 'run-publication-scan' });
   }
 
   async function initPublicationScanner() {
@@ -1697,10 +1188,31 @@ Svara BARA med JSON:
     }
   }
 
-  // Listen for alarm-triggered scans from background.js — use incremental mode
+  // Listen for background scan completion — reload cache and re-render
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'trigger-publication-scan') {
-      triggerPublicationScan({ incremental: true });
+    if (message.type === 'publication-scan-complete') {
+      (async () => {
+        try {
+          const cached = await new Promise(resolve =>
+            chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]))
+          );
+          if (cached && cached._version === 4) {
+            await renderPublicationResults(cached);
+          }
+        } catch (e) {
+          console.error('[AdminDashboard] Failed to render after scan completion:', e);
+        }
+      })();
+    }
+  });
+
+  // Listen for scan progress updates from background service worker
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.publicationScanProgress) {
+      const progress = changes.publicationScanProgress.newValue;
+      if (progress) {
+        renderPublicationLoading(progress);
+      }
     }
   });
 

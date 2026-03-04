@@ -1,3 +1,4 @@
+import { runBackgroundPublicationScan } from './publication-scanner-bg.js';
 
 // Background script startup
 
@@ -19,21 +20,31 @@
 })();
 
 // ─── Publication Scanner Alarm ──────────────────────────────────────
-// Register a periodic alarm to trigger incremental publication queue scans every 10 minutes
+// Runs a full publication queue scan every 10 minutes in the background,
+// regardless of whether the dashboard tab is open.
 chrome.alarms.create('publicationScan', { periodInMinutes: 10 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'publicationScan') {
-    // Send message to any open admin dashboard tab to trigger a scan
-    chrome.tabs.query({ url: 'https://auctionet.com/admin/sas' }, (tabs) => {
-      tabs.forEach(tab => {
-        chrome.tabs.sendMessage(tab.id, { type: 'trigger-publication-scan' }).catch(() => {
-          // Tab may not have the content script active, ignore
-        });
-      });
-    });
+    runPublicationScanAndNotify();
   }
 });
+
+async function runPublicationScanAndNotify() {
+  try {
+    const result = await runBackgroundPublicationScan();
+    if (result) {
+      // Notify any open dashboard tab to re-render
+      chrome.tabs.query({ url: 'https://auctionet.com/admin/sas' }, (tabs) => {
+        tabs.forEach(tab => {
+          chrome.tabs.sendMessage(tab.id, { type: 'publication-scan-complete' }).catch(() => {});
+        });
+      });
+    }
+  } catch (e) {
+    console.error('[Background] Publication scan failed:', e);
+  }
+}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
@@ -47,6 +58,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.type === 'fetch-image-base64') {
     handleFetchImageAsBase64(request, sendResponse);
     return true;
+  } else if (request.type === 'run-publication-scan') {
+    // Manual "Kör nu" from dashboard UI
+    runPublicationScanAndNotify();
+    sendResponse({ success: true });
+    return false;
   } else if (request.type === 'ping') {
     sendResponse({ success: true, message: 'pong' });
     return false;
