@@ -10,6 +10,7 @@
 // ─── Constants ──────────────────────────────────────────────────────
 const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
+const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache';
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
 const PUB_SCAN_MIN_TITLE_LENGTH = 15;
 const PUB_SCAN_MIN_CONDITION_LENGTH = 15;
@@ -133,7 +134,7 @@ function runPhase1Checks(item) {
   return issues;
 }
 
-async function runPhase2Checks(editData, apiKey, dictMap) {
+async function runPhase2Checks(editData, apiKey, dictMap, itemId) {
   const issues = [];
 
   // Image checks
@@ -183,11 +184,22 @@ async function runPhase2Checks(editData, apiKey, dictMap) {
     }
   }
 
-  // Spellcheck
+  // Spellcheck (with caching to avoid redundant AI calls)
   const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
-  const spellingErrors = apiKey
-    ? await checkSpellingAI(combinedText, apiKey)
-    : checkSpellingDict(combinedText, dictMap);
+  let spellingErrors;
+  if (apiKey && itemId) {
+    const cached = await getCachedSpellcheck(itemId, combinedText);
+    if (cached) {
+      spellingErrors = cached;
+    } else {
+      spellingErrors = await checkSpellingAI(combinedText, apiKey);
+      await setCachedSpellcheck(itemId, combinedText, spellingErrors);
+    }
+  } else if (apiKey) {
+    spellingErrors = await checkSpellingAI(combinedText, apiKey);
+  } else {
+    spellingErrors = checkSpellingDict(combinedText, dictMap);
+  }
   if (spellingErrors.length > 0) {
     const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
     issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
@@ -208,6 +220,48 @@ async function runPhase2Checks(editData, apiKey, dictMap) {
   }
 
   return issues;
+}
+
+// ─── Spellcheck cache ───────────────────────────────────────────────
+
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return hash.toString(36);
+}
+
+let spellCache = null;
+
+async function loadSpellCache() {
+  if (spellCache) return spellCache;
+  try {
+    const stored = await chrome.storage.local.get([PUB_SCAN_SPELL_CACHE_KEY]);
+    spellCache = stored[PUB_SCAN_SPELL_CACHE_KEY] || {};
+  } catch (e) {
+    spellCache = {};
+  }
+  return spellCache;
+}
+
+async function saveSpellCache() {
+  if (!spellCache) return;
+  await chrome.storage.local.set({ [PUB_SCAN_SPELL_CACHE_KEY]: spellCache });
+}
+
+async function getCachedSpellcheck(itemId, text) {
+  const cache = await loadSpellCache();
+  const entry = cache[itemId];
+  if (!entry) return null;
+  const hash = simpleHash(text);
+  if (entry.hash === hash) return entry.results;
+  return null;
+}
+
+async function setCachedSpellcheck(itemId, text, results) {
+  const cache = await loadSpellCache();
+  cache[itemId] = { hash: simpleHash(text), results };
 }
 
 // ─── Spellcheck (direct API call from service worker) ───────────────
@@ -254,7 +308,7 @@ Svara BARA med JSON:
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-haiku-4-5', // Haiku is sufficient for spellcheck and ~10x cheaper than Sonnet
         max_tokens: 300,
         temperature: 0,
         system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
@@ -325,6 +379,9 @@ export async function runBackgroundPublicationScan() {
   try {
     // Create offscreen document for HTML parsing
     await ensureOffscreen();
+
+    // Reset spell cache to load fresh from storage
+    spellCache = null;
 
     // Load API key
     let apiKey = null;
@@ -404,7 +461,7 @@ export async function runBackgroundPublicationScan() {
           };
           item.showUrl = showUrl;
           item.editData = editData;
-          item.phase2Issues = await runPhase2Checks(editData, apiKey, dictMap);
+          item.phase2Issues = await runPhase2Checks(editData, apiKey, dictMap, item.itemId);
         } catch (e) {
           console.error(`[PubScanBG] Failed to scan item ${item.itemId}:`, e);
           item.phase2Issues = [{ text: 'Kunde inte skannas', severity: 'warning' }];
@@ -481,6 +538,7 @@ export async function runBackgroundPublicationScan() {
     };
 
     await chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result });
+    await saveSpellCache();
     clearProgress();
     return result;
 

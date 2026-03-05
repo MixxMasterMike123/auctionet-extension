@@ -20,10 +20,10 @@ import { runBackgroundPublicationScan } from './publication-scanner-bg.js';
 })();
 
 // ─── Publication Scanner Alarm ──────────────────────────────────────
-// Runs a full publication queue scan every 10 minutes in the background,
+// Runs a full publication queue scan every 30 minutes in the background,
 // regardless of whether the dashboard tab is open.
 // delayInMinutes: 1 ensures the first scan fires ~1 min after extension load/update.
-chrome.alarms.create('publicationScan', { delayInMinutes: 1, periodInMinutes: 10 });
+chrome.alarms.create('publicationScan', { delayInMinutes: 1, periodInMinutes: 30 });
 
 // Run an initial scan on extension install or update so data is fresh immediately
 chrome.runtime.onInstalled.addListener(() => {
