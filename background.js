@@ -38,8 +38,16 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-async function runPublicationScanAndNotify() {
+async function runPublicationScanAndNotify(skipEnabledCheck = false) {
   try {
+    // Check if publication scanner is enabled (opt-in, default disabled)
+    if (!skipEnabledCheck) {
+      const { enablePubScanner } = await chrome.storage.local.get(['enablePubScanner']);
+      if (!enablePubScanner) {
+        return; // Scanner disabled — skip silently
+      }
+    }
+
     const result = await runBackgroundPublicationScan();
     // Always notify dashboard tabs — even if result is null (e.g., not logged in),
     // so the dashboard can stop showing the spinner and render cached data or empty state.
@@ -73,8 +81,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     handleFetchImageAsBase64(request, sendResponse);
     return true;
   } else if (request.type === 'run-publication-scan') {
-    // Manual "Kör nu" from dashboard UI
-    runPublicationScanAndNotify();
+    // Manual "Kör nu" from dashboard UI — always runs regardless of setting
+    runPublicationScanAndNotify(true);
     sendResponse({ success: true });
     return false;
   } else if (request.type === 'ping') {

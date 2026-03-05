@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const excludeCompanyInput = document.getElementById('exclude-company-id');
   const saveExcludeCompanyButton = document.getElementById('save-exclude-company');
   const searchDefaultsCheckbox = document.getElementById('search-defaults');
+  const enablePubScannerCheckbox = document.getElementById('enable-pub-scanner');
 
   const adminUI = document.getElementById('admin-ui');
 
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadShowDashboardSetting();
   await loadExcludeCompanySetting();
   await loadSearchDefaultsSetting();
+  await loadPubScannerSetting();
   await renderAdminUI();
   
   // Check extension status
@@ -33,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   showDashboardCheckbox.addEventListener('change', saveShowDashboardSetting);
   saveExcludeCompanyButton.addEventListener('click', saveExcludeCompanySetting);
   searchDefaultsCheckbox.addEventListener('change', saveSearchDefaultsSetting);
+  enablePubScannerCheckbox.addEventListener('change', savePubScannerSetting);
   apiKeyInput.addEventListener('input', () => {
     clearStatus();
   });
@@ -330,6 +333,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       await chrome.storage.sync.set({ searchDefaults: searchDefaultsCheckbox.checked });
     } catch (error) {
       console.error('Error saving search defaults setting:', error);
+    }
+  }
+
+  async function loadPubScannerSetting() {
+    try {
+      const result = await chrome.storage.local.get(['enablePubScanner']);
+      // Default to false (disabled) — opt-in to avoid unnecessary API costs
+      enablePubScannerCheckbox.checked = result.enablePubScanner === true;
+    } catch (error) {
+      console.error('Error loading pub scanner setting:', error);
+      enablePubScannerCheckbox.checked = false;
+    }
+  }
+
+  async function savePubScannerSetting() {
+    const isEnabled = enablePubScannerCheckbox.checked;
+    try {
+      await chrome.storage.local.set({ enablePubScanner: isEnabled });
+      if (isEnabled) {
+        showStatus('Publiceringskontroll aktiverad. Nästa skanning startar inom 30 min.', 'success');
+      } else {
+        showStatus('Publiceringskontroll avaktiverad.', 'success');
+      }
+    } catch (error) {
+      console.error('Error saving pub scanner setting:', error);
     }
   }
 
