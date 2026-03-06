@@ -1,0 +1,586 @@
+/* analytics.css — Standalone analytics dashboard styles */
+
+:root {
+  --ad-bg: #f8f9fa;
+  --ad-card-bg: #ffffff;
+  --ad-border: #e2e8f0;
+  --ad-text: #1e293b;
+  --ad-text-muted: #64748b;
+  --ad-text-light: #94a3b8;
+  --ad-accent: #2563eb;
+  --ad-accent-light: #dbeafe;
+  --ad-positive: #16a34a;
+  --ad-positive-bg: #dcfce7;
+  --ad-negative: #dc2626;
+  --ad-negative-bg: #fee2e2;
+  --ad-bar: #3b82f6;
+  --ad-bar-light: #93c5fd;
+  --ad-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --ad-shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
+  --ad-radius: 12px;
+  --ad-radius-sm: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  background: var(--ad-bg);
+  color: var(--ad-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Layout ─────────────────────────────────────────────── */
+
+.ad-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ─── Header ─────────────────────────────────────────────── */
+
+.ad-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ad-header__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ad-text);
+  letter-spacing: -0.3px;
+}
+
+.ad-header__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ad-header__company-select {
+  padding: 8px 12px;
+  border: 1px solid var(--ad-border);
+  border-radius: var(--ad-radius-sm);
+  font-size: 14px;
+  background: var(--ad-card-bg);
+  color: var(--ad-text);
+  min-width: 240px;
+  cursor: pointer;
+}
+
+.ad-header__company-select:focus {
+  outline: none;
+  border-color: var(--ad-accent);
+  box-shadow: 0 0 0 3px var(--ad-accent-light);
+}
+
+.ad-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--ad-border);
+  border-radius: var(--ad-radius-sm);
+  background: var(--ad-card-bg);
+  color: var(--ad-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ad-btn:hover { background: var(--ad-bg); border-color: var(--ad-text-light); }
+.ad-btn--primary { background: var(--ad-accent); color: white; border-color: var(--ad-accent); }
+.ad-btn--primary:hover { background: #1d4ed8; }
+.ad-btn--sm { padding: 5px 10px; font-size: 12px; }
+
+/* ─── Filters ────────────────────────────────────────────── */
+
+.ad-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--ad-card-bg);
+  border-radius: var(--ad-radius);
+  box-shadow: var(--ad-shadow);
+}
+
+.ad-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ad-filter-row__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ad-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 70px;
+}
+
+.ad-pill {
+  padding: 5px 12px;
+  border: 1px solid var(--ad-border);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--ad-text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ad-pill:hover { border-color: var(--ad-accent); color: var(--ad-accent); }
+
+.ad-pill--active {
+  background: var(--ad-accent);
+  color: white;
+  border-color: var(--ad-accent);
+}
+
+/* ─── KPI Cards ──────────────────────────────────────────── */
+
+.ad-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.ad-kpi-card {
+  background: var(--ad-card-bg);
+  border-radius: var(--ad-radius);
+  padding: 20px;
+  box-shadow: var(--ad-shadow);
+  transition: box-shadow 0.2s ease;
+}
+
+.ad-kpi-card:hover { box-shadow: var(--ad-shadow-md); }
+
+.ad-kpi-card__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ad-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.ad-kpi-card__value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ad-text);
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.ad-kpi-card__trend {
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.ad-kpi-card__trend--up {
+  color: var(--ad-positive);
+  background: var(--ad-positive-bg);
+}
+
+.ad-kpi-card__trend--down {
+  color: var(--ad-negative);
+  background: var(--ad-negative-bg);
+}
+
+.ad-kpi-card__trend--flat {
+  color: var(--ad-text-muted);
+  background: var(--ad-bg);
+}
+
+/* ─── Chart Cards ────────────────────────────────────────── */
+
+.ad-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.ad-card {
+  background: var(--ad-card-bg);
+  border-radius: var(--ad-radius);
+  padding: 20px;
+  box-shadow: var(--ad-shadow);
+}
+
+.ad-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ad-text);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ─── Bar Charts (CSS-only) ──────────────────────────────── */
+
+.ad-bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ad-bar-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px 50px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.ad-bar-row__label {
+  color: var(--ad-text-muted);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ad-bar-row__track {
+  height: 22px;
+  background: var(--ad-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.ad-bar-row__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ad-bar), var(--ad-bar-light));
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+
+.ad-bar-row__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ad-text);
+  text-align: right;
+}
+
+.ad-bar-row__pct {
+  font-size: 12px;
+  color: var(--ad-text-muted);
+  text-align: right;
+}
+
+/* Monthly chart — vertical bars */
+.ad-monthly-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 160px;
+  padding-top: 8px;
+}
+
+.ad-monthly-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.ad-monthly-bar:hover { opacity: 0.8; }
+
+.ad-monthly-bar__fill {
+  width: 100%;
+  background: linear-gradient(180deg, var(--ad-bar), var(--ad-bar-light));
+  border-radius: 4px 4px 0 0;
+  transition: height 0.4s ease;
+  min-height: 2px;
+  position: relative;
+}
+
+.ad-monthly-bar__count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ad-text);
+  margin-bottom: 2px;
+}
+
+.ad-monthly-bar__label {
+  font-size: 10px;
+  color: var(--ad-text-muted);
+  margin-top: 4px;
+}
+
+.ad-monthly-bar--active .ad-monthly-bar__fill {
+  background: linear-gradient(180deg, var(--ad-accent), #3b82f6);
+}
+
+/* Average price line overlay */
+.ad-monthly-avg {
+  font-size: 11px;
+  color: var(--ad-text-muted);
+  text-align: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ad-border);
+}
+
+/* ─── Category Table ─────────────────────────────────────── */
+
+.ad-cat-table {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.ad-cat-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 80px 100px 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ad-bg);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.ad-cat-row:hover { background: var(--ad-bg); margin: 0 -12px; padding: 8px 12px; border-radius: 6px; }
+
+.ad-cat-row__name {
+  font-weight: 500;
+  color: var(--ad-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ad-cat-row__bar {
+  height: 18px;
+  background: var(--ad-bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ad-cat-row__bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ad-bar), var(--ad-bar-light));
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.ad-cat-row__count, .ad-cat-row__revenue, .ad-cat-row__avg {
+  text-align: right;
+  font-size: 12px;
+}
+
+.ad-cat-row__count { font-weight: 600; color: var(--ad-text); }
+.ad-cat-row__revenue { color: var(--ad-text-muted); }
+.ad-cat-row__avg { color: var(--ad-text-light); }
+
+.ad-cat-header {
+  display: grid;
+  grid-template-columns: 180px 1fr 80px 100px 80px;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 2px solid var(--ad-border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ad-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ad-cat-header span:nth-child(n+3) { text-align: right; }
+.ad-cat-header span { cursor: pointer; }
+.ad-cat-header span:hover { color: var(--ad-accent); }
+
+/* ─── Price Points ───────────────────────────────────────── */
+
+.ad-price-points {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ad-price-point {
+  display: grid;
+  grid-template-columns: 180px 1fr 60px;
+  align-items: center;
+  gap: 12px;
+}
+
+.ad-price-point__label {
+  font-size: 13px;
+  color: var(--ad-text);
+}
+
+.ad-price-point__bar {
+  height: 24px;
+  background: var(--ad-bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ad-price-point__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.ad-price-point__fill--highlight {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.ad-price-point__fill--under {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.ad-price-point__fill--over {
+  background: linear-gradient(90deg, var(--ad-positive), #4ade80);
+}
+
+.ad-price-point__pct {
+  font-size: 14px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* ─── Progress Bar ───────────────────────────────────────── */
+
+.ad-progress {
+  margin: 40px auto;
+  max-width: 500px;
+  text-align: center;
+}
+
+.ad-progress__bar {
+  height: 6px;
+  background: var(--ad-border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 16px 0;
+}
+
+.ad-progress__fill {
+  height: 100%;
+  background: var(--ad-accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  width: 0%;
+  position: relative;
+  overflow: hidden;
+}
+
+.ad-progress__fill--active::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.4) 50%,
+    transparent 100%
+  );
+  animation: ad-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes ad-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.ad-progress__text {
+  font-size: 13px;
+  color: var(--ad-text-muted);
+}
+
+/* ─── Empty / Meta ───────────────────────────────────────── */
+
+.ad-meta {
+  font-size: 12px;
+  color: var(--ad-text-light);
+  text-align: right;
+  margin-bottom: 16px;
+}
+
+.ad-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--ad-text-muted);
+}
+
+.ad-empty__icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+.ad-empty__text { font-size: 15px; }
+
+/* ─── Comparison ─────────────────────────────────────────── */
+
+.ad-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.ad-compare-card {
+  background: var(--ad-card-bg);
+  border-radius: var(--ad-radius);
+  padding: 20px;
+  box-shadow: var(--ad-shadow);
+}
+
+.ad-compare-card__house {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ad-accent);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--ad-accent-light);
+}
+
+.ad-compare-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.ad-compare-row__label { color: var(--ad-text-muted); }
+.ad-compare-row__value { font-weight: 600; color: var(--ad-text); }
+
+/* ─── Animations ─────────────────────────────────────────── */
+
+@keyframes ad-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ad-animate { animation: ad-fade-in 0.3s ease forwards; }
+
+/* ─── Responsive ─────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .ad-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .ad-charts-row { grid-template-columns: 1fr; }
+}

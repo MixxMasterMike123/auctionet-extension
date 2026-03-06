@@ -36,6 +36,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   saveExcludeCompanyButton.addEventListener('click', saveExcludeCompanySetting);
   searchDefaultsCheckbox.addEventListener('change', saveSearchDefaultsSetting);
   enablePubScannerCheckbox.addEventListener('change', savePubScannerSetting);
+  document.getElementById('open-analytics').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('analytics.html') });
+  });
   apiKeyInput.addEventListener('input', () => {
     clearStatus();
   });

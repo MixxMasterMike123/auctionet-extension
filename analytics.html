@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Försäljningsanalys — Auctionet</title>
+  <link rel="stylesheet" href="styles/components/analytics.css">
+  <link rel="icon" href="icons/icon-48.png">
+</head>
+<body>
+  <div class="ad-container">
+    <!-- Header -->
+    <div class="ad-header">
+      <h1 class="ad-header__title">Försäljningsanalys</h1>
+      <div class="ad-header__controls">
+        <select id="company-select" class="ad-header__company-select">
+          <option value="">Välj auktionshus...</option>
+        </select>
+        <input id="company-id-input" type="number" placeholder="Företags-ID"
+               class="ad-header__company-select" style="min-width:120px; width:120px;">
+        <button id="fetch-btn" class="ad-btn ad-btn--primary">Hämta</button>
+        <button id="refresh-btn" class="ad-btn" title="Uppdatera data">↻</button>
+      </div>
+    </div>
+
+    <!-- Meta line -->
+    <div class="ad-meta" id="meta-line"></div>
+
+    <!-- Dashboard content (rendered by JS) -->
+    <div id="dashboard">
+      <div class="ad-empty">
+        <div class="ad-empty__icon">📊</div>
+        <div class="ad-empty__text">Välj ett auktionshus för att börja</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="analytics.js"></script>
+</body>
+</html>

@@ -8,7 +8,8 @@
     "storage",
     "tabs",
     "alarms",
-    "offscreen"
+    "offscreen",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "https://auctionet.com/*",
@@ -105,7 +106,8 @@
         "modules/enhance-all/*.js",
         "modules/refactored/components/*.js",
         "modules/refactored/ai-rules-system/*.js",
-        "modules/refactored/ai-rules-system/*.json"
+        "modules/refactored/ai-rules-system/*.json",
+        "modules/analytics/*.js"
       ],
       "matches": [
         "https://auctionet.com/*"
