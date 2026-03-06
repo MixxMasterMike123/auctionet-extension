@@ -193,6 +193,13 @@ function renderDashboard() {
 
   // Price points
   container.appendChild(renderPricePoints(pricePoints, items.length));
+
+  // Yearly prediction (only for current year, no month filter, no category filter)
+  const currentYear = new Date().getFullYear();
+  if (f.year === currentYear && f.month == null && f.categoryId == null) {
+    const prediction = renderPrediction(monthly, kpis);
+    if (prediction) container.appendChild(prediction);
+  }
 }
 
 // ─── Filter Pills ─────────────────────────────────────────
@@ -449,6 +456,53 @@ function renderPricePoints(pp, total) {
           <div class="ad-price-point__fill ad-price-point__fill--over" style="width:${pp.over5000.pct}%"></div>
         </div>
         <div class="ad-price-point__pct">${pp.over5000.pct}%</div>
+      </div>
+    </div>`;
+
+  return card;
+}
+
+// ─── Yearly Prediction ────────────────────────────────────
+
+function renderPrediction(monthly, currentKpis) {
+  // Count completed months (months with data)
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-11
+  // Only count months that have fully passed (exclude current month if mid-month)
+  const completedMonths = monthly.filter((m, i) => i < currentMonth && m.count > 0).length;
+
+  if (completedMonths < 2) return null; // Need at least 2 months for a meaningful prediction
+
+  // Sum only the completed months' data
+  const completedData = monthly.filter((m, i) => i < currentMonth && m.count > 0);
+  const completedCount = completedData.reduce((s, m) => s + m.count, 0);
+  const completedRevenue = completedData.reduce((s, m) => s + m.revenue, 0);
+
+  const factor = 12 / completedMonths;
+  const predCount = Math.round(completedCount * factor);
+  const predRevenue = Math.round(completedRevenue * factor);
+  const predAvg = predCount > 0 ? Math.round(predRevenue / predCount) : 0;
+
+  const card = document.createElement('div');
+  card.className = 'ad-card ad-animate';
+
+  card.innerHTML = `
+    <div class="ad-card__title">Prognos ${now.getFullYear()} <span class="ad-prediction__basis">baserat på ${completedMonths} avslutade månader</span></div>
+    <div class="ad-prediction">
+      <div class="ad-prediction__item">
+        <div class="ad-prediction__label">Sålda föremål</div>
+        <div class="ad-prediction__value">${fmt(predCount)}</div>
+        <div class="ad-prediction__actual">Hittills: ${fmt(currentKpis.count)}</div>
+      </div>
+      <div class="ad-prediction__item">
+        <div class="ad-prediction__label">Omsättning</div>
+        <div class="ad-prediction__value">${fmtSEK(predRevenue)}</div>
+        <div class="ad-prediction__actual">Hittills: ${fmtSEK(currentKpis.revenue)}</div>
+      </div>
+      <div class="ad-prediction__item">
+        <div class="ad-prediction__label">Snittpris</div>
+        <div class="ad-prediction__value">${fmtSEK(predAvg)}</div>
+        <div class="ad-prediction__actual">Hittills: ${fmtSEK(currentKpis.avgPrice)}</div>
       </div>
     </div>`;
 
