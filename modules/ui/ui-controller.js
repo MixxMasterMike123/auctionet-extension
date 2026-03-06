@@ -789,31 +789,6 @@ export class UIController {
         field.parentElement.appendChild(undoButton);
     }
 
-    addAIEnhancementNote(fieldType) {
-        const internalCommentsField = document.querySelector('#item_internal_comment');
-        if (internalCommentsField) {
-            const currentComments = internalCommentsField.value;
-            const timestamp = new Date().toLocaleDateString('sv-SE');
-            const fieldNames = {
-                'title': 'titel',
-                'title-correct': 'titel (korrigering)',
-                'description': 'beskrivning',
-                'condition': 'kondition',
-                'keywords': 'sökord'
-            };
-
-            const enhancementNote = `Auctionet-förbättring ${fieldNames[fieldType]} (${timestamp})`;
-
-            if (!currentComments.includes(enhancementNote)) {
-                const newComments = currentComments ?
-                    `${currentComments}\n${enhancementNote}` :
-                    enhancementNote;
-                internalCommentsField.value = newComments;
-                internalCommentsField.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
-    }
-
     applyImprovement(fieldType, value) {
         const fieldMap = {
             'title': '#item_title_sv',
@@ -859,7 +834,6 @@ export class UIController {
                 }
 
                 this.addUndoButton(field);
-                this.addAIEnhancementNote(fieldType);
             } finally {
                 setTimeout(() => {
                     this.isProgrammaticUpdate = false;
