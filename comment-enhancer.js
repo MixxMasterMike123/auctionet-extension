@@ -81,7 +81,6 @@
     if (/\/admin\/sas\/comments/.test(path)) {
       renderRichCommentsList(commentsSection);
       renderFilterBar(commentsSection);
-      console.log(`[CommentEnhancer] Enhanced comments listing page`);
       return;
     }
 
@@ -100,7 +99,6 @@
     // Enhance the comment section with a heading
     enhanceCommentSection(commentsSection);
 
-    console.log(`[CommentEnhancer] Injected badge (${commentCount} comments) on ${path}`);
   }
 
   // ─── Entity Type Badges ─────────────────────────────────────────

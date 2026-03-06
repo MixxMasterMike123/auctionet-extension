@@ -69,7 +69,6 @@ export class EnhanceAllManager {
         ? getTierById(tierOverride)
         : determineTier(formData.estimate, formData.upperEstimate, formData.acceptedReserve);
 
-      console.log(`[EnhanceAll] Tier: ${tier.label} (${tier.id}), estimate: ${formData.estimate || '-'}, upperEstimate: ${formData.upperEstimate || '-'}, acceptedReserve: ${formData.acceptedReserve || '-'}`);
 
       // 3. Show loading state
       this.ui?.showLoading(tier);

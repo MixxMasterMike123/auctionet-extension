@@ -23,7 +23,6 @@ export class ValuationRequestAssistant {
         return;
       }
 
-      console.log('[ValuationRequest] Page data scraped:', {
         name: this.pageData.customerName,
         email: this.pageData.customerEmail,
         descLength: this.pageData.description?.length,
@@ -127,7 +126,6 @@ export class ValuationRequestAssistant {
         // Use 4.5MB threshold for safety margin.
         const base64Size = base64.length;
         if (base64Size > 4.5 * 1024 * 1024) {
-          console.log(`[ValuationRequest] Image base64 too large (${(base64Size / 1024 / 1024).toFixed(1)}MB), resizing...`);
           const resized = await this._resizeBase64Image(base64, mediaType);
           base64 = resized.base64;
           mediaType = resized.mediaType;
@@ -457,7 +455,6 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
       }
 
       if (images.length > MAX_IMAGES) {
-        console.log(`[ValuationRequest] Limiting from ${images.length} to ${MAX_IMAGES} images`);
         images = images.slice(0, MAX_IMAGES);
       }
 
@@ -468,7 +465,6 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
         this._updateStatus('Analyserar bildgruppering...');
         try {
           const groups = await this._clusterImages(images, this.pageData.description);
-          console.log('[ValuationRequest] Clustering result:', groups);
 
           if (groups.length > 1) {
             // Multiple objects detected — show grouping UI for confirmation
@@ -746,7 +742,6 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
       let usedQuery = '';
       let salesCount = 0;
       for (const q of queries) {
-        console.log(`[ValuationRequest] Trying market search: "${q}"`);
         this._updateStatus(`Söker: "${q}"...`);
 
         const searchResult = await auctionetAPI.searchAuctionResults(q, `Valuation search: ${q}`);

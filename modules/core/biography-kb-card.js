@@ -350,7 +350,6 @@ Regler:
         });
       });
 
-      console.log(`[BiographyKB] Fetching biography for "${artistName}" via claude-opus-4-6`);
       let response;
       try {
         response = await callBioAPI('claude-opus-4-6');

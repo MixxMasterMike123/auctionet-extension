@@ -1465,10 +1465,8 @@ Ingen annan text.`;
 
       // Only use filtered results if we have enough (at least 3)
       if (filteredItems.length >= 3) {
-        console.log(`AI validation: kept ${filteredItems.length} of ${soldItems.length} results`);
         return filteredItems;
       } else {
-        console.log(`AI validation: too few relevant items (${filteredItems.length}), using unfiltered`);
         return null;
       }
 
@@ -1929,7 +1927,6 @@ Ingen annan text.`;
     if (filtered.length >= 3) {
       const removed = sortedPrices.length - filtered.length;
       if (removed > 0) {
-        console.log(`[AuctionetAPI] IQR outlier removal: removed ${removed} of ${sortedPrices.length} prices (fence: ${Math.round(lowerBound)}-${Math.round(upperBound)} SEK)`);
       }
       return filtered;
     } else {

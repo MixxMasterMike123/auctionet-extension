@@ -396,7 +396,6 @@ export async function runBackgroundPublicationScan() {
 
     // Check if we got a login redirect instead of actual content
     if (firstPageHtml.includes('/admin/login') && !firstPageHtml.includes('Publicerbara')) {
-      console.log('[PubScanBG] User not logged in, skipping scan');
       clearProgress();
       return null;
     }

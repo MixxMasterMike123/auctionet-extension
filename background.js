@@ -28,16 +28,13 @@ chrome.alarms.create('stickyErrorRecheck', { delayInMinutes: 5, periodInMinutes:
 
 // Run an initial scan on extension install or update so data is fresh immediately
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[Background] Extension installed/updated — running initial scan');
   runPublicationScanAndNotify();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'publicationScan') {
-    console.log('[Background] Alarm fired: publicationScan');
     runPublicationScanAndNotify();
   } else if (alarm.name === 'stickyErrorRecheck') {
-    console.log('[Background] Alarm fired: stickyErrorRecheck');
     runStickyRecheckAndNotify();
   }
 });

@@ -76,7 +76,6 @@ export class FieldDistributor {
       this._addUndoButtons(applied);
     }
 
-    console.log(`[FieldDistributor] Applied ${applied.length} fields:`, applied);
     return applied;
   }
 

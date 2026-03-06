@@ -13,15 +13,12 @@
   try {
     const { adminUnlocked } = await chrome.storage.sync.get('adminUnlocked');
     if (!adminUnlocked) {
-      console.log('[AdminDashboard] Admin mode not active, skipping enhancements');
       return;
     }
   } catch (e) {
-    console.log('[AdminDashboard] Could not check admin status, skipping enhancements');
     return;
   }
 
-  console.log('[AdminDashboard] Initializing dashboard enhancements');
 
   // ─── Utility ──────────────────────────────────────────────────────
 
@@ -1313,7 +1310,6 @@
         chrome.storage.local.get(WAREHOUSE_CACHE_KEY, r => resolve(r[WAREHOUSE_CACHE_KEY]));
       });
       if (cached && (Date.now() - cached.timestamp) < WAREHOUSE_CACHE_TTL) {
-        console.log('[AdminDashboard] Warehouse costs loaded from cache');
         renderWarehouseCosts(cached, true);
         return;
       }
@@ -1346,11 +1342,9 @@
     const firstPageHtml = await fetchPageHtml(baseUrl);
 
     const totalPages = detectTotalPages(firstPageHtml);
-    console.log(`[AdminDashboard] Warehouse: filter=${filter}, totalPages=${totalPages}`);
 
     // Parse first page
     const items = parseWarehouseTable(firstPageHtml);
-    console.log(`[AdminDashboard] Warehouse: page 1 → ${items.length} items, sample days: ${items.slice(0, 3).map(i => i.auctionHouseDays).join(',')}`);
 
     // Fetch remaining pages concurrently (batches of 5)
     if (totalPages > 1) {
@@ -1368,7 +1362,6 @@
     }
 
     const totalDays = items.reduce((sum, item) => sum + item.auctionHouseDays, 0);
-    console.log(`[AdminDashboard] Warehouse: filter=${filter} done → ${items.length} items, ${totalDays} total days`);
     return { totalItems: items.length, totalDays, items };
   }
 
@@ -1644,7 +1637,6 @@
   }
 
   function init() {
-    console.log('[AdminDashboard] Initializing...');
 
     // Render immediately with whatever is in the DOM
     tryRenderAll();
@@ -1660,7 +1652,6 @@
           hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard &&
           hasRenderedComments && hasStartedWarehouseFetch && hasStartedPublicationScan) {
         observer.disconnect();
-        console.log('[AdminDashboard] All enhancements rendered');
       }
     });
 

@@ -428,7 +428,6 @@ export class FreetextParser {
       }
 
       if (imageFiles.length > 0) {
-        console.log(`[Snabbkatalogisering] Paste detected: ${imageFiles.length} image(s)`);
         e.preventDefault();
         e.stopPropagation();
         this.handleBeautifulImageUpload(imageFiles);
@@ -3576,7 +3575,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
 
       // For large images, resize via canvas instead of rejecting
       if (file.size > 5 * 1024 * 1024) {
-        console.log(`[Snabbkatalogisering] Large image (${(file.size / 1024 / 1024).toFixed(1)}MB), resizing...`);
         this._resizeImageFile(file, 1600, 0.85).then(resizedDataUrl => {
           const imageId = `beautiful_${Date.now()}_${index}`;
           // Mark file as resized so downstream validators skip size check
@@ -3586,7 +3584,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
             dataUrl: resizedDataUrl,
             name: fileName
           });
-          console.log(`[Snabbkatalogisering] Image resized and loaded: ${fileName} (${this.uploadedImages.size} total)`);
           this.updateBeautifulImagePreview();
           if (this.selectedImages) {
             this.selectedImages.set(imageId, { category: 'front', file: file, dataUrl: resizedDataUrl });
@@ -3606,7 +3603,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
           name: fileName
         });
         
-        console.log(`[Snabbkatalogisering] Image loaded: ${fileName} (${this.uploadedImages.size} total)`);
         this.updateBeautifulImagePreview();
         
         // Also add to selectedImages for analysis compatibility

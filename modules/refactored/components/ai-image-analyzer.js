@@ -122,7 +122,6 @@ export class AIImageAnalyzer {
       return { base64, mediaType };
     }
     
-    console.log(`[AIImageAnalyzer] Image base64 too large for API (${(base64.length / 1024 / 1024).toFixed(1)}MB), resizing...`);
     
     // Reconstruct a data URL to load into an Image element
     const dataUrl = `data:${mediaType || 'image/jpeg'};base64,${base64}`;
@@ -151,7 +150,6 @@ export class AIImageAnalyzer {
           const resizedBase64 = resizedDataUrl.split(',')[1];
           
           if (resizedBase64.length <= MAX_BASE64_SIZE || maxDim <= 600) {
-            console.log(`[AIImageAnalyzer] Resized to ${w}x${h} @ q${quality} = ${(resizedBase64.length / 1024 / 1024).toFixed(1)}MB base64`);
             resolve({ base64: resizedBase64, mediaType: 'image/jpeg' });
           } else {
             // Still too large — reduce further

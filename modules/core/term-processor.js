@@ -31,7 +31,6 @@ export class TermProcessor {
         resolved.push(conflictingTerms[0]);
       } else {
         // Multiple terms conflict - resolve by priority
-        conflictingTerms.forEach(t => console.log(`   - "${t.term}" (type: ${t.type}, priority: ${t.priority || 0}, source: ${t.source || 'unknown'})`));
         
         const bestTerm = this.selectBestTermFromConflicts(conflictingTerms);
         resolved.push(bestTerm);
