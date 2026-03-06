@@ -701,7 +701,7 @@ Bottom of sidebar shows active filter summary, "Rensa alla filter" button when f
 | **Nettointäkt (uppsk.)** | Estimated net revenue: 25% buyer fee + 20% seller fee (flat 100 SEK if <500 kr) + 80 SEK photo/handling − 6% Auctionet cut |
 | **Andel vid minbud** | Percentage of items sold at exactly 300 kr (minimum bid). Trend is inverted — lower is better |
 
-Each card shows a YoY trend indicator (▲/▼/—) with percentage change compared to the same period one year prior. SVG sparklines show monthly trends for the selected year.
+Each card shows a YoY trend indicator (▲/▼/—) with percentage change compared to the same period one year prior. SVG sparklines show monthly trends for the selected year with interactive hover — a crosshair line and dot follow the mouse smoothly along the curve, with a tooltip showing the nearest month's value.
 
 **Monthly Overview Chart:**
 - Vertical bar chart showing items sold per month for the selected year

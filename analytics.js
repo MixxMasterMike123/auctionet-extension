@@ -368,21 +368,96 @@ function renderDashboard() {
 
 // ─── SVG Sparkline ────────────────────────────────────────
 
-function renderSparklineSVG(data) {
+function createSparkline(data, formatFn) {
   const values = data.filter(v => v > 0);
-  if (values.length < 2) return '';
+  if (values.length < 2) return null;
 
   const w = 100, h = 28;
   const max = Math.max(...data);
-  if (max === 0) return '';
+  if (max === 0) return null;
 
-  const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - (v / max) * (h - 4) - 2;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
+  const coords = data.map((v, i) => ({
+    x: (i / (data.length - 1)) * w,
+    y: h - (v / max) * (h - 4) - 2,
+    val: v,
+  }));
 
-  return `<svg class="ad-kpi-card__sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${points}" fill="none" stroke="var(--ad-bar-light)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const points = coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'ad-kpi-card__sparkline');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  const line = document.createElementNS(ns, 'polyline');
+  line.setAttribute('points', points);
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', 'var(--ad-bar-light)');
+  line.setAttribute('stroke-width', '1.5');
+  line.setAttribute('stroke-linecap', 'round');
+  line.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(line);
+
+  // Hover elements (hidden by default)
+  const vLine = document.createElementNS(ns, 'line');
+  vLine.setAttribute('stroke', 'var(--ad-text-muted)');
+  vLine.setAttribute('stroke-width', '0.5');
+  vLine.setAttribute('stroke-dasharray', '2,1');
+  vLine.setAttribute('y1', '0');
+  vLine.setAttribute('y2', String(h));
+  vLine.style.display = 'none';
+  svg.appendChild(vLine);
+
+  const dot = document.createElementNS(ns, 'circle');
+  dot.setAttribute('r', '2');
+  dot.setAttribute('fill', 'var(--ad-accent)');
+  dot.style.display = 'none';
+  svg.appendChild(dot);
+
+  // Tooltip element (outside SVG, positioned absolutely)
+  const tooltip = document.createElement('div');
+  tooltip.className = 'ad-sparkline-tip';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ad-sparkline-wrap';
+  wrapper.appendChild(svg);
+  wrapper.appendChild(tooltip);
+
+  wrapper.addEventListener('mousemove', e => {
+    const rect = svg.getBoundingClientRect();
+    const pctX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const svgX = pctX * w;
+
+    // Interpolate Y along the polyline
+    const frac = pctX * (coords.length - 1);
+    const lo = Math.floor(frac);
+    const hi = Math.min(lo + 1, coords.length - 1);
+    const t = frac - lo;
+    const interpY = coords[lo].y + (coords[hi].y - coords[lo].y) * t;
+
+    vLine.setAttribute('x1', svgX.toFixed(1));
+    vLine.setAttribute('x2', svgX.toFixed(1));
+    vLine.style.display = '';
+    dot.setAttribute('cx', svgX.toFixed(1));
+    dot.setAttribute('cy', interpY.toFixed(1));
+    dot.style.display = '';
+
+    // Snap label to nearest month
+    const idx = Math.round(frac);
+    const valStr = formatFn ? formatFn(coords[idx].val) : fmt(coords[idx].val);
+    tooltip.textContent = `${MONTH_NAMES[idx]}: ${valStr}`;
+    tooltip.style.display = 'block';
+    tooltip.style.left = `${pctX * 100}%`;
+  });
+
+  wrapper.addEventListener('mouseleave', () => {
+    vLine.style.display = 'none';
+    dot.style.display = 'none';
+    tooltip.style.display = 'none';
+  });
+
+  return wrapper;
 }
 
 // ─── KPI Cards ────────────────────────────────────────────
@@ -404,10 +479,10 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f) {
   const monthlyForSparkline = computeMonthlyData(allItemsRef, f.year);
 
   const cards = [
-    { label: 'Sålda föremål', value: fmt(kpis.count), trend: yoy?.count, sparkData: monthlyForSparkline.map(m => m.count) },
-    { label: 'Omsättning', value: fmtSEK(kpis.revenue), trend: yoy?.revenue, sparkData: monthlyForSparkline.map(m => m.revenue) },
-    { label: 'Snittpris', value: fmtSEK(kpis.avgPrice), trend: yoy?.avgPrice, sparkData: monthlyForSparkline.map(m => m.avgPrice) },
-    { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * 0.39 + m.count * 80)) },
+    { label: 'Sålda föremål', value: fmt(kpis.count), trend: yoy?.count, sparkData: monthlyForSparkline.map(m => m.count), sparkFmt: v => `${fmt(v)} st` },
+    { label: 'Omsättning', value: fmtSEK(kpis.revenue), trend: yoy?.revenue, sparkData: monthlyForSparkline.map(m => m.revenue), sparkFmt: fmtSEK },
+    { label: 'Snittpris', value: fmtSEK(kpis.avgPrice), trend: yoy?.avgPrice, sparkData: monthlyForSparkline.map(m => m.avgPrice), sparkFmt: fmtSEK },
+    { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * 0.39 + m.count * 80)), sparkFmt: fmtSEK },
     { label: 'Andel vid minbud', value: `${minBidPct}%`, trend: minBidTrend, invertTrend: true },
   ];
 
@@ -424,14 +499,18 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f) {
     }
 
     const subtitleHTML = c.subtitle ? `<div class="ad-kpi-card__subtitle">${escHTML(c.subtitle)}</div>` : '';
-    const sparklineHTML = c.sparkData ? renderSparklineSVG(c.sparkData) : '';
 
     card.innerHTML = `
       <div class="ad-kpi-card__label">${escHTML(c.label)}</div>
       <div class="ad-kpi-card__value">${escHTML(c.value)}</div>
       ${subtitleHTML}
-      ${trendHTML}
-      ${sparklineHTML}`;
+      ${trendHTML}`;
+
+    if (c.sparkData) {
+      const sparkEl = createSparkline(c.sparkData, c.sparkFmt);
+      if (sparkEl) card.appendChild(sparkEl);
+    }
+
     grid.appendChild(card);
   }
 
