@@ -171,7 +171,7 @@ class AuctionetCatalogingAssistant {
     // Listen for API key changes (stored in local for security)
     chrome.storage.onChanged.addListener((changes, namespace) => {
       if (namespace === 'local' && changes.anthropicApiKey) {
-        this.apiKey = changes.anthropicApiKey.newValue;
+        this.apiKey = !!changes.anthropicApiKey.newValue;
       }
     });
 
@@ -377,7 +377,8 @@ class AuctionetCatalogingAssistant {
   async loadApiKey() {
     try {
       const result = await chrome.storage.local.get(['anthropicApiKey']);
-      this.apiKey = result.anthropicApiKey;
+      // Store as boolean flag — the actual key is read by background.js from storage
+      this.apiKey = !!result.anthropicApiKey;
     } catch (error) {
       console.error('Error loading API key:', error);
       this.apiKey = null;

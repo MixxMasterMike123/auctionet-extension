@@ -1400,7 +1400,6 @@ Ingen annan text.`;
       const callValidationAPI = (model) => new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this._apiManager.apiKey,
           body: {
             model,
             max_tokens: 500,

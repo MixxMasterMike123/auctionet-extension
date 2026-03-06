@@ -332,7 +332,6 @@ Regler:
       const callBioAPI = (model) => new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: {
             model,
             max_tokens: 250,
@@ -828,7 +827,6 @@ Regler:
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: {
             model: this.apiManager.getCurrentModel().id,
             max_tokens: 300,

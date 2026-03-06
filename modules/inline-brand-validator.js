@@ -268,7 +268,6 @@ Svara BARA med JSON:
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: apiManager.apiKey,
           body: {
             model: 'claude-sonnet-4-5',
             max_tokens: 300,
@@ -448,7 +447,6 @@ Om korrekt: {"corrected":null}`;
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: apiManager.apiKey,
           body: {
             model: 'claude-haiku-4-5',
             max_tokens: 150,

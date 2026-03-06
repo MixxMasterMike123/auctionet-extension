@@ -88,6 +88,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Skip messages targeted at the offscreen document
   if (request.target === 'offscreen') return false;
 
+  // Security: Only accept messages from this extension's own scripts
+  if (sender.id !== chrome.runtime.id) return false;
+
   if (request.type === 'anthropic-fetch') {
     // Handle async operation properly
     handleAnthropicRequest(request, sendResponse);
@@ -113,24 +116,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleAnthropicRequest(request, sendResponse) {
   try {
-    
-    // Validate API key
-    if (!request.apiKey) {
-      console.error('No API key provided');
-      sendResponse({ success: false, error: 'API key is required' });
+    // Security: Read API key from storage — never trust content scripts to provide it.
+    // Exception: popup may send an unsaved key for "Test Connection" (before saving).
+    let apiKey = request.apiKey || null;
+    if (!apiKey) {
+      try {
+        const stored = await chrome.storage.local.get(['anthropicApiKey']);
+        apiKey = stored.anthropicApiKey || null;
+      } catch (e) { /* storage read failed */ }
+    }
+
+    if (!apiKey) {
+      console.error('No API key configured');
+      sendResponse({ success: false, error: 'API key is required. Set it in the extension popup.' });
       return;
     }
 
-    
     // Add timeout to prevent hanging
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-    
+
     try {
       const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
       const headers = {
         'Content-Type': 'application/json',
-        'x-api-key': request.apiKey,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       };

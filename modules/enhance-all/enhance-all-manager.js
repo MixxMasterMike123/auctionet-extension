@@ -192,7 +192,6 @@ export class EnhanceAllManager {
 
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
-        apiKey: this.apiManager.apiKey,
         body: {
           model: model,
           max_tokens: maxTokens,

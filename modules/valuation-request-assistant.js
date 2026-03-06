@@ -196,8 +196,7 @@ export class ValuationRequestAssistant {
   // ─── Image Clustering ────────────────────────────────────────────────
 
   async _clusterImages(images, customerDescription) {
-    const apiKey = this.apiManager.apiKey;
-    if (!apiKey) throw new Error('API-nyckel saknas.');
+    if (!this.apiManager.apiKey) throw new Error('API-nyckel saknas.');
 
     const content = [];
     for (let i = 0; i < images.length; i++) {
@@ -230,7 +229,6 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
     const callAPI = (model) => new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
-        apiKey,
         body: { model, max_tokens: 400, temperature: 0.2, messages: [{ role: 'user', content }] }
       }, (response) => {
         if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
@@ -564,8 +562,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
   }
 
   async _callClaudeForValuation(images, groupLabel = null) {
-    const apiKey = this.apiManager.apiKey;
-    if (!apiKey) throw new Error('API-nyckel saknas. Ange din Anthropic API-nyckel i tilläggets inställningar.');
+    if (!this.apiManager.apiKey) throw new Error('API-nyckel saknas. Ange din Anthropic API-nyckel i tilläggets inställningar.');
 
     // Use Opus 4.6 for valuation — much better at identifying specific models,
     // brands, and details from images compared to Sonnet
@@ -672,7 +669,6 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
     const callValuationAPI = (m) => new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
-        apiKey,
         body: { model: m, max_tokens: 1200, temperature: 0.5, system: systemPrompt, messages: [{ role: 'user', content }] }
       }, (response) => {
         if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));

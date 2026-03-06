@@ -275,7 +275,6 @@ export class AIImageAnalyzer {
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: requestBody
         }, (response) => {
           clearTimeout(timeout);
@@ -390,7 +389,6 @@ export class AIImageAnalyzer {
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: requestBody
         }, (response) => {
           clearTimeout(timeout);

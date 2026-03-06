@@ -238,7 +238,6 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: {
             model: this.apiManager.getCurrentModel().id,
             max_tokens: 1000,

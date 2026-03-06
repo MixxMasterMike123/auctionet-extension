@@ -150,7 +150,6 @@ Om inga felstavningar hittas: {"issues":[]}`;
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: {
             model: 'claude-haiku-4-5',
             max_tokens: 200,

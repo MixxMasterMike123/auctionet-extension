@@ -27,7 +27,8 @@ export class APIManager {
         chrome.storage.sync.get(['enableArtistInfo', 'showDashboard'])
       ]);
       const result = { ...localResult, ...syncResult };
-      this.apiKey = result.anthropicApiKey;
+      // Store as boolean flag — the actual key is read by background.js from storage
+      this.apiKey = !!result.anthropicApiKey;
       this.enableArtistInfo = result.enableArtistInfo !== false;
       this.showDashboard = result.showDashboard !== false;
 
@@ -76,7 +77,6 @@ export class APIManager {
 
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiKey,
           body: {
             model: this.getCurrentModel().id,
             max_tokens: fieldType === 'title-correct' ? 500 : CONFIG.API.maxTokens,
@@ -154,7 +154,6 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
       const correctionResponse = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiKey,
           body: {
             model: this.getCurrentModel().id,
             max_tokens: CONFIG.API.maxTokens,
@@ -2195,7 +2194,6 @@ Svara ENDAST med giltig JSON:
 
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiKey,
           body: {
             model: this.getCurrentModel().id,
             max_tokens: 1000,

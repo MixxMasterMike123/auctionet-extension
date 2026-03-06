@@ -132,7 +132,7 @@
         // Listen for API key changes (stored in local for security)
         chrome.storage.onChanged.addListener((changes, namespace) => {
           if (namespace === 'local' && changes.anthropicApiKey) {
-            this.apiManager.apiKey = changes.anthropicApiKey.newValue;
+            this.apiManager.apiKey = !!changes.anthropicApiKey.newValue;
           }
         });
         

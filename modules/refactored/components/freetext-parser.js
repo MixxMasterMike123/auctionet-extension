@@ -1261,7 +1261,6 @@ export class FreetextParser {
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: {
             model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: 2000,
@@ -1457,7 +1456,6 @@ VIKTIGT: Detta är ett UTKAST. Skriv MINIMALT — bara extrahera kärnfakta.
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: {
             model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: maxTokens, // Dynamic token limit based on model capabilities
@@ -1531,7 +1529,6 @@ VIKTIGT: Detta är ett UTKAST. Skriv MINIMALT — bara extrahera kärnfakta.
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: {
             model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: 2000,
@@ -3443,7 +3440,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
         
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
-          apiKey: this.apiManager.apiKey,
           body: {
             model: this.apiManager.getCurrentModel().id, // Use user's selected model
             max_tokens: 2000, // Same as blue button
