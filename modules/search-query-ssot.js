@@ -490,8 +490,9 @@ export class SearchQuerySSoT {
 
   // Listener management for component coordination
   addListener(callback) {
-    this.listeners.push(callback);
-
+    if (!this.listeners.includes(callback)) {
+      this.listeners.push(callback);
+    }
   }
 
   removeListener(callback) {

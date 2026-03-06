@@ -9,6 +9,7 @@ export class PageDetector {
         this.lastInitializedHash = '';
         this.mutationObserver = null;
         this.isInitialized = false;
+        this._hashChangeHandler = null;
     }
 
     /**
@@ -64,12 +65,13 @@ export class PageDetector {
      */
     setupSPADetection() {
 
-        // Hash change listener for SPA navigation
-        window.addEventListener('hashchange', () => {
+        // Hash change listener for SPA navigation (stored for cleanup)
+        this._hashChangeHandler = () => {
             if (this.onPageChange) {
                 setTimeout(() => this.onPageChange(), 500);
             }
-        });
+        };
+        window.addEventListener('hashchange', this._hashChangeHandler);
 
         // MutationObserver to watch for DOM changes (AddItem form appearance)
         this.mutationObserver = new MutationObserver((mutations) => {
@@ -109,6 +111,10 @@ export class PageDetector {
      * Clean up observers
      */
     destroy() {
+        if (this._hashChangeHandler) {
+            window.removeEventListener('hashchange', this._hashChangeHandler);
+            this._hashChangeHandler = null;
+        }
         if (this.mutationObserver) {
             this.mutationObserver.disconnect();
             this.mutationObserver = null;
