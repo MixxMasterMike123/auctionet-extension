@@ -1,14 +1,14 @@
 	# Auctionet AI Cataloging Assistant
 
-**Version 2.2.0** | Chrome Extension | Powered by Claude AI (Anthropic)
+**Version 2.3.0** | Chrome Extension | Powered by Claude AI (Anthropic)
 
 ---
 
 ## Executive Summary
 
-The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Auctionet admin interface with AI-powered tools for cataloging, quality control, market analysis, valuation, and compliance. It runs directly inside the browser on `auctionet.com/admin` pages — no server infrastructure required. The extension uses Claude AI (Anthropic) for intelligent analysis and the Auctionet public API for real-time market data from 3.65M+ historical auction results.
+The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Auctionet admin interface with AI-powered tools for cataloging, quality control, market analysis, valuation, analytics, and compliance. It runs directly inside the browser on `auctionet.com/admin` pages — no server infrastructure required. The extension uses Claude AI (Anthropic) for intelligent analysis and the Auctionet public API for real-time market data from 3.65M+ historical auction results.
 
-**Key value proposition:** Faster cataloging, higher data quality, tiered AI enhancement based on item value, market-informed pricing, customer valuation emails, operational KPI dashboards, cross-page comment visibility, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
+**Key value proposition:** Faster cataloging, higher data quality, tiered AI enhancement based on item value, market-informed pricing, customer valuation emails, standalone sales analytics dashboard, operational KPI dashboards, cross-page comment visibility, and built-in compliance reminders — all without leaving the existing Auctionet admin workflow.
 
 ---
 
@@ -26,19 +26,20 @@ The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Au
 10. [Search Query Intelligence](#10-search-query-intelligence)
 11. [Valuation Request Assistant](#11-valuation-request-assistant)
 12. [Admin Dashboard Enhancements](#12-admin-dashboard-enhancements)
-13. [Comment Visibility System](#13-comment-visibility-system)
-14. [AML / Anti-Money Laundering Compliance](#14-aml--anti-money-laundering-compliance)
-15. [Unknown Artist Handling](#15-unknown-artist-handling)
-16. [Settings & Configuration](#16-settings--configuration)
-17. [Technical Architecture](#17-technical-architecture)
-18. [Security Considerations](#18-security-considerations)
-19. [Data & Privacy](#19-data--privacy)
+13. [Sales Analytics Dashboard (Försäljningsanalys)](#13-sales-analytics-dashboard-försäljningsanalys)
+14. [Comment Visibility System](#14-comment-visibility-system)
+15. [AML / Anti-Money Laundering Compliance](#15-aml--anti-money-laundering-compliance)
+16. [Unknown Artist Handling](#16-unknown-artist-handling)
+17. [Settings & Configuration](#17-settings--configuration)
+18. [Technical Architecture](#18-technical-architecture)
+19. [Security Considerations](#19-security-considerations)
+20. [Data & Privacy](#20-data--privacy)
 
 ---
 
 ## 1. Architecture Overview
 
-The extension operates on five Auctionet admin page types:
+The extension operates on five Auctionet admin page types plus one standalone extension page:
 
 | Page | URL Pattern | Entry Point | Purpose |
 |------|-------------|-------------|---------|
@@ -47,6 +48,7 @@ The extension operates on five Auctionet admin page types:
 | **Valuation Request** | `/admin/sas/valuation_requests/*` | `valuation-request.js` | Valuation of customer submissions with email generation |
 | **Admin Dashboard** | `/admin/sas` | `admin-dashboard.js` | Operational KPI cards, pipeline funnel, pricing insights, comment feed |
 | **All Admin Pages** | `/admin/*` (excl. dashboard, login) | `comment-enhancer.js` | Comment badges, rich comment feed on /comments, entity filters |
+| **Sales Analytics** | `chrome-extension://<id>/analytics.html` | `analytics.js` | Standalone sales analytics dashboard with KPIs, filtering, and competitor comparison |
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
@@ -656,7 +658,127 @@ The scanner calls the Anthropic API directly from the service worker (no message
 
 ---
 
-## 13. Comment Visibility System
+## 13. Sales Analytics Dashboard (Försäljningsanalys)
+
+A standalone, full-featured analytics dashboard for data-driven business decisions. Accessible as a Chrome extension page (`chrome-extension://<id>/analytics.html`) — completely separate from the admin dashboard. Zero AI calls — powered entirely by the Auctionet public API.
+
+### How to Access
+
+- **Extension popup:** Click "Öppna Försäljningsanalys" button in the popup
+- Opens in a new browser tab as a standalone page
+
+### Dashboard Components
+
+**Header Bar:**
+- Company selector dropdown (pre-populated with previously fetched auction houses)
+- Manual company ID input for any Auctionet house
+- Fetch / Refresh buttons
+- Meta line showing house name, last update time, and total item count
+
+**Filter Pills (instant client-side filtering):**
+
+| Filter | Options |
+|--------|---------|
+| **År (Year)** | All years discovered in the dataset (e.g., 2023, 2024, 2025) |
+| **Månad (Month)** | Alla, Jan–Dec |
+| **Kategori (Category)** | Alla + top 15 parent categories by item count |
+
+Clicking any pill triggers instant re-render — no API calls, pure client-side filtering on cached data.
+
+**4 Hero KPI Cards:**
+
+| KPI | Description |
+|-----|-------------|
+| **Sålda föremål** | Total items sold in the filtered period |
+| **Omsättning** | Total revenue (formatted as MSEK for millions) |
+| **Snittpris** | Average sale price |
+| **Medianpris** | Median sale price |
+
+Each card shows a YoY trend indicator (▲/▼/—) with percentage change compared to the same period one year prior.
+
+**Monthly Overview Chart:**
+- Vertical bar chart showing items sold per month for the selected year
+- Clickable bars to filter by month
+- Active month highlighted with accent color
+- Overall average price displayed below
+
+**Price Distribution Chart:**
+- Horizontal bar chart with 7 price brackets: 300 kr, 301–500, 501–1 000, 1 001–2 000, 2 001–5 000, 5 001–10 000, 10 000+
+- Shows count and percentage for each bracket
+
+**Category Breakdown Table:**
+- All 25 parent categories with inline bar charts
+- Columns: Category name, visual bar, item count, revenue, average price
+- Sorted by item count (descending)
+- Clickable rows to filter by category
+
+**Price Points Analysis:**
+- Key business metrics showing the distribution at critical thresholds
+- Exakt 300 kr (minimum bid), Under 500 kr, 500 kr+, 1 000 kr+, 5 000 kr+
+- Each with a visual bar and percentage
+
+### Data Fetching Strategy
+
+The Auctionet API caps at 10,000 items per query (50 pages × 200 items). The dashboard handles this transparently:
+
+| Scenario | Strategy | API Calls |
+|----------|----------|-----------|
+| Small house (<10k items) | Direct pagination | Up to 50 pages |
+| Large house (>10k items) | Category sharding — fetches each of 25 parent categories separately | ~100–250 calls |
+| Subsequent visits | Incremental update — fetches pages 1–10 until overlap with cached data | 1–10 calls |
+| Manual refresh | Full re-fetch from scratch | Same as initial |
+
+**Category sharding:** Querying `category_id=25` (Konst) returns all items in subcategories (26, 27, 28, 29, 30, 119). The 25 parent categories provide complete coverage of all 135 subcategories.
+
+**Progress feedback during fetch:**
+- Animated progress bar with CSS shimmer animation
+- Per-page text updates (e.g., "Kategori 5/25, sida 12 — 42,000 föremål")
+- Phase indicators: direct → switching-to-sharded → sharded-page → saving → done
+
+### Caching
+
+- **Storage:** `chrome.storage.local` with `unlimitedStorage` permission
+- **Key format:** `analytics_${companyId}` — one blob per company
+- **Item compression:** ~100 bytes/item vs ~2KB raw (stores only: id, price, estimate, reserve, reserve_met, category_id, end_date, starting_bid)
+- **TTL:** 24 hours — shows "last updated X hours ago" in the meta line
+- **Incremental updates:** After initial fetch, subsequent loads only fetch new items and merge with the existing cache
+- **Size:** ~15k items × 100 bytes ≈ 1.5 MB per company
+
+### Competitor Analysis
+
+The same dashboard works for any auction house — simply enter a different company ID or select from the dropdown. Previously fetched companies are auto-discovered from the cache and appear in the dropdown. House names are auto-detected from item data (each API item has a `house` field).
+
+### Category Registry
+
+Complete mapping of 135 Auctionet sub-category IDs → 25 parent categories with Swedish names. Hardcoded in `category-registry.js`. Parent categories include: Konst, Möbler, Silver & Metall, Smycken, Keramik, Glas, Mattor, Vapen, Klockor, Böcker, and 15 more.
+
+### Architecture
+
+Six dedicated modules in `/modules/analytics/`:
+
+| Module | Purpose |
+|--------|---------|
+| `data-fetcher.js` | Paginated API fetching with automatic category sharding for >10k items |
+| `data-cache.js` | chrome.storage.local cache with compression, TTL, and known-company discovery |
+| `data-aggregator.js` | KPI computation, YoY comparison, monthly/price/category breakdowns |
+| `category-registry.js` | 135 sub-category → 25 parent category mapping with Swedish names |
+| `filter-state.js` | Reactive filter state with event emitter pattern |
+| `chart-renderer.js` | CSS bar charts and SVG sparklines (planned) |
+
+Entry point: `analytics.js` (~525 lines) — bootstraps all modules, renders the full dashboard with DOM manipulation and event delegation.
+
+### Technical Details
+
+- **Zero AI calls** — pure Auctionet public API, no Anthropic costs
+- **Standalone extension page** — native ES6 module imports, no CSS conflicts, full `chrome.*` API access
+- **CSS-only charts** — horizontal bars via percentage widths, no chart library dependencies
+- **`.ad-` class prefix** (analytics-dashboard) to avoid any naming conflicts
+- **Responsive design** — CSS Grid layout adapts to smaller viewports
+- **Light theme** with blue accents (#2563eb), white cards, #f8f9fa background
+
+---
+
+## 14. Comment Visibility System
 
 A cross-page system that makes comments more visible and easier to act on across the entire Auctionet admin. Powered by `comment-enhancer.js` — a lightweight script with zero AI calls that enhances comment UX through pure DOM manipulation.
 
@@ -713,7 +835,7 @@ Even on individual item, seller, buyer, and return claim pages, the existing com
 
 ---
 
-## 14. AML / Anti-Money Laundering Compliance
+## 15. AML / Anti-Money Laundering Compliance
 
 The quality rules engine includes automated AML compliance reminders that flag high-risk items during cataloging.
 
@@ -731,7 +853,7 @@ AML warnings appear as highlighted alerts in the quality control sidebar alongsi
 
 ---
 
-## 15. Unknown Artist Handling
+## 16. Unknown Artist Handling
 
 The extension respects Auctionet's convention for unsigned and unidentified works:
 
@@ -753,7 +875,7 @@ When these terms are present in the artist field:
 
 ---
 
-## 16. Settings & Configuration
+## 17. Settings & Configuration
 
 The extension popup (`popup.html`) provides:
 
@@ -765,6 +887,7 @@ The extension popup (`popup.html`) provides:
 | **Exclude Company ID** | Your auction house's Auctionet company ID — excludes your own historical sales from market analysis to prevent self-referencing |
 | **Search Defaults** | Auto-add `type=item&sorting=desc` to search pages (newest items first). Toggleable via popup checkbox and an on-page toggle bar below the navbar on search pages |
 | **Connection Test** | One-click API connectivity verification |
+| **Försäljningsanalys** | "Öppna Försäljningsanalys" button — opens the standalone sales analytics dashboard in a new tab |
 | **Admin PIN** | 4-digit PIN to unlock admin-only features (dashboard enhancements, warehouse costs) |
 
 All settings are stored in Chrome's sync storage (except the API key and admin PIN hash, which use local storage for security).
@@ -780,7 +903,7 @@ The PIN is hashed with SHA-256 before storage. Admin state is stored in sync sto
 
 ---
 
-## 17. Technical Architecture
+## 18. Technical Architecture
 
 ### Module Structure
 
@@ -796,6 +919,7 @@ auctionet-extension/
 ├── admin-dashboard.js                     # Admin dashboard visual enhancements
 ├── admin-item-banner.js                   # Item show page enhancement banner
 ├── comment-enhancer.js                    # Cross-page comment visibility & rich feed
+├── analytics.html / analytics.js          # Standalone sales analytics dashboard
 ├── popup.html / popup.js                  # Settings popup
 ├── styles.css                             # Main stylesheet
 │
@@ -867,6 +991,13 @@ auctionet-extension/
 │   │   ├── field-analyzer.js              # Field analysis for add page
 │   │   └── ui-feedback.js                 # Add page UI feedback
 │   │
+│   ├── analytics/                         # Standalone sales analytics dashboard
+│   │   ├── data-fetcher.js               # Paginated API fetch + category sharding
+│   │   ├── data-cache.js                 # chrome.storage.local cache with compression
+│   │   ├── data-aggregator.js            # KPI computation, distributions, trends
+│   │   ├── category-registry.js          # 135 sub-ID → 25 parent category mapping
+│   │   └── filter-state.js              # Reactive filter state with event emitter
+│   │
 │   └── refactored/                        # New architecture components
 │       ├── components/
 │       │   ├── freetext-parser.js         # Freetext → structured data
@@ -881,6 +1012,7 @@ auctionet-extension/
     ├── add-items-tooltips.css
     ├── valuation-request.css
     ├── admin-dashboard.css
+    ├── analytics.css
     └── comment-enhancer.css
 ```
 
@@ -923,6 +1055,14 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
         │         └──► Comment Badges / Rich Feed / Entity Filters
         │
         └──► Background Service Worker (independent of open tabs)
+
+Standalone Extension Page (analytics.html — opened from popup)
+        │
+        └──► analytics.js ──► data-fetcher.js ──► Auctionet API (paginated, category-sharded)
+                  ├──► data-cache.js ──► chrome.storage.local (compressed, 24h TTL)
+                  ├──► data-aggregator.js ──► KPIs / Monthly / Price Distribution / Categories
+                  ├──► filter-state.js ──► Reactive re-render on filter change
+                  └──► category-registry.js ──► 135 sub → 25 parent category mapping
                   ├──► chrome.alarms (10 min) / onInstalled ──► Publication Scanner
                   ├──► publication-scanner-bg.js ──► fetch (with cookies)
                   ├──► offscreen.js ──► DOMParser (HTML parsing)
@@ -944,10 +1084,11 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 - **State persistence:** Dashboard open/closed state, search terms stored in localStorage
 - **Background processing:** All API calls go through the service worker to avoid blocking the UI
 - **Batched fetching:** Warehouse cost pages fetched in concurrent batches of 5 for fast aggregation
+- **Analytics caching:** Sales analytics data compressed to ~100 bytes/item and cached in chrome.storage.local with 24-hour TTL. Incremental updates fetch only new items. Category sharding bypasses the 10k API item cap for large houses
 
 ---
 
-## 18. Security Considerations
+## 19. Security Considerations
 
 - **API key storage:** The Anthropic API key is stored in Chrome's local storage (not sync storage) to prevent cross-device leakage
 - **Admin PIN:** Stored as a SHA-256 hash in local storage — not readable in plain text. Admin mode is a soft lock to prevent casual access to sensitive dashboard data (warehouse costs, KPIs), not a cryptographic security boundary
@@ -962,7 +1103,7 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 
 ---
 
-## 19. Data & Privacy
+## 20. Data & Privacy
 
 | Data Type | Where it goes | Retention |
 |-----------|---------------|-----------|
@@ -978,9 +1119,10 @@ Content Script (content.js / content-script.js / valuation-request.js / admin-da
 | API key | Chrome local storage on user's machine | Until user removes it |
 | Settings | Chrome sync storage | Until user changes them |
 | Quality scores | Calculated in-browser | Session only — not persisted |
+| Sales analytics data | Fetched from Auctionet public API, compressed and cached locally | Cached in chrome.storage.local; 24-hour TTL with incremental updates |
 
 The extension processes data entirely within the user's browser session. No catalog data is stored persistently or shared with third parties beyond the API calls described above.
 
 ---
 
-*Document updated March 4, 2026. Reflects extension version 2.2.0.*
+*Document updated March 6, 2026. Reflects extension version 2.3.0.*

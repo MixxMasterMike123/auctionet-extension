@@ -142,6 +142,7 @@ body {
 }
 
 .ad-pill:hover { border-color: var(--ad-accent); color: var(--ad-accent); }
+.ad-pill--active:hover { color: #fff; }
 
 .ad-pill--active {
   background: var(--ad-accent);
