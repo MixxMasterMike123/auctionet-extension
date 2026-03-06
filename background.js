@@ -115,7 +115,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Single pathway for all Claude API calls — used by both message handler
 // and publication scanner (which runs in the same service worker).
 
+// Concurrency limiter: max 3 parallel Anthropic requests to avoid rate-limit errors
+const MAX_CONCURRENT = 3;
+let activeRequests = 0;
+const requestQueue = [];
+
+function enqueue(fn) {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      activeRequests++;
+      fn().then(resolve, reject).finally(() => {
+        activeRequests--;
+        if (requestQueue.length > 0) requestQueue.shift()();
+      });
+    };
+    if (activeRequests < MAX_CONCURRENT) {
+      run();
+    } else {
+      requestQueue.push(run);
+    }
+  });
+}
+
 async function callAnthropicAPI(body, { apiKey = null, timeoutMs = 30000 } = {}) {
+  return enqueue(() => _callAnthropicAPIInner(body, { apiKey, timeoutMs }));
+}
+
+async function _callAnthropicAPIInner(body, { apiKey = null, timeoutMs = 30000 } = {}) {
   // Resolve API key: use provided key or read from storage
   if (!apiKey) {
     try {
