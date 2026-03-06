@@ -114,75 +114,72 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+// ─── Shared Anthropic API caller ─────────────────────────────────────
+// Single pathway for all Claude API calls — used by both message handler
+// and publication scanner (which runs in the same service worker).
+
+async function callAnthropicAPI(body, { apiKey = null, timeoutMs = 30000 } = {}) {
+  // Resolve API key: use provided key or read from storage
+  if (!apiKey) {
+    try {
+      const stored = await chrome.storage.local.get(['anthropicApiKey']);
+      apiKey = stored.anthropicApiKey || null;
+    } catch (e) { /* storage read failed */ }
+  }
+  if (!apiKey) {
+    throw new Error('API key is required. Set it in the extension popup.');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    };
+
+    // Enable prompt caching when system messages use cache_control blocks
+    if (body?.system && Array.isArray(body.system) && body.system.some(b => b.cache_control)) {
+      headers['anthropic-beta'] = 'prompt-caching-2024-07-31';
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
+    }
+    throw error;
+  }
+}
+
+// Export for publication-scanner-bg.js (same service worker)
+globalThis.__callAnthropicAPI = callAnthropicAPI;
+
 async function handleAnthropicRequest(request, sendResponse) {
   try {
-    // Security: Read API key from storage — never trust content scripts to provide it.
-    // Exception: popup may send an unsaved key for "Test Connection" (before saving).
-    let apiKey = request.apiKey || null;
-    if (!apiKey) {
-      try {
-        const stored = await chrome.storage.local.get(['anthropicApiKey']);
-        apiKey = stored.anthropicApiKey || null;
-      } catch (e) { /* storage read failed */ }
-    }
-
-    if (!apiKey) {
-      console.error('No API key configured');
-      sendResponse({ success: false, error: 'API key is required. Set it in the extension popup.' });
-      return;
-    }
-
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-    try {
-      const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-      const headers = {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      };
-
-      // Enable prompt caching when system messages use cache_control blocks
-      const body = request.body;
-      if (body?.system && Array.isArray(body.system) && body.system.some(b => b.cache_control)) {
-        headers['anthropic-beta'] = 'prompt-caching-2024-07-31';
-      }
-
-      const response = await fetch(ANTHROPIC_API_URL, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
-        console.error('Anthropic API error:', errorMessage);
-        sendResponse({ success: false, error: errorMessage });
-        return;
-      }
-
-      const data = await response.json();
-      sendResponse({ success: true, data });
-      
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        console.error('Request timed out');
-        sendResponse({ success: false, error: 'Request timed out after 30 seconds' });
-      } else {
-        throw fetchError;
-      }
-    }
-    
+    // Security: popup may send an unsaved key for "Test Connection" (before saving).
+    const data = await callAnthropicAPI(request.body, { apiKey: request.apiKey || null });
+    sendResponse({ success: true, data });
   } catch (error) {
-    console.error('Background script error:', error);
+    console.error('Anthropic API error:', error.message);
     sendResponse({ success: false, error: error.message });
   }
 }

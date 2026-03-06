@@ -136,7 +136,7 @@ function runPhase1Checks(item) {
   return issues;
 }
 
-async function runPhase2Checks(editData, apiKey, dictMap, itemId) {
+async function runPhase2Checks(editData, hasApiKey, dictMap, itemId) {
   const issues = [];
 
   // Image checks
@@ -189,16 +189,16 @@ async function runPhase2Checks(editData, apiKey, dictMap, itemId) {
   // Spellcheck (with caching to avoid redundant AI calls)
   const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
   let spellingErrors;
-  if (apiKey && itemId) {
+  if (hasApiKey && itemId) {
     const cached = await getCachedSpellcheck(itemId, combinedText);
     if (cached) {
       spellingErrors = cached;
     } else {
-      spellingErrors = await checkSpellingAI(combinedText, apiKey);
+      spellingErrors = await checkSpellingAI(combinedText);
       await setCachedSpellcheck(itemId, combinedText, spellingErrors);
     }
-  } else if (apiKey) {
-    spellingErrors = await checkSpellingAI(combinedText, apiKey);
+  } else if (hasApiKey) {
+    spellingErrors = await checkSpellingAI(combinedText);
   } else {
     spellingErrors = checkSpellingDict(combinedText, dictMap);
   }
@@ -268,8 +268,8 @@ async function setCachedSpellcheck(itemId, text, results) {
 
 // ─── Spellcheck (direct API call from service worker) ───────────────
 
-async function checkSpellingAI(text, apiKey) {
-  if (!apiKey || !text || text.length < 5) return [];
+async function checkSpellingAI(text) {
+  if (!text || text.length < 5) return [];
 
   const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
 "${text}"
@@ -298,32 +298,18 @@ Svara BARA med JSON:
 {"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    // Use shared API caller from background.js (reads key from storage automatically)
+    const callAPI = globalThis.__callAnthropicAPI;
+    if (!callAPI) return []; // Not yet initialized
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5', // Haiku is sufficient for spellcheck and ~10x cheaper than Sonnet
-        max_tokens: 300,
-        temperature: 0,
-        system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
-        messages: [{ role: 'user', content: prompt }]
-      }),
-      signal: controller.signal
-    });
+    const data = await callAPI({
+      model: 'claude-haiku-4-5', // Haiku is sufficient for spellcheck and ~10x cheaper than Sonnet
+      max_tokens: 300,
+      temperature: 0,
+      system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
+      messages: [{ role: 'user', content: prompt }]
+    }, { timeoutMs: 20000 });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) return [];
-
-    const data = await response.json();
     const responseText = data?.content?.[0]?.text?.trim();
     if (!responseText) return [];
 
@@ -385,11 +371,11 @@ export async function runBackgroundPublicationScan() {
     // Reset spell cache to load fresh from storage
     spellCache = null;
 
-    // Load API key
-    let apiKey = null;
+    // Check if API key is available (actual key read by shared callAnthropicAPI)
+    let hasApiKey = false;
     try {
       const stored = await chrome.storage.local.get(['anthropicApiKey']);
-      apiKey = stored.anthropicApiKey || null;
+      hasApiKey = !!stored.anthropicApiKey;
     } catch (e) { /* no API key */ }
 
     // Load dictionary
@@ -463,7 +449,7 @@ export async function runBackgroundPublicationScan() {
           };
           item.showUrl = showUrl;
           item.editData = editData;
-          item.phase2Issues = await runPhase2Checks(editData, apiKey, dictMap, item.itemId);
+          item.phase2Issues = await runPhase2Checks(editData, hasApiKey, dictMap, item.itemId);
         } catch (e) {
           console.error(`[PubScanBG] Failed to scan item ${item.itemId}:`, e);
           item.phase2Issues = [{ text: 'Kunde inte skannas', severity: 'warning' }];
@@ -661,11 +647,11 @@ export async function recheckStickyErrors() {
       return sticky;
     }
 
-    // Load API key
-    let apiKey = null;
+    // Check if API key is available (actual key read by shared callAnthropicAPI)
+    let hasApiKey = false;
     try {
       const stored = await chrome.storage.local.get(['anthropicApiKey']);
-      apiKey = stored.anthropicApiKey || null;
+      hasApiKey = !!stored.anthropicApiKey;
     } catch (e) { /* no API key */ }
 
     const dictMap = await loadMisspellingsMap();
@@ -689,8 +675,8 @@ export async function recheckStickyErrors() {
           const combinedText = [editFields.editTitle, showData.description, showData.condition].filter(Boolean).join(' ');
 
           let spellingErrors;
-          if (apiKey) {
-            spellingErrors = await checkSpellingAI(combinedText, apiKey);
+          if (hasApiKey) {
+            spellingErrors = await checkSpellingAI(combinedText);
           } else {
             spellingErrors = checkSpellingDict(combinedText, dictMap);
           }
