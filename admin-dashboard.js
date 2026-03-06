@@ -710,6 +710,7 @@
   // Dashboard only reads cached results and renders them.
   const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
   const PUB_SCAN_IGNORED_KEY = 'publicationScanIgnored'; // { itemId: true }
+  const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
   const PUB_SCAN_HIGH_VALUE_THRESHOLD = 3000; // SEK — items at or above this estimate are "high value"
 
   function getPublicationInsertTarget() {
@@ -991,6 +992,58 @@
       `;
     }
 
+    // Load sticky errors (published items with unresolved spelling errors)
+    let stickyErrors = {};
+    try {
+      const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_STICKY_KEY, r => resolve(r[PUB_SCAN_STICKY_KEY])));
+      if (stored) stickyErrors = stored;
+    } catch (e) { /* no sticky errors */ }
+
+    // Filter to only published items (not still in publishable queue) and not ignored
+    const publishedSticky = Object.values(stickyErrors).filter(e => e.isPublished && !ignoredItems[e.itemId]);
+    let stickyHTML = '';
+    if (publishedSticky.length > 0) {
+      // Sort by firstDetectedAt (newest first)
+      publishedSticky.sort((a, b) => (b.firstDetectedAt || 0) - (a.firstDetectedAt || 0));
+      const stickyRowsHTML = publishedSticky.map(entry => {
+        const showHref = entry.showUrl || (entry.editUrl ? entry.editUrl.replace(/\/edit$/, '') : '');
+        const issueLabels = entry.issues.map(i => typeof i === 'string' ? i : i.text).join(' + ');
+        const publishedAgo = entry.publishedAt ? relativeTimeFromISO(new Date(entry.publishedAt).toISOString()) : '';
+        const estimateLabel = entry.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD
+          ? `<span class="ext-pubscan__estimate">💎 ${formatSEK(entry.estimate)} SEK</span>`
+          : (entry.estimate > 0 ? `<span class="ext-pubscan__estimate">${formatSEK(entry.estimate)} SEK</span>` : '');
+        return `
+          <div class="ext-pubscan__issue-row ext-pubscan__issue-row--sticky" data-item-id="${entry.itemId}">
+            <a class="ext-pubscan__issue ext-pubscan__issue--critical" href="${escapeHTML(showHref)}">
+              <div class="ext-pubscan__issue-main">
+                <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
+                <span class="ext-pubscan__published-badge">Publicerad${publishedAgo ? ' ' + escapeHTML(publishedAgo) : ''}</span>
+                ${estimateLabel}
+                ${entry.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(entry.editUrl)}">Redigera \u2192</span>` : ''}
+              </div>
+              <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(entry.title, 40))}"</div>
+            </a>
+            <span class="ext-pubscan__ignore-btn ext-pubscan__ignore-btn--sticky" data-item-id="${entry.itemId}" data-sticky="true" title="Ignorera">✕</span>
+          </div>
+        `;
+      }).join('');
+
+      const lastChecked = publishedSticky.reduce((latest, e) => Math.max(latest, e.lastCheckedAt || 0), 0);
+      const lastCheckedStr = lastChecked ? relativeTimeFromISO(new Date(lastChecked).toISOString()) : '';
+
+      stickyHTML = `
+        <div class="ext-pubscan__sticky-section">
+          <div class="ext-pubscan__sticky-header">
+            <span class="ext-pubscan__sticky-title">🔴 Publicerade med kvarst\u00e5ende stavfel (${publishedSticky.length})</span>
+            ${lastCheckedStr ? `<span class="ext-pubscan__sticky-meta">Kontrollerad ${escapeHTML(lastCheckedStr)}</span>` : ''}
+          </div>
+          <div class="ext-pubscan__sticky-items">
+            ${stickyRowsHTML}
+          </div>
+        </div>
+      `;
+    }
+
     container.innerHTML = `
       <div class="ext-pubscan__card">
         <div class="ext-pubscan__header">
@@ -1004,6 +1057,7 @@
         </div>
         <div class="ext-pubscan__body">
           ${bodyHTML}
+          ${stickyHTML}
         </div>
       </div>
     `;
@@ -1075,10 +1129,18 @@
         const itemId = btn.dataset.itemId;
         if (!itemId) return;
         try {
+          // Add to ignored set
           const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_IGNORED_KEY, r => resolve(r[PUB_SCAN_IGNORED_KEY])));
           const ignored = stored || {};
           ignored[itemId] = true;
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
+          // Also remove from sticky errors if present
+          if (btn.dataset.sticky) {
+            const stickyStored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_STICKY_KEY, r => resolve(r[PUB_SCAN_STICKY_KEY])));
+            const sticky = stickyStored || {};
+            delete sticky[itemId];
+            await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_STICKY_KEY]: sticky }, resolve));
+          }
           // Re-render with same scan data
           await renderPublicationResults(data);
         } catch (err) {
@@ -1203,7 +1265,7 @@
 
   // Listen for background scan completion or failure — reload cache and re-render
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'publication-scan-complete' || message.type === 'publication-scan-failed') {
+    if (message.type === 'publication-scan-complete' || message.type === 'publication-scan-failed' || message.type === 'sticky-recheck-complete') {
       (async () => {
         try {
           const cached = await new Promise(resolve =>

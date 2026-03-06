@@ -11,6 +11,8 @@
 const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
 const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache';
+const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
+const STICKY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
 const PUB_SCAN_MIN_TITLE_LENGTH = 15;
 const PUB_SCAN_MIN_CONDITION_LENGTH = 15;
@@ -539,6 +541,7 @@ export async function runBackgroundPublicationScan() {
 
     await chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result });
     await saveSpellCache();
+    await promoteStickyErrors(result);
     clearProgress();
     return result;
 
@@ -553,4 +556,174 @@ export async function runBackgroundPublicationScan() {
   }
 }
 
-export { PUB_SCAN_CACHE_KEY, PUB_SCAN_PROGRESS_KEY };
+// ─── Sticky errors: persist spelling errors beyond publishable queue ─────
+
+async function loadStickyErrors() {
+  try {
+    const stored = await chrome.storage.local.get([PUB_SCAN_STICKY_KEY]);
+    return stored[PUB_SCAN_STICKY_KEY] || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+async function saveStickyErrors(sticky) {
+  await chrome.storage.local.set({ [PUB_SCAN_STICKY_KEY]: sticky });
+}
+
+/**
+ * After a normal scan completes, save spelling errors as sticky entries.
+ * Called from runBackgroundPublicationScan with the scan results.
+ */
+async function promoteStickyErrors(scanResult) {
+  if (!scanResult) return;
+  const sticky = await loadStickyErrors();
+  const now = Date.now();
+
+  // Track which items are currently in the publishable queue
+  const publishableIds = new Set();
+  [...(scanResult.critical || []), ...(scanResult.warnings || [])].forEach(item => {
+    publishableIds.add(item.itemId);
+  });
+  // Also include passed items
+  (scanResult._passedIds || []).forEach(id => publishableIds.add(id));
+
+  // Add new spelling errors from this scan
+  const allItems = [...(scanResult.critical || []), ...(scanResult.warnings || [])];
+  for (const item of allItems) {
+    const spellingIssues = item.issues.filter(i => {
+      const text = typeof i === 'string' ? i : i.text;
+      return text.startsWith('Stavfel:');
+    });
+    if (spellingIssues.length > 0) {
+      sticky[item.itemId] = {
+        itemId: item.itemId,
+        title: item.title,
+        editUrl: item.editUrl,
+        showUrl: item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : null),
+        issues: spellingIssues.map(i => typeof i === 'string' ? { text: i, severity: 'critical' } : { text: i.text, severity: i.severity }),
+        estimate: item.estimate || 0,
+        firstDetectedAt: sticky[item.itemId]?.firstDetectedAt || now,
+        lastCheckedAt: now,
+        isPublished: false,
+      };
+    }
+  }
+
+  // Mark items that have left the publishable queue as published
+  for (const [id, entry] of Object.entries(sticky)) {
+    if (!publishableIds.has(parseInt(id)) && !publishableIds.has(id)) {
+      entry.isPublished = true;
+      if (!entry.publishedAt) entry.publishedAt = now;
+    }
+  }
+
+  // Remove expired entries (older than 7 days)
+  for (const [id, entry] of Object.entries(sticky)) {
+    if (now - entry.firstDetectedAt > STICKY_MAX_AGE_MS) {
+      delete sticky[id];
+    }
+  }
+
+  // Remove entries where the item is still in publishable queue and has no spelling errors
+  // (i.e., the error was fixed while still in the queue)
+  for (const [id, entry] of Object.entries(sticky)) {
+    if (!entry.isPublished) {
+      const stillHasError = allItems.some(item =>
+        item.itemId == id && item.issues.some(i => {
+          const text = typeof i === 'string' ? i : i.text;
+          return text.startsWith('Stavfel:');
+        })
+      );
+      if (!stillHasError) delete sticky[id];
+    }
+  }
+
+  await saveStickyErrors(sticky);
+}
+
+/**
+ * Re-check published items with sticky errors to see if they've been fixed.
+ * Fetches the edit page of each published sticky item and re-runs spellcheck.
+ */
+let stickyRecheckRunning = false;
+
+export async function recheckStickyErrors() {
+  if (stickyRecheckRunning) return null;
+  stickyRecheckRunning = true;
+
+  try {
+    const sticky = await loadStickyErrors();
+    const publishedEntries = Object.values(sticky).filter(e => e.isPublished);
+
+    if (publishedEntries.length === 0) {
+      stickyRecheckRunning = false;
+      return sticky;
+    }
+
+    // Load API key
+    let apiKey = null;
+    try {
+      const stored = await chrome.storage.local.get(['anthropicApiKey']);
+      apiKey = stored.anthropicApiKey || null;
+    } catch (e) { /* no API key */ }
+
+    const dictMap = await loadMisspellingsMap();
+    await ensureOffscreen();
+
+    const now = Date.now();
+
+    // Re-check in batches
+    for (let i = 0; i < publishedEntries.length; i += PUB_SCAN_BATCH_SIZE) {
+      const batch = publishedEntries.slice(i, i + PUB_SCAN_BATCH_SIZE);
+      await Promise.all(batch.map(async (entry) => {
+        try {
+          const editHtml = await fetchPageHtml(entry.editUrl);
+          const editFields = await parseEditPageFields(editHtml);
+
+          // Also fetch show page for description/condition
+          const showUrl = entry.showUrl || entry.editUrl.replace(/\/edit$/, '');
+          const showHtml = await fetchPageHtml(showUrl);
+          const showData = await parseShowPageForScan(showHtml);
+
+          const combinedText = [editFields.editTitle, showData.description, showData.condition].filter(Boolean).join(' ');
+
+          let spellingErrors;
+          if (apiKey) {
+            spellingErrors = await checkSpellingAI(combinedText, apiKey);
+          } else {
+            spellingErrors = checkSpellingDict(combinedText, dictMap);
+          }
+
+          entry.lastCheckedAt = now;
+          // Update title in case it was changed
+          if (editFields.editTitle) entry.title = editFields.editTitle;
+
+          if (spellingErrors.length === 0) {
+            // Error is fixed — remove from sticky
+            delete sticky[entry.itemId];
+          } else {
+            // Update the issues with current errors
+            const corrections = spellingErrors.map(e => `"${e.word}" \u2192 "${e.correction}"`).join(', ');
+            entry.issues = [{ text: `Stavfel: ${corrections}`, severity: 'critical' }];
+          }
+        } catch (e) {
+          // Could not re-check — keep in sticky but don't remove
+          console.warn(`[PubScanBG] Could not re-check sticky item ${entry.itemId}:`, e.message);
+        }
+      }));
+    }
+
+    await saveStickyErrors(sticky);
+    await closeOffscreen();
+    stickyRecheckRunning = false;
+    return sticky;
+  } catch (error) {
+    console.error('[PubScanBG] Sticky recheck failed:', error);
+    stickyRecheckRunning = false;
+    await closeOffscreen();
+    return null;
+  }
+}
+
+export { PUB_SCAN_CACHE_KEY, PUB_SCAN_PROGRESS_KEY, PUB_SCAN_STICKY_KEY };

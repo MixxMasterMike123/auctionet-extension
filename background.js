@@ -1,4 +1,4 @@
-import { runBackgroundPublicationScan } from './publication-scanner-bg.js';
+import { runBackgroundPublicationScan, recheckStickyErrors, PUB_SCAN_STICKY_KEY } from './publication-scanner-bg.js';
 
 // Background script startup
 
@@ -24,6 +24,7 @@ import { runBackgroundPublicationScan } from './publication-scanner-bg.js';
 // regardless of whether the dashboard tab is open.
 // delayInMinutes: 1 ensures the first scan fires ~1 min after extension load/update.
 chrome.alarms.create('publicationScan', { delayInMinutes: 1, periodInMinutes: 30 });
+chrome.alarms.create('stickyErrorRecheck', { delayInMinutes: 5, periodInMinutes: 20 });
 
 // Run an initial scan on extension install or update so data is fresh immediately
 chrome.runtime.onInstalled.addListener(() => {
@@ -35,6 +36,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'publicationScan') {
     console.log('[Background] Alarm fired: publicationScan');
     runPublicationScanAndNotify();
+  } else if (alarm.name === 'stickyErrorRecheck') {
+    console.log('[Background] Alarm fired: stickyErrorRecheck');
+    runStickyRecheckAndNotify();
   }
 });
 
@@ -55,6 +59,20 @@ async function runPublicationScanAndNotify(skipEnabledCheck = false) {
   } catch (e) {
     console.error('[Background] Publication scan failed:', e);
     notifyDashboardTabs('publication-scan-failed');
+  }
+}
+
+async function runStickyRecheckAndNotify() {
+  try {
+    const { enablePubScanner } = await chrome.storage.local.get(['enablePubScanner']);
+    if (!enablePubScanner) return;
+
+    const result = await recheckStickyErrors();
+    if (result) {
+      notifyDashboardTabs('sticky-recheck-complete');
+    }
+  } catch (e) {
+    console.error('[Background] Sticky recheck failed:', e);
   }
 }
 
