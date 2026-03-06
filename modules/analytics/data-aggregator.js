@@ -14,6 +14,9 @@ export function filterItems(items, filters = {}) {
     if (filters.year && date.getFullYear() !== filters.year) return false;
     if (filters.month != null && date.getMonth() !== filters.month) return false;
     if (filters.categoryId && getParentCategoryId(item.cat) !== filters.categoryId) return false;
+    if (filters.priceRange) {
+      if (item.p < filters.priceRange.min || item.p > filters.priceRange.max) return false;
+    }
 
     return true;
   });

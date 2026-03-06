@@ -672,50 +672,65 @@ A standalone, full-featured analytics dashboard for data-driven business decisio
 **Header Bar:**
 - Company selector dropdown (pre-populated with previously fetched auction houses)
 - Manual company ID input for any Auctionet house
-- Fetch / Refresh buttons
+- Fetch / Refresh / CSV Export buttons
+- Dark mode toggle (persisted in localStorage, respects system preference)
 - Meta line showing house name, last update time, and total item count
 
-**Filter Pills (instant client-side filtering):**
+**Layout: Sidebar + Content**
 
-| Filter | Options |
-|--------|---------|
-| **År (Year)** | All years discovered in the dataset (e.g., 2023, 2024, 2025) |
-| **Månad (Month)** | Alla, Jan–Dec |
-| **Kategori (Category)** | Alla + top 15 parent categories by item count |
+Fixed 240px left sidebar with independent scrolling. Main content area scrolls separately. Sidebar hidden on screens ≤1024px.
 
-Clicking any pill triggers instant re-render — no API calls, pure client-side filtering on cached data.
+**Sidebar Filters (instant client-side filtering):**
 
-**4 Hero KPI Cards:**
+| Section | UI | Options |
+|---------|-----|---------|
+| **År (Year)** | 2-column button grid | All years discovered in the dataset |
+| **Månad (Month)** | 3×4 button grid | Jan–Dec (toggle on/off) |
+| **Kategori (Category)** | Scrollable list with counts | All parent categories with item counts for current year+month |
+| **Prisintervall (Price Range)** | Radio-style list | Alla, 300 kr, 301–500, 501–1 000, 1 001–2 000, 2 001–5 000, 5 001–10 000, 10 000+ |
+
+Bottom of sidebar shows active filter summary, "Rensa alla filter" button when filters are active. All filter changes trigger instant re-render — no API calls, pure client-side filtering on cached data.
+
+**5 Hero KPI Cards with Sparklines:**
 
 | KPI | Description |
 |-----|-------------|
 | **Sålda föremål** | Total items sold in the filtered period |
 | **Omsättning** | Total revenue (formatted as MSEK for millions) |
 | **Snittpris** | Average sale price |
-| **Medianpris** | Median sale price |
+| **Nettointäkt (uppsk.)** | Estimated net revenue: 25% buyer fee + 20% seller fee (flat 100 SEK if <500 kr) + 80 SEK photo/handling − 6% Auctionet cut |
+| **Andel vid minbud** | Percentage of items sold at exactly 300 kr (minimum bid). Trend is inverted — lower is better |
 
-Each card shows a YoY trend indicator (▲/▼/—) with percentage change compared to the same period one year prior.
+Each card shows a YoY trend indicator (▲/▼/—) with percentage change compared to the same period one year prior. SVG sparklines show monthly trends for the selected year.
 
 **Monthly Overview Chart:**
 - Vertical bar chart showing items sold per month for the selected year
 - Clickable bars to filter by month
 - Active month highlighted with accent color
+- Tooltip with count, revenue, and average price per month
 - Overall average price displayed below
 
 **Price Distribution Chart:**
 - Horizontal bar chart with 7 price brackets: 300 kr, 301–500, 501–1 000, 1 001–2 000, 2 001–5 000, 5 001–10 000, 10 000+
-- Shows count and percentage for each bracket
+- Shows count, percentage, and cumulative percentage for each bracket
+- Clickable bars to filter by price range (synced with sidebar price filter)
+- Price point annotations: "Vid minbud: X%", "Under 500 kr: X%", "1 000+ kr: X%"
 
 **Category Breakdown Table:**
 - All 25 parent categories with inline bar charts
-- Columns: Category name, visual bar, item count, revenue, average price
-- Sorted by item count (descending)
-- Clickable rows to filter by category
+- Columns: Category name, visual bar, item count, revenue (Oms.), average price (Snitt)
+- Sortable columns with sort indicators (⇅ inactive, ▲/▼ active) — click to sort by count, revenue, or average price
+- Clickable rows to filter by category (synced with sidebar category filter)
 
-**Price Points Analysis:**
-- Key business metrics showing the distribution at critical thresholds
-- Exakt 300 kr (minimum bid), Under 500 kr, 500 kr+, 1 000 kr+, 5 000 kr+
-- Each with a visual bar and percentage
+**Top 10 Most Expensive Items:**
+- Ranked list of highest-priced items in the filtered period
+- Shows rank, price, category, date, and link to Auctionet search
+- Summary: percentage of total revenue from top 10 items
+
+**Yearly Prediction:**
+- Extrapolates full-year totals from completed months (shown only for current year with no active filters)
+- Displays predicted count, revenue, and average price alongside current actuals
+- Basis indicator: "baserat på N avslutade månader"
 
 ### Data Fetching Strategy
 
@@ -754,27 +769,28 @@ Complete mapping of 135 Auctionet sub-category IDs → 25 parent categories with
 
 ### Architecture
 
-Six dedicated modules in `/modules/analytics/`:
+Five dedicated modules in `/modules/analytics/`:
 
 | Module | Purpose |
 |--------|---------|
 | `data-fetcher.js` | Paginated API fetching with automatic category sharding for >10k items |
 | `data-cache.js` | chrome.storage.local cache with compression, TTL, and known-company discovery |
-| `data-aggregator.js` | KPI computation, YoY comparison, monthly/price/category breakdowns |
+| `data-aggregator.js` | KPI computation, YoY comparison, monthly/price/category breakdowns, price range filtering |
 | `category-registry.js` | 135 sub-category → 25 parent category mapping with Swedish names |
-| `filter-state.js` | Reactive filter state with event emitter pattern |
-| `chart-renderer.js` | CSS bar charts and SVG sparklines (planned) |
+| `filter-state.js` | Reactive filter state (year, month, category, price range) with event emitter pattern |
 
-Entry point: `analytics.js` (~525 lines) — bootstraps all modules, renders the full dashboard with DOM manipulation and event delegation.
+Entry point: `analytics.js` (~760 lines) — bootstraps all modules, renders sidebar filters and full dashboard with DOM manipulation and event delegation.
 
 ### Technical Details
 
 - **Zero AI calls** — pure Auctionet public API, no Anthropic costs
 - **Standalone extension page** — native ES6 module imports, no CSS conflicts, full `chrome.*` API access
-- **CSS-only charts** — horizontal bars via percentage widths, no chart library dependencies
+- **CSS-only charts** — horizontal bars via percentage widths, SVG polyline sparklines, no chart library dependencies
 - **`.ad-` class prefix** (analytics-dashboard) to avoid any naming conflicts
-- **Responsive design** — CSS Grid layout adapts to smaller viewports
-- **Light theme** with blue accents (#2563eb), white cards, #f8f9fa background
+- **Sidebar + content layout** — fixed 240px sidebar with independent scrolling, responsive (hides at ≤1024px)
+- **Dark mode** — full dark theme via CSS custom properties, toggle in header, persists in localStorage
+- **CSV export** — exports filtered items with ID, price, estimate, reserve, category, and date
+- **Net revenue estimation** — per-item calculation: 25% buyer fee + 20% seller fee (flat 100 SEK if hammer < 500 kr) + 80 SEK photo/handling − 6% Auctionet platform cut
 
 ---
 
