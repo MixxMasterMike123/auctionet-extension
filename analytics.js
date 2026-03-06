@@ -176,11 +176,12 @@ function renderDashboard() {
   container.appendChild(renderKPIs(kpis, yoy));
 
   if (items.length === 0) {
-    container.innerHTML += `
-      <div class="ad-empty ad-animate">
-        <div class="ad-empty__icon">📊</div>
-        <div class="ad-empty__text">Inga sålda föremål för vald period</div>
-      </div>`;
+    const empty = document.createElement('div');
+    empty.className = 'ad-empty ad-animate';
+    empty.innerHTML = `
+      <div class="ad-empty__icon">📊</div>
+      <div class="ad-empty__text">Inga sålda föremål för vald period</div>`;
+    container.appendChild(empty);
     return;
   }
 
