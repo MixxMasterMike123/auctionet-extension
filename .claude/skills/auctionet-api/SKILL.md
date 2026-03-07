@@ -101,7 +101,7 @@ The extension uses multiple search strategies with fallback:
 When price spread >5x OR sample >15 items, Haiku validates each result's relevance to the original item. Located in `auctionet-api.js` `validateResultRelevance()`.
 
 ### Company Exclusion
-Users can set `excludeCompanyId` in settings to filter out their own auction house's results. Stored in `chrome.storage.sync`. Cache is cleared when this setting changes.
+Users set `ownCompanyId` in settings (their auction house ID). This excludes their own results from LIVE market searches. Stored in `chrome.storage.sync`. Cache is cleared when this setting changes. (Migrated from old `excludeCompanyId` key.)
 
 ### Result Caching
 - In-memory `Map` cache with 30-minute expiry

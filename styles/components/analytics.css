@@ -317,7 +317,7 @@ body {
 
 .ad-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -399,6 +399,26 @@ body {
   font-size: 10px;
   color: var(--ad-text-light);
   margin-bottom: 4px;
+}
+
+/* ─── Economy Section (own house only) ───────────────────── */
+
+.ad-kpi-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ad-text-muted);
+  margin: 4px 0 10px;
+  padding-left: 2px;
+}
+
+.ad-kpi-grid--economy {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.ad-kpi-grid--economy .ad-kpi-card {
+  border-left: 3px solid var(--ad-accent);
 }
 
 /* ─── Chart Cards ────────────────────────────────────────── */
@@ -686,4 +706,148 @@ body {
   .ad-header { flex-direction: column; align-items: flex-start; padding: 12px 16px; }
   .ad-header__controls { width: 100%; flex-wrap: wrap; }
   .ad-content { padding: 16px; }
+}
+
+/* ─── AI Insights ─────────────────────────────────────────── */
+
+/* Summary card (placed after KPI grid) */
+
+.ad-ai-summary {
+  background: var(--ad-card-bg);
+  border-radius: var(--ad-radius);
+  box-shadow: var(--ad-shadow);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border-left: 3px solid var(--ad-accent);
+}
+
+.ad-ai-summary__header {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: var(--ad-text);
+}
+
+.ad-ai-summary__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ad-text);
+  padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ad-border) 50%, transparent);
+}
+.ad-ai-summary__row:last-of-type { border-bottom: none; }
+
+.ad-ai-summary__icon { flex-shrink: 0; font-size: 13px; }
+
+.ad-ai-summary__row--risk { color: var(--ad-warn); }
+
+.ad-ai-summary__more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ad-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.ad-ai-summary__more:hover { text-decoration: underline; }
+
+/* Full panel (at bottom of dashboard) */
+
+.ad-ai-panel { margin-top: 4px; }
+
+.ad-ai-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ad-text-muted);
+  background: var(--ad-accent-light);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.ad-ai-section {
+  border-left: 3px solid var(--ad-border);
+  padding: 10px 16px;
+  margin: 12px 0;
+  border-radius: 0 var(--ad-radius-sm) var(--ad-radius-sm) 0;
+}
+
+.ad-ai-section--insight { border-left-color: var(--ad-accent); background: color-mix(in srgb, var(--ad-accent) 5%, transparent); }
+.ad-ai-section--action  { border-left-color: var(--ad-positive); background: color-mix(in srgb, var(--ad-positive) 5%, transparent); }
+.ad-ai-section--risk    { border-left-color: var(--ad-warn); background: color-mix(in srgb, var(--ad-warn) 5%, transparent); }
+.ad-ai-section--opportunity { border-left-color: #8b5cf6; background: color-mix(in srgb, #8b5cf6 5%, transparent); }
+
+.ad-ai-section__title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--ad-text);
+}
+
+.ad-ai-section__list {
+  list-style: none;
+  padding: 0;
+}
+
+.ad-ai-item {
+  position: relative;
+  padding: 4px 0 4px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ad-text);
+}
+.ad-ai-item::before {
+  content: '\2022';
+  position: absolute;
+  left: 0;
+  color: var(--ad-text-muted);
+}
+
+.ad-ai-footer {
+  text-align: right;
+  padding-top: 8px;
+  border-top: 1px solid var(--ad-border);
+  margin-top: 12px;
+}
+
+.ad-ai-refresh {
+  background: none;
+  border: none;
+  color: var(--ad-accent);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.ad-ai-refresh:hover { background: var(--ad-accent-light); }
+
+.ad-ai-error {
+  color: var(--ad-negative);
+  font-size: 13px;
+  padding: 12px;
+  background: var(--ad-negative-bg);
+  border-radius: var(--ad-radius-sm);
+}
+
+/* Loading shimmer */
+.ad-ai-loading { padding: 8px 0; }
+
+.ad-ai-shimmer {
+  height: 16px;
+  margin: 10px 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--ad-border) 25%, color-mix(in srgb, var(--ad-border) 60%, transparent) 50%, var(--ad-border) 75%);
+  background-size: 200% 100%;
+  animation: ad-shimmer 1.5s infinite;
+}
+.ad-ai-shimmer--short { width: 65%; }
+
+@keyframes ad-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }

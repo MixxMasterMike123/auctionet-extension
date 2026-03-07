@@ -9,8 +9,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const extensionStatus = document.getElementById('extension-status');
   const enableArtistInfoCheckbox = document.getElementById('enable-artist-info');
   const showDashboardCheckbox = document.getElementById('show-dashboard');
-  const excludeCompanyInput = document.getElementById('exclude-company-id');
-  const saveExcludeCompanyButton = document.getElementById('save-exclude-company');
+  const ownCompanyInput = document.getElementById('own-company-id');
+  const saveOwnCompanyButton = document.getElementById('save-own-company');
   const searchDefaultsCheckbox = document.getElementById('search-defaults');
   const enablePubScannerCheckbox = document.getElementById('enable-pub-scanner');
 
@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadApiKey();
   await loadArtistInfoSetting();
   await loadShowDashboardSetting();
-  await loadExcludeCompanySetting();
+  await loadOwnCompanySetting();
   await loadSearchDefaultsSetting();
   await loadPubScannerSetting();
   await renderAdminUI();
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   testButton.addEventListener('click', testConnection);
   enableArtistInfoCheckbox.addEventListener('change', saveArtistInfoSetting);
   showDashboardCheckbox.addEventListener('change', saveShowDashboardSetting);
-  saveExcludeCompanyButton.addEventListener('click', saveExcludeCompanySetting);
+  saveOwnCompanyButton.addEventListener('click', saveOwnCompanySetting);
   searchDefaultsCheckbox.addEventListener('change', saveSearchDefaultsSetting);
   enablePubScannerCheckbox.addEventListener('change', savePubScannerSetting);
   document.getElementById('open-analytics').addEventListener('click', () => {
@@ -364,43 +364,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  async function loadExcludeCompanySetting() {
+  async function loadOwnCompanySetting() {
     try {
-      const result = await chrome.storage.sync.get(['excludeCompanyId']);
-      if (result.excludeCompanyId) {
-        excludeCompanyInput.value = result.excludeCompanyId;
+      // Migration: excludeCompanyId → ownCompanyId
+      const result = await chrome.storage.sync.get(['excludeCompanyId', 'ownCompanyId']);
+      if (result.excludeCompanyId && !result.ownCompanyId) {
+        await chrome.storage.sync.set({ ownCompanyId: result.excludeCompanyId });
+        await chrome.storage.sync.remove('excludeCompanyId');
+        ownCompanyInput.value = result.excludeCompanyId;
+      } else if (result.ownCompanyId) {
+        ownCompanyInput.value = result.ownCompanyId;
       }
     } catch (error) {
-      console.error('Error loading exclude company setting:', error);
+      console.error('Error loading own company setting:', error);
     }
   }
 
-  async function saveExcludeCompanySetting() {
-    const excludeCompanyId = excludeCompanyInput.value.trim();
-    
-    try {
-      saveExcludeCompanyButton.disabled = true;
-      saveExcludeCompanyButton.textContent = 'Saving...';
+  async function saveOwnCompanySetting() {
+    const ownCompanyId = ownCompanyInput.value.trim();
 
-      await chrome.storage.sync.set({ excludeCompanyId: excludeCompanyId });
-      showStatus('Exclude company setting saved successfully!', 'success');
-      
+    try {
+      saveOwnCompanyButton.disabled = true;
+      saveOwnCompanyButton.textContent = 'Sparar...';
+
+      await chrome.storage.sync.set({ ownCompanyId });
+      // Clean up old key if present
+      await chrome.storage.sync.remove('excludeCompanyId');
+      showStatus('Företags-ID sparat!', 'success');
+
       // Notify all tabs to refresh their settings
       try {
         const tabs = await chrome.tabs.query({ url: 'https://auctionet.com/*' });
         for (const tab of tabs) {
-          chrome.tabs.sendMessage(tab.id, { type: 'refresh-settings' }).catch(() => {
-            // Ignore errors for tabs that don't have the content script
-          });
+          chrome.tabs.sendMessage(tab.id, { type: 'refresh-settings' }).catch(() => {});
         }
       } catch (error) {
       }
-      
+
     } catch (error) {
-      showStatus('Error saving exclude company setting: ' + error.message, 'error');
+      showStatus('Fel vid sparande: ' + error.message, 'error');
     } finally {
-      saveExcludeCompanyButton.disabled = false;
-      saveExcludeCompanyButton.textContent = 'Save Exclude Company';
+      saveOwnCompanyButton.disabled = false;
+      saveOwnCompanyButton.textContent = 'Spara företags-ID';
     }
   }
 

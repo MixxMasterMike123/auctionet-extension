@@ -5,10 +5,14 @@ import { loadCache, getKnownCompanies } from './modules/analytics/data-cache.js'
 import {
   filterItems, computeKPIs, computeYoY, computeMonthlyData,
   computePriceDistribution, computeCategoryBreakdown,
-  getAvailableYears,
+  computePricePoints, getAvailableYears,
 } from './modules/analytics/data-aggregator.js';
 import { getCategoryName } from './modules/analytics/category-registry.js';
 import { FilterState } from './modules/analytics/filter-state.js';
+import {
+  buildDataSummary, generateInsights, getCachedInsights,
+  clearInsightsCache, renderInsightsPanel, renderInsightsSummaryCard,
+} from './modules/analytics/ai-insights.js';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 const fmt = n => n.toLocaleString('sv-SE');
@@ -19,21 +23,20 @@ const fmtSEK = n => {
 };
 
 /**
- * Estimate net revenue per item for the auction house.
- * Buyer fee: 25% on top of hammer price (kept by house)
- * Seller fee: 20% of hammer price (flat 100 SEK if hammer < 500 kr)
- * Photo/handling fee: 80 SEK per sold item
- * Auctionet cut: 6% of hammer price (deducted from house earnings)
- * Net = buyerFee + sellerFee + photoFee - auctionetCut
+ * Empirical fee multipliers derived from 2025 resultatrapport.
+ * These account for the real mix of seller fees (0-20%), momsfri items
+ * (lower buyer premium), flat fees on cheap items, etc.
+ *
+ * GROSS_MULTIPLIER: Nettoomsättning / Klubbat = ~22.0M / 18.4M = 1.196
+ * NET_MULTIPLIER:   Bruttovinst / Klubbat    = ~5.53M / 18.4M = 0.300
  */
+const GROSS_MULTIPLIER = 1.196;
+const NET_MULTIPLIER = 0.300;
+
 function estimateNetRevenue(items) {
   let total = 0;
   for (const item of items) {
-    const buyerFee = item.p * 0.25;
-    const sellerFee = item.p < 500 ? 100 : item.p * 0.20;
-    const photoFee = 80;
-    const auctionetCut = item.p * 0.06;
-    total += buyerFee + sellerFee + photoFee - auctionetCut;
+    total += item.p * NET_MULTIPLIER;
   }
   return Math.round(total);
 }
@@ -53,6 +56,7 @@ const PRICE_BRACKETS = [
 let allItems = [];
 let houseName = '';
 let currentCompanyId = null;
+let ownCompanyId = null;
 const filters = new FilterState();
 
 // ─── DOM References ───────────────────────────────────────
@@ -68,14 +72,21 @@ const refreshBtn = $('refresh-btn');
 // ─── Init ─────────────────────────────────────────────────
 
 async function init() {
-  const settings = await chrome.storage.sync.get(['excludeCompanyId']);
-  const ownId = settings.excludeCompanyId ? parseInt(settings.excludeCompanyId) : null;
+  // Migration: excludeCompanyId → ownCompanyId
+  const settings = await chrome.storage.sync.get(['excludeCompanyId', 'ownCompanyId']);
+  if (settings.excludeCompanyId && !settings.ownCompanyId) {
+    await chrome.storage.sync.set({ ownCompanyId: settings.excludeCompanyId });
+    await chrome.storage.sync.remove('excludeCompanyId');
+    ownCompanyId = parseInt(settings.excludeCompanyId);
+  } else {
+    ownCompanyId = settings.ownCompanyId ? parseInt(settings.ownCompanyId) : null;
+  }
 
-  await populateCompanyDropdown(ownId);
+  await populateCompanyDropdown(ownCompanyId);
 
-  if (ownId) {
-    companySelect.value = ownId;
-    await loadCompany(ownId);
+  if (ownCompanyId) {
+    companySelect.value = ownCompanyId;
+    await loadCompany(ownCompanyId);
   }
 
   companySelect.addEventListener('change', () => {
@@ -83,19 +94,23 @@ async function init() {
     if (id) loadCompany(id);
   });
 
-  fetchBtn.addEventListener('click', () => {
+  fetchBtn.addEventListener('click', async () => {
     const id = parseInt(companyIdInput.value);
-    if (id) loadCompany(id, true);
+    if (!id) return;
+    const cached = await loadCache(id);
+    loadCompany(id, !cached, !!cached); // full fetch if new, incremental if exists
   });
 
   refreshBtn.addEventListener('click', () => {
-    if (currentCompanyId) loadCompany(currentCompanyId, true);
+    if (currentCompanyId) loadCompany(currentCompanyId, false, true);
   });
 
-  companyIdInput.addEventListener('keydown', e => {
+  companyIdInput.addEventListener('keydown', async e => {
     if (e.key === 'Enter') {
       const id = parseInt(companyIdInput.value);
-      if (id) loadCompany(id, true);
+      if (!id) return;
+      const cached = await loadCache(id);
+      loadCompany(id, !cached, !!cached);
     }
   });
 
@@ -104,6 +119,9 @@ async function init() {
     if (allItems.length === 0) return;
     exportCSV(filterItems(allItems, filters.getFilters()));
   });
+
+  // AI Insights
+  $('ai-btn').addEventListener('click', () => runAIAnalysis());
 
   // Dark mode toggle
   const darkBtn = $('dark-mode-btn');
@@ -143,11 +161,11 @@ async function populateCompanyDropdown(ownId) {
 
 // ─── Load Company ─────────────────────────────────────────
 
-async function loadCompany(companyId, forceRefresh = false) {
+async function loadCompany(companyId, forceRefresh = false, forceIncremental = false) {
   currentCompanyId = companyId;
   companySelect.value = companyId;
 
-  if (!forceRefresh) {
+  if (!forceRefresh && !forceIncremental) {
     const cached = await loadCache(companyId);
     if (cached && !cached.isExpired) {
       allItems = cached.items;
@@ -160,7 +178,7 @@ async function loadCompany(companyId, forceRefresh = false) {
     }
   }
 
-  showProgress(forceRefresh ? 'Hämtar all data...' : 'Hämtar data...');
+  showProgress(forceRefresh ? 'Hämtar all data...' : 'Söker nya föremål...');
   try {
     const result = await fetchCompanyData(companyId, progress => {
       updateProgress(progress);
@@ -318,26 +336,142 @@ function mkSection(id, title) {
   return sec;
 }
 
+// ─── AI Insights ─────────────────────────────────────────
+
+async function runAIAnalysis(forceRefresh = false) {
+  if (allItems.length === 0) return;
+
+  const f = filters.getFilters();
+  const filterKey = { year: f.year, month: f.month, categoryId: f.categoryId, priceMin: f.priceRange?.min, priceMax: f.priceRange?.max };
+
+  // Show loading state in both summary card and full panel
+  const existingSummary = $('ai-summary-card');
+  if (existingSummary) {
+    existingSummary.replaceWith(renderInsightsSummaryCard({ isLoading: true }));
+  } else {
+    // First run — insert summary card after the KPI grid
+    const kpiGrid = container.querySelector('.ad-kpi-grid');
+    if (kpiGrid) kpiGrid.after(renderInsightsSummaryCard({ isLoading: true }));
+  }
+  const existing = $('ai-insights-panel');
+  if (existing) existing.remove();
+  container.appendChild(renderInsightsPanel({ isLoading: true }));
+
+  if (forceRefresh) clearInsightsCache();
+
+  try {
+    const items = filterItems(allItems, f);
+    const monthly = computeMonthlyData(allItems, f.year);
+    const kpis = computeKPIs(items);
+    const priceDist = computePriceDistribution(items);
+    const pricePoints = computePricePoints(items);
+    const categories = computeCategoryBreakdown(items);
+    const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
+    const netRevenue = isOwnHouse ? estimateNetRevenue(items) : null;
+    const grossRevenue = isOwnHouse ? Math.round(kpis.revenue * GROSS_MULTIPLIER) : null;
+
+    // For AI: compute same-period YoY (only completed months) to avoid misleading comparisons
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth(); // 0-based
+    let prevKpis, yoy;
+    if (f.month != null) {
+      // Specific month selected — compare that month across years
+      const prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
+      prevKpis = computeKPIs(prevItems);
+      yoy = computeYoY(kpis, prevKpis);
+    } else if (f.year === currentYear) {
+      // Current year, no month filter — only compare completed months
+      const completedMonths = monthly.filter((m, i) => i < currentMonth && m.count > 0).length;
+      if (completedMonths > 0) {
+        // Filter previous year to same months only
+        let prevSamePeriod = [];
+        for (let m = 0; m < currentMonth; m++) {
+          prevSamePeriod = prevSamePeriod.concat(filterItems(allItems, { ...f, year: f.year - 1, month: m }));
+        }
+        prevKpis = computeKPIs(prevSamePeriod);
+        yoy = computeYoY(kpis, prevKpis);
+      } else {
+        prevKpis = { count: 0, revenue: 0, avgPrice: 0, medianPrice: 0 };
+        yoy = null;
+      }
+    } else {
+      // Historical year — full year comparison is fine
+      const prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
+      prevKpis = computeKPIs(prevItems);
+      yoy = computeYoY(kpis, prevKpis);
+    }
+
+    const activeFilters = [];
+    if (f.month != null) activeFilters.push(`Månad: ${MONTH_NAMES[f.month]}`);
+    if (f.categoryId != null) activeFilters.push(`Kategori: ${getCategoryName(f.categoryId)}`);
+    if (f.priceRange) activeFilters.push(`Pris: ${f.priceRange.min}–${f.priceRange.max}`);
+
+    const summary = buildDataSummary({
+      houseName, year: f.year, kpis, prevKpis, yoy, monthly,
+      priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse,
+      activeFilters: activeFilters.length > 0 ? activeFilters : null,
+    });
+
+    const insights = await generateInsights(summary, currentCompanyId, filterKey);
+
+    // Replace loading with results in both summary and full panel
+    const summaryCard = $('ai-summary-card');
+    if (summaryCard) summaryCard.replaceWith(renderInsightsSummaryCard({ insights }));
+    const panel = $('ai-insights-panel');
+    if (panel) panel.remove();
+    container.appendChild(renderInsightsPanel({
+      insights,
+      onRefresh: () => runAIAnalysis(true),
+    }));
+  } catch (err) {
+    const errMsg = err.message || 'Kunde inte generera analys';
+    const summaryCard = $('ai-summary-card');
+    if (summaryCard) summaryCard.replaceWith(renderInsightsSummaryCard({ error: errMsg }));
+    const panel = $('ai-insights-panel');
+    if (panel) panel.remove();
+    container.appendChild(renderInsightsPanel({ error: errMsg }));
+  }
+}
+
 // ─── Render ───────────────────────────────────────────────
 
 function renderDashboard() {
   const f = filters.getFilters();
   const items = filterItems(allItems, f);
 
-  const prevFilters = { ...f, year: f.year - 1 };
-  const prevItems = filterItems(allItems, prevFilters);
+  const monthly = computeMonthlyData(allItems, f.year);
   const kpis = computeKPIs(items);
+
+  // Same-period YoY: for current year without month filter, compare only completed months
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  let prevItems;
+  if (f.year === currentYear && f.month == null) {
+    // Only include previous year's data for months that are complete this year
+    prevItems = [];
+    for (let m = 0; m < currentMonth; m++) {
+      prevItems = prevItems.concat(filterItems(allItems, { ...f, year: f.year - 1, month: m }));
+    }
+  } else {
+    prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
+  }
   const prevKpis = computeKPIs(prevItems);
   const yoy = computeYoY(kpis, prevKpis);
-
-  const monthly = computeMonthlyData(allItems, f.year);
   const priceDist = computePriceDistribution(items);
   const categories = computeCategoryBreakdown(items);
 
   container.innerHTML = '';
 
   // KPI cards
-  container.appendChild(renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItems, f));
+  const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
+  container.appendChild(renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItems, f, isOwnHouse));
+
+  // AI summary card (right after KPIs for visibility)
+  const filterKey = { year: f.year, month: f.month, categoryId: f.categoryId, priceMin: f.priceRange?.min, priceMax: f.priceRange?.max };
+  const cachedInsights = getCachedInsights(currentCompanyId, filterKey);
+  if (cachedInsights) {
+    container.appendChild(renderInsightsSummaryCard({ insights: cachedInsights }));
+  }
 
   if (items.length === 0) {
     const empty = document.createElement('div');
@@ -359,10 +493,17 @@ function renderDashboard() {
   container.appendChild(renderTopItems(items));
 
   // Yearly prediction (only for current year, no month/category/price filter)
-  const currentYear = new Date().getFullYear();
   if (f.year === currentYear && f.month == null && f.categoryId == null && f.priceRange == null) {
     const prediction = renderPrediction(monthly, kpis);
     if (prediction) container.appendChild(prediction);
+  }
+
+  // Restore cached AI insights if available
+  if (cachedInsights) {
+    container.appendChild(renderInsightsPanel({
+      insights: cachedInsights,
+      onRefresh: () => runAIAnalysis(true),
+    }));
   }
 }
 
@@ -462,9 +603,8 @@ function createSparkline(data, formatFn) {
 
 // ─── KPI Cards ────────────────────────────────────────────
 
-function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f) {
-  const grid = document.createElement('div');
-  grid.className = 'ad-kpi-grid ad-animate';
+function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwnHouse) {
+  const wrapper = document.createElement('div');
 
   const atMinBid = items.filter(i => i.p === 300).length;
   const minBidPct = items.length > 0 ? Math.round((atMinBid / items.length) * 1000) / 10 : 0;
@@ -472,19 +612,51 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f) {
   const prevMinBidPct = prevItems.length > 0 ? Math.round((prevAtMinBid / prevItems.length) * 1000) / 10 : 0;
   const minBidTrend = prevMinBidPct > 0 ? Math.round(((minBidPct - prevMinBidPct) / prevMinBidPct) * 1000) / 10 : null;
 
-  const netRevenue = estimateNetRevenue(items);
-  const prevNetRevenue = estimateNetRevenue(prevItems);
-  const netRevYoY = prevNetRevenue > 0 ? Math.round(((netRevenue - prevNetRevenue) / prevNetRevenue) * 1000) / 10 : null;
-
   const monthlyForSparkline = computeMonthlyData(allItemsRef, f.year);
 
-  const cards = [
+  // Row 1: Universal metrics (pure API data, comparable across houses)
+  const universalCards = [
     { label: 'Sålda föremål', value: fmt(kpis.count), trend: yoy?.count, sparkData: monthlyForSparkline.map(m => m.count), sparkFmt: v => `${fmt(v)} st` },
-    { label: 'Omsättning', value: fmtSEK(kpis.revenue), trend: yoy?.revenue, sparkData: monthlyForSparkline.map(m => m.revenue), sparkFmt: fmtSEK },
-    { label: 'Snittpris', value: fmtSEK(kpis.avgPrice), trend: yoy?.avgPrice, sparkData: monthlyForSparkline.map(m => m.avgPrice), sparkFmt: fmtSEK },
-    { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * 0.39 + m.count * 80)), sparkFmt: fmtSEK },
+    { label: 'Klubbat värde', value: fmtSEK(kpis.revenue), trend: yoy?.revenue, sparkData: monthlyForSparkline.map(m => m.revenue), sparkFmt: fmtSEK },
+    { label: 'Snittpris (klubbat)', value: fmtSEK(kpis.avgPrice), trend: yoy?.avgPrice, sparkData: monthlyForSparkline.map(m => m.avgPrice), sparkFmt: fmtSEK },
     { label: 'Andel vid minbud', value: `${minBidPct}%`, trend: minBidTrend, invertTrend: true },
   ];
+
+  wrapper.appendChild(buildKPIGrid(universalCards));
+
+  // Row 2: House-specific financial metrics (only for own house)
+  if (isOwnHouse) {
+    const netRevenue = estimateNetRevenue(items);
+    const prevNetRevenue = estimateNetRevenue(prevItems);
+    const netRevYoY = prevNetRevenue > 0 ? Math.round(((netRevenue - prevNetRevenue) / prevNetRevenue) * 1000) / 10 : null;
+
+    const grossRevenue = Math.round(kpis.revenue * GROSS_MULTIPLIER);
+    const prevGrossRevenue = Math.round(prevKpis.revenue * GROSS_MULTIPLIER);
+    const grossYoY = prevGrossRevenue > 0 ? Math.round(((grossRevenue - prevGrossRevenue) / prevGrossRevenue) * 1000) / 10 : null;
+
+    const netPerItem = kpis.count > 0 ? Math.round(netRevenue / kpis.count) : 0;
+    const prevNetPerItem = prevKpis.count > 0 ? Math.round(prevNetRevenue / prevKpis.count) : 0;
+    const netPerItemYoY = prevNetPerItem > 0 ? Math.round(((netPerItem - prevNetPerItem) / prevNetPerItem) * 1000) / 10 : null;
+
+    const economyCards = [
+      { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_MULTIPLIER)), sparkFmt: fmtSEK },
+      { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * NET_MULTIPLIER)), sparkFmt: fmtSEK },
+      { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY, sparkData: null },
+    ];
+
+    const sectionLabel = document.createElement('div');
+    sectionLabel.className = 'ad-kpi-section-label';
+    sectionLabel.textContent = 'Vår ekonomi';
+    wrapper.appendChild(sectionLabel);
+    wrapper.appendChild(buildKPIGrid(economyCards, 'ad-kpi-grid--economy'));
+  }
+
+  return wrapper;
+}
+
+function buildKPIGrid(cards, extraClass) {
+  const grid = document.createElement('div');
+  grid.className = 'ad-kpi-grid ad-animate' + (extraClass ? ` ${extraClass}` : '');
 
   for (const c of cards) {
     const card = document.createElement('div');

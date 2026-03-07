@@ -39,7 +39,7 @@ export class APIManager {
 
       // Also refresh Auctionet API settings
       if (this.auctionetAPI) {
-        await this.auctionetAPI.refreshExcludeCompanySetting();
+        await this.auctionetAPI.refreshOwnCompanySetting();
       }
     } catch (error) {
       console.error('Error loading settings:', error);

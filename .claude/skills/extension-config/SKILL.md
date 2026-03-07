@@ -38,7 +38,7 @@ user-invocable: false
 |-----|------|---------|--------|
 | `enableArtistInfo` | boolean | `true` | popup.js |
 | `showDashboard` | boolean | `true` | popup.js |
-| `excludeCompanyId` | string | — | popup.js |
+| `ownCompanyId` | string | — | popup.js |
 | `searchDefaults` | boolean | `true` | popup.js |
 | `adminUnlocked` | boolean | `false` | popup.js |
 

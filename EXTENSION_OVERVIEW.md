@@ -660,7 +660,7 @@ The scanner calls the Anthropic API directly from the service worker (no message
 
 ## 13. Sales Analytics Dashboard (Försäljningsanalys)
 
-A standalone, full-featured analytics dashboard for data-driven business decisions. Accessible as a Chrome extension page (`chrome-extension://<id>/analytics.html`) — completely separate from the admin dashboard. Zero AI calls — powered entirely by the Auctionet public API.
+A standalone, full-featured analytics dashboard for data-driven business decisions. Accessible as a Chrome extension page (`chrome-extension://<id>/analytics.html`) — completely separate from the admin dashboard. Powered by the Auctionet public API with optional AI-powered analysis via Claude Sonnet 4.5.
 
 ### How to Access
 
@@ -672,7 +672,7 @@ A standalone, full-featured analytics dashboard for data-driven business decisio
 **Header Bar:**
 - Company selector dropdown (pre-populated with previously fetched auction houses)
 - Manual company ID input for any Auctionet house
-- Fetch / Refresh / CSV Export buttons
+- Fetch / Refresh / CSV Export / AI Analysis buttons
 - Dark mode toggle (persisted in localStorage, respects system preference)
 - Meta line showing house name, last update time, and total item count
 
@@ -691,17 +691,30 @@ Fixed 240px left sidebar with independent scrolling. Main content area scrolls s
 
 Bottom of sidebar shows active filter summary, "Rensa alla filter" button when filters are active. All filter changes trigger instant re-render — no API calls, pure client-side filtering on cached data.
 
-**5 Hero KPI Cards with Sparklines:**
+**Two-Tier KPI Cards with Sparklines:**
+
+KPI cards are split into two rows to separate universal auction metrics (comparable across houses) from house-specific financial data.
+
+**Row 1 — Universal Metrics** (always shown, pure API data):
 
 | KPI | Description |
 |-----|-------------|
 | **Sålda föremål** | Total items sold in the filtered period |
-| **Omsättning** | Total revenue (formatted as MSEK for millions) |
-| **Snittpris** | Average sale price |
-| **Nettointäkt (uppsk.)** | Estimated net revenue: 25% buyer fee + 20% seller fee (flat 100 SEK if <500 kr) + 80 SEK photo/handling − 6% Auctionet cut |
+| **Klubbat värde** | Total hammer price (raw auction prices, no fees) |
+| **Snittpris (klubbat)** | Average hammer price per item |
 | **Andel vid minbud** | Percentage of items sold at exactly 300 kr (minimum bid). Trend is inverted — lower is better |
 
-Each card shows a YoY trend indicator (▲/▼/—) with percentage change compared to the same period one year prior. SVG sparklines show monthly trends for the selected year with interactive hover — a crosshair line and dot follow the mouse smoothly along the curve, with a tooltip showing the nearest month's value.
+**Row 2 — "Vår ekonomi"** (only when viewing own house, set via `ownCompanyId`):
+
+| KPI | Description |
+|-----|-------------|
+| **Omsättning** | Gross revenue including buyer premium — hammer × 1.196 (empirical rate from resultatrapport) |
+| **Nettointäkt (uppsk.)** | Estimated net revenue — hammer × 0.300 (empirical rate accounting for variable seller fees 0-20%, buyer premium, and Auctionet provision) |
+| **Netto/föremål** | Average net revenue per item sold |
+
+The "Vår ekonomi" row uses empirical multipliers derived from the 2025 resultatrapport rather than theoretical fee rates, because seller fees vary by contract (0%, 8%, 15%, 20%) and some items are sold under margin scheme (momsfri) with lower buyer premium. The empirical rates account for the real mix.
+
+Each card shows a YoY trend indicator (▲/▼/—) with percentage change compared to the same period one year prior. For the current year, YoY comparison uses only completed months for fair comparison. SVG sparklines show monthly trends for the selected year with interactive hover — a crosshair line and dot follow the mouse smoothly along the curve, with a tooltip showing the nearest month's value.
 
 **Monthly Overview Chart:**
 - Vertical bar chart showing items sold per month for the selected year
@@ -731,6 +744,27 @@ Each card shows a YoY trend indicator (▲/▼/—) with percentage change compa
 - Extrapolates full-year totals from completed months (shown only for current year with no active filters)
 - Displays predicted count, revenue, and average price alongside current actuals
 - Basis indicator: "baserat på N avslutade månader"
+
+**AI-Powered Analysis (on-demand):**
+
+An optional AI analysis feature powered by Claude Sonnet 4.5, triggered by the "AI-analys" button in the header. Sends a compact data summary (~800-1200 tokens) to Claude and returns structured insights in four categories:
+
+| Section | Icon | Content |
+|---------|------|---------|
+| **Strategiska insikter** | 💡 | High-level strategic findings based on the data |
+| **Åtgärder** | ✅ | Specific, actionable steps to improve |
+| **Riskvarningar** | ⚠️ | Identified risks or concerning trends |
+| **Möjligheter** | 🚀 | Growth opportunities and positive signals |
+
+Key features:
+- **Context-aware:** System prompt includes Swedish auction market context, fee structure, seasonality patterns
+- **Date-aware:** Knows today's date; avoids drawing conclusions from incomplete months
+- **Own house vs. competitor:** When viewing own house (`isOwnHouse=true`), analyzes financial metrics (omsättning, nettointäkt). For other houses, focuses only on market data
+- **Same-period YoY:** Compares only completed months to avoid misleading year-to-date comparisons
+- **Constructive tone:** Instructed to be solution-oriented, not alarmist — presents challenges as improvement opportunities
+- **TL;DR summary card:** A compact summary card appears after the KPI grid showing the top finding from each section, with a "Visa fullständig analys" link to the full panel
+- **Session caching:** Results are cached per company+filter combination within the session; no API call on filter toggle-back
+- **Prompt caching:** System prompt uses `cache_control: { type: 'ephemeral' }` for ~90% token savings
 
 ### Data Fetching Strategy
 
@@ -778,19 +812,21 @@ Five dedicated modules in `/modules/analytics/`:
 | `data-aggregator.js` | KPI computation, YoY comparison, monthly/price/category breakdowns, price range filtering |
 | `category-registry.js` | 135 sub-category → 25 parent category mapping with Swedish names |
 | `filter-state.js` | Reactive filter state (year, month, category, price range) with event emitter pattern |
+| `ai-insights.js` | On-demand AI analysis via Claude Sonnet 4.5 — data summary builder, API call, response parsing, and rendering |
 
-Entry point: `analytics.js` (~760 lines) — bootstraps all modules, renders sidebar filters and full dashboard with DOM manipulation and event delegation.
+Entry point: `analytics.js` (~1000 lines) — bootstraps all modules, renders sidebar filters and full dashboard with DOM manipulation and event delegation.
 
 ### Technical Details
 
-- **Zero AI calls** — pure Auctionet public API, no Anthropic costs
+- **Minimal AI calls** — data display is pure Auctionet public API; AI analysis is on-demand only (one Claude Sonnet 4.5 call per analysis)
 - **Standalone extension page** — native ES6 module imports, no CSS conflicts, full `chrome.*` API access
 - **CSS-only charts** — horizontal bars via percentage widths, SVG polyline sparklines, no chart library dependencies
 - **`.ad-` class prefix** (analytics-dashboard) to avoid any naming conflicts
 - **Sidebar + content layout** — fixed 240px sidebar with independent scrolling, responsive (hides at ≤1024px)
 - **Dark mode** — full dark theme via CSS custom properties, toggle in header, persists in localStorage
 - **CSV export** — exports filtered items with ID, price, estimate, reserve, category, and date
-- **Net revenue estimation** — per-item calculation: 25% buyer fee + 20% seller fee (flat 100 SEK if hammer < 500 kr) + 80 SEK photo/handling − 6% Auctionet platform cut
+- **Own house detection** — `ownCompanyId` setting (stored in `chrome.storage.sync`) determines whether house-specific financial KPIs are shown. When viewing another house, only universal hammer-price metrics are displayed
+- **Empirical fee multipliers** — revenue estimates use multipliers derived from actual 2025 resultatrapport data (GROSS_MULTIPLIER=1.196, NET_MULTIPLIER=0.300) rather than theoretical fee rates, accounting for the real mix of variable seller fees and margin scheme items
 
 ---
 
@@ -900,7 +936,7 @@ The extension popup (`popup.html`) provides:
 | **API Key** | Anthropic API key for Claude AI access |
 | **Artist Info Toggle** | Enable/disable automatic artist detection and biography features |
 | **Dashboard Visibility** | Show/hide the market analysis dashboard by default |
-| **Exclude Company ID** | Your auction house's Auctionet company ID — excludes your own historical sales from market analysis to prevent self-referencing |
+| **Företags-ID (ownCompanyId)** | Your auction house's Auctionet company ID — enables house-specific financial KPIs in analytics, excludes own sales from market analysis |
 | **Search Defaults** | Auto-add `type=item&sorting=desc` to search pages (newest items first). Toggleable via popup checkbox and an on-page toggle bar below the navbar on search pages |
 | **Connection Test** | One-click API connectivity verification |
 | **Försäljningsanalys** | "Öppna Försäljningsanalys" button — opens the standalone sales analytics dashboard in a new tab |
@@ -1012,7 +1048,8 @@ auctionet-extension/
 │   │   ├── data-cache.js                 # chrome.storage.local cache with compression
 │   │   ├── data-aggregator.js            # KPI computation, distributions, trends
 │   │   ├── category-registry.js          # 135 sub-ID → 25 parent category mapping
-│   │   └── filter-state.js              # Reactive filter state with event emitter
+│   │   ├── filter-state.js              # Reactive filter state with event emitter
+│   │   └── ai-insights.js              # On-demand AI analysis (Claude Sonnet 4.5)
 │   │
 │   └── refactored/                        # New architecture components
 │       ├── components/
@@ -1078,7 +1115,8 @@ Standalone Extension Page (analytics.html — opened from popup)
                   ├──► data-cache.js ──► chrome.storage.local (compressed, 24h TTL)
                   ├──► data-aggregator.js ──► KPIs / Monthly / Price Distribution / Categories
                   ├──► filter-state.js ──► Reactive re-render on filter change
-                  └──► category-registry.js ──► 135 sub → 25 parent category mapping
+                  ├──► category-registry.js ──► 135 sub → 25 parent category mapping
+                  └──► ai-insights.js ──► background.js ──► Claude Sonnet 4.5 (on-demand)
                   ├──► chrome.alarms (10 min) / onInstalled ──► Publication Scanner
                   ├──► publication-scanner-bg.js ──► fetch (with cookies)
                   ├──► offscreen.js ──► DOMParser (HTML parsing)
@@ -1141,4 +1179,4 @@ The extension processes data entirely within the user's browser session. No cata
 
 ---
 
-*Document updated March 6, 2026. Reflects extension version 2.3.0.*
+*Document updated March 7, 2026. Reflects extension version 2.3.0.*

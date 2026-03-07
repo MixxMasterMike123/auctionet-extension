@@ -6,11 +6,11 @@ export class AuctionetAPI {
     this.baseUrl = 'https://auctionet.com/api/v2/items.json';
     this.cache = new Map(); // Cache results to avoid repeated API calls
     this.cacheExpiry = 30 * 60 * 1000; // 30 minutes default cache
-    this.excludeCompanyId = null; // Will be loaded from settings
+    this.ownCompanyId = null; // Loaded from settings — excludes own house from LIVE market data
     this._apiManager = null; // Reference to APIManager for Claude API calls
-    
-    // Load exclude company setting
-    this.loadExcludeCompanySetting();
+
+    // Load own company setting
+    this.loadOwnCompanySetting();
   }
 
   // Set APIManager reference for AI validation calls
@@ -18,26 +18,29 @@ export class AuctionetAPI {
     this._apiManager = apiManager;
   }
 
-  // Load exclude company setting from Chrome storage
-  async loadExcludeCompanySetting() {
+  // Load own company ID from Chrome storage
+  async loadOwnCompanySetting() {
     try {
-      const result = await chrome.storage.sync.get(['excludeCompanyId']);
-      if (result.excludeCompanyId) {
-        this.excludeCompanyId = result.excludeCompanyId.trim();
-  
+      // Migration: excludeCompanyId → ownCompanyId
+      const result = await chrome.storage.sync.get(['excludeCompanyId', 'ownCompanyId']);
+      if (result.excludeCompanyId && !result.ownCompanyId) {
+        await chrome.storage.sync.set({ ownCompanyId: result.excludeCompanyId });
+        await chrome.storage.sync.remove('excludeCompanyId');
+        this.ownCompanyId = result.excludeCompanyId.trim();
+      } else if (result.ownCompanyId) {
+        this.ownCompanyId = result.ownCompanyId.trim();
       } else {
-        this.excludeCompanyId = null;
+        this.ownCompanyId = null;
       }
     } catch (error) {
     }
   }
 
-  // Refresh exclude company setting (called when settings are updated)
-  async refreshExcludeCompanySetting() {
-    await this.loadExcludeCompanySetting();
+  // Refresh own company setting (called when settings are updated)
+  async refreshOwnCompanySetting() {
+    await this.loadOwnCompanySetting();
     // Clear cache since exclusion rules have changed
     this.cache.clear();
-
   }
 
   // Ensure every term in a search query is quoted for Auctionet's API.
@@ -420,8 +423,8 @@ export class AuctionetAPI {
     query = this.ensureAllTermsQuoted(query);
     
     // Check cache first (shorter cache for live data)
-    // Include excludeCompanyId in cache key to ensure exclusion settings are respected
-    const cacheKey = `live_${query}_${maxResults}_exclude_${this.excludeCompanyId || 'none'}`;
+    // Include ownCompanyId in cache key to ensure exclusion settings are respected
+    const cacheKey = `live_${query}_${maxResults}_exclude_${this.ownCompanyId || 'none'}`;
     const cached = this.getCachedResult(cacheKey, 5 * 60 * 1000); // 5 minute cache for live data
     if (cached) {
       return cached;
@@ -458,7 +461,7 @@ export class AuctionetAPI {
       
       // Apply company exclusion filter
       const filteredItems = allActiveItems.filter(item => {
-        if (this.excludeCompanyId && item.company_id && item.company_id.toString() === this.excludeCompanyId) {
+        if (this.ownCompanyId && item.company_id && item.company_id.toString() === this.ownCompanyId) {
           return false;
         }
         return true;
