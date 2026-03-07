@@ -818,7 +818,7 @@ Entry point: `analytics.js` (~1000 lines) — bootstraps all modules, renders si
 
 ### Technical Details
 
-- **Minimal AI calls** — data display is pure Auctionet public API; AI analysis is on-demand only (one Claude Sonnet 4.5 call per analysis)
+- **Minimal AI calls** — data display is pure Auctionet public API; AI analysis is on-demand only (one Claude Sonnet 4.5 call per analysis, plus Haiku 4.5 for nugget ticker)
 - **Standalone extension page** — native ES6 module imports, no CSS conflicts, full `chrome.*` API access
 - **CSS-only charts** — horizontal bars via percentage widths, SVG polyline sparklines, no chart library dependencies
 - **`.ad-` class prefix** (analytics-dashboard) to avoid any naming conflicts
@@ -827,6 +827,8 @@ Entry point: `analytics.js` (~1000 lines) — bootstraps all modules, renders si
 - **CSV export** — exports filtered items with ID, price, estimate, reserve, category, and date
 - **Own house detection** — `ownCompanyId` setting (stored in `chrome.storage.sync`) determines whether house-specific financial KPIs are shown. When viewing another house, only universal hammer-price metrics are displayed
 - **Empirical fee multipliers** — revenue estimates use multipliers derived from actual 2025 resultatrapport data (GROSS_MULTIPLIER=1.196, NET_MULTIPLIER=0.300) rather than theoretical fee rates, accounting for the real mix of variable seller fees and margin scheme items
+- **AI nugget ticker** — a news-ticker-style scrolling message in the meta line, powered by Claude Haiku 4.5. Fetches 5 short messages per batch (3 data-driven, 2 general wisdom), cycles through them one at a time, then fetches a fresh batch. Uses company name, formats numbers with Swedish spacing, avoids the word "varor" (uses "föremål"/"objekt"). Subtle styling: muted color at 50% opacity with CSS mask fade edges
+- **Custom scrollbar** — thin 6px pill-style scrollbar with transparent track, replacing the default chunky browser scrollbar. Semi-transparent thumb brightens on hover
 
 ---
 

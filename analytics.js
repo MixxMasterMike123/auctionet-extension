@@ -466,6 +466,9 @@ function renderDashboard() {
   const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
   container.appendChild(renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItems, f, isOwnHouse));
 
+  // AI nugget ticker (fire and forget — Haiku, fast)
+  generateNugget(kpis, yoy, items);
+
   // AI summary card (right after KPIs for visibility)
   const filterKey = { year: f.year, month: f.month, categoryId: f.categoryId, priceMin: f.priceRange?.min, priceMax: f.priceRange?.max };
   const cachedInsights = getCachedInsights(currentCompanyId, filterKey);
@@ -1012,11 +1015,86 @@ function updateProgress(p) {
 function showMeta(ageHours) {
   const meta = $('meta-line');
   if (!meta) return;
-  if (ageHours === 0) {
-    meta.textContent = `${houseName} — Uppdaterad just nu`;
-  } else {
-    meta.textContent = `${houseName} — Uppdaterad ${ageHours < 1 ? 'nyss' : `${ageHours}h sedan`} • ${fmt(allItems.length)} föremål`;
+  const infoText = ageHours === 0
+    ? `${houseName} — Uppdaterad just nu`
+    : `${houseName} — Uppdaterad ${ageHours < 1 ? 'nyss' : `${ageHours}h sedan`} • ${fmt(allItems.length)} föremål`;
+
+  meta.innerHTML = `<div class="ad-nugget" id="nugget-container"></div><span class="ad-meta__info">${escHTML(infoText)}</span>`;
+}
+
+// ─── AI Nugget (Haiku motivational ticker) ────────────────
+
+async function generateNugget(kpis, yoy, items) {
+  const nuggetEl = $('nugget-container');
+  if (!nuggetEl || items.length === 0) return;
+
+  const data = {
+    house: houseName,
+    items: kpis.count,
+    revenue: kpis.revenue,
+    avgPrice: kpis.avgPrice,
+    atMinBid: items.filter(i => i.p === 300).length,
+    yoy,
+  };
+
+  let nuggetQueue = [];
+
+  async function fetchNuggetBatch() {
+    const response = await new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => reject(new Error('timeout')), 12000);
+      chrome.runtime.sendMessage({
+        type: 'anthropic-fetch',
+        body: {
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 300,
+          temperature: 0.9,
+          messages: [{
+            role: 'user',
+            content: `Ge exakt 5 korta meningar (max 10 ord var) på korrekt svenska, en per rad.
+
+Regler:
+- Använd husnamnet "${houseName}" — aldrig "företaget"
+- Använd BARA siffror från datan — hitta aldrig på
+- Skriv siffror med siffror, inte bokstäver
+- Formatera stora tal med mellanslag (2 316 660 kr, inte 2316660)
+- 3 uppmuntrande meningar om datan, 2 allmänna livsvisdomar
+- Positiv och varm ton, men kortfattat — inga utropstecken
+- Säg "föremål" eller "objekt", aldrig "varor"
+- Variera — inga upprepningar
+
+Data: ${JSON.stringify(data)}`,
+          }],
+        },
+      }, (resp) => {
+        clearTimeout(timeoutId);
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else if (resp?.success) resolve(resp.data);
+        else reject(new Error(resp?.error || 'fail'));
+      });
+    });
+    const text = response?.content?.[0]?.text?.trim();
+    if (!text) return [];
+    return text.split('\n').map(l => l.replace(/^\d+[\.\)]\s*/, '').trim()).filter(l => l.length > 0);
   }
+
+  async function showNextNugget() {
+    if (nuggetQueue.length === 0) {
+      try { nuggetQueue = await fetchNuggetBatch(); } catch { return; }
+    }
+    const text = nuggetQueue.shift();
+    if (!text || !nuggetEl) return;
+    const textEl = document.createElement('span');
+    textEl.className = 'ad-nugget__text';
+    textEl.textContent = text;
+    nuggetEl.innerHTML = '';
+    nuggetEl.appendChild(textEl);
+
+    textEl.addEventListener('animationend', () => {
+      setTimeout(() => showNextNugget(), 1500);
+    });
+  }
+
+  showNextNugget();
 }
 
 // ─── Util ─────────────────────────────────────────────────

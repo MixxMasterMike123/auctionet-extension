@@ -1500,7 +1500,7 @@
     if (!container) return;
     container.innerHTML = `
       <div class="ext-warehouse__error">
-        Kunde inte hämta data: ${message}
+        Kunde inte hämta data: ${escHTML(message)}
         <button class="ext-warehouse__retry" onclick="this.closest('.ext-warehouse').remove()">Försök igen</button>
       </div>
     `;

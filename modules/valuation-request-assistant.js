@@ -1197,7 +1197,7 @@ Phone: +46 60 17 00 40`;
       results.style.display = 'block';
       results.innerHTML = `
         <div style="padding: 10px; background: #fff3e0; border-radius: 4px; font-size: 13px; color: #e65100;">
-          <strong>Analys misslyckades:</strong> ${message}
+          <strong>Analys misslyckades:</strong> ${this._escapeHTML(message)}
         </div>
       `;
     }
@@ -1261,7 +1261,7 @@ Phone: +46 60 17 00 40`;
     // Object description
     const descHTML = result.briefDescription
       ? `<div style="font-size: 13px; color: #555; margin-bottom: 10px; padding: 6px 10px; background: #f8f9fa; border-radius: 4px;">
-           <strong>${result.objectType}:</strong> ${result.briefDescription}
+           <strong>${this._escapeHTML(result.objectType)}:</strong> ${this._escapeHTML(result.briefDescription)}
          </div>`
       : '';
 
@@ -1270,7 +1270,7 @@ Phone: +46 60 17 00 40`;
     const verifyLink = verifyQuery
       ? `<a href="https://auctionet.com/sv/search?is=ended&q=${encodeURIComponent(verifyQuery)}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #006ccc; margin-bottom: 10px; text-decoration: none;">
            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-           Se sålda objekt på Auctionet.com <span style="color: #888;">(${verifyQuery})</span>
+           Se sålda objekt på Auctionet.com <span style="color: #888;">(${this._escapeHTML(verifyQuery)})</span>
          </a>`
       : '';
 
