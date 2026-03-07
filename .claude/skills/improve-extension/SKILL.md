@@ -1,6 +1,6 @@
 ---
 name: improve-extension
-description: Guide for improving the Auctionet extension — adding quality rules, tuning AI prompts, fixing spellchecker/brand validation, adding forbidden words, improving search term extraction, and evolving capabilities. Use when adding or fixing quality rules, improving AI prompt output, fixing spelling or brand detection, tuning market search relevance, or finding where specific features live in the codebase.
+description: Guide for improving the Auctionet extension — adding quality rules, tuning AI prompts, fixing spellchecker/brand validation, adding forbidden words, improving search term extraction, and improving condition suggestions. Use when the goal is to improve accuracy or quality of existing cataloging features, or when adding new quality rules or prompt improvements.
 argument-hint: "[area to improve]"
 ---
 
@@ -62,10 +62,7 @@ The centralized rules config controls all AI behavior. To improve prompts:
 - [ ] Is the temperature right? (lower = more consistent, higher = more creative)
 
 **Model-specific tuning:**
-Different models in `categoryRules.freetextParser.valuationRules`:
-- `claude-sonnet-4-20250514` — advanced multi-step reasoning
-- `default` — conservative fallback
-Add new model-specific configs when switching models.
+See `extension-config` skill for current model IDs. Different models can have model-specific configs in `categoryRules.freetextParser.valuationRules`.
 
 ### 3. Brand & Spelling Validation
 
@@ -103,7 +100,7 @@ Add new model-specific configs when switching models.
 
 ### 6. Condition Quality Nudging
 
-Based on the condition quality report (31.7% vague conditions):
+Vague condition language is a common quality issue on Auctionet:
 - **Expand suggestion chips** — more category-specific alternatives
 - **Add severity scoring** — standalone "bruksslitage" scores lower than "bruksslitage, repor"
 - **Track improvement** — measure if vague condition usage decreases over time
@@ -127,10 +124,8 @@ Based on the condition quality report (31.7% vague conditions):
 - Weapons/historical items — should NOT add fabricated historical context
 
 ### Performance Testing
-- AI calls should resolve within 5–10 seconds
-- Quality scoring should update within 3 seconds of typing
-- Market data should load within 8 seconds
-- No visible UI lag during scoring updates
+- AI calls, quality scoring, and market data should resolve promptly with no visible UI lag
+- Test with real Auctionet listings for representative performance
 
 ## Extension Architecture for Changes
 
@@ -151,28 +146,4 @@ Model configuration    → modules/config.js
 ```
 
 ### Patterns to follow
-- **Dependency injection** — pass dependencies via setters, not global state
-- **Debounced updates** — 3-second delay after typing before analysis
-- **HTML escaping** — always use `escapeHTML()` for DOM insertions
-- **Anti-hallucination** — AI never invents data not in source
-- **Prompt caching** — mark system prompts with `cache_control: { type: 'ephemeral' }`
-
-## Continuous Improvement Ideas
-
-### Short-term
-- Add more category-specific condition suggestions
-- Improve search term extraction for uncommon item types
-- Add validation for common Swedish date formatting errors
-- Better handling of multi-language listings
-
-### Medium-term
-- Track which AI suggestions catalogers accept vs reject (quality signal)
-- Build a feedback loop: rejected suggestions → prompt refinement
-- Add OCR-like capabilities for reading stamps and hallmarks in images
-- Cross-auction-house quality benchmarking
-
-### Long-term
-- Learn from high-performing auction houses (0% vague conditions)
-- Predictive valuation based on seasonal market trends
-- Automated translation quality checking
-- Integration with external art databases for artist verification
+See `extension-architecture` skill for DI pattern, module loading, and Chrome API usage. Key rules: always use `escapeHTML()` for DOM insertions, never let AI invent data not in source, mark system prompts with `cache_control: { type: 'ephemeral' }`.

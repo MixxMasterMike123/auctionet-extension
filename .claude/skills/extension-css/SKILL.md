@@ -176,4 +176,4 @@ When modifying these components, check both the CSS file AND the JS source for s
 2. **Max-width constraints** — button wrappers use `max-width: 450px` to stay within form column
 3. **Transitions** — use `transition: all 0.3s ease` for interactive elements
 4. **Font sizes** — buttons use `12px`, labels use `13px`, stay consistent with Auctionet's admin font sizing
-5. **z-index** — spinners/overlays should use moderate z-index (100-200 range) to not conflict with Auctionet's modals
+5. **z-index** — extension uses high z-index values (10000+) to layer above Auctionet's own UI. Overlays/modals use 10000–10002, spinners within fields use 9999+. Check existing values in the target CSS file before choosing a z-index

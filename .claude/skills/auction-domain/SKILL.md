@@ -6,37 +6,17 @@ user-invocable: false
 
 # Auctionet Auction Domain Knowledge
 
-This codebase is a Chrome extension for **Auctionet** — Sweden's leading online auction platform with 3.65M+ historical auction results across 60+ auction houses. The extension augments the admin cataloging interface with AI assistance.
+This codebase is a Chrome extension for **Auctionet** — Sweden's leading online auction platform with millions of historical auction results across 60+ auction houses. The extension augments the admin cataloging interface with AI assistance.
 
 ## Swedish Auction Cataloging Conventions
 
-### Title Structure (by category)
-- **Furniture**: `BYRÅ, gustaviansk, sent 1700-tal.` — NEVER include wood type in title
-- **Small items**: `VAS, majolika, nyrenässans, Gustafsberg, sent 1800-tal.` — never "MAJOLIKAVAS", always separate material
-- **Services**: `MATSERVIS, 89 delar, porslin, "Maria Björnbär", Rosenthal.`
-- **Rugs**: `MATTA, orientalisk, semiantik, ca 320 x 230 cm.` — dimensions ALWAYS in title
-- **Silver**: `BÄGARE, 2 st, silver, CG Hallberg, Stockholm, 1942, ca 450 gram.` — weight last in title
-- **Art**: `OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-tal.`
-- **Art (known artist)**: Artist name goes in the dedicated artist field (auto-prepended to title in UPPERCASE). Title contains: motif description, technique, signed/dated info.
-
-### Key Rules
+Key principles (see `auction-catalog` skill for detailed rules by category):
 - Object type in UPPERCASE at start of title
-- Artist names: `Förnamn Efternamn` in the artist field, displayed UPPERCASE
-- "Oidentifierad konstnär" for signed but unidentified artists
-- Measurements: `Höjd 84, bredd 47 cm` or `45 x 78 cm` for art (height first, without frame)
-- Never use abbreviations — full words for Google SEO ("nysilver" not "NS", "Josef Frank" not "Frank")
-- No subjective words: "fin", "vacker", "värdefull", "stor" are forbidden
-- Condition terms: avoid vague "bruksslitage" / "bruksskick" — specify actual damage type
-- Art titles in quotes ONLY if given by the artist themselves
-- "Ej examinerad ur ram" — standard phrase for framed art not examined out of frame
-- Never say "Ej funktionstestad" — implies we test items
-- Avoid "Ingen anmärkning" — leads to complaints
-
-### Condition Field Quality Problem
-31.7% of Auctionet listings use vague condition language. The extension's quality analyzer flags these and suggests specific alternatives:
-- Furniture: `Smärre ytslitage`, `Repor`, `Märken`, `Fläckar`, `Ringmärken`
-- Glass/Ceramics: `Smärre nagg`, `Ytslitage`, `Hårspricka`
-- Textiles: `Slitage fransar`, `Fläckar`, `Färgförändringar`
+- Never combine material+object type ("MAJOLIKAVAS" → "VAS, majolika")
+- Artist names in dedicated artist field, displayed UPPERCASE
+- No subjective/selling language (see `auction-catalog` → Forbidden Language)
+- Condition terms: avoid vague "bruksslitage" — specify actual damage type
+- "Ej examinerad ur ram" for framed art; never "Ej funktionstestad"
 
 ### Auctionet Platform Specifics
 - Items are published by Auctionet staff after cataloging by auction houses
@@ -46,23 +26,17 @@ This codebase is a Chrome extension for **Auctionet** — Sweden's leading onlin
 - Standard reserve: 60-80% of estimate
 - Items re-listed automatically up to 3 times before manual intervention
 - Transport cataloging: box size, number of parts, fragility rating
-- Droit de suite (Foljeratt) applies to identified and unidentified artists
+- Droit de suite (Följerätt) applies to identified and unidentified artists
 
 ### Quality Scoring System
-The quality rules engine (`modules/core/quality-rules-engine.js`) scores items from 100 down:
-- Each rule violation deducts points (5-20 per issue)
-- Thresholds from `modules/config.js`: criticalQualityThreshold: 20, minScoreForImprovement: 30, sparseDataThreshold: 40
-- Field validation: title min 14 chars, description min 35 chars, condition min 25 chars
-- AML checks trigger for items valued over 50,000 SEK, bullion/gold lots, loose gemstones
-- "Inga anmarkningar" checkbox is an alternative to writing condition text
+The quality rules engine (`modules/core/quality-rules-engine.js`) scores items from 100 down, deducting 5–20 points per violation. See `modules/config.js` for current thresholds. AML checks trigger for items valued over 50,000 SEK, bullion/gold lots, and loose gemstones.
 
 ### Anti-Hallucination Rules
-The extension enforces strict rules to prevent AI-invented information:
 - NEVER fabricate artist dates, materials, or dimensions
 - NEVER add historical context not explicitly in source data
 - NEVER replace specific condition terms with vaguer ones
-- Temperature kept low (0.1–0.15) for corrections, not creative rewriting
 - Category-specific extra caution for: weapons/militaria, jewelry, historical items, watches
+- See `extension-config` skill for temperature and model settings
 
 ### Swedish Auction Terminology
 | Swedish | English | Context |
@@ -91,7 +65,4 @@ The extension enforces strict rules to prevent AI-invented information:
 | Flytta | Move (artist name) | Extension action |
 
 ### Auctionet API
-- Public API: `https://auctionet.com/api/v2/items.json`
-- Search: `https://auctionet.com/sv/search`
-- Artists: `https://auctionet.com/sv/artists`
-- Image CDN: `https://images.auctionet.com/`
+See `auctionet-api` skill for endpoints, query parameters, and response shapes.

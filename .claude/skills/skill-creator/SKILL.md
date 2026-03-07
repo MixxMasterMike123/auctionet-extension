@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.
+description: Create new Claude Code skills from scratch, iteratively improve existing skills through test-eval-feedback loops, run benchmarks with variance analysis, and optimize skill description frontmatter for better triggering accuracy. Use when the user explicitly wants to create a skill, set up skill evals/test cases, run the skill evaluation pipeline, or optimize a skill's trigger description. Do NOT use for simply editing a skill's content or reading skill files — only for the full skill development workflow with testing and iteration.
 ---
 
 # Skill Creator

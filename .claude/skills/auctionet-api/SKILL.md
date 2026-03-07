@@ -38,7 +38,7 @@ Primary endpoint used by `modules/auctionet-api.js` and `modules/analytics/data-
 - **Artist prefix**: `artist:"Josef Frank"` searches specifically in artist field
 - The extension force-quotes all terms via `ensureAllTermsQuoted()` and `SearchQuerySSoT.buildQuotedQuery()`
 - Max 6 terms (capped by `ensureAllTermsQuoted`)
-- Noise words filtered: `a, i, av, en, ett, och, med, for, den, det, som, till, pa, ab, co, st, ca, mm, cm, kg, nr`
+- Noise words filtered: `i, av, en, ett, och, med, för, den, det, som, till, på, ab, co, st, ca, mm, cm, kg, nr, a/s, as` (plus any term <2 chars)
 
 ### Response Shape (items array)
 

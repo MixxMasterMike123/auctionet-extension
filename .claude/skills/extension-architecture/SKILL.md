@@ -69,30 +69,9 @@ Content Script  -->  chrome.runtime.sendMessage()  -->  Background Service Worke
                 <--  sendResponse() callback         <--                              <--
 ```
 
-### Message types handled by `background.js`:
+All Claude API calls, image fetches, and Wikipedia lookups are routed through the background service worker. Content scripts never access external APIs directly.
 
-| `request.type` | Purpose | Response |
-|----------------|---------|----------|
-| `anthropic-fetch` | All Claude API calls | `{ success, data }` or `{ success: false, error }` |
-| `wikipedia-fetch` | Artist biography lookup (sv/en Wikipedia) | `{ success, imageUrl, description, pageUrl }` |
-| `fetch-image-base64` | Convert image URL to base64 for Claude vision | `{ success, base64, mediaType, byteSize }` |
-| `run-publication-scan` | Manual scan trigger from dashboard UI | `{ success: true }` |
-| `ping` | Liveness check | `{ success: true, message: 'pong' }` |
-
-### Security rules in background.js:
-- Only accepts messages from `sender.id === chrome.runtime.id` (own extension)
-- Image fetch restricted to allowlist: `images.auctionet.com`, `auctionet.com`, `upload.wikimedia.org`
-- API key read from `chrome.storage.local` at call time (content scripts never see the raw key)
-- Concurrency limiter: max 3 parallel Anthropic requests (queue-based)
-
-### Background-to-content messaging:
-The background worker sends notifications to dashboard tabs after publication scans:
-```js
-chrome.tabs.query({ url: 'https://auctionet.com/admin/sas' }, (tabs) => {
-  tabs.forEach(tab => chrome.tabs.sendMessage(tab.id, { type: messageType }));
-});
-```
-Message types sent: `publication-scan-complete`, `publication-scan-failed`, `sticky-recheck-complete`.
+See `bg-service-worker` skill for message types, security rules, concurrency limiting, and implementation details.
 
 ## Content Script URL Mapping
 
@@ -162,15 +141,4 @@ Defined in `manifest.json` `content_scripts` array. Multiple content scripts can
 
 ## Configuration
 
-`modules/config.js` exports a `CONFIG` object with:
-- **Model definitions**: `sonnet` (Claude Sonnet 4.5) and `haiku` (Claude Haiku 4.5)
-- **API settings**: `maxTokens: 1500`, `temperature: 0.15`, `retryAttempts: 3`
-- **Quality thresholds**: min score for improvement (30), sparse data (40), critical (20)
-- **Feature flags**: `enableQualityValidation`, `enableHallucinationPrevention`
-- **URLs**: Anthropic API, Auctionet base/API/search/artists endpoints
-
-Opus 4.6 is used for valuation requests and biography generation (configured in the valuation assistant module, not in `config.js`).
-
-## Prompt Caching
-
-The background service worker detects `cache_control` blocks in system messages and adds the `anthropic-beta: prompt-caching-2024-07-31` header automatically. Content scripts set `cache_control: { type: 'ephemeral' }` on system prompt blocks to enable caching of large, repeated system prompts across calls.
+See `extension-config` skill for model definitions, API settings, quality thresholds, feature flags, prompt caching, and storage patterns.

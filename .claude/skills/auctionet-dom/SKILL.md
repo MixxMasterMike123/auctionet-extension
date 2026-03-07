@@ -31,13 +31,14 @@ Entry point: `content-script.js`
 ### Alternative No Remarks selectors (varies by page version)
 ```
 input[type="checkbox"]#item_no_remarks
-input[type="checkbox"][value="Inga anmarkning"]
+#item_no_remarks
+input[name="item[no_remarks]"]
 input[type="checkbox"][name*="no_remarks"]
 ```
 
 ### Images
-- Item images are in the page DOM, typically within `.item-images` or similar containers
-- Image URLs from CDN: `https://images.auctionet.com/`
+- Image URLs are fetched via `fetch-image-base64` message to the background service worker
+- CDN domain: `https://images.auctionet.com/` (in background.js `ALLOWED_IMAGE_DOMAINS` allowlist)
 
 ### Page Layout — Injection Points
 - The extension injects AI buttons **after** each form field using `field.parentNode.insertBefore(wrapper, field.nextSibling)`

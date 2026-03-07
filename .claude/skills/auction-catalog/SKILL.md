@@ -1,6 +1,6 @@
 ---
 name: auction-catalog
-description: Reference guide for Swedish auction cataloging conventions and Auctionet FAQ compliance. Use when working on title formatting, description rules, condition reports, or quality validation logic.
+description: Reference guide for Swedish auction cataloging conventions and Auctionet FAQ compliance. Use when working on title formatting, description rules, condition reports, quality validation logic, keyword rules, forbidden language, or compound word conventions.
 argument-hint: "[category or topic]"
 ---
 
@@ -123,13 +123,10 @@ OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-ta
 - Max 12 keywords, space-separated
 - Hyphenate multi-word terms (e.g., `art-deco`)
 - Must complement (not duplicate) title and description
-- Quality engine flags: <2 keywords (warning), <5 (suggestion), >12 (scoring penalty), >15 (warning: too many)
+- Quality engine flags too few or too many keywords (see `modules/core/quality-rules-engine.js` for current thresholds)
 
-## Field Validation Thresholds (quality-rules-engine.js)
-- Title: min 14 chars (no upper limit enforced in code)
-- Description: min 35 chars (stripped of HTML)
-- Condition: min 25 chars
-- Must include measurements in description
+## Field Validation
+See `modules/core/quality-rules-engine.js` for current minimum character thresholds for title, description, and condition fields. Description must include measurements.
 
 ## Category-Specific Rules
 
@@ -143,7 +140,7 @@ OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-ta
 
 ### Jewelry (smycken/adelmetaller)
 - Technical limitations: cannot verify gemstone authenticity from photos
-- Always note: "Aductionet garanterar inte aktheten hos stenar"
+- Always note: "Auctionet garanterar inte äktheten hos stenar"
 - Include hallmarks, weight, stone description as visible
 
 ### Historical Items (antikviteter)
@@ -160,6 +157,6 @@ Incorrect → Correct: majolikavas → majolika, vas | keramiktomte → keramik,
 
 ## Forbidden Language
 Never use subjective/selling language (enforced in `ai-rules-config.json` `forbiddenWords`):
-`fin, vacker, vardefull, elegant, karakteristisk, typisk, klassisk, traditionell, autentisk, raffinerad, stilren, harmonisk, genomarbetad, pakostad, exklusiv, fornam, gedigen, kvalitativ, forstklassig, exemplarisk, representativ`
+`fin, vacker, värdefull, elegant, karakteristisk, typisk, klassisk, traditionell, autentisk, raffinerad, stilren, harmonisk, genomarbetad, påkostad, exklusiv, förnam, gedigen, kvalitativ, förstklassig, exemplarisk, representativ, fantastisk, utsökt, nyskick, magnifik, underbar, exceptionell, perfekt, ovanlig, sällsynt, tidlös, sofistikerad`
 
-Note: "stor" is an FAQ-level rule but not yet enforced in code.
+See `modules/refactored/ai-rules-system/ai-rules-config.json` → `forbiddenWords` for the authoritative list.

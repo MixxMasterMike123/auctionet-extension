@@ -1,6 +1,6 @@
 ---
 name: valuation
-description: Reference for auction item valuation logic, market data analysis, pricing strategies, and confidence scoring. Use when working on valuation features, market analysis dashboard, sales analysis, or search query logic.
+description: Reference for auction item valuation logic, market data analysis, pricing strategies, and confidence scoring. Use when working on valuation features, market analysis dashboard, sales analysis, or valuation request pages.
 argument-hint: "[topic or item type]"
 ---
 
@@ -12,7 +12,7 @@ Use this skill when working on valuation logic, market data features, or pricing
 
 ### Data Flow
 ```
-Item fields → SearchQuerySSoT → Auctionet API (3.65M+ results) → Market metrics → Dashboard display
+Item fields → SearchQuerySSoT → Auctionet API → Market metrics → Dashboard display
                                       ↓
                               AI relevance filtering (Haiku)
                                       ↓
@@ -41,23 +41,19 @@ Item fields → SearchQuerySSoT → Auctionet API (3.65M+ results) → Market me
 4. **Conclusion** — estimate with confidence level and reasoning
 
 ### Confidence Scoring (`auctionet-api.js` `calculateConfidence()`)
-Cumulative scoring algorithm, base 0.5, capped at 0.95:
-- **Total matches**: +0.1 (20+) to +0.4 (500+) — market coverage
-- **Analyzed sales**: +0.05 (3+) to +0.2 (20+) — sample quality
-- **Recency**: +0.1–0.15 if >50-70% of sales within 2 years
-- **Artist match**: +0.1–0.15 if >50-80% of results match artist name
+Cumulative scoring algorithm, base 0.5, floor 0.1, capped at 0.95:
+- **Total matches**: +0.1 (20+), +0.2 (50+), +0.3 (100+), +0.4 (500+) — market coverage
+- **Analyzed sales**: +0.05 (3+), +0.1 (5+), +0.15 (10+), +0.2 (20+) — sample quality
+- **Recency**: +0.1 if >50% within 2 years, +0.15 if >70%
+- **Artist match**: +0.1 if >50% match, +0.15 if >80%
 - **Object type match**: +0.1 if >80% match object type
 
-### AI Relevance Filtering (`auctionet-api.js` `validateResultRelevance()`)
-Triggers when price spread >5x OR sample >15 items:
-- Claude Haiku validates each result for relevance to the original item
-- Filters out false positives (same name but different item)
-- Re-calculates metrics on filtered set
+See `calculateConfidence()` in `modules/auctionet-api.js` for current thresholds.
 
-### IQR Outlier Removal (`auctionet-api.js` `removeExtremeOutliers()`)
-- Standard 1.5x IQR fences for statistical outlier detection
-- Requires minimum 4 data points; keeps at least 3 after filtering
-- Applied after AI filtering, before statistics calculation
+### Data Filtering Pipeline
+After fetching market data, results pass through two filters (see `auctionet-api` skill for details):
+1. **AI relevance filtering** — Haiku validates each result when price spread >5x or sample >15 items
+2. **IQR outlier removal** — standard 1.5x IQR fences, minimum 4 data points
 
 ### Valuation Suggestions (`sales-analysis-manager.js` `analyzeValuationSuggestions()`)
 - Compares cataloger's estimate/upper estimate/reserve against market data
@@ -86,10 +82,8 @@ Terms are generated from multiple sources:
 3. **Artist name** — always quoted for exact matching in API
 4. **Object type** — extracted from title (first word typically)
 
-### Term Quoting Rules
-- **All terms are force-quoted** by both `SearchQuerySSoT.buildQuotedQuery()` and `AuctionetAPI.ensureAllTermsQuoted()` because Auctionet treats unquoted terms as optional/fuzzy
-- Artist names: always quoted → `"Bruno Mathsson"`
-- Object terms: also quoted → `"byrå"` `"teak"`
+### Term Quoting
+All search terms are force-quoted (Auctionet treats unquoted terms as optional). See `auctionet-api` skill for query syntax details.
 
 ## Valuation Request Pages
 
