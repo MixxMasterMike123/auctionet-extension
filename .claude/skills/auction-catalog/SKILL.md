@@ -59,7 +59,7 @@ BRUNO LILJEFORS, "Enkelbeckasin i höstskog", olja på duk, signerad B.L och dat
 - Artist name in artist field (auto-prepended in UPPERCASE)
 - Quoted titles ONLY for artist-given titles
 - Write signatures/dates exactly as on the work: distinguish "1832" vs "-32" vs "32"
-- "sign. a tergo" for reverse signatures
+- "signerad a tergo" for reverse signatures (never abbreviate)
 - Piece count after technique, not after artist
 - "Ej sign." in description for unsigned works
 
@@ -119,14 +119,47 @@ OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-ta
 | Paintings | Sedvanligt slitage, ramslitage, krakelyrer |
 | Silver | Bucklor, repor, lagningar, monogram |
 
-## Forbidden Language
-Never use subjective/selling language:
-`fin, vacker, värdefull, stor, elegant, karakteristisk, typisk, klassisk, traditionell, autentisk, raffinerad, stilren, harmonisk, genomarbetad, påkostad, exklusiv, förnäm, gedigen, kvalitativ, förstklassig, exemplarisk, representativ`
+## Keyword Rules
+- Max 12 keywords, space-separated
+- Hyphenate multi-word terms (e.g., `art-deco`)
+- Must complement (not duplicate) title and description
+- Quality engine flags: <2 keywords (warning), <5 (suggestion), >15 (too many)
 
-## Photography Guidelines
-- Minimum 3 photos per item
-- Always: front, back, important details
-- Specific: stamps, signatures, damages, maker marks
-- Silver/gold: always show hallmarks
-- Art: signature detail + back of frame for older works
-- Rugs: full view + corner + back
+## Field Validation Thresholds (quality-rules-engine.js)
+- Title: min 14 chars, max 60 chars
+- Description: min 35 chars (stripped of HTML)
+- Condition: min 25 chars
+- Must include measurements in description
+
+## Category-Specific Rules
+
+### Watches (armbandsur)
+- Function clause required: "Fungerar vid katalogisering - ingen garanti lamnas pa funktion"
+- Include: brand, model, movement type, case material, diameter, reference number if visible
+
+### Weapons & Militaria
+- Extra anti-hallucination caution — never fabricate historical context
+- Conservative approach: only state what is verifiable from the item itself
+
+### Jewelry (smycken/adelmetaller)
+- Technical limitations: cannot verify gemstone authenticity from photos
+- Always note: "Aductionet garanterar inte aktheten hos stenar"
+- Include hallmarks, weight, stone description as visible
+
+### Historical Items (antikviteter)
+- Conservative dating — prefer broader ranges over specific dates when uncertain
+- Never add historical narrative not supported by the item itself
+
+## AML Compliance (quality-rules-engine.js)
+- Items valued over 50,000 SEK: trigger AML reminder for seller risk profile/ID verification
+- Bullion/gold lots (guldtacka, silvertacka, parti guldmynt): document seller identity and ownership duration
+- Loose gemstones: additional scrutiny required
+
+## Compound Words (never combine)
+Incorrect → Correct: majolikavas → majolika, vas | keramiktomte → keramik, tomte | kristallvas → kristall, vas | porslinsvas → porslin, vas | guldring → guld, ring | silverkedja → silver, kedja | massingsjusstake → massing, ljusstake | tennmugg → tenn, mugg
+
+## Forbidden Language
+Never use subjective/selling language (enforced in `ai-rules-config.json` `forbiddenWords`):
+`fin, vacker, vardefull, elegant, karakteristisk, typisk, klassisk, traditionell, autentisk, raffinerad, stilren, harmonisk, genomarbetad, pakostad, exklusiv, fornam, gedigen, kvalitativ, forstklassig, exemplarisk, representativ`
+
+Note: "stor" is an FAQ-level rule but not yet enforced in code.

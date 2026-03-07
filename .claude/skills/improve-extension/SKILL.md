@@ -24,15 +24,21 @@ The rules engine scores items on completeness and accuracy. To add a new rule:
 4. **Update scoring weights** if the new rule affects overall quality score
 5. **Test** against real Auctionet listings to verify false positive rate
 
-**Rule anatomy:**
+**Rule anatomy (actual pattern in quality-rules-engine.js):**
 ```javascript
-{
-  id: 'vague-condition',
-  check: (data) => /bruksslitage|bruksskick/i.test(data.condition),
-  warning: 'Vagt skick — beskriv specifik typ av slitage',
-  severity: 'high',
-  field: 'condition',
-  categories: 'all'  // or ['furniture', 'art', ...]
+// Rules use procedural if-statements, not declarative objects.
+// Score starts at 100 and is deducted per issue.
+if (/bruksslitage|bruksskick/i.test(condPlain)) {
+  warnings.push({
+    field: 'Kondition',
+    issue: 'Byt ut "bruksslitage" mot en specifik term:',
+    severity: 'medium',
+    source: 'faq',
+    fieldId: 'item_condition_sv',
+    vagueCondition: true,
+    inlineReplace: 'bruksslitage'
+  });
+  score -= 15;
 }
 ```
 
@@ -79,8 +85,8 @@ Add new model-specific configs when switching models.
 - Improve how the AI extracts optimal search terms from item data
 - Key: balance between too specific (no results) and too broad (irrelevant results)
 
-**Relevance filtering** (`modules/api-manager.js` → Haiku calls):
-- When market data has high spread, Haiku validates relevance
+**Relevance filtering** (`modules/auctionet-api.js` → `validateResultRelevance()`):
+- When price spread >5x or sample >15 items, Haiku validates relevance
 - Improve the filtering prompt to reduce false positives/negatives
 
 **Term processing** (`modules/core/term-processor.js`):
@@ -137,8 +143,11 @@ New forbidden word     → ai-rules-config.json → forbiddenWords
 New category handler   → modules/item-type-handlers.js
 New spellcheck term    → modules/swedish-spellchecker.js
 New search strategy    → modules/ai-search-query-generator.js + ai-search-rules.js
+Market data / filtering→ modules/auctionet-api.js (validateResultRelevance, IQR outliers)
 Market display change  → modules/dashboard-manager-v2.js
 Valuation logic change → modules/valuation-request-assistant.js
+Brand inline checking  → modules/inline-brand-validator.js (uses Haiku)
+Model configuration    → modules/config.js
 ```
 
 ### Patterns to follow

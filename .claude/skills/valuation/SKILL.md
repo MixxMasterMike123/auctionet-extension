@@ -40,19 +40,34 @@ Item fields → SearchQuerySSoT → Auctionet API (3.65M+ results) → Market me
 3. **Valuation logic** — median of filtered comparables, adjusted for condition/quality
 4. **Conclusion** — estimate with confidence level and reasoning
 
-### Confidence Scoring
-| Level | Meaning | Typical scenario |
-|-------|---------|-----------------|
-| High (>80%) | Strong comparable data | Known artist/maker, many recent sales |
-| Medium (50–80%) | Some comparables, wider range | Similar items exist but not exact matches |
-| Low (<50%) | Limited data, high uncertainty | Rare items, no recent comparables |
+### Confidence Scoring (`auctionet-api.js` `calculateConfidence()`)
+Cumulative scoring algorithm, base 0.5, capped at 0.95:
+- **Total matches**: +0.1 (20+) to +0.4 (500+) — market coverage
+- **Analyzed sales**: +0.05 (3+) to +0.2 (20+) — sample quality
+- **Recency**: +0.1–0.15 if >50-70% of sales within 2 years
+- **Artist match**: +0.1–0.15 if >50-80% of results match artist name
+- **Object type match**: +0.1 if >80% match object type
 
-### AI Relevance Filtering
-When Auctionet API returns results with high price spread (>5x between min and max):
-- Claude Haiku validates each result for relevance
+### AI Relevance Filtering (`auctionet-api.js` `validateResultRelevance()`)
+Triggers when price spread >5x OR sample >15 items:
+- Claude Haiku validates each result for relevance to the original item
 - Filters out false positives (same name but different item)
 - Re-calculates metrics on filtered set
-- Reports data quality to user via dashboard
+
+### IQR Outlier Removal (`auctionet-api.js` `removeExtremeOutliers()`)
+- Standard 1.5x IQR fences for statistical outlier detection
+- Requires minimum 4 data points; keeps at least 3 after filtering
+- Applied after AI filtering, before statistics calculation
+
+### Valuation Suggestions (`sales-analysis-manager.js` `analyzeValuationSuggestions()`)
+- Compares cataloger's estimate/upper estimate/reserve against market data
+- 30% tolerance band — warns if cataloger's values fall outside
+- 3x/0.3x extreme thresholds for clear over/under-valuation
+- Positive feedback when valuation aligns with market
+
+### Model Fallback
+- Opus falls back to Sonnet when overloaded (429/overloaded errors)
+- Applies to valuation requests and clustering
 
 ## Market Data Metrics
 
@@ -72,9 +87,9 @@ Terms are generated from multiple sources:
 4. **Object type** — extracted from title (first word typically)
 
 ### Term Quoting Rules
-- Artist names: always quoted for exact match → `"Bruno Mathsson"`
-- Multi-word terms: quoted to prevent partial matching
-- Single common terms: unquoted for broader matching
+- **All terms are force-quoted** by both `SearchQuerySSoT.buildQuotedQuery()` and `AuctionetAPI.ensureAllTermsQuoted()` because Auctionet treats unquoted terms as optional/fuzzy
+- Artist names: always quoted → `"Bruno Mathsson"`
+- Object terms: also quoted → `"byrå"` `"teak"`
 
 ## Valuation Request Pages
 

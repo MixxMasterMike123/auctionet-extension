@@ -30,10 +30,18 @@ Item images (up to 5 slots) → base64 encoding → Claude Vision API
 | Condition | Damage documentation | Specific flaws, repairs, wear patterns |
 
 ### Image Processing
-- Images exceeding 5MB auto-resized via canvas (`_resizeBase64Image`)
-- Max dimension: 1400px (progressively reduced if still too large)
-- Output: JPEG at 0.82 quality (reduced to 0.5 at minimum)
+- Anthropic API limit: 5MB base64 string; threshold set at 4.5MB for safety margin
+- File upload limit: 10MB (`maxFileSize` in config)
+- Resized via canvas using `ensureBase64WithinLimit()` in `ai-image-analyzer.js`
+- Also `_resizeBase64Image()` in `valuation-request-assistant.js` (separate implementation)
+- Max dimension: 1400px, progressively reduced by 200px if still too large
+- Output: JPEG at 0.82 quality (minimum 0.5)
 - Domain whitelist: `auctionet.com`, `images.auctionet.com`, `upload.wikimedia.org`
+
+### Two Analysis Paths
+- **Single image** (`analyzeImage`): 45s timeout, 1200 max_tokens
+- **Multiple images** (`analyzeMultipleImages`): 90s timeout, 1500 max_tokens
+- System prompt sourced dynamically from `getAIRulesManager().getSystemPrompt('freetextParser')`
 
 ## What to Look For (by category)
 

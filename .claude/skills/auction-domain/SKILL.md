@@ -1,6 +1,6 @@
 ---
 name: auction-domain
-description: Background knowledge about online auctions, Swedish auction cataloging conventions, Auctionet platform rules, and auction house terminology. Use this context whenever working on code that handles item cataloging, condition reports, titles, descriptions, artist fields, valuations, or market analysis.
+description: Background knowledge about the Auctionet platform, Swedish auction terminology, business rules, and quality scoring system. Use when you need domain context for understanding Auctionet-specific concepts. For specific cataloging rules see auction-catalog; for API integration see auctionet-api; for valuation logic see valuation.
 user-invocable: false
 ---
 
@@ -41,11 +41,20 @@ This codebase is a Chrome extension for **Auctionet** — Sweden's leading onlin
 ### Auctionet Platform Specifics
 - Items are published by Auctionet staff after cataloging by auction houses
 - Auction duration: ~10 days (configurable)
-- Minimum reserve: 400 SEK
-- Standard reserve: 60–80% of estimate
+- Minimum utropspris (starting bid): 300 SEK
+- Minimum bevakningspris (reserve): 400 SEK
+- Standard reserve: 60-80% of estimate
 - Items re-listed automatically up to 3 times before manual intervention
 - Transport cataloging: box size, number of parts, fragility rating
-- Droit de suite (Följerätt) applies to identified and unidentified artists
+- Droit de suite (Foljeratt) applies to identified and unidentified artists
+
+### Quality Scoring System
+The quality rules engine (`modules/core/quality-rules-engine.js`) scores items from 100 down:
+- Each rule violation deducts points (5-20 per issue)
+- Thresholds from `modules/config.js`: criticalQualityThreshold: 20, minScoreForImprovement: 30, sparseDataThreshold: 40
+- Field validation: title min 14 chars, description min 35 chars, condition min 25 chars
+- AML checks trigger for items valued over 50,000 SEK, bullion/gold lots, loose gemstones
+- "Inga anmarkningar" checkbox is an alternative to writing condition text
 
 ### Anti-Hallucination Rules
 The extension enforces strict rules to prevent AI-invented information:
@@ -70,8 +79,8 @@ The extension enforces strict rules to prevent AI-invented information:
 | Intarsia | Inlay work | Furniture |
 | Beslag | Fittings/mounts | Metal hardware |
 | Proveniens | Provenance | Ownership history |
-| Utropspris | Reserve price | Minimum bid |
-| Bevakningspris | Watch price | Seller's reserve |
+| Utropspris | Starting/opening bid | Minimum 300 SEK |
+| Bevakningspris | Reserve price | Seller's minimum, minimum 400 SEK |
 | Klubbat pris | Hammer price | Final sale price |
 | Köpare | Buyer | Customer type |
 | Säljare | Seller | Customer type |
