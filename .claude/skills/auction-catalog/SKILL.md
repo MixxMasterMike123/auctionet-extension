@@ -123,10 +123,10 @@ OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-ta
 - Max 12 keywords, space-separated
 - Hyphenate multi-word terms (e.g., `art-deco`)
 - Must complement (not duplicate) title and description
-- Quality engine flags: <2 keywords (warning), <5 (suggestion), >15 (too many)
+- Quality engine flags: <2 keywords (warning), <5 (suggestion), >12 (scoring penalty), >15 (warning: too many)
 
 ## Field Validation Thresholds (quality-rules-engine.js)
-- Title: min 14 chars, max 60 chars
+- Title: min 14 chars (no upper limit enforced in code)
 - Description: min 35 chars (stripped of HTML)
 - Condition: min 25 chars
 - Must include measurements in description

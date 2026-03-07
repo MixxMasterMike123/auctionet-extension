@@ -1,6 +1,6 @@
 ---
 name: auction-domain
-description: Background knowledge about the Auctionet platform, Swedish auction terminology, business rules, and quality scoring system. Use when you need domain context for understanding Auctionet-specific concepts. For specific cataloging rules see auction-catalog; for API integration see auctionet-api; for valuation logic see valuation.
+description: Background knowledge about the Auctionet platform, Swedish auction terminology (utropspris, bevakningspris, bruksslitage, etc.), business rules, and quality scoring system. Use when you need domain context, terminology definitions, or understanding of Auctionet-specific concepts like AML rules, condition terms, or cataloging conventions. For specific cataloging rules see auction-catalog; for API integration see auctionet-api; for valuation logic see valuation.
 user-invocable: false
 ---
 
@@ -61,7 +61,7 @@ The extension enforces strict rules to prevent AI-invented information:
 - NEVER fabricate artist dates, materials, or dimensions
 - NEVER add historical context not explicitly in source data
 - NEVER replace specific condition terms with vaguer ones
-- Temperature kept low (0.15) for corrections, not creative rewriting
+- Temperature kept low (0.1–0.15) for corrections, not creative rewriting
 - Category-specific extra caution for: weapons/militaria, jewelry, historical items, watches
 
 ### Swedish Auction Terminology

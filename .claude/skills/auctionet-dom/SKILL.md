@@ -1,6 +1,6 @@
 ---
 name: auctionet-dom
-description: Auctionet admin page DOM structure — form field IDs, page layouts, key selectors, and injection points. Use whenever modifying UI, reading form data, or injecting extension elements into Auctionet admin pages.
+description: Auctionet admin page DOM structure — form field IDs, page layouts, key selectors, comment sections, and injection points. Use whenever modifying UI, fixing comment badges, reading form data, or injecting extension elements into Auctionet admin pages.
 user-invocable: false
 ---
 

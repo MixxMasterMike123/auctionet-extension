@@ -1,6 +1,6 @@
 ---
 name: extension-css
-description: Extension CSS architecture, class naming conventions, color palette, and styling patterns. Use when creating or modifying UI components to ensure visual consistency.
+description: Extension CSS architecture, class naming conventions, color palette, dark mode support, and styling patterns. Use when creating or modifying UI components, styling buttons or modals, adding dark mode, or ensuring visual consistency across dashboard, analytics, freetext parser, publication scanner, or any extension panel.
 user-invocable: false
 ---
 
