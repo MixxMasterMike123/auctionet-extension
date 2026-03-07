@@ -1,7 +1,7 @@
 ---
 name: auction-catalog
 description: Reference guide for Swedish auction cataloging conventions and Auctionet FAQ compliance. Use when working on title formatting, description rules, condition reports, or quality validation logic.
-argument-hint: [category or topic]
+argument-hint: "[category or topic]"
 ---
 
 # Auction Cataloging Reference

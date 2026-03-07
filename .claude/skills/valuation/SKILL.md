@@ -1,7 +1,7 @@
 ---
 name: valuation
 description: Reference for auction item valuation logic, market data analysis, pricing strategies, and confidence scoring. Use when working on valuation features, market analysis dashboard, sales analysis, or search query logic.
-argument-hint: [topic or item type]
+argument-hint: "[topic or item type]"
 ---
 
 # Auction Valuation & Market Analysis Reference

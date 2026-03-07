@@ -1,7 +1,7 @@
 ---
 name: improve-extension
 description: Guide for improving the Auctionet extension — adding quality rules, tuning AI prompts, fixing spellchecker/brand validation, adding forbidden words, improving search term extraction, and evolving capabilities. Use when adding or fixing quality rules, improving AI prompt output, fixing spelling or brand detection, tuning market search relevance, or finding where specific features live in the codebase.
-argument-hint: [area to improve]
+argument-hint: "[area to improve]"
 ---
 
 # Improving the Auctionet Extension

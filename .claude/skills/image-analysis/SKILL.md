@@ -1,7 +1,7 @@
 ---
 name: image-analysis
 description: Reference for auction item image analysis — what to look for in photos of auction items, how to extract catalog-relevant information from images, and how the extension's AI image analysis works.
-argument-hint: [category or aspect]
+argument-hint: "[category or aspect]"
 ---
 
 # Auction Item Image Analysis Reference
