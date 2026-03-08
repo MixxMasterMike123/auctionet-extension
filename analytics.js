@@ -467,7 +467,7 @@ function renderDashboard() {
   container.appendChild(renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItems, f, isOwnHouse));
 
   // AI nugget ticker (fire and forget — Haiku, fast)
-  generateNugget(kpis, yoy, items);
+  generateNugget(kpis, yoy, items, f);
 
   // AI summary card (right after KPIs for visibility)
   const filterKey = { year: f.year, month: f.month, categoryId: f.categoryId, priceMin: f.priceRange?.min, priceMax: f.priceRange?.max };
@@ -1024,15 +1024,17 @@ function showMeta(ageHours) {
 
 // ─── AI Nugget (Haiku motivational ticker) ────────────────
 
-async function generateNugget(kpis, yoy, items) {
+async function generateNugget(kpis, yoy, items, f) {
   const nuggetEl = $('nugget-container');
   if (!nuggetEl || items.length === 0) return;
 
   const data = {
     house: houseName,
+    year: f.year,
     items: kpis.count,
     revenue: kpis.revenue,
     avgPrice: kpis.avgPrice,
+    medianPrice: kpis.medianPrice,
     atMinBid: items.filter(i => i.p === 300).length,
     yoy,
   };
@@ -1052,8 +1054,10 @@ async function generateNugget(kpis, yoy, items) {
             role: 'user',
             content: `Ge exakt 5 korta meningar (max 10 ord var) på korrekt svenska, en per rad.
 
+Datan visar försäljningsstatistik för auktionshuset "${houseName}" under ${f.year}. Fälten: items=antal sålda, revenue=totalt klubbat värde (kr), avgPrice=genomsnittligt klubbat pris, medianPrice=medianpris, atMinBid=antal sålda vid lägsta pris (300 kr), yoy=förändring jämfört med föregående år (%).
+
 Regler:
-- Använd husnamnet "${houseName}" — aldrig "företaget"
+- Referera till rätt årtal (${f.year}), aldrig "förra året"
 - Använd BARA siffror från datan — hitta aldrig på
 - Skriv siffror med siffror, inte bokstäver
 - Formatera stora tal med mellanslag (2 316 660 kr, inte 2316660)
