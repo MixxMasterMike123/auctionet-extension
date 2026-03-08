@@ -23,12 +23,6 @@ export class ValuationRequestAssistant {
         return;
       }
 
-        name: this.pageData.customerName,
-        email: this.pageData.customerEmail,
-        descLength: this.pageData.description?.length,
-        imageCount: this.pageData.imageUrls.length
-      });
-
       this.injectUI();
     } catch (error) {
       console.error('[ValuationRequest] Init failed:', error);
