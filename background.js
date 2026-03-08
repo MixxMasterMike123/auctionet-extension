@@ -39,19 +39,23 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-async function runPublicationScanAndNotify(skipEnabledCheck = false) {
-  try {
-    // Check if publication scanner is enabled (opt-in, default disabled)
-    if (!skipEnabledCheck) {
-      const { enablePubScanner } = await chrome.storage.local.get(['enablePubScanner']);
-      if (!enablePubScanner) {
-        return; // Scanner disabled — skip silently
-      }
-    }
+let lastScanTime = 0;
+const SCAN_COOLDOWN_MS = 10 * 60 * 1000; // 10 min during business hours
+const SCAN_COOLDOWN_OFF_HOURS_MS = 2 * 60 * 60 * 1000; // 2 hours off-hours
 
+function isBusinessHours() {
+  const h = new Date().getHours();
+  return h >= 7 && h < 20; // 07:00–19:59
+}
+
+async function runPublicationScanAndNotify({ skipCooldown = false } = {}) {
+  try {
+    const cooldown = isBusinessHours() ? SCAN_COOLDOWN_MS : SCAN_COOLDOWN_OFF_HOURS_MS;
+    if (!skipCooldown && Date.now() - lastScanTime < cooldown) {
+      return; // Recently scanned — skip
+    }
+    lastScanTime = Date.now();
     const result = await runBackgroundPublicationScan();
-    // Always notify dashboard tabs — even if result is null (e.g., not logged in),
-    // so the dashboard can stop showing the spinner and render cached data or empty state.
     notifyDashboardTabs(result ? 'publication-scan-complete' : 'publication-scan-failed');
   } catch (e) {
     console.error('[Background] Publication scan failed:', e);
@@ -61,9 +65,6 @@ async function runPublicationScanAndNotify(skipEnabledCheck = false) {
 
 async function runStickyRecheckAndNotify() {
   try {
-    const { enablePubScanner } = await chrome.storage.local.get(['enablePubScanner']);
-    if (!enablePubScanner) return;
-
     const result = await recheckStickyErrors();
     if (result) {
       notifyDashboardTabs('sticky-recheck-complete');
@@ -99,8 +100,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     handleFetchImageAsBase64(request, sendResponse);
     return true;
   } else if (request.type === 'run-publication-scan') {
-    // Manual "Kör nu" from dashboard UI — always runs regardless of setting
-    runPublicationScanAndNotify(true);
+    // Manual "Kör nu" from dashboard UI — always runs, skips cooldown
+    runPublicationScanAndNotify({ skipCooldown: true });
     sendResponse({ success: true });
     return false;
   } else if (request.type === 'ping') {

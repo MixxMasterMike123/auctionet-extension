@@ -1297,6 +1297,18 @@
     }
   });
 
+  // Auto-rescan when tab becomes visible after being idle for 10+ minutes
+  let pubScanLastVisible = Date.now();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const idleMinutes = (Date.now() - pubScanLastVisible) / 60000;
+      if (idleMinutes >= 10) {
+        chrome.runtime.sendMessage({ type: 'run-publication-scan' });
+      }
+    }
+    pubScanLastVisible = Date.now();
+  });
+
   // ─── 9. Warehouse Cost Widget ────────────────────────────────────
 
   const WAREHOUSE_CACHE_KEY = 'warehouseCostCache';
