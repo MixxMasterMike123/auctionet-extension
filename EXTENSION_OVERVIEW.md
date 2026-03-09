@@ -39,7 +39,7 @@ The Auctionet AI Cataloging Assistant is a Chrome extension that augments the Au
 
 ## 1. Architecture Overview
 
-The extension operates on five Auctionet admin page types plus one standalone extension page:
+The extension operates on five Auctionet admin page types plus two standalone extension pages:
 
 | Page | URL Pattern | Entry Point | Purpose |
 |------|-------------|-------------|---------|
@@ -49,6 +49,7 @@ The extension operates on five Auctionet admin page types plus one standalone ex
 | **Admin Dashboard** | `/admin/sas` | `admin-dashboard.js` | Operational KPI cards, pipeline funnel, pricing insights, comment feed |
 | **All Admin Pages** | `/admin/*` (excl. dashboard, login) | `comment-enhancer.js` | Comment badges, rich comment feed on /comments, entity filters |
 | **Sales Analytics** | `chrome-extension://<id>/analytics.html` | `analytics.js` | Standalone sales analytics dashboard with KPIs, filtering, and competitor comparison |
+| **Spelling Audit** | `chrome-extension://<id>/spelling-audit.html` | `spelling-audit.html` | Batch spelling, brand, forbidden word, and structural quality audit across all published items |
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
@@ -942,6 +943,7 @@ The extension popup (`popup.html`) provides:
 | **Search Defaults** | Auto-add `type=item&sorting=desc` to search pages (newest items first). Toggleable via popup checkbox and an on-page toggle bar below the navbar on search pages |
 | **Connection Test** | One-click API connectivity verification |
 | **Försäljningsanalys** | "Öppna Försäljningsanalys" button — opens the standalone sales analytics dashboard in a new tab |
+| **Stavningsaudit** | "Öppna Stavningsaudit" button — opens the batch spelling/quality audit page for all published items |
 | **Admin PIN** | 4-digit PIN to unlock admin-only features (dashboard enhancements, warehouse costs) |
 
 All settings are stored in Chrome's sync storage (except the API key and admin PIN hash, which use local storage for security).
@@ -974,6 +976,7 @@ auctionet-extension/
 ├── admin-item-banner.js                   # Item show page enhancement banner
 ├── comment-enhancer.js                    # Cross-page comment visibility & rich feed
 ├── analytics.html / analytics.js          # Standalone sales analytics dashboard
+├── spelling-audit.html                    # Standalone spelling & quality audit page
 ├── popup.html / popup.js                  # Settings popup
 ├── styles.css                             # Main stylesheet
 │
@@ -1125,6 +1128,14 @@ Standalone Extension Page (analytics.html — opened from popup)
                   ├──► Anthropic API (spellcheck, direct call)
                   ├──► chrome.storage.local (cache results + progress)
                   └──► chrome.tabs.sendMessage ──► Dashboard (notify on completion)
+
+Standalone Extension Page (spelling-audit.html — opened from popup)
+        │
+        └──► Auctionet API (paginated item fetch)
+                  ├──► SwedishSpellChecker (local dictionary)
+                  ├──► BrandValidationManager (fuzzy brand matching)
+                  ├──► Common misspellings / forbidden words / structural checks (local)
+                  └──► background.js ──► Claude Haiku 4.5 (optional AI spellcheck)
 ```
 
 ### Performance Characteristics

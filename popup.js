@@ -39,6 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('open-analytics').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('analytics.html') });
   });
+  document.getElementById('open-spelling-audit').addEventListener('click', () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('spelling-audit.html') });
+  });
   apiKeyInput.addEventListener('input', () => {
     clearStatus();
   });
