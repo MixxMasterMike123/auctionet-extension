@@ -23,6 +23,36 @@ export function filterItems(items, filters = {}) {
 }
 
 /**
+ * Filter items for same-period YoY comparison.
+ * For the current year, includes items up to today's date.
+ * For the previous year, includes items up to the same month+day.
+ * This ensures partial-month data is compared fairly (e.g. Jan 1–Mar 10 vs Jan 1–Mar 10).
+ */
+export function filterItemsSamePeriod(items, year, filters = {}) {
+  const now = new Date();
+  const cutoffMonth = now.getMonth(); // 0-based
+  const cutoffDay = now.getDate();
+
+  return items.filter(item => {
+    const date = new Date(item.d * 1000);
+    if (date.getFullYear() !== year) return false;
+
+    // Apply same date cutoff: only items up to cutoffMonth/cutoffDay
+    const m = date.getMonth();
+    if (m > cutoffMonth) return false;
+    if (m === cutoffMonth && date.getDate() > cutoffDay) return false;
+
+    // Apply remaining filters (category, price range) but not month
+    if (filters.categoryId && getParentCategoryId(item.cat) !== filters.categoryId) return false;
+    if (filters.priceRange) {
+      if (item.p < filters.priceRange.min || item.p > filters.priceRange.max) return false;
+    }
+
+    return true;
+  });
+}
+
+/**
  * Compute hero KPIs from a set of items
  */
 export function computeKPIs(items) {

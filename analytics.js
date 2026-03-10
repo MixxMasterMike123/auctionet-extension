@@ -3,7 +3,7 @@
 import { fetchCompanyData } from './modules/analytics/data-fetcher.js';
 import { loadCache, getKnownCompanies } from './modules/analytics/data-cache.js';
 import {
-  filterItems, computeKPIs, computeYoY, computeMonthlyData,
+  filterItems, filterItemsSamePeriod, computeKPIs, computeYoY, computeMonthlyData,
   computePriceDistribution, computeCategoryBreakdown,
   computePricePoints, getAvailableYears,
 } from './modules/analytics/data-aggregator.js';
@@ -370,9 +370,8 @@ async function runAIAnalysis(forceRefresh = false) {
     const netRevenue = isOwnHouse ? estimateNetRevenue(items) : null;
     const grossRevenue = isOwnHouse ? Math.round(kpis.revenue * GROSS_MULTIPLIER) : null;
 
-    // For AI: compute same-period YoY (only completed months) to avoid misleading comparisons
+    // For AI: compute same-period YoY to avoid misleading comparisons
     const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth(); // 0-based
     let prevKpis, yoy;
     if (f.month != null) {
       // Specific month selected — compare that month across years
@@ -380,20 +379,12 @@ async function runAIAnalysis(forceRefresh = false) {
       prevKpis = computeKPIs(prevItems);
       yoy = computeYoY(kpis, prevKpis);
     } else if (f.year === currentYear) {
-      // Current year, no month filter — only compare completed months
-      const completedMonths = monthly.filter((m, i) => i < currentMonth && m.count > 0).length;
-      if (completedMonths > 0) {
-        // Filter previous year to same months only
-        let prevSamePeriod = [];
-        for (let m = 0; m < currentMonth; m++) {
-          prevSamePeriod = prevSamePeriod.concat(filterItems(allItems, { ...f, year: f.year - 1, month: m }));
-        }
-        prevKpis = computeKPIs(prevSamePeriod);
-        yoy = computeYoY(kpis, prevKpis);
-      } else {
-        prevKpis = { count: 0, revenue: 0, avgPrice: 0, medianPrice: 0 };
-        yoy = null;
-      }
+      // Current year, no month filter — compare Jan 1 to today in both years
+      const currSamePeriod = filterItemsSamePeriod(allItems, f.year, f);
+      const prevSamePeriod = filterItemsSamePeriod(allItems, f.year - 1, f);
+      const currKpisYoY = computeKPIs(currSamePeriod);
+      prevKpis = computeKPIs(prevSamePeriod);
+      yoy = prevKpis.count > 0 ? computeYoY(currKpisYoY, prevKpis) : null;
     } else {
       // Historical year — full year comparison is fine
       const prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
@@ -442,21 +433,19 @@ function renderDashboard() {
   const monthly = computeMonthlyData(allItems, f.year);
   const kpis = computeKPIs(items);
 
-  // Same-period YoY: for current year without month filter, compare only completed months
+  // Same-period YoY: for current year without month filter, compare exact same date range
   const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth();
-  let prevItems;
+  let prevItems, yoyCurrentItems;
   if (f.year === currentYear && f.month == null) {
-    // Only include previous year's data for months that are complete this year
-    prevItems = [];
-    for (let m = 0; m < currentMonth; m++) {
-      prevItems = prevItems.concat(filterItems(allItems, { ...f, year: f.year - 1, month: m }));
-    }
+    // Compare Jan 1–today in both years for fair partial-month comparison
+    yoyCurrentItems = filterItemsSamePeriod(allItems, f.year, f);
+    prevItems = filterItemsSamePeriod(allItems, f.year - 1, f);
   } else {
+    yoyCurrentItems = items;
     prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
   }
   const prevKpis = computeKPIs(prevItems);
-  const yoy = computeYoY(kpis, prevKpis);
+  const yoy = computeYoY(computeKPIs(yoyCurrentItems), prevKpis);
   const priceDist = computePriceDistribution(items);
   const categories = computeCategoryBreakdown(items);
 
