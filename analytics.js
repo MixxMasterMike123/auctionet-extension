@@ -26,11 +26,13 @@ const fmtSEK = n => {
  * Auctionet fee structure:
  * - Buyer pays: hammer price + 25% buyer's fee
  * - Auctionet takes: 6% of total (hammer + buyer's fee)
- * - Auction house keeps: remaining buyer's fee + seller commission
+ * - Seller pays: 20% commission on hammer + 80 kr photo cost
+ * - Auction house keeps: buyer's fee + seller fees - Auctionet's cut
  */
 const BUYER_FEE_RATE = 0.25;
 const AUCTIONET_CUT_RATE = 0.06;
-const AVG_SELLER_COMMISSION = 0.125; // Empirical average (~12.5%)
+const SELLER_COMMISSION_RATE = 0.20;
+const PHOTO_COST = 80; // Flat fee per item charged to seller
 
 // Derived: Auctionet's cut as fraction of hammer price
 const AUCTIONET_CUT_OF_HAMMER = (1 + BUYER_FEE_RATE) * AUCTIONET_CUT_RATE; // 0.075
@@ -38,13 +40,14 @@ const AUCTIONET_CUT_OF_HAMMER = (1 + BUYER_FEE_RATE) * AUCTIONET_CUT_RATE; // 0.
 // Omsättning: total buyer pays minus Auctionet's cut
 const GROSS_RATE = (1 + BUYER_FEE_RATE) * (1 - AUCTIONET_CUT_RATE); // 1.175
 
-// Nettointäkt: buyer's fee - Auctionet cut + seller commission
-const NET_RATE = BUYER_FEE_RATE - AUCTIONET_CUT_OF_HAMMER + AVG_SELLER_COMMISSION; // 0.300
+// Nettointäkt per item: buyer's fee + seller commission + photo cost - Auctionet cut
+// = hammer × (0.25 + 0.20 - 0.075) + 80 = hammer × 0.375 + 80
+const NET_RATE = BUYER_FEE_RATE + SELLER_COMMISSION_RATE - AUCTIONET_CUT_OF_HAMMER; // 0.375
 
 function estimateNetRevenue(items) {
   let total = 0;
   for (const item of items) {
-    total += item.p * NET_RATE;
+    total += item.p * NET_RATE + PHOTO_COST;
   }
   return Math.round(total);
 }
@@ -640,7 +643,7 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
 
     const economyCards = [
       { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_RATE)), sparkFmt: fmtSEK },
-      { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * NET_RATE)), sparkFmt: fmtSEK },
+      { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * NET_RATE + m.count * PHOTO_COST)), sparkFmt: fmtSEK },
       { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY, sparkData: null },
     ];
 

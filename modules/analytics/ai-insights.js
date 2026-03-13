@@ -7,7 +7,7 @@ Branschkontext:
 - Volymer varierar kraftigt efter säsong — vår och höst är högsäsong, sommar/jul är lugnt
 - Ett typiskt mellanstor hus säljer 5 000–15 000 föremål/år
 - "Minbud" = 300 kr är Auctionets lägsta tillåtna slutpris. Andelen vid minbud beror på insamlingsstrategi — hus som tar in dödsbon får naturligt fler lågvärdeföremål
-- Intäktsmodell: Köpare betalar klubbat pris + 25% köparprovision. Auctionet tar 6% av totalen (klubbat + provision = klubbat × 1.25). Omsättning = klubbat × 1.175 (efter Auctionets avgift). Nettointäkt = köparprovision minus Auctionet-avgift plus uppskattad säljprovision (~12.5%) ≈ 30% av klubbat pris
+- Intäktsmodell: Köpare betalar klubbat pris + 25% köparprovision. Auctionet tar 6% av totalen (klubbat + provision = klubbat × 1.25). Säljaren betalar 20% provision på klubbat pris + 80 kr fotoavgift. Omsättning = klubbat × 1.175 (efter Auctionets avgift). Nettointäkt = köparprovision + säljprovision + fotoavgift - Auctionet-avgift = klubbat × 0.375 + 80 kr per föremål
 - Nettointäkt per föremål är viktigare än bruttomsättning
 - Kategorimix beror på husets nisch och upptagningsområde — det är inte alltid fel att ha mycket i en kategori
 - YoY-data i fältet "yoy" jämför redan samma period (avslutade månader) för rättvisa jämförelser
