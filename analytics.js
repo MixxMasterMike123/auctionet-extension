@@ -23,20 +23,28 @@ const fmtSEK = n => {
 };
 
 /**
- * Empirical fee multipliers derived from 2025 resultatrapport.
- * These account for the real mix of seller fees (0-20%), momsfri items
- * (lower buyer premium), flat fees on cheap items, etc.
- *
- * GROSS_MULTIPLIER: Nettoomsättning / Klubbat = ~22.0M / 18.4M = 1.196
- * NET_MULTIPLIER:   Bruttovinst / Klubbat    = ~5.53M / 18.4M = 0.300
+ * Auctionet fee structure:
+ * - Buyer pays: hammer price + 25% buyer's fee
+ * - Auctionet takes: 6% of total (hammer + buyer's fee)
+ * - Auction house keeps: remaining buyer's fee + seller commission
  */
-const GROSS_MULTIPLIER = 1.196;
-const NET_MULTIPLIER = 0.300;
+const BUYER_FEE_RATE = 0.25;
+const AUCTIONET_CUT_RATE = 0.06;
+const AVG_SELLER_COMMISSION = 0.125; // Empirical average (~12.5%)
+
+// Derived: Auctionet's cut as fraction of hammer price
+const AUCTIONET_CUT_OF_HAMMER = (1 + BUYER_FEE_RATE) * AUCTIONET_CUT_RATE; // 0.075
+
+// Omsättning: total buyer pays minus Auctionet's cut
+const GROSS_RATE = (1 + BUYER_FEE_RATE) * (1 - AUCTIONET_CUT_RATE); // 1.175
+
+// Nettointäkt: buyer's fee - Auctionet cut + seller commission
+const NET_RATE = BUYER_FEE_RATE - AUCTIONET_CUT_OF_HAMMER + AVG_SELLER_COMMISSION; // 0.300
 
 function estimateNetRevenue(items) {
   let total = 0;
   for (const item of items) {
-    total += item.p * NET_MULTIPLIER;
+    total += item.p * NET_RATE;
   }
   return Math.round(total);
 }
@@ -368,7 +376,7 @@ async function runAIAnalysis(forceRefresh = false) {
     const categories = computeCategoryBreakdown(items);
     const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
     const netRevenue = isOwnHouse ? estimateNetRevenue(items) : null;
-    const grossRevenue = isOwnHouse ? Math.round(kpis.revenue * GROSS_MULTIPLIER) : null;
+    const grossRevenue = isOwnHouse ? Math.round(kpis.revenue * GROSS_RATE) : null;
 
     // For AI: compute same-period YoY to avoid misleading comparisons
     const currentYear = new Date().getFullYear();
@@ -622,8 +630,8 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
     const prevNetRevenue = estimateNetRevenue(prevItems);
     const netRevYoY = prevNetRevenue > 0 ? Math.round(((netRevenue - prevNetRevenue) / prevNetRevenue) * 1000) / 10 : null;
 
-    const grossRevenue = Math.round(kpis.revenue * GROSS_MULTIPLIER);
-    const prevGrossRevenue = Math.round(prevKpis.revenue * GROSS_MULTIPLIER);
+    const grossRevenue = Math.round(kpis.revenue * GROSS_RATE);
+    const prevGrossRevenue = Math.round(prevKpis.revenue * GROSS_RATE);
     const grossYoY = prevGrossRevenue > 0 ? Math.round(((grossRevenue - prevGrossRevenue) / prevGrossRevenue) * 1000) / 10 : null;
 
     const netPerItem = kpis.count > 0 ? Math.round(netRevenue / kpis.count) : 0;
@@ -631,8 +639,8 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
     const netPerItemYoY = prevNetPerItem > 0 ? Math.round(((netPerItem - prevNetPerItem) / prevNetPerItem) * 1000) / 10 : null;
 
     const economyCards = [
-      { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_MULTIPLIER)), sparkFmt: fmtSEK },
-      { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * NET_MULTIPLIER)), sparkFmt: fmtSEK },
+      { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_RATE)), sparkFmt: fmtSEK },
+      { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * NET_RATE)), sparkFmt: fmtSEK },
       { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY, sparkData: null },
     ];
 
