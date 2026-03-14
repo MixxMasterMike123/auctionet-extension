@@ -162,6 +162,7 @@ class AuctionetCatalogingAssistant {
     this.uiController = null;
     this.faqHintAnalyzer = null; // Shared QualityAnalyzer for FAQ inline hints
     this.ignoredArtists = [];
+    this._initRetries = 0;
 
     // Initialize asynchronously to prevent blocking
     this.init().catch(error => {
@@ -192,7 +193,10 @@ class AuctionetCatalogingAssistant {
     if (!window.PageDetector || !window.UIController) {
       await new Promise(resolve => setTimeout(resolve, 200));
       if (!window.PageDetector || !window.UIController) {
-        // Retry init later
+        if (++this._initRetries > 20) {
+          console.error('Auctionet extension: modules failed to load after 20 retries');
+          return;
+        }
         setTimeout(() => this.init(), 500);
         return;
       }

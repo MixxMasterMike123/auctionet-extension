@@ -23,8 +23,13 @@ import { runBackgroundPublicationScan, recheckStickyErrors, PUB_SCAN_STICKY_KEY 
 // Runs a full publication queue scan every 30 minutes in the background,
 // regardless of whether the dashboard tab is open.
 // delayInMinutes: 1 ensures the first scan fires ~1 min after extension load/update.
-chrome.alarms.create('publicationScan', { delayInMinutes: 1, periodInMinutes: 30 });
-chrome.alarms.create('stickyErrorRecheck', { delayInMinutes: 5, periodInMinutes: 20 });
+// Use get() to avoid creating duplicate alarms on service worker restart.
+chrome.alarms.get('publicationScan').then(existing => {
+  if (!existing) chrome.alarms.create('publicationScan', { delayInMinutes: 1, periodInMinutes: 30 });
+});
+chrome.alarms.get('stickyErrorRecheck').then(existing => {
+  if (!existing) chrome.alarms.create('stickyErrorRecheck', { delayInMinutes: 5, periodInMinutes: 20 });
+});
 
 // Run an initial scan on extension install or update so data is fresh immediately
 chrome.runtime.onInstalled.addListener(() => {

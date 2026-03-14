@@ -107,7 +107,9 @@
         "modules/refactored/components/*.js",
         "modules/refactored/ai-rules-system/*.js",
         "modules/refactored/ai-rules-system/*.json",
-        "modules/analytics/*.js"
+        "modules/analytics/*.js",
+        "modules/ui/*.js",
+        "modules/utils/*.js"
       ],
       "matches": [
         "https://auctionet.com/*"

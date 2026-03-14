@@ -87,8 +87,12 @@ export class AISearchQueryGenerator {
     } catch (error) {
       console.error('AI search query generation failed:', error);
       
-      // Emergency fallback
+      // Emergency fallback — include quoted artist if available
       const fallbackTerms = this.generateFallbackQuery(title);
+      if (artist && artist.trim()) {
+        const quotedArtist = this.forceQuoteWrapArtist(artist.trim());
+        fallbackTerms.unshift(quotedArtist);
+      }
       return {
         success: true,
         searchTerms: fallbackTerms,
@@ -254,7 +258,10 @@ Return JSON format:
     if (words.length < 2) return false;
     
     // Check if all words start with capital letter (artist name pattern)
-    const isProperCase = words.every(word => /^[A-ZÅÄÖÜ][a-zåäöü]+$/.test(word));
+    // Allow lowercase particles (von, van, de, etc.) and initials with periods
+    const isProperCase = words.every(word =>
+      /^[A-ZÅÄÖÜ][a-zåäöü]*\.?$/.test(word) || /^(von|van|de|di|du|af|den|der|le|la|el)$/i.test(word)
+    );
     
     // Additional check: not a technical term or measurement
     const isTechnical = /\d|mm|cm|kg|karat|gold|silver|bronze|aluminum|steel|plastic|rubber/.test(cleanTerm.toLowerCase());

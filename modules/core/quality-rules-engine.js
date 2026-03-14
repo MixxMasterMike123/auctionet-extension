@@ -523,14 +523,14 @@ export class QualityRulesEngine {
       if (hasVaguePhrase) score -= 15;
     }
 
-    if (keywordsLength === 0 || !data.keywords || data.keywords.trim() === '') score -= 30;
+    if (!data.keywords || data.keywords.trim() === '' || keywordsLength === 0) score -= 30;
     else if (keywordCount < 2) score -= 20;
-    else if (keywordCount < 4) score -= 10;
-    else if (keywordCount > 12) score -= 15;
+    else if (keywordCount < 5) score -= 10;
+    else if (keywordCount > 15) score -= 15;
 
-    if (!data.description.match(/\d+[\s,]*(x|cm|mm)/i)) score -= 20;
+    if (!this.hasMeasurements(data.description)) score -= 10;
 
-    return Math.max(0, score);
+    return Math.max(0, Math.min(100, score));
   }
 
   /**

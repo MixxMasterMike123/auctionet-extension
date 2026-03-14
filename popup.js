@@ -66,8 +66,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    if (!apiKey.startsWith('sk-ant-api03-')) {
-      showStatus('Invalid API key format. Should start with "sk-ant-api03-"', 'error');
+    if (!apiKey.startsWith('sk-ant-')) {
+      showStatus('Invalid API key format. Should start with "sk-ant-"', 'error');
       return;
     }
 
