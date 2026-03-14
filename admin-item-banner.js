@@ -240,41 +240,41 @@
     if (score <= 20) {
       // Critical: Modern red with sophistication
       return {
-        background: 'linear-gradient(135deg, #fef2f2 0%, #fecaca 100%)',
-        borderColor: '#ef4444',
-        textColor: '#7f1d1d',
-        iconColor: '#ef4444',
-        buttonBg: '#ef4444',
+        background: '#fef2f2',
+        borderColor: '#dc3545',
+        textColor: '#721c24',
+        iconColor: '#dc3545',
+        buttonBg: '#dc3545',
         buttonText: '#ffffff'
       };
     } else if (score <= 40) {
       // Major: Modern amber with warmth
       return {
-        background: 'linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%)',
-        borderColor: '#f59e0b',
-        textColor: '#92400e',
-        iconColor: '#f59e0b',
-        buttonBg: '#f59e0b',
+        background: '#fff3cd',
+        borderColor: '#ffc107',
+        textColor: '#856404',
+        iconColor: '#ffc107',
+        buttonBg: '#ffc107',
         buttonText: '#ffffff'
       };
     } else if (score <= 55) {
       // Moderate: Modern blue with trust
       return {
-        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-        borderColor: '#3b82f6',
-        textColor: '#1e40af',
-        iconColor: '#3b82f6',
-        buttonBg: '#3b82f6',
+        background: '#e3f2fd',
+        borderColor: '#337ab7',
+        textColor: '#286090',
+        iconColor: '#337ab7',
+        buttonBg: '#337ab7',
         buttonText: '#ffffff'
       };
     } else {
       // Minor: Modern emerald with success
       return {
-        background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-        borderColor: '#10b981',
-        textColor: '#065f46',
-        iconColor: '#10b981',
-        buttonBg: '#10b981',
+        background: '#d4edda',
+        borderColor: '#28a745',
+        textColor: '#155724',
+        iconColor: '#28a745',
+        buttonBg: '#28a745',
         buttonText: '#ffffff'
       };
     }
@@ -319,24 +319,15 @@
         background: ${colors.background};
         color: ${colors.textColor};
         border: 1px solid ${colors.borderColor};
-        border-radius: 12px;
+        border-radius: 3px;
         margin: 0px 20px 20px 20px;
         padding: 0;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', Roboto, sans-serif;
-        animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        backdrop-filter: blur(8px);
       }
-      
+
       @keyframes slideIn {
-        from {
-          opacity: 0;
-          transform: translateY(-8px) scale(0.98);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       
       .banner-content {
@@ -384,33 +375,27 @@
         text-decoration: none;
         font-weight: 600;
         padding: 8px 16px;
-        border-radius: 8px;
+        border-radius: 3px;
         border: none;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: opacity 0.15s ease;
         display: inline-flex;
         align-items: center;
         gap: 6px;
         margin-top: 12px;
         font-size: 13px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-        letter-spacing: 0.01em;
         text-shadow: none;
       }
-      
+
       .banner-link:hover {
         background: ${colors.buttonBg};
         color: ${colors.buttonText};
         text-decoration: none;
         text-shadow: none;
         opacity: 0.9;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       }
-      
+
       .banner-link:active {
-        transform: translateY(0);
         opacity: 1;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       }
       
       .banner-close {
@@ -419,7 +404,7 @@
         color: ${colors.textColor};
         width: 28px;
         height: 28px;
-        border-radius: 6px;
+        border-radius: 3px;
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
@@ -427,21 +412,20 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        transition: all 0.2s ease;
+        transition: background 0.15s ease;
         opacity: 0.6;
       }
-      
+
       .banner-close:hover {
         background: rgba(0, 0, 0, 0.1);
         opacity: 1;
-        transform: scale(1.05);
       }
       
       /* Responsive design */
       @media (max-width: 768px) {
         .auctionet-quality-banner {
           margin: 0px 15px 15px 15px;
-          border-radius: 10px;
+          border-radius: 3px;
         }
         
         .banner-content {

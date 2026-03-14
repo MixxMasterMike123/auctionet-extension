@@ -591,7 +591,7 @@ Regler:
       width: 72px;
       height: 72px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+      background: #e2e8f0;
       color: #64748b;
       font-size: 24px;
       font-weight: 600;
@@ -683,7 +683,7 @@ Regler:
       btn.className = 'kb-add-bio-btn';
       btn.textContent = 'Lägg till biografi i beskrivning';
       btn.type = 'button';
-      btn.style.cssText = 'background: #1e293b; color: #ffffff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; cursor: pointer; transition: all 0.15s ease; width: 100%; font-family: inherit; font-weight: 500;';
+      btn.style.cssText = 'background: #1e293b; color: #ffffff; border: none; border-radius: 3px; padding: 8px 14px; font-size: 12px; cursor: pointer; transition: background 0.15s ease; width: 100%; font-family: inherit; font-weight: 500;';
       btn.addEventListener('mouseenter', () => { btn.style.background = '#334155'; });
       btn.addEventListener('mouseleave', () => { btn.style.background = '#1e293b'; });
       btn.addEventListener('click', (e) => {
@@ -711,7 +711,7 @@ Regler:
           descField.dispatchEvent(new Event('input', { bubbles: true }));
 
           btn.textContent = 'Tillagd i beskrivning';
-          btn.style.background = '#16a34a';
+          btn.style.background = '#28a745';
           btn.disabled = true;
           setTimeout(() => {
             btn.textContent = 'Lägg till biografi i beskrivning';
@@ -747,16 +747,16 @@ Regler:
         const hintInput = document.createElement('input');
         hintInput.type = 'text';
         hintInput.placeholder = 'T.ex. "popkonstnär, samtida"';
-        hintInput.style.cssText = 'flex: 1; padding: 5px 8px; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #1e293b; outline: none; font-family: inherit;';
-        hintInput.addEventListener('focus', () => { hintInput.style.borderColor = '#1976d2'; hintInput.style.boxShadow = '0 0 0 2px rgba(25,118,210,0.15)'; });
-        hintInput.addEventListener('blur', () => { hintInput.style.borderColor = '#cbd5e1'; hintInput.style.boxShadow = 'none'; });
+        hintInput.style.cssText = 'flex: 1; padding: 5px 8px; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; color: #1e293b; outline: none; font-family: inherit;';
+        hintInput.addEventListener('focus', () => { hintInput.style.borderColor = '#337ab7'; });
+        hintInput.addEventListener('blur', () => { hintInput.style.borderColor = '#cbd5e1'; });
 
         const searchBtn = document.createElement('button');
         searchBtn.type = 'button';
         searchBtn.textContent = 'Sök';
-        searchBtn.style.cssText = 'padding: 5px 10px; font-size: 11px; background: #1976d2; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; font-weight: 500;';
-        searchBtn.addEventListener('mouseenter', () => { searchBtn.style.background = '#1565c0'; });
-        searchBtn.addEventListener('mouseleave', () => { searchBtn.style.background = '#1976d2'; });
+        searchBtn.style.cssText = 'padding: 5px 10px; font-size: 11px; background: #337ab7; color: #ffffff; border: none; border-radius: 3px; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; font-weight: 500;';
+        searchBtn.addEventListener('mouseenter', () => { searchBtn.style.background = '#286090'; });
+        searchBtn.addEventListener('mouseleave', () => { searchBtn.style.background = '#337ab7'; });
 
         const doSearch = () => {
           const hint = hintInput.value.trim();
@@ -879,13 +879,13 @@ Regler:
       </div>
     `;
 
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 10000; backdrop-filter: blur(4px);';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 10000;';
 
     const modalContent = modal.querySelector('.artist-bio-modal');
-    modalContent.style.cssText = 'background: white; border-radius: 12px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3);';
+    modalContent.style.cssText = 'background: white; border-radius: 3px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; border: 1px solid #ddd;';
 
     const header = modal.querySelector('.artist-bio-header');
-    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid #eee; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px 12px 0 0;';
+    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid #eee; background: #f5f5f5; border-radius: 3px 3px 0 0;';
 
     const closeBtn = modal.querySelector('.close-bio-modal');
     closeBtn.style.cssText = 'background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;';
@@ -894,10 +894,10 @@ Regler:
     modal.querySelector('.bio-actions').style.cssText = 'display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;';
 
     modal.querySelectorAll('.bio-actions button').forEach(btn => {
-      btn.style.cssText = 'padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s ease;';
+      btn.style.cssText = 'padding: 8px 16px; border: none; border-radius: 3px; cursor: pointer; font-weight: 500; transition: background 0.15s ease;';
     });
 
-    modal.querySelector('.btn-add-bio-to-description').style.cssText += 'background: #4caf50; color: white;';
+    modal.querySelector('.btn-add-bio-to-description').style.cssText += 'background: #28a745; color: white;';
     modal.querySelector('.btn-close-bio').style.cssText += 'background: #f5f5f5; color: #333;';
 
     document.body.appendChild(modal);

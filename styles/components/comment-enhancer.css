@@ -20,7 +20,6 @@
 .ext-comment-indicator:hover {
   background: #e9ecef;
   border-left-color: #6c757d;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .ext-comment-indicator--has-comments {
@@ -102,7 +101,7 @@
   font-size: 9px;
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 9px;
+  border-radius: 3px;
   line-height: 1.6;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -156,7 +155,7 @@
   font-size: 11px;
   font-weight: 600;
   padding: 4px 12px;
-  border-radius: 14px;
+  border-radius: 3px;
   border: 1.5px solid #d0d5da;
   background: #fff;
   color: #555;

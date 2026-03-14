@@ -412,9 +412,9 @@
         // Flash the comment section briefly
         const commentWell = target.closest('.well');
         if (commentWell) {
-          commentWell.style.transition = 'box-shadow 0.3s ease';
-          commentWell.style.boxShadow = '0 0 0 3px rgba(0, 108, 204, 0.3)';
-          setTimeout(() => { commentWell.style.boxShadow = ''; }, 2000);
+          commentWell.style.transition = 'outline-color 0.3s ease';
+          commentWell.style.outline = '3px solid rgba(0, 108, 204, 0.3)';
+          setTimeout(() => { commentWell.style.outline = ''; }, 2000);
         }
         // Focus the textarea if present
         const textarea = target.querySelector('textarea[name="comment[body]"]');

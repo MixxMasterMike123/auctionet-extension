@@ -529,7 +529,7 @@
               <div class="field-tips">
                 <h4>🚨 KRITISKT för kundnöjdhet - Detaljerad skickbeskrivning:</h4>
                 <p><strong>Kunder måste veta EXAKT vad de får för att undvika besvikelser och reklamationer!</strong></p>
-                <div style="background: #fff3cd; padding: 8px; border-radius: 4px; margin: 8px 0; border-left: 3px solid #ffc107;">
+                <div style="background: #fff3cd; padding: 8px; border-radius: 3px; margin: 8px 0; border-left: 3px solid #ffc107;">
                   <strong>⚠️ Varje vag beskrivning = missnöjd kund = support-ärende</strong>
                 </div>
                 <p><strong>OBLIGATORISKT att ange:</strong></p>

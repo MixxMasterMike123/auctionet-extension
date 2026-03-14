@@ -256,20 +256,19 @@ export class BiographyTooltipManager {
       .artist-bio-tooltip::after {
         content: attr(data-full-bio);
         position: absolute;
-        background: rgba(0, 0, 0, 0.9);
+        background: #2c3e50;
         color: white;
         padding: 12px;
-        border-radius: 6px;
+        border-radius: 3px;
         font-size: 12px;
         white-space: pre-wrap;
         max-width: 350px;
         z-index: 10000;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         margin-top: 20px;
         margin-left: -50px;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.3s ease;
+        transition: opacity 0.15s ease;
         font-style: normal;
         font-weight: normal;
         line-height: 1.4;
@@ -285,7 +284,7 @@ export class BiographyTooltipManager {
         top: 15px;
         left: 50px;
         border: 5px solid transparent;
-        border-bottom-color: rgba(0, 0, 0, 0.9);
+        border-bottom-color: #2c3e50;
         opacity: 0;
         transition: opacity 0.3s ease;
         z-index: 10001;
@@ -324,22 +323,21 @@ export class BiographyTooltipManager {
       
       .artist-bio-popup {
         background: white;
-        border-radius: 12px;
+        border-radius: 3px;
         max-width: 500px;
         max-height: 70vh;
         width: 90%;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        animation: bioPopupSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        border: 1px solid #ddd;
         overflow: hidden;
       }
-      
+
       .popup-header {
         padding: 20px 24px 16px;
         border-bottom: 1px solid #e1e5e9;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        background: #f5f5f5;
       }
       
       .popup-header h3 {
@@ -412,14 +410,8 @@ export class BiographyTooltipManager {
       }
       
       @keyframes bioPopupSlideIn {
-        from {
-          opacity: 0;
-          transform: scale(0.9) translateY(-20px);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1) translateY(0);
-        }
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
     `;
 

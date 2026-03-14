@@ -392,7 +392,7 @@ export class ArtistIgnoreManager {
     content.style.cssText = `
       background: white;
       padding: 20px;
-      border-radius: 8px;
+      border-radius: 3px;
       max-width: 500px;
       max-height: 600px;
       overflow-y: auto;
@@ -406,7 +406,7 @@ export class ArtistIgnoreManager {
 
     this.ignoredArtists.forEach((artist, index) => {
       html += `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border: 1px solid #ddd; margin: 5px 0; border-radius: 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border: 1px solid #ddd; margin: 5px 0; border-radius: 3px;">
           <span>${escapeHTML(artist)}</span>
           <button class="remove-artist-btn" data-artist-index="${index}"
                   style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
@@ -420,11 +420,11 @@ export class ArtistIgnoreManager {
       </div>
       <div style="text-align: center; margin-top: 20px;">
         <button class="clear-all-artists-btn"
-                style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer; margin-right: 10px;">
           Clear All
         </button>
         <button class="close-modal-btn"
-                style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer;">
           Close
         </button>
       </div>

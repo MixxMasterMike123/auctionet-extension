@@ -425,65 +425,59 @@ export class AIEnhancementUI {
       }
       
       .ai-assist-button--modern {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #337ab7;
         color: white;
         border: none;
         padding: 8px 16px;
-        border-radius: 12px;
+        border-radius: 3px;
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        transition: background 0.2s ease;
       }
-      
+
       .ai-assist-button--modern:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        background: #286090;
       }
-      
+
       .quality-indicator--modern {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 16px;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 3px;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
       }
-      
+
       .quality-header--modern {
         text-align: center;
       }
-      
+
       .quality-score-badge {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        background: #28a745;
         color: white;
         padding: 6px 12px;
-        border-radius: 20px;
+        border-radius: 3px;
         font-weight: 600;
         font-size: 14px;
         display: inline-block;
         margin: 8px 0;
       }
-      
+
       .ai-master-button--modern {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        color: #333;
+        background: #28a745;
+        color: white;
         border: none;
         padding: 12px 24px;
-        border-radius: 25px;
+        border-radius: 3px;
         font-weight: 700;
         cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(250, 112, 154, 0.3);
+        transition: background 0.2s ease;
         width: 100%;
         margin-top: 12px;
       }
-      
+
       .ai-master-button--modern:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(250, 112, 154, 0.4);
+        background: #218838;
       }
     `;
   }
@@ -509,20 +503,20 @@ export class AIEnhancementUI {
         color: white;
         border: none;
         padding: 6px 12px;
-        border-radius: 4px;
+        border-radius: 3px;
         font-size: 11px;
         cursor: pointer;
         transition: background-color 0.2s;
       }
-      
+
       .ai-assist-button--edit:hover {
         background: #005c87;
       }
-      
+
       .quality-indicator--edit {
         background: #f8f9fa;
         border: 1px solid #dee2e6;
-        border-radius: 6px;
+        border-radius: 3px;
         padding: 15px;
         margin-bottom: 15px;
       }
@@ -532,7 +526,7 @@ export class AIEnhancementUI {
         color: white;
         border: none;
         padding: 8px 16px;
-        border-radius: 4px;
+        border-radius: 3px;
         font-weight: 600;
         cursor: pointer;
         width: 100%;

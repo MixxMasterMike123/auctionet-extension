@@ -242,12 +242,10 @@ export class TooltipSystemManager {
 
     // Add entrance animation
     tooltip.style.opacity = '0';
-    tooltip.style.transform = 'scale(0.9)';
-    
+
     requestAnimationFrame(() => {
-      tooltip.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+      tooltip.style.transition = 'opacity 0.2s ease';
       tooltip.style.opacity = '1';
-      tooltip.style.transform = 'scale(1)';
     });
 
     return tooltip;
@@ -354,9 +352,8 @@ export class TooltipSystemManager {
       .ai-tooltip {
         position: absolute;
         background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border: 1px solid #ddd;
+        border-radius: 3px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 13px;
         line-height: 1.4;
@@ -367,22 +364,22 @@ export class TooltipSystemManager {
 
       .ai-tooltip-artist {
         border-left: 4px solid #ff6b6b;
-        background: linear-gradient(135deg, #fff 0%, #fff8f8 100%);
+        background: #fff;
       }
 
       .ai-tooltip-warning {
         border-left: 4px solid #ffa726;
-        background: linear-gradient(135deg, #fff 0%, #fffaf5 100%);
+        background: #fff;
       }
 
       .ai-tooltip-success {
         border-left: 4px solid #66bb6a;
-        background: linear-gradient(135deg, #fff 0%, #f8fff8 100%);
+        background: #fff;
       }
 
       .ai-tooltip-info {
         border-left: 4px solid #42a5f5;
-        background: linear-gradient(135deg, #fff 0%, #f8fcff 100%);
+        background: #fff;
       }
 
       .tooltip-header {
@@ -413,7 +410,7 @@ export class TooltipSystemManager {
         color: #999;
         cursor: pointer;
         padding: 4px;
-        border-radius: 4px;
+        border-radius: 3px;
         transition: all 0.2s ease;
         flex-shrink: 0;
       }
@@ -446,7 +443,7 @@ export class TooltipSystemManager {
 
       .tooltip-btn {
         padding: 8px 16px;
-        border-radius: 6px;
+        border-radius: 3px;
         border: 1px solid #ddd;
         background: white;
         color: #333;
@@ -462,35 +459,35 @@ export class TooltipSystemManager {
       }
 
       .tooltip-btn-primary {
-        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        background: #337ab7;
         color: white;
-        border-color: #007bff;
+        border-color: #337ab7;
       }
 
       .tooltip-btn-primary:hover {
-        background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
-        border-color: #0056b3;
+        background: #286090;
+        border-color: #286090;
       }
 
       .tooltip-btn-success {
-        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        background: #28a745;
         color: white;
         border-color: #28a745;
       }
 
       .tooltip-btn-success:hover {
-        background: linear-gradient(135deg, #1e7e34 0%, #155724 100%);
+        background: #1e7e34;
         border-color: #1e7e34;
       }
 
       .tooltip-btn-danger {
-        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        background: #dc3545;
         color: white;
         border-color: #dc3545;
       }
 
       .tooltip-btn-danger:hover {
-        background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+        background: #c82333;
         border-color: #c82333;
       }
 
@@ -522,7 +519,7 @@ export class TooltipSystemManager {
 
       /* Animation classes */
       .ai-tooltip {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: opacity 0.2s ease;
       }
     `;
 

@@ -223,7 +223,7 @@ Anpassa förslagen till kategorin "${category}".`,
           let extra = '';
           if (w.woodTypeSuggestion) {
             const woodChips = ['Ek', 'Björk', 'Furu', 'Teak', 'Mahogny', 'Valnöt', 'Bok', 'Ask', 'Tall', 'Alm', 'Palisander', 'Fanér'];
-            const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
+            const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:3px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
             extra = '<div style="margin-top:4px;">' +
               woodChips.map(w => `<a class="wood-type-chip" data-value="${w}" style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${w}</a>`).join('') +
               '</div>';
@@ -231,7 +231,7 @@ Anpassa förslagen till kategorin "${category}".`,
           if (w.vagueCondition) {
             const category = document.querySelector('#item_category_id option:checked')?.textContent || '';
             const suggestions = this.getConditionSuggestions(category, 3);
-            const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
+            const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:3px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
             const refreshStyle = 'background:none;border:none;color:#b08840;font-size:10px;font-style:normal;cursor:pointer;text-decoration:underline;text-underline-offset:2px;transition:color 0.15s;white-space:nowrap;';
             const replaceAttr = w.inlineReplace ? ` data-replace="${w.inlineReplace}"` : '';
             const aiLabel = this._aiConditionSuggestions ? ' title="Anpassade förslag"' : ' title="Klicka for nya forslag"';

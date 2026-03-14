@@ -35,7 +35,7 @@ export class UIFeedbackManager {
         background: #28a745;
         color: white;
         padding: 6px 12px;
-        border-radius: 4px;
+        border-radius: 3px;
         font-size: 12px;
         font-weight: 500;
         z-index: 10000;
@@ -43,14 +43,13 @@ export class UIFeedbackManager {
         pointer-events: none;
         transform: translateY(-100%);
         margin-top: -8px;
-        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
         animation: fadeInSuccess 0.3s ease-out;
       `;
 
       this.injectStyleOnce('success-feedback-styles', `
         @keyframes fadeInSuccess {
-          from { opacity: 0; transform: translateY(-100%) scale(0.8); }
-          to { opacity: 1; transform: translateY(-100%) scale(1); }
+          from { opacity: 0; transform: translateY(-100%); }
+          to { opacity: 1; transform: translateY(-100%); }
         }
       `);
 
@@ -217,28 +216,27 @@ export class UIFeedbackManager {
         position: fixed;
         top: 20px;
         right: 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #337ab7;
         color: white;
         padding: 12px 16px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        border-radius: 3px;
+        border: 1px solid #286090;
         z-index: 10000;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 13px;
         font-weight: 500;
         max-width: 300px;
-        backdrop-filter: blur(10px);
         animation: slideInRight 0.3s ease-out;
       `;
 
       this.injectStyleOnce('ai-loading-styles', `
         @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         @keyframes slideOutRight {
-          from { transform: translateX(0); opacity: 1; }
-          to { transform: translateX(100%); opacity: 0; }
+          from { opacity: 1; }
+          to { opacity: 0; }
         }
       `);
 

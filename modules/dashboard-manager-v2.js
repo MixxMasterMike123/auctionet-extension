@@ -617,7 +617,7 @@ export class DashboardManagerV2 {
       positionCard();
       kbCard.style.opacity = '1';
       kbCard.style.visibility = 'visible';
-      kbCard.style.transform = 'translateY(0) scale(1)';
+      kbCard.style.transform = 'none';
       kbCard.style.pointerEvents = 'auto';
       attachScroll();
     };
@@ -628,7 +628,7 @@ export class DashboardManagerV2 {
         if (!isHoveringTrigger && !isHoveringCard && kbCard) {
           kbCard.style.opacity = '0';
           kbCard.style.visibility = 'hidden';
-          kbCard.style.transform = 'translateY(6px) scale(0.96)';
+          kbCard.style.transform = 'none';
           kbCard.style.pointerEvents = 'none';
           detachScroll();
         }
@@ -895,25 +895,22 @@ export class DashboardManagerV2 {
     card.style.cssText = `
       position: fixed;
       top: 0; left: 0;
-      transform: translateY(6px) scale(0.96);
-      background: rgba(20, 20, 30, 0.96);
-      backdrop-filter: blur(16px);
+      background: #2c3e50;
       color: white;
       padding: 16px 18px 14px;
-      border-radius: 14px;
+      border-radius: 3px;
       width: 340px;
       max-height: calc(100vh - 32px);
       overflow-y: auto;
       white-space: normal;
       word-wrap: break-word;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.08);
       z-index: 2147483647;
       opacity: 0; visibility: hidden;
-      transition: opacity 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1), visibility 0.25s cubic-bezier(0.4,0,0.2,1);
+      transition: opacity 0.15s ease, visibility 0.15s ease;
       pointer-events: none;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       text-align: left;
-      border: 1px solid rgba(255,255,255,0.06);
+      border: 1px solid #4a5568;
       scrollbar-width: thin;
       scrollbar-color: rgba(255,255,255,0.2) transparent;
     `;
@@ -973,7 +970,7 @@ export class DashboardManagerV2 {
         display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;
       }
       .insight-kb-icon {
-        width: 40px; height: 40px; border-radius: 10px;
+        width: 40px; height: 40px; border-radius: 3px;
         display: flex; align-items: center; justify-content: center;
         font-size: 20px; flex-shrink: 0;
       }
@@ -985,7 +982,7 @@ export class DashboardManagerV2 {
       }
       .insight-kb-query {
         font-size: 11px; margin-bottom: 8px; padding: 5px 10px;
-        background: rgba(255,255,255,0.05); border-radius: 6px;
+        background: rgba(255,255,255,0.05); border-radius: 3px;
         color: rgba(255,255,255,0.7);
       }
       .insight-kb-query-label {
@@ -1023,7 +1020,7 @@ export class DashboardManagerV2 {
       .insight-kb-suggestion-warning {
         font-size: 10px; color: #f39c12; margin-bottom: 8px;
         padding: 5px 8px; background: rgba(243,156,18,0.1);
-        border-radius: 4px; border-left: 2px solid #f39c12;
+        border-radius: 3px; border-left: 2px solid #f39c12;
       }
       .insight-kb-section-title {
         font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase;
@@ -1042,7 +1039,7 @@ export class DashboardManagerV2 {
         display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
       }
       .insight-kb-suggestion-item {
-        background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px;
+        background: rgba(255,255,255,0.06); border-radius: 3px; padding: 10px;
         text-align: center;
       }
       .insight-kb-suggestion-label {
@@ -1055,7 +1052,7 @@ export class DashboardManagerV2 {
       }
       .insight-kb-apply-btn {
         background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9);
-        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+        border: 1px solid rgba(255,255,255,0.15); border-radius: 3px;
         padding: 5px 10px; font-size: 11px; cursor: pointer;
         transition: all 0.15s ease; width: 100%; font-family: inherit;
       }
@@ -1072,7 +1069,7 @@ export class DashboardManagerV2 {
         display: flex; align-items: center; gap: 6px;
         background: rgba(39, 174, 96, 0.15);
         border: 1px solid rgba(39, 174, 96, 0.3);
-        border-radius: 6px;
+        border-radius: 3px;
         padding: 6px 10px;
         margin-bottom: 8px;
       }
@@ -1167,12 +1164,11 @@ export class DashboardManagerV2 {
     style.textContent = `
       /* Market Dashboard Container */
       .market-data-dashboard {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border: 1px solid #cbd5e1;
-        border-radius: 12px;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 3px;
         padding: 16px;
         margin: 12px 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         position: relative;
         transition: filter 0.3s ease, opacity 0.3s ease;
@@ -1195,8 +1191,7 @@ export class DashboardManagerV2 {
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(1px);
+        background: rgba(255, 255, 255, 0.7);
         z-index: 1000;
         opacity: 1;
         transition: opacity 0.3s ease;
@@ -1268,7 +1263,7 @@ export class DashboardManagerV2 {
       .pill-freetext-input {
         height: 24px;
         padding: 0 8px;
-        border-radius: 12px;
+        border-radius: 3px;
         border: 1px dashed #cbd5e1;
         background: rgba(248, 250, 252, 0.6);
         font-size: 11px;
@@ -1276,7 +1271,7 @@ export class DashboardManagerV2 {
         color: #64748b;
         outline: none;
         width: 80px;
-        transition: all 0.2s ease;
+        transition: width 0.2s ease;
       }
       .pill-freetext-input::placeholder {
         color: #94a3b8;
@@ -1284,11 +1279,10 @@ export class DashboardManagerV2 {
       }
       .pill-freetext-input:focus {
         width: 130px;
-        border-color: #007cba;
+        border-color: #337ab7;
         border-style: solid;
         background: white;
         color: #1a252f;
-        box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.15);
       }
       
       .header-pill {
@@ -1296,9 +1290,9 @@ export class DashboardManagerV2 {
         align-items: center;
         height: 24px;
         padding: 0 10px;
-        border-radius: 12px;
+        border-radius: 3px;
         cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: background 0.15s ease, color 0.15s ease;
         font-size: 11px;
         font-weight: 500;
         line-height: 1;
@@ -1314,26 +1308,22 @@ export class DashboardManagerV2 {
       
       .pill-text {
         font-weight: inherit;
-        letter-spacing: -0.01em;
+        letter-spacing: normal;
       }
       
       /* ✅ Selected Header Pills - Premium Blue */
       .header-pill.selected {
-        background: linear-gradient(135deg, #007cba 0%, #0099e6 100%);
+        background: #337ab7;
         color: white;
         font-weight: 600;
-        box-shadow: 0 1px 3px rgba(0, 124, 186, 0.25);
       }
-      
+
       .header-pill.selected:hover {
-        background: linear-gradient(135deg, #006ba6 0%, #0088cc 100%);
-        box-shadow: 0 2px 6px rgba(0, 124, 186, 0.35);
-        transform: translateY(-1px);
+        background: #286090;
       }
-      
+
       .header-pill.selected .pill-text {
         color: white;
-        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
       }
       
       /* ⚪ Unselected Header Pills - Elegant Gray */
@@ -1347,8 +1337,6 @@ export class DashboardManagerV2 {
         background: rgba(241, 245, 249, 1);
         color: #475569;
         border-color: rgba(203, 213, 225, 1);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
       }
       
       /* 🔢 Header Expand Button */
@@ -1357,23 +1345,21 @@ export class DashboardManagerV2 {
         align-items: center;
         height: 24px;
         padding: 0 8px;
-        background: rgba(249, 250, 251, 0.9);
-        border: 1px solid rgba(229, 231, 235, 0.8);
-        border-radius: 12px;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 3px;
         color: #6b7280;
         font-size: 10px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: background 0.15s ease;
         white-space: nowrap;
       }
-      
+
       .header-expand-btn:hover {
-        background: rgba(243, 244, 246, 1);
-        border-color: rgba(209, 213, 219, 1);
+        background: #e9ecef;
+        border-color: #ccc;
         color: #374151;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
       }
       
       /* 🔙 Header Collapse Button */
@@ -1382,24 +1368,22 @@ export class DashboardManagerV2 {
         align-items: center;
         height: 24px;
         padding: 0 8px;
-        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-        border: 1px solid rgba(156, 163, 175, 0.8);
-        border-radius: 12px;
+        background: #e9ecef;
+        border: 1px solid #adb5bd;
+        border-radius: 3px;
         color: #374151;
         font-size: 10px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: background 0.15s ease;
         white-space: nowrap;
         margin-left: 8px;
       }
-      
+
       .header-collapse-btn:hover {
-        background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
-        border-color: rgba(107, 114, 128, 0.9);
+        background: #dee2e6;
+        border-color: #6c757d;
         color: #1f2937;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
       
       /* 📱 Responsive: Stack on smaller screens */
@@ -1450,7 +1434,7 @@ export class DashboardManagerV2 {
         gap: 4px;
         background: #f8f9fa;
         padding: 4px 8px;
-        border-radius: 4px;
+        border-radius: 3px;
         border: 1px solid #e9ecef;
       }
       
@@ -1548,7 +1532,7 @@ export class DashboardManagerV2 {
       /* Highlight the insights trigger on hover */
       .market-insights-trigger:hover {
         background: rgba(0,0,0,0.03);
-        border-radius: 6px;
+        border-radius: 3px;
       }
       
       /* Ensure consistent vertical alignment for confidence indicators */
@@ -1676,7 +1660,7 @@ export class DashboardManagerV2 {
         padding: 8px 12px;
         background: #fff8e1;
         border: 1px solid #ffe082;
-        border-radius: 6px;
+        border-radius: 3px;
         font-size: 11px;
         color: #6d4c00;
         text-align: center;
@@ -1828,7 +1812,6 @@ export class DashboardManagerV2 {
       border-radius: 50%;
       background: white;
       border: 1px solid #e0e0e0;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -1854,10 +1837,8 @@ export class DashboardManagerV2 {
         overflow: hidden;
         margin-bottom: 20px;
         opacity: 1;
-        transform: translateY(0);
-        transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
-                    opacity 0.3s ease 0.1s, 
-                    transform 0.3s ease 0.1s,
+        transition: max-height 0.5s ease,
+                    opacity 0.3s ease 0.1s,
                     margin-bottom 0.5s ease;
       `;
     } else {
@@ -1867,10 +1848,8 @@ export class DashboardManagerV2 {
         overflow: hidden;
         margin-bottom: 0;
         opacity: 0;
-        transform: translateY(-10px);
-        transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
-                    opacity 0.3s ease 0.1s, 
-                    transform 0.3s ease 0.1s,
+        transition: max-height 0.5s ease,
+                    opacity 0.3s ease 0.1s,
                     margin-bottom 0.5s ease;
       `;
     }
@@ -1878,10 +1857,9 @@ export class DashboardManagerV2 {
     // Style the dashboard element (original design)
     dashboardElement.style.cssText = `
       margin: 0;
-      border-radius: 8px;
+      border-radius: 3px;
       background: white;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e0e0e0;
+      border: 1px solid #ddd;
     `;
 
     // Add dashboard to dropdown container
@@ -1925,16 +1903,12 @@ export class DashboardManagerV2 {
     // Add hover effects to button
     floatingToggle.addEventListener('mouseenter', () => {
       if (!isOpen) {
-        floatingToggle.style.transform = 'scale(1.1)';
-        floatingToggle.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.15)';
-        floatingToggle.style.borderColor = '#4A90E2';
+        floatingToggle.style.borderColor = '#337ab7';
       }
     });
 
     floatingToggle.addEventListener('mouseleave', () => {
       if (!isOpen) {
-        floatingToggle.style.transform = 'scale(1)';
-        floatingToggle.style.boxShadow = '0 2px 12px rgba(0, 0, 0, 0.1)';
         floatingToggle.style.borderColor = '#e0e0e0';
       }
     });
@@ -1975,14 +1949,13 @@ export class DashboardManagerV2 {
       const contentHeight = dashboardElement.scrollHeight;
       dropdownContainer.style.maxHeight = `${contentHeight}px`;
       dropdownContainer.style.opacity = '1';
-      dropdownContainer.style.transform = 'translateY(0)';
       dropdownContainer.style.marginBottom = '20px';
-      
+
       // Update button - FORCE the state
       svg.style.transform = 'rotate(180deg)';
       floatingToggle.style.background = '#f8f9fa';
-      floatingToggle.style.borderColor = '#4A90E2';
-      floatingToggle.style.color = '#4A90E2';
+      floatingToggle.style.borderColor = '#337ab7';
+      floatingToggle.style.color = '#337ab7';
       
       // Add visual indicator that it's pinned open
       floatingToggle.title = 'Marknadsanalys (synlig - klicka för att dölja)';
@@ -1992,7 +1965,6 @@ export class DashboardManagerV2 {
       // Close - collapse content
       dropdownContainer.style.maxHeight = '0';
       dropdownContainer.style.opacity = '0';
-      dropdownContainer.style.transform = 'translateY(-10px)';
       dropdownContainer.style.marginBottom = '0';
       
       // Update button - FORCE the state
@@ -2045,8 +2017,8 @@ export class DashboardManagerV2 {
     loadingContainer.style.cssText = `
       width: 100%;
       background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
       padding: 40px 20px;
       margin-bottom: 20px;
       display: flex;
@@ -2054,7 +2026,6 @@ export class DashboardManagerV2 {
       align-items: center;
       justify-content: center;
       gap: 15px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     `;
 
     // Create spinner
@@ -2063,7 +2034,7 @@ export class DashboardManagerV2 {
       width: 32px;
       height: 32px;
       border: 3px solid #f0f0f0;
-      border-top: 3px solid #4A90E2;
+      border-top: 3px solid #337ab7;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     `;
@@ -2112,7 +2083,7 @@ export class DashboardManagerV2 {
     const loadingToggle = document.createElement('button');
     loadingToggle.className = 'minimal-market-toggle';
     loadingToggle.innerHTML = `
-      <div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #4A90E2; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+      <div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #337ab7; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
     `;
     loadingToggle.style.cssText = `
       position: fixed;
@@ -2123,12 +2094,12 @@ export class DashboardManagerV2 {
       height: 44px;
       border-radius: 50%;
       background: #f8f9fa;
-      border: 1px solid #4A90E2;
+      border: 1px solid #337ab7;
       cursor: not-allowed;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #4A90E2;
+      color: #337ab7;
       transition: all 0.3s ease;
       font-size: 0;
     `;
@@ -2196,7 +2167,7 @@ export class DashboardManagerV2 {
       justify-content: center;
       gap: 15px;
       z-index: 1000;
-      border-radius: 8px;
+      border-radius: 3px;
       min-height: 150px;
     `;
 
@@ -2206,7 +2177,7 @@ export class DashboardManagerV2 {
       width: 32px;
       height: 32px;
       border: 3px solid #f0f0f0;
-      border-top: 3px solid #4A90E2;
+      border-top: 3px solid #337ab7;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     `;
@@ -2232,7 +2203,7 @@ export class DashboardManagerV2 {
     if (button) {
       const svg = button.querySelector('svg');
       if (svg) {
-        svg.innerHTML = `<div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #4A90E2; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>`;
+        svg.innerHTML = `<div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #337ab7; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>`;
       }
       button.disabled = true;
       button.style.cursor = 'not-allowed';
@@ -2333,8 +2304,8 @@ export class DashboardManagerV2 {
         svg.style.transform = 'rotate(180deg)';
       }
       button.style.background = '#f8f9fa';
-      button.style.borderColor = '#4A90E2';
-      button.style.color = '#4A90E2';
+      button.style.borderColor = '#337ab7';
+      button.style.color = '#337ab7';
       button.title = 'Marknadsanalys (synlig - klicka för att dölja)';
     }
 
@@ -2353,7 +2324,7 @@ export class DashboardManagerV2 {
       }
       button.disabled = false;
       button.style.cursor = 'pointer';
-      button.style.backgroundColor = '#4A90E2';
+      button.style.backgroundColor = '#337ab7';
       button.style.color = 'white';
       button.title = 'Dölj marknadsanalys';
     }

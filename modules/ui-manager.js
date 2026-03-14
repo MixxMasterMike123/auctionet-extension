@@ -108,12 +108,11 @@ export class UIManager {
   getStylesCSS() {
     return `
       .quality-indicator {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        background: #f8f9fa;
         border: 1px solid #dee2e6;
-        border-radius: 12px;
+        border-radius: 3px;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
       
       .quality-header {
@@ -146,34 +145,33 @@ export class UIManager {
         display: inline-block;
         font-weight: bold;
         padding: 6px 16px;
-        border-radius: 20px;
+        border-radius: 3px;
         font-size: 14px;
         min-width: 80px;
         text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
       }
-      
-      .quality-score.good { 
-        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); 
-        color: #155724; 
+
+      .quality-score.good {
+        background: #d4edda;
+        color: #155724;
         border: 2px solid #b8dacc;
       }
-      
-      .quality-score.medium { 
-        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); 
-        color: #856404; 
+
+      .quality-score.medium {
+        background: #fff3cd;
+        color: #856404;
         border: 2px solid #f1c40f;
       }
-      
-      .quality-score.poor { 
-        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); 
-        color: #721c24; 
+
+      .quality-score.poor {
+        background: #f8d7da;
+        color: #721c24;
         border: 2px solid #e74c3c;
       }
-      
+
       .refresh-quality-btn {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        background: #6c757d;
         color: white;
         border: none;
         border-radius: 50%;
@@ -182,35 +180,31 @@ export class UIManager {
         font-size: 12px;
         cursor: pointer;
         transition: all 0.2s ease;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         display: flex;
         align-items: center;
         justify-content: center;
       }
-      
+
       .refresh-quality-btn:hover {
-        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
-        transform: rotate(180deg) scale(1.1);
+        background: #495057;
+        transform: rotate(180deg);
       }
-      
+
       .ai-master-button {
         width: 100%;
         padding: 8px 16px;
         font-size: 14px;
         font-weight: 600;
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        background: #28a745;
         color: white;
         border: none;
-        border-radius: 6px;
+        border-radius: 3px;
         cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+        transition: background 0.2s ease;
       }
-      
+
       .ai-master-button:hover {
-        background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+        background: #218838;
       }
       
       .ai-button-wrapper {
@@ -229,7 +223,7 @@ export class UIManager {
         background: #006ccc;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 3px;
         cursor: pointer;
         font-weight: 300;
       }
@@ -262,7 +256,7 @@ export class UIManager {
         color: #dc3545;
         border: 1px solid #dc3545;
         padding: 5px 10px;
-        border-radius: 4px;
+        border-radius: 3px;
         font-size: 11px;
         font-weight: 500;
         cursor: pointer;
@@ -320,7 +314,7 @@ export class UIManager {
         font-weight: 400;
         line-height: 1.4;
         padding: 8px 12px;
-        border-radius: 6px;
+        border-radius: 3px;
         border-left: 4px solid;
       }
       
@@ -354,7 +348,7 @@ export class UIManager {
         margin: 0;
         font-size: 14px;
         padding: 12px;
-        border-radius: 6px;
+        border-radius: 3px;
       }
     `;
   }
@@ -551,7 +545,7 @@ export class UIManager {
     const baseStyle = `
       margin: 8px 0;
       padding: 12px;
-      border-radius: 6px;
+      border-radius: 3px;
       border-left: 4px solid;
       font-size: 13px;
       line-height: 1.4;
@@ -586,22 +580,20 @@ export class UIManager {
         return `
           margin: 16px 0 8px 0;
           padding: 8px 12px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: #337ab7;
           color: white;
-          border-radius: 6px;
+          border-radius: 3px;
           font-weight: 600;
           font-size: 14px;
           text-align: center;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         `;
       case 'market-primary':
         return baseStyle + `
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-left-color: #667eea;
+          background: #337ab7;
+          border-left-color: #337ab7;
           color: white;
           font-weight: 600;
           font-size: 14px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         `;
       case 'market-insight':
         return baseStyle + `

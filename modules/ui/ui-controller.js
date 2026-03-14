@@ -115,12 +115,11 @@ export class UIController {
             style.id = 'quality-indicator-styles';
             style.textContent = `
         .quality-indicator {
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          background: #f8f9fa;
           border: 1px solid #dee2e6;
-          border-radius: 12px;
+          border-radius: 3px;
           padding: 20px;
           margin-bottom: 20px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
         .quality-header {
@@ -153,16 +152,15 @@ export class UIController {
           display: inline-block;
           font-weight: bold;
           padding: 6px 16px;
-          border-radius: 20px;
+          border-radius: 3px;
           font-size: 14px;
           min-width: 80px;
           text-align: center;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
           transition: all 0.3s ease;
         }
         
         .refresh-quality-btn {
-          background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+          background: #6c757d;
           color: white;
           border: none;
           border-radius: 50%;
@@ -171,36 +169,35 @@ export class UIController {
           font-size: 12px;
           cursor: pointer;
           transition: all 0.2s ease;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
           display: flex;
           align-items: center;
           justify-content: center;
         }
-        
+
         .refresh-quality-btn:hover {
-          background: linear-gradient(135deg, #495057 0%, #343a40 100%);
-          transform: rotate(180deg) scale(1.1);
+          background: #495057;
+          transform: rotate(180deg);
         }
-        
+
         .refresh-quality-btn:active {
           transform: rotate(180deg) scale(0.95);
         }
         
-        .quality-score.good { 
-          background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); 
-          color: #155724; 
+        .quality-score.good {
+          background: #d4edda;
+          color: #155724;
           border: 2px solid #b8dacc;
         }
-        
-        .quality-score.medium { 
-          background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); 
-          color: #856404; 
+
+        .quality-score.medium {
+          background: #fff3cd;
+          color: #856404;
           border: 2px solid #f1c40f;
         }
-        
-        .quality-score.poor { 
-          background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); 
-          color: #721c24; 
+
+        .quality-score.poor {
+          background: #f8d7da;
+          color: #721c24;
           border: 2px solid #e74c3c;
         }
         
@@ -209,24 +206,20 @@ export class UIController {
           padding: 8px 16px;
           font-size: 14px;
           font-weight: 600;
-          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+          background: #28a745;
           color: white;
           border: none;
-          border-radius: 6px;
+          border-radius: 3px;
           cursor: pointer;
-          transition: all 0.3s ease;
-          box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+          transition: background 0.2s ease;
         }
-        
+
         .ai-master-button:hover {
-          background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+          background: #218838;
         }
-        
+
         .ai-master-button:active {
-          transform: translateY(0);
-          box-shadow: 0 1px 4px rgba(40, 167, 69, 0.3);
+          background: #1e7e34;
         }
         
         .quality-warnings {
@@ -245,7 +238,7 @@ export class UIController {
           margin-bottom: 10px;
           font-size: 12px;
           padding: 8px 12px;
-          border-radius: 6px;
+          border-radius: 3px;
           border-left: 4px solid;
         }
         
@@ -294,11 +287,11 @@ export class UIController {
           background: #006ccc;
           color: white;
           border: none;
-          border-radius: 4px;
+          border-radius: 3px;
           cursor: pointer;
           font-weight: 300;
         }
-        
+
         .ai-assist-button:hover {
           background: #0056b3;
         }
@@ -320,28 +313,24 @@ export class UIController {
         }
         
         .ai-undo-button {
-          background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+          background: #dc3545;
           color: white;
           border: none;
           padding: 6px 12px;
-          border-radius: 4px;
+          border-radius: 3px;
           font-size: 12px;
           font-weight: 500;
           cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+          transition: background 0.2s ease;
           margin-left: 12px;
         }
-        
+
         .ai-undo-button:hover {
-          background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
-          transform: translateY(-1px);
-          box-shadow: 0 3px 6px rgba(220, 53, 69, 0.4);
+          background: #c82333;
         }
-        
+
         .ai-undo-button:active {
-          transform: translateY(0);
-          box-shadow: 0 1px 3px rgba(220, 53, 69, 0.3);
+          background: #a71e2a;
         }
         
         .ai-updated {
@@ -352,9 +341,9 @@ export class UIController {
         
         /* Artist Detection Styles */
         .warning-artist-detection {
-          background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+          background: #e3f2fd;
           border: 1px solid #2196f3;
-          border-radius: 8px;
+          border-radius: 3px;
           padding: 12px;
           margin: 8px 0;
         }
@@ -370,7 +359,7 @@ export class UIController {
           background: #2196f3;
           color: white;
           padding: 2px 8px;
-          border-radius: 12px;
+          border-radius: 3px;
           font-size: 11px;
           font-weight: bold;
         }
@@ -392,7 +381,7 @@ export class UIController {
         .artist-actions button {
           padding: 6px 12px;
           border: none;
-          border-radius: 4px;
+          border-radius: 3px;
           cursor: pointer;
           font-size: 12px;
           transition: all 0.2s ease;
@@ -405,27 +394,24 @@ export class UIController {
         
         .btn-artist-move:hover {
           background: #45a049;
-          transform: translateY(-1px);
         }
-        
+
         .btn-artist-bio {
-          background: #2196f3;
+          background: #337ab7;
           color: white;
         }
-        
+
         .btn-artist-bio:hover {
-          background: #1976d2;
-          transform: translateY(-1px);
+          background: #286090;
         }
-        
+
         .btn-artist-ignore {
-          background: #f44336;
+          background: #dc3545;
           color: white;
         }
-        
+
         .btn-artist-ignore:hover {
-          background: #d32f2f;
-          transform: translateY(-1px);
+          background: #c82333;
         }
       `;
             document.head.appendChild(style);
@@ -503,9 +489,9 @@ export class UIController {
             const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
 
             if (currentScore !== score) {
-                scoreElement.style.transform = 'scale(1.1)';
+                scoreElement.style.fontWeight = '900';
                 setTimeout(() => {
-                    scoreElement.style.transform = 'scale(1)';
+                    scoreElement.style.fontWeight = 'bold';
                 }, 200);
             }
 
@@ -637,13 +623,13 @@ export class UIController {
             style.textContent = `
         .field-loading { position: relative; }
         .field-loading input, .field-loading textarea { filter: blur(2px); transition: filter 0.3s ease; pointer-events: none; }
-        .field-spinner-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(1px); display: flex; align-items: center; justify-content: center; z-index: 1000; border-radius: 6px; animation: overlayFadeIn 0.3s ease; }
+        .field-spinner-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; border-radius: 3px; animation: overlayFadeIn 0.3s ease; }
         .ai-spinner { width: 24px; height: 24px; border: 2px solid #e5e7eb; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .ai-processing-text { margin-left: 12px; font-size: 13px; color: #374151; font-weight: 500; letter-spacing: 0.025em; }
-        @keyframes overlayFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .ai-processing-text { margin-left: 12px; font-size: 13px; color: #374151; font-weight: 500; }
+        @keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
         .field-success { animation: successFlash 0.6s ease; }
-        @keyframes successFlash { 0% { background-color: rgba(34, 197, 94, 0.1); border-color: #22c55e; } 50% { background-color: rgba(34, 197, 94, 0.2); border-color: #16a34a; } 100% { background-color: transparent; border-color: initial; } }
+        @keyframes successFlash { 0% { background-color: rgba(34, 197, 94, 0.1); border-color: #22c55e; } 50% { background-color: rgba(34, 197, 94, 0.2); border-color: #28a745; } 100% { background-color: transparent; border-color: initial; } }
       `;
             document.head.appendChild(style);
         }
@@ -1151,27 +1137,26 @@ export class UIController {
           justify-content: center;
           align-items: center;
           z-index: 10000;
-          backdrop-filter: blur(4px);
         }
-        
+
         .artist-bio-modal {
           background: white;
-          border-radius: 12px;
+          border-radius: 3px;
           max-width: 500px;
           width: 90%;
           max-height: 80vh;
           overflow-y: auto;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+          border: 1px solid #ddd;
         }
-        
+
         .artist-bio-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           padding: 20px;
           border-bottom: 1px solid #eee;
-          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-          border-radius: 12px 12px 0 0;
+          background: #f5f5f5;
+          border-radius: 3px 3px 0 0;
         }
         
         .artist-bio-header h3 {
@@ -1217,20 +1202,19 @@ export class UIController {
         .bio-actions button {
           padding: 8px 16px;
           border: none;
-          border-radius: 6px;
+          border-radius: 3px;
           cursor: pointer;
           font-weight: 500;
-          transition: all 0.2s ease;
+          transition: background 0.15s ease;
         }
-        
+
         .btn-add-bio-to-description {
-          background: #4caf50;
+          background: #28a745;
           color: white;
         }
-        
+
         .btn-add-bio-to-description:hover {
-          background: #45a049;
-          transform: translateY(-1px);
+          background: #218838;
         }
         
         .btn-close-bio {

@@ -23,7 +23,7 @@ export class TooltipManager {
       }
 
       .tooltip-trigger:hover {
-        transform: scale(1.05);
+        opacity: 0.8;
       }
 
       .tooltip-content {
@@ -31,7 +31,7 @@ export class TooltipManager {
         background: #2c3e50;
         color: white;
         padding: 12px 16px;
-        border-radius: 8px;
+        border-radius: 3px;
         font-size: 13px;
         line-height: 1.4;
         max-width: 280px;
@@ -39,8 +39,7 @@ export class TooltipManager {
         opacity: 0;
         visibility: hidden;
         transform: translate(-50%, -100%) translateY(-8px);
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        transition: opacity 0.2s ease;
         white-space: pre-line;
         text-align: left;
         pointer-events: none;

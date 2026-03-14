@@ -289,7 +289,7 @@ export class CircularProgressManager {
       const scoreText = scoreTexts[circleIndex];
       
       // Set up transition
-      circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+      circle.style.transition = 'stroke-dashoffset 1.5s ease';
       
       // Animate to final position
       const finalOffset = this.getDashOffset(30, finalScore);

@@ -55,13 +55,12 @@
 
 .freetext-parser-modal {
   background: white;
-  border-radius: 12px;
+  border-radius: 3px;
   width: 90%;
   max-width: 720px;
   max-height: 85vh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   animation: ftpSlideIn 0.2s ease-out;
   position: relative;
   border: 1px solid #dee2e6;
@@ -72,8 +71,8 @@
   padding: 20px 24px 16px;
   border-bottom: 1px solid #dee2e6;
   position: relative;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 12px 12px 0 0;
+  background: #f5f5f5;
+  border-radius: 3px 3px 0 0;
 }
 
 .popup-header h3 {
@@ -416,7 +415,7 @@
   gap: 8px;
   justify-content: flex-end;
   background: #f8f9fa;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 3px 3px;
 }
 
 .modal-footer::before {

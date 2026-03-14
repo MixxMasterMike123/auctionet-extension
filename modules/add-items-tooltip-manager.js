@@ -446,9 +446,9 @@ export class AddItemsTooltipManager {
       const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
       
       if (currentScore !== score) {
-        scoreElement.style.transform = 'scale(1.1)';
+        scoreElement.style.fontWeight = '900';
         setTimeout(() => {
-          scoreElement.style.transform = 'scale(1)';
+          scoreElement.style.fontWeight = 'bold';
         }, 200);
       }
       

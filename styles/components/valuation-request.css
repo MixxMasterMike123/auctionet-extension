@@ -41,7 +41,7 @@
 
 .vr-cluster-group {
   border: 2px dashed #d0d0d0;
-  border-radius: 6px;
+  border-radius: 3px;
   padding: 8px;
   margin-bottom: 8px;
   background: #fafafa;
@@ -151,7 +151,7 @@
   align-items: center;
   padding: 7px 10px;
   background: #e8f5e9;
-  border-radius: 5px;
+  border-radius: 3px;
   margin-bottom: 8px;
 }
 
@@ -169,7 +169,7 @@
 
 .vr-group-result {
   border: 1px solid #e9ecef;
-  border-radius: 5px;
+  border-radius: 3px;
   padding: 8px;
   margin-bottom: 6px;
   background: #fff;

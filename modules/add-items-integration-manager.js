@@ -265,9 +265,9 @@ export class AddItemsIntegrationManager {
     // Update score display with smooth transition
     const currentScore = parseInt(scoreElement.textContent.split('/')[0]) || 0;
     if (currentScore !== score) {
-      scoreElement.style.transform = 'scale(1.1)';
+      scoreElement.style.fontWeight = '900';
       setTimeout(() => {
-        scoreElement.style.transform = 'scale(1)';
+        scoreElement.style.fontWeight = 'bold';
       }, 200);
     }
     
@@ -434,12 +434,11 @@ export class AddItemsIntegrationManager {
     style.textContent = `
       /* AI Enhancement Integration Styles */
       .quality-indicator {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        background: #f8f9fa;
         border: 1px solid #dee2e6;
-        border-radius: 12px;
+        border-radius: 3px;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
       
       .quality-header {
@@ -472,34 +471,33 @@ export class AddItemsIntegrationManager {
         display: inline-block;
         font-weight: bold;
         padding: 6px 16px;
-        border-radius: 20px;
+        border-radius: 3px;
         font-size: 14px;
         min-width: 80px;
         text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
       }
-      
-      .quality-score.good { 
-        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); 
-        color: #155724; 
+
+      .quality-score.good {
+        background: #d4edda;
+        color: #155724;
         border: 2px solid #b8dacc;
       }
-      
-      .quality-score.medium { 
-        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); 
-        color: #856404; 
+
+      .quality-score.medium {
+        background: #fff3cd;
+        color: #856404;
         border: 2px solid #f1c40f;
       }
-      
-      .quality-score.poor { 
-        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); 
-        color: #721c24; 
+
+      .quality-score.poor {
+        background: #f8d7da;
+        color: #721c24;
         border: 2px solid #e74c3c;
       }
-      
+
       .refresh-quality-btn {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        background: #6c757d;
         color: white;
         border: none;
         border-radius: 50%;
@@ -508,15 +506,14 @@ export class AddItemsIntegrationManager {
         font-size: 12px;
         cursor: pointer;
         transition: all 0.2s ease;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         display: flex;
         align-items: center;
         justify-content: center;
       }
-      
+
       .refresh-quality-btn:hover {
-        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
-        transform: rotate(180deg) scale(1.1);
+        background: #495057;
+        transform: rotate(180deg);
       }
       
       .ai-assist-button {
@@ -525,7 +522,7 @@ export class AddItemsIntegrationManager {
         background: #006ccc;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 3px;
         cursor: pointer;
         font-weight: 300;
       }
@@ -555,24 +552,20 @@ export class AddItemsIntegrationManager {
         padding: 8px 16px;
         font-size: 14px;
         font-weight: 600;
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        background: #28a745;
         color: white;
         border: none;
-        border-radius: 6px;
+        border-radius: 3px;
         cursor: pointer;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 6px rgba(40, 167, 69, 0.3);
+        transition: background 0.2s ease;
       }
-      
+
       .ai-master-button:hover {
-        background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(40, 167, 69, 0.4);
+        background: #218838;
       }
-      
+
       .ai-master-button:active {
-        transform: translateY(0);
-        box-shadow: 0 1px 4px rgba(40, 167, 69, 0.3);
+        background: #1e7e34;
       }
       
       .ai-button-wrapper {
@@ -598,11 +591,11 @@ export class AddItemsIntegrationManager {
       }
       
       .ai-assist-button.success {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        background: #28a745;
       }
-      
+
       .ai-assist-button.error {
-        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        background: #dc3545;
       }
       
       @keyframes pulse {
