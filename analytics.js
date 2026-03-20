@@ -692,9 +692,7 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
 
     // Add admin-sourced KPI cards if available
     if (adminTotals) {
-      const unsoldYoY = adminYoY?.unsoldCount;
       economyCards.push(
-        { label: 'Osålda', value: fmt(adminTotals.unsoldCount), subtitle: `av ${fmt(adminTotals.totalCount)} totalt (${fmt(adminTotals.soldCount)} sålda)`, trend: unsoldYoY, invertTrend: true },
         { label: 'Provision (faktisk)', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
         { label: 'Unika besök/objekt', value: fmt(adminTotals.avgVisits), trend: adminYoY?.avgVisits },
       );
@@ -864,12 +862,6 @@ function renderCategoryTable(categories) {
     return adminCategoryMap.get(catName) || null;
   }
 
-  function recallClass(rate) {
-    if (rate <= 30) return 'ad-recall--good';
-    if (rate <= 50) return 'ad-recall--warn';
-    return 'ad-recall--bad';
-  }
-
   function buildRows(cats) {
     let html = '';
     for (const cat of cats) {
@@ -880,13 +872,9 @@ function renderCategoryTable(categories) {
       if (hasAdmin) {
         if (admin) {
           adminCols = `
-          <div class="ad-cat-row__unsold">${fmt(admin.unsoldCount)}</div>
-          <div class="ad-cat-row__recall ${recallClass(admin.recallRate)}">${admin.recallRate}%</div>
           <div class="ad-cat-row__visits">${fmt(admin.avgUniqueVisits)}</div>`;
         } else {
           adminCols = `
-          <div class="ad-cat-row__unsold">—</div>
-          <div class="ad-cat-row__recall">—</div>
           <div class="ad-cat-row__visits">—</div>`;
         }
       }
@@ -912,8 +900,6 @@ function renderCategoryTable(categories) {
   }
 
   const adminHeaders = hasAdmin ? `
-      <span class="ad-cat-header__sortable" data-sort="unsold">Osålda${sortIcon('unsold')}</span>
-      <span class="ad-cat-header__sortable" data-sort="recall">Återrop${sortIcon('recall')}</span>
       <span>Besök</span>` : '';
 
   card.innerHTML = `

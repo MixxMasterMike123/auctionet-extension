@@ -4,6 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Försäljningsanalys — Auctionet</title>
+  <script>
+    // Apply saved theme immediately to prevent flash of wrong theme
+    const t = localStorage.getItem('ad-theme');
+    if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('ad-dark');
+    }
+  </script>
   <link rel="stylesheet" href="styles/components/analytics.css">
   <link rel="icon" href="icons/icon-48.png">
 </head>

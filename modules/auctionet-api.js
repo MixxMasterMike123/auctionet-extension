@@ -158,7 +158,7 @@ export class AuctionetAPI {
 
 
     // Ensure company exclusion setting is loaded before searching
-    await this.loadExcludeCompanySetting();
+    await this.loadOwnCompanySetting();
 
     try {
       let bestResult = null;

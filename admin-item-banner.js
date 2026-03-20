@@ -466,10 +466,10 @@
     
     // Find the best insertion point - after navbar but before main content
     const insertionPoints = [
+      '.site-header',
       '.navbar.navbar-fixed-top',
       '.navbar-fixed-top',
       '.navbar',
-      '.container'
     ];
     
     let insertionTarget = null;
@@ -486,7 +486,7 @@
       insertionTarget.parentNode.insertBefore(banner, insertionTarget.nextSibling);
     } else {
       // Fallback: insert at beginning of container
-      const container = document.querySelector('.container');
+      const container = document.querySelector('.container:not(.site-header .container)');
       if (container) {
         container.insertBefore(banner, container.firstChild);
       } else {

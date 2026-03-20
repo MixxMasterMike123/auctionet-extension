@@ -1788,7 +1788,7 @@ export class DashboardManagerV2 {
     if (existingDropdownContainer) existingDropdownContainer.remove();
 
     // Find the main container to insert dropdown content above
-    const mainContainer = document.querySelector('.container');
+    const mainContainer = document.querySelector('.container:not(.site-header .container)');
     if (!mainContainer) {
       console.error('Main container not found, cannot create smooth dropdown');
       return;
@@ -2007,8 +2007,8 @@ export class DashboardManagerV2 {
     const existingLoading = document.querySelector('.market-analysis-loading');
     if (existingLoading) existingLoading.remove();
 
-    // Find main container
-    const mainContainer = document.querySelector('.container');
+    // Find main container (skip .container inside .site-header)
+    const mainContainer = document.querySelector('.container:not(.site-header .container)');
     if (!mainContainer) return;
 
     // Create loading container

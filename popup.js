@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const showDashboardCheckbox = document.getElementById('show-dashboard');
   const ownCompanyInput = document.getElementById('own-company-id');
   const saveOwnCompanyButton = document.getElementById('save-own-company');
-  const searchDefaultsCheckbox = document.getElementById('search-defaults');
   const enablePubScannerCheckbox = document.getElementById('enable-pub-scanner');
 
   const adminUI = document.getElementById('admin-ui');
@@ -21,7 +20,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadArtistInfoSetting();
   await loadShowDashboardSetting();
   await loadOwnCompanySetting();
-  await loadSearchDefaultsSetting();
   await loadPubScannerSetting();
   await renderAdminUI();
   
@@ -34,7 +32,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   enableArtistInfoCheckbox.addEventListener('change', saveArtistInfoSetting);
   showDashboardCheckbox.addEventListener('change', saveShowDashboardSetting);
   saveOwnCompanyButton.addEventListener('click', saveOwnCompanySetting);
-  searchDefaultsCheckbox.addEventListener('change', saveSearchDefaultsSetting);
   enablePubScannerCheckbox.addEventListener('change', savePubScannerSetting);
   document.getElementById('open-analytics').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('analytics.html') });
@@ -319,26 +316,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       
     } catch (error) {
       console.error('Error saving show dashboard setting:', error);
-    }
-  }
-
-  async function loadSearchDefaultsSetting() {
-    try {
-      const result = await chrome.storage.sync.get(['searchDefaults']);
-      // Default to true (enabled)
-      const isEnabled = result.searchDefaults !== undefined ? result.searchDefaults : true;
-      searchDefaultsCheckbox.checked = isEnabled;
-    } catch (error) {
-      console.error('Error loading search defaults setting:', error);
-      searchDefaultsCheckbox.checked = true;
-    }
-  }
-
-  async function saveSearchDefaultsSetting() {
-    try {
-      await chrome.storage.sync.set({ searchDefaults: searchDefaultsCheckbox.checked });
-    } catch (error) {
-      console.error('Error saving search defaults setting:', error);
     }
   }
 
