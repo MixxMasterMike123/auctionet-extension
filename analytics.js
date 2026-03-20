@@ -125,7 +125,7 @@ async function init() {
   });
 
   refreshBtn.addEventListener('click', () => {
-    if (currentCompanyId) loadCompany(currentCompanyId, false, true);
+    if (currentCompanyId) loadCompany(currentCompanyId, true); // full re-fetch from scratch
   });
 
   companyIdInput.addEventListener('keydown', async e => {
