@@ -15,6 +15,7 @@ import {
 } from './modules/analytics/ai-insights.js';
 import {
   fetchAuctionResultsWithCache, fetchAuctionResultsSamePeriod,
+  fetchAuctionResultsForMonth,
   computeAdminTotals, computeAdminYoY, buildAdminCategoryMap,
 } from './modules/analytics/auction-results-scraper.js';
 
@@ -76,8 +77,9 @@ let adminData = null;       // { current: categories[], previous: categories[] }
 let adminTotals = null;     // computeAdminTotals() result
 let adminYoY = null;        // computeAdminYoY() result
 let adminCategoryMap = null; // Map<parentName, aggregated admin data>
-let adminLoadedYear = null; // Which year admin data was last fetched for
-let adminLoading = false;   // True while admin data is being fetched
+let adminLoadedYear = null;  // Which year admin data was last fetched for
+let adminLoadedMonth = undefined; // Which month (null=all, 0-11=specific), undefined=not loaded
+let adminLoading = false;    // True while admin data is being fetched
 const filters = new FilterState();
 
 // ─── DOM References ───────────────────────────────────────
@@ -156,11 +158,12 @@ async function init() {
   });
 
   filters.onChange(async (f) => {
-    const needsAdminRefresh = f.year !== adminLoadedYear
+    const needsAdminRefresh = (f.year !== adminLoadedYear || f.month !== adminLoadedMonth)
       && ownCompanyId != null && currentCompanyId === ownCompanyId;
 
     if (needsAdminRefresh) {
       adminLoadedYear = null;
+      adminLoadedMonth = undefined;
       adminLoading = true;
     }
 
@@ -200,36 +203,44 @@ async function loadAdminData() {
   const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
   if (!isOwnHouse) {
     adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
-    adminLoadedYear = null;
+    adminLoadedYear = null; adminLoadedMonth = undefined;
     return;
   }
 
   const year = filters.year || new Date().getFullYear();
+  const month = filters.month; // null = all months, 0-11 = specific
 
-  // Skip if already loaded for this year
-  if (adminLoadedYear === year) return;
+  // Skip if already loaded for this year+month combination
+  if (adminLoadedYear === year && adminLoadedMonth === month) return;
 
   adminLoading = true;
   try {
     const currentYear = new Date().getFullYear();
 
-    // Fetch current year data
-    const current = await fetchAuctionResultsWithCache(year);
+    // Fetch current period data (month-specific or full year)
+    const current = month != null
+      ? await fetchAuctionResultsForMonth(year, month)
+      : await fetchAuctionResultsWithCache(year);
     adminData = { current };
     adminTotals = computeAdminTotals(current);
     adminCategoryMap = buildAdminCategoryMap(current);
 
-    // YoY: for current year, use same-period (Jan 1 → today) for previous year
-    // For historical years, use full year vs full year
-    const previous = year === currentYear
-      ? await fetchAuctionResultsSamePeriod(year - 1)
-      : await fetchAuctionResultsWithCache(year - 1);
+    // YoY: compare same period in previous year
+    let previous;
+    if (month != null) {
+      previous = await fetchAuctionResultsForMonth(year - 1, month);
+    } else if (year === currentYear) {
+      previous = await fetchAuctionResultsSamePeriod(year - 1);
+    } else {
+      previous = await fetchAuctionResultsWithCache(year - 1);
+    }
     adminData.previous = previous;
     adminYoY = computeAdminYoY(adminTotals, computeAdminTotals(previous));
     adminLoadedYear = year;
+    adminLoadedMonth = month;
   } catch {
     adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
-    adminLoadedYear = null;
+    adminLoadedYear = null; adminLoadedMonth = undefined;
   } finally {
     adminLoading = false;
   }
@@ -241,6 +252,7 @@ async function loadCompany(companyId, forceRefresh = false, forceIncremental = f
   currentCompanyId = companyId;
   companySelect.value = companyId;
   adminLoadedYear = null; // Force admin data re-fetch for new company
+  adminLoadedMonth = undefined;
 
   if (!forceRefresh && !forceIncremental) {
     const cached = await loadCache(companyId);

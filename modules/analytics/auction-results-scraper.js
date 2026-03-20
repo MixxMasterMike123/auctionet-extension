@@ -199,6 +199,40 @@ export async function fetchAuctionResultsWithCache(year) {
 }
 
 /**
+ * Fetch auction results for a specific month within a year.
+ * @param {number} year
+ * @param {number} month — 0-11 (JS month index)
+ */
+export async function fetchAuctionResultsForMonth(year, month) {
+  const mm = String(month + 1).padStart(2, '0');
+  const fromDate = `${year}-${mm}-01`;
+
+  // Last day of month
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  let toDate;
+  if (year === currentYear && month === currentMonth) {
+    // Current month: use today as cutoff
+    toDate = formatDate(now);
+  } else {
+    // Completed month: use last day
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    toDate = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
+  }
+
+  const cacheKey = `${year}_m${mm}`;
+  const cached = await loadAdminCache(cacheKey);
+  if (cached && !cached.isExpired) {
+    return { categories: cached.categories, totals: cached.totals };
+  }
+
+  const result = await fetchAuctionResults({ fromDate, toDate });
+  await saveAdminCache(cacheKey, result.categories, result.totals);
+  return result;
+}
+
+/**
  * Fetch same-period data for YoY comparison.
  * Uses Jan 1 → today's month/day for the given year (e.g., Jan 1–Mar 20 of 2024).
  * Only needed for previous years; current year already uses today as cutoff.
