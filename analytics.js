@@ -720,11 +720,16 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
     if (adminLoading) {
       economyCards.push(
         { label: 'Provision (faktisk)', value: '...', loading: true },
+        { label: 'Omlistningsandel', value: '...', loading: true },
         { label: 'Unika besök/objekt', value: '...', loading: true },
       );
     } else if (adminTotals) {
+      const relistPct = adminTotals.relistingRate;
+      const relistColor = relistPct <= 30 ? 'var(--ad-positive)' : relistPct <= 45 ? '#ef6c00' : 'var(--ad-negative)';
+      const relistSubtitle = `${fmt(adminTotals.totalCount - adminTotals.soldCount)} av ${fmt(adminTotals.totalCount)} auktionsförsök`;
       economyCards.push(
         { label: 'Provision (faktisk)', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
+        { label: 'Omlistningsandel', value: `${relistPct}%`, trend: adminYoY?.relistingRate, invertTrend: true, subtitle: relistSubtitle, valueColor: relistColor },
         { label: 'Unika besök/objekt', value: fmt(adminTotals.avgVisits), trend: adminYoY?.avgVisits },
       );
     }
@@ -757,9 +762,10 @@ function buildKPIGrid(cards, extraClass) {
 
     const subtitleHTML = c.subtitle ? `<div class="ad-kpi-card__subtitle">${escHTML(c.subtitle)}</div>` : '';
 
+    const valueStyle = c.valueColor ? ` style="color:${c.valueColor}"` : '';
     card.innerHTML = `
       <div class="ad-kpi-card__label">${escHTML(c.label)}</div>
-      <div class="ad-kpi-card__value">${escHTML(c.value)}</div>
+      <div class="ad-kpi-card__value"${valueStyle}>${escHTML(c.value)}</div>
       ${subtitleHTML}
       ${trendHTML}`;
 
