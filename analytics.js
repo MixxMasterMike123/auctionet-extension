@@ -14,7 +14,8 @@ import {
   clearInsightsCache, renderInsightsPanel, renderInsightsSummaryCard,
 } from './modules/analytics/ai-insights.js';
 import {
-  fetchAuctionResultsWithCache, computeAdminTotals, computeAdminYoY, buildAdminCategoryMap,
+  fetchAuctionResultsWithCache, fetchAuctionResultsSamePeriod,
+  computeAdminTotals, computeAdminYoY, buildAdminCategoryMap,
 } from './modules/analytics/auction-results-scraper.js';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
@@ -189,14 +190,21 @@ async function loadAdminData() {
 
   try {
     const year = filters.year || new Date().getFullYear();
-    const [current, previous] = await Promise.all([
-      fetchAuctionResultsWithCache(year),
-      fetchAuctionResultsWithCache(year - 1),
-    ]);
-    adminData = { current, previous };
+    const currentYear = new Date().getFullYear();
+
+    // Fetch current year data
+    const current = await fetchAuctionResultsWithCache(year);
+    adminData = { current };
     adminTotals = computeAdminTotals(current);
-    adminYoY = computeAdminYoY(adminTotals, computeAdminTotals(previous));
     adminCategoryMap = buildAdminCategoryMap(current);
+
+    // YoY: for current year, use same-period (Jan 1 → today) for previous year
+    // For historical years, use full year vs full year
+    const previous = year === currentYear
+      ? await fetchAuctionResultsSamePeriod(year - 1)
+      : await fetchAuctionResultsWithCache(year - 1);
+    adminData.previous = previous;
+    adminYoY = computeAdminYoY(adminTotals, computeAdminTotals(previous));
   } catch {
     adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
   }

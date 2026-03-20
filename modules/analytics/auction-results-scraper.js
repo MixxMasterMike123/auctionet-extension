@@ -154,17 +154,16 @@ async function fetchAdminHTML(url) {
 
 // ─── Public API ───────────────────────────────────────────
 
-export async function fetchAuctionResults(year) {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-
-  const fromDate = `${year}-01-01`;
-  const toDate = year === currentYear ? formatDate(now) : `${year}-12-31`;
-
+/**
+ * Fetch auction results for a date range.
+ * @param {object} opts
+ * @param {string} opts.fromDate — 'YYYY-MM-DD'
+ * @param {string} opts.toDate — 'YYYY-MM-DD'
+ */
+export async function fetchAuctionResults({ fromDate, toDate }) {
   const url = buildAuctionResultsURL(fromDate, toDate);
   const html = await fetchAdminHTML(url);
 
-  // Detect login page (no auction results table)
   const result = parseAuctionResultsHTML(html);
   if (!result) {
     throw new Error('Auction results table not found — are you logged in to Auctionet admin?');
@@ -173,15 +172,49 @@ export async function fetchAuctionResults(year) {
   return result; // { categories, totals }
 }
 
+/**
+ * Fetch auction results for a year with caching.
+ * For current year: Jan 1 → today.
+ * For past years: Jan 1 → Dec 31.
+ */
 export async function fetchAuctionResultsWithCache(year) {
   const cached = await loadAdminCache(year);
   if (cached && !cached.isExpired) {
     return { categories: cached.categories, totals: cached.totals };
   }
 
-  const result = await fetchAuctionResults(year);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const fromDate = `${year}-01-01`;
+  const toDate = year === currentYear ? formatDate(now) : `${year}-12-31`;
+
+  const result = await fetchAuctionResults({ fromDate, toDate });
   await saveAdminCache(year, result.categories, result.totals);
-  return result; // { categories, totals }
+  return result;
+}
+
+/**
+ * Fetch same-period data for YoY comparison.
+ * Uses Jan 1 → today's month/day for the given year (e.g., Jan 1–Mar 20 of 2024).
+ * Only needed for previous years; current year already uses today as cutoff.
+ */
+export async function fetchAuctionResultsSamePeriod(year) {
+  const now = new Date();
+  const fromDate = `${year}-01-01`;
+  const toMonth = String(now.getMonth() + 1).padStart(2, '0');
+  const toDay = String(now.getDate()).padStart(2, '0');
+  const toDate = `${year}-${toMonth}-${toDay}`;
+
+  // Use a separate cache key to avoid overwriting full-year cache
+  const cacheKey = `${year}_sp`;
+  const cached = await loadAdminCache(cacheKey);
+  if (cached && !cached.isExpired) {
+    return { categories: cached.categories, totals: cached.totals };
+  }
+
+  const result = await fetchAuctionResults({ fromDate, toDate });
+  await saveAdminCache(cacheKey, result.categories, result.totals);
+  return result;
 }
 
 // ─── Aggregation Helpers ──────────────────────────────────
