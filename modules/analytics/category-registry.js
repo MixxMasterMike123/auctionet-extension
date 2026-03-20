@@ -82,8 +82,12 @@ const PARENT_NAMES = {
   270: 'Trädgård & Bygg',
 };
 
-// All 25 parent category IDs (used for sharded fetching)
+// All 25 parent category IDs
 export const PARENT_CATEGORY_IDS = Object.keys(PARENT_NAMES).map(Number);
+
+// All sub-category IDs (used for sharded fetching — sub-categories give ~96% coverage
+// vs ~77% with parent categories, since fewer sub-cats exceed the 10k API cap)
+export const SUB_CATEGORY_IDS = Object.keys(SUB_TO_PARENT).map(Number);
 
 export function getParentCategoryId(subCategoryId) {
   return SUB_TO_PARENT[subCategoryId] || subCategoryId;

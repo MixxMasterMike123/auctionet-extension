@@ -1,6 +1,6 @@
 // data-fetcher.js — Fetches sold items from Auctionet API with category sharding
 
-import { PARENT_CATEGORY_IDS } from './category-registry.js';
+import { SUB_CATEGORY_IDS } from './category-registry.js';
 import { compressItem, saveCache, loadCache } from './data-cache.js';
 
 const API_BASE = 'https://auctionet.com/api/v2/items.json';
@@ -42,13 +42,15 @@ async function fetchDirect(companyId, onProgress) {
   return { items: allItems, hitCap: allItems.length >= MAX_PAGES * PER_PAGE };
 }
 
-// Category-sharded fetch — sequential categories, reports per-page progress
+// Sub-category-sharded fetch — fetches per sub-category for deeper coverage
+// Sub-categories have fewer items each, so fewer hit the 10k API page cap.
+// ~100 sub-categories vs ~25 parent categories, but ~96% vs ~77% coverage.
 async function fetchSharded(companyId, onProgress) {
   const allItems = new Map();
-  const totalCats = PARENT_CATEGORY_IDS.length;
+  const totalCats = SUB_CATEGORY_IDS.length;
 
   for (let ci = 0; ci < totalCats; ci++) {
-    const catId = PARENT_CATEGORY_IDS[ci];
+    const catId = SUB_CATEGORY_IDS[ci];
     let page = 1;
 
     while (page <= MAX_PAGES) {
