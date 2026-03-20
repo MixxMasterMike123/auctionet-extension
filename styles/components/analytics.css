@@ -136,6 +136,8 @@ body {
 .ad-btn:hover { background: var(--ad-bg); border-color: var(--ad-text-light); }
 .ad-btn--primary { background: var(--ad-accent); color: white; border-color: var(--ad-accent); }
 .ad-btn--primary:hover { background: #1d4ed8; }
+.ad-btn--danger { background: var(--ad-negative); color: white; border-color: var(--ad-negative); }
+.ad-btn--danger:hover { background: #b91c1c; }
 .ad-btn--sm { padding: 5px 10px; font-size: 12px; }
 
 /* ─── Meta line ──────────────────────────────────────────── */

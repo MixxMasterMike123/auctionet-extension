@@ -125,7 +125,13 @@ async function init() {
   });
 
   refreshBtn.addEventListener('click', () => {
-    if (currentCompanyId) loadCompany(currentCompanyId, true); // full re-fetch from scratch
+    if (currentCompanyId) loadCompany(currentCompanyId, false, true);
+  });
+
+  $('full-refresh-btn').addEventListener('click', () => {
+    if (!currentCompanyId) return;
+    if (!confirm('Är du säker? All cachad data rensas och hämtas om från Auctionet.\nDetta kan ta flera minuter för stora auktionshus.')) return;
+    loadCompany(currentCompanyId, true); // wipe cache, fetch everything
   });
 
   companyIdInput.addEventListener('keydown', async e => {
