@@ -475,6 +475,17 @@ body {
   border-left: 3px solid var(--ad-accent);
 }
 
+.ad-kpi-card--loading {
+  animation: ad-kpi-pulse 1.2s ease-in-out infinite;
+}
+.ad-kpi-card--loading .ad-kpi-card__value {
+  opacity: 0.4;
+}
+@keyframes ad-kpi-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* ─── Chart Cards ────────────────────────────────────────── */
 
 .ad-charts-row {

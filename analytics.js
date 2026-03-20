@@ -76,6 +76,8 @@ let adminData = null;       // { current: categories[], previous: categories[] }
 let adminTotals = null;     // computeAdminTotals() result
 let adminYoY = null;        // computeAdminYoY() result
 let adminCategoryMap = null; // Map<parentName, aggregated admin data>
+let adminLoadedYear = null; // Which year admin data was last fetched for
+let adminLoading = false;   // True while admin data is being fetched
 const filters = new FilterState();
 
 // ─── DOM References ───────────────────────────────────────
@@ -153,9 +155,22 @@ async function init() {
     localStorage.setItem('ad-theme', document.documentElement.classList.contains('ad-dark') ? 'dark' : 'light');
   });
 
-  filters.onChange(() => {
+  filters.onChange(async (f) => {
+    const needsAdminRefresh = f.year !== adminLoadedYear
+      && ownCompanyId != null && currentCompanyId === ownCompanyId;
+
+    if (needsAdminRefresh) {
+      adminLoadedYear = null;
+      adminLoading = true;
+    }
+
     renderSidebar();
     renderDashboard();
+
+    if (needsAdminRefresh) {
+      await loadAdminData();
+      renderDashboard();
+    }
   });
 }
 
@@ -185,11 +200,17 @@ async function loadAdminData() {
   const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
   if (!isOwnHouse) {
     adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
+    adminLoadedYear = null;
     return;
   }
 
+  const year = filters.year || new Date().getFullYear();
+
+  // Skip if already loaded for this year
+  if (adminLoadedYear === year) return;
+
+  adminLoading = true;
   try {
-    const year = filters.year || new Date().getFullYear();
     const currentYear = new Date().getFullYear();
 
     // Fetch current year data
@@ -205,8 +226,12 @@ async function loadAdminData() {
       : await fetchAuctionResultsWithCache(year - 1);
     adminData.previous = previous;
     adminYoY = computeAdminYoY(adminTotals, computeAdminTotals(previous));
+    adminLoadedYear = year;
   } catch {
     adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
+    adminLoadedYear = null;
+  } finally {
+    adminLoading = false;
   }
 }
 
@@ -215,6 +240,7 @@ async function loadAdminData() {
 async function loadCompany(companyId, forceRefresh = false, forceIncremental = false) {
   currentCompanyId = companyId;
   companySelect.value = companyId;
+  adminLoadedYear = null; // Force admin data re-fetch for new company
 
   if (!forceRefresh && !forceIncremental) {
     const cached = await loadCache(companyId);
@@ -690,8 +716,13 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
       { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY, sparkData: null },
     ];
 
-    // Add admin-sourced KPI cards if available
-    if (adminTotals) {
+    // Add admin-sourced KPI cards if available (or show loading state)
+    if (adminLoading) {
+      economyCards.push(
+        { label: 'Provision (faktisk)', value: '...', loading: true },
+        { label: 'Unika besök/objekt', value: '...', loading: true },
+      );
+    } else if (adminTotals) {
       economyCards.push(
         { label: 'Provision (faktisk)', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
         { label: 'Unika besök/objekt', value: fmt(adminTotals.avgVisits), trend: adminYoY?.avgVisits },
@@ -714,7 +745,7 @@ function buildKPIGrid(cards, extraClass) {
 
   for (const c of cards) {
     const card = document.createElement('div');
-    card.className = 'ad-kpi-card';
+    card.className = 'ad-kpi-card' + (c.loading ? ' ad-kpi-card--loading' : '');
 
     let trendHTML = '';
     if (c.trend != null) {
