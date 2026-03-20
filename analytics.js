@@ -722,28 +722,36 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
     const prevNetPerItem = prevKpis.count > 0 ? Math.round(prevNetRevenue / prevKpis.count) : 0;
     const netPerItemYoY = prevNetPerItem > 0 ? Math.round(((netPerItem - prevNetPerItem) / prevNetPerItem) * 1000) / 10 : null;
 
-    const economyCards = [
-      { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_RATE)), sparkFmt: fmtSEK },
-      { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * NET_RATE + m.count * PHOTO_COST)), sparkFmt: fmtSEK },
-      { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY, sparkData: null },
-    ];
+    let economyCards;
 
-    // Add admin-sourced KPI cards if available (or show loading state)
     if (adminLoading) {
-      economyCards.push(
-        { label: 'Provision (faktisk)', value: '...', loading: true },
+      // Show estimates + loading placeholders for admin cards
+      economyCards = [
+        { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_RATE)), sparkFmt: fmtSEK },
+        { label: 'Provision', value: '...', loading: true },
+        { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY },
         { label: 'Sålt vid 1:a försöket', value: '...', loading: true },
         { label: 'Unika besök/objekt', value: '...', loading: true },
-      );
+      ];
     } else if (adminTotals) {
+      // Real admin data available — use actual commission instead of estimates
       const fsr = adminTotals.firstSaleRate;
       const fsrColor = fsr >= 65 ? 'var(--ad-positive)' : fsr >= 50 ? '#ef6c00' : 'var(--ad-negative)';
       const fsrSubtitle = `${fmt(adminTotals.soldCount)} av ${fmt(adminTotals.totalCount)} auktionsförsök`;
-      economyCards.push(
-        { label: 'Provision (faktisk)', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
+      economyCards = [
+        { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_RATE)), sparkFmt: fmtSEK },
+        { label: 'Provision', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
+        { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY },
         { label: 'Sålt vid 1:a försöket', value: `${fsr}%`, trend: adminYoY?.firstSaleRate, subtitle: fsrSubtitle, valueColor: fsrColor },
         { label: 'Unika besök/objekt', value: fmt(adminTotals.avgVisits), trend: adminYoY?.avgVisits },
-      );
+      ];
+    } else {
+      // No admin data — show estimates as fallback
+      economyCards = [
+        { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_RATE)), sparkFmt: fmtSEK },
+        { label: 'Nettointäkt (uppsk.)', value: fmtSEK(netRevenue), trend: netRevYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * NET_RATE + m.count * PHOTO_COST)), sparkFmt: fmtSEK },
+        { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY },
+      ];
     }
 
     const sectionLabel = document.createElement('div');
