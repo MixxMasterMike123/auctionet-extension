@@ -472,7 +472,10 @@ body {
 }
 
 .ad-kpi-grid--economy .ad-kpi-card {
-  border-left: 3px solid var(--ad-accent);
+  border-left: 3px solid #b8860b;
+}
+.ad-dark .ad-kpi-grid--economy .ad-kpi-card {
+  border-left-color: #d4a854;
 }
 
 .ad-kpi-card--loading {
