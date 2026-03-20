@@ -692,8 +692,9 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
 
     // Add admin-sourced KPI cards if available
     if (adminTotals) {
+      const unsoldYoY = adminYoY?.unsoldCount;
       economyCards.push(
-        { label: 'Osålda', value: `${adminTotals.recallRate}%`, subtitle: `${fmt(adminTotals.unsoldCount)} av ${fmt(adminTotals.totalCount)}`, trend: adminYoY?.recallRate, invertTrend: true },
+        { label: 'Osålda', value: fmt(adminTotals.unsoldCount), subtitle: `av ${fmt(adminTotals.totalCount)} totalt (${fmt(adminTotals.soldCount)} sålda)`, trend: unsoldYoY, invertTrend: true },
         { label: 'Provision (faktisk)', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
         { label: 'Unika besök/objekt', value: fmt(adminTotals.avgVisits), trend: adminYoY?.avgVisits },
       );
