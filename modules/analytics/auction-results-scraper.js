@@ -1,5 +1,10 @@
 // auction-results-scraper.js — Scrapes /admin/sas/auction_results for category-level sales data
-// Provides data the public API cannot: unsold counts, recall rates, commission, unique visits
+// Provides data the public API cannot: commission, unique visits, hammered prices, estimates
+//
+// NOTE: This data source counts AUCTION LOT APPEARANCES, not unique items.
+// With Auctionet's 3x relisting policy, an item relisted 3 times appears as 3 separate rows.
+// Therefore unsoldCount from this source is "unsold lots", NOT "unsold items", and must NOT
+// be used for recall rate calculations. Use Flödesstatistik (/admin/sas) for true recall rates.
 
 import { loadAdminCache, saveAdminCache } from './data-cache.js';
 
@@ -230,13 +235,9 @@ export function computeAdminTotals(result) {
 
   // Prefer the authoritative footer totals from "Totalt eller genomsnitt" row
   if (footerTotals) {
-    const recallRate = footerTotals.totalCount > 0
-      ? Math.round((footerTotals.unsoldCount / footerTotals.totalCount) * 1000) / 10 : 0;
     return {
       totalCount: footerTotals.totalCount,
       soldCount: footerTotals.soldCount,
-      unsoldCount: footerTotals.unsoldCount,
-      recallRate,
       totalHammered: footerTotals.totalHammered,
       totalEstimate: footerTotals.totalEstimate,
       totalCommission: footerTotals.totalCommission,
@@ -245,14 +246,13 @@ export function computeAdminTotals(result) {
   }
 
   // Fallback: sum from subcategory rows
-  let totalCount = 0, soldCount = 0, unsoldCount = 0;
+  let totalCount = 0, soldCount = 0;
   let totalHammered = 0, totalEstimate = 0, totalCommission = 0;
   let visitSum = 0, visitItems = 0;
 
   for (const cat of categories) {
     totalCount += cat.totalCount;
     soldCount += cat.soldCount;
-    unsoldCount += cat.unsoldCount;
     totalHammered += cat.totalHammered;
     totalEstimate += cat.totalEstimate;
     totalCommission += cat.totalCommission;
@@ -262,10 +262,9 @@ export function computeAdminTotals(result) {
     }
   }
 
-  const recallRate = totalCount > 0 ? Math.round((unsoldCount / totalCount) * 1000) / 10 : 0;
   const avgVisits = visitItems > 0 ? Math.round(visitSum / visitItems) : 0;
 
-  return { totalCount, soldCount, unsoldCount, recallRate, totalHammered, totalEstimate, totalCommission, avgVisits };
+  return { totalCount, soldCount, totalHammered, totalEstimate, totalCommission, avgVisits };
 }
 
 export function computeAdminYoY(current, previous) {
@@ -279,8 +278,6 @@ export function computeAdminYoY(current, previous) {
   return {
     totalCount: pctChange(current.totalCount, previous.totalCount),
     soldCount: pctChange(current.soldCount, previous.soldCount),
-    unsoldCount: pctChange(current.unsoldCount, previous.unsoldCount),
-    recallRate: pctChange(current.recallRate, previous.recallRate),
     totalHammered: pctChange(current.totalHammered, previous.totalHammered),
     totalCommission: pctChange(current.totalCommission, previous.totalCommission),
     avgVisits: pctChange(current.avgVisits, previous.avgVisits),
@@ -297,11 +294,10 @@ export function buildAdminCategoryMap(result) {
     // Group by parent category name for matching with API data
     const key = cat.parentName || cat.name;
     if (!map.has(key)) {
-      map.set(key, { soldCount: 0, unsoldCount: 0, totalCount: 0, avgUniqueVisits: 0, totalCommission: 0, _visitWeightedSum: 0 });
+      map.set(key, { soldCount: 0, totalCount: 0, avgUniqueVisits: 0, totalCommission: 0, _visitWeightedSum: 0 });
     }
     const agg = map.get(key);
     agg.soldCount += cat.soldCount;
-    agg.unsoldCount += cat.unsoldCount;
     agg.totalCount += cat.totalCount;
     agg.totalCommission += cat.totalCommission;
     agg._visitWeightedSum += cat.avgUniqueVisits * cat.totalCount;
@@ -309,7 +305,6 @@ export function buildAdminCategoryMap(result) {
 
   // Compute averages
   for (const [, agg] of map) {
-    agg.recallRate = agg.totalCount > 0 ? Math.round((agg.unsoldCount / agg.totalCount) * 1000) / 10 : 0;
     agg.avgUniqueVisits = agg.totalCount > 0 ? Math.round(agg._visitWeightedSum / agg.totalCount) : 0;
     delete agg._visitWeightedSum;
   }
