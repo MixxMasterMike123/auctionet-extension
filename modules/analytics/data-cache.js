@@ -54,6 +54,38 @@ export async function clearCache(companyId) {
   await chrome.storage.local.remove([key]);
 }
 
+// ─── Admin Auction Results Cache ──────────────────────────
+
+const ADMIN_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+
+function adminCacheKey(year) {
+  return `auction_results_${year}`;
+}
+
+export async function loadAdminCache(year) {
+  const key = adminCacheKey(year);
+  const result = await chrome.storage.local.get([key]);
+  const cached = result[key];
+  if (!cached) return null;
+
+  const age = Date.now() - cached.fetchedAt;
+  return {
+    categories: cached.categories,
+    fetchedAt: cached.fetchedAt,
+    isExpired: age > ADMIN_CACHE_TTL,
+  };
+}
+
+export async function saveAdminCache(year, categories) {
+  const key = adminCacheKey(year);
+  await chrome.storage.local.set({
+    [key]: {
+      categories,
+      fetchedAt: Date.now(),
+    },
+  });
+}
+
 // Load list of previously fetched companies (for dropdown)
 export async function getKnownCompanies() {
   const all = await chrome.storage.local.get(null);

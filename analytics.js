@@ -13,6 +13,9 @@ import {
   buildDataSummary, generateInsights, getCachedInsights,
   clearInsightsCache, renderInsightsPanel, renderInsightsSummaryCard,
 } from './modules/analytics/ai-insights.js';
+import {
+  fetchAuctionResultsWithCache, computeAdminTotals, computeAdminYoY, buildAdminCategoryMap,
+} from './modules/analytics/auction-results-scraper.js';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 const fmt = n => n.toLocaleString('sv-SE');
@@ -68,6 +71,10 @@ let allItems = [];
 let houseName = '';
 let currentCompanyId = null;
 let ownCompanyId = null;
+let adminData = null;       // { current: categories[], previous: categories[] }
+let adminTotals = null;     // computeAdminTotals() result
+let adminYoY = null;        // computeAdminYoY() result
+let adminCategoryMap = null; // Map<parentName, aggregated admin data>
 const filters = new FilterState();
 
 // ─── DOM References ───────────────────────────────────────
@@ -170,6 +177,31 @@ async function populateCompanyDropdown(ownId) {
   }
 }
 
+// ─── Admin Data (auction results) ─────────────────────────
+
+async function loadAdminData() {
+  // Only fetch for own house — requires admin login
+  const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
+  if (!isOwnHouse) {
+    adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
+    return;
+  }
+
+  try {
+    const year = filters.year || new Date().getFullYear();
+    const [current, previous] = await Promise.all([
+      fetchAuctionResultsWithCache(year),
+      fetchAuctionResultsWithCache(year - 1),
+    ]);
+    adminData = { current, previous };
+    adminTotals = computeAdminTotals(current);
+    adminYoY = computeAdminYoY(adminTotals, computeAdminTotals(previous));
+    adminCategoryMap = buildAdminCategoryMap(current);
+  } catch {
+    adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
+  }
+}
+
 // ─── Load Company ─────────────────────────────────────────
 
 async function loadCompany(companyId, forceRefresh = false, forceIncremental = false) {
@@ -183,6 +215,7 @@ async function loadCompany(companyId, forceRefresh = false, forceIncremental = f
       houseName = cached.houseName;
       showMeta(cached.ageHours);
       initFilters();
+      await loadAdminData();
       renderSidebar();
       renderDashboard();
       return;
@@ -202,6 +235,7 @@ async function loadCompany(companyId, forceRefresh = false, forceIncremental = f
 
     showMeta(0);
     initFilters();
+    await loadAdminData();
     renderSidebar();
     renderDashboard();
   } catch (err) {
@@ -412,6 +446,7 @@ async function runAIAnalysis(forceRefresh = false) {
       houseName, year: f.year, kpis, prevKpis, yoy, monthly,
       priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse,
       activeFilters: activeFilters.length > 0 ? activeFilters : null,
+      adminTotals, adminCategories: adminData?.current,
     });
 
     const insights = await generateInsights(summary, currentCompanyId, filterKey);
@@ -647,6 +682,15 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
       { label: 'Netto/föremål', value: fmtSEK(netPerItem), trend: netPerItemYoY, sparkData: null },
     ];
 
+    // Add admin-sourced KPI cards if available
+    if (adminTotals) {
+      economyCards.push(
+        { label: 'Återrop', value: `${adminTotals.recallRate}%`, subtitle: `${fmt(adminTotals.unsoldCount)} av ${fmt(adminTotals.totalCount)}`, trend: adminYoY?.recallRate, invertTrend: true },
+        { label: 'Provision (faktisk)', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
+        { label: 'Unika besök/objekt', value: fmt(adminTotals.avgVisits), trend: adminYoY?.avgVisits },
+      );
+    }
+
     const sectionLabel = document.createElement('div');
     sectionLabel.className = 'ad-kpi-section-label';
     sectionLabel.textContent = 'Vår ekonomi';
@@ -802,15 +846,44 @@ function sortCategories(categories, field, dir) {
 function renderCategoryTable(categories) {
   const card = document.createElement('div');
   card.className = 'ad-card ad-animate';
+  const hasAdmin = adminCategoryMap && adminCategoryMap.size > 0;
 
   const sorted = sortCategories(categories, catSortField, catSortDir);
+
+  function getAdminForCategory(catName) {
+    if (!hasAdmin) return null;
+    return adminCategoryMap.get(catName) || null;
+  }
+
+  function recallClass(rate) {
+    if (rate <= 30) return 'ad-recall--good';
+    if (rate <= 50) return 'ad-recall--warn';
+    return 'ad-recall--bad';
+  }
 
   function buildRows(cats) {
     let html = '';
     for (const cat of cats) {
       const barW = (cat.count / Math.max(...cats.map(c => c.count), 1) * 100).toFixed(1);
+      const admin = getAdminForCategory(cat.name);
+
+      let adminCols = '';
+      if (hasAdmin) {
+        if (admin) {
+          adminCols = `
+          <div class="ad-cat-row__unsold">${fmt(admin.unsoldCount)}</div>
+          <div class="ad-cat-row__recall ${recallClass(admin.recallRate)}">${admin.recallRate}%</div>
+          <div class="ad-cat-row__visits">${fmt(admin.avgUniqueVisits)}</div>`;
+        } else {
+          adminCols = `
+          <div class="ad-cat-row__unsold">—</div>
+          <div class="ad-cat-row__recall">—</div>
+          <div class="ad-cat-row__visits">—</div>`;
+        }
+      }
+
       html += `
-        <div class="ad-cat-row" data-cat-id="${cat.id}">
+        <div class="ad-cat-row${hasAdmin ? ' ad-cat-row--wide' : ''}" data-cat-id="${cat.id}">
           <div class="ad-cat-row__name">${escHTML(cat.name)}</div>
           <div class="ad-cat-row__bar">
             <div class="ad-cat-row__bar-fill" style="width:${barW}%"></div>
@@ -818,6 +891,7 @@ function renderCategoryTable(categories) {
           <div class="ad-cat-row__count">${fmt(cat.count)}</div>
           <div class="ad-cat-row__revenue">${fmtSEK(cat.revenue)}</div>
           <div class="ad-cat-row__avg">${fmt(cat.avgPrice)} kr</div>
+          ${adminCols}
         </div>`;
     }
     return html;
@@ -828,14 +902,20 @@ function renderCategoryTable(categories) {
     return catSortDir === 'desc' ? ' <span class="ad-sort-icon ad-sort-icon--active">▼</span>' : ' <span class="ad-sort-icon ad-sort-icon--active">▲</span>';
   }
 
+  const adminHeaders = hasAdmin ? `
+      <span class="ad-cat-header__sortable" data-sort="unsold">Osålda${sortIcon('unsold')}</span>
+      <span class="ad-cat-header__sortable" data-sort="recall">Återrop${sortIcon('recall')}</span>
+      <span>Besök</span>` : '';
+
   card.innerHTML = `
     <div class="ad-card__title">Kategoriöversikt</div>
-    <div class="ad-cat-header">
+    <div class="ad-cat-header${hasAdmin ? ' ad-cat-header--wide' : ''}">
       <span>Kategori</span>
       <span></span>
       <span class="ad-cat-header__sortable" data-sort="count">Antal${sortIcon('count')}</span>
       <span class="ad-cat-header__sortable" data-sort="revenue">Oms.${sortIcon('revenue')}</span>
       <span class="ad-cat-header__sortable" data-sort="avgPrice">Snitt${sortIcon('avgPrice')}</span>
+      ${adminHeaders}
     </div>
     <div class="ad-cat-table">${buildRows(sorted)}</div>`;
 

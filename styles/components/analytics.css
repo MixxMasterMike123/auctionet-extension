@@ -649,6 +649,21 @@ body {
 .ad-sort-icon { font-size: 9px; opacity: 0.4; }
 .ad-sort-icon--active { opacity: 1; color: var(--ad-accent); }
 
+/* Wide category grid (with admin data columns) */
+.ad-cat-header--wide { grid-template-columns: 140px 1fr 60px 80px 60px 60px 60px 50px; }
+.ad-cat-row--wide { grid-template-columns: 140px 1fr 60px 80px 60px 60px 60px 50px; }
+
+.ad-cat-row__unsold, .ad-cat-row__recall, .ad-cat-row__visits { text-align: right; font-size: 12px; }
+.ad-cat-row__unsold { color: var(--ad-text-muted); }
+.ad-cat-row__visits { color: var(--ad-text-light); }
+
+.ad-recall--good { color: #2e7d32; font-weight: 600; }
+.ad-recall--warn { color: #ef6c00; font-weight: 600; }
+.ad-recall--bad { color: #c62828; font-weight: 600; }
+.ad-dark .ad-recall--good { color: #66bb6a; }
+.ad-dark .ad-recall--warn { color: #ffb74d; }
+.ad-dark .ad-recall--bad { color: #ef5350; }
+
 /* ─── Top 10 Items ───────────────────────────────────────── */
 
 .ad-top-table { display: flex; flex-direction: column; }

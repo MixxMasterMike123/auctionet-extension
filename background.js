@@ -109,6 +109,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     runPublicationScanAndNotify({ skipCooldown: true });
     sendResponse({ success: true });
     return false;
+  } else if (request.type === 'fetch-admin-html') {
+    handleAdminHtmlFetch(request, sendResponse);
+    return true;
   } else if (request.type === 'ping') {
     sendResponse({ success: true, message: 'pong' });
     return false;
@@ -265,6 +268,22 @@ async function handleFetchImageAsBase64(request, sendResponse) {
       mediaType: contentType.split(';')[0].trim(),
       byteSize: arrayBuffer.byteLength
     });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleAdminHtmlFetch(request, sendResponse) {
+  try {
+    const { url } = request;
+    if (!url || !url.startsWith('https://auctionet.com/admin/')) {
+      sendResponse({ success: false, error: 'URL must be an auctionet.com admin URL' });
+      return;
+    }
+    const response = await fetch(url, { credentials: 'include' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
+    sendResponse({ success: true, html });
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }

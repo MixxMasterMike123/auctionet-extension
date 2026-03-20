@@ -36,6 +36,7 @@ Regler:
 - Jämför kategoriers genomsnittspris och volym för att hitta obalanser
 - VIKTIGT: Fältet "today" anger dagens datum. Den senaste månaden i datan kan vara ofullständig — dra inga slutsatser från en pågående månad
 - Om isOwnHouse=true finns ekonomiska nyckeltal (netRevenue, grossRevenue) — analysera lönsamhet och intäkter. Om isOwnHouse=false, fokusera enbart på marknadsdata (klubbade priser, volymer, kategorier) utan att spekulera om husets ekonomi
+- Om adminData finns: recallRate=andel osålda (%), totalCommission=faktisk provision, avgVisits=genomsnittliga unika besök per objekt, worstRecallCategories=kategorier med högst återropsandel. Analysera vilka kategorier som har oacceptabelt höga återropsandelar och föreslå åtgärder
 - Svara BARA med JSON, ingen annan text`;
 
 const insightsCache = new Map();
@@ -44,7 +45,7 @@ const insightsCache = new Map();
  * Build a compact data summary from pre-computed aggregations.
  * Keeps input tokens low (~800-1200) while giving AI full picture.
  */
-export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly, priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse, activeFilters }) {
+export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly, priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse, activeFilters, adminTotals, adminCategories }) {
   const summary = {
     today: new Date().toISOString().slice(0, 10),
     company: houseName,
@@ -77,6 +78,33 @@ export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly
   if (isOwnHouse && netRevenue != null) {
     summary.netRevenue = netRevenue;
     summary.grossRevenue = grossRevenue;
+  }
+
+  // Include admin auction results data if available
+  if (adminTotals) {
+    summary.adminData = {
+      recallRate: adminTotals.recallRate,
+      totalCommission: adminTotals.totalCommission,
+      avgVisits: adminTotals.avgVisits,
+      totalCount: adminTotals.totalCount,
+      soldCount: adminTotals.soldCount,
+      unsoldCount: adminTotals.unsoldCount,
+    };
+
+    // Top 5 categories with worst recall rates (useful for actionable insights)
+    if (adminCategories && adminCategories.length > 0) {
+      const withRecall = adminCategories
+        .filter(c => c.totalCount >= 10) // Only meaningful sample sizes
+        .map(c => ({
+          name: c.parentName ? `${c.parentName} / ${c.name}` : c.name,
+          recallRate: c.totalCount > 0 ? Math.round((c.unsoldCount / c.totalCount) * 1000) / 10 : 0,
+          unsold: c.unsoldCount,
+          total: c.totalCount,
+        }))
+        .sort((a, b) => b.recallRate - a.recallRate)
+        .slice(0, 5);
+      summary.adminData.worstRecallCategories = withRecall;
+    }
   }
 
   return summary;
