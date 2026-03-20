@@ -104,7 +104,34 @@ export function parseAuctionResultsHTML(html) {
     });
   }
 
-  return categories;
+  // Parse the "Totalt eller genomsnitt" footer row for authoritative totals
+  // This row is in tfoot or is the last row — look for it by text content
+  let totals = null;
+  const allRows = table.querySelectorAll('tfoot tr, tbody tr');
+  for (const row of allRows) {
+    const firstCell = row.querySelector('td, th');
+    if (firstCell && firstCell.textContent.trim().startsWith('Totalt')) {
+      const cells = row.querySelectorAll('td, th');
+      if (cells.length >= 12) {
+        totals = {
+          totalEstimate: parseSwedishNumber(cells[1].textContent) || 0,
+          totalReserve: parseSwedishNumber(cells[2].textContent) || 0,
+          totalHammered: parseSwedishNumber(cells[3].textContent) || 0,
+          hamVsEstSold: parseSwedishPercent(cells[4].textContent),
+          hamVsEstAll: parseSwedishPercent(cells[5].textContent),
+          totalCount: parseSwedishNumber(cells[6].textContent) || 0,
+          soldCount: parseSwedishNumber(cells[7].textContent) || 0,
+          unsoldCount: parseSwedishNumber(cells[8].textContent) || 0,
+          avgPriceSold: parseSwedishNumber(cells[9].textContent) || 0,
+          avgUniqueVisits: parseSwedishNumber(cells[10].textContent) || 0,
+          totalCommission: parseSwedishNumber(cells[11].textContent) || 0,
+        };
+      }
+      break;
+    }
+  }
+
+  return { categories, totals };
 }
 
 // ─── Fetch via Background Service Worker ──────────────────
@@ -138,33 +165,56 @@ export async function fetchAuctionResults(year) {
   const html = await fetchAdminHTML(url);
 
   // Detect login page (no auction results table)
-  const categories = parseAuctionResultsHTML(html);
-  if (!categories) {
+  const result = parseAuctionResultsHTML(html);
+  if (!result) {
     throw new Error('Auction results table not found — are you logged in to Auctionet admin?');
   }
 
-  return categories;
+  return result; // { categories, totals }
 }
 
 export async function fetchAuctionResultsWithCache(year) {
   const cached = await loadAdminCache(year);
   if (cached && !cached.isExpired) {
-    return cached.categories;
+    return { categories: cached.categories, totals: cached.totals };
   }
 
-  const categories = await fetchAuctionResults(year);
-  await saveAdminCache(year, categories);
-  return categories;
+  const result = await fetchAuctionResults(year);
+  await saveAdminCache(year, result.categories, result.totals);
+  return result; // { categories, totals }
 }
 
 // ─── Aggregation Helpers ──────────────────────────────────
 
-export function computeAdminTotals(categories) {
-  if (!categories || categories.length === 0) return null;
+export function computeAdminTotals(result) {
+  if (!result) return null;
 
+  // Accept both { categories, totals } and plain categories array (legacy cache)
+  const categories = Array.isArray(result) ? result : result.categories;
+  const footerTotals = Array.isArray(result) ? null : result.totals;
+
+  if ((!categories || categories.length === 0) && !footerTotals) return null;
+
+  // Prefer the authoritative footer totals from "Totalt eller genomsnitt" row
+  if (footerTotals) {
+    const recallRate = footerTotals.totalCount > 0
+      ? Math.round((footerTotals.unsoldCount / footerTotals.totalCount) * 1000) / 10 : 0;
+    return {
+      totalCount: footerTotals.totalCount,
+      soldCount: footerTotals.soldCount,
+      unsoldCount: footerTotals.unsoldCount,
+      recallRate,
+      totalHammered: footerTotals.totalHammered,
+      totalEstimate: footerTotals.totalEstimate,
+      totalCommission: footerTotals.totalCommission,
+      avgVisits: footerTotals.avgUniqueVisits,
+    };
+  }
+
+  // Fallback: sum from subcategory rows
   let totalCount = 0, soldCount = 0, unsoldCount = 0;
   let totalHammered = 0, totalEstimate = 0, totalCommission = 0;
-  let visitSum = 0, visitCategories = 0;
+  let visitSum = 0, visitItems = 0;
 
   for (const cat of categories) {
     totalCount += cat.totalCount;
@@ -175,12 +225,12 @@ export function computeAdminTotals(categories) {
     totalCommission += cat.totalCommission;
     if (cat.avgUniqueVisits > 0) {
       visitSum += cat.avgUniqueVisits * cat.totalCount;
-      visitCategories += cat.totalCount;
+      visitItems += cat.totalCount;
     }
   }
 
   const recallRate = totalCount > 0 ? Math.round((unsoldCount / totalCount) * 1000) / 10 : 0;
-  const avgVisits = visitCategories > 0 ? Math.round(visitSum / visitCategories) : 0;
+  const avgVisits = visitItems > 0 ? Math.round(visitSum / visitItems) : 0;
 
   return { totalCount, soldCount, unsoldCount, recallRate, totalHammered, totalEstimate, totalCommission, avgVisits };
 }
@@ -205,7 +255,8 @@ export function computeAdminYoY(current, previous) {
 }
 
 // Build a lookup map from parent category name → admin data for merging with API categories
-export function buildAdminCategoryMap(categories) {
+export function buildAdminCategoryMap(result) {
+  const categories = Array.isArray(result) ? result : result?.categories;
   if (!categories) return new Map();
 
   const map = new Map();

@@ -446,7 +446,7 @@ async function runAIAnalysis(forceRefresh = false) {
       houseName, year: f.year, kpis, prevKpis, yoy, monthly,
       priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse,
       activeFilters: activeFilters.length > 0 ? activeFilters : null,
-      adminTotals, adminCategories: adminData?.current,
+      adminTotals, adminCategories: adminData?.current?.categories,
     });
 
     const insights = await generateInsights(summary, currentCompanyId, filterKey);
@@ -685,7 +685,7 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
     // Add admin-sourced KPI cards if available
     if (adminTotals) {
       economyCards.push(
-        { label: 'Återrop', value: `${adminTotals.recallRate}%`, subtitle: `${fmt(adminTotals.unsoldCount)} av ${fmt(adminTotals.totalCount)}`, trend: adminYoY?.recallRate, invertTrend: true },
+        { label: 'Osålda', value: `${adminTotals.recallRate}%`, subtitle: `${fmt(adminTotals.unsoldCount)} av ${fmt(adminTotals.totalCount)}`, trend: adminYoY?.recallRate, invertTrend: true },
         { label: 'Provision (faktisk)', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
         { label: 'Unika besök/objekt', value: fmt(adminTotals.avgVisits), trend: adminYoY?.avgVisits },
       );

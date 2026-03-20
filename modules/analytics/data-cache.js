@@ -71,16 +71,18 @@ export async function loadAdminCache(year) {
   const age = Date.now() - cached.fetchedAt;
   return {
     categories: cached.categories,
+    totals: cached.totals || null,
     fetchedAt: cached.fetchedAt,
     isExpired: age > ADMIN_CACHE_TTL,
   };
 }
 
-export async function saveAdminCache(year, categories) {
+export async function saveAdminCache(year, categories, totals) {
   const key = adminCacheKey(year);
   await chrome.storage.local.set({
     [key]: {
       categories,
+      totals: totals || null,
       fetchedAt: Date.now(),
     },
   });
