@@ -720,16 +720,16 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
     if (adminLoading) {
       economyCards.push(
         { label: 'Provision (faktisk)', value: '...', loading: true },
-        { label: 'Omlistningsandel', value: '...', loading: true },
+        { label: 'Sålt vid 1:a försöket', value: '...', loading: true },
         { label: 'Unika besök/objekt', value: '...', loading: true },
       );
     } else if (adminTotals) {
-      const relistPct = adminTotals.relistingRate;
-      const relistColor = relistPct <= 30 ? 'var(--ad-positive)' : relistPct <= 45 ? '#ef6c00' : 'var(--ad-negative)';
-      const relistSubtitle = `${fmt(adminTotals.totalCount - adminTotals.soldCount)} av ${fmt(adminTotals.totalCount)} auktionsförsök`;
+      const fsr = adminTotals.firstSaleRate;
+      const fsrColor = fsr >= 65 ? 'var(--ad-positive)' : fsr >= 50 ? '#ef6c00' : 'var(--ad-negative)';
+      const fsrSubtitle = `${fmt(adminTotals.soldCount)} av ${fmt(adminTotals.totalCount)} auktionsförsök`;
       economyCards.push(
         { label: 'Provision (faktisk)', value: fmtSEK(adminTotals.totalCommission), trend: adminYoY?.totalCommission },
-        { label: 'Omlistningsandel', value: `${relistPct}%`, trend: adminYoY?.relistingRate, invertTrend: true, subtitle: relistSubtitle, valueColor: relistColor },
+        { label: 'Sålt vid 1:a försöket', value: `${fsr}%`, trend: adminYoY?.firstSaleRate, subtitle: fsrSubtitle, valueColor: fsrColor },
         { label: 'Unika besök/objekt', value: fmt(adminTotals.avgVisits), trend: adminYoY?.avgVisits },
       );
     }

@@ -36,7 +36,7 @@ Regler:
 - Jämför kategoriers genomsnittspris och volym för att hitta obalanser
 - VIKTIGT: Fältet "today" anger dagens datum. Den senaste månaden i datan kan vara ofullständig — dra inga slutsatser från en pågående månad
 - Om isOwnHouse=true finns ekonomiska nyckeltal (netRevenue, grossRevenue) — analysera lönsamhet och intäkter. Om isOwnHouse=false, fokusera enbart på marknadsdata (klubbade priser, volymer, kategorier) utan att spekulera om husets ekonomi
-- Om adminData finns: totalCommission=faktisk provision, avgVisits=genomsnittliga unika besök per objekt, relistingRate=andel auktionsförsök som inte såldes vid första försöket (objekt listas upp till 3 gånger innan de returneras). Hög omlistningsandel (>40%) indikerar prissättnings- eller katalogiseringsproblem och kostar lagerdagar
+- Om adminData finns: totalCommission=faktisk provision, avgVisits=genomsnittliga unika besök per objekt, firstSaleRate=andel av auktionsförsök som säljs vid första försöket (objekt listas upp till 3 gånger). Låg förstagångsförsäljning (<55%) indikerar prissättnings- eller katalogiseringsproblem och kostar lagerdagar
 - Svara BARA med JSON, ingen annan text`;
 
 const insightsCache = new Map();
@@ -85,7 +85,7 @@ export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly
     summary.adminData = {
       totalCommission: adminTotals.totalCommission,
       avgVisits: adminTotals.avgVisits,
-      relistingRate: adminTotals.relistingRate,
+      firstSaleRate: adminTotals.firstSaleRate,
       totalCount: adminTotals.totalCount,
       soldCount: adminTotals.soldCount,
     };

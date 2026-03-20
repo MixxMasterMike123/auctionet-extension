@@ -235,13 +235,12 @@ export function computeAdminTotals(result) {
 
   // Prefer the authoritative footer totals from "Totalt eller genomsnitt" row
   if (footerTotals) {
-    const unsold = footerTotals.unsoldCount || 0;
-    const relistingRate = footerTotals.totalCount > 0
-      ? Math.round((unsold / footerTotals.totalCount) * 1000) / 10 : 0;
+    const firstSaleRate = footerTotals.totalCount > 0
+      ? Math.round((footerTotals.soldCount / footerTotals.totalCount) * 1000) / 10 : 0;
     return {
       totalCount: footerTotals.totalCount,
       soldCount: footerTotals.soldCount,
-      relistingRate,
+      firstSaleRate,
       totalHammered: footerTotals.totalHammered,
       totalEstimate: footerTotals.totalEstimate,
       totalCommission: footerTotals.totalCommission,
@@ -250,14 +249,13 @@ export function computeAdminTotals(result) {
   }
 
   // Fallback: sum from subcategory rows
-  let totalCount = 0, soldCount = 0, unsoldCount = 0;
+  let totalCount = 0, soldCount = 0;
   let totalHammered = 0, totalEstimate = 0, totalCommission = 0;
   let visitSum = 0, visitItems = 0;
 
   for (const cat of categories) {
     totalCount += cat.totalCount;
     soldCount += cat.soldCount;
-    unsoldCount += cat.unsoldCount;
     totalHammered += cat.totalHammered;
     totalEstimate += cat.totalEstimate;
     totalCommission += cat.totalCommission;
@@ -267,10 +265,10 @@ export function computeAdminTotals(result) {
     }
   }
 
-  const relistingRate = totalCount > 0 ? Math.round((unsoldCount / totalCount) * 1000) / 10 : 0;
+  const firstSaleRate = totalCount > 0 ? Math.round((soldCount / totalCount) * 1000) / 10 : 0;
   const avgVisits = visitItems > 0 ? Math.round(visitSum / visitItems) : 0;
 
-  return { totalCount, soldCount, relistingRate, totalHammered, totalEstimate, totalCommission, avgVisits };
+  return { totalCount, soldCount, firstSaleRate, totalHammered, totalEstimate, totalCommission, avgVisits };
 }
 
 export function computeAdminYoY(current, previous) {
@@ -284,7 +282,7 @@ export function computeAdminYoY(current, previous) {
   return {
     totalCount: pctChange(current.totalCount, previous.totalCount),
     soldCount: pctChange(current.soldCount, previous.soldCount),
-    relistingRate: pctChange(current.relistingRate, previous.relistingRate),
+    firstSaleRate: pctChange(current.firstSaleRate, previous.firstSaleRate),
     totalHammered: pctChange(current.totalHammered, previous.totalHammered),
     totalCommission: pctChange(current.totalCommission, previous.totalCommission),
     avgVisits: pctChange(current.avgVisits, previous.avgVisits),
