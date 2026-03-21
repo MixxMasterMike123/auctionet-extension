@@ -741,7 +741,7 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
     } else if (adminTotals) {
       // Real admin data available — use actual commission instead of estimates
       const fsr = adminTotals.firstSaleRate;
-      const fsrColor = fsr >= 65 ? 'var(--ad-positive)' : fsr >= 50 ? '#ef6c00' : 'var(--ad-negative)';
+      const fsrColor = fsr >= 65 ? 'var(--ad-positive)' : fsr >= 50 ? '#f59e0b' : 'var(--ad-negative)';
       const fsrSubtitle = `${fmt(adminTotals.soldCount)} av ${fmt(adminTotals.totalCount)} auktionsförsök`;
       economyCards = [
         { label: 'Omsättning', value: fmtSEK(grossRevenue), trend: grossYoY, sparkData: monthlyForSparkline.map(m => Math.round(m.revenue * GROSS_RATE)), sparkFmt: fmtSEK },
