@@ -90,7 +90,23 @@ See `extension-config` skill for current model IDs. Different models can have mo
 - Handles conflict resolution between overlapping search terms
 - Improve deduplication and term ranking logic
 
-### 5. Category Detection
+### 5. Enhance All Tier System (`modules/enhance-all/`)
+
+The tiered bulk enhancement system determines model and features based on item value:
+
+| Tier | Range | Model | Features |
+|------|-------|-------|----------|
+| Tidy | < 3,000 SEK | Haiku | Basic cleanup, max 2000 tokens |
+| Enrich | 3,000–10,000 SEK | Sonnet (+ Opus for maker context) | Enhanced descriptions, max 3 positive absences |
+| Full | > 10,000 SEK | Opus | Full rewrite, maker context, systematic condition, international keywords, max 5 positive absences |
+
+**Improvement opportunities:**
+- Adjust tier thresholds based on quality outcomes
+- Tune maker context prompts for better artisan/designer identification
+- Add tier-specific feature flags for new capabilities
+- Optimize positive absence statement generation
+
+### 6. Category Detection
 
 **Current detection** — extracts from title keywords and Auctionet category field.
 **Improvement opportunities:**
@@ -98,7 +114,7 @@ See `extension-config` skill for current model IDs. Different models can have mo
 - Use image analysis to supplement text-based detection
 - Add new category-specific rules as patterns emerge
 
-### 6. Condition Quality Nudging
+### 7. Condition Quality Nudging
 
 Vague condition language is a common quality issue on Auctionet:
 - **Expand suggestion chips** — more category-specific alternatives
@@ -143,6 +159,10 @@ Market display change  → modules/dashboard-manager-v2.js
 Valuation logic change → modules/valuation-request-assistant.js
 Brand inline checking  → modules/inline-brand-validator.js (uses Haiku)
 Model configuration    → modules/config.js
+Tier configuration     → modules/enhance-all/tier-config.js
+Enhance-all logic      → modules/enhance-all/enhance-all-manager.js
+Field distribution     → modules/enhance-all/field-distributor.js
+Analytics data pipeline→ modules/analytics/ (7 modules, see analytics-data-pipeline skill)
 ```
 
 ### Patterns to follow

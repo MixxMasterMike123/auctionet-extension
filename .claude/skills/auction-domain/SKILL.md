@@ -28,8 +28,23 @@ Key principles (see `auction-catalog` skill for detailed rules by category):
 - Transport cataloging: box size, number of parts, fragility rating
 - Droit de suite (Följerätt) applies to identified and unidentified artists
 
+### Commission & Fee Model
+- Buyer's fee: 25% on hammer price
+- Seller commission: 20% on hammer price (pending increase to 22%)
+- Photo cost: 80 kr per item (pending increase to 100 kr)
+- Auctionet's cut: 6% of total (hammer + buyer fee)
+
+### AI Model Tiering
+| Model | Tasks | Cost |
+|-------|-------|------|
+| Opus 4.6 | Valuation requests, biography, full-tier enhance-all | Highest |
+| Sonnet 4.5 | Field enhancement, cataloging, market analysis, image analysis | Standard |
+| Haiku 4.5 | Brand validation, search queries, relevance filtering, tidy-tier | Budget |
+
+Prompt caching enabled (~90% token savings on system prompts).
+
 ### Quality Scoring System
-The quality rules engine (`modules/core/quality-rules-engine.js`) scores items from 100 down, deducting 5–20 points per violation. See `modules/config.js` for current thresholds. AML checks trigger for items valued over 50,000 SEK, bullion/gold lots, and loose gemstones.
+The quality rules engine (`modules/core/quality-rules-engine.js`) scores items from 100 down, deducting 3–30 points per violation. Key penalties: no keywords (-30), only "bruksslitage" (-25), short title/description/condition (-20 each), reserve ≥ estimate (-20), vague wear (-15), missing measurements (-10). AML checks trigger for items valued over 50,000 SEK, bullion/gold lots, and loose gemstones.
 
 ### Anti-Hallucination Rules
 - NEVER fabricate artist dates, materials, or dimensions
@@ -64,5 +79,11 @@ The quality rules engine (`modules/core/quality-rules-engine.js`) scores items f
 | Snabbkatalogisering | Quick cataloging | Extension feature |
 | Flytta | Move (artist name) | Extension action |
 
+### Key Analytics Metrics
+- **First-sale rate** (andel första försälj) — % of items selling on first attempt
+- **Reserve-met percentage** — indicates if reserve prices are set appropriately
+- **Reserve too high** indicator — when <40% of items meet reserve
+- **Återrop** — items not sold (recalled), each recall costs ~105k/yr per 1% increase
+
 ### Auctionet API
-See `auctionet-api` skill for endpoints, query parameters, and response shapes.
+See `auctionet-api` skill for endpoints, query parameters, and response shapes. See `analytics-data-pipeline` skill for the analytics data flow.

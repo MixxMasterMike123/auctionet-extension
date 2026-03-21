@@ -40,11 +40,16 @@ input[type="checkbox"][name*="no_remarks"]
 - Image URLs are fetched via `fetch-image-base64` message to the background service worker
 - CDN domain: `https://images.auctionet.com/` (in background.js `ALLOWED_IMAGE_DOMAINS` allowlist)
 
-### Page Layout — Injection Points
-- The extension injects AI buttons **after** each form field using `field.parentNode.insertBefore(wrapper, field.nextSibling)`
-- Quality score panel is injected near the top of the form
-- Market analysis dashboard is injected as a sidebar or below the form
+### Page Layout — Two-Column Structure
+- **Left column**: `.grid-col8` — form fields (title, description, condition, etc.)
+- **Right column**: `.grid-col4` / `.sidebar` / `.form-sidebar` — quality score panel, market analysis
 - The form fields are typically inside a `<form>` with `action` containing `/items/`
+
+### Injection Points
+- AI buttons injected **after** each form field using `field.parentNode.insertBefore(wrapper, field.nextSibling)`
+- Quality score panel injected into `.grid-col4` sidebar
+- Market analysis panel injected into sidebar
+- Chosen library dropdown: `#item_category_id_chosen .chosen-single span` for display value
 
 ### Field Container Pattern
 Fields are wrapped in parent containers. To find the visual container for a field:
@@ -89,10 +94,31 @@ Entry point: `admin-dashboard.js`
 | Comment timestamp | `li.comment .posted_at` | Posted date |
 | Comment body | `li.comment .body` | Comment text |
 
+### Dashboard Scraped Elements
+
+| Element | Selector | Content |
+|---------|----------|---------|
+| KPI cards container | `.requested-actions` / `.requested-actions__action` | Daily stats |
+| Daily goal | `.test-new-items` | "Inskrivet idag" count |
+| Pipeline table | `.auction-company-stats table` | Item flow stats |
+| Leaderboard | `.test-cataloger-stats` | Cataloger performance table |
+| Sidebar nav | `.well--nav-list` | Navigation links with counts |
+| Nav items | `.well--nav-list a` | Individual nav links |
+
 ### Dashboard Injection Points
 - Extension injects KPI cards, pipeline funnel, and comment feed BEFORE the existing page content
 - Uses `target.parentNode.insertBefore(container, target)` pattern
 - The admin page has a `#comments` section that the extension enhances with filtering and badges
+
+### Comment Feed (Enhanced)
+```
+.ext-cfeed                     — enhanced comment feed container
+.ext-cfeed-item                — individual comment items
+.ext-cfeed-item[data-href]     — clickable items (href from page DOM)
+.ext-filter-pill               — comment filter pills
+.ext-entity-badge              — entity type badges
+.ext-entity-badge--buyer|seller|claim|item|invoice|transport  — entity type classes
+```
 
 ### Admin Mode Gate
 Dashboard features require `adminUnlocked` flag in `chrome.storage.sync` (PIN-protected).
@@ -139,6 +165,52 @@ The publication scanner (`publication-scanner-bg.js`) fetches admin pages via `f
 - `/admin/sas/items/{id}` — item show page (for additional data)
 
 These are HTML pages parsed with regex/string matching, not DOM queries (no DOM in service worker).
+
+## Brand Validation UI
+
+```
+.brand-spell-wrapper           — wrapper for fields with brand validation
+.brand-spell-markers           — marker container for validation feedback
+```
+
+## Quality Score UI
+
+```
+.quality-metrics               — metrics display
+.quality-header                — quality indicator header
+.ai-master-button              — master "Enhance All" button
+.refresh-quality-btn           — refresh button
+.ai-button-wrapper             — wrapper for AI enhancement buttons
+.ai-undo-button / .ai-undo-wrapper — undo functionality
+```
+
+## Artist Detection UI
+
+```
+#ai-tooltip-artist-detection   — artist detection tooltip
+.artist-detection-info         — artist info display
+```
+
+## Biography Card
+
+```
+.kb-card                       — knowledge base card container
+.kb-photo-area / .kb-avatar    — photo display
+.kb-name / .kb-years / .kb-bio — biography fields
+.kb-tags / .kb-works           — additional info
+.kb-add-bio-btn                — add biography button
+.kb-wrong-person               — feedback indicator
+```
+
+## Analytics Page Elements
+
+```
+#sidebar / #dashboard          — main analytics containers
+#company-select / #company-id-input / #fetch-btn / #refresh-btn  — controls
+.ad-kpi-grid                   — KPI grid container
+.ad-ai-refresh                 — refresh button in AI insights card
+.ad-ai-summary__more           — expand button in insights
+```
 
 ## Common Patterns
 

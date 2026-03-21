@@ -29,7 +29,8 @@ All messages are handled in a single `chrome.runtime.onMessage.addListener`. Mes
 | `anthropic-fetch` | Yes | `handleAnthropicRequest` | All Claude API calls from content scripts |
 | `wikipedia-fetch` | Yes | `handleWikipediaRequest` | Artist portrait lookup (sv.wikipedia then en.wikipedia) |
 | `fetch-image-base64` | Yes | `handleFetchImageAsBase64` | Fetch image and convert to base64 for Claude vision |
-| `run-publication-scan` | No | `runPublicationScanAndNotify(true)` | Manual scan trigger from dashboard |
+| `fetch-admin-html` | Yes | `handleAdminHtmlFetch` | Fetch admin HTML pages (restricted to `https://auctionet.com/admin/*`) |
+| `run-publication-scan` | No | `runPublicationScanAndNotify({ skipCooldown: true })` | Manual scan trigger from dashboard |
 | `ping` | No | immediate `{ success: true, message: 'pong' }` | Health check |
 
 ## Concurrency Limiter
@@ -73,9 +74,16 @@ Two Chrome alarms run periodic background scans:
 | `publicationScan` | 1 min | 30 min | `runPublicationScanAndNotify()` |
 | `stickyErrorRecheck` | 5 min | 20 min | `runStickyRecheckAndNotify()` |
 
-Both check `enablePubScanner` in `chrome.storage.local` before running (opt-in, default disabled). The manual `run-publication-scan` message bypasses this check (`skipEnabledCheck = true`).
+### Cooldown Throttling
 
-An initial scan also fires on `chrome.runtime.onInstalled`.
+The scanner uses a smart cooldown to avoid excessive scanning:
+- **Business hours (07:00–19:59)**: 10-minute cooldown between scans
+- **Off-hours**: 2-hour cooldown
+- `runPublicationScanAndNotify({ skipCooldown })` — manual triggers pass `skipCooldown: true` to bypass
+
+Note: `enablePubScanner` in `chrome.storage.local` is only checked by the popup UI, NOT enforced by the background service worker. Alarms run regardless of this setting.
+
+An initial scan fires on `chrome.runtime.onInstalled`.
 
 After scan completion, `notifyDashboardTabs()` sends either `publication-scan-complete` or `publication-scan-failed` to all tabs matching `https://auctionet.com/admin/sas`. Sticky recheck sends `sticky-recheck-complete`.
 

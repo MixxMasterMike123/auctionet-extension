@@ -12,13 +12,20 @@ Use this skill when working on image analysis features, Claude Vision prompts, o
 
 ### Architecture
 ```
-Item images (up to 5 slots) → base64 encoding → Claude Vision API
+Item images (up to 5 slots) → base64 encoding → Claude Vision API (Sonnet 4.5)
                                                       ↓
                                                Structured JSON response:
                                                - Title, description, condition
                                                - Artist, period, materials
                                                - Keywords, estimate, reserve
+                                               - Image quality assessment
+                                               - Sure Score confidence
 ```
+
+### Model Selection
+- **Sonnet 4.5** — all image analysis (single and multi-image). Uses `apiManager.getCurrentModel().id` which defaults to Sonnet.
+- **Opus 4.6** — only for valuation request clustering (`_clusterImages()`) and valuation generation, with Sonnet fallback on overload.
+- Haiku is NOT used for image analysis.
 
 ### Image Slots (categorized)
 | Slot | Purpose | What to extract |
@@ -33,15 +40,33 @@ Item images (up to 5 slots) → base64 encoding → Claude Vision API
 - Anthropic API limit: 5MB base64 string; threshold set at 4.5MB for safety margin
 - File upload limit: 10MB (`maxFileSize` in config)
 - Resized via canvas using `ensureBase64WithinLimit()` in `ai-image-analyzer.js`
-- Also `_resizeBase64Image()` in `valuation-request-assistant.js` (separate implementation)
+- Also `_resizeBase64Image()` in `valuation-request-assistant.js` (separate implementation, with MAX_ATTEMPTS safety guard)
 - Max dimension: 1400px, progressively reduced by 200px if still too large
 - Output: JPEG at 0.82 quality (minimum 0.5)
 - Domain whitelist: `auctionet.com`, `images.auctionet.com`, `upload.wikimedia.org`
 
 ### Two Analysis Paths
 - **Single image** (`analyzeImage`): 45s timeout, 1200 max_tokens
-- **Multiple images** (`analyzeMultipleImages`): 90s timeout, 1500 max_tokens
-- System prompt sourced dynamically from `getAIRulesManager().getSystemPrompt('freetextParser')`
+- **Multiple images** (`analyzeMultipleImages`): 90s timeout, 1500 max_tokens, minimum 2 images required
+- System prompt sourced dynamically from `getAIRulesManager().getSystemPrompt('freetextParser')` with fallback chain: `freetextParser` → `core` → minimal hardcoded prompt
+
+### Sure Score Confidence System
+`calculateSureScore()` provides a weighted composite confidence:
+- Image analysis quality (40%)
+- Image quality score (25%) — clarity, lighting, angle, completeness
+- Object identification confidence (20%)
+- Market validation (15%) — cross-references with Auctionet historical sales
+
+Levels: "Mycket låg", "Låg", "Medel", "Hög", "Mycket hög"
+
+### Market Validation Integration
+`validateWithMarketData()` cross-references image analysis with Auctionet sales data. Conservative scaling with multipliers 0.4–1.0 based on market support percentage. Builds search queries automatically from image analysis output.
+
+### Image Clustering (Valuation Requests)
+`_clusterImages()` groups multiple customer images by object for multi-item valuation. Uses Opus 4.6 with Sonnet fallback. Cataloger can drag/drop to adjust groupings.
+
+### Multi-Image Upload UI
+`generateMultipleImageUploadUI()` creates a drag-and-drop upload grid with slot-specific zones (front, back, markings, signature, condition).
 
 ## What to Look For (by category)
 

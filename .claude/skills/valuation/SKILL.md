@@ -75,15 +75,42 @@ After fetching market data, results pass through two filters (see `auctionet-api
 - **Market status** — rising/stable/falling trend indicator
 - **Historical change %** — YoY or period-over-period price movement
 
-### Search Query Strategy
-Terms are generated from multiple sources:
-1. **AI-extracted** — Claude Sonnet extracts optimal search terms from title + description
-2. **User-refined** — cataloger can toggle/add terms via interactive pills
-3. **Artist name** — always quoted for exact matching in API
-4. **Object type** — extracted from title (first word typically)
+### Search Query Strategy (SearchQuerySSoT)
+
+The SearchQuerySSoT singleton enforces strict query control on the edit page:
+- **User-selected queries**: ONLY that query is used — NO fallbacks, even if zero results
+- **AI-generated queries**: can use fallbacks only if <3 results
+- Terms generated from: AI extraction, user refinement, artist name (always quoted), object type
+
+Two-stage generation: AI Rules first (fast, rule-based) → Claude API fallback if rules insufficient.
 
 ### Term Quoting
-All search terms are force-quoted (Auctionet treats unquoted terms as optional). See `auctionet-api` skill for query syntax details.
+All search terms are force-quoted (Auctionet treats unquoted terms as optional). `formatArtistForSearch()` wraps multi-word names in quotes. See `auctionet-api` skill for query syntax details.
+
+## Live Auction Analysis
+
+### `analyzeLiveAuctions()` (sales-analysis-manager.js)
+Fetches currently active auctions to show real-time market activity:
+- Uses SearchQuerySSoT exclusively — zero fallbacks (strict SSoT enforcement)
+- Returns: currentEstimates, currentBids, marketActivity, marketSentiment
+- Market sentiment based on reserve met %: strong (>70%), moderate (40–70%), weak (<20%)
+
+### `searchLiveAuctions()` (auctionet-api.js)
+- Searches WITHOUT `is=ended` for active/published items
+- Filters: `state === 'published'`, `ends_at > now`, `!hammered`
+- 5-minute cache (shorter than 30-min historical cache)
+- Category relevance filtering for broad searches
+
+### `analyzeLiveMarketData()` (sales-analysis-manager.js)
+- Calculates estimate ranges, bid ranges, and market sentiment
+- Returns top 5 live items sorted by bidding activity
+
+## Exceptional Sales Detection
+
+`identifyExceptionalSales()` finds high-value outliers above market median:
+- Threshold: 3x median OR 2x Q3
+- Highlights premium sales for category awareness
+- Tracks price vs. median, estimate, and cataloger's valuation ratios
 
 ## Valuation Request Pages
 

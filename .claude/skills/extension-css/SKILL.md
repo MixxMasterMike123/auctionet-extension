@@ -77,8 +77,36 @@ When adding new components, prefer BEM with a feature prefix.
 | Error/Poor | `#e74c3c` | Low quality scores, errors |
 | Good | `#27ae60` | High quality scores |
 
+### Warning severity colors
+| Severity | Hex | Usage |
+|----------|-----|-------|
+| High | `#dc3545` | `.warning-high` — critical quality issues |
+| Medium | `#0d6efd` | `.warning-medium` — improvement suggestions |
+| Low | `#6c757d` | `.warning-low` — minor notes |
+
+### Amber warning (analytics)
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Amber | `#f59e0b` | Filter bar active state, first-sale rate warnings |
+| Amber bg | `rgba(245, 158, 11, 0.1)` | `.ad-sb-filter-bar` background |
+| Amber border | `rgba(245, 158, 11, 0.3)` | `.ad-sb-filter-bar` border |
+| Amber dark | `#fbbf24` | Dark mode amber variant |
+
+### FAQ hint styling
+| Color | Hex | Usage |
+|-------|-----|-------|
+| FAQ border | `#f59e0b` | `.faq-hint` left border |
+| FAQ bg | `#fffbeb` | `.faq-hint` background |
+| FAQ text | `#92400e` | `.faq-hint` text color |
+
+### Economy KPI
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Goldenrod | `#b8860b` | `.ad-kpi-grid--economy` border |
+| Goldenrod dark | `#d4a854` | Dark mode economy border |
+
 ### Dashboard (dark theme support)
-The admin dashboard uses Auctionet's existing dark/light theme. Extension dashboard CSS uses CSS custom properties or explicit dark mode media queries where needed.
+The admin dashboard uses Auctionet's existing dark/light theme. The analytics page uses a `.ad-dark` class with full CSS custom property overrides for all `--ad-*` variables.
 
 ### KPI card colors (dashboard)
 Border-left color modifiers via named classes:
@@ -169,6 +197,48 @@ Some components inject styles via JavaScript rather than CSS files:
 - `modules/enhance-all/enhance-all-manager.js` creates the enhance-all panel DOM with inline styles where needed
 
 When modifying these components, check both the CSS file AND the JS source for styling.
+
+## Advanced UI Patterns
+
+### Dialog system (styles.css)
+```html
+<div class="dialog-overlay">
+  <div class="dialog-content">
+    <div class="info-request-form">
+      <div class="form-group">...</div>
+    </div>
+    <div class="dialog-buttons">
+      <button class="btn-primary">OK</button>
+      <button class="btn-default">Cancel</button>
+    </div>
+  </div>
+</div>
+```
+
+### Field loading states
+```css
+.field-loading          /* state class on parent */
+.field-spinner-overlay  /* loading overlay */
+.ai-spinner             /* animated spinner */
+.field-success          /* success flash animation */
+```
+
+### Status indicators
+```css
+.ai-status-indicator.loading  /* blue (#337ab7) */
+.ai-status-indicator.success  /* green */
+.ai-status-indicator.error    /* red */
+.ai-processing-text           /* processing label */
+```
+
+### Artist bio tooltip
+```css
+.artist-bio-tooltip           /* inline trigger */
+.artist-bio-preview.loading   /* loading state */
+```
+
+### Image analyzer CSS variables (ai-image-analyzer.css)
+Uses a separate variable system from analytics: `var(--bg-white)`, `var(--border-light)`, `var(--color-danger)`, `var(--transition-normal)`, etc. (Bootstrap-like naming, not `--ad-*`)
 
 ## Important Rules
 

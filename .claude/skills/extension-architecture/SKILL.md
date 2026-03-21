@@ -1,5 +1,5 @@
 ---
-name: Auctionet Extension Architecture
+name: extension-architecture
 description: Code architecture reference for the Auctionet Chrome Extension — module system, dependency injection, message passing, initialization order, and Chrome APIs.
 user-invocable: false
 ---
@@ -127,6 +127,58 @@ Defined in `manifest.json` `content_scripts` array. Multiple content scripts can
 - Tracks `lastInitializedHash` to avoid re-initialization on the same hash
 - Returns `{ isSupported, type, needsRetry }` -- caller uses `needsRetry` to schedule delayed re-detection
 
+## EnhanceAll Subsystem (`modules/enhance-all/`)
+
+Tier-based bulk field enhancement. Determines tier from highest pricing field (estimate, upper estimate, accepted reserve):
+
+| Module | Purpose |
+|--------|---------|
+| `tier-config.js` | Tier definitions: tidy (<3k SEK, Haiku), enrich (3k–10k, Sonnet+Opus), full (>10k, Opus) |
+| `enhance-all-manager.js` | Orchestrates 3-tier enhancement, DI wiring, model fallback |
+| `enhance-all-ui.js` | "Förbättra alla" button and preview modal |
+| `field-distributor.js` | Distributes AI-generated fields to form inputs |
+
+Wired in `content-script.js` after all other managers:
+```js
+this.enhanceAllManager = new EnhanceAllManager();
+this.enhanceAllManager.setApiManager(this.apiManager);
+this.enhanceAllManager.setQualityAnalyzer(this.qualityAnalyzer);
+```
+
+## Analytics Module Ecosystem (`modules/analytics/`)
+
+Seven modules powering the standalone Analytics page:
+
+| Module | Purpose |
+|--------|---------|
+| `data-fetcher.js` | API fetch strategies: direct pagination, category sharding, incremental refresh |
+| `data-cache.js` | Compression (2KB→100B/item) and chrome.storage.local caching (24h TTL) |
+| `data-aggregator.js` | KPI computation, monthly breakdown, price distribution, YoY comparison |
+| `filter-state.js` | Reactive 4-dimensional filter: year, month, category, price range |
+| `category-registry.js` | ~100 sub-category IDs for sharded fetching (~96% coverage) |
+| `ai-insights.js` | AI-generated analysis summaries via Claude |
+| `auction-results-scraper.js` | Scrapes admin `/admin/sas/auction_results` for category-level stats |
+
+See `analytics-data-pipeline` skill for the full data flow.
+
+## AIAnalysisEngine (`modules/core/ai-analysis-engine.js`)
+
+SSOT for AI-based artist detection logic. Instantiated inside `APIManager` constructor, not separately. Drives the artist detection feature that suggests moving misplaced artist names from title to artist field.
+
+## AI Rules Manager (`modules/refactored/ai-rules-system/`)
+
+| File | Purpose |
+|------|---------|
+| `ai-rules-manager.js` | Loads and serves AI rules config at startup |
+| `ai-rules-config.json` | SSOT for all AI generation rules (600+ lines): system prompts, category rules, forbidden words, brand corrections |
+
+## Additional Content Scripts
+
+| File | URL | Purpose |
+|------|-----|---------|
+| `admin-item-banner.js` | Item show pages (non-edit) | Quality warning banner |
+| `spelling-audit.js` | Standalone | Spelling/brand validation audit tool |
+
 ## Chrome APIs Used
 
 | API | Permission | Purpose |
@@ -138,6 +190,7 @@ Defined in `manifest.json` `content_scripts` array. Multiple content scripts can
 | `chrome.tabs.query` / `sendMessage` | `tabs` | Background notifies dashboard tabs of scan results |
 | `chrome.alarms` | `alarms` | Periodic publication scans (30min) and sticky error rechecks (20min) |
 | `chrome.runtime.onInstalled` | (built-in) | Run initial publication scan on install/update |
+| `chrome.offscreen` | `offscreen` | DOMParser delegation for publication scanner HTML parsing |
 
 ## Configuration
 

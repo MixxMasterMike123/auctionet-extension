@@ -84,8 +84,10 @@ Field names as used by the codebase (verified against `auctionet-api.js` and `da
 | `estimate` / `upper_estimate` | Auction house estimates for comparison |
 | `company_id` | Used to exclude own company from comparisons |
 | `house` | Auction house display name (NOT `company_name`) |
+| `url` | Item URL (converted to Swedish format in code) |
 | `reserve_met` / `reserve_amount` | Reserve status for live market analysis |
 | `starting_bid_amount` / `next_bid_amount` | Live auction bidding data |
+| `artist_id` / `artist_url` / `artist` | Optional artist data (present when artist assigned) |
 
 ## Search Strategies (in `modules/auctionet-api.js`)
 
@@ -97,14 +99,22 @@ The extension uses multiple search strategies with fallback:
 4. **Object type + technique** — for items without a known artist
 5. **Broad search** — last resort with minimal terms
 
+### Live Auction Search (`searchLiveAuctions()`)
+Fetches currently active (not ended) auctions:
+- Searches WITHOUT `is=ended` — gets published/active items
+- Filters: `state === 'published'`, `ends_at > now`, `!hammered`
+- Company exclusion applies (respects `ownCompanyId`)
+- 5-minute cache TTL (shorter than historical 30 min)
+- Includes category relevance filtering (e.g., synth searches only return actual synths)
+
 ### AI Relevance Filtering
-When price spread >5x OR sample >15 items, Haiku validates each result's relevance to the original item. Located in `auctionet-api.js` `validateResultRelevance()`.
+When results >=8 items AND (price spread >5x OR sample >15), Haiku validates each result's relevance. Uses Haiku 4.5 with Sonnet fallback on overload. Located in `auctionet-api.js` `validateResultRelevance()`.
 
 ### Company Exclusion
 Users set `ownCompanyId` in settings (their auction house ID). This excludes their own results from LIVE market searches. Stored in `chrome.storage.sync`. Cache is cleared when this setting changes. (Migrated from old `excludeCompanyId` key.)
 
 ### Result Caching
-- In-memory `Map` cache with 30-minute expiry
+- In-memory `Map` cache with 30-minute expiry (historical), 5-minute (live)
 - Cache key is the search query string
 
 ## Analytics Data (`modules/analytics/data-fetcher.js`)
@@ -117,7 +127,11 @@ Uses the same API with specialized fetch strategies:
 | Category sharding | Parallel fetches by `category_id` | Beyond 10k items |
 | Incremental refresh | Fetches only new items vs cached IDs | Delta updates |
 
-Uses `company_id` parameter to fetch per-company data. Concurrent fetches: 4 parallel category requests.
+Uses `company_id` parameter to fetch per-company data. Concurrent fetches: 4 parallel category requests (`CONCURRENT_FETCHES`).
+
+Note: `MAX_PAGES` differs by context:
+- Analytics data-fetcher: 50 pages (up to 10k items)
+- Market data search (auctionet-api.js): 4 pages (up to 800 items)
 
 ## Artist Lookup (`modules/auctionet-artist-lookup.js`)
 
@@ -135,8 +149,9 @@ Uses the `total` field from response to get count without fetching full results.
 
 ## Admin Page Fetches (Background Service Worker)
 
-The publication scanner fetches admin pages directly (requires active login session):
+Admin pages fetched via `fetch()` from background.js (requires active login session). These return HTML, not JSON.
 
+### Publication Scanner URLs
 | URL | Purpose |
 |-----|---------|
 | `/admin/sas/publishables` | Publication queue list (paginated HTML) |
@@ -144,7 +159,17 @@ The publication scanner fetches admin pages directly (requires active login sess
 | `/admin/sas/items/{id}/edit` | Item edit page for deep quality scan |
 | `/admin/sas/items/{id}` | Item show page for additional data |
 
-These return HTML, parsed with string/regex matching in the service worker (no DOM available).
+Parsed with regex/string matching in service worker + offscreen document DOMParser.
+
+### Analytics Admin Scraping
+| URL | Purpose |
+|-----|---------|
+| `/admin/sas/auction_results` | Category-level sales statistics (sold count, first-sale rate, commission, visits) |
+| `/admin/sas/auction_results?filter[auction_type]=...&filter[from_date]=...&filter[to_date]=...&filter[include_unsolds]=true` | Filtered results with date range and auction type |
+| `/admin/sas/solds?filter={filter}` | Sold items list (used for warehouse cost calculation) |
+| `/admin/sas/comments` | Comments list (optional `?filter=reklamation`) |
+
+Fetched via `fetch-admin-html` message type to background.js (restricted to `https://auctionet.com/admin/*`). HTML parsed by `auction-results-scraper.js` which handles Swedish number formatting (space thousands, comma decimal).
 
 ## Rate Limiting & Best Practices
 

@@ -93,21 +93,33 @@ Default tier when no valuation: `tidy`.
 |---------|-------------|--------|
 | Default (CONFIG.API) | `0.15` | config.js |
 | All enhance-all tiers | `0.1` | tier-config.js |
-| Brand validation (Haiku) | `0` | brand-validation-manager.js |
+| Brand validation (Haiku) | `0.15` (default) | inline-brand-validator.js (uses CONFIG default) |
 | AI search query gen (Haiku) | `0.1` | ai-search-query-generator.js |
+| API market validation | `0.1` | api-manager.js |
 | Freetext parser (Sonnet) | `0.1` | ai-rules-config.json |
 | Freetext parser (default) | `0.3` | ai-rules-config.json |
+| Analytics insights | `0.2` | analytics/ai-insights.js |
+| Analytics nuggets (creative) | `0.9` | analytics.js — highest temp, for varied creative insights |
+| Spelling audit | `0.3` | spelling-audit.js |
 
 ## Cache Expiry Settings
 
 | Cache | TTL | Storage | Source |
 |-------|-----|---------|--------|
 | Auctionet API (market data) | 30 min | In-memory Map | auctionet-api.js |
+| Live auction searches | 5 min | In-memory Map | auctionet-api.js |
 | AI search query cache | 30 min | In-memory Map | ai-search-query-generator.js |
 | Artist biography lookup | 14 days | In-memory Map | auctionet-artist-lookup.js |
 | Analytics data | 24 hours | chrome.storage.local | analytics/data-cache.js |
+| Admin auction results | 4 hours | chrome.storage.local | analytics/auction-results-scraper.js |
 | Warehouse cost cache | 12 hours | chrome.storage.local | admin-dashboard.js |
 | Publication scan results | No TTL (overwritten each scan) | chrome.storage.local | publication-scanner-bg.js |
+
+### Publication Scanner Timing
+- Alarm period: 30 minutes
+- Cooldown: 10 min (business hours 07–20) / 2 hours (off-hours)
+- Sticky error recheck: 20-minute period, 5-minute initial delay
+- Sticky error max age: 7 days (`STICKY_MAX_AGE_MS`)
 
 ## Prompt Caching (cache_control ephemeral)
 

@@ -79,8 +79,21 @@ OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-ta
 - Always include: creator, material, manufacturer, measurements, weight (where applicable)
 - Provenance, exhibitions, literature: write before measurements
 
+### Abbreviation Rules
+- "bl a" → "bland annat"
+- "osv" → "och så vidare"
+- "NS" → "nysilver"
+- "ca" before year → use "omkring" instead
+- "st" only accepted in titles (for piece count), not in descriptions
+
+### Period/Dating Rules
+- Prefer specific decades over vague centuries (e.g., "1920-tal" over "1900-tal")
+- Prefer "senare fjärdedel", "senare hälft", "slut" over vague period expressions
+- Use "omkring" instead of "ca" for approximate years
+
 ### Measurements
 - Format: `Höjd 84, bredd 47 cm` or `Längd 84, bredd 47, höjd 92 cm`
+- NEVER repeat the unit: `Höjd 84 cm, bredd 47 cm` is WRONG
 - Art: `45 x 78 cm` (height × width, without frame)
 - Always last in description (except rugs/ceiling lamps → in title)
 - Use "ca" for approximate measurements
@@ -120,13 +133,33 @@ OIDENTIFIERAD KONSTNÄR, Rådjur, skulptur, brons, otydligt signerad, 18/1900-ta
 | Silver | Bucklor, repor, lagningar, monogram |
 
 ## Keyword Rules
-- Max 12 keywords, space-separated
+- Min 3, max 12 keywords, space-separated
 - Hyphenate multi-word terms (e.g., `art-deco`)
 - Must complement (not duplicate) title and description
-- Quality engine flags too few or too many keywords (see `modules/core/quality-rules-engine.js` for current thresholds)
+- No keywords = -30 points (highest single penalty)
 
-## Field Validation
-See `modules/core/quality-rules-engine.js` for current minimum character thresholds for title, description, and condition fields. Description must include measurements.
+## Field Validation Thresholds
+
+| Field | Min chars | Penalty | Notes |
+|-------|-----------|---------|-------|
+| Title | 14 | -20 | Must exist for page detection |
+| Description | 35 | -25 | Must include measurements |
+| Condition | 25 | -20 | Only if "Inga anmärkningar" NOT checked |
+| Keywords | min 3, max 12 | -30 (none) | Space-separated |
+
+### Additional Validation Rules
+- **Reserve ≥ estimate**: -20 points (reserve must be lower than estimate)
+- **Sterling silver**: write as one word "sterlingsilver" (not "Sterling Silver")
+- **Title capitalization**: if artist field filled → title starts proper case; if empty → starts UPPERCASE
+- **Repeated measurement units**: "Längd 84 cm, bredd 47 cm" is WRONG → "Längd 84, bredd 47 cm" (unit only once at end)
+- **Unknown artist phrases**: `oidentifierad konstnär`, `okänd konstnär`, `okänd mästare`, etc. → flag and direct to artist field
+
+### Forbidden Meta-Phrases (indicate poor cataloging)
+- "ytterligare uppgifter behövs"
+- "mer information krävs"
+- "information saknas"
+- "kan förbättras"
+- "bra start"
 
 ## Category-Specific Rules
 
