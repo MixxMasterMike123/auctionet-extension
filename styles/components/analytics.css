@@ -215,6 +215,9 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+}
+
+.ad-content > * {
   max-width: 1200px;
 }
 
@@ -780,7 +783,7 @@ body {
   .ad-sidebar { display: none; }
   body { overflow: auto; height: auto; }
   .ad-layout { height: auto; flex-direction: column; }
-  .ad-content { max-width: 100%; }
+  .ad-content > * { max-width: 100%; }
   .ad-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .ad-charts-row { grid-template-columns: 1fr; }
 }
