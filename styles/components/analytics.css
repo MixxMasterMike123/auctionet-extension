@@ -342,32 +342,40 @@ body {
   font-weight: 600;
 }
 
-/* Sidebar bottom */
-.ad-sb-bottom {
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--ad-border);
+/* Active filter bar (shown below year selector) */
+.ad-sb-filter-bar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  background: var(--ad-accent-light, rgba(99, 151, 255, 0.08));
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--ad-accent, #6397ff) 25%, transparent);
 }
 
-.ad-sb-summary {
+.ad-sb-filter-bar__summary {
   font-size: 11px;
   color: var(--ad-text-muted);
-  line-height: 1.4;
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ad-sb-clear {
+.ad-sb-filter-bar__clear {
   background: none;
   border: none;
-  color: var(--ad-accent);
-  font-size: 12px;
+  color: var(--ad-accent, #6397ff);
+  font-size: 11px;
   cursor: pointer;
-  text-align: left;
+  white-space: nowrap;
   padding: 0;
+  flex-shrink: 0;
 }
-.ad-sb-clear:hover { text-decoration: underline; }
+.ad-sb-filter-bar__clear:hover { text-decoration: underline; }
 
 /* ─── KPI Cards ──────────────────────────────────────────── */
 

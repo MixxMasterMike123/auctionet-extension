@@ -336,6 +336,33 @@ function renderSidebar() {
   yearSec.appendChild(yearGrid);
   sidebar.appendChild(yearSec);
 
+  // ── Active filter summary (shown early so it's always visible)
+  const hasFilters = f.month != null || f.categoryId != null || f.priceRange != null;
+  if (hasFilters) {
+    const filterBar = document.createElement('div');
+    filterBar.className = 'ad-sb-filter-bar';
+
+    const summary = document.createElement('div');
+    summary.className = 'ad-sb-filter-bar__summary';
+    const parts = [];
+    if (f.month != null) parts.push(MONTH_NAMES[f.month]);
+    if (f.categoryId != null) parts.push(getCategoryName(f.categoryId));
+    if (f.priceRange != null) {
+      const br = PRICE_BRACKETS.find(b => b.min === f.priceRange.min);
+      if (br) parts.push(br.label);
+    }
+    summary.textContent = parts.join(' · ');
+    filterBar.appendChild(summary);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'ad-sb-filter-bar__clear';
+    clearBtn.textContent = 'Rensa alla filter';
+    clearBtn.addEventListener('click', () => filters.clearAll());
+    filterBar.appendChild(clearBtn);
+
+    sidebar.appendChild(filterBar);
+  }
+
   // ── Month section
   const monthSec = mkSection('MANAD', 'Månad');
   const monthGrid = document.createElement('div');
@@ -393,34 +420,6 @@ function renderSidebar() {
   }
   priceSec.appendChild(priceList);
   sidebar.appendChild(priceSec);
-
-  // ── Bottom actions
-  const bottom = document.createElement('div');
-  bottom.className = 'ad-sb-bottom';
-
-  // Active filter summary
-  const hasFilters = f.month != null || f.categoryId != null || f.priceRange != null;
-  if (hasFilters) {
-    const summary = document.createElement('div');
-    summary.className = 'ad-sb-summary';
-    const parts = [f.year];
-    if (f.month != null) parts.push(MONTH_NAMES[f.month]);
-    if (f.categoryId != null) parts.push(getCategoryName(f.categoryId));
-    if (f.priceRange != null) {
-      const br = PRICE_BRACKETS.find(b => b.min === f.priceRange.min);
-      if (br) parts.push(br.label);
-    }
-    summary.textContent = parts.join(' · ');
-    bottom.appendChild(summary);
-
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'ad-sb-clear';
-    clearBtn.textContent = 'Rensa alla filter';
-    clearBtn.addEventListener('click', () => filters.clearAll());
-    bottom.appendChild(clearBtn);
-  }
-
-  sidebar.appendChild(bottom);
 }
 
 function mkSection(id, title) {
