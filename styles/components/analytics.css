@@ -342,22 +342,22 @@ body {
   font-weight: 600;
 }
 
-/* Active filter bar (shown below year selector) */
+/* Active filter bar (shown at top of sidebar) */
 .ad-sb-filter-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  margin-bottom: 4px;
-  background: var(--ad-accent-light, rgba(99, 151, 255, 0.08));
+  margin-bottom: 8px;
+  background: rgba(245, 158, 11, 0.1);
   border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--ad-accent, #6397ff) 25%, transparent);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .ad-sb-filter-bar__summary {
   font-size: 11px;
-  color: var(--ad-text-muted);
+  color: #f59e0b;
   line-height: 1.3;
   min-width: 0;
   overflow: hidden;
@@ -368,7 +368,7 @@ body {
 .ad-sb-filter-bar__clear {
   background: none;
   border: none;
-  color: var(--ad-accent, #6397ff);
+  color: #f59e0b;
   font-size: 11px;
   cursor: pointer;
   white-space: nowrap;

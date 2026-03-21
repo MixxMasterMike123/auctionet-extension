@@ -322,21 +322,7 @@ function renderSidebar() {
 
   sidebar.innerHTML = '';
 
-  // ── Year section
-  const yearSec = mkSection('AR', 'År');
-  const yearGrid = document.createElement('div');
-  yearGrid.className = 'ad-sb-year-grid';
-  for (const y of years) {
-    const btn = document.createElement('button');
-    btn.className = `ad-sb-btn${y === f.year ? ' ad-sb-btn--active' : ''}`;
-    btn.textContent = y;
-    btn.addEventListener('click', () => filters.setYear(y));
-    yearGrid.appendChild(btn);
-  }
-  yearSec.appendChild(yearGrid);
-  sidebar.appendChild(yearSec);
-
-  // ── Active filter summary (shown early so it's always visible)
+  // ── Active filter bar (always at the very top)
   const hasFilters = f.month != null || f.categoryId != null || f.priceRange != null;
   if (hasFilters) {
     const filterBar = document.createElement('div');
@@ -362,6 +348,20 @@ function renderSidebar() {
 
     sidebar.appendChild(filterBar);
   }
+
+  // ── Year section
+  const yearSec = mkSection('AR', 'År');
+  const yearGrid = document.createElement('div');
+  yearGrid.className = 'ad-sb-year-grid';
+  for (const y of years) {
+    const btn = document.createElement('button');
+    btn.className = `ad-sb-btn${y === f.year ? ' ad-sb-btn--active' : ''}`;
+    btn.textContent = y;
+    btn.addEventListener('click', () => filters.setYear(y));
+    yearGrid.appendChild(btn);
+  }
+  yearSec.appendChild(yearGrid);
+  sidebar.appendChild(yearSec);
 
   // ── Month section
   const monthSec = mkSection('MANAD', 'Månad');
