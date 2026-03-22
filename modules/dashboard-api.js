@@ -55,7 +55,10 @@ export class DashboardAPI {
 
       return result;
     } catch (e) {
-      console.warn('[DashboardAPI] Fetch failed:', e.message);
+      // Only log unexpected errors, not "token not configured" (expected on first run)
+      if (!e.message?.includes('token not configured')) {
+        console.warn('[DashboardAPI] Fetch failed:', e.message);
+      }
       this._available = false;
       return null;
     }

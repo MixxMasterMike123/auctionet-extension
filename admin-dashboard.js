@@ -566,301 +566,235 @@
     }
   }
 
-  // ─── 5b. Dashboard API: Real-time Overview ──────────────────────────
+  // ─── 5b. Dashboard API: Fixed Sidebar ──────────────────────────────
 
-  async function renderDashboardOverview(dashboardAPI) {
-    const data = await dashboardAPI.fetchAll();
-    if (!data) return;
+  function fmtMSEK(n) { return (n / 1000000).toFixed(1).replace('.', ',') + 'M'; }
 
+  function sidebarSparkline(values, width = 160, height = 28, formatFn) {
+    if (!values || values.length < 2) return '';
+    const max = Math.max(...values);
+    const min = Math.min(...values);
+    const range = max - min || 1;
+    const topPad = 14; // Room for tooltip text above the line
+    const botPad = 3;
+    const totalH = height + topPad;
+    const fmt = formatFn || (v => formatSEK(Math.round(v)));
+
+    const coords = values.map((v, i) => ({
+      x: (i / (values.length - 1)) * width,
+      y: totalH - ((v - min) / range) * (height - botPad) - botPad,
+      val: v
+    }));
+
+    const polyline = coords.map(c => `${c.x},${c.y}`).join(' ');
+
+    const hoverPoints = coords.map((c) => {
+      const anchor = c.x < 30 ? 'start' : c.x > width - 30 ? 'end' : 'middle';
+      return `
+        <circle cx="${c.x}" cy="${c.y}" r="10" fill="transparent" class="ext-sb__spark-hit"/>
+        <circle cx="${c.x}" cy="${c.y}" r="0" fill="#006ccc" class="ext-sb__spark-dot"/>
+        <text x="${c.x}" y="${c.y - 6}" text-anchor="${anchor}" class="ext-sb__spark-tip">${fmt(c.val)}</text>
+      `;
+    }).join('');
+
+    return `<svg class="ext-sb__spark" viewBox="0 0 ${width} ${totalH}" width="${width}" height="${totalH}" style="overflow:visible">
+      <polyline points="${polyline}" fill="none" stroke="#006ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${coords[coords.length-1].x}" cy="${coords[coords.length-1].y}" r="2.5" fill="#006ccc"/>
+      ${hoverPoints}
+    </svg>`;
+  }
+
+  function buildSidebarHTML(data, dashboardAPI) {
     const h = data.hammered;
     const a = data.auctions;
     const n = data.newItems;
     const s = data.sharedSessions;
-
-    if (!h) return;
-
-    function fmtMSEK(n) { return (n / 1000000).toFixed(1).replace('.', ',') + ' MSEK'; }
-    function miniSparkline(values, width = 120, height = 28) {
-      if (!values || values.length < 2) return '';
-      const max = Math.max(...values);
-      const min = Math.min(...values);
-      const range = max - min || 1;
-      const points = values.map((v, i) =>
-        `${(i / (values.length - 1)) * width},${height - ((v - min) / range) * (height - 4) - 2}`
-      ).join(' ');
-      return `<svg class="ext-da-sparkline" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
-        <polyline points="${points}" fill="none" stroke="#006ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="${width}" cy="${height - ((values[values.length-1] - min) / range) * (height - 4) - 2}" r="2" fill="#006ccc"/>
-      </svg>`;
-    }
-
-    const cards = [];
-
-    // R12 Revenue
-    if (h.r12) {
-      cards.push(`
-        <div class="ext-da-card">
-          <div class="ext-da-card__label">R12 Omsättning</div>
-          <div class="ext-da-card__value">${fmtMSEK(h.r12)}</div>
-          ${miniSparkline(h.sum_by_week)}
-          <div class="ext-da-card__detail">12 veckors trend</div>
-        </div>
-      `);
-    }
-
-    // YTD Revenue
-    if (h.ytd) {
-      cards.push(`
-        <div class="ext-da-card">
-          <div class="ext-da-card__label">YTD</div>
-          <div class="ext-da-card__value">${fmtMSEK(h.ytd)}</div>
-          <div class="ext-da-card__detail">Sedan 1 jan</div>
-        </div>
-      `);
-    }
-
-    // Live buyers
-    if (s?.buyers) {
-      cards.push(`
-        <div class="ext-da-card">
-          <div class="ext-da-card__label">Köpare online</div>
-          <div class="ext-da-card__value"><span class="ext-da-pulse"></span>${s.buyers.toLocaleString('sv-SE')}</div>
-          <div class="ext-da-card__detail">${s.employees || 0} anställda online</div>
-        </div>
-      `);
-    }
-
-    // Today's performance
-    if (h.count_today != null) {
-      const avgLabel = h.average_count_last_seven_days ? ` (snitt ${h.average_count_last_seven_days}/dag)` : '';
-      cards.push(`
-        <div class="ext-da-card">
-          <div class="ext-da-card__label">Snittpris idag</div>
-          <div class="ext-da-card__value">${formatSEK(h.average_price_today || 0)} SEK</div>
-          ${miniSparkline(h.average_price_by_day_last_week)}
-          <div class="ext-da-card__detail">${h.count_today} sålda idag${avgLabel}</div>
-        </div>
-      `);
-    }
-
-    // Publishing rate
-    if (a) {
-      cards.push(`
-        <div class="ext-da-card">
-          <div class="ext-da-card__label">Publiceringstakt</div>
-          <div class="ext-da-card__value">${a.published_last_seven_days_average || 0}/dag</div>
-          ${miniSparkline(a.published_by_week)}
-          <div class="ext-da-card__detail">${a.published || 0} publicerade just nu</div>
-        </div>
-      `);
-    }
-
-    // Intake rate
-    if (n) {
-      const wowChange = n.last_week > 0 ? pctChange(n.this_week, n.last_week) : null;
-      cards.push(`
-        <div class="ext-da-card">
-          <div class="ext-da-card__label">Inleveranstakt</div>
-          <div class="ext-da-card__value">${n.work_day_average || 0}/dag</div>
-          ${miniSparkline(n.new_items_by_week)}
-          <div class="ext-da-card__detail">Denna vecka: ${n.this_week || 0} st ${trendHTML(wowChange)}</div>
-        </div>
-      `);
-    }
-
-    if (cards.length === 0) return;
-
-    const container = document.createElement('div');
-    container.className = 'ext-da-overview ext-animate-in';
-    container.innerHTML = `
-      <div class="ext-da-overview__header">
-        <i class="icon fas fa-satellite-dish" style="opacity: 0.4; margin-right: 6px;"></i>
-        Realtidsöversikt
-      </div>
-      <div class="ext-da-overview__grid">${cards.join('')}</div>
-    `;
-
-    // Insert after KPI cards (before pipeline)
-    const kpiContainer = document.querySelector('.ext-kpi-container');
-    if (kpiContainer && kpiContainer.nextSibling) {
-      kpiContainer.parentNode.insertBefore(container, kpiContainer.nextSibling);
-    } else {
-      const target = document.querySelector('.requested-actions') || document.querySelector('.view');
-      if (target) target.parentNode.insertBefore(container, target);
-    }
-
-    return data; // Return data for use by other sections
-  }
-
-  // ─── 5c. Dashboard API: Pipeline Health ──────────────────────────
-
-  function renderDashboardPipelineHealth(data, dashboardAPI) {
-    if (!data) return;
-
-    const pipeline = dashboardAPI.computePipelineHealth(data);
-    const reserve = dashboardAPI.computeReserveCoverage(data);
-    const relist = dashboardAPI.computeRelistingRatio(data);
-    const balance = dashboardAPI.computeIntakeOutputBalance(data);
-
-    if (!pipeline) return;
-
-    const a = data.auctions;
-
-    // Color coding for relisting ratio
-    const relistColor = pipeline.relistRatio < 20 ? '#28a745' : pipeline.relistRatio < 35 ? '#e65100' : '#dc3545';
-    const balanceColor = !balance ? '#888' :
-      balance.status === 'balanced' ? '#28a745' :
-      balance.status === 'growing' ? '#e65100' : '#17a2b8';
-    const balanceLabel = !balance ? '' :
-      balance.status === 'growing' ? `+${pipeline.backlogGrowth} obj/dag` :
-      balance.status === 'shrinking' ? `${pipeline.backlogGrowth} obj/dag` : 'Balanserad';
-
-    const cards = [];
-
-    cards.push(`
-      <div class="ext-insight-card">
-        <div class="ext-insight-card__label">Omlistningsandel (7d)</div>
-        <div class="ext-insight-card__value" style="color: ${relistColor}">${pipeline.relistRatio}%</div>
-        <div class="ext-insight-card__detail">${pipeline.relistRatio}% av publicerade är omlistningar</div>
-      </div>
-    `);
-
-    if (reserve) {
-      const reserveColor = reserve.rate > 40 ? '#28a745' : reserve.rate > 20 ? '#e65100' : '#dc3545';
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Utropstäckning</div>
-          <div class="ext-insight-card__value" style="color: ${reserveColor}">${reserve.rate}%</div>
-          <div class="ext-insight-card__detail">${reserve.count} av ${reserve.total} har bud över reserv</div>
-        </div>
-      `);
-    }
-
-    if (a?.published_total_estimate) {
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Pipeline-estimat</div>
-          <div class="ext-insight-card__value">${(a.published_total_estimate / 1000000).toFixed(1).replace('.', ',')} MSEK</div>
-          <div class="ext-insight-card__detail">${a.published || 0} objekt publicerade</div>
-        </div>
-      `);
-    }
-
-    if (balance) {
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">In/Ut-balans</div>
-          <div class="ext-insight-card__value" style="color: ${balanceColor}">${balanceLabel}</div>
-          <div class="ext-insight-card__detail">In: ${balance.intake}/dag · Ut: ${balance.output}/dag</div>
-        </div>
-      `);
-    }
-
-    if (cards.length === 0) return;
-
-    const grid = document.createElement('div');
-    grid.className = 'ext-insights-grid ext-da-pipeline-health ext-animate-in';
-    grid.innerHTML = cards.join('');
-
-    // Insert after existing insights grid or after pipeline
-    const existingInsights = document.querySelector('.ext-insights-grid:not(.ext-da-pipeline-health)');
-    const pipelineEl = document.querySelector('.ext-pipeline');
-    const insertAfter = existingInsights || pipelineEl;
-    if (insertAfter && insertAfter.nextSibling) {
-      insertAfter.parentNode.insertBefore(grid, insertAfter.nextSibling);
-    }
-  }
-
-  // ─── 5d. Dashboard API: Search Demand ────────────────────────────
-
-  function renderSearchDemand(data) {
-    if (!data) return;
-
     const shared = data.sharedSearches || [];
     const company = data.sasEmployeesSearches || [];
-    const allSearches = [...shared, ...company];
 
-    if (allSearches.length === 0) return;
+    let html = '';
 
-    // Zero-result searches (unmet demand)
-    const zeroResults = allSearches.filter(s => s.count === 0 && !s.ended);
-
-    // Active searches with results
-    const activeSearches = allSearches
-      .filter(s => s.count > 0 && !s.ended)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    // Ended (historical) searches with most results
-    const endedSearches = allSearches
-      .filter(s => s.count > 0 && s.ended)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    const items = [];
-
-    if (zeroResults.length > 0) {
-      items.push(`<div class="ext-search-group-label">Nollresultat — efterfrågan utan utbud</div>`);
-      for (const s of zeroResults) {
-        const catBadge = s.category ? `<span class="ext-search-cat">${escapeHTML(s.category)}</span>` : '';
-        items.push(`
-          <div class="ext-search-item ext-search-item--zero">
-            <span class="ext-search-query">${escapeHTML(s.query)}</span>
-            ${catBadge}
-            <span class="ext-search-count">0 träffar</span>
-          </div>
-        `);
-      }
-    }
-
-    if (activeSearches.length > 0) {
-      items.push(`<div class="ext-search-group-label">Populärt just nu</div>`);
-      for (const s of activeSearches) {
-        const catBadge = s.category ? `<span class="ext-search-cat">${escapeHTML(s.category)}</span>` : '';
-        items.push(`
-          <div class="ext-search-item">
-            <span class="ext-search-query">${escapeHTML(s.query)}</span>
-            ${catBadge}
-            <span class="ext-search-count">${s.count.toLocaleString('sv-SE')} träffar</span>
-          </div>
-        `);
-      }
-    }
-
-    if (endedSearches.length > 0) {
-      items.push(`<div class="ext-search-group-label">Bland avslutade</div>`);
-      for (const s of endedSearches) {
-        const catBadge = s.category ? `<span class="ext-search-cat">${escapeHTML(s.category)}</span>` : '';
-        items.push(`
-          <div class="ext-search-item ext-search-item--ended">
-            <span class="ext-search-query">${escapeHTML(s.query)}</span>
-            ${catBadge}
-            <span class="ext-search-count">${s.count.toLocaleString('sv-SE')} träffar</span>
-          </div>
-        `);
-      }
-    }
-
-    if (items.length === 0) return;
-
-    const container = document.createElement('div');
-    container.className = 'ext-search-demand ext-animate-in';
-    container.innerHTML = `
-      <div class="ext-search-demand__header">
-        <i class="icon fas fa-search" style="opacity: 0.4; margin-right: 6px;"></i>
-        Sökefterfrågan — vad köpare söker just nu
+    // ── Header ──
+    html += `
+      <div class="ext-sb__header">
+        <span class="ext-sb__title">Live</span>
+        <button class="ext-sb__toggle" title="Dölj">&#x25C0;</button>
       </div>
-      <div class="ext-search-demand__list">${items.join('')}</div>
     `;
 
-    // Insert after comment feed or at end of main content
-    const commentFeed = document.querySelector('.ext-comment-feed');
-    const warehouseWidget = document.querySelector('.ext-warehouse');
-    const insertAfter = commentFeed || warehouseWidget;
-    if (insertAfter && insertAfter.nextSibling) {
-      insertAfter.parentNode.insertBefore(container, insertAfter.nextSibling);
-    } else if (insertAfter) {
-      insertAfter.parentNode.appendChild(container);
+    // ── Hero KPIs ──
+    if (h) {
+      html += `<div class="ext-sb__section">`;
+      if (h.r12) html += `
+        <div class="ext-sb__kpi">
+          <span class="ext-sb__kpi-label">R12</span>
+          <span class="ext-sb__kpi-value">${fmtMSEK(h.r12)}</span>
+        </div>`;
+      if (h.ytd) html += `
+        <div class="ext-sb__kpi">
+          <span class="ext-sb__kpi-label">YTD</span>
+          <span class="ext-sb__kpi-value">${fmtMSEK(h.ytd)}</span>
+        </div>`;
+      html += `</div>`;
+    }
+
+    // ── Sessions ──
+    if (s?.buyers) {
+      html += `
+        <div class="ext-sb__section">
+          <div class="ext-sb__sessions">
+            <span class="ext-da-pulse"></span>
+            <span class="ext-sb__kpi-value">${s.buyers.toLocaleString('sv-SE')}</span>
+            <span class="ext-sb__kpi-label">köpare</span>
+          </div>
+          <div class="ext-sb__sub">${s.employees || 0} anställda online</div>
+        </div>
+      `;
+    }
+
+    // ── Sparklines ──
+    if (h) {
+      html += `<div class="ext-sb__section">`;
+      if (h.average_price_by_day_last_week) {
+        html += `
+          <div class="ext-sb__spark-row">
+            <div class="ext-sb__spark-label">Snittpris 7d</div>
+            ${sidebarSparkline(h.average_price_by_day_last_week, 160, 28, v => formatSEK(Math.round(v)) + ' kr')}
+            <div class="ext-sb__spark-value">${formatSEK(h.average_price_today || 0)} SEK</div>
+          </div>`;
+      }
+      if (a?.published_by_week) {
+        html += `
+          <div class="ext-sb__spark-row">
+            <div class="ext-sb__spark-label">Publicering 12v</div>
+            ${sidebarSparkline(a.published_by_week, 160, 28, v => Math.round(v) + ' st')}
+            <div class="ext-sb__spark-value">${a.published_last_seven_days_average || 0}/dag</div>
+          </div>`;
+      }
+      if (n?.new_items_by_week) {
+        html += `
+          <div class="ext-sb__spark-row">
+            <div class="ext-sb__spark-label">Inleverans 12v</div>
+            ${sidebarSparkline(n.new_items_by_week, 160, 28, v => Math.round(v) + ' st')}
+            <div class="ext-sb__spark-value">${n.work_day_average || 0}/dag</div>
+          </div>`;
+      }
+      if (h.sum_by_week) {
+        html += `
+          <div class="ext-sb__spark-row">
+            <div class="ext-sb__spark-label">Omsättning 12v</div>
+            ${sidebarSparkline(h.sum_by_week, 160, 28, v => formatSEK(Math.round(v)) + ' kr')}
+            <div class="ext-sb__spark-value">${formatSEK(h.last_seven_days_average || 0)}/dag</div>
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // ── Pipeline health pills ──
+    const pipeline = dashboardAPI.computePipelineHealth(data);
+    const reserve = dashboardAPI.computeReserveCoverage(data);
+    const balance = dashboardAPI.computeIntakeOutputBalance(data);
+
+    if (pipeline) {
+      const relistCls = pipeline.relistRatio < 20 ? 'green' : pipeline.relistRatio < 35 ? 'amber' : 'red';
+      const reserveCls = reserve && reserve.rate > 40 ? 'green' : reserve && reserve.rate > 20 ? 'amber' : 'red';
+      const balanceCls = !balance ? 'muted' : balance.status === 'balanced' ? 'green' : balance.status === 'growing' ? 'amber' : 'blue';
+      const balanceText = !balance ? '—' : balance.status === 'growing' ? `+${pipeline.backlogGrowth}/dag` : balance.status === 'shrinking' ? `${pipeline.backlogGrowth}/dag` : 'Balanserad';
+
+      html += `
+        <div class="ext-sb__section">
+          <div class="ext-sb__section-title">PIPELINE</div>
+          <div class="ext-sb__pills">
+            <span class="ext-sb__pill ext-sb__pill--${relistCls}">${pipeline.relistRatio}% omlistat</span>
+            ${reserve ? `<span class="ext-sb__pill ext-sb__pill--${reserveCls}">${reserve.rate}% reserv</span>` : ''}
+            <span class="ext-sb__pill ext-sb__pill--${balanceCls}">${balanceText}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Live searches ──
+    const allSearches = [...shared, ...company];
+    if (allSearches.length > 0) {
+      const zeroResults = allSearches.filter(s => s.count === 0 && !s.ended);
+      const activeSearches = allSearches.filter(s => s.count > 0 && !s.ended).sort((a, b) => b.count - a.count).slice(0, 8);
+
+      let searchItems = '';
+
+      if (zeroResults.length > 0) {
+        searchItems += `<div class="ext-sb__search-group">Nollresultat</div>`;
+        for (const s of zeroResults.slice(0, 5)) {
+          searchItems += `<div class="ext-sb__search ext-sb__search--zero">${escapeHTML(s.query)}<span>0</span></div>`;
+        }
+      }
+
+      if (activeSearches.length > 0) {
+        searchItems += `<div class="ext-sb__search-group">Populärt</div>`;
+        for (const s of activeSearches) {
+          searchItems += `<div class="ext-sb__search">${escapeHTML(s.query)}<span>${s.count.toLocaleString('sv-SE')}</span></div>`;
+        }
+      }
+
+      if (searchItems) {
+        html += `
+          <div class="ext-sb__section ext-sb__section--scroll">
+            <div class="ext-sb__section-title">SÖKNINGAR</div>
+            <div class="ext-sb__searches">${searchItems}</div>
+          </div>
+        `;
+      }
+    }
+
+    // ── Footer ──
+    const now = new Date();
+    const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+    html += `<div class="ext-sb__footer">Uppdaterad ${timeStr}</div>`;
+
+    return html;
+  }
+
+  function createDashboardSidebar(data, dashboardAPI) {
+    const sidebar = document.createElement('aside');
+    sidebar.className = 'ext-sb';
+    sidebar.id = 'ext-dashboard-sidebar';
+    sidebar.innerHTML = buildSidebarHTML(data, dashboardAPI);
+    document.body.appendChild(sidebar);
+
+    // Push page content to the right
+    document.body.classList.add('ext-has-sidebar');
+
+    // Restore collapsed state
+    chrome.storage.sync.get('sidebarCollapsed', (result) => {
+      if (result.sidebarCollapsed) {
+        sidebar.classList.add('ext-sb--collapsed');
+        document.body.classList.add('ext-sidebar-collapsed');
+        const btn = sidebar.querySelector('.ext-sb__toggle');
+        if (btn) btn.innerHTML = '&#x25B6;';
+      }
+    });
+
+    // Toggle handler
+    sidebar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.ext-sb__toggle');
+      if (!btn) return;
+
+      const isCollapsed = sidebar.classList.toggle('ext-sb--collapsed');
+      document.body.classList.toggle('ext-sidebar-collapsed', isCollapsed);
+      btn.innerHTML = isCollapsed ? '&#x25B6;' : '&#x25C0;';
+      chrome.storage.sync.set({ sidebarCollapsed: isCollapsed });
+    });
+  }
+
+  function refreshSidebarContent(data, dashboardAPI) {
+    const sidebar = document.getElementById('ext-dashboard-sidebar');
+    if (!sidebar) return;
+    // Preserve collapsed state
+    const isCollapsed = sidebar.classList.contains('ext-sb--collapsed');
+    sidebar.innerHTML = buildSidebarHTML(data, dashboardAPI);
+    if (isCollapsed) {
+      sidebar.classList.add('ext-sb--collapsed');
+      const btn = sidebar.querySelector('.ext-sb__toggle');
+      if (btn) btn.innerHTML = '&#x25B6;';
     }
   }
 
@@ -1886,10 +1820,10 @@
     try {
       const mod = await import(chrome.runtime.getURL('modules/dashboard-api.js'));
       _dashboardAPIInstance = new mod.DashboardAPI();
-      const data = await renderDashboardOverview(_dashboardAPIInstance);
+      const data = await _dashboardAPIInstance.fetchAll();
       if (data) {
-        renderDashboardPipelineHealth(data, _dashboardAPIInstance);
-        renderSearchDemand(data);
+        createDashboardSidebar(data, _dashboardAPIInstance);
+        dashboardAPILastRefresh = Date.now();
       }
     } catch (e) {
       // Dashboard API unavailable — all features degrade gracefully
@@ -1897,20 +1831,15 @@
     }
   }
 
-  // Auto-refresh dashboard API data on tab visibility change
+  // Auto-refresh sidebar on tab visibility change
   let dashboardAPILastRefresh = 0;
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible' && _dashboardAPIInstance) {
       const idleMinutes = (Date.now() - dashboardAPILastRefresh) / 60000;
       if (idleMinutes >= 5) {
         dashboardAPILastRefresh = Date.now();
-        // Remove old sections and re-render
-        document.querySelectorAll('.ext-da-overview, .ext-da-pipeline-health, .ext-search-demand').forEach(el => el.remove());
-        const data = await renderDashboardOverview(_dashboardAPIInstance);
-        if (data) {
-          renderDashboardPipelineHealth(data, _dashboardAPIInstance);
-          renderSearchDemand(data);
-        }
+        const data = await _dashboardAPIInstance.fetchAll();
+        if (data) refreshSidebarContent(data, _dashboardAPIInstance);
       }
     }
   });
