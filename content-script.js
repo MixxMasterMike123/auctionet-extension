@@ -37,6 +37,8 @@
     const { EnhanceAllManager } = await import(chrome.runtime.getURL('modules/enhance-all/enhance-all-manager.js'));
     const { EnhanceAllUI } = await import(chrome.runtime.getURL('modules/enhance-all/enhance-all-ui.js'));
     const { FieldDistributor } = await import(chrome.runtime.getURL('modules/enhance-all/field-distributor.js'));
+    const { DashboardAPI } = await import(chrome.runtime.getURL('modules/dashboard-api.js'));
+    const { SearchRelevanceMatcher } = await import(chrome.runtime.getURL('modules/search-relevance.js'));
 
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
@@ -126,6 +128,54 @@
 
         // Run initial quality analysis after API key is loaded
         await this.uiManager.runInitialQualityAnalysis();
+
+        // Show search demand signal (non-blocking, best-effort)
+        this.showSearchDemandSignal();
+      }
+
+      async showSearchDemandSignal() {
+        try {
+          const dashAPI = new DashboardAPI();
+          const searches = await dashAPI.getSearches();
+          if (!searches) return;
+
+          const matcher = new SearchRelevanceMatcher();
+          const titleEl = document.querySelector('#item_title_sv');
+          const categoryEl = document.querySelector('#item_category_id option:checked');
+          const artistEl = document.querySelector('#item_artist');
+          const keywordsEl = document.querySelector('#item_keywords_sv');
+
+          const itemData = {
+            title: titleEl?.value || '',
+            category: categoryEl?.textContent || '',
+            artist: artistEl?.value || '',
+            keywords: keywordsEl?.value || ''
+          };
+
+          const allSearches = [...(searches.shared || []), ...(searches.company || [])];
+          const matches = matcher.matchSearchesToItem(allSearches, itemData);
+          if (matches.length === 0) return;
+
+          const banner = document.createElement('div');
+          banner.className = 'ext-search-signal';
+          banner.innerHTML = `
+            <span class="ext-search-signal__icon">&#x1F50D;</span>
+            <span class="ext-search-signal__text">
+              Köpare söker just nu:
+              ${matches.map(m => `<strong>${escapeHTML(m.query)}</strong> (${m.count} st)`).join(', ')}
+            </span>
+            <button class="ext-search-signal__close" title="Stäng">&times;</button>
+          `;
+          banner.querySelector('.ext-search-signal__close').addEventListener('click', () => banner.remove());
+
+          // Insert before the form or at top of content area
+          const form = document.querySelector('.item-form, form[id*="edit_item"]');
+          if (form) {
+            form.parentNode.insertBefore(banner, form);
+          }
+        } catch (e) {
+          // Silent fail — search signal is non-critical
+        }
       }
 
       setupEventListeners() {

@@ -30,6 +30,9 @@ chrome.alarms.get('publicationScan').then(existing => {
 chrome.alarms.get('stickyErrorRecheck').then(existing => {
   if (!existing) chrome.alarms.create('stickyErrorRecheck', { delayInMinutes: 5, periodInMinutes: 20 });
 });
+chrome.alarms.get('dashboardSearchSnapshot').then(existing => {
+  if (!existing) chrome.alarms.create('dashboardSearchSnapshot', { delayInMinutes: 10, periodInMinutes: 60 });
+});
 
 // Run an initial scan on extension install or update so data is fresh immediately
 chrome.runtime.onInstalled.addListener(() => {
@@ -41,6 +44,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     runPublicationScanAndNotify();
   } else if (alarm.name === 'stickyErrorRecheck') {
     runStickyRecheckAndNotify();
+  } else if (alarm.name === 'dashboardSearchSnapshot') {
+    captureDashboardSearchSnapshot();
   }
 });
 
@@ -79,6 +84,46 @@ async function runStickyRecheckAndNotify() {
   }
 }
 
+async function captureDashboardSearchSnapshot() {
+  if (!isBusinessHours()) return; // Only capture during business hours
+
+  try {
+    const stored = await chrome.storage.local.get(['dashboardApiToken']);
+    if (!stored.dashboardApiToken) return; // No token — skip silently
+
+    const url = `https://dashboard.auctionet.com/sources?types=shared-searches,sas_employees-searches&token=${encodeURIComponent(stored.dashboardApiToken)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok) return;
+
+    const json = await response.json();
+    const sharedSearches = json.sources?.['shared-searches']?.data || [];
+    const companySearches = json.sources?.['sas_employees-searches']?.data || [];
+
+    const snapshot = {
+      timestamp: Date.now(),
+      shared: sharedSearches.map(s => ({ q: s.query, c: s.count, cat: s.category, ended: s.ended })),
+      company: companySearches.map(s => ({ q: s.query, c: s.count, cat: s.category, ended: s.ended }))
+    };
+
+    // Append to history, prune entries older than 7 days (max 168 snapshots)
+    const historyResult = await chrome.storage.local.get(['dashboardSearchHistory']);
+    const history = historyResult.dashboardSearchHistory || [];
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const pruned = history.filter(h => h.timestamp > sevenDaysAgo);
+    pruned.push(snapshot);
+
+    // Cap at 168 entries (7 days × 24 hours)
+    const capped = pruned.length > 168 ? pruned.slice(-168) : pruned;
+    await chrome.storage.local.set({ dashboardSearchHistory: capped });
+  } catch (e) {
+    // Non-critical: snapshot missed, will retry next hour
+  }
+}
+
 function notifyDashboardTabs(messageType) {
   chrome.tabs.query({ url: 'https://auctionet.com/admin/sas' }, (tabs) => {
     tabs.forEach(tab => {
@@ -111,6 +156,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
   } else if (request.type === 'fetch-admin-html') {
     handleAdminHtmlFetch(request, sendResponse);
+    return true;
+  } else if (request.type === 'dashboard-fetch') {
+    handleDashboardFetch(request, sendResponse);
     return true;
   } else if (request.type === 'ping') {
     sendResponse({ success: true, message: 'pong' });
@@ -286,6 +334,42 @@ async function handleAdminHtmlFetch(request, sendResponse) {
     sendResponse({ success: true, html });
   } catch (error) {
     sendResponse({ success: false, error: error.message });
+  }
+}
+
+async function handleDashboardFetch(request, sendResponse) {
+  try {
+    const { widgets } = request;
+    if (!widgets || !Array.isArray(widgets) || widgets.length === 0) {
+      sendResponse({ success: false, error: 'widgets array is required' });
+      return;
+    }
+
+    // Read token from secure storage (content scripts never see the token)
+    const stored = await chrome.storage.local.get(['dashboardApiToken']);
+    const token = stored.dashboardApiToken;
+    if (!token) {
+      sendResponse({ success: false, error: 'Dashboard token not configured. Set it in extension popup.' });
+      return;
+    }
+
+    const url = `https://dashboard.auctionet.com/sources?types=${widgets.join(',')}&token=${encodeURIComponent(token)}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      sendResponse({ success: false, error: `Dashboard API HTTP ${response.status}` });
+      return;
+    }
+
+    const data = await response.json();
+    sendResponse({ success: true, data });
+  } catch (error) {
+    sendResponse({ success: false, error: error.name === 'AbortError' ? 'Dashboard API timeout (10s)' : error.message });
   }
 }
 

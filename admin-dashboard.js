@@ -566,6 +566,304 @@
     }
   }
 
+  // ─── 5b. Dashboard API: Real-time Overview ──────────────────────────
+
+  async function renderDashboardOverview(dashboardAPI) {
+    const data = await dashboardAPI.fetchAll();
+    if (!data) return;
+
+    const h = data.hammered;
+    const a = data.auctions;
+    const n = data.newItems;
+    const s = data.sharedSessions;
+
+    if (!h) return;
+
+    function fmtMSEK(n) { return (n / 1000000).toFixed(1).replace('.', ',') + ' MSEK'; }
+    function miniSparkline(values, width = 120, height = 28) {
+      if (!values || values.length < 2) return '';
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+      const range = max - min || 1;
+      const points = values.map((v, i) =>
+        `${(i / (values.length - 1)) * width},${height - ((v - min) / range) * (height - 4) - 2}`
+      ).join(' ');
+      return `<svg class="ext-da-sparkline" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+        <polyline points="${points}" fill="none" stroke="#006ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="${width}" cy="${height - ((values[values.length-1] - min) / range) * (height - 4) - 2}" r="2" fill="#006ccc"/>
+      </svg>`;
+    }
+
+    const cards = [];
+
+    // R12 Revenue
+    if (h.r12) {
+      cards.push(`
+        <div class="ext-da-card">
+          <div class="ext-da-card__label">R12 Omsättning</div>
+          <div class="ext-da-card__value">${fmtMSEK(h.r12)}</div>
+          ${miniSparkline(h.sum_by_week)}
+          <div class="ext-da-card__detail">12 veckors trend</div>
+        </div>
+      `);
+    }
+
+    // YTD Revenue
+    if (h.ytd) {
+      cards.push(`
+        <div class="ext-da-card">
+          <div class="ext-da-card__label">YTD</div>
+          <div class="ext-da-card__value">${fmtMSEK(h.ytd)}</div>
+          <div class="ext-da-card__detail">Sedan 1 jan</div>
+        </div>
+      `);
+    }
+
+    // Live buyers
+    if (s?.buyers) {
+      cards.push(`
+        <div class="ext-da-card">
+          <div class="ext-da-card__label">Köpare online</div>
+          <div class="ext-da-card__value"><span class="ext-da-pulse"></span>${s.buyers.toLocaleString('sv-SE')}</div>
+          <div class="ext-da-card__detail">${s.employees || 0} anställda online</div>
+        </div>
+      `);
+    }
+
+    // Today's performance
+    if (h.count_today != null) {
+      const avgLabel = h.average_count_last_seven_days ? ` (snitt ${h.average_count_last_seven_days}/dag)` : '';
+      cards.push(`
+        <div class="ext-da-card">
+          <div class="ext-da-card__label">Snittpris idag</div>
+          <div class="ext-da-card__value">${formatSEK(h.average_price_today || 0)} SEK</div>
+          ${miniSparkline(h.average_price_by_day_last_week)}
+          <div class="ext-da-card__detail">${h.count_today} sålda idag${avgLabel}</div>
+        </div>
+      `);
+    }
+
+    // Publishing rate
+    if (a) {
+      cards.push(`
+        <div class="ext-da-card">
+          <div class="ext-da-card__label">Publiceringstakt</div>
+          <div class="ext-da-card__value">${a.published_last_seven_days_average || 0}/dag</div>
+          ${miniSparkline(a.published_by_week)}
+          <div class="ext-da-card__detail">${a.published || 0} publicerade just nu</div>
+        </div>
+      `);
+    }
+
+    // Intake rate
+    if (n) {
+      const wowChange = n.last_week > 0 ? pctChange(n.this_week, n.last_week) : null;
+      cards.push(`
+        <div class="ext-da-card">
+          <div class="ext-da-card__label">Inleveranstakt</div>
+          <div class="ext-da-card__value">${n.work_day_average || 0}/dag</div>
+          ${miniSparkline(n.new_items_by_week)}
+          <div class="ext-da-card__detail">Denna vecka: ${n.this_week || 0} st ${trendHTML(wowChange)}</div>
+        </div>
+      `);
+    }
+
+    if (cards.length === 0) return;
+
+    const container = document.createElement('div');
+    container.className = 'ext-da-overview ext-animate-in';
+    container.innerHTML = `
+      <div class="ext-da-overview__header">
+        <i class="icon fas fa-satellite-dish" style="opacity: 0.4; margin-right: 6px;"></i>
+        Realtidsöversikt
+      </div>
+      <div class="ext-da-overview__grid">${cards.join('')}</div>
+    `;
+
+    // Insert after KPI cards (before pipeline)
+    const kpiContainer = document.querySelector('.ext-kpi-container');
+    if (kpiContainer && kpiContainer.nextSibling) {
+      kpiContainer.parentNode.insertBefore(container, kpiContainer.nextSibling);
+    } else {
+      const target = document.querySelector('.requested-actions') || document.querySelector('.view');
+      if (target) target.parentNode.insertBefore(container, target);
+    }
+
+    return data; // Return data for use by other sections
+  }
+
+  // ─── 5c. Dashboard API: Pipeline Health ──────────────────────────
+
+  function renderDashboardPipelineHealth(data, dashboardAPI) {
+    if (!data) return;
+
+    const pipeline = dashboardAPI.computePipelineHealth(data);
+    const reserve = dashboardAPI.computeReserveCoverage(data);
+    const relist = dashboardAPI.computeRelistingRatio(data);
+    const balance = dashboardAPI.computeIntakeOutputBalance(data);
+
+    if (!pipeline) return;
+
+    const a = data.auctions;
+
+    // Color coding for relisting ratio
+    const relistColor = pipeline.relistRatio < 20 ? '#28a745' : pipeline.relistRatio < 35 ? '#e65100' : '#dc3545';
+    const balanceColor = !balance ? '#888' :
+      balance.status === 'balanced' ? '#28a745' :
+      balance.status === 'growing' ? '#e65100' : '#17a2b8';
+    const balanceLabel = !balance ? '' :
+      balance.status === 'growing' ? `+${pipeline.backlogGrowth} obj/dag` :
+      balance.status === 'shrinking' ? `${pipeline.backlogGrowth} obj/dag` : 'Balanserad';
+
+    const cards = [];
+
+    cards.push(`
+      <div class="ext-insight-card">
+        <div class="ext-insight-card__label">Omlistningsandel (7d)</div>
+        <div class="ext-insight-card__value" style="color: ${relistColor}">${pipeline.relistRatio}%</div>
+        <div class="ext-insight-card__detail">${pipeline.relistRatio}% av publicerade är omlistningar</div>
+      </div>
+    `);
+
+    if (reserve) {
+      const reserveColor = reserve.rate > 40 ? '#28a745' : reserve.rate > 20 ? '#e65100' : '#dc3545';
+      cards.push(`
+        <div class="ext-insight-card">
+          <div class="ext-insight-card__label">Utropstäckning</div>
+          <div class="ext-insight-card__value" style="color: ${reserveColor}">${reserve.rate}%</div>
+          <div class="ext-insight-card__detail">${reserve.count} av ${reserve.total} har bud över reserv</div>
+        </div>
+      `);
+    }
+
+    if (a?.published_total_estimate) {
+      cards.push(`
+        <div class="ext-insight-card">
+          <div class="ext-insight-card__label">Pipeline-estimat</div>
+          <div class="ext-insight-card__value">${(a.published_total_estimate / 1000000).toFixed(1).replace('.', ',')} MSEK</div>
+          <div class="ext-insight-card__detail">${a.published || 0} objekt publicerade</div>
+        </div>
+      `);
+    }
+
+    if (balance) {
+      cards.push(`
+        <div class="ext-insight-card">
+          <div class="ext-insight-card__label">In/Ut-balans</div>
+          <div class="ext-insight-card__value" style="color: ${balanceColor}">${balanceLabel}</div>
+          <div class="ext-insight-card__detail">In: ${balance.intake}/dag · Ut: ${balance.output}/dag</div>
+        </div>
+      `);
+    }
+
+    if (cards.length === 0) return;
+
+    const grid = document.createElement('div');
+    grid.className = 'ext-insights-grid ext-da-pipeline-health ext-animate-in';
+    grid.innerHTML = cards.join('');
+
+    // Insert after existing insights grid or after pipeline
+    const existingInsights = document.querySelector('.ext-insights-grid:not(.ext-da-pipeline-health)');
+    const pipelineEl = document.querySelector('.ext-pipeline');
+    const insertAfter = existingInsights || pipelineEl;
+    if (insertAfter && insertAfter.nextSibling) {
+      insertAfter.parentNode.insertBefore(grid, insertAfter.nextSibling);
+    }
+  }
+
+  // ─── 5d. Dashboard API: Search Demand ────────────────────────────
+
+  function renderSearchDemand(data) {
+    if (!data) return;
+
+    const shared = data.sharedSearches || [];
+    const company = data.sasEmployeesSearches || [];
+    const allSearches = [...shared, ...company];
+
+    if (allSearches.length === 0) return;
+
+    // Zero-result searches (unmet demand)
+    const zeroResults = allSearches.filter(s => s.count === 0 && !s.ended);
+
+    // Active searches with results
+    const activeSearches = allSearches
+      .filter(s => s.count > 0 && !s.ended)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Ended (historical) searches with most results
+    const endedSearches = allSearches
+      .filter(s => s.count > 0 && s.ended)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const items = [];
+
+    if (zeroResults.length > 0) {
+      items.push(`<div class="ext-search-group-label">Nollresultat — efterfrågan utan utbud</div>`);
+      for (const s of zeroResults) {
+        const catBadge = s.category ? `<span class="ext-search-cat">${escapeHTML(s.category)}</span>` : '';
+        items.push(`
+          <div class="ext-search-item ext-search-item--zero">
+            <span class="ext-search-query">${escapeHTML(s.query)}</span>
+            ${catBadge}
+            <span class="ext-search-count">0 träffar</span>
+          </div>
+        `);
+      }
+    }
+
+    if (activeSearches.length > 0) {
+      items.push(`<div class="ext-search-group-label">Populärt just nu</div>`);
+      for (const s of activeSearches) {
+        const catBadge = s.category ? `<span class="ext-search-cat">${escapeHTML(s.category)}</span>` : '';
+        items.push(`
+          <div class="ext-search-item">
+            <span class="ext-search-query">${escapeHTML(s.query)}</span>
+            ${catBadge}
+            <span class="ext-search-count">${s.count.toLocaleString('sv-SE')} träffar</span>
+          </div>
+        `);
+      }
+    }
+
+    if (endedSearches.length > 0) {
+      items.push(`<div class="ext-search-group-label">Bland avslutade</div>`);
+      for (const s of endedSearches) {
+        const catBadge = s.category ? `<span class="ext-search-cat">${escapeHTML(s.category)}</span>` : '';
+        items.push(`
+          <div class="ext-search-item ext-search-item--ended">
+            <span class="ext-search-query">${escapeHTML(s.query)}</span>
+            ${catBadge}
+            <span class="ext-search-count">${s.count.toLocaleString('sv-SE')} träffar</span>
+          </div>
+        `);
+      }
+    }
+
+    if (items.length === 0) return;
+
+    const container = document.createElement('div');
+    container.className = 'ext-search-demand ext-animate-in';
+    container.innerHTML = `
+      <div class="ext-search-demand__header">
+        <i class="icon fas fa-search" style="opacity: 0.4; margin-right: 6px;"></i>
+        Sökefterfrågan — vad köpare söker just nu
+      </div>
+      <div class="ext-search-demand__list">${items.join('')}</div>
+    `;
+
+    // Insert after comment feed or at end of main content
+    const commentFeed = document.querySelector('.ext-comment-feed');
+    const warehouseWidget = document.querySelector('.ext-warehouse');
+    const insertAfter = commentFeed || warehouseWidget;
+    if (insertAfter && insertAfter.nextSibling) {
+      insertAfter.parentNode.insertBefore(container, insertAfter.nextSibling);
+    } else if (insertAfter) {
+      insertAfter.parentNode.appendChild(container);
+    }
+  }
+
   // ─── 6. Inventory Health Summary ──────────────────────────────────
 
   function renderInventoryHealth() {
@@ -1580,6 +1878,43 @@
     });
   }
 
+  // ─── Dashboard API initialization ──────────────────────────────────
+
+  let _dashboardAPIInstance = null;
+
+  async function initDashboardAPI() {
+    try {
+      const mod = await import(chrome.runtime.getURL('modules/dashboard-api.js'));
+      _dashboardAPIInstance = new mod.DashboardAPI();
+      const data = await renderDashboardOverview(_dashboardAPIInstance);
+      if (data) {
+        renderDashboardPipelineHealth(data, _dashboardAPIInstance);
+        renderSearchDemand(data);
+      }
+    } catch (e) {
+      // Dashboard API unavailable — all features degrade gracefully
+      console.warn('[AdminDashboard] Dashboard API init failed:', e.message);
+    }
+  }
+
+  // Auto-refresh dashboard API data on tab visibility change
+  let dashboardAPILastRefresh = 0;
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && _dashboardAPIInstance) {
+      const idleMinutes = (Date.now() - dashboardAPILastRefresh) / 60000;
+      if (idleMinutes >= 5) {
+        dashboardAPILastRefresh = Date.now();
+        // Remove old sections and re-render
+        document.querySelectorAll('.ext-da-overview, .ext-da-pipeline-health, .ext-search-demand').forEach(el => el.remove());
+        const data = await renderDashboardOverview(_dashboardAPIInstance);
+        if (data) {
+          renderDashboardPipelineHealth(data, _dashboardAPIInstance);
+          renderSearchDemand(data);
+        }
+      }
+    }
+  });
+
   // ─── Initialize ───────────────────────────────────────────────────
 
   let hasRenderedKPI = false;
@@ -1590,6 +1925,7 @@
   let hasRenderedComments = false;
   let hasStartedWarehouseFetch = false;
   let hasStartedPublicationScan = false;
+  let hasRenderedDashboardAPI = false;
 
   function tryRenderAll() {
     try {
@@ -1632,6 +1968,12 @@
         hasRenderedComments = true;
       }
 
+      // Dashboard API sections — start after KPI cards are in place
+      if (!hasRenderedDashboardAPI && hasRenderedKPI) {
+        hasRenderedDashboardAPI = true;
+        initDashboardAPI();
+      }
+
       // Warehouse costs — start once the page has basic structure
       if (!hasStartedWarehouseFetch && hasRenderedKPI) {
         hasStartedWarehouseFetch = true;
@@ -1662,7 +2004,8 @@
       // Stop observing once everything has rendered
       if (hasRenderedKPI && hasRenderedPipeline &&
           hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard &&
-          hasRenderedComments && hasStartedWarehouseFetch && hasStartedPublicationScan) {
+          hasRenderedComments && hasStartedWarehouseFetch && hasStartedPublicationScan &&
+          hasRenderedDashboardAPI) {
         observer.disconnect();
       }
     });

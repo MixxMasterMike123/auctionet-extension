@@ -18,6 +18,7 @@ import {
   fetchAuctionResultsForMonth,
   computeAdminTotals, computeAdminYoY, buildAdminCategoryMap,
 } from './modules/analytics/auction-results-scraper.js';
+import { DashboardAPI } from './modules/dashboard-api.js';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 const fmt = n => n.toLocaleString('sv-SE');
@@ -80,6 +81,8 @@ let adminCategoryMap = null; // Map<parentName, aggregated admin data>
 let adminLoadedYear = null;  // Which year admin data was last fetched for
 let adminLoadedMonth = undefined; // Which month (null=all, 0-11=specific), undefined=not loaded
 let adminLoading = false;    // True while admin data is being fetched
+let dashboardAPI = null;     // DashboardAPI instance (null if token not configured)
+let dashboardData = null;    // Last fetched dashboard data
 const filters = new FilterState();
 
 // ─── DOM References ───────────────────────────────────────
@@ -104,6 +107,15 @@ async function init() {
   } else {
     ownCompanyId = settings.ownCompanyId ? parseInt(settings.ownCompanyId) : null;
   }
+
+  // Initialize Dashboard API (non-blocking, best-effort)
+  try {
+    dashboardAPI = new DashboardAPI();
+    dashboardAPI.fetchAll().then(data => {
+      dashboardData = data;
+      if (data && currentCompanyId) renderDashboard(); // Re-render with dashboard data
+    }).catch(() => {}); // Silent fail
+  } catch (e) { /* Dashboard API unavailable */ }
 
   await populateCompanyDropdown(ownCompanyId);
 
@@ -764,6 +776,38 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
     sectionLabel.textContent = 'Vår ekonomi';
     wrapper.appendChild(sectionLabel);
     wrapper.appendChild(buildKPIGrid(economyCards, 'ad-kpi-grid--economy'));
+  }
+
+  // Row 3: Dashboard API real-time KPIs (if available)
+  if (dashboardData && dashboardAPI) {
+    const h = dashboardData.hammered;
+    const a = dashboardData.auctions;
+
+    const dashCards = [];
+
+    if (h?.r12) {
+      dashCards.push({ label: 'R12 Omsättning', value: fmtSEK(h.r12), sparkData: h.sum_by_week, sparkFmt: fmtSEK });
+    }
+    if (h?.ytd) {
+      dashCards.push({ label: 'YTD', value: fmtSEK(h.ytd) });
+    }
+    if (a?.previously_unsold_vs_new_ratio_last_seven_days != null) {
+      const ratio = a.previously_unsold_vs_new_ratio_last_seven_days;
+      const color = ratio < 20 ? 'var(--ad-positive)' : ratio < 35 ? '#f59e0b' : 'var(--ad-negative)';
+      dashCards.push({ label: 'Omlistningsandel (7d)', value: `${ratio}%`, valueColor: color });
+    }
+    if (a?.published_with_bid_over_reserve != null && a?.published) {
+      const rate = Math.round((a.published_with_bid_over_reserve / a.published) * 1000) / 10;
+      dashCards.push({ label: 'Utropstäckning', value: `${rate}%`, subtitle: `${a.published_with_bid_over_reserve} av ${a.published}` });
+    }
+
+    if (dashCards.length > 0) {
+      const dashLabel = document.createElement('div');
+      dashLabel.className = 'ad-kpi-section-label';
+      dashLabel.textContent = 'Realtid (Dashboard)';
+      wrapper.appendChild(dashLabel);
+      wrapper.appendChild(buildKPIGrid(dashCards, 'ad-kpi-grid--dashboard'));
+    }
   }
 
   return wrapper;

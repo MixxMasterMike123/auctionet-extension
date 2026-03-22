@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ownCompanyInput = document.getElementById('own-company-id');
   const saveOwnCompanyButton = document.getElementById('save-own-company');
   const enablePubScannerCheckbox = document.getElementById('enable-pub-scanner');
+  const dashboardTokenInput = document.getElementById('dashboard-token');
+  const saveDashboardTokenButton = document.getElementById('save-dashboard-token');
 
   const adminUI = document.getElementById('admin-ui');
 
@@ -21,8 +23,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadShowDashboardSetting();
   await loadOwnCompanySetting();
   await loadPubScannerSetting();
+  await loadDashboardToken();
   await renderAdminUI();
-  
+
   // Check extension status
   await checkExtensionStatus();
 
@@ -33,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   showDashboardCheckbox.addEventListener('change', saveShowDashboardSetting);
   saveOwnCompanyButton.addEventListener('click', saveOwnCompanySetting);
   enablePubScannerCheckbox.addEventListener('change', savePubScannerSetting);
+  saveDashboardTokenButton.addEventListener('click', saveDashboardToken);
   document.getElementById('open-analytics').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('analytics.html') });
   });
@@ -386,6 +390,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       saveOwnCompanyButton.disabled = false;
       saveOwnCompanyButton.textContent = 'Spara företags-ID';
+    }
+  }
+
+  // ─── Dashboard Token Management ────────────────────────────────
+
+  async function loadDashboardToken() {
+    try {
+      const result = await chrome.storage.local.get(['dashboardApiToken']);
+      if (result.dashboardApiToken) {
+        dashboardTokenInput.value = result.dashboardApiToken;
+      }
+    } catch (error) {
+      console.error('Error loading dashboard token:', error);
+    }
+  }
+
+  async function saveDashboardToken() {
+    const token = dashboardTokenInput.value.trim();
+
+    try {
+      saveDashboardTokenButton.disabled = true;
+      saveDashboardTokenButton.textContent = 'Sparar...';
+
+      await chrome.storage.local.set({ dashboardApiToken: token || '' });
+      showStatus(token ? 'Dashboard token sparad!' : 'Dashboard token borttagen.', 'success');
+
+      // Notify all Auctionet tabs to pick up new token
+      try {
+        const tabs = await chrome.tabs.query({ url: 'https://auctionet.com/*' });
+        for (const tab of tabs) {
+          chrome.tabs.sendMessage(tab.id, { type: 'refresh-settings' }).catch(() => {});
+        }
+      } catch (error) {
+        // Non-critical
+      }
+    } catch (error) {
+      showStatus('Fel vid sparande: ' + error.message, 'error');
+    } finally {
+      saveDashboardTokenButton.disabled = false;
+      saveDashboardTokenButton.textContent = 'Spara Dashboard Token';
     }
   }
 
