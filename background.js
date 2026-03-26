@@ -157,9 +157,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.type === 'fetch-admin-html') {
     handleAdminHtmlFetch(request, sendResponse);
     return true;
-  } else if (request.type === 'fetch-metabase-card') {
-    handleMetabaseCardFetch(request, sendResponse);
-    return true;
   } else if (request.type === 'dashboard-fetch') {
     handleDashboardFetch(request, sendResponse);
     return true;
@@ -319,35 +316,6 @@ async function handleFetchImageAsBase64(request, sendResponse) {
       mediaType: contentType.split(';')[0].trim(),
       byteSize: arrayBuffer.byteLength
     });
-  } catch (error) {
-    sendResponse({ success: false, error: error.message });
-  }
-}
-
-async function handleMetabaseCardFetch(request, sendResponse) {
-  try {
-    // Step 1: Fetch the analytics page to get a fresh JWT token
-    const analyticsUrl = request.analyticsPage || 'https://auctionet.com/admin/sas/analytics/sold_and_unsold';
-    const pageResponse = await fetch(analyticsUrl, { credentials: 'include' });
-    if (!pageResponse.ok) throw new Error(`Admin page HTTP ${pageResponse.status}`);
-    const html = await pageResponse.text();
-
-    // Step 2: Extract JWT token from iframe src
-    const tokenMatch = html.match(/bi\.auctionet\.com\/embed\/dashboard\/(eyJ[^"&#]+)/);
-    if (!tokenMatch) throw new Error('Could not find Metabase JWT token in page');
-    const token = tokenMatch[1];
-
-    // Step 3: Fetch card(s) — supports single card or batch
-    const cards = request.cards || [{ dashcardId: request.dashcardId, cardId: request.cardId }];
-    const results = await Promise.all(cards.map(async ({ dashcardId, cardId, name }) => {
-      const url = `https://bi.auctionet.com/api/embed/dashboard/${token}/dashcard/${dashcardId}/card/${cardId}`;
-      const resp = await fetch(url);
-      if (!resp.ok) return { name, error: `HTTP ${resp.status}` };
-      const data = await resp.json();
-      return { name, data };
-    }));
-
-    sendResponse({ success: true, results, token });
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }
