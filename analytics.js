@@ -18,7 +18,6 @@ import {
   fetchAuctionResultsForMonth,
   computeAdminTotals, computeAdminYoY, buildAdminCategoryMap,
 } from './modules/analytics/auction-results-scraper.js';
-import { fetchMetabaseSoldUnsold } from './modules/analytics/metabase-data.js';
 import { DashboardAPI } from './modules/dashboard-api.js';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
@@ -82,7 +81,6 @@ let adminCategoryMap = null; // Map<parentName, aggregated admin data>
 let adminLoadedYear = null;  // Which year admin data was last fetched for
 let adminLoadedMonth = undefined; // Which month (null=all, 0-11=specific), undefined=not loaded
 let adminLoading = false;    // True while admin data is being fetched
-let metabaseData = null;     // { recallRateL12m, monthlyBreakdown } from Metabase BI
 let dashboardAPI = null;     // DashboardAPI instance (null if token not configured)
 let dashboardData = null;    // Last fetched dashboard data
 const filters = new FilterState();
@@ -266,17 +264,6 @@ async function loadAdminData() {
   }
 }
 
-async function loadMetabaseData() {
-  const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
-  if (!isOwnHouse) { metabaseData = null; return; }
-  if (metabaseData) return; // L12m rolling data — load once per session
-  try {
-    metabaseData = await fetchMetabaseSoldUnsold();
-  } catch {
-    metabaseData = null;
-  }
-}
-
 // ─── Load Company ─────────────────────────────────────────
 
 async function loadCompany(companyId, forceRefresh = false, forceIncremental = false) {
@@ -284,7 +271,6 @@ async function loadCompany(companyId, forceRefresh = false, forceIncremental = f
   companySelect.value = companyId;
   adminLoadedYear = null; // Force admin data re-fetch for new company
   adminLoadedMonth = undefined;
-  metabaseData = null; // Reset for new company
 
   if (!forceRefresh && !forceIncremental) {
     const cached = await loadCache(companyId);
@@ -294,7 +280,6 @@ async function loadCompany(companyId, forceRefresh = false, forceIncremental = f
       showMeta(cached.ageHours);
       initFilters();
       await loadAdminData();
-      loadMetabaseData().then(() => { if (metabaseData) renderDashboard(); });
       renderSidebar();
       renderDashboard();
       return;
@@ -315,7 +300,6 @@ async function loadCompany(companyId, forceRefresh = false, forceIncremental = f
     showMeta(0);
     initFilters();
     await loadAdminData();
-    loadMetabaseData().then(() => { if (metabaseData) renderDashboard(); });
     renderSidebar();
     renderDashboard();
   } catch (err) {
@@ -526,7 +510,6 @@ async function runAIAnalysis(forceRefresh = false) {
       priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse,
       activeFilters: activeFilters.length > 0 ? activeFilters : null,
       adminTotals, adminCategories: adminData?.current?.categories,
-      metabaseRecallRate: metabaseData?.recallRateL12m,
     });
 
     const insights = await generateInsights(summary, currentCompanyId, filterKey);
@@ -627,7 +610,7 @@ function renderDashboard() {
 
 // ─── SVG Sparkline ────────────────────────────────────────
 
-function createSparkline(data, formatFn, labels) {
+function createSparkline(data, formatFn) {
   const values = data.filter(v => v > 0);
   if (values.length < 2) return null;
 
@@ -705,8 +688,7 @@ function createSparkline(data, formatFn, labels) {
     // Snap label to nearest month
     const idx = Math.round(frac);
     const valStr = formatFn ? formatFn(coords[idx].val) : fmt(coords[idx].val);
-    const label = labels ? labels[idx] : MONTH_NAMES[idx];
-    tooltip.textContent = `${label}: ${valStr}`;
+    tooltip.textContent = `${MONTH_NAMES[idx]}: ${valStr}`;
     tooltip.style.display = 'block';
     tooltip.style.left = `${pctX * 100}%`;
   });
@@ -789,26 +771,6 @@ function renderKPIs(kpis, prevKpis, yoy, items, prevItems, allItemsRef, f, isOwn
       ];
     }
 
-    // Add Metabase recall rate card (true återrop — items that went through all rounds unsold)
-    if (metabaseData) {
-      const rr = metabaseData.recallRateL12m;
-      const rrColor = rr <= 10 ? 'var(--ad-positive)' : rr <= 15 ? '#f59e0b' : 'var(--ad-negative)';
-      const mb = metabaseData.monthlyBreakdown;
-      const sparkLabels = mb ? mb.map(m => {
-        const [, mo] = m.month.split('-');
-        return MONTH_NAMES[parseInt(mo, 10) - 1];
-      }) : null;
-      economyCards.push({
-        label: 'Återrop (L12m)',
-        value: `${rr.toFixed(1)}%`,
-        valueColor: rrColor,
-        subtitle: mb ? `${fmt(mb.reduce((s, m) => s + m.unsold, 0))} av ${fmt(mb.reduce((s, m) => s + m.sold + m.unsold, 0))}` : null,
-        sparkData: mb ? mb.map(m => m.recallRate) : null,
-        sparkFmt: v => `${v.toFixed(1)}%`,
-        sparkLabels,
-      });
-    }
-
     const sectionLabel = document.createElement('div');
     sectionLabel.className = 'ad-kpi-section-label';
     sectionLabel.textContent = 'Vår ekonomi';
@@ -877,7 +839,7 @@ function buildKPIGrid(cards, extraClass) {
       ${trendHTML}`;
 
     if (c.sparkData) {
-      const sparkEl = createSparkline(c.sparkData, c.sparkFmt, c.sparkLabels);
+      const sparkEl = createSparkline(c.sparkData, c.sparkFmt);
       if (sparkEl) card.appendChild(sparkEl);
     }
 

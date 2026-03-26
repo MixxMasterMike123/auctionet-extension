@@ -37,7 +37,6 @@ Regler:
 - VIKTIGT: Fältet "today" anger dagens datum. Den senaste månaden i datan kan vara ofullständig — dra inga slutsatser från en pågående månad
 - Om isOwnHouse=true finns ekonomiska nyckeltal (netRevenue, grossRevenue) — analysera lönsamhet och intäkter. Om isOwnHouse=false, fokusera enbart på marknadsdata (klubbade priser, volymer, kategorier) utan att spekulera om husets ekonomi
 - Om adminData finns: totalCommission=faktisk provision, avgVisits=genomsnittliga unika besök per objekt, firstSaleRate=andel av auktionsförsök som säljs vid första försöket (objekt listas upp till 3 gånger). Låg förstagångsförsäljning (<55%) indikerar prissättnings- eller katalogiseringsproblem och kostar lagerdagar
-- Om trueRecallRate finns: detta är den VERKLIGA återropsandelen (L12m) från Metabase BI — andelen föremål som gått igenom ALLA automatiska auktionsrundor utan att säljas. Under 10% är bra, 10-15% är OK, över 15% kräver åtgärder
 - Svara BARA med JSON, ingen annan text`;
 
 const insightsCache = new Map();
@@ -46,7 +45,7 @@ const insightsCache = new Map();
  * Build a compact data summary from pre-computed aggregations.
  * Keeps input tokens low (~800-1200) while giving AI full picture.
  */
-export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly, priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse, activeFilters, adminTotals, adminCategories, metabaseRecallRate }) {
+export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly, priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse, activeFilters, adminTotals, adminCategories }) {
   const summary = {
     today: new Date().toISOString().slice(0, 10),
     company: houseName,
@@ -90,11 +89,6 @@ export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly
       totalCount: adminTotals.totalCount,
       soldCount: adminTotals.soldCount,
     };
-  }
-
-  // True recall rate from Metabase BI (items that completed all auction rounds unsold)
-  if (metabaseRecallRate != null) {
-    summary.trueRecallRate = metabaseRecallRate;
   }
 
   return summary;

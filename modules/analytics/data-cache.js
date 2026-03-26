@@ -88,22 +88,6 @@ export async function saveAdminCache(year, categories, totals) {
   });
 }
 
-// ─── Metabase BI Cache ────────────────────────────────────
-
-const METABASE_CACHE_KEY = 'metabase_sold_unsold';
-
-export async function loadMetabaseCache() {
-  const result = await chrome.storage.local.get([METABASE_CACHE_KEY]);
-  const cached = result[METABASE_CACHE_KEY];
-  if (!cached) return null;
-  const age = Date.now() - cached.fetchedAt;
-  return { data: cached.data, fetchedAt: cached.fetchedAt, isExpired: age > ADMIN_CACHE_TTL };
-}
-
-export async function saveMetabaseCache(data) {
-  await chrome.storage.local.set({ [METABASE_CACHE_KEY]: { data, fetchedAt: Date.now() } });
-}
-
 // Load list of previously fetched companies (for dropdown)
 export async function getKnownCompanies() {
   const all = await chrome.storage.local.get(null);
