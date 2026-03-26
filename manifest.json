@@ -15,6 +15,7 @@
     "https://auctionet.com/*",
     "https://images.auctionet.com/*",
     "https://dashboard.auctionet.com/*",
+    "https://bi.auctionet.com/*",
     "https://api.anthropic.com/*",
     "https://*.wikipedia.org/*",
     "https://upload.wikimedia.org/*"
