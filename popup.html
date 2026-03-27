@@ -197,6 +197,25 @@
     </div>
 
     <div class="section">
+        <h3>SaS Outlet</h3>
+        <div class="input-group">
+            <label for="outlet-supabase-url">Supabase Project URL:</label>
+            <input type="text" id="outlet-supabase-url" placeholder="https://xxxx.supabase.co">
+            <div class="help-text">
+                Supabase-projektets URL för SaS Outlet-databasen.
+            </div>
+        </div>
+        <div class="input-group">
+            <label for="outlet-supabase-key">Supabase Service Role Key:</label>
+            <input type="password" id="outlet-supabase-key" placeholder="eyJhbGci...">
+            <div class="help-text">
+                Service Role Key från Supabase → Settings → API. Lagras säkert lokalt, används bara av bakgrundsprocessen.
+            </div>
+        </div>
+        <button id="save-outlet-config">Spara Outlet-inställningar</button>
+    </div>
+
+    <div class="section">
         <h3>AI Enhancement Settings</h3>
         <div class="input-group">
             <label style="display: flex; align-items: center; cursor: pointer;">

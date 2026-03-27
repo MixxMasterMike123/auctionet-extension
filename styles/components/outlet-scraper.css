@@ -1,0 +1,162 @@
+/* SaS Outlet Scraper UI — unsolds page overlay */
+
+/* ─── Toolbar ──────────────────────────────────────────────── */
+.ext-outlet-toolbar {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-left: 4px solid #006ccc;
+  border-radius: 4px;
+}
+
+.ext-outlet-toolbar__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ext-outlet-toolbar__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+}
+
+.ext-outlet-toolbar__count {
+  font-size: 13px;
+  color: #666;
+  background: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.ext-outlet-toolbar__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ext-outlet-toolbar__status {
+  margin-top: 8px;
+  font-size: 13px;
+  min-height: 0;
+}
+
+.ext-outlet-toolbar__status:empty {
+  display: none;
+}
+
+.ext-outlet-toolbar__status--success {
+  color: #28a745;
+}
+
+.ext-outlet-toolbar__status--error {
+  color: #dc3545;
+}
+
+.ext-outlet-toolbar__status--warning {
+  color: #e65100;
+}
+
+.ext-outlet-toolbar__status--info {
+  color: #006ccc;
+}
+
+/* ─── Progress Bar ──────────────────────────────────────────── */
+.ext-outlet-toolbar__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ext-outlet-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #dee2e6;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ext-outlet-progress-bar__fill {
+  height: 100%;
+  background: #006ccc;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.ext-outlet-progress-text {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+}
+
+/* ─── Buttons ──────────────────────────────────────────────── */
+.ext-outlet-btn {
+  padding: 5px 12px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  background: #fff;
+  color: #333;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ext-outlet-btn:hover:not(:disabled) {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.ext-outlet-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ext-outlet-btn--primary {
+  background: #006ccc;
+  color: #fff;
+  border-color: #006ccc;
+  font-weight: 600;
+}
+
+.ext-outlet-btn--primary:hover:not(:disabled) {
+  background: #0056a3;
+  border-color: #0056a3;
+}
+
+.ext-outlet-btn--secondary {
+  background: #fff;
+  color: #333;
+}
+
+/* ─── Row Checkboxes ──────────────────────────────────────── */
+.ext-outlet-checkbox {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.ext-outlet-checkbox__input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #006ccc;
+}
+
+.ext-outlet-checkbox__mark {
+  display: none; /* Using native checkbox styling */
+}
+
+/* ─── Selected Row Highlight ──────────────────────────────── */
+tr.ext-outlet-row--selected {
+  background-color: #e8f4fd !important;
+}
+
+tr.ext-outlet-row--selected:hover {
+  background-color: #d4ecfb !important;
+}

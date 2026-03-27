@@ -17,7 +17,8 @@
     "https://dashboard.auctionet.com/*",
     "https://api.anthropic.com/*",
     "https://*.wikipedia.org/*",
-    "https://upload.wikimedia.org/*"
+    "https://upload.wikimedia.org/*",
+    "https://*.supabase.co/*"
   ],
   "content_scripts": [
     {
@@ -76,6 +77,18 @@
     },
     {
       "matches": [
+        "https://auctionet.com/admin/sas/unsolds*"
+      ],
+      "js": [
+        "unsolds-scraper.js"
+      ],
+      "css": [
+        "styles/components/outlet-scraper.css"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
         "https://auctionet.com/admin/*"
       ],
       "exclude_matches": [
@@ -110,7 +123,8 @@
         "modules/refactored/ai-rules-system/*.json",
         "modules/analytics/*.js",
         "modules/ui/*.js",
-        "modules/utils/*.js"
+        "modules/utils/*.js",
+        "modules/outlet/*.js"
       ],
       "matches": [
         "https://auctionet.com/*"

@@ -14,6 +14,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const enablePubScannerCheckbox = document.getElementById('enable-pub-scanner');
   const dashboardTokenInput = document.getElementById('dashboard-token');
   const saveDashboardTokenButton = document.getElementById('save-dashboard-token');
+  const outletSupabaseUrlInput = document.getElementById('outlet-supabase-url');
+  const outletSupabaseKeyInput = document.getElementById('outlet-supabase-key');
+  const saveOutletConfigButton = document.getElementById('save-outlet-config');
 
   const adminUI = document.getElementById('admin-ui');
 
@@ -24,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadOwnCompanySetting();
   await loadPubScannerSetting();
   await loadDashboardToken();
+  await loadOutletConfig();
   await renderAdminUI();
 
   // Check extension status
@@ -37,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   saveOwnCompanyButton.addEventListener('click', saveOwnCompanySetting);
   enablePubScannerCheckbox.addEventListener('change', savePubScannerSetting);
   saveDashboardTokenButton.addEventListener('click', saveDashboardToken);
+  saveOutletConfigButton.addEventListener('click', saveOutletConfig);
   document.getElementById('open-analytics').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('analytics.html') });
   });
@@ -565,4 +570,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     showStatus('PIN-kod ändrad!', 'success');
     await renderAdminUI();
   }
-}); 
+
+  // ─── SaS Outlet Config ───────────────────────────────────────
+
+  async function loadOutletConfig() {
+    try {
+      const result = await chrome.storage.local.get(['outletSupabaseUrl', 'outletSupabaseServiceKey']);
+      if (result.outletSupabaseUrl) {
+        outletSupabaseUrlInput.value = result.outletSupabaseUrl;
+      }
+      if (result.outletSupabaseServiceKey) {
+        outletSupabaseKeyInput.value = result.outletSupabaseServiceKey;
+      }
+    } catch (error) {
+      console.error('Error loading outlet config:', error);
+    }
+  }
+
+  async function saveOutletConfig() {
+    const url = outletSupabaseUrlInput.value.trim();
+    const key = outletSupabaseKeyInput.value.trim();
+
+    try {
+      saveOutletConfigButton.disabled = true;
+      saveOutletConfigButton.textContent = 'Sparar...';
+
+      await chrome.storage.local.set({
+        outletSupabaseUrl: url || '',
+        outletSupabaseServiceKey: key || ''
+      });
+
+      showStatus(url && key ? 'SaS Outlet-konfiguration sparad!' : 'SaS Outlet-konfiguration borttagen.', 'success');
+    } catch (error) {
+      showStatus('Fel vid sparande: ' + error.message, 'error');
+    } finally {
+      saveOutletConfigButton.disabled = false;
+      saveOutletConfigButton.textContent = 'Spara Outlet-inställningar';
+    }
+  }
+});
