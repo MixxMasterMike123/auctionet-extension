@@ -95,6 +95,7 @@ export class OutletScraper {
         title,
         fullImageUrl,
         thumbUrl,
+        editUrl: editHref ? `https://auctionet.com${editHref}` : null,
         warehouseLocation,
         sellerId,
         contractId,
@@ -213,16 +214,23 @@ export class OutletScraper {
     return url.toString();
   }
 
-  // Fetch all details from an item's admin show page:
+  // Fetch all details from an item's edit page:
   // - All image URLs
   // - Description (Beskrivning)
   // - Condition report (Konditionsrapport)
-  async fetchItemDetails(itemId) {
+  // - Category
+  async fetchItemDetails(itemOrId) {
+    const itemId = typeof itemOrId === 'object' ? itemOrId.id : itemOrId;
+    const editUrl = typeof itemOrId === 'object' ? itemOrId.editUrl : null;
+
     try {
-      const url = `https://auctionet.com/admin/items/${itemId}`;
+      // Prefer edit page (has category dropdown + form fields), fall back to show page
+      const url = editUrl || `https://auctionet.com/admin/items/${itemId}`;
       const html = await this._backgroundFetch(url);
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
+
+      const isEditPage = !!doc.querySelector('#item_category_id');
 
       // Extract all images
       const imageUrls = [];
@@ -242,35 +250,56 @@ export class OutletScraper {
         }
       });
 
-      // Extract description and condition from details section
       let description = '';
       let condition = '';
+      let category = '';
 
-      const detailsSection = doc.querySelector('.details-texts') || doc.querySelector('.row.details-texts');
-      if (detailsSection) {
-        const headings = detailsSection.querySelectorAll('h5');
-        headings.forEach(h5 => {
-          const label = h5.textContent.trim().toLowerCase();
-          const valueDiv = h5.nextElementSibling;
-          if (!valueDiv) return;
-          const text = valueDiv.textContent.trim();
+      if (isEditPage) {
+        // Edit page: read form fields directly
+        const descEl = doc.querySelector('#item_description_sv');
+        if (descEl) {
+          description = descEl.tagName === 'TEXTAREA' ? descEl.textContent.trim() : (descEl.getAttribute('value') || '').trim();
+        }
 
-          if (label.includes('beskrivning')) {
-            description = text;
-          } else if (label.includes('kondition')) {
-            condition = text;
-          }
-        });
+        const condEl = doc.querySelector('#item_condition_sv');
+        if (condEl) {
+          condition = condEl.tagName === 'TEXTAREA' ? condEl.textContent.trim() : (condEl.getAttribute('value') || '').trim();
+        }
+
+        // Category from selected option
+        const catEl = doc.querySelector('#item_category_id option[selected]');
+        if (catEl) {
+          category = catEl.textContent.trim();
+        }
+      } else {
+        // Show page fallback: parse details section
+        const detailsSection = doc.querySelector('.details-texts') || doc.querySelector('.row.details-texts');
+        if (detailsSection) {
+          const headings = detailsSection.querySelectorAll('h5');
+          headings.forEach(h5 => {
+            const label = h5.textContent.trim().toLowerCase();
+            const valueDiv = h5.nextElementSibling;
+            if (!valueDiv) return;
+            const text = valueDiv.textContent.trim();
+
+            if (label.includes('beskrivning')) {
+              description = text;
+            } else if (label.includes('kondition')) {
+              condition = text;
+            }
+          });
+        }
       }
 
       return {
         imageUrls: [...new Set(imageUrls)],
         description,
-        condition
+        condition,
+        category
       };
     } catch (error) {
       console.error(`[Outlet] Failed to fetch details for item ${itemId}:`, error);
-      return { imageUrls: [], description: '', condition: '' };
+      return { imageUrls: [], description: '', condition: '', category: '' };
     }
   }
 

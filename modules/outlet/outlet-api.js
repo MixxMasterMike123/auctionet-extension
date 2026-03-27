@@ -44,15 +44,17 @@ export class OutletAPI {
           await this._upsertSeller(item);
         }
 
-        // 2. Fetch all details from item's admin show page (images, description, condition)
+        // 2. Fetch all details from item's edit page (images, description, condition, category)
         let allImageUrls = [];
         let description = '';
         let condition = '';
+        let category = '';
         if (this._scraper) {
-          const details = await this._scraper.fetchItemDetails(item.id);
+          const details = await this._scraper.fetchItemDetails(item);
           allImageUrls = details.imageUrls;
           description = details.description;
           condition = details.condition;
+          category = details.category;
         }
         // Fallback: use the single image from the unsolds table
         if (allImageUrls.length === 0 && item.fullImageUrl) {
@@ -82,7 +84,7 @@ export class OutletAPI {
         }
 
         // 4. Upsert item
-        await this._upsertItem(item, uploadedUrls, thumbUrl, description, condition);
+        await this._upsertItem(item, uploadedUrls, thumbUrl, description, condition, category);
 
         success++;
       } catch (error) {
@@ -112,7 +114,7 @@ export class OutletAPI {
   }
 
   // Upsert an item record
-  async _upsertItem(item, uploadedUrls, thumbUrl, description, condition) {
+  async _upsertItem(item, uploadedUrls, thumbUrl, description, condition, category) {
     const record = {
       id: item.id,
       title: item.title,
@@ -122,7 +124,7 @@ export class OutletAPI {
       image_urls: uploadedUrls.length > 0 ? uploadedUrls : null,
       image_thumb_url: thumbUrl,
       original_image_url: item.fullImageUrl || null,
-      category: null, // Set later in admin UI
+      category: category || null,
       price: 200,
       original_estimate: item.estimate,
       original_reserve: item.reserve,
