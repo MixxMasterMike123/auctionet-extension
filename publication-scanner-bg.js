@@ -10,7 +10,9 @@
 // ─── Constants ──────────────────────────────────────────────────────
 const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
-const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache';
+const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache_v2';
+const PUB_SCAN_SPELL_VERSION_KEY = 'pubScanSpellVersion';
+const PUB_SCAN_SPELL_VERSION = 2; // Bump to clear all spell-related caches
 const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
 const STICKY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
@@ -27,6 +29,7 @@ const PUB_SCAN_VAGUE_CONDITION_TERMS = [
 
 // ─── Dictionary spellcheck (loaded lazily) ──────────────────────────
 let misspellingsMap = null;
+let safeWordsSet = null;
 
 async function loadMisspellingsMap() {
   if (misspellingsMap) return misspellingsMap;
@@ -34,9 +37,23 @@ async function loadMisspellingsMap() {
     const spellUrl = chrome.runtime.getURL('modules/swedish-spellchecker.js');
     const { SwedishSpellChecker } = await import(spellUrl);
     misspellingsMap = SwedishSpellChecker.getMisspellingsMap();
+    safeWordsSet = SwedishSpellChecker.getSafeWordsSet();
   } catch (e) {
     console.warn('[PubScanBG] Failed to load SwedishSpellChecker:', e.message);
     misspellingsMap = {};
+    safeWordsSet = new Set();
+  }
+  // One-time migration: clear all spell caches when spell version changes
+  try {
+    const stored = await chrome.storage.local.get([PUB_SCAN_SPELL_VERSION_KEY]);
+    if ((stored[PUB_SCAN_SPELL_VERSION_KEY] || 0) < PUB_SCAN_SPELL_VERSION) {
+      console.log('[PubScanBG] Spell version upgraded — clearing old spell caches');
+      await chrome.storage.local.remove([PUB_SCAN_CACHE_KEY, PUB_SCAN_STICKY_KEY, 'pubScanSpellCache']);
+      spellCache = null;
+      await chrome.storage.local.set({ [PUB_SCAN_SPELL_VERSION_KEY]: PUB_SCAN_SPELL_VERSION });
+    }
+  } catch (e) {
+    console.warn('[PubScanBG] Spell cache migration failed:', e.message);
   }
   return misspellingsMap;
 }
@@ -194,11 +211,11 @@ async function runPhase2Checks(editData, hasApiKey, dictMap, itemId) {
     if (cached) {
       spellingErrors = cached;
     } else {
-      spellingErrors = await checkSpellingAI(combinedText);
+      spellingErrors = validateAICorrections(await checkSpellingAI(combinedText));
       await setCachedSpellcheck(itemId, combinedText, spellingErrors);
     }
   } else if (hasApiKey) {
-    spellingErrors = await checkSpellingAI(combinedText);
+    spellingErrors = validateAICorrections(await checkSpellingAI(combinedText));
   } else {
     spellingErrors = checkSpellingDict(combinedText, dictMap);
   }
@@ -253,17 +270,79 @@ async function saveSpellCache() {
 }
 
 async function getCachedSpellcheck(itemId, text) {
+  const hash = simpleHash(text);
+
+  // L1: Local chrome.storage cache (instant, per-browser)
   const cache = await loadSpellCache();
   const entry = cache[itemId];
-  if (!entry) return null;
-  const hash = simpleHash(text);
-  if (entry.hash === hash) return entry.results;
-  return null;
+  if (entry && entry.hash === hash) return entry.results;
+
+  // L2: Supabase shared cache (shared across all users)
+  const supabaseResults = await getSupabaseCachedSpellcheck(itemId, hash);
+  if (supabaseResults !== null) {
+    // Populate L1 with the Supabase result for next time
+    cache[itemId] = { hash, results: supabaseResults };
+    return supabaseResults;
+  }
+
+  return null; // True cache miss — need to run AI
 }
 
 async function setCachedSpellcheck(itemId, text, results) {
+  const hash = simpleHash(text);
+
+  // L1: Local cache
   const cache = await loadSpellCache();
-  cache[itemId] = { hash: simpleHash(text), results };
+  cache[itemId] = { hash, results };
+
+  // L2: Supabase shared cache (fire-and-forget)
+  setSupabaseCachedSpellcheck(itemId, hash, results);
+}
+
+// ─── Supabase shared spellcheck cache (L2) ──────────────────────────
+
+async function getSupabaseCachedSpellcheck(itemId, textHash) {
+  const sbFetch = globalThis.__supabaseFetch;
+  if (!sbFetch) return null;
+
+  try {
+    const data = await sbFetch(
+      'GET',
+      `/rest/v1/spellcheck_cache?item_id=eq.${itemId}&select=text_hash,results`,
+      null,
+      { 'Accept': 'application/json' }
+    );
+    if (Array.isArray(data) && data.length > 0) {
+      const entry = data[0];
+      if (entry.text_hash === textHash) {
+        return entry.results;
+      }
+    }
+  } catch (e) {
+    console.warn('[PubScanBG] Supabase spellcheck cache read failed:', e.message);
+  }
+  return null;
+}
+
+async function setSupabaseCachedSpellcheck(itemId, textHash, results) {
+  const sbFetch = globalThis.__supabaseFetch;
+  if (!sbFetch) return;
+
+  try {
+    await sbFetch(
+      'POST',
+      '/rest/v1/spellcheck_cache',
+      {
+        item_id: itemId,
+        text_hash: textHash,
+        results: results,
+        checked_at: new Date().toISOString()
+      },
+      { 'Prefer': 'resolution=merge-duplicates' }
+    );
+  } catch (e) {
+    console.warn('[PubScanBG] Supabase spellcheck cache write failed:', e.message);
+  }
 }
 
 // ─── Spellcheck (direct API call from service worker) ───────────────
@@ -274,28 +353,30 @@ async function checkSpellingAI(text) {
   const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
 "${text}"
 
-Hitta enskilda ord som är felstavade. Exempel:
+Rapportera BARA ord du är 100% säker på är felstavade. Rättningen MÅSTE vara ett verkligt svenskt ord — hitta INTE på nya ord.
+
+Om du är osäker på om ett ord är felstavat, rapportera det INTE. Det är bättre att missa ett stavfel än att föreslå en felaktig rättning.
+
+Exempel på verkliga stavfel:
 - "Colier" → "Collier"
 - "silverr" → "silver"
-- "olija" → "olja"
 - "brutovikt" → "bruttovikt"
-- "Jardinjär" → "Jardinär"
-- "kandelabrer" → "kandelaber"
-
-Kontrollera ALLA ord noggrant — även objekttyper, materialnamn och svenska substantiv.
 
 RAPPORTERA INTE:
+- Ord du inte känner igen (de kan vara korrekta facktermer)
 - Grammatik, interpunktion, kommatering
 - Förkortningar (ink, bl.a, osv, resp, ca)
 - Personnamn, ortnamn, varumärken
 - Versaler/gemener-fel
-- Korrekta böjningsformer (hängd, längd, höjd, märkt)
+- Korrekta böjningsformer (hängd, längd, höjd, märkt, anlupet, anlupning)
+- Korrekta sammansättningar (glasservis, kaffeservis, porslinsservis, teservis)
 - Auktionsfacktermer: plymå, karott, karaff, tablå, terrin, skänk, chiffonjé,
   röllakan, tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
   collier, rivière, cabochon, pavé, solitär, entourage
 
 Svara BARA med JSON:
-{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
+{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.98}]}
+Om inga stavfel: {"issues":[]}`;
 
   try {
     // Use shared API caller from background.js (reads key from storage automatically)
@@ -306,7 +387,7 @@ Svara BARA med JSON:
       model: 'claude-haiku-4-5', // Haiku is sufficient for spellcheck and ~10x cheaper than Sonnet
       max_tokens: 300,
       temperature: 0,
-      system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
+      system: 'Du är en expert på svensk stavning och auktionsterminologi. Var konservativ — rapportera bara stavfel du är helt säker på. Rättningen måste vara ett verkligt svenskt ord. Det är bättre att missa ett fel än att föreslå en felaktig rättning. Svara BARA med valid JSON.',
       messages: [{ role: 'user', content: prompt }]
     }, { timeoutMs: 20000 });
 
@@ -320,7 +401,7 @@ Svara BARA med JSON:
         return result.issues
           .filter(i => i.original && i.corrected &&
                   i.original.toLowerCase() !== i.corrected.toLowerCase() &&
-                  (i.confidence || 0.9) >= 0.8)
+                  (i.confidence || 0.85) >= 0.92)
           .map(i => ({ word: i.original, correction: i.corrected }));
       }
     }
@@ -328,6 +409,19 @@ Svara BARA med JSON:
     // Silently fail — no spellcheck for this item
   }
   return [];
+}
+
+function validateAICorrections(aiResults) {
+  const safe = safeWordsSet || new Set();
+  return aiResults.filter(result => {
+    const original = result.word.toLowerCase();
+    const correction = result.correction.toLowerCase();
+    // Reject if the original word is a known safe word
+    if (safe.has(original)) return false;
+    // Reject corrections with triple consecutive identical letters (e.g., "glassservis")
+    if (/(.)\1\1/.test(correction)) return false;
+    return true;
+  });
 }
 
 function checkSpellingDict(text, dictMap) {

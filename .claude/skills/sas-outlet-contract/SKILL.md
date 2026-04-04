@@ -50,7 +50,7 @@ CREATE TABLE items (
   seller_id BIGINT REFERENCES sellers(id),
   contract_id BIGINT,             -- Auctionet contract ID
   status TEXT NOT NULL DEFAULT 'available'
-    CHECK (status IN ('available','reserved','sold','paid_out','donated','removed')),
+    CHECK (status IN ('available','pending_approval','reserved','sold','paid_out','donated','removed')),
   reserved_by TEXT,                -- Name/phone of person who reserved
   reserved_at TIMESTAMPTZ,
   sold_at TIMESTAMPTZ,
@@ -92,6 +92,19 @@ INSERT INTO categories (name, display_order) VALUES
   ('Samlarföremål', 14), ('Övrigt', 15);
 ```
 
+### `spellcheck_cache` (extension writes, both read)
+```sql
+CREATE TABLE spellcheck_cache (
+  item_id BIGINT PRIMARY KEY,        -- Auctionet item ID
+  text_hash TEXT NOT NULL,            -- Hash of title+description+condition for staleness detection
+  results JSONB NOT NULL DEFAULT '[]', -- [{word, correction, confidence, source}] or [] if clean
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  checked_by TEXT                     -- Optional: identifier for debugging
+);
+
+CREATE INDEX idx_spellcheck_cache_checked_at ON spellcheck_cache (checked_at);
+```
+
 ---
 
 ## Row Level Security
@@ -117,6 +130,12 @@ CREATE POLICY "Admin only" ON transactions FOR ALL TO authenticated
 -- categories: public read
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public read" ON categories FOR SELECT USING (true);
+
+-- spellcheck_cache: public read, service role write
+ALTER TABLE spellcheck_cache ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read spellcheck" ON spellcheck_cache FOR SELECT USING (true);
+CREATE POLICY "Service write spellcheck" ON spellcheck_cache FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
 ```
 
 ---
@@ -124,16 +143,19 @@ CREATE POLICY "Public read" ON categories FOR SELECT USING (true);
 ## Status Values & Lifecycle
 
 ```
-available  → reserved   (visitor submits reserve form)
-reserved   → available  (reservation expires after 3 days)
-reserved   → sold       (admin marks as sold, creates transaction)
-available  → sold       (admin marks as sold directly)
-sold       → paid_out   (admin marks seller as paid)
-available  → donated    (admin decides to donate)
-available  → removed    (admin removes from outlet)
+[scrape]   → pending_approval  (extension sets this when original_reserve > 300)
+[scrape]   → available         (extension sets this when original_reserve <= 300)
+pending_approval → available   (admin approves item for sale)
+available  → reserved          (visitor submits reserve form)
+reserved   → available         (reservation expires after 3 days)
+reserved   → sold              (admin marks as sold, creates transaction)
+available  → sold              (admin marks as sold directly)
+sold       → paid_out          (admin marks seller as paid)
+available  → donated           (admin decides to donate)
+available  → removed           (admin removes from outlet)
 ```
 
-Valid status values: `'available'`, `'reserved'`, `'sold'`, `'paid_out'`, `'donated'`, `'removed'`
+Valid status values: `'available'`, `'pending_approval'`, `'reserved'`, `'sold'`, `'paid_out'`, `'donated'`, `'removed'`
 
 ---
 
@@ -184,6 +206,8 @@ Images are COPIED from Auctionet CDN to Supabase Storage during scraping. Never 
 | Create transactions | Outlet admin | When marking items as sold |
 | Mark payouts | Outlet admin | When paying sellers |
 | Read public items | Outlet public | Fetches available/reserved items |
+| Write spellcheck cache | Extension | Publication scanner writes after AI spellcheck |
+| Read spellcheck cache | Both | Extension checks before AI call; Outlet can display status |
 
 ---
 

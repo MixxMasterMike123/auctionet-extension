@@ -279,4 +279,20 @@ export class SwedishSpellChecker {
     }
     return map;
   }
-} 
+
+  /**
+   * Words the AI commonly flags incorrectly that are valid Swedish.
+   * Used as a post-processing filter for AI spellcheck results.
+   */
+  static getSafeWordsSet() {
+    return new Set([
+      // Valid Swedish inflections/forms the AI mistakes for misspellings
+      'anlupet', 'anlupning', 'anlöpning',
+      // Valid compound words the AI tries to "fix"
+      'glasservis', 'kaffeservis', 'porslinsservis', 'teservis',
+      'serveringsskål', 'serveringsfat',
+      // Common auction terms the AI doesn't recognize
+      'bultlås', 'smide',
+    ]);
+  }
+}

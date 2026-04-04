@@ -379,7 +379,44 @@ async function handleDashboardFetch(request, sendResponse) {
   }
 }
 
-// ─── Supabase REST API handler (SaS Outlet) ──────────────────────────
+// ─── Supabase REST API core ───────────────────────────────────────────
+// Reusable Supabase fetch — used by message handler AND directly by
+// publication-scanner-bg.js (same service worker, no message passing needed).
+
+async function supabaseFetch(method, path, body = null, extraHeaders = {}) {
+  const stored = await chrome.storage.local.get(['outletSupabaseUrl', 'outletSupabaseServiceKey']);
+  if (!stored.outletSupabaseUrl || !stored.outletSupabaseServiceKey) {
+    throw new Error('Supabase ej konfigurerad');
+  }
+
+  const url = `${stored.outletSupabaseUrl.replace(/\/$/, '')}${path}`;
+  const headers = {
+    'apikey': stored.outletSupabaseServiceKey,
+    'Authorization': `Bearer ${stored.outletSupabaseServiceKey}`,
+    'Content-Type': 'application/json',
+    ...extraHeaders
+  };
+
+  const fetchOpts = { method, headers };
+  if (body && method !== 'GET') {
+    fetchOpts.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, fetchOpts);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Supabase HTTP ${response.status}: ${errorText}`);
+  }
+
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// Expose for publication-scanner-bg.js (runs in same service worker)
+globalThis.__supabaseFetch = supabaseFetch;
+
+// ─── Supabase message handler (content scripts → background) ─────────
 // Routes Supabase requests through background.js so the service role key
 // never reaches content scripts. Same security pattern as Anthropic API key.
 
@@ -391,36 +428,7 @@ async function handleSupabaseFetch(request, sendResponse) {
       return;
     }
 
-    const stored = await chrome.storage.local.get(['outletSupabaseUrl', 'outletSupabaseServiceKey']);
-    if (!stored.outletSupabaseUrl || !stored.outletSupabaseServiceKey) {
-      sendResponse({ success: false, error: 'SaS Outlet ej konfigurerad. Ange Supabase-inställningar i popupen.' });
-      return;
-    }
-
-    const url = `${stored.outletSupabaseUrl.replace(/\/$/, '')}${path}`;
-    const headers = {
-      'apikey': stored.outletSupabaseServiceKey,
-      'Authorization': `Bearer ${stored.outletSupabaseServiceKey}`,
-      'Content-Type': 'application/json',
-      ...extraHeaders
-    };
-
-    const fetchOpts = { method, headers };
-    if (body && method !== 'GET') {
-      fetchOpts.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(url, fetchOpts);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      sendResponse({ success: false, error: `Supabase HTTP ${response.status}: ${errorText}` });
-      return;
-    }
-
-    // Some requests (like upserts with Prefer: resolution=merge-duplicates) may return empty body
-    const text = await response.text();
-    const data = text ? JSON.parse(text) : null;
+    const data = await supabaseFetch(method, path, body, extraHeaders);
     sendResponse({ success: true, data });
   } catch (error) {
     sendResponse({ success: false, error: error.message });

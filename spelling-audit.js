@@ -117,25 +117,28 @@ async function aiSpellcheckItem(title, description, condition) {
 
 ${parts.join('\n')}
 
-Hitta ALLA felstavade svenska ord. Var noggrann — kontrollera varje ord.
+Rapportera BARA ord du är 100% säker på är felstavade. Rättningen MÅSTE vara ett verkligt svenskt ord — hitta INTE på nya ord.
 
-Vanliga fel att leta efter:
-- Förväxlade vokaler: trå→trä, möbel→möbel, olija→olja
-- Dubbelteckning: silverr→silver, glasss→glas
-- Facktermer: Jardinjär→Jardinär, kandelabrer→kandelaber, colier→collier
-- Materialfel: masing→mässing, porlin→porslin, broze→brons
-- Svenskafel: signerade→signerad (om singular), daterade→daterad (om singular)
+Om du är osäker på om ett ord är felstavat, rapportera det INTE. Det är bättre att missa ett stavfel än att föreslå en felaktig rättning.
+
+Exempel på verkliga stavfel:
+- "colier" → "collier"
+- "silverr" → "silver"
+- "brutovikt" → "bruttovikt"
+- "masing" → "mässing"
 
 IGNORERA (rapportera INTE):
+- Ord du inte känner igen (de kan vara korrekta facktermer)
 - Personnamn, konstnärsnamn, ortnamn, varumärken
 - Förkortningar (bl.a, osv, ca, nr, st, resp)
 - Versaler/gemener
 - Grammatik, kommatering, meningsbyggnad
-- Korrekta böjningsformer och pluralformer
+- Korrekta böjningsformer och pluralformer (anlupet, anlupning, etc.)
+- Korrekta sammansättningar (glasservis, kaffeservis, porslinsservis, teservis)
 - Korrekta facktermer: plymå, karott, karaff, tablå, terrin, chiffonjé, röllakan, intarsia, gouache, pendyl, boett, collier, rivière, cabochon, pavé, solitär
 
 Svara ENBART med JSON (inget annat):
-{"issues":[{"original":"felstavat","corrected":"korrekt","field":"title|description|condition"}]}
+{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.98,"field":"title|description|condition"}]}
 Om inga stavfel: {"issues":[]}`;
 
   aiStats.calls++;
@@ -143,8 +146,8 @@ Om inga stavfel: {"issues":[]}`;
     const data = await callBackground({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 400,
-      temperature: 0.3,
-      system: 'Du är en svensk stavningsexpert specialiserad på auktionstexter. Hitta felstavade ord. Svara BARA med valid JSON, inget annat.',
+      temperature: 0,
+      system: 'Du är en svensk stavningsexpert specialiserad på auktionstexter. Var konservativ — rapportera bara stavfel du är helt säker på. Rättningen måste vara ett verkligt svenskt ord. Det är bättre att missa ett fel än att föreslå en felaktig rättning. Svara BARA med valid JSON, inget annat.',
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -166,7 +169,8 @@ Om inga stavfel: {"issues":[]}`;
     if (result?.issues && Array.isArray(result.issues)) {
       const filtered = result.issues
         .filter(i => i.original && i.corrected &&
-                i.original.toLowerCase() !== i.corrected.toLowerCase())
+                i.original.toLowerCase() !== i.corrected.toLowerCase() &&
+                (i.confidence || 0.85) >= 0.92)
         .map(i => ({
           originalWord: i.original,
           suggestedWord: i.corrected,
