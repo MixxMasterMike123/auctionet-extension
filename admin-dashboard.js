@@ -1033,12 +1033,29 @@
       else return;
     }
 
-    // Load ignored items set
+    // Load ignored items set (L1: local + L2: Supabase shared)
     let ignoredItems = {};
     try {
       const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_IGNORED_KEY, r => resolve(r[PUB_SCAN_IGNORED_KEY])));
       if (stored) ignoredItems = stored;
     } catch (e) { /* no ignored items */ }
+    // Merge with Supabase shared ignored list
+    try {
+      const sbIgnored = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'supabase-fetch', method: 'GET',
+          path: '/rest/v1/spellcheck_ignored?select=item_id',
+          extraHeaders: { 'Accept': 'application/json' }
+        }, r => r?.success ? resolve(r.data) : resolve([]));
+      });
+      if (Array.isArray(sbIgnored)) {
+        let merged = false;
+        for (const row of sbIgnored) {
+          if (!ignoredItems[row.item_id]) { ignoredItems[row.item_id] = true; merged = true; }
+        }
+        if (merged) await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignoredItems }, resolve));
+      }
+    } catch (e) { /* Supabase not configured — use local only */ }
 
     // Separate ignored from active
     const activeCritical = (data.critical || []).filter(item => !ignoredItems[item.itemId]);
@@ -1358,11 +1375,18 @@
         const itemId = btn.dataset.itemId;
         if (!itemId) return;
         try {
-          // Add to ignored set
+          // Add to ignored set (L1: local)
           const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_IGNORED_KEY, r => resolve(r[PUB_SCAN_IGNORED_KEY])));
           const ignored = stored || {};
           ignored[itemId] = true;
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
+          // L2: Supabase shared ignored list (fire-and-forget)
+          chrome.runtime.sendMessage({
+            type: 'supabase-fetch', method: 'POST',
+            path: '/rest/v1/spellcheck_ignored',
+            body: { item_id: parseInt(itemId), ignored_at: new Date().toISOString() },
+            extraHeaders: { 'Prefer': 'resolution=merge-duplicates' }
+          }, () => {});
           // Also remove from sticky errors if present
           if (btn.dataset.sticky) {
             const stickyStored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_STICKY_KEY, r => resolve(r[PUB_SCAN_STICKY_KEY])));
@@ -1390,6 +1414,11 @@
           const ignored = stored || {};
           delete ignored[itemId];
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
+          // L2: Remove from Supabase shared ignored list (fire-and-forget)
+          chrome.runtime.sendMessage({
+            type: 'supabase-fetch', method: 'DELETE',
+            path: `/rest/v1/spellcheck_ignored?item_id=eq.${itemId}`
+          }, () => {});
           // Re-render with same scan data
           await renderPublicationResults(data);
         } catch (err) {

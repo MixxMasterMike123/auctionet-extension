@@ -105,6 +105,14 @@ CREATE TABLE spellcheck_cache (
 CREATE INDEX idx_spellcheck_cache_checked_at ON spellcheck_cache (checked_at);
 ```
 
+### `spellcheck_ignored` (extension writes, both read)
+```sql
+CREATE TABLE spellcheck_ignored (
+  item_id BIGINT PRIMARY KEY,        -- Auctionet item ID
+  ignored_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
 ---
 
 ## Row Level Security
@@ -135,6 +143,12 @@ CREATE POLICY "Public read" ON categories FOR SELECT USING (true);
 ALTER TABLE spellcheck_cache ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public read spellcheck" ON spellcheck_cache FOR SELECT USING (true);
 CREATE POLICY "Service write spellcheck" ON spellcheck_cache FOR ALL TO service_role
+  USING (true) WITH CHECK (true);
+
+-- spellcheck_ignored: public read, service role write
+ALTER TABLE spellcheck_ignored ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read ignored" ON spellcheck_ignored FOR SELECT USING (true);
+CREATE POLICY "Service write ignored" ON spellcheck_ignored FOR ALL TO service_role
   USING (true) WITH CHECK (true);
 ```
 
@@ -208,6 +222,8 @@ Images are COPIED from Auctionet CDN to Supabase Storage during scraping. Never 
 | Read public items | Outlet public | Fetches available/reserved items |
 | Write spellcheck cache | Extension | Publication scanner writes after AI spellcheck |
 | Read spellcheck cache | Both | Extension checks before AI call; Outlet can display status |
+| Write spellcheck ignored | Extension | Dashboard ignore button syncs to Supabase |
+| Read spellcheck ignored | Both | Dashboard merges Supabase ignored list on load |
 
 ---
 
