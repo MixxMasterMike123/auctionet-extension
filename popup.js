@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           type: 'anthropic-fetch',
           apiKey: apiKey,
           body: {
-            model: 'claude-sonnet-4-20250514', // Claude Sonnet 4
+            model: 'claude-haiku-4-5', // Haiku — cheapest model, sufficient for connection test
             max_tokens: 10,
             messages: [{
               role: 'user',

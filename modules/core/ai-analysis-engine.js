@@ -5,6 +5,9 @@ export class AIAnalysisEngine {
   constructor(apiManager) {
     this.apiManager = apiManager;
     this.enableArtistInfo = true; // Default setting
+    this.artistDetectionCache = new Map(); // title+objectType → {result, timestamp}
+    this.artistBioCache = new Map();       // artistName → {result, timestamp}
+    this.cacheTTL = 30 * 60 * 1000;       // 30 minutes
   }
 
   /**
@@ -25,14 +28,22 @@ export class AIAnalysisEngine {
 
     // CRITICAL FIX: Remove the artist field length check that was causing the bug
     // The original bug was here: if (artistField && artistField.trim().length > 2) return null;
-    // 
+    //
     // NEW LOGIC: Only skip if explicitly requested to skip existing artists
     if (options.skipIfArtistExists && artistField && artistField.trim().length > 2) {
       return null;
     }
-    
+
+    // Check cache — skip API call if same title was analyzed recently
+    const cacheKey = `${title.trim()}|${objectType || ''}`;
+    const cached = this.artistDetectionCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.cacheTTL) {
+      return cached.result;
+    }
+
     try {
       const result = await this.performAIArtistAnalysis(title, objectType, artistField, description);
+      this.artistDetectionCache.set(cacheKey, { result, timestamp: Date.now() });
       return result;
     } catch (error) {
       console.error('Error in AI artist analysis:', error);
@@ -230,6 +241,13 @@ Svara ENDAST JSON:
       return null;
     }
 
+    // Check cache — skip API call if same artist was verified recently
+    const cacheKey = artistName.trim().toLowerCase();
+    const cached = this.artistBioCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.cacheTTL) {
+      return cached.result;
+    }
+
     try {
       const prompt = `Konstnär: "${artistName}" (${objectType || 'okänt'}, ${period || 'okänd period'})
 
@@ -268,9 +286,11 @@ JSON:
 
       if (response.success && response.data?.content?.[0]?.text) {
         const result = this.parseArtistVerificationResponse(response.data.content[0].text);
+        this.artistBioCache.set(cacheKey, { result, timestamp: Date.now() });
         return result;
       }
 
+      this.artistBioCache.set(cacheKey, { result: null, timestamp: Date.now() });
       return null;
     } catch (error) {
       console.error('Error in AI artist verification:', error);

@@ -5,7 +5,8 @@ export class BrandValidationManager {
   constructor(apiManager = null) {
     this.apiManager = apiManager;
     this.knownBrands = this.initializeKnownBrands();
-    
+    this.validationCache = new Map(); // text → {result, timestamp}
+    this.cacheTTL = 30 * 60 * 1000;  // 30 minutes
   }
 
   // Set API manager for AI-powered validation
@@ -130,6 +131,13 @@ export class BrandValidationManager {
       return [];
     }
 
+    // Check cache — skip API call if same text was validated recently
+    const cacheKey = `${(title || '').trim()}|${(description || '').trim().substring(0, 200)}`;
+    const cached = this.validationCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.cacheTTL) {
+      return cached.result;
+    }
+
     const prompt = `Analysera denna auktionstext och identifiera eventuella felstavade märkesnamn eller varumärken.
 
 TEXT: "${title} ${description || ''}"
@@ -174,7 +182,7 @@ Om inga felstavningar hittas: {"issues":[]}`;
         if (jsonMatch) {
           const aiResult = JSON.parse(jsonMatch[0]);
           if (aiResult.issues && Array.isArray(aiResult.issues)) {
-            return aiResult.issues
+            const result = aiResult.issues
               .filter(issue => (issue.confidence || 0) >= 0.85)
               .map(issue => ({
                 originalBrand: issue.original,
@@ -185,13 +193,16 @@ Om inga felstavningar hittas: {"issues":[]}`;
                 foundIn: 'analys',
                 reason: issue.reason || ''
               }));
+            this.validationCache.set(cacheKey, { result, timestamp: Date.now() });
+            return result;
           }
         }
       }
     } catch (error) {
       // Silently fail — fuzzy matching still works as fallback
     }
-    
+
+    this.validationCache.set(cacheKey, { result: [], timestamp: Date.now() });
     return [];
   }
 

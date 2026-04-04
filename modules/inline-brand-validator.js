@@ -12,7 +12,9 @@ export class InlineBrandValidator {
     this.monitoredFields = new Map();
     this.debounceTimeout = null;
     this.ignoredTerms = new Set(); // Session-based ignore list
-    
+    this.spellCache = new Map();       // text → {issues, timestamp}
+    this.artistCache = new Map();      // artistName → {result, timestamp}
+    this.cacheTTL = 30 * 60 * 1000;   // 30 minutes
   }
 
   // Set brand validation manager
@@ -237,6 +239,13 @@ export class InlineBrandValidator {
     }
     if (text.length < 5) return [];
 
+    // Check cache — skip API call if same text was checked recently
+    const cacheKey = `${fieldType}:${text.trim()}`;
+    const cached = this.spellCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.cacheTTL) {
+      return cached.issues;
+    }
+
     const fieldLabel = fieldType === 'title' ? 'titel' : fieldType === 'condition' ? 'konditionsrapport' : 'beskrivning';
     const prompt = `Kontrollera stavningen i denna auktions-${fieldLabel} på svenska:
 "${text}"
@@ -269,7 +278,7 @@ Svara BARA med JSON:
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           body: {
-            model: 'claude-sonnet-4-5',
+            model: 'claude-haiku-4-5',
             max_tokens: 300,
             temperature: 0,
             system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
@@ -292,7 +301,7 @@ Svara BARA med JSON:
         if (jsonMatch) {
           const result = JSON.parse(jsonMatch[0]);
           if (result.issues && Array.isArray(result.issues)) {
-            return result.issues
+            const issues = result.issues
               .filter(issue => issue.original && issue.corrected &&
                       issue.original.toLowerCase() !== issue.corrected.toLowerCase() &&
                       (issue.confidence || 0.9) >= 0.8)
@@ -304,6 +313,8 @@ Svara BARA med JSON:
                 source: 'ai_spellcheck',
                 displayCategory: 'stavning'
               }));
+            this.spellCache.set(cacheKey, { issues, timestamp: Date.now() });
+            return issues;
           }
         }
       }
@@ -428,6 +439,13 @@ Svara BARA med JSON:
 
   // Ask AI to check if an artist name is misspelled
   async checkArtistNameWithAI(artistName, apiManager) {
+    // Check cache — skip API call if same name was checked recently
+    const cacheKey = artistName.trim().toLowerCase();
+    const cached = this.artistCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < this.cacheTTL) {
+      return cached.result;
+    }
+
     const prompt = `Kontrollera om detta konstnärs-/formgivarnamn är korrekt stavat:
 "${artistName}"
 
@@ -471,13 +489,15 @@ Om korrekt: {"corrected":null}`;
         if (jsonMatch) {
           const result = JSON.parse(jsonMatch[0]);
           if (result.corrected && result.corrected.toLowerCase() !== artistName.toLowerCase()) {
-            return {
+            const correction = {
               originalBrand: artistName,
               suggestedBrand: result.corrected,
               confidence: result.confidence || 0.9,
               type: 'artist_spelling',
               displayCategory: 'konstnärsnamn'
             };
+            this.artistCache.set(cacheKey, { result: correction, timestamp: Date.now() });
+            return correction;
           }
         }
       }
@@ -485,6 +505,7 @@ Om korrekt: {"corrected":null}`;
       // Silently fail — capitalization check still works
     }
 
+    this.artistCache.set(cacheKey, { result: null, timestamp: Date.now() });
     return null;
   }
 

@@ -350,21 +350,7 @@ Regler:
         });
       });
 
-      let response;
-      try {
-        response = await callBioAPI('claude-opus-4-6');
-      } catch (opusError) {
-        const isOverloaded = opusError.message && (
-          opusError.message.includes('Overloaded') || opusError.message.includes('overloaded') ||
-          opusError.message.includes('rate limit') || opusError.message.includes('429')
-        );
-        if (isOverloaded) {
-          console.warn('[BiographyKB] Opus overloaded — falling back to Sonnet');
-          response = await callBioAPI('claude-sonnet-4-5');
-        } else {
-          throw opusError;
-        }
-      }
+      const response = await callBioAPI('claude-sonnet-4-5');
 
       if (response.success && response.data?.content?.[0]?.text) {
         const text = response.data.content[0].text.trim();
