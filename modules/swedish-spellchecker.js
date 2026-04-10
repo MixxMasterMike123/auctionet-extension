@@ -286,13 +286,16 @@ export class SwedishSpellChecker {
    */
   static getSafeWordsSet() {
     return new Set([
-      // Valid Swedish inflections/forms the AI mistakes for misspellings
+      // Valid Swedish inflections/forms
       'anlupet', 'anlupning', 'anlöpning',
-      // Valid compound words the AI tries to "fix"
+      'delvist', // valid neuter form of delvis
+      // Valid compound words
       'glasservis', 'kaffeservis', 'porslinsservis', 'teservis',
       'serveringsskål', 'serveringsfat',
-      // Common auction terms the AI doesn't recognize
-      'bultlås', 'smide',
+      // Auction/craft terms
+      'bultlås', 'smide', 'stramalj', 'plymå', 'röllakan',
+      'chiffonjé', 'pendyl', 'boett', 'karott', 'tablå',
+      'funktionstesterad', 'funktionstested', 'funktionstestad',
     ]);
   }
 }

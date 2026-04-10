@@ -12,7 +12,7 @@ const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
 const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache_v2';
 const PUB_SCAN_SPELL_VERSION_KEY = 'pubScanSpellVersion';
-const PUB_SCAN_SPELL_VERSION = 2; // Bump to clear all spell-related caches
+const PUB_SCAN_SPELL_VERSION = 3; // Bumped: switched from Haiku AI to LanguageTool API
 const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
 const STICKY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
@@ -153,7 +153,7 @@ function runPhase1Checks(item) {
   return issues;
 }
 
-async function runPhase2Checks(editData, hasApiKey, dictMap, itemId) {
+async function runPhase2Checks(editData, dictMap, itemId) {
   const issues = [];
 
   // Image checks
@@ -203,21 +203,30 @@ async function runPhase2Checks(editData, hasApiKey, dictMap, itemId) {
     }
   }
 
-  // Spellcheck (with caching to avoid redundant AI calls)
+  // Spellcheck (LanguageTool API + dictionary fallback, with caching)
   const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
   let spellingErrors;
-  if (hasApiKey && itemId) {
+  if (itemId) {
     const cached = await getCachedSpellcheck(itemId, combinedText);
     if (cached) {
       spellingErrors = cached;
     } else {
-      spellingErrors = validateAICorrections(await checkSpellingAI(combinedText));
+      spellingErrors = validateSpellingResults(await checkSpellingLanguageTool(combinedText));
+      // Merge with dictionary results for auction-specific terms LanguageTool might miss
+      const dictErrors = checkSpellingDict(combinedText, dictMap);
+      const ltWords = new Set(spellingErrors.map(e => e.word.toLowerCase()));
+      for (const de of dictErrors) {
+        if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
+      }
       await setCachedSpellcheck(itemId, combinedText, spellingErrors);
     }
-  } else if (hasApiKey) {
-    spellingErrors = validateAICorrections(await checkSpellingAI(combinedText));
   } else {
-    spellingErrors = checkSpellingDict(combinedText, dictMap);
+    spellingErrors = validateSpellingResults(await checkSpellingLanguageTool(combinedText));
+    const dictErrors = checkSpellingDict(combinedText, dictMap);
+    const ltWords = new Set(spellingErrors.map(e => e.word.toLowerCase()));
+    for (const de of dictErrors) {
+      if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
+    }
   }
   if (spellingErrors.length > 0) {
     const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
@@ -285,7 +294,7 @@ async function getCachedSpellcheck(itemId, text) {
     return supabaseResults;
   }
 
-  return null; // True cache miss — need to run AI
+  return null; // True cache miss — need to check via LanguageTool
 }
 
 async function setCachedSpellcheck(itemId, text, results) {
@@ -345,81 +354,70 @@ async function setSupabaseCachedSpellcheck(itemId, textHash, results) {
   }
 }
 
-// ─── Spellcheck (direct API call from service worker) ───────────────
+// ─── Spellcheck (LanguageTool API — free, dictionary-based, no hallucinations) ──
 
-async function checkSpellingAI(text) {
+async function checkSpellingLanguageTool(text) {
   if (!text || text.length < 5) return [];
 
-  const prompt = `Kontrollera stavningen i denna auktionstext på svenska:
-"${text}"
-
-Rapportera BARA ord du är 100% säker på är felstavade. Rättningen MÅSTE vara ett verkligt svenskt ord — hitta INTE på nya ord.
-
-Om du är osäker på om ett ord är felstavat, rapportera det INTE. Det är bättre att missa ett stavfel än att föreslå en felaktig rättning.
-
-Exempel på verkliga stavfel:
-- "Colier" → "Collier"
-- "silverr" → "silver"
-- "brutovikt" → "bruttovikt"
-
-RAPPORTERA INTE:
-- Ord du inte känner igen (de kan vara korrekta facktermer)
-- Grammatik, interpunktion, kommatering
-- Förkortningar (ink, bl.a, osv, resp, ca)
-- Personnamn, ortnamn, varumärken
-- Versaler/gemener-fel
-- Korrekta böjningsformer (hängd, längd, höjd, märkt, anlupet, anlupning)
-- Korrekta sammansättningar (glasservis, kaffeservis, porslinsservis, teservis)
-- Auktionsfacktermer: plymå, karott, karaff, tablå, terrin, skänk, chiffonjé,
-  röllakan, tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
-  collier, rivière, cabochon, pavé, solitär, entourage
-
-Svara BARA med JSON:
-{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.98}]}
-Om inga stavfel: {"issues":[]}`;
+  // Strip HTML tags and collapse whitespace
+  const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (cleanText.length < 5) return [];
 
   try {
-    // Use shared API caller from background.js (reads key from storage automatically)
-    const callAPI = globalThis.__callAnthropicAPI;
-    if (!callAPI) return []; // Not yet initialized
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const data = await callAPI({
-      model: 'claude-haiku-4-5', // Haiku is sufficient for spellcheck and ~10x cheaper than Sonnet
-      max_tokens: 300,
-      temperature: 0,
-      system: 'Du är en expert på svensk stavning och auktionsterminologi. Var konservativ — rapportera bara stavfel du är helt säker på. Rättningen måste vara ett verkligt svenskt ord. Det är bättre att missa ett fel än att föreslå en felaktig rättning. Svara BARA med valid JSON.',
-      messages: [{ role: 'user', content: prompt }]
-    }, { timeoutMs: 20000 });
+    const response = await fetch('https://api.languagetool.org/v2/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        text: cleanText,
+        language: 'sv',
+        // Only spelling errors — skip grammar, style, typography
+        enabledCategories: 'TYPOS,SPELLING',
+        disabledCategories: 'GRAMMAR,STYLE,TYPOGRAPHY,PUNCTUATION,CASING'
+      }),
+      signal: controller.signal
+    });
 
-    const responseText = data?.content?.[0]?.text?.trim();
-    if (!responseText) return [];
+    clearTimeout(timeoutId);
 
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const result = JSON.parse(jsonMatch[0]);
-      if (result.issues && Array.isArray(result.issues)) {
-        return result.issues
-          .filter(i => i.original && i.corrected &&
-                  i.original.toLowerCase() !== i.corrected.toLowerCase() &&
-                  (i.confidence || 0.85) >= 0.92)
-          .map(i => ({ word: i.original, correction: i.corrected }));
-      }
+    if (!response.ok) {
+      console.warn(`[PubScanBG] LanguageTool HTTP ${response.status}`);
+      return [];
     }
+
+    const data = await response.json();
+    if (!data.matches || !Array.isArray(data.matches)) return [];
+
+    return data.matches
+      .filter(m => m.replacements && m.replacements.length > 0)
+      .map(m => ({
+        word: cleanText.substring(m.offset, m.offset + m.length),
+        correction: m.replacements[0].value
+      }))
+      // Skip single-character words and very short matches
+      .filter(e => e.word.length >= 3 && e.word.toLowerCase() !== e.correction.toLowerCase());
   } catch (e) {
+    if (e.name === 'AbortError') {
+      console.warn('[PubScanBG] LanguageTool request timed out');
+    }
     // Silently fail — no spellcheck for this item
   }
   return [];
 }
 
-function validateAICorrections(aiResults) {
+function validateSpellingResults(results) {
   const safe = safeWordsSet || new Set();
-  return aiResults.filter(result => {
+  return results.filter(result => {
     const original = result.word.toLowerCase();
     const correction = result.correction.toLowerCase();
     // Reject if the original word is a known safe word
     if (safe.has(original)) return false;
     // Reject corrections with triple consecutive identical letters (e.g., "glassservis")
     if (/(.)\1\1/.test(correction)) return false;
+    // Reject if original looks like a proper noun / brand (starts uppercase, not ALL CAPS)
+    if (/^[A-ZÅÄÖÜ][a-zåäöü]/.test(result.word) && !/^[A-ZÅÄÖÜ]+$/.test(result.word)) return false;
     return true;
   });
 }
@@ -464,13 +462,6 @@ export async function runBackgroundPublicationScan() {
 
     // Reset spell cache to load fresh from storage
     spellCache = null;
-
-    // Check if API key is available (actual key read by shared callAnthropicAPI)
-    let hasApiKey = false;
-    try {
-      const stored = await chrome.storage.local.get(['anthropicApiKey']);
-      hasApiKey = !!stored.anthropicApiKey;
-    } catch (e) { /* no API key */ }
 
     // Load dictionary
     const dictMap = await loadMisspellingsMap();
@@ -542,7 +533,7 @@ export async function runBackgroundPublicationScan() {
           };
           item.showUrl = showUrl;
           item.editData = editData;
-          item.phase2Issues = await runPhase2Checks(editData, hasApiKey, dictMap, item.itemId);
+          item.phase2Issues = await runPhase2Checks(editData, dictMap, item.itemId);
         } catch (e) {
           console.error(`[PubScanBG] Failed to scan item ${item.itemId}:`, e);
           item.phase2Issues = [{ text: 'Kunde inte skannas', severity: 'warning' }];
@@ -740,13 +731,6 @@ export async function recheckStickyErrors() {
       return sticky;
     }
 
-    // Check if API key is available (actual key read by shared callAnthropicAPI)
-    let hasApiKey = false;
-    try {
-      const stored = await chrome.storage.local.get(['anthropicApiKey']);
-      hasApiKey = !!stored.anthropicApiKey;
-    } catch (e) { /* no API key */ }
-
     const dictMap = await loadMisspellingsMap();
     await ensureOffscreen();
 
@@ -767,11 +751,12 @@ export async function recheckStickyErrors() {
 
           const combinedText = [editFields.editTitle, showData.description, showData.condition].filter(Boolean).join(' ');
 
-          let spellingErrors;
-          if (hasApiKey) {
-            spellingErrors = await checkSpellingAI(combinedText);
-          } else {
-            spellingErrors = checkSpellingDict(combinedText, dictMap);
+          let spellingErrors = validateSpellingResults(await checkSpellingLanguageTool(combinedText));
+          // Merge dictionary results
+          const dictErrors = checkSpellingDict(combinedText, dictMap);
+          const ltWords = new Set(spellingErrors.map(e => e.word.toLowerCase()));
+          for (const de of dictErrors) {
+            if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
           }
 
           entry.lastCheckedAt = now;
