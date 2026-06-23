@@ -22,6 +22,41 @@
 
   // ─── Utility ──────────────────────────────────────────────────────
 
+  // True while this content script can still reach the extension. After the
+  // extension is reloaded/updated, old content scripts in already-open tabs
+  // lose their context; touching chrome.* then throws "Extension context
+  // invalidated". Guard background-event listeners with this so they fail
+  // silently (the user just reloads the page to get a fresh context).
+  function extensionAlive() {
+    try { return !!(chrome.runtime && chrome.runtime.id); }
+    catch (e) { return false; }
+  }
+
+  // The logged-in employee's name, read from Auctionet's header dropdown.
+  // Used to attribute whitelist additions (added_by). Null if not found.
+  function getCurrentEmployeeName() {
+    const el = document.querySelector('.site-header__employee-name');
+    const name = el ? el.textContent.trim() : '';
+    return name || null;
+  }
+
+  // Send a message without ever throwing "Extension context invalidated"
+  // (happens when an old content script outlives an extension reload). Returns
+  // a promise of the response, or null if the context is gone / errored.
+  function safeSendMessage(msg) {
+    if (!extensionAlive()) return Promise.resolve(null);
+    return new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage(msg, resp => {
+          void chrome.runtime.lastError; // swallow async context errors
+          resolve(resp ?? null);
+        });
+      } catch (e) {
+        resolve(null); // synchronous "context invalidated"
+      }
+    });
+  }
+
   function parseNumber(str) {
     if (!str) return 0;
     // Handle Swedish number format: "1 413,24" or "1112" or "15,5"
@@ -57,35 +92,19 @@
   // ─── DOM Scrapers ─────────────────────────────────────────────────
 
   function scrapeRequestedActions() {
+    // Redesigned overview (2026): reminders are <a class="test-requested-action-*">
+    // links inside "Viktiga påminnelser", each containing "<count> <label>" text.
     const actions = [];
-    document.querySelectorAll('.requested-actions__action').forEach(el => {
-      const link = el.querySelector('a');
-      const strong = el.querySelector('strong');
-      if (!link || !strong) return;
-      const text = strong.textContent.trim();
+    document.querySelectorAll('a[class*="test-requested-action"]').forEach(link => {
+      const text = link.textContent.trim();
       const countMatch = text.match(/(\d+)/);
       const count = countMatch ? parseInt(countMatch[1]) : 0;
-      const label = text.replace(/^\d+\s*/, '');
+      const label = text.replace(/^\D*\d+\s*/, '').trim();
       const href = link.getAttribute('href');
+      if (!label) return;
       actions.push({ count, label, href });
     });
     return actions;
-  }
-
-  function scrapeSidebarCounts() {
-    const counts = [];
-    document.querySelectorAll('.well--nav-list a').forEach(link => {
-      const text = link.textContent.trim();
-      const countMatch = text.match(/\((\d[\d\s]*)\)\s*$/);
-      if (!countMatch) return;
-      const count = parseInt(countMatch[1].replace(/\s/g, ''));
-      const label = text.replace(/\([\d\s]+\)\s*$/, '').replace(/^\s*/, '').trim();
-      // Remove font-awesome icon text artifacts
-      const cleanLabel = label.replace(/^\s+/, '');
-      const href = link.getAttribute('href');
-      counts.push({ count, label: cleanLabel, href });
-    });
-    return counts;
   }
 
   function scrapeDailyGoal() {
@@ -100,52 +119,6 @@
       goal: parseInt(match[2]),
       sek: parseInt(match[3].replace(/\s/g, ''))
     };
-  }
-
-  function scrapeFlowStats() {
-    const table = document.querySelector('.auction-company-stats table');
-    if (!table) return [];
-    const rows = [];
-    table.querySelectorAll('tbody tr').forEach(tr => {
-      const cells = tr.querySelectorAll('th, td');
-      if (cells.length < 9) return;
-      // Parse avg valuation "1421 / 1511 / 1450" → {sold, unsold, all}
-      function parseTriple(str) {
-        const parts = str.split('/').map(s => parseNumber(s.trim()));
-        return { sold: parts[0] || 0, unsold: parts[1] || 0, all: parts[2] || 0 };
-      }
-      rows.push({
-        period: cells[0].textContent.trim(),
-        created: parseNumber(cells[1].textContent),
-        published: parseNumber(cells[2].textContent),
-        sold: parseNumber(cells[3].textContent),
-        recalled: parseNumber(cells[4].textContent),
-        recallPct: parseNumber(cells[5].textContent),
-        avgValuation: parseTriple(cells[6].textContent),
-        avgReserve: parseTriple(cells[7].textContent),
-        avgPrice: parseNumber(cells[8].textContent)
-      });
-    });
-    return rows;
-  }
-
-  function scrapeCatalogerStats() {
-    const table = document.querySelector('.test-cataloger-stats');
-    if (!table) return [];
-    const catalogers = [];
-    table.querySelectorAll('tbody tr').forEach(tr => {
-      const cells = tr.querySelectorAll('td');
-      if (cells.length < 5) return;
-      catalogers.push({
-        name: cells[0].textContent.trim(),
-        today: parseNumber(cells[1].textContent),
-        yesterday: parseNumber(cells[2].textContent),
-        lastMonth: parseNumber(cells[3].textContent),
-        weeklyAvg: parseNumber(cells[4].getAttribute('data-sort-value') || cells[4].textContent),
-        monthlyAvg: parseNumber(cells[5].getAttribute('data-sort-value') || cells[5].textContent)
-      });
-    });
-    return catalogers;
   }
 
   // ─── DOM Scraper: Comments ──────────────────────────────────────
@@ -229,9 +202,10 @@
 
   async function renderKPICards() {
     const actions = scrapeRequestedActions();
-    const sidebar = scrapeSidebarCounts();
 
-    // ── Row 1: Action items (from Auctionet alerts + sidebar counts) ──
+    // ── Row 1: Action items (from Auctionet "Viktiga påminnelser" alerts) ──
+    // Note: the sidebar count cards were removed in the 2026 redesign — the new
+    // left nav (.site-menu) no longer exposes per-section counts to scrape.
     const actionCards = [];
 
     actions.forEach(a => {
@@ -239,19 +213,8 @@
       if (/reklamation|ångerrätt/i.test(a.label)) { color = 'red'; icon = 'fas fa-reply'; }
       else if (/värdering/i.test(a.label)) { color = 'orange'; icon = 'fas fa-balance-scale'; }
       else if (/export/i.test(a.label)) { color = 'yellow'; icon = 'fas fa-globe'; }
+      else if (/omlist/i.test(a.label)) { color = 'yellow'; icon = 'fas fa-redo'; }
       actionCards.push({ ...a, color, icon });
-    });
-
-    const keyLabels = ['Opublicerbara', 'Hantera sålda', 'Hantera plocklista', 'Omlistas ej'];
-    sidebar.forEach(s => {
-      if (keyLabels.some(k => s.label.includes(k))) {
-        let color = 'blue', icon = 'fas fa-box';
-        if (/opublicer/i.test(s.label)) { color = 'orange'; icon = 'fas fa-ban'; }
-        else if (/sålda/i.test(s.label)) { color = 'green'; icon = 'fas fa-check-circle'; }
-        else if (/plocklista/i.test(s.label)) { color = 'blue'; icon = 'fas fa-dolly'; }
-        else if (/omlistas/i.test(s.label)) { color = 'yellow'; icon = 'fas fa-redo'; }
-        actionCards.push({ count: s.count, label: s.label, href: s.href, color, icon });
-      }
     });
 
     // ── Row 2: Insight cards (daily stats, comments, reklamation tracking) ──
@@ -358,215 +321,26 @@
       container.appendChild(insightRow);
     }
 
-    // Insert before the requested-actions div
-    const target = document.querySelector('.requested-actions') || document.querySelector('.view');
-    if (target) {
-      target.parentNode.insertBefore(container, target);
-      const origActions = document.querySelector('.requested-actions');
-      if (origActions) origActions.style.display = 'none';
+    // Insert at the top of the overview content. The legacy .requested-actions
+    // container no longer exists (2026 redesign moved reminders into
+    // "Viktiga påminnelser"), so anchor to the first heading inside .view and
+    // place our cards above it. Native reminders are left in place.
+    const view = document.querySelector('.view');
+    const firstHeading = view ? view.querySelector('h2') : null;
+    if (firstHeading && firstHeading.parentNode) {
+      firstHeading.parentNode.insertBefore(container, firstHeading);
+    } else if (view) {
+      view.insertBefore(container, view.firstChild);
     }
   }
 
-  // ─── 2. Daily Registration Count (insight card) ─────────────────
+  // Daily registration count is rendered inline within renderKPICards
+  // (via scrapeDailyGoal). The former Pipeline Funnel, Cataloger Leaderboard,
+  // Pricing Insights and Inventory Health widgets were removed in the 2026
+  // Auctionet redesign — their on-page data sources no longer exist; those
+  // metrics now live in Auctionet's own "Datainsikter" Metabase embed.
 
-  // ─── 3. Pipeline Funnel ───────────────────────────────────────────
-
-  function renderPipelineFunnel() {
-    const stats = scrapeFlowStats();
-    if (stats.length === 0) return;
-
-    // Use 30-day row for the main funnel
-    const row30 = stats.find(r => /30 dag/i.test(r.period));
-    if (!row30) return;
-
-    // YoY comparison
-    const lastWeek = stats.find(r => /^Förra veckan$/i.test(r.period));
-    const lastWeekYoY = stats.find(r => /för ett år sedan/i.test(r.period));
-
-    const stages = [
-      { label: 'Inskrivet', count: row30.created, color: '#006ccc' },
-      { label: 'Publicerat', count: row30.published, color: '#17a2b8' },
-      { label: 'Sålt', count: row30.sold, color: '#28a745' },
-      { label: 'Återrop', count: row30.recalled, color: '#dc3545' }
-    ];
-
-    // Calculate conversion rates
-    const convRates = [];
-    convRates.push(row30.created > 0 ? Math.round((row30.published / row30.created) * 100) : 0);
-    convRates.push(row30.published > 0 ? Math.round((row30.sold / row30.published) * 100) : 0);
-    convRates.push(null); // no conversion for recall
-
-    // YoY items
-    let yoyHTML = '';
-    if (lastWeek && lastWeekYoY) {
-      const items = [
-        yoyItemHTML('Inskrivet', pctChange(lastWeek.created, lastWeekYoY.created)),
-        yoyItemHTML('Sålt', pctChange(lastWeek.sold, lastWeekYoY.sold)),
-        yoyItemHTML('Snittpris', pctChange(lastWeek.avgPrice, lastWeekYoY.avgPrice)),
-        yoyItemHTML('Återrop', pctChange(lastWeek.recallPct, lastWeekYoY.recallPct), true)
-      ].filter(Boolean);
-
-      if (items.length > 0) {
-        yoyHTML = `
-          <div class="ext-pipeline__yoy">
-            <span style="font-size: 11px; color: #888; font-weight: 600;">Vecka mot vecka (YoY):</span>
-            ${items.join('')}
-          </div>`;
-      }
-    }
-
-    const pipeline = document.createElement('div');
-    pipeline.className = 'ext-pipeline ext-animate-in';
-    pipeline.innerHTML = `
-      <div class="ext-pipeline__title">Flöde senaste 30 dagar</div>
-      <div class="ext-pipeline__funnel">
-        ${stages.map((s, i) => `
-          ${i > 0 ? '<span class="ext-pipeline__arrow">›</span>' : ''}
-          <div class="ext-pipeline__stage" style="background: ${s.color};">
-            <div class="ext-pipeline__stage-count">${s.count.toLocaleString('sv-SE')}</div>
-            <div class="ext-pipeline__stage-label">${s.label}</div>
-            ${i < convRates.length && convRates[i] !== null ? `<div class="ext-pipeline__stage-rate">${convRates[i]}%</div>` : ''}
-          </div>
-        `).join('')}
-      </div>
-      ${yoyHTML}
-    `;
-
-    // Insert before the flow stats table
-    const statsDiv = document.getElementById('statistics');
-    if (statsDiv) {
-      statsDiv.parentNode.insertBefore(pipeline, statsDiv);
-    }
-  }
-
-  // ─── 4. Cataloger Leaderboard Enhancement ─────────────────────────
-
-  function enhanceCatalogerTable() {
-    const table = document.querySelector('.test-cataloger-stats');
-    if (!table) return;
-
-    const catalogers = scrapeCatalogerStats();
-    if (catalogers.length === 0) return;
-
-    // Find max monthly count for bar scaling
-    const maxMonth = Math.max(...catalogers.map(c => c.lastMonth), 1);
-    const maxMonthlyAvg = Math.max(...catalogers.map(c => c.monthlyAvg), 1);
-
-    // Find top performer (by monthly average)
-    const topPerformer = catalogers.reduce((best, c) => c.monthlyAvg > best.monthlyAvg ? c : best, catalogers[0]);
-
-    // Enhance each row
-    const rows = table.querySelectorAll('tbody tr');
-    rows.forEach((tr, i) => {
-      if (i >= catalogers.length) return;
-      const cat = catalogers[i];
-      const cells = tr.querySelectorAll('td');
-
-      // Add top performer badge to name
-      if (cat.name === topPerformer.name && topPerformer.monthlyAvg > 0) {
-        cells[0].innerHTML += ' <span class="ext-leaderboard-badge">★ Topp</span>';
-      }
-
-      // Add bar to last month cell (index 3)
-      if (cells[3] && cat.lastMonth > 0) {
-        const barWidth = (cat.lastMonth / maxMonth) * 100;
-        cells[3].classList.add('ext-bar-cell');
-        cells[3].style.position = 'relative';
-        const originalText = cells[3].textContent;
-        cells[3].innerHTML = `
-          <div class="ext-bar-cell__bar" style="width: ${barWidth}%;"></div>
-          <span class="ext-bar-cell__value">${originalText}</span>
-        `;
-      }
-
-      // Color-code zero cells more visibly
-      cells.forEach((cell, ci) => {
-        if (ci > 0 && cell.textContent.trim() === '0') {
-          cell.style.color = '#ccc';
-        }
-      });
-    });
-  }
-
-  // ─── 5. Pricing Insights ──────────────────────────────────────────
-
-  function renderPricingInsights() {
-    const stats = scrapeFlowStats();
-    if (stats.length === 0) return;
-
-    const row7 = stats.find(r => /7 dag/i.test(r.period));
-    const row30 = stats.find(r => /30 dag/i.test(r.period));
-    const row1y = stats.find(r => /1 år/i.test(r.period));
-
-    if (!row30) return;
-
-    const cards = [];
-
-    // Average price with trend
-    if (row30.avgPrice > 0) {
-      const trend7vs30 = row7 ? pctChange(row7.avgPrice, row30.avgPrice) : null;
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Snittpris (30 dagar)</div>
-          <div class="ext-insight-card__value">${formatSEK(row30.avgPrice)} SEK</div>
-          ${row7 ? `<div class="ext-insight-card__detail">7 dagar: ${formatSEK(row7.avgPrice)} SEK ${trendHTML(trend7vs30)}</div>` : ''}
-          ${row1y ? `<div class="ext-insight-card__detail">1 år: ${formatSEK(row1y.avgPrice)} SEK</div>` : ''}
-        </div>
-      `);
-    }
-
-    // Valuation accuracy: avg valuation (sold) vs avg price
-    if (row30.avgValuation.sold > 0 && row30.avgPrice > 0) {
-      const accuracy = (row30.avgPrice / row30.avgValuation.sold) * 100;
-      const accuracyColor = accuracy >= 90 && accuracy <= 110 ? '#28a745' : accuracy >= 80 ? '#e65100' : '#dc3545';
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Värderingsträff</div>
-          <div class="ext-insight-card__value" style="color: ${accuracyColor}">${accuracy.toFixed(0)}%</div>
-          <div class="ext-insight-card__detail">Snittpris ${formatSEK(row30.avgPrice)} vs värdering ${formatSEK(row30.avgValuation.sold)} SEK</div>
-        </div>
-      `);
-    }
-
-    // Reserve coverage: avg reserve vs avg price
-    if (row30.avgReserve.sold > 0 && row30.avgPrice > 0) {
-      const coverage = (row30.avgPrice / row30.avgReserve.sold) * 100;
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Utropstäckning</div>
-          <div class="ext-insight-card__value">${coverage.toFixed(0)}%</div>
-          <div class="ext-insight-card__detail">Snittpris ${formatSEK(row30.avgPrice)} vs bevakning ${formatSEK(row30.avgReserve.sold)} SEK</div>
-        </div>
-      `);
-    }
-
-    // Recall rate
-    if (row30.recallPct >= 0) {
-      const recallColor = row30.recallPct <= 5 ? '#28a745' : row30.recallPct <= 10 ? '#e65100' : '#dc3545';
-      const trend = row1y ? pctChange(row30.recallPct, row1y.recallPct) : null;
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Återropsandel (30 dagar)</div>
-          <div class="ext-insight-card__value" style="color: ${recallColor}">${row30.recallPct.toFixed(1)}%</div>
-          ${row1y ? `<div class="ext-insight-card__detail">1 år: ${row1y.recallPct.toFixed(1)}% ${trendHTML(trend, true)}</div>` : ''}
-        </div>
-      `);
-    }
-
-    if (cards.length === 0) return;
-
-    const grid = document.createElement('div');
-    grid.className = 'ext-insights-grid ext-animate-in';
-    grid.innerHTML = cards.join('');
-
-    // Insert before the flow stats table
-    const statsDiv = document.getElementById('statistics');
-    if (statsDiv) {
-      statsDiv.parentNode.insertBefore(grid, statsDiv);
-    }
-  }
-
-  // ─── 5b. Dashboard API: Fixed Sidebar ──────────────────────────────
+  // ─── 2. Dashboard API: Fixed Sidebar ──────────────────────────────
 
   function fmtMSEK(n) { return (n / 1000000).toFixed(1).replace('.', ',') + 'M'; }
 
@@ -618,7 +392,7 @@
     html += `
       <div class="ext-sb__header">
         <span class="ext-sb__title">Live</span>
-        <button class="ext-sb__toggle" title="Dölj">&#x25C0;</button>
+        <button class="ext-sb__toggle" title="Dölj">&#x25B6;</button>
       </div>
     `;
 
@@ -760,16 +534,17 @@
     sidebar.innerHTML = buildSidebarHTML(data, dashboardAPI);
     document.body.appendChild(sidebar);
 
-    // Push page content to the right
+    // Reserve space on the right for the panel
     document.body.classList.add('ext-has-sidebar');
 
-    // Restore collapsed state
+    // Restore collapsed state. Panel is right-anchored: collapsed shows ◀
+    // ("show"), expanded shows ▶ ("hide → slide off the right edge").
     chrome.storage.sync.get('sidebarCollapsed', (result) => {
       if (result.sidebarCollapsed) {
         sidebar.classList.add('ext-sb--collapsed');
         document.body.classList.add('ext-sidebar-collapsed');
         const btn = sidebar.querySelector('.ext-sb__toggle');
-        if (btn) btn.innerHTML = '&#x25B6;';
+        if (btn) btn.innerHTML = '&#x25C0;';
       }
     });
 
@@ -780,7 +555,7 @@
 
       const isCollapsed = sidebar.classList.toggle('ext-sb--collapsed');
       document.body.classList.toggle('ext-sidebar-collapsed', isCollapsed);
-      btn.innerHTML = isCollapsed ? '&#x25B6;' : '&#x25C0;';
+      btn.innerHTML = isCollapsed ? '&#x25C0;' : '&#x25B6;';
       chrome.storage.sync.set({ sidebarCollapsed: isCollapsed });
     });
   }
@@ -794,67 +569,7 @@
     if (isCollapsed) {
       sidebar.classList.add('ext-sb--collapsed');
       const btn = sidebar.querySelector('.ext-sb__toggle');
-      if (btn) btn.innerHTML = '&#x25B6;';
-    }
-  }
-
-  // ─── 6. Inventory Health Summary ──────────────────────────────────
-
-  function renderInventoryHealth() {
-    const sidebar = scrapeSidebarCounts();
-    if (sidebar.length === 0) return;
-
-    // Extract relevant counts
-    function findCount(keyword) {
-      const item = sidebar.find(s => s.label.toLowerCase().includes(keyword.toLowerCase()));
-      return item ? item.count : 0;
-    }
-
-    const opub = findCount('Opublicerbara');
-    const sold = findCount('sålda föremål');
-    const relistNo = findCount('Omlistas ej');
-    const transport = findCount('plocklista');
-
-    const total = opub + sold + relistNo + transport;
-    if (total === 0) return;
-
-    const segments = [
-      { label: 'Opublicerbara', count: opub, color: '#e65100' },
-      { label: 'Sålda att hantera', count: sold, color: '#28a745' },
-      { label: 'Omlistas ej', count: relistNo, color: '#f0ad4e' },
-      { label: 'Plocklista', count: transport, color: '#006ccc' }
-    ].filter(s => s.count > 0);
-
-    const inventory = document.createElement('div');
-    inventory.className = 'ext-inventory ext-animate-in';
-    inventory.innerHTML = `
-      <div class="ext-inventory__title">Lagerstatus</div>
-      <div class="ext-inventory__bar">
-        ${segments.map(s => `
-          <div class="ext-inventory__segment" 
-               style="width: ${(s.count / total) * 100}%; background: ${s.color};"
-               title="${s.label}: ${s.count}">
-            ${s.count}
-          </div>
-        `).join('')}
-      </div>
-      <div class="ext-inventory__legend">
-        ${segments.map(s => `
-          <span class="ext-inventory__legend-item">
-            <span class="ext-inventory__legend-dot" style="background: ${s.color};"></span>
-            ${s.label} (${s.count})
-          </span>
-        `).join('')}
-      </div>
-    `;
-
-    // Insert after pipeline funnel or before stats
-    const pipeline = document.querySelector('.ext-pipeline');
-    const statsDiv = document.getElementById('statistics');
-    if (pipeline) {
-      pipeline.parentNode.insertBefore(inventory, pipeline.nextSibling);
-    } else if (statsDiv) {
-      statsDiv.parentNode.insertBefore(inventory, statsDiv);
+      if (btn) btn.innerHTML = '&#x25C0;'; // collapsed on the right → ◀ "show"
     }
   }
 
@@ -940,13 +655,86 @@
   const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
   const PUB_SCAN_IGNORED_KEY = 'publicationScanIgnored'; // { itemId: true }
   const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
+  const PUB_SCAN_LOCAL_WHITELIST_KEY = 'pubScanLocalWhitelist'; // { word: true } — instant local mirror of confirmed words
   const PUB_SCAN_HIGH_VALUE_THRESHOLD = 3000; // SEK — items at or above this estimate are "high value"
 
-  function getPublicationInsertTarget() {
-    return document.querySelector('.ext-warehouse')
+  // The wrapper <div> around Auctionet's "Datainsikter" <h2> + #statistics
+  // Metabase embed. Our widgets are inserted ABOVE this so the useful info
+  // (scanner, warehouse) sits at the top of the page.
+  function getDatainsikterWrapper() {
+    const stats = document.getElementById('statistics');
+    return stats ? stats.parentElement : null;
+  }
+
+  // Insert one of our widgets just before the Datainsikter wrapper, keeping a
+  // stable order among our own widgets (warehouse above scanner, etc.).
+  function insertAboveDatainsikter(node) {
+    const wrapper = getDatainsikterWrapper();
+    if (wrapper && wrapper.parentNode) {
+      wrapper.parentNode.insertBefore(node, wrapper);
+      return true;
+    }
+    // Fallback: top of the main view.
+    const view = document.querySelector('.view');
+    if (view) { view.insertBefore(node, view.firstChild); return true; }
+    return false;
+  }
+
+  // ─── Collapsible "Datainsikter" (Auctionet's Metabase embed) ────────
+  // The embed is a ~2000px-tall iframe that dominates the page but isn't
+  // useful for everyday work. Inject a toggle into Auctionet's <h2> heading
+  // and collapse the #statistics block. Collapsed by default; state persists.
+  const DATAINSIKTER_COLLAPSED_KEY = 'datainsikterCollapsed';
+
+  async function makeDatainsikterCollapsible() {
+    const stats = document.getElementById('statistics');
+    if (!stats) return;
+    // Find Auctionet's "Datainsikter" heading (the <h2> sibling above #statistics).
+    const wrapper = stats.parentElement;
+    const heading = wrapper && wrapper.querySelector('h2');
+    if (!heading || heading.dataset.extCollapsible) return; // already wired
+    heading.dataset.extCollapsible = '1';
+
+    // Restore persisted state — default to collapsed.
+    let collapsed = true;
+    try {
+      const stored = await new Promise(resolve =>
+        chrome.storage.sync.get(DATAINSIKTER_COLLAPSED_KEY, r => resolve(r[DATAINSIKTER_COLLAPSED_KEY])));
+      if (stored === false) collapsed = false;
+    } catch (e) { /* default collapsed */ }
+
+    // Build the toggle and make the whole heading clickable.
+    const arrow = document.createElement('span');
+    arrow.className = 'ext-datainsikter-toggle';
+    heading.appendChild(arrow);
+    heading.style.cursor = 'pointer';
+    heading.style.userSelect = 'none';
+
+    const apply = (isCollapsed) => {
+      stats.style.display = isCollapsed ? 'none' : '';
+      arrow.textContent = isCollapsed ? '▸' : '▾';
+      arrow.title = isCollapsed ? 'Visa Datainsikter' : 'Dölj Datainsikter';
+    };
+    apply(collapsed);
+
+    heading.addEventListener('click', () => {
+      collapsed = !collapsed;
+      apply(collapsed);
+      try { chrome.storage.sync.set({ [DATAINSIKTER_COLLAPSED_KEY]: collapsed }); } catch (e) { /* ignore */ }
+    });
+  }
+
+  // Place the scanner just after the warehouse widget if it exists (both above
+  // Datainsikter), otherwise above the Datainsikter wrapper directly.
+  function insertPublicationContainer(node) {
+    const after = document.querySelector('.ext-warehouse')
       || document.querySelector('.ext-inventory')
-      || document.querySelector('.ext-pipeline')
-      || document.getElementById('statistics');
+      || document.querySelector('.ext-pipeline');
+    if (after && after.parentNode) {
+      after.parentNode.insertBefore(node, after.nextSibling);
+      return true;
+    }
+    return insertAboveDatainsikter(node);
   }
 
   function escapeHTML(s) {
@@ -982,9 +770,7 @@
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-pubscan ext-animate-in';
-      const target = getPublicationInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertPublicationContainer(container)) return;
     }
     container.innerHTML = `
       <div class="ext-pubscan__card">
@@ -1004,9 +790,7 @@
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-pubscan ext-animate-in';
-      const target = getPublicationInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertPublicationContainer(container)) return;
     }
     container.innerHTML = `
       <div class="ext-pubscan__card">
@@ -1028,9 +812,7 @@
       container = document.createElement('div');
       container.className = 'ext-pubscan ext-animate-in';
       container.id = 'ext-pubscan';
-      const target = getPublicationInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertPublicationContainer(container)) return;
     }
 
     // Load ignored items set (L1: local + L2: Supabase shared)
@@ -1039,23 +821,18 @@
       const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_IGNORED_KEY, r => resolve(r[PUB_SCAN_IGNORED_KEY])));
       if (stored) ignoredItems = stored;
     } catch (e) { /* no ignored items */ }
-    // Merge with Supabase shared ignored list
+    // Merge with shared ignored list (Cloudflare Worker; returns a flat array of item_ids)
     try {
-      const sbIgnored = await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({
-          type: 'supabase-fetch', method: 'GET',
-          path: '/rest/v1/spellcheck_ignored?select=item_id',
-          extraHeaders: { 'Accept': 'application/json' }
-        }, r => r?.success ? resolve(r.data) : resolve([]));
-      });
-      if (Array.isArray(sbIgnored)) {
+      const resp = await safeSendMessage({ type: 'spellcheck-fetch', method: 'GET', path: '/ignored' });
+      const sharedIgnored = resp?.success ? resp.data : [];
+      if (Array.isArray(sharedIgnored)) {
         let merged = false;
-        for (const row of sbIgnored) {
-          if (!ignoredItems[row.item_id]) { ignoredItems[row.item_id] = true; merged = true; }
+        for (const id of sharedIgnored) {
+          if (!ignoredItems[id]) { ignoredItems[id] = true; merged = true; }
         }
         if (merged) await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignoredItems }, resolve));
       }
-    } catch (e) { /* Supabase not configured — use local only */ }
+    } catch (e) { /* backend not configured — use local only */ }
 
     // Separate ignored from active
     const activeCritical = (data.critical || []).filter(item => !ignoredItems[item.itemId]);
@@ -1079,7 +856,11 @@
     const issueGroups = {}; // { issueText: { severity: 'critical'|'warning', items: [] } }
     allItemsWithIssues.forEach(item => {
       item.issues.forEach(issue => {
-        const issueText = typeof issue === 'string' ? issue : issue.text;
+        const isSpell = issue && typeof issue === 'object' && Array.isArray(issue.spellWords);
+        // Group ALL spelling issues under one "Stavfel" header (each item has a
+        // different word combo, so grouping by the full text would make every
+        // item its own singleton group). Per-word chips live on the inner rows.
+        const issueText = isSpell ? 'Stavfel' : (typeof issue === 'string' ? issue : issue.text);
         const issueSeverity = typeof issue === 'string' ? item.severity : issue.severity;
         if (!issueGroups[issueText]) issueGroups[issueText] = { severity: issueSeverity, items: [] };
         issueGroups[issueText].items.push(item);
@@ -1100,26 +881,63 @@
     const allGood = criticalCount === 0 && warningCount === 0;
 
     // Helper to render a single issue row
+    // Build the per-word ✓ chip row from an item's issues. Each flagged word
+    // gets its own chip; clicking ✓ whitelists ONLY that word. Returns
+    // { spellWords, spellRow }. Shared by the main scan rows and the sticky
+    // (published-with-errors) rows. The container-level click handler wires
+    // all .ext-pubscan__spell-ok chips, so callers don't bind anything.
+    function buildSpellChips(issues, itemId) {
+      const spellWords = (issues || [])
+        .flatMap(i => (i && typeof i === 'object' && Array.isArray(i.spellWords)) ? i.spellWords : []);
+      const seenWords = new Set();
+      const spellChips = spellWords.filter(sw => {
+        const k = (sw.word || '').toLowerCase();
+        if (!k || seenWords.has(k)) return false;
+        seenWords.add(k); return true;
+      }).map(sw => `
+        <span class="ext-pubscan__spell-chip ext-pubscan__spell-ok" data-word="${escapeHTML(sw.word)}" data-confidence="${escapeHTML(sw.confidence || 'near-edit')}" data-item-id="${itemId}" data-tooltip="Rätt ord — lägg till i ordlistan" role="button" tabindex="0">
+          <span class="ext-pubscan__spell-word">${escapeHTML(sw.word)}</span>
+          <span class="ext-pubscan__spell-arrow">→</span>
+          <span class="ext-pubscan__spell-sugg">${escapeHTML(sw.correction || '')}</span>
+          <span class="ext-pubscan__spell-check">✓</span>
+        </span>
+      `).join('');
+      const spellRow = spellChips
+        ? `<div class="ext-pubscan__spell-chips" data-spell-words="${escapeHTML(JSON.stringify(spellWords))}">${spellChips}</div>`
+        : '';
+      return { spellWords, spellChips, spellRow };
+    }
+
     function issueRowHTML(item, cssModifier, showIgnore = true) {
       const showHref = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : '');
-      const issueLabels = item.issues.map(i => typeof i === 'string' ? i : i.text).join(' + ');
+      // Separate spelling errors (per-word actionable) from other issues (text only).
+      const nonSpellLabels = item.issues
+        .filter(i => !(i && typeof i === 'object' && Array.isArray(i.spellWords)))
+        .map(i => typeof i === 'string' ? i : i.text)
+        .join(' + ');
+
+      const { spellChips, spellRow } = buildSpellChips(item.issues, item.itemId);
+
       const ignoreBtn = showIgnore
-        ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}" title="Ignorera detta föremål">✕</span>`
+        ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}" title="Ignorera hela föremålet (lär inget)">✕</span>`
         : `<span class="ext-pubscan__unignore-btn" data-item-id="${item.itemId}" title="Sluta ignorera">↩</span>`;
       const estimateLabel = item.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD
         ? `<span class="ext-pubscan__estimate">💎 ${formatSEK(item.estimate)} SEK</span>`
         : (item.estimate > 0 ? `<span class="ext-pubscan__estimate">${formatSEK(item.estimate)} SEK</span>` : '');
+      // The non-spell label, or a generic "Stavfel" header when only spelling issues exist.
+      const headerText = nonSpellLabels || (spellChips ? 'Stavfel' : '');
       return `
         <div class="ext-pubscan__issue-row" data-item-id="${item.itemId}">
           <a class="ext-pubscan__issue ext-pubscan__issue--${cssModifier}" href="${escapeHTML(showHref)}">
             <div class="ext-pubscan__issue-main">
-              <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
+              <span class="ext-pubscan__issue-text">${escapeHTML(headerText)}</span>
               ${estimateLabel}
               ${item.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(item.editUrl)}">Redigera →</span>` : ''}
             </div>
             <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(item.title, 40))}"</div>
           </a>
           ${ignoreBtn}
+          ${spellRow}
         </div>
       `;
     }
@@ -1253,7 +1071,13 @@
       publishedSticky.sort((a, b) => (b.firstDetectedAt || 0) - (a.firstDetectedAt || 0));
       const stickyRowsHTML = publishedSticky.map(entry => {
         const showHref = entry.showUrl || (entry.editUrl ? entry.editUrl.replace(/\/edit$/, '') : '');
-        const issueLabels = entry.issues.map(i => typeof i === 'string' ? i : i.text).join(' + ');
+        // Per-word chips for spelling flags; text label for any non-spell issues.
+        const nonSpellLabels = entry.issues
+          .filter(i => !(i && typeof i === 'object' && Array.isArray(i.spellWords)))
+          .map(i => typeof i === 'string' ? i : i.text)
+          .join(' + ');
+        const { spellChips, spellRow } = buildSpellChips(entry.issues, entry.itemId);
+        const headerText = nonSpellLabels || (spellChips ? 'Stavfel' : '');
         const publishedAgo = entry.publishedAt ? relativeTimeFromISO(new Date(entry.publishedAt).toISOString()) : '';
         const estimateLabel = entry.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD
           ? `<span class="ext-pubscan__estimate">💎 ${formatSEK(entry.estimate)} SEK</span>`
@@ -1262,7 +1086,7 @@
           <div class="ext-pubscan__issue-row ext-pubscan__issue-row--sticky" data-item-id="${entry.itemId}">
             <a class="ext-pubscan__issue ext-pubscan__issue--critical" href="${escapeHTML(showHref)}">
               <div class="ext-pubscan__issue-main">
-                <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
+                <span class="ext-pubscan__issue-text">${escapeHTML(headerText)}</span>
                 <span class="ext-pubscan__published-badge">Publicerad${publishedAgo ? ' ' + escapeHTML(publishedAgo) : ''}</span>
                 ${estimateLabel}
                 ${entry.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(entry.editUrl)}">Redigera \u2192</span>` : ''}
@@ -1270,6 +1094,7 @@
               <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(entry.title, 40))}"</div>
             </a>
             <span class="ext-pubscan__ignore-btn ext-pubscan__ignore-btn--sticky" data-item-id="${entry.itemId}" data-sticky="true" title="Ignorera">✕</span>
+            ${spellRow}
           </div>
         `;
       }).join('');
@@ -1299,7 +1124,10 @@
               Senast skannad: ${timeStr} (${relTime}) · ${data.totalItems} föremål granskade
             </div>
           </div>
-          <button class="ext-pubscan__run" title="Kör skanning">Kör nu ↻</button>
+          <div class="ext-pubscan__header-actions">
+            <button class="ext-pubscan__wordlist" title="Granska ordlistan">📖 Ordlista</button>
+            <button class="ext-pubscan__run" title="Kör skanning">Kör nu ↻</button>
+          </div>
         </div>
         <div class="ext-pubscan__body">
           ${bodyHTML}
@@ -1311,8 +1139,9 @@
     // Highlight nav sidebar link based on scan results
     updatePublishableNavLink(criticalCount, warningCount);
 
-    // Wire up button
+    // Wire up buttons
     container.querySelector('.ext-pubscan__run')?.addEventListener('click', () => triggerPublicationScan());
+    container.querySelector('.ext-pubscan__wordlist')?.addEventListener('click', () => openWordlistReview());
 
     // Wire up "Redigera" links
     container.querySelectorAll('.ext-pubscan__edit-link[data-href]').forEach(link => {
@@ -1367,6 +1196,54 @@
       });
     }
 
+    // Wire up per-word ✓ chips — confirm one word as correct → shared whitelist.
+    // Only that word is whitelisted; other flags on the same item are untouched.
+    const spellOkBtns = container.querySelectorAll('.ext-pubscan__spell-ok');
+    spellOkBtns.forEach(btn => {
+      const confirmWord = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const word = btn.dataset.word;
+        if (!word || btn.dataset.done) return;
+        btn.dataset.done = '1'; // guard against double-fire (click + keydown)
+        const confidence = btn.dataset.confidence || 'near-edit';
+
+        // Optimistic UI: drop this chip from the current view immediately.
+        const chip = btn.closest('.ext-pubscan__spell-chip');
+        const chipRow = btn.closest('.ext-pubscan__spell-chips');
+        if (chip) chip.remove();
+        if (chipRow && chipRow.querySelectorAll('.ext-pubscan__spell-chip').length === 0) {
+          chipRow.remove();
+        }
+
+        // Shared whitelist — Cloudflare Worker (confidence-tiered). The response
+        // tells us the resulting status.
+        const resp = await safeSendMessage({
+          type: 'spellcheck-fetch', method: 'POST', path: '/whitelist',
+          body: { word, confidence, added_by: getCurrentEmployeeName() }
+        });
+        const status = resp?.success ? resp.data?.status : null;
+
+        // Only mirror to the LOCAL whitelist once the word is genuinely 'active'.
+        // Mirroring 'pending' words would hide them from this browser forever,
+        // freezing ignore_count at 1 so they could never reach the threshold.
+        // (Promote pending words via the "Granska ordlista" review view.)
+        if (status === 'active') {
+          try {
+            const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY, r => resolve(r[PUB_SCAN_LOCAL_WHITELIST_KEY])));
+            const local = stored || {};
+            local[word.toLowerCase()] = true;
+            await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_LOCAL_WHITELIST_KEY]: local }, resolve));
+          } catch (e) { /* local cache optional */ }
+        }
+      };
+      btn.addEventListener('click', confirmWord);
+      // Keyboard accessibility: Enter/Space activates the chip too.
+      btn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') confirmWord(e);
+      });
+    });
+
     // Wire up ignore buttons (✕) — add item to ignored set and re-render
     container.querySelectorAll('.ext-pubscan__ignore-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
@@ -1380,13 +1257,11 @@
           const ignored = stored || {};
           ignored[itemId] = true;
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
-          // L2: Supabase shared ignored list (fire-and-forget)
-          chrome.runtime.sendMessage({
-            type: 'supabase-fetch', method: 'POST',
-            path: '/rest/v1/spellcheck_ignored',
-            body: { item_id: parseInt(itemId), ignored_at: new Date().toISOString() },
-            extraHeaders: { 'Prefer': 'resolution=merge-duplicates' }
-          }, () => {});
+          // L2: Shared ignored list — Cloudflare Worker (fire-and-forget)
+          // NB: item-level ignore silences the whole item but learns NOTHING —
+          // a single valid word must never hide a real typo elsewhere on the
+          // same item. Word learning is the per-word ✓ chip, handled separately.
+          safeSendMessage({ type: 'spellcheck-fetch', method: 'POST', path: '/ignored', body: { item_id: parseInt(itemId) } });
           // Also remove from sticky errors if present
           if (btn.dataset.sticky) {
             const stickyStored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_STICKY_KEY, r => resolve(r[PUB_SCAN_STICKY_KEY])));
@@ -1414,11 +1289,8 @@
           const ignored = stored || {};
           delete ignored[itemId];
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
-          // L2: Remove from Supabase shared ignored list (fire-and-forget)
-          chrome.runtime.sendMessage({
-            type: 'supabase-fetch', method: 'DELETE',
-            path: `/rest/v1/spellcheck_ignored?item_id=eq.${itemId}`
-          }, () => {});
+          // L2: Remove from shared ignored list — Cloudflare Worker (fire-and-forget)
+          safeSendMessage({ type: 'spellcheck-fetch', method: 'DELETE', path: `/ignored?item_id=${encodeURIComponent(itemId)}` });
           // Re-render with same scan data
           await renderPublicationResults(data);
         } catch (err) {
@@ -1495,12 +1367,113 @@
       const progress = document.createElement('span');
       progress.className = 'ext-pubscan__inline-progress';
       progress.innerHTML = '<span class="ext-pubscan__spinner"></span> Skannar...';
-      header.insertBefore(progress, runBtn);
+      // runBtn lives inside .ext-pubscan__header-actions, so insert relative to
+      // its actual parent (not `header`, which is no longer its direct parent).
+      runBtn.parentNode.insertBefore(progress, runBtn);
     } else if (!header) {
       // No results yet — show the full loading screen
       renderPublicationLoading('Startar skanning...');
     }
-    chrome.runtime.sendMessage({ type: 'run-publication-scan' });
+    safeSendMessage({ type: 'run-publication-scan' });
+  }
+
+  // ─── "Granska ordlista" — whitelist review modal ────────────────────
+  async function openWordlistReview() {
+    // Remove any existing modal
+    document.querySelector('.ext-wordlist-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'ext-wordlist-overlay';
+    overlay.innerHTML = `
+      <div class="ext-wordlist-modal">
+        <div class="ext-wordlist-header">
+          <span class="ext-wordlist-title">📖 Ordlista — godkända stavningar</span>
+          <button class="ext-wordlist-close" title="Stäng">✕</button>
+        </div>
+        <div class="ext-wordlist-body"><div class="ext-wordlist-loading">Hämtar ordlistan…</div></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('.ext-wordlist-close').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+    });
+
+    const body = overlay.querySelector('.ext-wordlist-body');
+    const resp = await safeSendMessage({ type: 'spellcheck-fetch', method: 'GET', path: '/whitelist?status=all' });
+    const rows = (resp?.success && Array.isArray(resp.data)) ? resp.data : null;
+    if (!rows) {
+      body.innerHTML = '<div class="ext-wordlist-empty">Kunde inte hämta ordlistan (backend ej konfigurerad?).</div>';
+      return;
+    }
+    renderWordlistRows(body, rows);
+  }
+
+  function renderWordlistRows(body, rows) {
+    if (rows.length === 0) {
+      body.innerHTML = '<div class="ext-wordlist-empty">Ordlistan är tom. Bekräfta ord via ✓ i publiceringskontrollen.</div>';
+      return;
+    }
+    const order = { pending: 0, active: 1, rejected: 2 };
+    const sorted = [...rows].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+    const statusBadge = (s) => {
+      const map = {
+        active: ['Aktiv', 'ext-wl-badge--active'],
+        pending: ['Väntar', 'ext-wl-badge--pending'],
+        rejected: ['Avvisad', 'ext-wl-badge--rejected']
+      };
+      const [label, cls] = map[s] || [s, ''];
+      return `<span class="ext-wl-badge ${cls}">${label}</span>`;
+    };
+    const rowHTML = (r) => {
+      const by = r.added_by ? ` · ${escapeHTML(r.added_by)}` : '';
+      const cnt = r.ignore_count > 1 ? ` · ${r.ignore_count}×` : '';
+      // Actions depend on current status.
+      let actions = '';
+      if (r.status !== 'active') actions += `<button class="ext-wl-act ext-wl-act--promote" data-word="${escapeHTML(r.word)}" data-to="active" title="Godkänn — sluta flagga överallt">✓ Godkänn</button>`;
+      if (r.status !== 'rejected') actions += `<button class="ext-wl-act ext-wl-act--reject" data-word="${escapeHTML(r.word)}" data-to="rejected" title="Detta är ett riktigt stavfel — flagga igen">✕ Avvisa</button>`;
+      return `
+        <div class="ext-wl-row" data-word="${escapeHTML(r.word)}">
+          <div class="ext-wl-main">
+            <span class="ext-wl-word">${escapeHTML(r.word)}</span>
+            ${statusBadge(r.status)}
+            <span class="ext-wl-meta">${escapeHTML(String(by + cnt).replace(/^ · /, ''))}</span>
+          </div>
+          <div class="ext-wl-actions">${actions}</div>
+        </div>
+      `;
+    };
+    body.innerHTML = `<div class="ext-wordlist-list">${sorted.map(rowHTML).join('')}</div>`;
+
+    body.querySelectorAll('.ext-wl-act').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const word = btn.dataset.word;
+        const to = btn.dataset.to;
+        btn.disabled = true;
+        const resp = await safeSendMessage({
+          type: 'spellcheck-fetch', method: 'POST', path: '/whitelist/status',
+          body: { word, status: to }
+        });
+        if (resp?.success) {
+          // Update local mirror: promoting → suppress here too; rejecting → un-suppress.
+          try {
+            const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY, r => resolve(r[PUB_SCAN_LOCAL_WHITELIST_KEY])));
+            const local = stored || {};
+            if (to === 'active') local[word.toLowerCase()] = true;
+            else delete local[word.toLowerCase()];
+            await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_LOCAL_WHITELIST_KEY]: local }, resolve));
+          } catch (e) { /* optional */ }
+          // Re-fetch and re-render so the row reflects the new status.
+          const refreshed = await safeSendMessage({ type: 'spellcheck-fetch', method: 'GET', path: '/whitelist?status=all' });
+          if (refreshed?.success && Array.isArray(refreshed.data)) renderWordlistRows(body, refreshed.data);
+        } else {
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   async function initPublicationScanner() {
@@ -1508,7 +1481,7 @@
       const cached = await new Promise(resolve => {
         chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
       });
-      if (cached && cached._version === 4) {
+      if (cached && cached._version === 7) {
         await renderPublicationResults(cached);
       } else {
         // Cache missing or from older version — discard and show empty
@@ -1529,7 +1502,7 @@
           const cached = await new Promise(resolve =>
             chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]))
           );
-          if (cached && cached._version === 4) {
+          if (cached && cached._version === 7) {
             await renderPublicationResults(cached);
           } else {
             renderPublicationEmpty();
@@ -1544,6 +1517,7 @@
 
   // Listen for scan progress updates from background service worker
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (!extensionAlive()) return; // stale context after extension reload
     if (area === 'local' && changes.publicationScanProgress) {
       const progress = changes.publicationScanProgress.newValue;
       if (progress) {
@@ -1564,7 +1538,7 @@
     if (document.visibilityState === 'visible') {
       const idleMinutes = (Date.now() - pubScanLastVisible) / 60000;
       if (idleMinutes >= 10) {
-        chrome.runtime.sendMessage({ type: 'run-publication-scan' });
+        safeSendMessage({ type: 'run-publication-scan' });
       }
     }
     pubScanLastVisible = Date.now();
@@ -1745,20 +1719,12 @@
     return new Date(parseInt(m[3]), monthIdx, parseInt(m[1]));
   }
 
-  function getWarehouseInsertTarget() {
-    return document.querySelector('.ext-inventory')
-      || document.querySelector('.ext-pipeline')
-      || document.getElementById('statistics');
-  }
-
   function renderWarehouseLoading() {
     let container = document.querySelector('.ext-warehouse');
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-warehouse ext-animate-in';
-      const target = getWarehouseInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertAboveDatainsikter(container)) return;
     }
     container.innerHTML = `
       <div class="ext-warehouse__loading">
@@ -1804,9 +1770,7 @@
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-warehouse ext-animate-in';
-      const target = getWarehouseInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertAboveDatainsikter(container)) return;
     }
 
     container.innerHTML = `
@@ -1876,54 +1840,42 @@
   // ─── Initialize ───────────────────────────────────────────────────
 
   let hasRenderedKPI = false;
-  let hasRenderedPipeline = false;
-  let hasRenderedInsights = false;
-  let hasRenderedInventory = false;
-  let hasRenderedLeaderboard = false;
   let hasRenderedComments = false;
   let hasStartedWarehouseFetch = false;
   let hasStartedPublicationScan = false;
   let hasRenderedDashboardAPI = false;
+  let hasMadeDatainsikterCollapsible = false;
 
   function tryRenderAll() {
     try {
-      // KPI cards — needs .requested-actions (immediate) + sidebar counts (lazy)
-      if (!hasRenderedKPI && document.querySelector('.requested-actions')) {
+      // KPI cards — built from "Viktiga påminnelser" reminder links plus
+      // insight cards (daily goal, comments). Wait until at least one real
+      // signal is present so we don't render an empty set on first paint.
+      const kpiReady = document.querySelector('a[class*="test-requested-action"]') ||
+                       document.querySelector('#comments ul.unstyled li.comment') ||
+                       document.querySelector('.test-new-items');
+      if (!hasRenderedKPI && kpiReady) {
         renderKPICards();
         hasRenderedKPI = true;
       }
 
-      // Pipeline funnel — needs #statistics flow table (immediate)
-      if (!hasRenderedPipeline && document.querySelector('.auction-company-stats table')) {
-        renderPipelineFunnel();
-        hasRenderedPipeline = true;
-      }
-
-      // Pricing insights — needs same flow table
-      if (!hasRenderedInsights && document.querySelector('.auction-company-stats table')) {
-        renderPricingInsights();
-        hasRenderedInsights = true;
-      }
-
-      // Inventory health — needs sidebar nav counts (lazy turbo-frames)
-      if (!hasRenderedInventory) {
-        const sidebar = scrapeSidebarCounts();
-        if (sidebar.length > 0) {
-          renderInventoryHealth();
-          hasRenderedInventory = true;
-        }
-      }
-
-      // Cataloger leaderboard — needs cataloger_stats turbo-frame (lazy)
-      if (!hasRenderedLeaderboard && document.querySelector('.test-cataloger-stats tbody tr td')) {
-        enhanceCatalogerTable();
-        hasRenderedLeaderboard = true;
-      }
+      // Pipeline funnel, Pricing insights, Inventory health and the Cataloger
+      // leaderboard were removed in the 2026 redesign: their data sources
+      // (.auction-company-stats table, .well--nav-list counts, .test-cataloger-stats)
+      // no longer exist on the page — those metrics now live in Auctionet's own
+      // Metabase analytics embed (#statistics turbo-frame).
 
       // Comment feed — needs #comments with li.comment entries
       if (!hasRenderedComments && document.querySelector('#comments ul.unstyled li.comment')) {
         renderCommentFeed();
         hasRenderedComments = true;
+      }
+
+      // Make Auctionet's "Datainsikter" Metabase embed collapsible (collapsed
+      // by default). Needs #statistics, which loads lazily via turbo-frame.
+      if (!hasMadeDatainsikterCollapsible && document.getElementById('statistics')) {
+        hasMadeDatainsikterCollapsible = true;
+        makeDatainsikterCollapsible();
       }
 
       // Dashboard API sections — start after KPI cards are in place
@@ -1960,10 +1912,9 @@
       tryRenderAll();
 
       // Stop observing once everything has rendered
-      if (hasRenderedKPI && hasRenderedPipeline &&
-          hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard &&
-          hasRenderedComments && hasStartedWarehouseFetch && hasStartedPublicationScan &&
-          hasRenderedDashboardAPI) {
+      if (hasRenderedKPI && hasRenderedComments &&
+          hasStartedWarehouseFetch && hasStartedPublicationScan &&
+          hasRenderedDashboardAPI && hasMadeDatainsikterCollapsible) {
         observer.disconnect();
       }
     });

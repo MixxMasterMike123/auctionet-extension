@@ -163,6 +163,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.type === 'supabase-fetch') {
     handleSupabaseFetch(request, sendResponse);
     return true;
+  } else if (request.type === 'spellcheck-fetch') {
+    handleSpellcheckFetch(request, sendResponse);
+    return true;
   } else if (request.type === 'supabase-upload-image') {
     handleSupabaseUploadImage(request, sendResponse);
     return true;
@@ -415,6 +418,54 @@ async function supabaseFetch(method, path, body = null, extraHeaders = {}) {
 
 // Expose for publication-scanner-bg.js (runs in same service worker)
 globalThis.__supabaseFetch = supabaseFetch;
+
+// ─── Spellcheck shared backend (Cloudflare Worker + D1) ─────────────
+// Replaces the previous Supabase-backed shared spellcheck store. Reads are
+// public, writes are open (rate-limited + validated by the Worker), so no
+// secret key is needed — only the Worker base URL. The SaS-Outlet Supabase
+// system above is a separate concern and is left untouched.
+//
+// `path` is a Worker route like '/cache?item_id=1&hash=abc' or '/ignored'.
+async function spellcheckFetch(method, path, body = null) {
+  const { spellcheckWorkerUrl } = await chrome.storage.local.get('spellcheckWorkerUrl');
+  if (!spellcheckWorkerUrl) {
+    throw new Error('Spellcheck-backend ej konfigurerad');
+  }
+
+  const url = `${spellcheckWorkerUrl.replace(/\/$/, '')}${path}`;
+  const fetchOpts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body && method !== 'GET') {
+    fetchOpts.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, fetchOpts);
+  // 404 is a normal "cache miss" signal, not an error — return null.
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Spellcheck backend HTTP ${response.status}: ${errorText}`);
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// Expose for publication-scanner-bg.js (same service worker, no messaging needed)
+globalThis.__spellcheckFetch = spellcheckFetch;
+
+// Message handler so content scripts (admin-dashboard.js) can reach the backend.
+async function handleSpellcheckFetch(request, sendResponse) {
+  try {
+    const { method, path, body } = request;
+    if (!method || !path) {
+      sendResponse({ success: false, error: 'method and path required' });
+      return;
+    }
+    const data = await spellcheckFetch(method, path, body);
+    sendResponse({ success: true, data });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
 
 // ─── Supabase message handler (content scripts → background) ─────────
 // Routes Supabase requests through background.js so the service role key

@@ -55,8 +55,11 @@ export class DashboardAPI {
 
       return result;
     } catch (e) {
-      // Only log unexpected errors, not "token not configured" (expected on first run)
-      if (!e.message?.includes('token not configured')) {
+      // Only log unexpected errors. Silence the two benign cases: "token not
+      // configured" (expected on first run) and "context invalidated" (stale
+      // content script after an extension reload — user reloads the page).
+      const msg = (e.message || '').toLowerCase();
+      if (!msg.includes('token not configured') && !msg.includes('context invalidated')) {
         console.warn('[DashboardAPI] Fetch failed:', e.message);
       }
       this._available = false;
@@ -284,20 +287,37 @@ export class DashboardAPI {
 
   // ─── Internal ─────────────────────────────────────────────────
 
+  // True while this content script can still reach the extension. After an
+  // extension reload, old content scripts in open tabs lose their context and
+  // chrome.* throws "Extension context invalidated" — benign, the user just
+  // reloads the page.
+  _alive() {
+    try { return !!(chrome.runtime && chrome.runtime.id); }
+    catch (e) { return false; }
+  }
+
   async _fetch(widgetTypes) {
+    // Stale context after an extension reload — bail quietly (matches the
+    // "context invalidated" sentinel the caller silences).
+    if (!this._alive()) throw new Error('context invalidated');
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Dashboard API timeout')), 15000);
-      chrome.runtime.sendMessage({
-        type: 'dashboard-fetch',
-        widgets: widgetTypes
-      }, (response) => {
+      try {
+        chrome.runtime.sendMessage({
+          type: 'dashboard-fetch',
+          widgets: widgetTypes
+        }, (response) => {
+          clearTimeout(timeout);
+          if (chrome.runtime.lastError) {
+            return reject(new Error(chrome.runtime.lastError.message));
+          }
+          if (response?.success) resolve(response.data);
+          else reject(new Error(response?.error || 'Dashboard fetch failed'));
+        });
+      } catch (e) {
         clearTimeout(timeout);
-        if (chrome.runtime.lastError) {
-          return reject(new Error(chrome.runtime.lastError.message));
-        }
-        if (response?.success) resolve(response.data);
-        else reject(new Error(response?.error || 'Dashboard fetch failed'));
-      });
+        reject(new Error(e.message || 'context invalidated')); // synchronous "context invalidated"
+      }
     });
   }
 

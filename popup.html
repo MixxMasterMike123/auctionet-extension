@@ -216,6 +216,18 @@
     </div>
 
     <div class="section">
+        <h3>Stavningskontroll (delad backend)</h3>
+        <div class="input-group">
+            <label for="spellcheck-worker-url">Cloudflare Worker URL:</label>
+            <input type="text" id="spellcheck-worker-url" placeholder="https://auctionet-spellcheck.xxxx.workers.dev">
+            <div class="help-text">
+                Delad stavningscache och ignorerade ord för alla anställda. Ersätter Supabase — pausas aldrig. Endast URL behövs (inga nycklar).
+            </div>
+        </div>
+        <button id="save-spellcheck-config">Spara stavningsbackend</button>
+    </div>
+
+    <div class="section">
         <h3>AI Enhancement Settings</h3>
         <div class="input-group">
             <label style="display: flex; align-items: center; cursor: pointer;">

@@ -12,7 +12,7 @@ const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
 const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache_v2';
 const PUB_SCAN_SPELL_VERSION_KEY = 'pubScanSpellVersion';
-const PUB_SCAN_SPELL_VERSION = 3; // Bumped: switched from Haiku AI to LanguageTool API
+const PUB_SCAN_SPELL_VERSION = 5; // Bumped: sticky errors now carry spellWords for chips
 const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
 const STICKY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
@@ -228,9 +228,22 @@ async function runPhase2Checks(editData, dictMap, itemId) {
       if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
     }
   }
+  // Always apply the learned whitelist as a final pass — the cache stores the
+  // raw LanguageTool/dictionary findings, but a word whitelisted AFTER it was
+  // cached must still be suppressed. So filter here on every path, cache or not.
+  spellingErrors = filterWhitelistedWords(spellingErrors);
   if (spellingErrors.length > 0) {
     const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
-    issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
+    // Carry the structured pairs through so the dashboard's ✕ (Ignorera) can
+    // record the flagged word(s) as correct. Tag each with a confidence so the
+    // whitelist write knows whether to instant-promote (different-word false
+    // positive) or require N independent dismissals (plausible near-edit typo).
+    const spellWords = spellingErrors.map(e => ({
+      word: e.word,
+      correction: e.correction,
+      confidence: classifyFlag(e.word, e.correction) // 'different-word' | 'near-edit'
+    }));
+    issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical', spellWords });
   }
 
   // Repeated measurement units
@@ -286,12 +299,12 @@ async function getCachedSpellcheck(itemId, text) {
   const entry = cache[itemId];
   if (entry && entry.hash === hash) return entry.results;
 
-  // L2: Supabase shared cache (shared across all users)
-  const supabaseResults = await getSupabaseCachedSpellcheck(itemId, hash);
-  if (supabaseResults !== null) {
-    // Populate L1 with the Supabase result for next time
-    cache[itemId] = { hash, results: supabaseResults };
-    return supabaseResults;
+  // L2: Cloudflare Worker shared cache (shared across all users)
+  const sharedResults = await getSharedCachedSpellcheck(itemId, hash);
+  if (sharedResults !== null) {
+    // Populate L1 with the shared result for next time
+    cache[itemId] = { hash, results: sharedResults };
+    return sharedResults;
   }
 
   return null; // True cache miss — need to check via LanguageTool
@@ -304,53 +317,41 @@ async function setCachedSpellcheck(itemId, text, results) {
   const cache = await loadSpellCache();
   cache[itemId] = { hash, results };
 
-  // L2: Supabase shared cache (fire-and-forget)
-  setSupabaseCachedSpellcheck(itemId, hash, results);
+  // L2: Shared cache (fire-and-forget)
+  setSharedCachedSpellcheck(itemId, hash, results);
 }
 
-// ─── Supabase shared spellcheck cache (L2) ──────────────────────────
+// ─── Cloudflare Worker shared spellcheck cache (L2) ─────────────────
+// Backend status is tracked so it can be surfaced instead of silently failing.
+let sharedBackendStatus = 'unknown'; // unknown | ok | unconfigured | error
+function getSharedBackendStatus() { return sharedBackendStatus; }
 
-async function getSupabaseCachedSpellcheck(itemId, textHash) {
-  const sbFetch = globalThis.__supabaseFetch;
-  if (!sbFetch) return null;
+async function getSharedCachedSpellcheck(itemId, textHash) {
+  const scFetch = globalThis.__spellcheckFetch;
+  if (!scFetch) { sharedBackendStatus = 'unconfigured'; return null; }
 
   try {
-    const data = await sbFetch(
-      'GET',
-      `/rest/v1/spellcheck_cache?item_id=eq.${itemId}&select=text_hash,results`,
-      null,
-      { 'Accept': 'application/json' }
-    );
-    if (Array.isArray(data) && data.length > 0) {
-      const entry = data[0];
-      if (entry.text_hash === textHash) {
-        return entry.results;
-      }
+    // Worker returns {item_id, text_hash, results} on hit, null (404) on miss/stale.
+    const data = await scFetch('GET', `/cache?item_id=${itemId}&hash=${encodeURIComponent(textHash)}`);
+    sharedBackendStatus = 'ok';
+    if (data && data.text_hash === textHash && Array.isArray(data.results)) {
+      return data.results;
     }
   } catch (e) {
-    console.warn('[PubScanBG] Supabase spellcheck cache read failed:', e.message);
+    sharedBackendStatus = e.message.includes('ej konfigurerad') ? 'unconfigured' : `error: ${e.message}`;
   }
   return null;
 }
 
-async function setSupabaseCachedSpellcheck(itemId, textHash, results) {
-  const sbFetch = globalThis.__supabaseFetch;
-  if (!sbFetch) return;
+async function setSharedCachedSpellcheck(itemId, textHash, results) {
+  const scFetch = globalThis.__spellcheckFetch;
+  if (!scFetch) { sharedBackendStatus = 'unconfigured'; return; }
 
   try {
-    await sbFetch(
-      'POST',
-      '/rest/v1/spellcheck_cache',
-      {
-        item_id: itemId,
-        text_hash: textHash,
-        results: results,
-        checked_at: new Date().toISOString()
-      },
-      { 'Prefer': 'resolution=merge-duplicates' }
-    );
+    await scFetch('POST', '/cache', { item_id: itemId, text_hash: textHash, results });
+    sharedBackendStatus = 'ok';
   } catch (e) {
-    console.warn('[PubScanBG] Supabase spellcheck cache write failed:', e.message);
+    sharedBackendStatus = e.message.includes('ej konfigurerad') ? 'unconfigured' : `error: ${e.message}`;
   }
 }
 
@@ -376,6 +377,11 @@ async function checkSpellingLanguageTool(text) {
         // Only spelling errors — skip grammar, style, typography
         enabledCategories: 'TYPOS,SPELLING',
         disabledCategories: 'GRAMMAR,STYLE,TYPOGRAPHY,PUNCTUATION,CASING'
+        // NB: Swedish spellchecking is HUNSPELL_RULE — it can't be split into
+        // "known word" vs "unknown word"; the SAME rule flags real typos
+        // (byrä→byrå) and false positives (bemålning→oljemålning). So the
+        // firehose can't be tamed at the LT level. We filter on our side via
+        // the curated dictionary + the learned whitelist (see validateSpellingResults).
       }),
       signal: controller.signal
     });
@@ -412,7 +418,7 @@ function validateSpellingResults(results) {
   return results.filter(result => {
     const original = result.word.toLowerCase();
     const correction = result.correction.toLowerCase();
-    // Reject if the original word is a known safe word
+    // Reject if the original word is a known safe word (static dictionary)
     if (safe.has(original)) return false;
     // Reject corrections with triple consecutive identical letters (e.g., "glassservis")
     if (/(.)\1\1/.test(correction)) return false;
@@ -420,6 +426,107 @@ function validateSpellingResults(results) {
     if (/^[A-ZÅÄÖÜ][a-zåäöü]/.test(result.word) && !/^[A-ZÅÄÖÜ]+$/.test(result.word)) return false;
     return true;
   });
+}
+
+// Drop any flagged word that's in the learned whitelist (employees confirmed it).
+// Applied on EVERY scan path — including cache hits — so a word whitelisted after
+// it was cached still disappears. Static safe words are also re-checked here so a
+// stale cache from before a dictionary update gets cleaned up too.
+function filterWhitelistedWords(results) {
+  if (!Array.isArray(results) || results.length === 0) return results || [];
+  const learned = learnedWhitelist; // Set<string>, dynamic (shared + local)
+  const safe = safeWordsSet || new Set();
+  return results.filter(r => {
+    const w = (r.word || '').toLowerCase();
+    if (learned && learned.has(w)) return false;
+    if (safe.has(w)) return false;
+    return true;
+  });
+}
+
+// ─── Learned whitelist (shared via Cloudflare Worker) ───────────────
+// Words employees have confirmed are correct (by dismissing the flag).
+// Loaded once per scan run, cached ~30 min. Applied in validateSpellingResults
+// so a confirmed word never flags again, on any item, for anyone.
+let learnedWhitelist = null;        // Set<string> of lowercase words
+let learnedWhitelistFetchedAt = 0;
+const WHITELIST_TTL_MS = 30 * 60 * 1000;
+
+const PUB_SCAN_LOCAL_WHITELIST_KEY = 'pubScanLocalWhitelist'; // { word: true }
+
+async function loadLearnedWhitelist(force = false) {
+  const fresh = Date.now() - learnedWhitelistFetchedAt < WHITELIST_TTL_MS;
+  if (learnedWhitelist && fresh && !force) return learnedWhitelist;
+  let shared = [];
+  const scFetch = globalThis.__spellcheckFetch;
+  if (scFetch) {
+    try {
+      const rows = await scFetch('GET', '/whitelist?status=active');
+      if (Array.isArray(rows)) shared = rows.map(r => String(r.word).toLowerCase());
+    } catch (e) {
+      // Keep whatever we had; don't break scanning if the backend is unreachable.
+    }
+  }
+  // Merge the instant local mirror (words just confirmed via ✓ in this browser,
+  // before the shared list has propagated) so they stop flagging immediately.
+  let localWords = [];
+  try {
+    const stored = await chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY);
+    localWords = Object.keys(stored[PUB_SCAN_LOCAL_WHITELIST_KEY] || {});
+  } catch (e) { /* optional */ }
+  if (shared.length || localWords.length || !learnedWhitelist) {
+    learnedWhitelist = new Set([...shared, ...localWords]);
+    learnedWhitelistFetchedAt = Date.now();
+  }
+  return learnedWhitelist;
+}
+
+// Classify a flag's confidence as a false positive, from the suggestion shape.
+// "different word" (bemålning→oljemålning) ⇒ near-certain false positive ⇒
+// instant whitelist. "near-edit" (byrä→byrå) ⇒ might be a real typo ⇒ needs N
+// independent dismissals. Returns 'different-word' | 'near-edit'.
+function classifyFlag(word, correction) {
+  if (!word || !correction) return 'near-edit';
+  const w = word.toLowerCase(), c = correction.toLowerCase();
+  const dist = levenshtein(w, c);
+  let prefix = 0;
+  for (let i = 0; i < Math.min(w.length, c.length); i++) {
+    if (w[i] === c[i]) prefix++; else break;
+  }
+
+  // ── Strong "different word" signals (checked FIRST, before edit distance) ──
+  // A genuine typo fix keeps the start of the word and the same letters. When
+  // the suggestion violates that, it's a different word — an obvious false
+  // positive — even if the edit distance is small.
+
+  // Anagram: same letters reordered (nagg → gagn). Never a spelling fix.
+  const sortLetters = s => s.split('').sort().join('');
+  if (w.length === c.length && sortLetters(w) === sortLetters(c)) return 'different-word';
+
+  // Shares no leading letters (prefix 0) — a typo fix almost always preserves
+  // the first letter or two (byrä→byrå, signerat→signerad). prefix 0 means a
+  // different stem (nagg→gagn, bemålning→oljemålning).
+  if (prefix === 0) return 'different-word';
+
+  // Big edit, or the suggestion is wholesale longer/different.
+  if (dist >= 3 || c.length > w.length + 2) return 'different-word';
+
+  // ── Otherwise: small edit that preserves the stem ⇒ plausible real typo ──
+  return 'near-edit';
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+    }
+  }
+  return d[m][n];
 }
 
 function checkSpellingDict(text, dictMap) {
@@ -463,8 +570,10 @@ export async function runBackgroundPublicationScan() {
     // Reset spell cache to load fresh from storage
     spellCache = null;
 
-    // Load dictionary
+    // Load dictionary + learned shared whitelist. Force-refresh so a word
+    // confirmed seconds ago (✓) is honored on this very scan, not 30 min later.
     const dictMap = await loadMisspellingsMap();
+    await loadLearnedWhitelist(true);
 
     reportProgress('Hämtar publiceringslista...');
 
@@ -499,7 +608,7 @@ export async function runBackgroundPublicationScan() {
 
     const totalItems = allItems.length;
     if (totalItems === 0) {
-      const result = { _version: 4, scannedAt: new Date().toISOString(), totalItems: 0, critical: [], warnings: [], passed: 0 };
+      const result = { _version: 7, scannedAt: new Date().toISOString(), sharedBackend: getSharedBackendStatus(), totalItems: 0, critical: [], warnings: [], passed: 0 };
       await chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result });
       clearProgress();
       return result;
@@ -586,7 +695,9 @@ export async function runBackgroundPublicationScan() {
         title: item.title,
         editUrl: item.editUrl,
         showUrl: showUrl,
-        issues: allIssues.map(i => typeof i === 'string' ? { text: i, severity: 'warning' } : { text: i.text, severity: i.severity }),
+        issues: allIssues.map(i => typeof i === 'string'
+          ? { text: i, severity: 'warning' }
+          : { text: i.text, severity: i.severity, ...(i.spellWords ? { spellWords: i.spellWords } : {}) }),
         severity: hasCritical ? 'critical' : 'warning',
         imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0),
         hasKeywords: hasKeywords,
@@ -596,8 +707,9 @@ export async function runBackgroundPublicationScan() {
     });
 
     const result = {
-      _version: 4,
+      _version: 7, // bumped: issues now carry structured spellWords for the learned whitelist
       scannedAt: new Date().toISOString(),
+      sharedBackend: getSharedBackendStatus(), // ok | unconfigured | error: <msg> | unknown
       totalItems,
       critical,
       warnings,
@@ -671,7 +783,9 @@ async function promoteStickyErrors(scanResult) {
         title: item.title,
         editUrl: item.editUrl,
         showUrl: item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : null),
-        issues: spellingIssues.map(i => typeof i === 'string' ? { text: i, severity: 'critical' } : { text: i.text, severity: i.severity }),
+        issues: spellingIssues.map(i => typeof i === 'string'
+          ? { text: i, severity: 'critical' }
+          : { text: i.text, severity: i.severity, ...(i.spellWords ? { spellWords: i.spellWords } : {}) }),
         estimate: item.estimate || 0,
         firstDetectedAt: sticky[item.itemId]?.firstDetectedAt || now,
         lastCheckedAt: now,
@@ -732,6 +846,7 @@ export async function recheckStickyErrors() {
     }
 
     const dictMap = await loadMisspellingsMap();
+    await loadLearnedWhitelist(true);
     await ensureOffscreen();
 
     const now = Date.now();
@@ -758,6 +873,8 @@ export async function recheckStickyErrors() {
           for (const de of dictErrors) {
             if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
           }
+          // Suppress whitelisted words (same final pass as the main scan).
+          spellingErrors = filterWhitelistedWords(spellingErrors);
 
           entry.lastCheckedAt = now;
           // Update title in case it was changed
@@ -767,9 +884,16 @@ export async function recheckStickyErrors() {
             // Error is fixed — remove from sticky
             delete sticky[entry.itemId];
           } else {
-            // Update the issues with current errors
+            // Update the issues with current errors. Carry structured spellWords
+            // (with confidence) so the dashboard can render per-word \u2713 chips on
+            // published-with-errors rows, same as the main scan.
             const corrections = spellingErrors.map(e => `"${e.word}" \u2192 "${e.correction}"`).join(', ');
-            entry.issues = [{ text: `Stavfel: ${corrections}`, severity: 'critical' }];
+            const spellWords = spellingErrors.map(e => ({
+              word: e.word,
+              correction: e.correction,
+              confidence: classifyFlag(e.word, e.correction)
+            }));
+            entry.issues = [{ text: `Stavfel: ${corrections}`, severity: 'critical', spellWords }];
           }
         } catch (e) {
           // Could not re-check — keep in sticky but don't remove

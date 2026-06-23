@@ -19,7 +19,8 @@
     "https://*.wikipedia.org/*",
     "https://upload.wikimedia.org/*",
     "https://*.supabase.co/*",
-    "https://api.languagetool.org/*"
+    "https://api.languagetool.org/*",
+    "https://*.workers.dev/*"
   ],
   "content_scripts": [
     {
