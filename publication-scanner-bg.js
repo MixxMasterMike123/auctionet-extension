@@ -565,7 +565,7 @@ export async function runBackgroundPublicationScan() {
 
     const totalItems = allItems.length;
     if (totalItems === 0) {
-      const result = { _version: 4, scannedAt: new Date().toISOString(), sharedBackend: getSharedBackendStatus(), totalItems: 0, critical: [], warnings: [], passed: 0 };
+      const result = { _version: 5, scannedAt: new Date().toISOString(), sharedBackend: getSharedBackendStatus(), totalItems: 0, critical: [], warnings: [], passed: 0 };
       await chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result });
       clearProgress();
       return result;
@@ -662,7 +662,7 @@ export async function runBackgroundPublicationScan() {
     });
 
     const result = {
-      _version: 4,
+      _version: 5, // bumped: issues now carry structured spellWords for the learned whitelist
       scannedAt: new Date().toISOString(),
       sharedBackend: getSharedBackendStatus(), // ok | unconfigured | error: <msg> | unknown
       totalItems,

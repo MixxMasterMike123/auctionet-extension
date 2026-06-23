@@ -1217,7 +1217,7 @@
       const cached = await new Promise(resolve => {
         chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
       });
-      if (cached && cached._version === 4) {
+      if (cached && cached._version === 5) {
         await renderPublicationResults(cached);
       } else {
         // Cache missing or from older version — discard and show empty
@@ -1238,7 +1238,7 @@
           const cached = await new Promise(resolve =>
             chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]))
           );
-          if (cached && cached._version === 4) {
+          if (cached && cached._version === 5) {
             await renderPublicationResults(cached);
           } else {
             renderPublicationEmpty();
