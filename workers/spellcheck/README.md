@@ -79,3 +79,17 @@ the promotion `UPDATE` for Conservative (manual approval only).
 npx wrangler d1 execute auctionet-spellcheck --local --file=schema.sql
 npx wrangler dev   # serves on http://localhost:8787 against a local D1
 ```
+
+## Pre-seeding the whitelist
+
+Bulk-load known-good Swedish auction vocabulary (brands, materials, period
+styles, auction terms) so LanguageTool's false positives on these never
+surface. One-time, idempotent, paced to respect the rate limit (~80s):
+
+```bash
+node seed.mjs https://auctionet-spellcheck.<sub>.workers.dev
+node seed.mjs <url> --dry-run    # preview the ~146 words without posting
+```
+
+Seeded words go straight to `status='active'`. Re-running is safe — it never
+clobbers a word a human already promoted or rejected via the review view.

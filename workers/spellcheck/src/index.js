@@ -177,13 +177,16 @@ async function postWhitelist(db, body) {
   const addedBy = typeof body.added_by === 'string' && body.added_by.trim()
     ? body.added_by.trim().slice(0, 80)
     : null;
+  // seed:true pre-loads a known-good word straight to 'active' (bulk dictionary
+  // seeding). Doesn't clobber a word a human already decided on (active/rejected).
+  const seed = body.seed === true;
   await db
     .prepare(
-      `INSERT INTO spellcheck_whitelist (word, ignore_count, status, added_by, added_at)
-       VALUES (?, 1, 'pending', ?, ?)
+      `INSERT INTO spellcheck_whitelist (word, ignore_count, status, added_by, added_at, promoted_at)
+       VALUES (?, 1, ?, ?, ?, ?)
        ON CONFLICT(word) DO UPDATE SET ignore_count = ignore_count + 1`
     )
-    .bind(raw, addedBy, nowIso())
+    .bind(raw, seed ? 'active' : 'pending', addedBy, nowIso(), seed ? nowIso() : null)
     .run();
   // Auto-promote if this confidence's threshold is reached and not already decided.
   await db
