@@ -22,6 +22,16 @@
 
   // ─── Utility ──────────────────────────────────────────────────────
 
+  // True while this content script can still reach the extension. After the
+  // extension is reloaded/updated, old content scripts in already-open tabs
+  // lose their context; touching chrome.* then throws "Extension context
+  // invalidated". Guard background-event listeners with this so they fail
+  // silently (the user just reloads the page to get a fresh context).
+  function extensionAlive() {
+    try { return !!(chrome.runtime && chrome.runtime.id); }
+    catch (e) { return false; }
+  }
+
   function parseNumber(str) {
     if (!str) return 0;
     // Handle Swedish number format: "1 413,24" or "1112" or "15,5"
@@ -1243,6 +1253,7 @@
 
   // Listen for scan progress updates from background service worker
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (!extensionAlive()) return; // stale context after extension reload
     if (area === 'local' && changes.publicationScanProgress) {
       const progress = changes.publicationScanProgress.newValue;
       if (progress) {
@@ -1262,8 +1273,8 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       const idleMinutes = (Date.now() - pubScanLastVisible) / 60000;
-      if (idleMinutes >= 10) {
-        chrome.runtime.sendMessage({ type: 'run-publication-scan' });
+      if (idleMinutes >= 10 && extensionAlive()) {
+        chrome.runtime.sendMessage({ type: 'run-publication-scan' }, () => void chrome.runtime.lastError);
       }
     }
     pubScanLastVisible = Date.now();
