@@ -12,7 +12,7 @@ const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
 const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache_v2';
 const PUB_SCAN_SPELL_VERSION_KEY = 'pubScanSpellVersion';
-const PUB_SCAN_SPELL_VERSION = 4; // Bumped: structured spellWords + learned whitelist filter
+const PUB_SCAN_SPELL_VERSION = 5; // Bumped: sticky errors now carry spellWords for chips
 const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
 const STICKY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
@@ -884,9 +884,16 @@ export async function recheckStickyErrors() {
             // Error is fixed — remove from sticky
             delete sticky[entry.itemId];
           } else {
-            // Update the issues with current errors
+            // Update the issues with current errors. Carry structured spellWords
+            // (with confidence) so the dashboard can render per-word \u2713 chips on
+            // published-with-errors rows, same as the main scan.
             const corrections = spellingErrors.map(e => `"${e.word}" \u2192 "${e.correction}"`).join(', ');
-            entry.issues = [{ text: `Stavfel: ${corrections}`, severity: 'critical' }];
+            const spellWords = spellingErrors.map(e => ({
+              word: e.word,
+              correction: e.correction,
+              confidence: classifyFlag(e.word, e.correction)
+            }));
+            entry.issues = [{ text: `Stavfel: ${corrections}`, severity: 'critical', spellWords }];
           }
         } catch (e) {
           // Could not re-check — keep in sticky but don't remove

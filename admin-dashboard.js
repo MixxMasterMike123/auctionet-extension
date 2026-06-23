@@ -881,25 +881,21 @@
     const allGood = criticalCount === 0 && warningCount === 0;
 
     // Helper to render a single issue row
-    function issueRowHTML(item, cssModifier, showIgnore = true) {
-      const showHref = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : '');
-      // Separate spelling errors (per-word actionable) from other issues (text only).
-      const spellWords = item.issues
+    // Build the per-word ✓ chip row from an item's issues. Each flagged word
+    // gets its own chip; clicking ✓ whitelists ONLY that word. Returns
+    // { spellWords, spellRow }. Shared by the main scan rows and the sticky
+    // (published-with-errors) rows. The container-level click handler wires
+    // all .ext-pubscan__spell-ok chips, so callers don't bind anything.
+    function buildSpellChips(issues, itemId) {
+      const spellWords = (issues || [])
         .flatMap(i => (i && typeof i === 'object' && Array.isArray(i.spellWords)) ? i.spellWords : []);
-      const nonSpellLabels = item.issues
-        .filter(i => !(i && typeof i === 'object' && Array.isArray(i.spellWords)))
-        .map(i => typeof i === 'string' ? i : i.text)
-        .join(' + ');
-
-      // Per-word ✓ chips: confirming a word as correct whitelists ONLY that word,
-      // leaving any real typos on the same item still flagged. De-dupe by word.
       const seenWords = new Set();
       const spellChips = spellWords.filter(sw => {
         const k = (sw.word || '').toLowerCase();
         if (!k || seenWords.has(k)) return false;
         seenWords.add(k); return true;
       }).map(sw => `
-        <span class="ext-pubscan__spell-chip ext-pubscan__spell-ok" data-word="${escapeHTML(sw.word)}" data-confidence="${escapeHTML(sw.confidence || 'near-edit')}" data-item-id="${item.itemId}" data-tooltip="Rätt ord — lägg till i ordlistan" role="button" tabindex="0">
+        <span class="ext-pubscan__spell-chip ext-pubscan__spell-ok" data-word="${escapeHTML(sw.word)}" data-confidence="${escapeHTML(sw.confidence || 'near-edit')}" data-item-id="${itemId}" data-tooltip="Rätt ord — lägg till i ordlistan" role="button" tabindex="0">
           <span class="ext-pubscan__spell-word">${escapeHTML(sw.word)}</span>
           <span class="ext-pubscan__spell-arrow">→</span>
           <span class="ext-pubscan__spell-sugg">${escapeHTML(sw.correction || '')}</span>
@@ -909,6 +905,18 @@
       const spellRow = spellChips
         ? `<div class="ext-pubscan__spell-chips" data-spell-words="${escapeHTML(JSON.stringify(spellWords))}">${spellChips}</div>`
         : '';
+      return { spellWords, spellChips, spellRow };
+    }
+
+    function issueRowHTML(item, cssModifier, showIgnore = true) {
+      const showHref = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : '');
+      // Separate spelling errors (per-word actionable) from other issues (text only).
+      const nonSpellLabels = item.issues
+        .filter(i => !(i && typeof i === 'object' && Array.isArray(i.spellWords)))
+        .map(i => typeof i === 'string' ? i : i.text)
+        .join(' + ');
+
+      const { spellChips, spellRow } = buildSpellChips(item.issues, item.itemId);
 
       const ignoreBtn = showIgnore
         ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}" title="Ignorera hela föremålet (lär inget)">✕</span>`
@@ -1063,7 +1071,13 @@
       publishedSticky.sort((a, b) => (b.firstDetectedAt || 0) - (a.firstDetectedAt || 0));
       const stickyRowsHTML = publishedSticky.map(entry => {
         const showHref = entry.showUrl || (entry.editUrl ? entry.editUrl.replace(/\/edit$/, '') : '');
-        const issueLabels = entry.issues.map(i => typeof i === 'string' ? i : i.text).join(' + ');
+        // Per-word chips for spelling flags; text label for any non-spell issues.
+        const nonSpellLabels = entry.issues
+          .filter(i => !(i && typeof i === 'object' && Array.isArray(i.spellWords)))
+          .map(i => typeof i === 'string' ? i : i.text)
+          .join(' + ');
+        const { spellChips, spellRow } = buildSpellChips(entry.issues, entry.itemId);
+        const headerText = nonSpellLabels || (spellChips ? 'Stavfel' : '');
         const publishedAgo = entry.publishedAt ? relativeTimeFromISO(new Date(entry.publishedAt).toISOString()) : '';
         const estimateLabel = entry.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD
           ? `<span class="ext-pubscan__estimate">💎 ${formatSEK(entry.estimate)} SEK</span>`
@@ -1072,7 +1086,7 @@
           <div class="ext-pubscan__issue-row ext-pubscan__issue-row--sticky" data-item-id="${entry.itemId}">
             <a class="ext-pubscan__issue ext-pubscan__issue--critical" href="${escapeHTML(showHref)}">
               <div class="ext-pubscan__issue-main">
-                <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
+                <span class="ext-pubscan__issue-text">${escapeHTML(headerText)}</span>
                 <span class="ext-pubscan__published-badge">Publicerad${publishedAgo ? ' ' + escapeHTML(publishedAgo) : ''}</span>
                 ${estimateLabel}
                 ${entry.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(entry.editUrl)}">Redigera \u2192</span>` : ''}
@@ -1080,6 +1094,7 @@
               <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(entry.title, 40))}"</div>
             </a>
             <span class="ext-pubscan__ignore-btn ext-pubscan__ignore-btn--sticky" data-item-id="${entry.itemId}" data-sticky="true" title="Ignorera">✕</span>
+            ${spellRow}
           </div>
         `;
       }).join('');
