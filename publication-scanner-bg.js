@@ -493,12 +493,26 @@ function classifyFlag(word, correction) {
   for (let i = 0; i < Math.min(w.length, c.length); i++) {
     if (w[i] === c[i]) prefix++; else break;
   }
-  const muchLonger = c.length > w.length + 2;
-  // Small edit AND not a wholesale lengthening ⇒ plausible real typo.
-  if (dist <= 2 && !muchLonger) return 'near-edit';
-  // Big edit, or the "correction" is a different/longer word ⇒ false positive.
-  // Extra signal: shared prefix < 3 means different stem (bemålning vs oljemålning).
-  return (dist >= 3 || prefix < 3) ? 'different-word' : 'near-edit';
+
+  // ── Strong "different word" signals (checked FIRST, before edit distance) ──
+  // A genuine typo fix keeps the start of the word and the same letters. When
+  // the suggestion violates that, it's a different word — an obvious false
+  // positive — even if the edit distance is small.
+
+  // Anagram: same letters reordered (nagg → gagn). Never a spelling fix.
+  const sortLetters = s => s.split('').sort().join('');
+  if (w.length === c.length && sortLetters(w) === sortLetters(c)) return 'different-word';
+
+  // Shares no leading letters (prefix 0) — a typo fix almost always preserves
+  // the first letter or two (byrä→byrå, signerat→signerad). prefix 0 means a
+  // different stem (nagg→gagn, bemålning→oljemålning).
+  if (prefix === 0) return 'different-word';
+
+  // Big edit, or the suggestion is wholesale longer/different.
+  if (dist >= 3 || c.length > w.length + 2) return 'different-word';
+
+  // ── Otherwise: small edit that preserves the stem ⇒ plausible real typo ──
+  return 'near-edit';
 }
 
 function levenshtein(a, b) {
