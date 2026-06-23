@@ -228,6 +228,10 @@ async function runPhase2Checks(editData, dictMap, itemId) {
       if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
     }
   }
+  // Always apply the learned whitelist as a final pass — the cache stores the
+  // raw LanguageTool/dictionary findings, but a word whitelisted AFTER it was
+  // cached must still be suppressed. So filter here on every path, cache or not.
+  spellingErrors = filterWhitelistedWords(spellingErrors);
   if (spellingErrors.length > 0) {
     const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
     // Carry the structured pairs through so the dashboard's ✕ (Ignorera) can
@@ -411,18 +415,31 @@ async function checkSpellingLanguageTool(text) {
 
 function validateSpellingResults(results) {
   const safe = safeWordsSet || new Set();
-  const learned = learnedWhitelist; // dynamic, shared via the Worker
   return results.filter(result => {
     const original = result.word.toLowerCase();
     const correction = result.correction.toLowerCase();
     // Reject if the original word is a known safe word (static dictionary)
     if (safe.has(original)) return false;
-    // Reject if the word is in the learned shared whitelist (employees said it's fine)
-    if (learned && learned.has(original)) return false;
     // Reject corrections with triple consecutive identical letters (e.g., "glassservis")
     if (/(.)\1\1/.test(correction)) return false;
     // Reject if original looks like a proper noun / brand (starts uppercase, not ALL CAPS)
     if (/^[A-ZÅÄÖÜ][a-zåäöü]/.test(result.word) && !/^[A-ZÅÄÖÜ]+$/.test(result.word)) return false;
+    return true;
+  });
+}
+
+// Drop any flagged word that's in the learned whitelist (employees confirmed it).
+// Applied on EVERY scan path — including cache hits — so a word whitelisted after
+// it was cached still disappears. Static safe words are also re-checked here so a
+// stale cache from before a dictionary update gets cleaned up too.
+function filterWhitelistedWords(results) {
+  if (!Array.isArray(results) || results.length === 0) return results || [];
+  const learned = learnedWhitelist; // Set<string>, dynamic (shared + local)
+  const safe = safeWordsSet || new Set();
+  return results.filter(r => {
+    const w = (r.word || '').toLowerCase();
+    if (learned && learned.has(w)) return false;
+    if (safe.has(w)) return false;
     return true;
   });
 }
@@ -539,9 +556,10 @@ export async function runBackgroundPublicationScan() {
     // Reset spell cache to load fresh from storage
     spellCache = null;
 
-    // Load dictionary + learned shared whitelist
+    // Load dictionary + learned shared whitelist. Force-refresh so a word
+    // confirmed seconds ago (✓) is honored on this very scan, not 30 min later.
     const dictMap = await loadMisspellingsMap();
-    await loadLearnedWhitelist();
+    await loadLearnedWhitelist(true);
 
     reportProgress('Hämtar publiceringslista...');
 
@@ -814,7 +832,7 @@ export async function recheckStickyErrors() {
     }
 
     const dictMap = await loadMisspellingsMap();
-    await loadLearnedWhitelist();
+    await loadLearnedWhitelist(true);
     await ensureOffscreen();
 
     const now = Date.now();
@@ -841,6 +859,8 @@ export async function recheckStickyErrors() {
           for (const de of dictErrors) {
             if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
           }
+          // Suppress whitelisted words (same final pass as the main scan).
+          spellingErrors = filterWhitelistedWords(spellingErrors);
 
           entry.lastCheckedAt = now;
           // Update title in case it was changed
