@@ -629,6 +629,7 @@
   const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
   const PUB_SCAN_IGNORED_KEY = 'publicationScanIgnored'; // { itemId: true }
   const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
+  const PUB_SCAN_LOCAL_WHITELIST_KEY = 'pubScanLocalWhitelist'; // { word: true } — instant local mirror of confirmed words
   const PUB_SCAN_HIGH_VALUE_THRESHOLD = 3000; // SEK — items at or above this estimate are "high value"
 
   function getPublicationInsertTarget() {
@@ -789,31 +790,53 @@
     // Helper to render a single issue row
     function issueRowHTML(item, cssModifier, showIgnore = true) {
       const showHref = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : '');
-      const issueLabels = item.issues.map(i => typeof i === 'string' ? i : i.text).join(' + ');
-      // Collect any structured spellcheck words on this item's issues so that
-      // dismissing (✕) can record them as correct in the shared whitelist.
+      // Separate spelling errors (per-word actionable) from other issues (text only).
       const spellWords = item.issues
         .flatMap(i => (i && typeof i === 'object' && Array.isArray(i.spellWords)) ? i.spellWords : []);
-      const spellAttr = spellWords.length
-        ? ` data-spell-words="${escapeHTML(JSON.stringify(spellWords))}"`
+      const nonSpellLabels = item.issues
+        .filter(i => !(i && typeof i === 'object' && Array.isArray(i.spellWords)))
+        .map(i => typeof i === 'string' ? i : i.text)
+        .join(' + ');
+
+      // Per-word ✓ chips: confirming a word as correct whitelists ONLY that word,
+      // leaving any real typos on the same item still flagged. De-dupe by word.
+      const seenWords = new Set();
+      const spellChips = spellWords.filter(sw => {
+        const k = (sw.word || '').toLowerCase();
+        if (!k || seenWords.has(k)) return false;
+        seenWords.add(k); return true;
+      }).map(sw => `
+        <span class="ext-pubscan__spell-chip" title="Stavning: ${escapeHTML(sw.word)} → ${escapeHTML(sw.correction || '')}">
+          <span class="ext-pubscan__spell-word">${escapeHTML(sw.word)}</span>
+          <span class="ext-pubscan__spell-arrow">→</span>
+          <span class="ext-pubscan__spell-sugg">${escapeHTML(sw.correction || '')}</span>
+          <span class="ext-pubscan__spell-ok" data-word="${escapeHTML(sw.word)}" data-confidence="${escapeHTML(sw.confidence || 'near-edit')}" data-item-id="${item.itemId}" title="Rätt ord — lägg till i ordlistan">✓</span>
+        </span>
+      `).join('');
+      const spellRow = spellChips
+        ? `<div class="ext-pubscan__spell-chips" data-spell-words="${escapeHTML(JSON.stringify(spellWords))}">${spellChips}</div>`
         : '';
+
       const ignoreBtn = showIgnore
-        ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}"${spellAttr} title="Ignorera detta föremål">✕</span>`
+        ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}" title="Ignorera hela föremålet (lär inget)">✕</span>`
         : `<span class="ext-pubscan__unignore-btn" data-item-id="${item.itemId}" title="Sluta ignorera">↩</span>`;
       const estimateLabel = item.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD
         ? `<span class="ext-pubscan__estimate">💎 ${formatSEK(item.estimate)} SEK</span>`
         : (item.estimate > 0 ? `<span class="ext-pubscan__estimate">${formatSEK(item.estimate)} SEK</span>` : '');
+      // The non-spell label, or a generic "Stavfel" header when only spelling issues exist.
+      const headerText = nonSpellLabels || (spellChips ? 'Stavfel' : '');
       return `
         <div class="ext-pubscan__issue-row" data-item-id="${item.itemId}">
           <a class="ext-pubscan__issue ext-pubscan__issue--${cssModifier}" href="${escapeHTML(showHref)}">
             <div class="ext-pubscan__issue-main">
-              <span class="ext-pubscan__issue-text">${escapeHTML(issueLabels)}</span>
+              <span class="ext-pubscan__issue-text">${escapeHTML(headerText)}</span>
               ${estimateLabel}
               ${item.editUrl ? `<span class="ext-pubscan__edit-link" data-href="${escapeHTML(item.editUrl)}">Redigera →</span>` : ''}
             </div>
             <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(item.title, 40))}"</div>
           </a>
           ${ignoreBtn}
+          ${spellRow}
         </div>
       `;
     }
@@ -1061,6 +1084,38 @@
       });
     }
 
+    // Wire up per-word ✓ chips — confirm one word as correct → shared whitelist.
+    // Only that word is whitelisted; other flags on the same item are untouched.
+    container.querySelectorAll('.ext-pubscan__spell-ok').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const word = btn.dataset.word;
+        if (!word) return;
+        const confidence = btn.dataset.confidence || 'near-edit';
+        // Record locally too, so this browser stops flagging the word immediately
+        // (the background whitelist refreshes on its own ~30-min cycle).
+        try {
+          const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY, r => resolve(r[PUB_SCAN_LOCAL_WHITELIST_KEY])));
+          const local = stored || {};
+          local[word.toLowerCase()] = true;
+          await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_LOCAL_WHITELIST_KEY]: local }, resolve));
+        } catch (e) { /* local cache optional */ }
+        // Shared whitelist — Cloudflare Worker (fire-and-forget, confidence-tiered)
+        chrome.runtime.sendMessage({
+          type: 'spellcheck-fetch', method: 'POST', path: '/whitelist',
+          body: { word, confidence }
+        }, () => void chrome.runtime?.lastError);
+        // Optimistic UI: drop this chip; if it was the last one on the row, fade the row.
+        const chip = btn.closest('.ext-pubscan__spell-chip');
+        const chipRow = btn.closest('.ext-pubscan__spell-chips');
+        if (chip) chip.remove();
+        if (chipRow && chipRow.querySelectorAll('.ext-pubscan__spell-chip').length === 0) {
+          chipRow.remove();
+        }
+      });
+    });
+
     // Wire up ignore buttons (✕) — add item to ignored set and re-render
     container.querySelectorAll('.ext-pubscan__ignore-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
@@ -1075,27 +1130,13 @@
           ignored[itemId] = true;
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
           // L2: Shared ignored list — Cloudflare Worker (fire-and-forget)
+          // NB: item-level ignore silences the whole item but learns NOTHING —
+          // a single valid word must never hide a real typo elsewhere on the
+          // same item. Word learning is the per-word ✓ chip, handled separately.
           chrome.runtime.sendMessage({
             type: 'spellcheck-fetch', method: 'POST', path: '/ignored',
             body: { item_id: parseInt(itemId) }
           }, () => {});
-          // Learn: dismissing a spell flag means the flagged word(s) are correct.
-          // Record each in the shared whitelist so it never flags again anywhere.
-          // (The Worker promotes pending→active at a threshold; a 'different-word'
-          // false positive like bemålning→oljemålning is sent repeatedly so it
-          // clears quickly, while plausible near-edit typos need more agreement.)
-          if (btn.dataset.spellWords) {
-            try {
-              const words = JSON.parse(btn.dataset.spellWords);
-              for (const sw of words) {
-                if (!sw || !sw.word) continue;
-                chrome.runtime.sendMessage({
-                  type: 'spellcheck-fetch', method: 'POST', path: '/whitelist',
-                  body: { word: sw.word, confidence: sw.confidence || 'near-edit' }
-                }, () => {});
-              }
-            } catch (e) { /* malformed data attr — skip */ }
-          }
           // Also remove from sticky errors if present
           if (btn.dataset.sticky) {
             const stickyStored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_STICKY_KEY, r => resolve(r[PUB_SCAN_STICKY_KEY])));
@@ -1217,7 +1258,7 @@
       const cached = await new Promise(resolve => {
         chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
       });
-      if (cached && cached._version === 5) {
+      if (cached && cached._version === 6) {
         await renderPublicationResults(cached);
       } else {
         // Cache missing or from older version — discard and show empty
@@ -1238,7 +1279,7 @@
           const cached = await new Promise(resolve =>
             chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]))
           );
-          if (cached && cached._version === 5) {
+          if (cached && cached._version === 6) {
             await renderPublicationResults(cached);
           } else {
             renderPublicationEmpty();

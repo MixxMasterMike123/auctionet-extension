@@ -435,20 +435,31 @@ let learnedWhitelist = null;        // Set<string> of lowercase words
 let learnedWhitelistFetchedAt = 0;
 const WHITELIST_TTL_MS = 30 * 60 * 1000;
 
+const PUB_SCAN_LOCAL_WHITELIST_KEY = 'pubScanLocalWhitelist'; // { word: true }
+
 async function loadLearnedWhitelist(force = false) {
   const fresh = Date.now() - learnedWhitelistFetchedAt < WHITELIST_TTL_MS;
   if (learnedWhitelist && fresh && !force) return learnedWhitelist;
+  let shared = [];
   const scFetch = globalThis.__spellcheckFetch;
-  if (!scFetch) { learnedWhitelist = learnedWhitelist || new Set(); return learnedWhitelist; }
-  try {
-    const rows = await scFetch('GET', '/whitelist?status=active');
-    if (Array.isArray(rows)) {
-      learnedWhitelist = new Set(rows.map(r => String(r.word).toLowerCase()));
-      learnedWhitelistFetchedAt = Date.now();
+  if (scFetch) {
+    try {
+      const rows = await scFetch('GET', '/whitelist?status=active');
+      if (Array.isArray(rows)) shared = rows.map(r => String(r.word).toLowerCase());
+    } catch (e) {
+      // Keep whatever we had; don't break scanning if the backend is unreachable.
     }
-  } catch (e) {
-    // Keep whatever we had; don't break scanning if the backend is unreachable.
-    learnedWhitelist = learnedWhitelist || new Set();
+  }
+  // Merge the instant local mirror (words just confirmed via ✓ in this browser,
+  // before the shared list has propagated) so they stop flagging immediately.
+  let localWords = [];
+  try {
+    const stored = await chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY);
+    localWords = Object.keys(stored[PUB_SCAN_LOCAL_WHITELIST_KEY] || {});
+  } catch (e) { /* optional */ }
+  if (shared.length || localWords.length || !learnedWhitelist) {
+    learnedWhitelist = new Set([...shared, ...localWords]);
+    learnedWhitelistFetchedAt = Date.now();
   }
   return learnedWhitelist;
 }
@@ -565,7 +576,7 @@ export async function runBackgroundPublicationScan() {
 
     const totalItems = allItems.length;
     if (totalItems === 0) {
-      const result = { _version: 5, scannedAt: new Date().toISOString(), sharedBackend: getSharedBackendStatus(), totalItems: 0, critical: [], warnings: [], passed: 0 };
+      const result = { _version: 6, scannedAt: new Date().toISOString(), sharedBackend: getSharedBackendStatus(), totalItems: 0, critical: [], warnings: [], passed: 0 };
       await chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result });
       clearProgress();
       return result;
@@ -662,7 +673,7 @@ export async function runBackgroundPublicationScan() {
     });
 
     const result = {
-      _version: 5, // bumped: issues now carry structured spellWords for the learned whitelist
+      _version: 6, // bumped: issues now carry structured spellWords for the learned whitelist
       scannedAt: new Date().toISOString(),
       sharedBackend: getSharedBackendStatus(), // ok | unconfigured | error: <msg> | unknown
       totalItems,
