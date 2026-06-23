@@ -780,8 +780,15 @@
     function issueRowHTML(item, cssModifier, showIgnore = true) {
       const showHref = item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : '');
       const issueLabels = item.issues.map(i => typeof i === 'string' ? i : i.text).join(' + ');
+      // Collect any structured spellcheck words on this item's issues so that
+      // dismissing (✕) can record them as correct in the shared whitelist.
+      const spellWords = item.issues
+        .flatMap(i => (i && typeof i === 'object' && Array.isArray(i.spellWords)) ? i.spellWords : []);
+      const spellAttr = spellWords.length
+        ? ` data-spell-words="${escapeHTML(JSON.stringify(spellWords))}"`
+        : '';
       const ignoreBtn = showIgnore
-        ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}" title="Ignorera detta föremål">✕</span>`
+        ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}"${spellAttr} title="Ignorera detta föremål">✕</span>`
         : `<span class="ext-pubscan__unignore-btn" data-item-id="${item.itemId}" title="Sluta ignorera">↩</span>`;
       const estimateLabel = item.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD
         ? `<span class="ext-pubscan__estimate">💎 ${formatSEK(item.estimate)} SEK</span>`
@@ -1062,6 +1069,23 @@
             type: 'spellcheck-fetch', method: 'POST', path: '/ignored',
             body: { item_id: parseInt(itemId) }
           }, () => {});
+          // Learn: dismissing a spell flag means the flagged word(s) are correct.
+          // Record each in the shared whitelist so it never flags again anywhere.
+          // (The Worker promotes pending→active at a threshold; a 'different-word'
+          // false positive like bemålning→oljemålning is sent repeatedly so it
+          // clears quickly, while plausible near-edit typos need more agreement.)
+          if (btn.dataset.spellWords) {
+            try {
+              const words = JSON.parse(btn.dataset.spellWords);
+              for (const sw of words) {
+                if (!sw || !sw.word) continue;
+                chrome.runtime.sendMessage({
+                  type: 'spellcheck-fetch', method: 'POST', path: '/whitelist',
+                  body: { word: sw.word, confidence: sw.confidence || 'near-edit' }
+                }, () => {});
+              }
+            } catch (e) { /* malformed data attr — skip */ }
+          }
           // Also remove from sticky errors if present
           if (btn.dataset.sticky) {
             const stickyStored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_STICKY_KEY, r => resolve(r[PUB_SCAN_STICKY_KEY])));

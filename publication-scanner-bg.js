@@ -12,7 +12,7 @@ const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
 const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache_v2';
 const PUB_SCAN_SPELL_VERSION_KEY = 'pubScanSpellVersion';
-const PUB_SCAN_SPELL_VERSION = 3; // Bumped: switched from Haiku AI to LanguageTool API
+const PUB_SCAN_SPELL_VERSION = 4; // Bumped: structured spellWords + learned whitelist filter
 const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
 const STICKY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
@@ -230,7 +230,16 @@ async function runPhase2Checks(editData, dictMap, itemId) {
   }
   if (spellingErrors.length > 0) {
     const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
-    issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical' });
+    // Carry the structured pairs through so the dashboard's ✕ (Ignorera) can
+    // record the flagged word(s) as correct. Tag each with a confidence so the
+    // whitelist write knows whether to instant-promote (different-word false
+    // positive) or require N independent dismissals (plausible near-edit typo).
+    const spellWords = spellingErrors.map(e => ({
+      word: e.word,
+      correction: e.correction,
+      confidence: classifyFlag(e.word, e.correction) // 'different-word' | 'near-edit'
+    }));
+    issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical', spellWords });
   }
 
   // Repeated measurement units
@@ -364,6 +373,11 @@ async function checkSpellingLanguageTool(text) {
         // Only spelling errors — skip grammar, style, typography
         enabledCategories: 'TYPOS,SPELLING',
         disabledCategories: 'GRAMMAR,STYLE,TYPOGRAPHY,PUNCTUATION,CASING'
+        // NB: Swedish spellchecking is HUNSPELL_RULE — it can't be split into
+        // "known word" vs "unknown word"; the SAME rule flags real typos
+        // (byrä→byrå) and false positives (bemålning→oljemålning). So the
+        // firehose can't be tamed at the LT level. We filter on our side via
+        // the curated dictionary + the learned whitelist (see validateSpellingResults).
       }),
       signal: controller.signal
     });
@@ -397,17 +411,80 @@ async function checkSpellingLanguageTool(text) {
 
 function validateSpellingResults(results) {
   const safe = safeWordsSet || new Set();
+  const learned = learnedWhitelist; // dynamic, shared via the Worker
   return results.filter(result => {
     const original = result.word.toLowerCase();
     const correction = result.correction.toLowerCase();
-    // Reject if the original word is a known safe word
+    // Reject if the original word is a known safe word (static dictionary)
     if (safe.has(original)) return false;
+    // Reject if the word is in the learned shared whitelist (employees said it's fine)
+    if (learned && learned.has(original)) return false;
     // Reject corrections with triple consecutive identical letters (e.g., "glassservis")
     if (/(.)\1\1/.test(correction)) return false;
     // Reject if original looks like a proper noun / brand (starts uppercase, not ALL CAPS)
     if (/^[A-ZÅÄÖÜ][a-zåäöü]/.test(result.word) && !/^[A-ZÅÄÖÜ]+$/.test(result.word)) return false;
     return true;
   });
+}
+
+// ─── Learned whitelist (shared via Cloudflare Worker) ───────────────
+// Words employees have confirmed are correct (by dismissing the flag).
+// Loaded once per scan run, cached ~30 min. Applied in validateSpellingResults
+// so a confirmed word never flags again, on any item, for anyone.
+let learnedWhitelist = null;        // Set<string> of lowercase words
+let learnedWhitelistFetchedAt = 0;
+const WHITELIST_TTL_MS = 30 * 60 * 1000;
+
+async function loadLearnedWhitelist(force = false) {
+  const fresh = Date.now() - learnedWhitelistFetchedAt < WHITELIST_TTL_MS;
+  if (learnedWhitelist && fresh && !force) return learnedWhitelist;
+  const scFetch = globalThis.__spellcheckFetch;
+  if (!scFetch) { learnedWhitelist = learnedWhitelist || new Set(); return learnedWhitelist; }
+  try {
+    const rows = await scFetch('GET', '/whitelist?status=active');
+    if (Array.isArray(rows)) {
+      learnedWhitelist = new Set(rows.map(r => String(r.word).toLowerCase()));
+      learnedWhitelistFetchedAt = Date.now();
+    }
+  } catch (e) {
+    // Keep whatever we had; don't break scanning if the backend is unreachable.
+    learnedWhitelist = learnedWhitelist || new Set();
+  }
+  return learnedWhitelist;
+}
+
+// Classify a flag's confidence as a false positive, from the suggestion shape.
+// "different word" (bemålning→oljemålning) ⇒ near-certain false positive ⇒
+// instant whitelist. "near-edit" (byrä→byrå) ⇒ might be a real typo ⇒ needs N
+// independent dismissals. Returns 'different-word' | 'near-edit'.
+function classifyFlag(word, correction) {
+  if (!word || !correction) return 'near-edit';
+  const w = word.toLowerCase(), c = correction.toLowerCase();
+  const dist = levenshtein(w, c);
+  let prefix = 0;
+  for (let i = 0; i < Math.min(w.length, c.length); i++) {
+    if (w[i] === c[i]) prefix++; else break;
+  }
+  const muchLonger = c.length > w.length + 2;
+  // Small edit AND not a wholesale lengthening ⇒ plausible real typo.
+  if (dist <= 2 && !muchLonger) return 'near-edit';
+  // Big edit, or the "correction" is a different/longer word ⇒ false positive.
+  // Extra signal: shared prefix < 3 means different stem (bemålning vs oljemålning).
+  return (dist >= 3 || prefix < 3) ? 'different-word' : 'near-edit';
+}
+
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+    }
+  }
+  return d[m][n];
 }
 
 function checkSpellingDict(text, dictMap) {
@@ -451,8 +528,9 @@ export async function runBackgroundPublicationScan() {
     // Reset spell cache to load fresh from storage
     spellCache = null;
 
-    // Load dictionary
+    // Load dictionary + learned shared whitelist
     const dictMap = await loadMisspellingsMap();
+    await loadLearnedWhitelist();
 
     reportProgress('Hämtar publiceringslista...');
 
@@ -721,6 +799,7 @@ export async function recheckStickyErrors() {
     }
 
     const dictMap = await loadMisspellingsMap();
+    await loadLearnedWhitelist();
     await ensureOffscreen();
 
     const now = Date.now();

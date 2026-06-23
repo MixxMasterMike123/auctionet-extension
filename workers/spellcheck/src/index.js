@@ -155,16 +155,22 @@ async function getWhitelist(db, url) {
   return json(results || []);
 }
 
-// Promotion threshold: a word flips pending → active once enough independent
-// ignores accumulate. "Balanced" policy (recommended); change PROMOTE_AT to 1
-// for "aggressive" or disable promotion entirely for "conservative".
-const PROMOTE_AT = 3;
+// Promotion thresholds: a word flips pending → active once enough independent
+// dismissals accumulate. Confidence comes from the flag's suggestion shape:
+//   - 'different-word'  (e.g. bemålning→oljemålning): near-certain false
+//     positive ⇒ promote on the FIRST dismissal.
+//   - 'near-edit'       (e.g. byrä→byrå): could be a real typo someone is
+//     skipping ⇒ require several independent dismissals before going global.
+const PROMOTE_AT_NEAR_EDIT = 3;
+const PROMOTE_AT_DIFFERENT_WORD = 1;
 
 async function postWhitelist(db, body) {
   const raw = typeof body.word === 'string' ? body.word.trim().toLowerCase() : '';
   if (!raw || raw.length > 100) return err('word required (1-100 chars)');
   // Only allow letter-ish tokens (incl. Swedish + common diacritics + hyphen).
   if (!/^[\p{L}][\p{L}\-'.]*$/u.test(raw)) return err('word has invalid characters');
+  const promoteAt =
+    body.confidence === 'different-word' ? PROMOTE_AT_DIFFERENT_WORD : PROMOTE_AT_NEAR_EDIT;
   await db
     .prepare(
       `INSERT INTO spellcheck_whitelist (word, ignore_count, status, added_by, added_at)
@@ -173,14 +179,14 @@ async function postWhitelist(db, body) {
     )
     .bind(raw, body.added_by ?? null, nowIso())
     .run();
-  // Auto-promote if threshold reached and not already decided.
+  // Auto-promote if this confidence's threshold is reached and not already decided.
   await db
     .prepare(
       `UPDATE spellcheck_whitelist
        SET status = 'active', promoted_at = ?
        WHERE word = ? AND status = 'pending' AND ignore_count >= ?`
     )
-    .bind(nowIso(), raw, PROMOTE_AT)
+    .bind(nowIso(), raw, promoteAt)
     .run();
   const row = await db
     .prepare('SELECT word, ignore_count, status FROM spellcheck_whitelist WHERE word = ?')
