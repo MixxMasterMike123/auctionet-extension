@@ -145,11 +145,12 @@ async function getWhitelist(db, url) {
   if (!['active', 'pending', 'rejected', 'all'].includes(status)) {
     return err('invalid status');
   }
+  const cols = 'word, ignore_count, status, added_by, added_at, promoted_at';
   const stmt =
     status === 'all'
-      ? db.prepare('SELECT word, ignore_count, status FROM spellcheck_whitelist')
+      ? db.prepare(`SELECT ${cols} FROM spellcheck_whitelist ORDER BY added_at DESC`)
       : db
-          .prepare('SELECT word, ignore_count, status FROM spellcheck_whitelist WHERE status = ?')
+          .prepare(`SELECT ${cols} FROM spellcheck_whitelist WHERE status = ? ORDER BY added_at DESC`)
           .bind(status);
   const { results } = await stmt.all();
   return json(results || []);
@@ -200,6 +201,22 @@ async function postWhitelist(db, body) {
   return json(row);
 }
 
+// Manually set a word's status (review view): 'active' (promote), 'rejected'
+// (this word IS a real typo — stop whitelisting it), or 'pending' (un-decide).
+async function setWhitelistStatus(db, body) {
+  const raw = typeof body.word === 'string' ? body.word.trim().toLowerCase() : '';
+  const status = body.status;
+  if (!raw) return err('word required');
+  if (!['active', 'rejected', 'pending'].includes(status)) return err('invalid status');
+  const promotedAt = status === 'active' ? nowIso() : null;
+  const res = await db
+    .prepare('UPDATE spellcheck_whitelist SET status = ?, promoted_at = ? WHERE word = ?')
+    .bind(status, promotedAt, raw)
+    .run();
+  if (!res.meta || res.meta.changes === 0) return err('word not found', 404);
+  return json({ ok: true, word: raw, status });
+}
+
 // ─── Entry point ────────────────────────────────────────────────────────────
 export default {
   async fetch(request, env) {
@@ -245,6 +262,8 @@ export default {
       } else if (path === '/whitelist') {
         if (request.method === 'GET') return await getWhitelist(db, url);
         if (request.method === 'POST') return await postWhitelist(db, body);
+      } else if (path === '/whitelist/status') {
+        if (request.method === 'POST') return await setWhitelistStatus(db, body);
       } else {
         return err('not found', 404);
       }

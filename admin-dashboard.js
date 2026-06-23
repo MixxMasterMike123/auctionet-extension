@@ -1188,22 +1188,34 @@
         if (!word || btn.dataset.done) return;
         btn.dataset.done = '1'; // guard against double-fire (click + keydown)
         const confidence = btn.dataset.confidence || 'near-edit';
-        // Record locally too, so this browser stops flagging the word immediately
-        // (the background whitelist refreshes on its own ~30-min cycle).
-        try {
-          const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY, r => resolve(r[PUB_SCAN_LOCAL_WHITELIST_KEY])));
-          const local = stored || {};
-          local[word.toLowerCase()] = true;
-          await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_LOCAL_WHITELIST_KEY]: local }, resolve));
-        } catch (e) { /* local cache optional */ }
-        // Shared whitelist — Cloudflare Worker (fire-and-forget, confidence-tiered)
-        safeSendMessage({ type: 'spellcheck-fetch', method: 'POST', path: '/whitelist', body: { word, confidence, added_by: getCurrentEmployeeName() } });
-        // Optimistic UI: drop this chip; if it was the last one on the row, fade the row.
+
+        // Optimistic UI: drop this chip from the current view immediately.
         const chip = btn.closest('.ext-pubscan__spell-chip');
         const chipRow = btn.closest('.ext-pubscan__spell-chips');
         if (chip) chip.remove();
         if (chipRow && chipRow.querySelectorAll('.ext-pubscan__spell-chip').length === 0) {
           chipRow.remove();
+        }
+
+        // Shared whitelist — Cloudflare Worker (confidence-tiered). The response
+        // tells us the resulting status.
+        const resp = await safeSendMessage({
+          type: 'spellcheck-fetch', method: 'POST', path: '/whitelist',
+          body: { word, confidence, added_by: getCurrentEmployeeName() }
+        });
+        const status = resp?.success ? resp.data?.status : null;
+
+        // Only mirror to the LOCAL whitelist once the word is genuinely 'active'.
+        // Mirroring 'pending' words would hide them from this browser forever,
+        // freezing ignore_count at 1 so they could never reach the threshold.
+        // (Promote pending words via the "Granska ordlista" review view.)
+        if (status === 'active') {
+          try {
+            const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY, r => resolve(r[PUB_SCAN_LOCAL_WHITELIST_KEY])));
+            const local = stored || {};
+            local[word.toLowerCase()] = true;
+            await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_LOCAL_WHITELIST_KEY]: local }, resolve));
+          } catch (e) { /* local cache optional */ }
         }
       };
       btn.addEventListener('click', confirmWord);
