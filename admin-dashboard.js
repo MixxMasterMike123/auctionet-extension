@@ -57,35 +57,19 @@
   // ─── DOM Scrapers ─────────────────────────────────────────────────
 
   function scrapeRequestedActions() {
+    // Redesigned overview (2026): reminders are <a class="test-requested-action-*">
+    // links inside "Viktiga påminnelser", each containing "<count> <label>" text.
     const actions = [];
-    document.querySelectorAll('.requested-actions__action').forEach(el => {
-      const link = el.querySelector('a');
-      const strong = el.querySelector('strong');
-      if (!link || !strong) return;
-      const text = strong.textContent.trim();
+    document.querySelectorAll('a[class*="test-requested-action"]').forEach(link => {
+      const text = link.textContent.trim();
       const countMatch = text.match(/(\d+)/);
       const count = countMatch ? parseInt(countMatch[1]) : 0;
-      const label = text.replace(/^\d+\s*/, '');
+      const label = text.replace(/^\D*\d+\s*/, '').trim();
       const href = link.getAttribute('href');
+      if (!label) return;
       actions.push({ count, label, href });
     });
     return actions;
-  }
-
-  function scrapeSidebarCounts() {
-    const counts = [];
-    document.querySelectorAll('.well--nav-list a').forEach(link => {
-      const text = link.textContent.trim();
-      const countMatch = text.match(/\((\d[\d\s]*)\)\s*$/);
-      if (!countMatch) return;
-      const count = parseInt(countMatch[1].replace(/\s/g, ''));
-      const label = text.replace(/\([\d\s]+\)\s*$/, '').replace(/^\s*/, '').trim();
-      // Remove font-awesome icon text artifacts
-      const cleanLabel = label.replace(/^\s+/, '');
-      const href = link.getAttribute('href');
-      counts.push({ count, label: cleanLabel, href });
-    });
-    return counts;
   }
 
   function scrapeDailyGoal() {
@@ -100,52 +84,6 @@
       goal: parseInt(match[2]),
       sek: parseInt(match[3].replace(/\s/g, ''))
     };
-  }
-
-  function scrapeFlowStats() {
-    const table = document.querySelector('.auction-company-stats table');
-    if (!table) return [];
-    const rows = [];
-    table.querySelectorAll('tbody tr').forEach(tr => {
-      const cells = tr.querySelectorAll('th, td');
-      if (cells.length < 9) return;
-      // Parse avg valuation "1421 / 1511 / 1450" → {sold, unsold, all}
-      function parseTriple(str) {
-        const parts = str.split('/').map(s => parseNumber(s.trim()));
-        return { sold: parts[0] || 0, unsold: parts[1] || 0, all: parts[2] || 0 };
-      }
-      rows.push({
-        period: cells[0].textContent.trim(),
-        created: parseNumber(cells[1].textContent),
-        published: parseNumber(cells[2].textContent),
-        sold: parseNumber(cells[3].textContent),
-        recalled: parseNumber(cells[4].textContent),
-        recallPct: parseNumber(cells[5].textContent),
-        avgValuation: parseTriple(cells[6].textContent),
-        avgReserve: parseTriple(cells[7].textContent),
-        avgPrice: parseNumber(cells[8].textContent)
-      });
-    });
-    return rows;
-  }
-
-  function scrapeCatalogerStats() {
-    const table = document.querySelector('.test-cataloger-stats');
-    if (!table) return [];
-    const catalogers = [];
-    table.querySelectorAll('tbody tr').forEach(tr => {
-      const cells = tr.querySelectorAll('td');
-      if (cells.length < 5) return;
-      catalogers.push({
-        name: cells[0].textContent.trim(),
-        today: parseNumber(cells[1].textContent),
-        yesterday: parseNumber(cells[2].textContent),
-        lastMonth: parseNumber(cells[3].textContent),
-        weeklyAvg: parseNumber(cells[4].getAttribute('data-sort-value') || cells[4].textContent),
-        monthlyAvg: parseNumber(cells[5].getAttribute('data-sort-value') || cells[5].textContent)
-      });
-    });
-    return catalogers;
   }
 
   // ─── DOM Scraper: Comments ──────────────────────────────────────
@@ -229,9 +167,10 @@
 
   async function renderKPICards() {
     const actions = scrapeRequestedActions();
-    const sidebar = scrapeSidebarCounts();
 
-    // ── Row 1: Action items (from Auctionet alerts + sidebar counts) ──
+    // ── Row 1: Action items (from Auctionet "Viktiga påminnelser" alerts) ──
+    // Note: the sidebar count cards were removed in the 2026 redesign — the new
+    // left nav (.site-menu) no longer exposes per-section counts to scrape.
     const actionCards = [];
 
     actions.forEach(a => {
@@ -239,19 +178,8 @@
       if (/reklamation|ångerrätt/i.test(a.label)) { color = 'red'; icon = 'fas fa-reply'; }
       else if (/värdering/i.test(a.label)) { color = 'orange'; icon = 'fas fa-balance-scale'; }
       else if (/export/i.test(a.label)) { color = 'yellow'; icon = 'fas fa-globe'; }
+      else if (/omlist/i.test(a.label)) { color = 'yellow'; icon = 'fas fa-redo'; }
       actionCards.push({ ...a, color, icon });
-    });
-
-    const keyLabels = ['Opublicerbara', 'Hantera sålda', 'Hantera plocklista', 'Omlistas ej'];
-    sidebar.forEach(s => {
-      if (keyLabels.some(k => s.label.includes(k))) {
-        let color = 'blue', icon = 'fas fa-box';
-        if (/opublicer/i.test(s.label)) { color = 'orange'; icon = 'fas fa-ban'; }
-        else if (/sålda/i.test(s.label)) { color = 'green'; icon = 'fas fa-check-circle'; }
-        else if (/plocklista/i.test(s.label)) { color = 'blue'; icon = 'fas fa-dolly'; }
-        else if (/omlistas/i.test(s.label)) { color = 'yellow'; icon = 'fas fa-redo'; }
-        actionCards.push({ count: s.count, label: s.label, href: s.href, color, icon });
-      }
     });
 
     // ── Row 2: Insight cards (daily stats, comments, reklamation tracking) ──
@@ -358,215 +286,26 @@
       container.appendChild(insightRow);
     }
 
-    // Insert before the requested-actions div
-    const target = document.querySelector('.requested-actions') || document.querySelector('.view');
-    if (target) {
-      target.parentNode.insertBefore(container, target);
-      const origActions = document.querySelector('.requested-actions');
-      if (origActions) origActions.style.display = 'none';
+    // Insert at the top of the overview content. The legacy .requested-actions
+    // container no longer exists (2026 redesign moved reminders into
+    // "Viktiga påminnelser"), so anchor to the first heading inside .view and
+    // place our cards above it. Native reminders are left in place.
+    const view = document.querySelector('.view');
+    const firstHeading = view ? view.querySelector('h2') : null;
+    if (firstHeading && firstHeading.parentNode) {
+      firstHeading.parentNode.insertBefore(container, firstHeading);
+    } else if (view) {
+      view.insertBefore(container, view.firstChild);
     }
   }
 
-  // ─── 2. Daily Registration Count (insight card) ─────────────────
+  // Daily registration count is rendered inline within renderKPICards
+  // (via scrapeDailyGoal). The former Pipeline Funnel, Cataloger Leaderboard,
+  // Pricing Insights and Inventory Health widgets were removed in the 2026
+  // Auctionet redesign — their on-page data sources no longer exist; those
+  // metrics now live in Auctionet's own "Datainsikter" Metabase embed.
 
-  // ─── 3. Pipeline Funnel ───────────────────────────────────────────
-
-  function renderPipelineFunnel() {
-    const stats = scrapeFlowStats();
-    if (stats.length === 0) return;
-
-    // Use 30-day row for the main funnel
-    const row30 = stats.find(r => /30 dag/i.test(r.period));
-    if (!row30) return;
-
-    // YoY comparison
-    const lastWeek = stats.find(r => /^Förra veckan$/i.test(r.period));
-    const lastWeekYoY = stats.find(r => /för ett år sedan/i.test(r.period));
-
-    const stages = [
-      { label: 'Inskrivet', count: row30.created, color: '#006ccc' },
-      { label: 'Publicerat', count: row30.published, color: '#17a2b8' },
-      { label: 'Sålt', count: row30.sold, color: '#28a745' },
-      { label: 'Återrop', count: row30.recalled, color: '#dc3545' }
-    ];
-
-    // Calculate conversion rates
-    const convRates = [];
-    convRates.push(row30.created > 0 ? Math.round((row30.published / row30.created) * 100) : 0);
-    convRates.push(row30.published > 0 ? Math.round((row30.sold / row30.published) * 100) : 0);
-    convRates.push(null); // no conversion for recall
-
-    // YoY items
-    let yoyHTML = '';
-    if (lastWeek && lastWeekYoY) {
-      const items = [
-        yoyItemHTML('Inskrivet', pctChange(lastWeek.created, lastWeekYoY.created)),
-        yoyItemHTML('Sålt', pctChange(lastWeek.sold, lastWeekYoY.sold)),
-        yoyItemHTML('Snittpris', pctChange(lastWeek.avgPrice, lastWeekYoY.avgPrice)),
-        yoyItemHTML('Återrop', pctChange(lastWeek.recallPct, lastWeekYoY.recallPct), true)
-      ].filter(Boolean);
-
-      if (items.length > 0) {
-        yoyHTML = `
-          <div class="ext-pipeline__yoy">
-            <span style="font-size: 11px; color: #888; font-weight: 600;">Vecka mot vecka (YoY):</span>
-            ${items.join('')}
-          </div>`;
-      }
-    }
-
-    const pipeline = document.createElement('div');
-    pipeline.className = 'ext-pipeline ext-animate-in';
-    pipeline.innerHTML = `
-      <div class="ext-pipeline__title">Flöde senaste 30 dagar</div>
-      <div class="ext-pipeline__funnel">
-        ${stages.map((s, i) => `
-          ${i > 0 ? '<span class="ext-pipeline__arrow">›</span>' : ''}
-          <div class="ext-pipeline__stage" style="background: ${s.color};">
-            <div class="ext-pipeline__stage-count">${s.count.toLocaleString('sv-SE')}</div>
-            <div class="ext-pipeline__stage-label">${s.label}</div>
-            ${i < convRates.length && convRates[i] !== null ? `<div class="ext-pipeline__stage-rate">${convRates[i]}%</div>` : ''}
-          </div>
-        `).join('')}
-      </div>
-      ${yoyHTML}
-    `;
-
-    // Insert before the flow stats table
-    const statsDiv = document.getElementById('statistics');
-    if (statsDiv) {
-      statsDiv.parentNode.insertBefore(pipeline, statsDiv);
-    }
-  }
-
-  // ─── 4. Cataloger Leaderboard Enhancement ─────────────────────────
-
-  function enhanceCatalogerTable() {
-    const table = document.querySelector('.test-cataloger-stats');
-    if (!table) return;
-
-    const catalogers = scrapeCatalogerStats();
-    if (catalogers.length === 0) return;
-
-    // Find max monthly count for bar scaling
-    const maxMonth = Math.max(...catalogers.map(c => c.lastMonth), 1);
-    const maxMonthlyAvg = Math.max(...catalogers.map(c => c.monthlyAvg), 1);
-
-    // Find top performer (by monthly average)
-    const topPerformer = catalogers.reduce((best, c) => c.monthlyAvg > best.monthlyAvg ? c : best, catalogers[0]);
-
-    // Enhance each row
-    const rows = table.querySelectorAll('tbody tr');
-    rows.forEach((tr, i) => {
-      if (i >= catalogers.length) return;
-      const cat = catalogers[i];
-      const cells = tr.querySelectorAll('td');
-
-      // Add top performer badge to name
-      if (cat.name === topPerformer.name && topPerformer.monthlyAvg > 0) {
-        cells[0].innerHTML += ' <span class="ext-leaderboard-badge">★ Topp</span>';
-      }
-
-      // Add bar to last month cell (index 3)
-      if (cells[3] && cat.lastMonth > 0) {
-        const barWidth = (cat.lastMonth / maxMonth) * 100;
-        cells[3].classList.add('ext-bar-cell');
-        cells[3].style.position = 'relative';
-        const originalText = cells[3].textContent;
-        cells[3].innerHTML = `
-          <div class="ext-bar-cell__bar" style="width: ${barWidth}%;"></div>
-          <span class="ext-bar-cell__value">${originalText}</span>
-        `;
-      }
-
-      // Color-code zero cells more visibly
-      cells.forEach((cell, ci) => {
-        if (ci > 0 && cell.textContent.trim() === '0') {
-          cell.style.color = '#ccc';
-        }
-      });
-    });
-  }
-
-  // ─── 5. Pricing Insights ──────────────────────────────────────────
-
-  function renderPricingInsights() {
-    const stats = scrapeFlowStats();
-    if (stats.length === 0) return;
-
-    const row7 = stats.find(r => /7 dag/i.test(r.period));
-    const row30 = stats.find(r => /30 dag/i.test(r.period));
-    const row1y = stats.find(r => /1 år/i.test(r.period));
-
-    if (!row30) return;
-
-    const cards = [];
-
-    // Average price with trend
-    if (row30.avgPrice > 0) {
-      const trend7vs30 = row7 ? pctChange(row7.avgPrice, row30.avgPrice) : null;
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Snittpris (30 dagar)</div>
-          <div class="ext-insight-card__value">${formatSEK(row30.avgPrice)} SEK</div>
-          ${row7 ? `<div class="ext-insight-card__detail">7 dagar: ${formatSEK(row7.avgPrice)} SEK ${trendHTML(trend7vs30)}</div>` : ''}
-          ${row1y ? `<div class="ext-insight-card__detail">1 år: ${formatSEK(row1y.avgPrice)} SEK</div>` : ''}
-        </div>
-      `);
-    }
-
-    // Valuation accuracy: avg valuation (sold) vs avg price
-    if (row30.avgValuation.sold > 0 && row30.avgPrice > 0) {
-      const accuracy = (row30.avgPrice / row30.avgValuation.sold) * 100;
-      const accuracyColor = accuracy >= 90 && accuracy <= 110 ? '#28a745' : accuracy >= 80 ? '#e65100' : '#dc3545';
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Värderingsträff</div>
-          <div class="ext-insight-card__value" style="color: ${accuracyColor}">${accuracy.toFixed(0)}%</div>
-          <div class="ext-insight-card__detail">Snittpris ${formatSEK(row30.avgPrice)} vs värdering ${formatSEK(row30.avgValuation.sold)} SEK</div>
-        </div>
-      `);
-    }
-
-    // Reserve coverage: avg reserve vs avg price
-    if (row30.avgReserve.sold > 0 && row30.avgPrice > 0) {
-      const coverage = (row30.avgPrice / row30.avgReserve.sold) * 100;
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Utropstäckning</div>
-          <div class="ext-insight-card__value">${coverage.toFixed(0)}%</div>
-          <div class="ext-insight-card__detail">Snittpris ${formatSEK(row30.avgPrice)} vs bevakning ${formatSEK(row30.avgReserve.sold)} SEK</div>
-        </div>
-      `);
-    }
-
-    // Recall rate
-    if (row30.recallPct >= 0) {
-      const recallColor = row30.recallPct <= 5 ? '#28a745' : row30.recallPct <= 10 ? '#e65100' : '#dc3545';
-      const trend = row1y ? pctChange(row30.recallPct, row1y.recallPct) : null;
-      cards.push(`
-        <div class="ext-insight-card">
-          <div class="ext-insight-card__label">Återropsandel (30 dagar)</div>
-          <div class="ext-insight-card__value" style="color: ${recallColor}">${row30.recallPct.toFixed(1)}%</div>
-          ${row1y ? `<div class="ext-insight-card__detail">1 år: ${row1y.recallPct.toFixed(1)}% ${trendHTML(trend, true)}</div>` : ''}
-        </div>
-      `);
-    }
-
-    if (cards.length === 0) return;
-
-    const grid = document.createElement('div');
-    grid.className = 'ext-insights-grid ext-animate-in';
-    grid.innerHTML = cards.join('');
-
-    // Insert before the flow stats table
-    const statsDiv = document.getElementById('statistics');
-    if (statsDiv) {
-      statsDiv.parentNode.insertBefore(grid, statsDiv);
-    }
-  }
-
-  // ─── 5b. Dashboard API: Fixed Sidebar ──────────────────────────────
+  // ─── 2. Dashboard API: Fixed Sidebar ──────────────────────────────
 
   function fmtMSEK(n) { return (n / 1000000).toFixed(1).replace('.', ',') + 'M'; }
 
@@ -795,66 +534,6 @@
       sidebar.classList.add('ext-sb--collapsed');
       const btn = sidebar.querySelector('.ext-sb__toggle');
       if (btn) btn.innerHTML = '&#x25B6;';
-    }
-  }
-
-  // ─── 6. Inventory Health Summary ──────────────────────────────────
-
-  function renderInventoryHealth() {
-    const sidebar = scrapeSidebarCounts();
-    if (sidebar.length === 0) return;
-
-    // Extract relevant counts
-    function findCount(keyword) {
-      const item = sidebar.find(s => s.label.toLowerCase().includes(keyword.toLowerCase()));
-      return item ? item.count : 0;
-    }
-
-    const opub = findCount('Opublicerbara');
-    const sold = findCount('sålda föremål');
-    const relistNo = findCount('Omlistas ej');
-    const transport = findCount('plocklista');
-
-    const total = opub + sold + relistNo + transport;
-    if (total === 0) return;
-
-    const segments = [
-      { label: 'Opublicerbara', count: opub, color: '#e65100' },
-      { label: 'Sålda att hantera', count: sold, color: '#28a745' },
-      { label: 'Omlistas ej', count: relistNo, color: '#f0ad4e' },
-      { label: 'Plocklista', count: transport, color: '#006ccc' }
-    ].filter(s => s.count > 0);
-
-    const inventory = document.createElement('div');
-    inventory.className = 'ext-inventory ext-animate-in';
-    inventory.innerHTML = `
-      <div class="ext-inventory__title">Lagerstatus</div>
-      <div class="ext-inventory__bar">
-        ${segments.map(s => `
-          <div class="ext-inventory__segment" 
-               style="width: ${(s.count / total) * 100}%; background: ${s.color};"
-               title="${s.label}: ${s.count}">
-            ${s.count}
-          </div>
-        `).join('')}
-      </div>
-      <div class="ext-inventory__legend">
-        ${segments.map(s => `
-          <span class="ext-inventory__legend-item">
-            <span class="ext-inventory__legend-dot" style="background: ${s.color};"></span>
-            ${s.label} (${s.count})
-          </span>
-        `).join('')}
-      </div>
-    `;
-
-    // Insert after pipeline funnel or before stats
-    const pipeline = document.querySelector('.ext-pipeline');
-    const statsDiv = document.getElementById('statistics');
-    if (pipeline) {
-      pipeline.parentNode.insertBefore(inventory, pipeline.nextSibling);
-    } else if (statsDiv) {
-      statsDiv.parentNode.insertBefore(inventory, statsDiv);
     }
   }
 
@@ -1876,10 +1555,6 @@
   // ─── Initialize ───────────────────────────────────────────────────
 
   let hasRenderedKPI = false;
-  let hasRenderedPipeline = false;
-  let hasRenderedInsights = false;
-  let hasRenderedInventory = false;
-  let hasRenderedLeaderboard = false;
   let hasRenderedComments = false;
   let hasStartedWarehouseFetch = false;
   let hasStartedPublicationScan = false;
@@ -1887,38 +1562,22 @@
 
   function tryRenderAll() {
     try {
-      // KPI cards — needs .requested-actions (immediate) + sidebar counts (lazy)
-      if (!hasRenderedKPI && document.querySelector('.requested-actions')) {
+      // KPI cards — built from "Viktiga påminnelser" reminder links plus
+      // insight cards (daily goal, comments). Wait until at least one real
+      // signal is present so we don't render an empty set on first paint.
+      const kpiReady = document.querySelector('a[class*="test-requested-action"]') ||
+                       document.querySelector('#comments ul.unstyled li.comment') ||
+                       document.querySelector('.test-new-items');
+      if (!hasRenderedKPI && kpiReady) {
         renderKPICards();
         hasRenderedKPI = true;
       }
 
-      // Pipeline funnel — needs #statistics flow table (immediate)
-      if (!hasRenderedPipeline && document.querySelector('.auction-company-stats table')) {
-        renderPipelineFunnel();
-        hasRenderedPipeline = true;
-      }
-
-      // Pricing insights — needs same flow table
-      if (!hasRenderedInsights && document.querySelector('.auction-company-stats table')) {
-        renderPricingInsights();
-        hasRenderedInsights = true;
-      }
-
-      // Inventory health — needs sidebar nav counts (lazy turbo-frames)
-      if (!hasRenderedInventory) {
-        const sidebar = scrapeSidebarCounts();
-        if (sidebar.length > 0) {
-          renderInventoryHealth();
-          hasRenderedInventory = true;
-        }
-      }
-
-      // Cataloger leaderboard — needs cataloger_stats turbo-frame (lazy)
-      if (!hasRenderedLeaderboard && document.querySelector('.test-cataloger-stats tbody tr td')) {
-        enhanceCatalogerTable();
-        hasRenderedLeaderboard = true;
-      }
+      // Pipeline funnel, Pricing insights, Inventory health and the Cataloger
+      // leaderboard were removed in the 2026 redesign: their data sources
+      // (.auction-company-stats table, .well--nav-list counts, .test-cataloger-stats)
+      // no longer exist on the page — those metrics now live in Auctionet's own
+      // Metabase analytics embed (#statistics turbo-frame).
 
       // Comment feed — needs #comments with li.comment entries
       if (!hasRenderedComments && document.querySelector('#comments ul.unstyled li.comment')) {
@@ -1960,9 +1619,8 @@
       tryRenderAll();
 
       // Stop observing once everything has rendered
-      if (hasRenderedKPI && hasRenderedPipeline &&
-          hasRenderedInsights && hasRenderedInventory && hasRenderedLeaderboard &&
-          hasRenderedComments && hasStartedWarehouseFetch && hasStartedPublicationScan &&
+      if (hasRenderedKPI && hasRenderedComments &&
+          hasStartedWarehouseFetch && hasStartedPublicationScan &&
           hasRenderedDashboardAPI) {
         observer.disconnect();
       }
