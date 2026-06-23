@@ -1352,7 +1352,9 @@
       const progress = document.createElement('span');
       progress.className = 'ext-pubscan__inline-progress';
       progress.innerHTML = '<span class="ext-pubscan__spinner"></span> Skannar...';
-      header.insertBefore(progress, runBtn);
+      // runBtn lives inside .ext-pubscan__header-actions, so insert relative to
+      // its actual parent (not `header`, which is no longer its direct parent).
+      runBtn.parentNode.insertBefore(progress, runBtn);
     } else if (!header) {
       // No results yet — show the full loading screen
       renderPublicationLoading('Startar skanning...');
