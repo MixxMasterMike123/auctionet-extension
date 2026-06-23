@@ -718,23 +718,21 @@
       const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_IGNORED_KEY, r => resolve(r[PUB_SCAN_IGNORED_KEY])));
       if (stored) ignoredItems = stored;
     } catch (e) { /* no ignored items */ }
-    // Merge with Supabase shared ignored list
+    // Merge with shared ignored list (Cloudflare Worker; returns a flat array of item_ids)
     try {
-      const sbIgnored = await new Promise((resolve, reject) => {
+      const sharedIgnored = await new Promise((resolve) => {
         chrome.runtime.sendMessage({
-          type: 'supabase-fetch', method: 'GET',
-          path: '/rest/v1/spellcheck_ignored?select=item_id',
-          extraHeaders: { 'Accept': 'application/json' }
+          type: 'spellcheck-fetch', method: 'GET', path: '/ignored'
         }, r => r?.success ? resolve(r.data) : resolve([]));
       });
-      if (Array.isArray(sbIgnored)) {
+      if (Array.isArray(sharedIgnored)) {
         let merged = false;
-        for (const row of sbIgnored) {
-          if (!ignoredItems[row.item_id]) { ignoredItems[row.item_id] = true; merged = true; }
+        for (const id of sharedIgnored) {
+          if (!ignoredItems[id]) { ignoredItems[id] = true; merged = true; }
         }
         if (merged) await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignoredItems }, resolve));
       }
-    } catch (e) { /* Supabase not configured — use local only */ }
+    } catch (e) { /* backend not configured — use local only */ }
 
     // Separate ignored from active
     const activeCritical = (data.critical || []).filter(item => !ignoredItems[item.itemId]);
@@ -1059,12 +1057,10 @@
           const ignored = stored || {};
           ignored[itemId] = true;
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
-          // L2: Supabase shared ignored list (fire-and-forget)
+          // L2: Shared ignored list — Cloudflare Worker (fire-and-forget)
           chrome.runtime.sendMessage({
-            type: 'supabase-fetch', method: 'POST',
-            path: '/rest/v1/spellcheck_ignored',
-            body: { item_id: parseInt(itemId), ignored_at: new Date().toISOString() },
-            extraHeaders: { 'Prefer': 'resolution=merge-duplicates' }
+            type: 'spellcheck-fetch', method: 'POST', path: '/ignored',
+            body: { item_id: parseInt(itemId) }
           }, () => {});
           // Also remove from sticky errors if present
           if (btn.dataset.sticky) {
@@ -1093,10 +1089,10 @@
           const ignored = stored || {};
           delete ignored[itemId];
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
-          // L2: Remove from Supabase shared ignored list (fire-and-forget)
+          // L2: Remove from shared ignored list — Cloudflare Worker (fire-and-forget)
           chrome.runtime.sendMessage({
-            type: 'supabase-fetch', method: 'DELETE',
-            path: `/rest/v1/spellcheck_ignored?item_id=eq.${itemId}`
+            type: 'spellcheck-fetch', method: 'DELETE',
+            path: `/ignored?item_id=${encodeURIComponent(itemId)}`
           }, () => {});
           // Re-render with same scan data
           await renderPublicationResults(data);

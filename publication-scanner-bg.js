@@ -286,12 +286,12 @@ async function getCachedSpellcheck(itemId, text) {
   const entry = cache[itemId];
   if (entry && entry.hash === hash) return entry.results;
 
-  // L2: Supabase shared cache (shared across all users)
-  const supabaseResults = await getSupabaseCachedSpellcheck(itemId, hash);
-  if (supabaseResults !== null) {
-    // Populate L1 with the Supabase result for next time
-    cache[itemId] = { hash, results: supabaseResults };
-    return supabaseResults;
+  // L2: Cloudflare Worker shared cache (shared across all users)
+  const sharedResults = await getSharedCachedSpellcheck(itemId, hash);
+  if (sharedResults !== null) {
+    // Populate L1 with the shared result for next time
+    cache[itemId] = { hash, results: sharedResults };
+    return sharedResults;
   }
 
   return null; // True cache miss — need to check via LanguageTool
@@ -304,53 +304,41 @@ async function setCachedSpellcheck(itemId, text, results) {
   const cache = await loadSpellCache();
   cache[itemId] = { hash, results };
 
-  // L2: Supabase shared cache (fire-and-forget)
-  setSupabaseCachedSpellcheck(itemId, hash, results);
+  // L2: Shared cache (fire-and-forget)
+  setSharedCachedSpellcheck(itemId, hash, results);
 }
 
-// ─── Supabase shared spellcheck cache (L2) ──────────────────────────
+// ─── Cloudflare Worker shared spellcheck cache (L2) ─────────────────
+// Backend status is tracked so it can be surfaced instead of silently failing.
+let sharedBackendStatus = 'unknown'; // unknown | ok | unconfigured | error
+function getSharedBackendStatus() { return sharedBackendStatus; }
 
-async function getSupabaseCachedSpellcheck(itemId, textHash) {
-  const sbFetch = globalThis.__supabaseFetch;
-  if (!sbFetch) return null;
+async function getSharedCachedSpellcheck(itemId, textHash) {
+  const scFetch = globalThis.__spellcheckFetch;
+  if (!scFetch) { sharedBackendStatus = 'unconfigured'; return null; }
 
   try {
-    const data = await sbFetch(
-      'GET',
-      `/rest/v1/spellcheck_cache?item_id=eq.${itemId}&select=text_hash,results`,
-      null,
-      { 'Accept': 'application/json' }
-    );
-    if (Array.isArray(data) && data.length > 0) {
-      const entry = data[0];
-      if (entry.text_hash === textHash) {
-        return entry.results;
-      }
+    // Worker returns {item_id, text_hash, results} on hit, null (404) on miss/stale.
+    const data = await scFetch('GET', `/cache?item_id=${itemId}&hash=${encodeURIComponent(textHash)}`);
+    sharedBackendStatus = 'ok';
+    if (data && data.text_hash === textHash && Array.isArray(data.results)) {
+      return data.results;
     }
   } catch (e) {
-    console.warn('[PubScanBG] Supabase spellcheck cache read failed:', e.message);
+    sharedBackendStatus = e.message.includes('ej konfigurerad') ? 'unconfigured' : `error: ${e.message}`;
   }
   return null;
 }
 
-async function setSupabaseCachedSpellcheck(itemId, textHash, results) {
-  const sbFetch = globalThis.__supabaseFetch;
-  if (!sbFetch) return;
+async function setSharedCachedSpellcheck(itemId, textHash, results) {
+  const scFetch = globalThis.__spellcheckFetch;
+  if (!scFetch) { sharedBackendStatus = 'unconfigured'; return; }
 
   try {
-    await sbFetch(
-      'POST',
-      '/rest/v1/spellcheck_cache',
-      {
-        item_id: itemId,
-        text_hash: textHash,
-        results: results,
-        checked_at: new Date().toISOString()
-      },
-      { 'Prefer': 'resolution=merge-duplicates' }
-    );
+    await scFetch('POST', '/cache', { item_id: itemId, text_hash: textHash, results });
+    sharedBackendStatus = 'ok';
   } catch (e) {
-    console.warn('[PubScanBG] Supabase spellcheck cache write failed:', e.message);
+    sharedBackendStatus = e.message.includes('ej konfigurerad') ? 'unconfigured' : `error: ${e.message}`;
   }
 }
 
@@ -499,7 +487,7 @@ export async function runBackgroundPublicationScan() {
 
     const totalItems = allItems.length;
     if (totalItems === 0) {
-      const result = { _version: 4, scannedAt: new Date().toISOString(), totalItems: 0, critical: [], warnings: [], passed: 0 };
+      const result = { _version: 4, scannedAt: new Date().toISOString(), sharedBackend: getSharedBackendStatus(), totalItems: 0, critical: [], warnings: [], passed: 0 };
       await chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result });
       clearProgress();
       return result;
@@ -598,6 +586,7 @@ export async function runBackgroundPublicationScan() {
     const result = {
       _version: 4,
       scannedAt: new Date().toISOString(),
+      sharedBackend: getSharedBackendStatus(), // ok | unconfigured | error: <msg> | unknown
       totalItems,
       critical,
       warnings,

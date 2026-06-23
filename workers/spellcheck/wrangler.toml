@@ -1,0 +1,13 @@
+name = "auctionet-spellcheck"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+# D1 binding. Created 2026-06-23 in region EEUR.
+[[d1_databases]]
+binding = "DB"                 # available as env.DB in the Worker
+database_name = "auctionet-spellcheck"
+database_id = "3f685ea7-54df-4840-a0cc-f3bba1259016"
+
+# Optional: observability (free). Uncomment if you want request logs in the dashboard.
+# [observability]
+# enabled = true

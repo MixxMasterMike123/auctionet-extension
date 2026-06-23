@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const outletSupabaseUrlInput = document.getElementById('outlet-supabase-url');
   const outletSupabaseKeyInput = document.getElementById('outlet-supabase-key');
   const saveOutletConfigButton = document.getElementById('save-outlet-config');
+  const spellcheckWorkerUrlInput = document.getElementById('spellcheck-worker-url');
+  const saveSpellcheckConfigButton = document.getElementById('save-spellcheck-config');
 
   const adminUI = document.getElementById('admin-ui');
 
@@ -28,6 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadPubScannerSetting();
   await loadDashboardToken();
   await loadOutletConfig();
+  await loadSpellcheckConfig();
   await renderAdminUI();
 
   // Check extension status
@@ -42,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   enablePubScannerCheckbox.addEventListener('change', savePubScannerSetting);
   saveDashboardTokenButton.addEventListener('click', saveDashboardToken);
   saveOutletConfigButton.addEventListener('click', saveOutletConfig);
+  saveSpellcheckConfigButton.addEventListener('click', saveSpellcheckConfig);
   document.getElementById('open-analytics').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('analytics.html') });
   });
@@ -606,6 +610,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       saveOutletConfigButton.disabled = false;
       saveOutletConfigButton.textContent = 'Spara Outlet-inställningar';
+    }
+  }
+
+  async function loadSpellcheckConfig() {
+    try {
+      const { spellcheckWorkerUrl } = await chrome.storage.local.get('spellcheckWorkerUrl');
+      if (spellcheckWorkerUrl) spellcheckWorkerUrlInput.value = spellcheckWorkerUrl;
+    } catch (error) {
+      console.error('Error loading spellcheck config:', error);
+    }
+  }
+
+  async function saveSpellcheckConfig() {
+    const url = spellcheckWorkerUrlInput.value.trim().replace(/\/$/, '');
+    try {
+      saveSpellcheckConfigButton.disabled = true;
+      saveSpellcheckConfigButton.textContent = 'Sparar...';
+      await chrome.storage.local.set({ spellcheckWorkerUrl: url || '' });
+      showStatus(url ? 'Stavningsbackend sparad!' : 'Stavningsbackend borttagen.', 'success');
+    } catch (error) {
+      showStatus('Fel vid sparande: ' + error.message, 'error');
+    } finally {
+      saveSpellcheckConfigButton.disabled = false;
+      saveSpellcheckConfigButton.textContent = 'Spara stavningsbackend';
     }
   }
 });

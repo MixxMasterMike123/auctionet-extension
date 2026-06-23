@@ -1,0 +1,17 @@
+{
+  "name": "auctionet-spellcheck-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker + D1 shared spellcheck backend for the Auctionet extension",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create auctionet-spellcheck",
+    "db:init": "wrangler d1 execute auctionet-spellcheck --remote --file=schema.sql",
+    "db:init:local": "wrangler d1 execute auctionet-spellcheck --local --file=schema.sql",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^4.103.0"
+  }
+}
