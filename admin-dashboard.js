@@ -32,6 +32,14 @@
     catch (e) { return false; }
   }
 
+  // The logged-in employee's name, read from Auctionet's header dropdown.
+  // Used to attribute whitelist additions (added_by). Null if not found.
+  function getCurrentEmployeeName() {
+    const el = document.querySelector('.site-header__employee-name');
+    const name = el ? el.textContent.trim() : '';
+    return name || null;
+  }
+
   // Send a message without ever throwing "Extension context invalidated"
   // (happens when an old content script outlives an extension reload). Returns
   // a promise of the response, or null if the context is gone / errored.
@@ -1189,7 +1197,7 @@
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_LOCAL_WHITELIST_KEY]: local }, resolve));
         } catch (e) { /* local cache optional */ }
         // Shared whitelist — Cloudflare Worker (fire-and-forget, confidence-tiered)
-        safeSendMessage({ type: 'spellcheck-fetch', method: 'POST', path: '/whitelist', body: { word, confidence } });
+        safeSendMessage({ type: 'spellcheck-fetch', method: 'POST', path: '/whitelist', body: { word, confidence, added_by: getCurrentEmployeeName() } });
         // Optimistic UI: drop this chip; if it was the last one on the row, fade the row.
         const chip = btn.closest('.ext-pubscan__spell-chip');
         const chipRow = btn.closest('.ext-pubscan__spell-chips');

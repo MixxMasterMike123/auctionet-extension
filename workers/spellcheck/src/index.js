@@ -171,13 +171,18 @@ async function postWhitelist(db, body) {
   if (!/^[\p{L}][\p{L}\-'.]*$/u.test(raw)) return err('word has invalid characters');
   const promoteAt =
     body.confidence === 'different-word' ? PROMOTE_AT_DIFFERENT_WORD : PROMOTE_AT_NEAR_EDIT;
+  // added_by is free-text (employee name from the page) — bound as a parameter
+  // (no injection) but capped to keep rows sane.
+  const addedBy = typeof body.added_by === 'string' && body.added_by.trim()
+    ? body.added_by.trim().slice(0, 80)
+    : null;
   await db
     .prepare(
       `INSERT INTO spellcheck_whitelist (word, ignore_count, status, added_by, added_at)
        VALUES (?, 1, 'pending', ?, ?)
        ON CONFLICT(word) DO UPDATE SET ignore_count = ignore_count + 1`
     )
-    .bind(raw, body.added_by ?? null, nowIso())
+    .bind(raw, addedBy, nowIso())
     .run();
   // Auto-promote if this confidence's threshold is reached and not already decided.
   await db
