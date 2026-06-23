@@ -810,11 +810,11 @@
         if (!k || seenWords.has(k)) return false;
         seenWords.add(k); return true;
       }).map(sw => `
-        <span class="ext-pubscan__spell-chip" title="Stavning: ${escapeHTML(sw.word)} → ${escapeHTML(sw.correction || '')}">
+        <span class="ext-pubscan__spell-chip ext-pubscan__spell-ok" data-word="${escapeHTML(sw.word)}" data-confidence="${escapeHTML(sw.confidence || 'near-edit')}" data-item-id="${item.itemId}" data-tooltip="Rätt ord — lägg till i ordlistan" role="button" tabindex="0">
           <span class="ext-pubscan__spell-word">${escapeHTML(sw.word)}</span>
           <span class="ext-pubscan__spell-arrow">→</span>
           <span class="ext-pubscan__spell-sugg">${escapeHTML(sw.correction || '')}</span>
-          <span class="ext-pubscan__spell-ok" data-word="${escapeHTML(sw.word)}" data-confidence="${escapeHTML(sw.confidence || 'near-edit')}" data-item-id="${item.itemId}" title="Rätt ord — lägg till i ordlistan">✓</span>
+          <span class="ext-pubscan__spell-check">✓</span>
         </span>
       `).join('');
       const spellRow = spellChips
@@ -1090,12 +1090,14 @@
 
     // Wire up per-word ✓ chips — confirm one word as correct → shared whitelist.
     // Only that word is whitelisted; other flags on the same item are untouched.
-    container.querySelectorAll('.ext-pubscan__spell-ok').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
+    const spellOkBtns = container.querySelectorAll('.ext-pubscan__spell-ok');
+    spellOkBtns.forEach(btn => {
+      const confirmWord = async (e) => {
         e.preventDefault();
         e.stopPropagation();
         const word = btn.dataset.word;
-        if (!word) return;
+        if (!word || btn.dataset.done) return;
+        btn.dataset.done = '1'; // guard against double-fire (click + keydown)
         const confidence = btn.dataset.confidence || 'near-edit';
         // Record locally too, so this browser stops flagging the word immediately
         // (the background whitelist refreshes on its own ~30-min cycle).
@@ -1117,6 +1119,11 @@
         if (chipRow && chipRow.querySelectorAll('.ext-pubscan__spell-chip').length === 0) {
           chipRow.remove();
         }
+      };
+      btn.addEventListener('click', confirmWord);
+      // Keyboard accessibility: Enter/Space activates the chip too.
+      btn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') confirmWord(e);
       });
     });
 
