@@ -650,11 +650,83 @@
   const PUB_SCAN_LOCAL_WHITELIST_KEY = 'pubScanLocalWhitelist'; // { word: true } — instant local mirror of confirmed words
   const PUB_SCAN_HIGH_VALUE_THRESHOLD = 3000; // SEK — items at or above this estimate are "high value"
 
-  function getPublicationInsertTarget() {
-    return document.querySelector('.ext-warehouse')
+  // The wrapper <div> around Auctionet's "Datainsikter" <h2> + #statistics
+  // Metabase embed. Our widgets are inserted ABOVE this so the useful info
+  // (scanner, warehouse) sits at the top of the page.
+  function getDatainsikterWrapper() {
+    const stats = document.getElementById('statistics');
+    return stats ? stats.parentElement : null;
+  }
+
+  // Insert one of our widgets just before the Datainsikter wrapper, keeping a
+  // stable order among our own widgets (warehouse above scanner, etc.).
+  function insertAboveDatainsikter(node) {
+    const wrapper = getDatainsikterWrapper();
+    if (wrapper && wrapper.parentNode) {
+      wrapper.parentNode.insertBefore(node, wrapper);
+      return true;
+    }
+    // Fallback: top of the main view.
+    const view = document.querySelector('.view');
+    if (view) { view.insertBefore(node, view.firstChild); return true; }
+    return false;
+  }
+
+  // ─── Collapsible "Datainsikter" (Auctionet's Metabase embed) ────────
+  // The embed is a ~2000px-tall iframe that dominates the page but isn't
+  // useful for everyday work. Inject a toggle into Auctionet's <h2> heading
+  // and collapse the #statistics block. Collapsed by default; state persists.
+  const DATAINSIKTER_COLLAPSED_KEY = 'datainsikterCollapsed';
+
+  async function makeDatainsikterCollapsible() {
+    const stats = document.getElementById('statistics');
+    if (!stats) return;
+    // Find Auctionet's "Datainsikter" heading (the <h2> sibling above #statistics).
+    const wrapper = stats.parentElement;
+    const heading = wrapper && wrapper.querySelector('h2');
+    if (!heading || heading.dataset.extCollapsible) return; // already wired
+    heading.dataset.extCollapsible = '1';
+
+    // Restore persisted state — default to collapsed.
+    let collapsed = true;
+    try {
+      const stored = await new Promise(resolve =>
+        chrome.storage.sync.get(DATAINSIKTER_COLLAPSED_KEY, r => resolve(r[DATAINSIKTER_COLLAPSED_KEY])));
+      if (stored === false) collapsed = false;
+    } catch (e) { /* default collapsed */ }
+
+    // Build the toggle and make the whole heading clickable.
+    const arrow = document.createElement('span');
+    arrow.className = 'ext-datainsikter-toggle';
+    heading.appendChild(arrow);
+    heading.style.cursor = 'pointer';
+    heading.style.userSelect = 'none';
+
+    const apply = (isCollapsed) => {
+      stats.style.display = isCollapsed ? 'none' : '';
+      arrow.textContent = isCollapsed ? '▸' : '▾';
+      arrow.title = isCollapsed ? 'Visa Datainsikter' : 'Dölj Datainsikter';
+    };
+    apply(collapsed);
+
+    heading.addEventListener('click', () => {
+      collapsed = !collapsed;
+      apply(collapsed);
+      try { chrome.storage.sync.set({ [DATAINSIKTER_COLLAPSED_KEY]: collapsed }); } catch (e) { /* ignore */ }
+    });
+  }
+
+  // Place the scanner just after the warehouse widget if it exists (both above
+  // Datainsikter), otherwise above the Datainsikter wrapper directly.
+  function insertPublicationContainer(node) {
+    const after = document.querySelector('.ext-warehouse')
       || document.querySelector('.ext-inventory')
-      || document.querySelector('.ext-pipeline')
-      || document.getElementById('statistics');
+      || document.querySelector('.ext-pipeline');
+    if (after && after.parentNode) {
+      after.parentNode.insertBefore(node, after.nextSibling);
+      return true;
+    }
+    return insertAboveDatainsikter(node);
   }
 
   function escapeHTML(s) {
@@ -690,9 +762,7 @@
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-pubscan ext-animate-in';
-      const target = getPublicationInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertPublicationContainer(container)) return;
     }
     container.innerHTML = `
       <div class="ext-pubscan__card">
@@ -712,9 +782,7 @@
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-pubscan ext-animate-in';
-      const target = getPublicationInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertPublicationContainer(container)) return;
     }
     container.innerHTML = `
       <div class="ext-pubscan__card">
@@ -736,9 +804,7 @@
       container = document.createElement('div');
       container.className = 'ext-pubscan ext-animate-in';
       container.id = 'ext-pubscan';
-      const target = getPublicationInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertPublicationContainer(container)) return;
     }
 
     // Load ignored items set (L1: local + L2: Supabase shared)
@@ -1513,20 +1579,12 @@
     return new Date(parseInt(m[3]), monthIdx, parseInt(m[1]));
   }
 
-  function getWarehouseInsertTarget() {
-    return document.querySelector('.ext-inventory')
-      || document.querySelector('.ext-pipeline')
-      || document.getElementById('statistics');
-  }
-
   function renderWarehouseLoading() {
     let container = document.querySelector('.ext-warehouse');
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-warehouse ext-animate-in';
-      const target = getWarehouseInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertAboveDatainsikter(container)) return;
     }
     container.innerHTML = `
       <div class="ext-warehouse__loading">
@@ -1572,9 +1630,7 @@
     if (!container) {
       container = document.createElement('div');
       container.className = 'ext-warehouse ext-animate-in';
-      const target = getWarehouseInsertTarget();
-      if (target) target.parentNode.insertBefore(container, target.nextSibling);
-      else return;
+      if (!insertAboveDatainsikter(container)) return;
     }
 
     container.innerHTML = `
@@ -1648,6 +1704,7 @@
   let hasStartedWarehouseFetch = false;
   let hasStartedPublicationScan = false;
   let hasRenderedDashboardAPI = false;
+  let hasMadeDatainsikterCollapsible = false;
 
   function tryRenderAll() {
     try {
@@ -1672,6 +1729,13 @@
       if (!hasRenderedComments && document.querySelector('#comments ul.unstyled li.comment')) {
         renderCommentFeed();
         hasRenderedComments = true;
+      }
+
+      // Make Auctionet's "Datainsikter" Metabase embed collapsible (collapsed
+      // by default). Needs #statistics, which loads lazily via turbo-frame.
+      if (!hasMadeDatainsikterCollapsible && document.getElementById('statistics')) {
+        hasMadeDatainsikterCollapsible = true;
+        makeDatainsikterCollapsible();
       }
 
       // Dashboard API sections — start after KPI cards are in place
@@ -1710,7 +1774,7 @@
       // Stop observing once everything has rendered
       if (hasRenderedKPI && hasRenderedComments &&
           hasStartedWarehouseFetch && hasStartedPublicationScan &&
-          hasRenderedDashboardAPI) {
+          hasRenderedDashboardAPI && hasMadeDatainsikterCollapsible) {
         observer.disconnect();
       }
     });

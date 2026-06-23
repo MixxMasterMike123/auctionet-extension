@@ -1506,3 +1506,23 @@
 .ext-animate-in {
   animation: extFadeIn 0.3s ease-out forwards;
 }
+
+/* Collapsible "Datainsikter" toggle arrow injected into Auctionet's <h2> */
+.ext-datainsikter-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  width: 22px;
+  height: 22px;
+  font-size: 13px;
+  color: #888;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  vertical-align: middle;
+  transition: background 0.15s, color 0.15s;
+}
+h2:hover > .ext-datainsikter-toggle {
+  background: #f0f0f0;
+  color: #333;
+}
