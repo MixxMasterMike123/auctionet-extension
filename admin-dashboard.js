@@ -1109,7 +1109,10 @@
               Senast skannad: ${timeStr} (${relTime}) · ${data.totalItems} föremål granskade
             </div>
           </div>
-          <button class="ext-pubscan__run" title="Kör skanning">Kör nu ↻</button>
+          <div class="ext-pubscan__header-actions">
+            <button class="ext-pubscan__wordlist" title="Granska ordlistan">📖 Ordlista</button>
+            <button class="ext-pubscan__run" title="Kör skanning">Kör nu ↻</button>
+          </div>
         </div>
         <div class="ext-pubscan__body">
           ${bodyHTML}
@@ -1121,8 +1124,9 @@
     // Highlight nav sidebar link based on scan results
     updatePublishableNavLink(criticalCount, warningCount);
 
-    // Wire up button
+    // Wire up buttons
     container.querySelector('.ext-pubscan__run')?.addEventListener('click', () => triggerPublicationScan());
+    container.querySelector('.ext-pubscan__wordlist')?.addEventListener('click', () => openWordlistReview());
 
     // Wire up "Redigera" links
     container.querySelectorAll('.ext-pubscan__edit-link[data-href]').forEach(link => {
@@ -1354,6 +1358,105 @@
       renderPublicationLoading('Startar skanning...');
     }
     safeSendMessage({ type: 'run-publication-scan' });
+  }
+
+  // ─── "Granska ordlista" — whitelist review modal ────────────────────
+  async function openWordlistReview() {
+    // Remove any existing modal
+    document.querySelector('.ext-wordlist-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'ext-wordlist-overlay';
+    overlay.innerHTML = `
+      <div class="ext-wordlist-modal">
+        <div class="ext-wordlist-header">
+          <span class="ext-wordlist-title">📖 Ordlista — godkända stavningar</span>
+          <button class="ext-wordlist-close" title="Stäng">✕</button>
+        </div>
+        <div class="ext-wordlist-body"><div class="ext-wordlist-loading">Hämtar ordlistan…</div></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('.ext-wordlist-close').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+    });
+
+    const body = overlay.querySelector('.ext-wordlist-body');
+    const resp = await safeSendMessage({ type: 'spellcheck-fetch', method: 'GET', path: '/whitelist?status=all' });
+    const rows = (resp?.success && Array.isArray(resp.data)) ? resp.data : null;
+    if (!rows) {
+      body.innerHTML = '<div class="ext-wordlist-empty">Kunde inte hämta ordlistan (backend ej konfigurerad?).</div>';
+      return;
+    }
+    renderWordlistRows(body, rows);
+  }
+
+  function renderWordlistRows(body, rows) {
+    if (rows.length === 0) {
+      body.innerHTML = '<div class="ext-wordlist-empty">Ordlistan är tom. Bekräfta ord via ✓ i publiceringskontrollen.</div>';
+      return;
+    }
+    const order = { pending: 0, active: 1, rejected: 2 };
+    const sorted = [...rows].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+    const statusBadge = (s) => {
+      const map = {
+        active: ['Aktiv', 'ext-wl-badge--active'],
+        pending: ['Väntar', 'ext-wl-badge--pending'],
+        rejected: ['Avvisad', 'ext-wl-badge--rejected']
+      };
+      const [label, cls] = map[s] || [s, ''];
+      return `<span class="ext-wl-badge ${cls}">${label}</span>`;
+    };
+    const rowHTML = (r) => {
+      const by = r.added_by ? ` · ${escapeHTML(r.added_by)}` : '';
+      const cnt = r.ignore_count > 1 ? ` · ${r.ignore_count}×` : '';
+      // Actions depend on current status.
+      let actions = '';
+      if (r.status !== 'active') actions += `<button class="ext-wl-act ext-wl-act--promote" data-word="${escapeHTML(r.word)}" data-to="active" title="Godkänn — sluta flagga överallt">✓ Godkänn</button>`;
+      if (r.status !== 'rejected') actions += `<button class="ext-wl-act ext-wl-act--reject" data-word="${escapeHTML(r.word)}" data-to="rejected" title="Detta är ett riktigt stavfel — flagga igen">✕ Avvisa</button>`;
+      return `
+        <div class="ext-wl-row" data-word="${escapeHTML(r.word)}">
+          <div class="ext-wl-main">
+            <span class="ext-wl-word">${escapeHTML(r.word)}</span>
+            ${statusBadge(r.status)}
+            <span class="ext-wl-meta">${escapeHTML(String(by + cnt).replace(/^ · /, ''))}</span>
+          </div>
+          <div class="ext-wl-actions">${actions}</div>
+        </div>
+      `;
+    };
+    body.innerHTML = `<div class="ext-wordlist-list">${sorted.map(rowHTML).join('')}</div>`;
+
+    body.querySelectorAll('.ext-wl-act').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const word = btn.dataset.word;
+        const to = btn.dataset.to;
+        btn.disabled = true;
+        const resp = await safeSendMessage({
+          type: 'spellcheck-fetch', method: 'POST', path: '/whitelist/status',
+          body: { word, status: to }
+        });
+        if (resp?.success) {
+          // Update local mirror: promoting → suppress here too; rejecting → un-suppress.
+          try {
+            const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY, r => resolve(r[PUB_SCAN_LOCAL_WHITELIST_KEY])));
+            const local = stored || {};
+            if (to === 'active') local[word.toLowerCase()] = true;
+            else delete local[word.toLowerCase()];
+            await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_LOCAL_WHITELIST_KEY]: local }, resolve));
+          } catch (e) { /* optional */ }
+          // Re-fetch and re-render so the row reflects the new status.
+          const refreshed = await safeSendMessage({ type: 'spellcheck-fetch', method: 'GET', path: '/whitelist?status=all' });
+          if (refreshed?.success && Array.isArray(refreshed.data)) renderWordlistRows(body, refreshed.data);
+        } else {
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   async function initPublicationScanner() {
