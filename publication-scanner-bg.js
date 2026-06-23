@@ -576,7 +576,7 @@ export async function runBackgroundPublicationScan() {
 
     const totalItems = allItems.length;
     if (totalItems === 0) {
-      const result = { _version: 6, scannedAt: new Date().toISOString(), sharedBackend: getSharedBackendStatus(), totalItems: 0, critical: [], warnings: [], passed: 0 };
+      const result = { _version: 7, scannedAt: new Date().toISOString(), sharedBackend: getSharedBackendStatus(), totalItems: 0, critical: [], warnings: [], passed: 0 };
       await chrome.storage.local.set({ [PUB_SCAN_CACHE_KEY]: result });
       clearProgress();
       return result;
@@ -663,7 +663,9 @@ export async function runBackgroundPublicationScan() {
         title: item.title,
         editUrl: item.editUrl,
         showUrl: showUrl,
-        issues: allIssues.map(i => typeof i === 'string' ? { text: i, severity: 'warning' } : { text: i.text, severity: i.severity }),
+        issues: allIssues.map(i => typeof i === 'string'
+          ? { text: i, severity: 'warning' }
+          : { text: i.text, severity: i.severity, ...(i.spellWords ? { spellWords: i.spellWords } : {}) }),
         severity: hasCritical ? 'critical' : 'warning',
         imageCount: item.editData ? item.editData.imageCount : (item.hasImage ? null : 0),
         hasKeywords: hasKeywords,
@@ -673,7 +675,7 @@ export async function runBackgroundPublicationScan() {
     });
 
     const result = {
-      _version: 6, // bumped: issues now carry structured spellWords for the learned whitelist
+      _version: 7, // bumped: issues now carry structured spellWords for the learned whitelist
       scannedAt: new Date().toISOString(),
       sharedBackend: getSharedBackendStatus(), // ok | unconfigured | error: <msg> | unknown
       totalItems,
@@ -749,7 +751,9 @@ async function promoteStickyErrors(scanResult) {
         title: item.title,
         editUrl: item.editUrl,
         showUrl: item.showUrl || (item.editUrl ? item.editUrl.replace(/\/edit$/, '') : null),
-        issues: spellingIssues.map(i => typeof i === 'string' ? { text: i, severity: 'critical' } : { text: i.text, severity: i.severity }),
+        issues: spellingIssues.map(i => typeof i === 'string'
+          ? { text: i, severity: 'critical' }
+          : { text: i.text, severity: i.severity, ...(i.spellWords ? { spellWords: i.spellWords } : {}) }),
         estimate: item.estimate || 0,
         firstDetectedAt: sticky[item.itemId]?.firstDetectedAt || now,
         lastCheckedAt: now,

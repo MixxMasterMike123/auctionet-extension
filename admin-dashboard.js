@@ -767,7 +767,11 @@
     const issueGroups = {}; // { issueText: { severity: 'critical'|'warning', items: [] } }
     allItemsWithIssues.forEach(item => {
       item.issues.forEach(issue => {
-        const issueText = typeof issue === 'string' ? issue : issue.text;
+        const isSpell = issue && typeof issue === 'object' && Array.isArray(issue.spellWords);
+        // Group ALL spelling issues under one "Stavfel" header (each item has a
+        // different word combo, so grouping by the full text would make every
+        // item its own singleton group). Per-word chips live on the inner rows.
+        const issueText = isSpell ? 'Stavfel' : (typeof issue === 'string' ? issue : issue.text);
         const issueSeverity = typeof issue === 'string' ? item.severity : issue.severity;
         if (!issueGroups[issueText]) issueGroups[issueText] = { severity: issueSeverity, items: [] };
         issueGroups[issueText].items.push(item);
@@ -1258,7 +1262,7 @@
       const cached = await new Promise(resolve => {
         chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]));
       });
-      if (cached && cached._version === 6) {
+      if (cached && cached._version === 7) {
         await renderPublicationResults(cached);
       } else {
         // Cache missing or from older version — discard and show empty
@@ -1279,7 +1283,7 @@
           const cached = await new Promise(resolve =>
             chrome.storage.local.get(PUB_SCAN_CACHE_KEY, r => resolve(r[PUB_SCAN_CACHE_KEY]))
           );
-          if (cached && cached._version === 6) {
+          if (cached && cached._version === 7) {
             await renderPublicationResults(cached);
           } else {
             renderPublicationEmpty();
