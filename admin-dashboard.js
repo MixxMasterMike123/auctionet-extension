@@ -32,6 +32,23 @@
     catch (e) { return false; }
   }
 
+  // Send a message without ever throwing "Extension context invalidated"
+  // (happens when an old content script outlives an extension reload). Returns
+  // a promise of the response, or null if the context is gone / errored.
+  function safeSendMessage(msg) {
+    if (!extensionAlive()) return Promise.resolve(null);
+    return new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage(msg, resp => {
+          void chrome.runtime.lastError; // swallow async context errors
+          resolve(resp ?? null);
+        });
+      } catch (e) {
+        resolve(null); // synchronous "context invalidated"
+      }
+    });
+  }
+
   function parseNumber(str) {
     if (!str) return 0;
     // Handle Swedish number format: "1 413,24" or "1112" or "15,5"
@@ -731,11 +748,8 @@
     } catch (e) { /* no ignored items */ }
     // Merge with shared ignored list (Cloudflare Worker; returns a flat array of item_ids)
     try {
-      const sharedIgnored = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({
-          type: 'spellcheck-fetch', method: 'GET', path: '/ignored'
-        }, r => r?.success ? resolve(r.data) : resolve([]));
-      });
+      const resp = await safeSendMessage({ type: 'spellcheck-fetch', method: 'GET', path: '/ignored' });
+      const sharedIgnored = resp?.success ? resp.data : [];
       if (Array.isArray(sharedIgnored)) {
         let merged = false;
         for (const id of sharedIgnored) {
@@ -1108,10 +1122,7 @@
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_LOCAL_WHITELIST_KEY]: local }, resolve));
         } catch (e) { /* local cache optional */ }
         // Shared whitelist — Cloudflare Worker (fire-and-forget, confidence-tiered)
-        chrome.runtime.sendMessage({
-          type: 'spellcheck-fetch', method: 'POST', path: '/whitelist',
-          body: { word, confidence }
-        }, () => void chrome.runtime?.lastError);
+        safeSendMessage({ type: 'spellcheck-fetch', method: 'POST', path: '/whitelist', body: { word, confidence } });
         // Optimistic UI: drop this chip; if it was the last one on the row, fade the row.
         const chip = btn.closest('.ext-pubscan__spell-chip');
         const chipRow = btn.closest('.ext-pubscan__spell-chips');
@@ -1144,10 +1155,7 @@
           // NB: item-level ignore silences the whole item but learns NOTHING —
           // a single valid word must never hide a real typo elsewhere on the
           // same item. Word learning is the per-word ✓ chip, handled separately.
-          chrome.runtime.sendMessage({
-            type: 'spellcheck-fetch', method: 'POST', path: '/ignored',
-            body: { item_id: parseInt(itemId) }
-          }, () => {});
+          safeSendMessage({ type: 'spellcheck-fetch', method: 'POST', path: '/ignored', body: { item_id: parseInt(itemId) } });
           // Also remove from sticky errors if present
           if (btn.dataset.sticky) {
             const stickyStored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_STICKY_KEY, r => resolve(r[PUB_SCAN_STICKY_KEY])));
@@ -1176,10 +1184,7 @@
           delete ignored[itemId];
           await new Promise(resolve => chrome.storage.local.set({ [PUB_SCAN_IGNORED_KEY]: ignored }, resolve));
           // L2: Remove from shared ignored list — Cloudflare Worker (fire-and-forget)
-          chrome.runtime.sendMessage({
-            type: 'spellcheck-fetch', method: 'DELETE',
-            path: `/ignored?item_id=${encodeURIComponent(itemId)}`
-          }, () => {});
+          safeSendMessage({ type: 'spellcheck-fetch', method: 'DELETE', path: `/ignored?item_id=${encodeURIComponent(itemId)}` });
           // Re-render with same scan data
           await renderPublicationResults(data);
         } catch (err) {
@@ -1261,7 +1266,7 @@
       // No results yet — show the full loading screen
       renderPublicationLoading('Startar skanning...');
     }
-    chrome.runtime.sendMessage({ type: 'run-publication-scan' });
+    safeSendMessage({ type: 'run-publication-scan' });
   }
 
   async function initPublicationScanner() {
@@ -1325,8 +1330,8 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       const idleMinutes = (Date.now() - pubScanLastVisible) / 60000;
-      if (idleMinutes >= 10 && extensionAlive()) {
-        chrome.runtime.sendMessage({ type: 'run-publication-scan' }, () => void chrome.runtime.lastError);
+      if (idleMinutes >= 10) {
+        safeSendMessage({ type: 'run-publication-scan' });
       }
     }
     pubScanLastVisible = Date.now();
