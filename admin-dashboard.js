@@ -384,7 +384,7 @@
     html += `
       <div class="ext-sb__header">
         <span class="ext-sb__title">Live</span>
-        <button class="ext-sb__toggle" title="Dölj">&#x25C0;</button>
+        <button class="ext-sb__toggle" title="Dölj">&#x25B6;</button>
       </div>
     `;
 
@@ -526,16 +526,17 @@
     sidebar.innerHTML = buildSidebarHTML(data, dashboardAPI);
     document.body.appendChild(sidebar);
 
-    // Push page content to the right
+    // Reserve space on the right for the panel
     document.body.classList.add('ext-has-sidebar');
 
-    // Restore collapsed state
+    // Restore collapsed state. Panel is right-anchored: collapsed shows ◀
+    // ("show"), expanded shows ▶ ("hide → slide off the right edge").
     chrome.storage.sync.get('sidebarCollapsed', (result) => {
       if (result.sidebarCollapsed) {
         sidebar.classList.add('ext-sb--collapsed');
         document.body.classList.add('ext-sidebar-collapsed');
         const btn = sidebar.querySelector('.ext-sb__toggle');
-        if (btn) btn.innerHTML = '&#x25B6;';
+        if (btn) btn.innerHTML = '&#x25C0;';
       }
     });
 
@@ -546,7 +547,7 @@
 
       const isCollapsed = sidebar.classList.toggle('ext-sb--collapsed');
       document.body.classList.toggle('ext-sidebar-collapsed', isCollapsed);
-      btn.innerHTML = isCollapsed ? '&#x25B6;' : '&#x25C0;';
+      btn.innerHTML = isCollapsed ? '&#x25C0;' : '&#x25B6;';
       chrome.storage.sync.set({ sidebarCollapsed: isCollapsed });
     });
   }
@@ -560,7 +561,7 @@
     if (isCollapsed) {
       sidebar.classList.add('ext-sb--collapsed');
       const btn = sidebar.querySelector('.ext-sb__toggle');
-      if (btn) btn.innerHTML = '&#x25B6;';
+      if (btn) btn.innerHTML = '&#x25C0;'; // collapsed on the right → ◀ "show"
     }
   }
 

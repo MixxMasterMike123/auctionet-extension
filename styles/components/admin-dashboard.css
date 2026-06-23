@@ -1180,45 +1180,48 @@
 }
 
 /* ─── Dashboard API: Fixed Sidebar ───────────────────────────────── */
+/* Anchored to the RIGHT edge so it never overlaps Auctionet's own left
+   navigation menu (their 2026 redesign added a left menu toggle that our
+   panel used to cover). */
 .ext-sb {
   position: fixed;
   top: 0;
-  left: 0;
+  right: 0;
   width: 220px;
   height: 100vh;
   background: #fff;
   color: #333;
-  z-index: 9990;
+  z-index: 9000;
   overflow-y: auto;
   overflow-x: hidden;
   font-size: 12px;
-  border-right: 1px solid #e0e0e0;
-  box-shadow: 1px 0 4px rgba(0,0,0,0.06);
+  border-left: 1px solid #e0e0e0;
+  box-shadow: -1px 0 4px rgba(0,0,0,0.06);
   transition: transform 0.25s ease;
   animation: extSlideIn 0.3s ease-out;
 }
 
 @keyframes extSlideIn {
-  from { transform: translateX(-220px); }
+  from { transform: translateX(220px); }
   to { transform: translateX(0); }
 }
 
 .ext-sb--collapsed {
-  transform: translateX(-190px) !important;
+  transform: translateX(190px) !important;
 }
 
 .ext-has-sidebar {
-  margin-left: 220px !important;
-  transition: margin-left 0.25s ease;
+  margin-right: 220px !important;
+  transition: margin-right 0.25s ease;
 }
 
 .ext-has-sidebar.ext-sidebar-collapsed {
-  margin-left: 30px !important;
+  margin-right: 30px !important;
 }
 
 @media (max-width: 1200px) {
-  .ext-sb { transform: translateX(-220px); }
-  .ext-has-sidebar { margin-left: 0 !important; }
+  .ext-sb { transform: translateX(220px); }
+  .ext-has-sidebar { margin-right: 0 !important; }
 }
 
 /* Sidebar scrollbar */
@@ -1266,6 +1269,17 @@
 .ext-sb__toggle:hover {
   background: #f0f0f0;
   color: #333;
+}
+
+/* When collapsed (right-anchored), only the left ~30px sliver is on-screen.
+   Pin the toggle button into that sliver and hide everything else so the
+   panel can always be reopened. */
+.ext-sb--collapsed .ext-sb__header {
+  justify-content: flex-start;
+  padding-left: 3px;
+}
+.ext-sb--collapsed .ext-sb__title {
+  display: none;
 }
 
 /* Sections */
