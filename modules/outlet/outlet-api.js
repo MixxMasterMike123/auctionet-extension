@@ -33,6 +33,18 @@ export class OutletAPI {
   // Returns { success: number, failed: number, errors: string[] }
   async exportItems(items, onProgress) {
     await this.ensureConfig();
+
+    // Verify we're talking to the right backend BEFORE writing anything —
+    // catches a mispasted URL (e.g. the site Worker instead of the data API).
+    const health = await this._outletRequest('GET', '/health').catch(() => null);
+    if (!health || health.service !== 'sas-outlet-api') {
+      throw new Error(
+        'Fel backend-URL: hälsokontrollen svarade inte som sas-outlet-api. ' +
+        'Kontrollera Outlet API URL i extension-popupen (ska vara Workerns URL, ' +
+        't.ex. https://sas-outlet-api.<konto>.workers.dev).'
+      );
+    }
+
     let success = 0;
     let failed = 0;
     const errors = [];

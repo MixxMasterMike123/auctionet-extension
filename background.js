@@ -410,11 +410,13 @@ async function outletApiFetch(method, path, body = null) {
 
   const response = await fetch(url, fetchOpts);
 
-  // 404 is a normal "does not exist" signal, not an error — return null.
-  if (response.status === 404) return null;
+  // For GET lookups a 404 is a normal "does not exist" signal — return null.
+  // For writes (POST/PUT) a 404 means the route doesn't exist, i.e. the
+  // configured URL points at the wrong Worker — that must fail loudly.
+  if (response.status === 404 && method === 'GET') return null;
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Outlet API HTTP ${response.status}: ${errorText}`);
+    throw new Error(`Outlet API HTTP ${response.status} (${url}): ${errorText.slice(0, 300)}`);
   }
 
   const text = await response.text();
