@@ -62,16 +62,20 @@ curl "$BASE/whitelist?status=all"
 | POST | `/ignored` | `{item_id}` | mark item ignored |
 | DELETE | `/ignored?item_id=` | — | un-ignore |
 | GET  | `/whitelist?status=active` | `status=active\|pending\|rejected\|all` | whitelist words |
-| POST | `/whitelist` | `{word}` | add/increment; auto-promotes at threshold |
+| POST | `/whitelist` | `{word, confidence?, added_by?, seed?}` | add/increment; auto-promotes at threshold |
+| POST | `/whitelist/status` | `{word, status}` | review view: promote/reject/un-decide a word |
 | GET  | `/health` | — | liveness |
 
 Reads: public. Writes: rate-limited per IP (120/min) + payload validated.
 
 ## Whitelist promotion policy
 
-In `src/index.js`, `PROMOTE_AT = 3` (Balanced): a word becomes `active` after 3
-independent ignores. Set to `1` for Aggressive (one ignore → active), or remove
-the promotion `UPDATE` for Conservative (manual approval only).
+In `src/index.js` the threshold depends on the flag's `confidence`
+(classified client-side in `modules/spellcheck-confidence.js`):
+`PROMOTE_AT_DIFFERENT_WORD = 1` — a suggestion that's a different word
+(bemålning→oljemålning) is a near-certain false positive, promoted on the
+first dismissal. `PROMOTE_AT_NEAR_EDIT = 3` — a plausible near-edit
+(byrä→byrå) needs 3 independent dismissals before going global.
 
 ## Local dev
 

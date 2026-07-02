@@ -1,5 +1,6 @@
 import { SwedishSpellChecker } from './modules/swedish-spellchecker.js';
 import { BrandValidationManager } from './modules/brand-validation-manager.js';
+import { getSharedWhitelist } from './modules/spellcheck-whitelist.js';
 
 // ── Forbidden words (from ai-rules-config.json) ──
 const FORBIDDEN_WORDS = [
@@ -51,140 +52,121 @@ const ABBREVIATION_PATTERNS = [
   { pattern: /\bev\.\s/i, label: 'ev. → eventuellt' },
 ];
 
-// ── AI Spellcheck via background service worker (Haiku) ──
-// Routes through chrome.runtime.sendMessage like all other extension AI calls
-let aiStats = { calls: 0, errors: 0, found: 0 };
-let hasApiKey = false;
+// ── LanguageTool spellcheck (free, dictionary-based, no hallucinations) ──
+let ltStats = { calls: 0, errors: 0, found: 0 };
+
+// Safe words that LanguageTool may still flag incorrectly
+const SAFE_WORDS = new Set([
+  'anlupet', 'anlupning', 'anlöpning', 'delvist',
+  'glasservis', 'kaffeservis', 'porslinsservis', 'teservis',
+  'serveringsskål', 'serveringsfat',
+  'bultlås', 'smide', 'stramalj', 'plymå', 'röllakan',
+  'chiffonjé', 'pendyl', 'boett', 'karott', 'tablå',
+  'funktionstesterad', 'funktionstested', 'funktionstestad',
+]);
+
+// Rate limiter for LanguageTool free tier (20 req/min, 75K chars/min)
+const ltTimestamps = []; // { time, chars }
+async function waitForLTCapacity(chars) {
+  while (true) {
+    const cutoff = Date.now() - 60000;
+    // Remove entries older than 1 minute
+    while (ltTimestamps.length > 0 && ltTimestamps[0].time < cutoff) ltTimestamps.shift();
+    const reqCount = ltTimestamps.length;
+    const charCount = ltTimestamps.reduce((sum, t) => sum + t.chars, 0);
+    if (reqCount < 18 && charCount + chars < 70000) return; // capacity available
+    await sleep(Math.max(100, ltTimestamps[0].time + 60000 - Date.now() + 100));
+  }
+}
 
 // Load settings from chrome.storage on init
 async function loadSettings() {
   try {
-    const result = await chrome.storage.local.get(['anthropicApiKey']);
-    hasApiKey = !!result.anthropicApiKey;
     const syncResult = await chrome.storage.sync.get(['ownCompanyId', 'excludeCompanyId']);
     const companyId = syncResult.ownCompanyId || syncResult.excludeCompanyId || '48';
     document.getElementById('companyId').value = companyId;
-    const statusEl = document.getElementById('apiStatus');
-    if (hasApiKey) {
-      statusEl.textContent = 'API key found';
-      statusEl.style.color = '#22c55e';
-    } else {
-      statusEl.textContent = 'No API key — set in extension popup';
-      statusEl.style.color = '#f59e0b';
-      document.getElementById('aiEnabled').disabled = true;
-    }
   } catch (e) {
-    // Not running as extension page — allow manual mode
-    console.warn('Not running as extension page, AI spellcheck unavailable');
-    document.getElementById('apiStatus').textContent = 'Open via extension popup for AI spellcheck';
-    document.getElementById('apiStatus').style.color = '#f59e0b';
-    document.getElementById('aiEnabled').disabled = true;
+    console.warn('Not running as extension page');
   }
 }
 loadSettings();
 
-function callBackground(body) {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      reject(new Error('Background script did not respond'));
-    }, 35000);
-    chrome.runtime.sendMessage({
-      type: 'anthropic-fetch',
-      body
-    }, (response) => {
-      clearTimeout(timeoutId);
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else if (response?.success) {
-        resolve(response.data);
-      } else {
-        reject(new Error(response?.error || 'Unknown error'));
-      }
-    });
-  });
-}
+async function languageToolSpellcheck(title, description, condition) {
+  // Build combined text with field offset tracking
+  const fields = [];
+  let combined = '';
+  for (const [field, text] of [['title', title], ['description', description], ['condition', condition]]) {
+    if (!text || text.length < 3) continue;
+    const startOffset = combined.length;
+    combined += (combined ? ' ' : '') + text;
+    fields.push({ field, startOffset, endOffset: combined.length });
+  }
+  if (combined.length < 5) return [];
 
-async function aiSpellcheckItem(title, description, condition) {
-  if (!hasApiKey) return [];
-
-  const parts = [];
-  if (title) parts.push(`Titel: "${title}"`);
-  if (description && description.length >= 10) parts.push(`Beskrivning: "${description}"`);
-  if (condition && condition.length >= 10) parts.push(`Kondition: "${condition}"`);
-  if (parts.length === 0) return [];
-
-  const prompt = `Granska stavningen i denna auktionstext på svenska:
-
-${parts.join('\n')}
-
-Rapportera BARA ord du är 100% säker på är felstavade. Rättningen MÅSTE vara ett verkligt svenskt ord — hitta INTE på nya ord.
-
-Om du är osäker på om ett ord är felstavat, rapportera det INTE. Det är bättre att missa ett stavfel än att föreslå en felaktig rättning.
-
-Exempel på verkliga stavfel:
-- "colier" → "collier"
-- "silverr" → "silver"
-- "brutovikt" → "bruttovikt"
-- "masing" → "mässing"
-
-IGNORERA (rapportera INTE):
-- Ord du inte känner igen (de kan vara korrekta facktermer)
-- Personnamn, konstnärsnamn, ortnamn, varumärken
-- Förkortningar (bl.a, osv, ca, nr, st, resp)
-- Versaler/gemener
-- Grammatik, kommatering, meningsbyggnad
-- Korrekta böjningsformer och pluralformer (anlupet, anlupning, etc.)
-- Korrekta sammansättningar (glasservis, kaffeservis, porslinsservis, teservis)
-- Korrekta facktermer: plymå, karott, karaff, tablå, terrin, chiffonjé, röllakan, intarsia, gouache, pendyl, boett, collier, rivière, cabochon, pavé, solitär
-
-Svara ENBART med JSON (inget annat):
-{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.98,"field":"title|description|condition"}]}
-Om inga stavfel: {"issues":[]}`;
-
-  aiStats.calls++;
+  ltStats.calls++;
   try {
-    const data = await callBackground({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
-      temperature: 0,
-      system: 'Du är en svensk stavningsexpert specialiserad på auktionstexter. Var konservativ — rapportera bara stavfel du är helt säker på. Rättningen måste vara ett verkligt svenskt ord. Det är bättre att missa ett fel än att föreslå en felaktig rättning. Svara BARA med valid JSON, inget annat.',
-      messages: [{ role: 'user', content: prompt }]
+    await waitForLTCapacity(combined.length);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch('https://api.languagetool.org/v2/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        text: combined,
+        language: 'sv',
+        enabledCategories: 'TYPOS,SPELLING',
+        disabledCategories: 'GRAMMAR,STYLE,TYPOGRAPHY,PUNCTUATION,CASING'
+      }),
+      signal: controller.signal
     });
 
-    let responseText = data.content?.[0]?.text?.trim() || '';
-    responseText = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '');
-    let result = null;
-    try {
-      result = JSON.parse(responseText);
-    } catch {
-      const start = responseText.indexOf('{"issues"');
-      if (start >= 0) {
-        let depth = 0;
-        for (let ci = start; ci < responseText.length; ci++) {
-          if (responseText[ci] === '{') depth++;
-          else if (responseText[ci] === '}') { depth--; if (depth === 0) { try { result = JSON.parse(responseText.substring(start, ci + 1)); } catch {} break; } }
-        }
+    clearTimeout(timeoutId);
+    ltTimestamps.push({ time: Date.now(), chars: combined.length });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        console.warn('[LT] Rate limited, waiting 30s...');
+        await sleep(30000);
       }
+      ltStats.errors++;
+      return [];
     }
-    if (result?.issues && Array.isArray(result.issues)) {
-      const filtered = result.issues
-        .filter(i => i.original && i.corrected &&
-                i.original.toLowerCase() !== i.corrected.toLowerCase() &&
-                (i.confidence || 0.85) >= 0.92)
-        .map(i => ({
-          originalWord: i.original,
-          suggestedWord: i.corrected,
-          confidence: i.confidence || 0.9,
-          source: 'ai_spellcheck',
-          field: i.field || 'text',
+
+    const data = await response.json();
+    if (!data.matches || !Array.isArray(data.matches)) return [];
+
+    const results = data.matches
+      .filter(m => m.replacements && m.replacements.length > 0)
+      .map(m => {
+        const word = combined.substring(m.offset, m.offset + m.length);
+        // Determine which field this error belongs to
+        const fieldEntry = fields.find(f => m.offset >= f.startOffset && m.offset < f.endOffset);
+        return {
+          originalWord: word,
+          suggestedWord: m.replacements[0].value,
+          confidence: 0.95,
+          source: 'languagetool',
+          field: fieldEntry?.field || 'text',
           type: 'spelling'
-        }));
-      aiStats.found += filtered.length;
-      return filtered;
-    }
+        };
+      })
+      .filter(e => e.originalWord.length >= 3 &&
+              e.originalWord.toLowerCase() !== e.suggestedWord.toLowerCase() &&
+              !SAFE_WORDS.has(e.originalWord.toLowerCase()) &&
+              // Skip proper nouns (Capitalized, not ALL CAPS)
+              !((/^[A-ZÅÄÖÜ][a-zåäöü]/.test(e.originalWord)) && !/^[A-ZÅÄÖÜ]+$/.test(e.originalWord)));
+
+    ltStats.found += results.length;
+    return results;
   } catch (e) {
-    console.warn(`[AI] Error for item: ${title.substring(0, 40)}`, e.message);
-    aiStats.errors++;
+    if (e.name === 'AbortError') {
+      console.warn('[LT] Request timed out');
+    } else {
+      console.warn(`[LT] Error: ${e.message}`);
+    }
+    ltStats.errors++;
   }
   return [];
 }
@@ -228,7 +210,7 @@ async function fetchAllItems(companyId, onProgress) {
 }
 
 // ── Analysis ──
-async function analyzeItem(item, spellChecker, brandValidator, useAI = false) {
+async function analyzeItem(item, spellChecker, brandValidator) {
   const title = item.title || '';
   const description = stripHtml(item.description || '');
   const condition = stripHtml(item.condition || '');
@@ -236,7 +218,7 @@ async function analyzeItem(item, spellChecker, brandValidator, useAI = false) {
 
   const errors = { spelling: [], brand: [], forbidden: [], structural: [] };
 
-  // 1. Swedish spelling
+  // 1. Swedish dictionary spelling
   for (const [field, text] of [['title', title], ['description', description], ['condition', condition]]) {
     if (!text) continue;
     const results = spellChecker.validateSwedishSpelling(text);
@@ -252,16 +234,25 @@ async function analyzeItem(item, spellChecker, brandValidator, useAI = false) {
     }
   }
 
-  // 2b. AI spellcheck (optional) — single call per item via background worker
-  if (useAI) {
+  // 2b. LanguageTool spellcheck (always-on, free, no API key needed)
+  {
     const existingWords = new Set(errors.spelling.map(e => (e.originalWord || '').toLowerCase()));
-    const aiResults = await aiSpellcheckItem(title, description, condition);
-    for (const r of aiResults) {
+    const ltResults = await languageToolSpellcheck(title, description, condition);
+    for (const r of ltResults) {
       if (!existingWords.has((r.originalWord || '').toLowerCase())) {
         errors.spelling.push(r);
         existingWords.add((r.originalWord || '').toLowerCase());
       }
     }
+  }
+
+  // 2c. Shared learned whitelist (Cloudflare D1) — words employees dismissed
+  // as correct never flag again, regardless of which check flagged them.
+  {
+    const whitelist = await getSharedWhitelist();
+    errors.spelling = errors.spelling.filter(
+      e => !whitelist.has((e.originalWord || '').toLowerCase())
+    );
   }
 
   // 3. Brand misspellings
@@ -452,8 +443,8 @@ function render(results, totalItems) {
 
     const details = [];
     r.errors.spelling.forEach(e => {
-      const aiTag = e.source === 'ai_spellcheck' ? ' [AI]' : '';
-      details.push({ cat: 'spelling', text: `"${e.originalWord}" → ${e.suggestedWord}  (${e.field})${aiTag}` });
+      const sourceTag = e.source === 'languagetool' ? ' [LT]' : '';
+      details.push({ cat: 'spelling', text: `"${e.originalWord}" → ${e.suggestedWord}  (${e.field})${sourceTag}` });
     });
     r.errors.brand.forEach(e => {
       details.push({ cat: 'brand', text: `Brand: "${e.originalBrand}" → ${e.suggestedBrand}` });
@@ -592,6 +583,13 @@ async function runAudit() {
   progressText.textContent = 'Fetching items...';
 
   try {
+    // Force-refresh the shared whitelist so a word promoted since the last
+    // scan is filtered from this run (cached afterwards for every item).
+    const whitelist = await getSharedWhitelist(true);
+    if (whitelist.size > 0) {
+      console.log(`[Whitelist] ${whitelist.size} shared whitelist words loaded`);
+    }
+
     // Fetch
     const items = await fetchAllItems(companyId, (count, total, page) => {
       progressFill.style.width = `${Math.min((page / 10) * 100, 90)}%`;
@@ -604,30 +602,25 @@ async function runAudit() {
     // Analyze
     const spellChecker = new SwedishSpellChecker();
     const brandValidator = new BrandValidationManager(null);
-    const useAI = document.getElementById('aiEnabled').checked && hasApiKey;
     const results = [];
 
-    aiStats = { calls: 0, errors: 0, found: 0 };
+    ltStats = { calls: 0, errors: 0, found: 0 };
 
-    const CONCURRENCY = useAI ? 5 : items.length; // 5 parallel AI calls, or all at once for offline
+    const CONCURRENCY = 5; // 5 parallel LanguageTool calls (respects rate limiter)
     for (let i = 0; i < items.length; i += CONCURRENCY) {
       const batch = items.slice(i, i + CONCURRENCY);
       const batchResults = await Promise.all(
-        batch.map(item => analyzeItem(item, spellChecker, brandValidator, useAI))
+        batch.map(item => analyzeItem(item, spellChecker, brandValidator))
       );
       results.push(...batchResults);
       const pctDone = 90 + (results.length / items.length) * 10;
       progressFill.style.width = `${pctDone}%`;
-      progressText.textContent = useAI
-        ? `AI analyzing ${results.length} / ${items.length}...`
-        : `Analyzing ${results.length} / ${items.length}...`;
-      if (useAI) await sleep(50); // small delay between AI batches
+      progressText.textContent = `Spellcheck ${results.length} / ${items.length}... (LT: ${ltStats.calls} req, ${ltStats.found} found)`;
     }
 
     progressFill.style.width = '100%';
-    const aiInfo = useAI ? ` | AI: ${aiStats.calls} calls, ${aiStats.found} issues found, ${aiStats.errors} errors` : '';
-    progressText.textContent = `Done! Analyzed ${results.length} items${useAI ? ' (with AI spellcheck)' : ''}.${aiInfo}`;
-    if (useAI) console.log('[AI Stats]', aiStats);
+    progressText.textContent = `Done! ${results.length} items | LanguageTool: ${ltStats.calls} requests, ${ltStats.found} spelling issues, ${ltStats.errors} errors`;
+    console.log('[LT Stats]', ltStats);
 
     render(results, items.length);
 

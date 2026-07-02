@@ -14,10 +14,7 @@
   .controls label { font-size: 0.85rem; color: #aaa; }
   .controls input { background: #1a1d27; border: 1px solid #3a3d47; color: #e0e0e0; padding: 6px 10px; border-radius: 6px; font-size: 0.9rem; }
   .controls input[type="number"] { width: 80px; }
-  .controls .ai-toggle { display: flex; align-items: center; gap: 6px; }
-  .controls .ai-toggle input[type="checkbox"] { width: auto; }
-  .ai-note { font-size: 0.75rem; color: #666; margin-left: 4px; }
-  .tag-ai { background: #10b98122; color: #34d399; }
+  .lt-note { font-size: 0.75rem; color: #34d399; margin-left: 4px; }
   button { background: #2563eb; color: #fff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 0.95rem; cursor: pointer; font-weight: 600; }
   button:hover { background: #1d4ed8; }
   button:disabled { background: #444; cursor: not-allowed; }
@@ -84,11 +81,7 @@
 
 <div class="controls">
   <label>Company ID: <input type="number" id="companyId" value="48"></label>
-  <div class="ai-toggle">
-    <label><input type="checkbox" id="aiEnabled"> AI Spellcheck (Haiku)</label>
-    <span class="ai-note">~$0.50 for 900 items</span>
-  </div>
-  <span id="apiStatus" class="muted"></span>
+  <span class="lt-note">LanguageTool spellcheck (free)</span>
   <button id="runBtn">Run Audit</button>
 </div>
 

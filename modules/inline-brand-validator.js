@@ -3,6 +3,7 @@
 
 import { SwedishSpellChecker } from './swedish-spellchecker.js';
 import { escapeHTML } from './core/html-escape.js';
+import { getSharedWhitelist, reportIgnoredWord } from './spellcheck-whitelist.js';
 
 export class InlineBrandValidator {
   constructor(brandValidationManager = null) {
@@ -150,11 +151,13 @@ export class InlineBrandValidator {
     }
 
     try {
-      // Run brand validation and AI spellcheck in parallel for speed
+      // Run brand validation, AI spellcheck and the shared-whitelist fetch in
+      // parallel for speed (the whitelist is cached 30 min after first load)
       const apiManager = this.brandValidationManager?.apiManager;
-      const [brandIssues, aiSpellIssues] = await Promise.all([
+      const [brandIssues, aiSpellIssues, sharedWhitelist] = await Promise.all([
         this.brandValidationManager.validateBrandsInContent(text, ''),
-        this.checkSpellingWithAI(text, type, apiManager)
+        this.checkSpellingWithAI(text, type, apiManager),
+        getSharedWhitelist()
       ]);
 
       const allIssues = [...brandIssues];
@@ -192,6 +195,13 @@ export class InlineBrandValidator {
       // Filter out ignored terms and false positives
       const filteredIssues = deduped.filter(issue => {
         if (this.ignoredTerms.has(issue.originalBrand.toLowerCase())) {
+          return false;
+        }
+
+        // Shared learned whitelist (Cloudflare D1): words employees have
+        // dismissed as correct never flag again — for anyone, from any source
+        // (AI, dictionary, brand fuzzy-match, abbreviations).
+        if (sharedWhitelist.has(issue.originalBrand.toLowerCase())) {
           return false;
         }
 
@@ -622,6 +632,9 @@ Om korrekt: {"corrected":null}`;
         e.stopPropagation();
         // Add to session ignore list so it doesn't come back
         this.ignoredTerms.add(issue.originalBrand.toLowerCase());
+        // Ignore = learn: feed the shared whitelist so the word stops
+        // flagging everywhere once promoted (fire-and-forget)
+        reportIgnoredWord(issue.originalBrand, issue.suggestedBrand);
         notification.style.opacity = '0';
         notification.style.transition = 'opacity 0.2s ease';
         setTimeout(() => notification.remove(), 200);
