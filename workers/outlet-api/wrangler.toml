@@ -6,22 +6,22 @@ compatibility_date = "2026-07-02"
 [triggers]
 crons = ["0 3 * * *"]
 
-# Shared D1 database — same database as the sas-outlet Next.js Worker.
+# Shared D1 database — same database as the sas-outlet-web Next.js Worker.
 # Schema/migrations live in sas-outlet/migrations/.
 [[d1_databases]]
 binding = "DB"
-database_name = "sas-outlet"
-database_id = "19e917cb-0bcb-4a63-a5cb-dd26396d6453" # created 2026-07-02, region EEUR
+database_name = "sas-outlet-db"
+database_id = "270f9eab-09f9-498b-83d6-0012d9d1fc4e" # created 2026-07-02, stadsauktionsundsvall account, EEUR
 
 # Item images (public bucket; served via PUBLIC_IMAGES_BASE).
 # R2 must first be enabled once in the Cloudflare Dashboard (free tier).
 # Then run:
-#   wrangler r2 bucket create item-images
-#   wrangler r2 bucket dev-url enable item-images --force
+#   wrangler r2 bucket create sas-outlet-images
+#   wrangler r2 bucket dev-url enable sas-outlet-images --force
 # ...uncomment this binding, set PUBLIC_IMAGES_BASE below, and `wrangler deploy`.
 # [[r2_buckets]]
 # binding = "IMAGES"
-# bucket_name = "item-images"
+# bucket_name = "sas-outlet-images"
 
 [vars]
 # Public base URL of the item-images bucket (r2.dev dev-url or custom domain)
