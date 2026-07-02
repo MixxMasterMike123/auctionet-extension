@@ -13,19 +13,15 @@ binding = "DB"
 database_name = "sas-outlet-db"
 database_id = "270f9eab-09f9-498b-83d6-0012d9d1fc4e" # created 2026-07-02, stadsauktionsundsvall account, EEUR
 
-# Item images (public bucket; served via PUBLIC_IMAGES_BASE).
-# R2 must first be enabled once in the Cloudflare Dashboard (free tier).
-# Then run:
-#   wrangler r2 bucket create sas-outlet-images
-#   wrangler r2 bucket dev-url enable sas-outlet-images --force
-# ...uncomment this binding, set PUBLIC_IMAGES_BASE below, and `wrangler deploy`.
-# [[r2_buckets]]
-# binding = "IMAGES"
-# bucket_name = "sas-outlet-images"
+# Item images (public bucket; served via PUBLIC_IMAGES_BASE)
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "sas-outlet-images"
 
 [vars]
-# Public base URL of the item-images bucket (r2.dev dev-url or custom domain)
-PUBLIC_IMAGES_BASE = "REPLACE_WITH_R2_PUBLIC_URL"
+# Public base URL of the sas-outlet-images bucket (r2.dev dev-url; swap for a
+# custom domain like images.stadsauktionsundsvall.se later if desired)
+PUBLIC_IMAGES_BASE = "https://pub-c66204f3f0404bb7a66e3214313d2030.r2.dev"
 
 # Secret (set with `wrangler secret put OUTLET_API_TOKEN`):
 #   OUTLET_API_TOKEN — bearer token the extension sends on every write
