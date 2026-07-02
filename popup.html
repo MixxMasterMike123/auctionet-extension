@@ -199,17 +199,17 @@
     <div class="section">
         <h3>SaS Outlet</h3>
         <div class="input-group">
-            <label for="outlet-supabase-url">Supabase Project URL:</label>
-            <input type="text" id="outlet-supabase-url" placeholder="https://xxxx.supabase.co">
+            <label for="outlet-supabase-url">Outlet API URL (Cloudflare Worker):</label>
+            <input type="text" id="outlet-supabase-url" placeholder="https://sas-outlet-api.xxxx.workers.dev">
             <div class="help-text">
-                Supabase-projektets URL för SaS Outlet-databasen.
+                URL till sas-outlet-api Workern som tar emot föremål och bilder.
             </div>
         </div>
         <div class="input-group">
-            <label for="outlet-supabase-key">Supabase Service Role Key:</label>
-            <input type="password" id="outlet-supabase-key" placeholder="eyJhbGci...">
+            <label for="outlet-supabase-key">Outlet API-token:</label>
+            <input type="password" id="outlet-supabase-key" placeholder="hemlig token...">
             <div class="help-text">
-                Service Role Key från Supabase → Settings → API. Lagras säkert lokalt, används bara av bakgrundsprocessen.
+                Samma token som Workerns OUTLET_API_TOKEN-secret. Lagras säkert lokalt, används bara av bakgrundsprocessen.
             </div>
         </div>
         <button id="save-outlet-config">Spara Outlet-inställningar</button>

@@ -579,12 +579,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadOutletConfig() {
     try {
-      const result = await chrome.storage.local.get(['outletSupabaseUrl', 'outletSupabaseServiceKey']);
-      if (result.outletSupabaseUrl) {
-        outletSupabaseUrlInput.value = result.outletSupabaseUrl;
+      const result = await chrome.storage.local.get(['outletApiUrl', 'outletApiToken']);
+      if (result.outletApiUrl) {
+        outletSupabaseUrlInput.value = result.outletApiUrl;
       }
-      if (result.outletSupabaseServiceKey) {
-        outletSupabaseKeyInput.value = result.outletSupabaseServiceKey;
+      if (result.outletApiToken) {
+        outletSupabaseKeyInput.value = result.outletApiToken;
       }
     } catch (error) {
       console.error('Error loading outlet config:', error);
@@ -600,8 +600,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       saveOutletConfigButton.textContent = 'Sparar...';
 
       await chrome.storage.local.set({
-        outletSupabaseUrl: url || '',
-        outletSupabaseServiceKey: key || ''
+        outletApiUrl: url || '',
+        outletApiToken: key || ''
       });
 
       showStatus(url && key ? 'SaS Outlet-konfiguration sparad!' : 'SaS Outlet-konfiguration borttagen.', 'success');

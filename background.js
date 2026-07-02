@@ -160,14 +160,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.type === 'dashboard-fetch') {
     handleDashboardFetch(request, sendResponse);
     return true;
-  } else if (request.type === 'supabase-fetch') {
-    handleSupabaseFetch(request, sendResponse);
+  } else if (request.type === 'outlet-fetch') {
+    handleOutletFetch(request, sendResponse);
     return true;
   } else if (request.type === 'spellcheck-fetch') {
     handleSpellcheckFetch(request, sendResponse);
     return true;
-  } else if (request.type === 'supabase-upload-image') {
-    handleSupabaseUploadImage(request, sendResponse);
+  } else if (request.type === 'outlet-upload-image') {
+    handleOutletUploadImage(request, sendResponse);
     return true;
   } else if (request.type === 'ping') {
     sendResponse({ success: true, message: 'pong' });
@@ -382,42 +382,44 @@ async function handleDashboardFetch(request, sendResponse) {
   }
 }
 
-// ─── Supabase REST API core ───────────────────────────────────────────
-// Reusable Supabase fetch — used by message handler AND directly by
-// publication-scanner-bg.js (same service worker, no message passing needed).
+// ─── SaS Outlet data API core (Cloudflare Worker + D1 + R2) ───────────
+// Replaces the previous Supabase PostgREST/Storage calls. All outlet writes
+// go through the sas-outlet-api Worker (workers/outlet-api), authenticated
+// with a bearer token that never reaches content scripts.
+//
+// `path` is a Worker route like '/items', '/sellers' or '/items/12345'.
+// 404 responses return null (existence-check miss), other errors throw.
 
-async function supabaseFetch(method, path, body = null, extraHeaders = {}) {
-  const stored = await chrome.storage.local.get(['outletSupabaseUrl', 'outletSupabaseServiceKey']);
-  if (!stored.outletSupabaseUrl || !stored.outletSupabaseServiceKey) {
-    throw new Error('Supabase ej konfigurerad');
+async function outletApiFetch(method, path, body = null) {
+  const stored = await chrome.storage.local.get(['outletApiUrl', 'outletApiToken']);
+  if (!stored.outletApiUrl || !stored.outletApiToken) {
+    throw new Error('SaS Outlet ej konfigurerad');
   }
 
-  const url = `${stored.outletSupabaseUrl.replace(/\/$/, '')}${path}`;
-  const headers = {
-    'apikey': stored.outletSupabaseServiceKey,
-    'Authorization': `Bearer ${stored.outletSupabaseServiceKey}`,
-    'Content-Type': 'application/json',
-    ...extraHeaders
+  const url = `${stored.outletApiUrl.replace(/\/$/, '')}${path}`;
+  const fetchOpts = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${stored.outletApiToken}`,
+      'Content-Type': 'application/json'
+    }
   };
-
-  const fetchOpts = { method, headers };
   if (body && method !== 'GET') {
     fetchOpts.body = JSON.stringify(body);
   }
 
   const response = await fetch(url, fetchOpts);
 
+  // 404 is a normal "does not exist" signal, not an error — return null.
+  if (response.status === 404) return null;
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Supabase HTTP ${response.status}: ${errorText}`);
+    throw new Error(`Outlet API HTTP ${response.status}: ${errorText}`);
   }
 
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 }
-
-// Expose for publication-scanner-bg.js (runs in same service worker)
-globalThis.__supabaseFetch = supabaseFetch;
 
 // ─── Spellcheck shared backend (Cloudflare Worker + D1) ─────────────
 // Replaces the previous Supabase-backed shared spellcheck store. Reads are
@@ -467,79 +469,43 @@ async function handleSpellcheckFetch(request, sendResponse) {
   }
 }
 
-// ─── Supabase message handler (content scripts → background) ─────────
-// Routes Supabase requests through background.js so the service role key
+// ─── Outlet message handler (content scripts → background) ───────────
+// Routes outlet API requests through background.js so the bearer token
 // never reaches content scripts. Same security pattern as Anthropic API key.
 
-async function handleSupabaseFetch(request, sendResponse) {
+async function handleOutletFetch(request, sendResponse) {
   try {
-    const { method, path, body, extraHeaders } = request;
+    const { method, path, body } = request;
     if (!method || !path) {
       sendResponse({ success: false, error: 'method and path required' });
       return;
     }
 
-    const data = await supabaseFetch(method, path, body, extraHeaders);
+    const data = await outletApiFetch(method, path, body);
     sendResponse({ success: true, data });
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }
 }
 
-// ─── Supabase Image Upload handler (SaS Outlet) ─────────────────────
-// Fetches image from Auctionet CDN and uploads to Supabase Storage.
-// This avoids hotlinking and ensures images persist after Auctionet cleanup.
+// ─── Outlet image upload handler (SaS Outlet) ────────────────────────
+// The Worker fetches the image from the Auctionet CDN itself and stores it
+// in R2 — the extension only sends the source URL, no image bytes.
 
-async function handleSupabaseUploadImage(request, sendResponse) {
+async function handleOutletUploadImage(request, sendResponse) {
   try {
-    const { sourceUrl, storagePath, bucket } = request;
-    if (!sourceUrl || !storagePath || !bucket) {
-      sendResponse({ success: false, error: 'sourceUrl, storagePath, and bucket required' });
+    const { sourceUrl, itemId, imageType } = request;
+    if (!sourceUrl || !itemId || !imageType) {
+      sendResponse({ success: false, error: 'sourceUrl, itemId, and imageType required' });
       return;
     }
 
-    // Validate source domain
-    if (!sourceUrl.includes('images.auctionet.com') && !sourceUrl.includes('auctionet.com')) {
-      sendResponse({ success: false, error: 'Only Auctionet image URLs allowed' });
-      return;
+    const data = await outletApiFetch('PUT', `/images/${itemId}/${imageType}`, { sourceUrl });
+    if (data?.publicUrl) {
+      sendResponse({ success: true, publicUrl: data.publicUrl });
+    } else {
+      sendResponse({ success: false, error: 'Image upload failed' });
     }
-
-    const stored = await chrome.storage.local.get(['outletSupabaseUrl', 'outletSupabaseServiceKey']);
-    if (!stored.outletSupabaseUrl || !stored.outletSupabaseServiceKey) {
-      sendResponse({ success: false, error: 'SaS Outlet ej konfigurerad.' });
-      return;
-    }
-
-    // 1. Fetch image from Auctionet CDN
-    const imageResponse = await fetch(sourceUrl);
-    if (!imageResponse.ok) {
-      sendResponse({ success: false, error: `Failed to fetch image: HTTP ${imageResponse.status}` });
-      return;
-    }
-    const imageBlob = await imageResponse.blob();
-
-    // 2. Upload to Supabase Storage (upsert mode)
-    const uploadUrl = `${stored.outletSupabaseUrl.replace(/\/$/, '')}/storage/v1/object/${bucket}/${storagePath}`;
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'apikey': stored.outletSupabaseServiceKey,
-        'Authorization': `Bearer ${stored.outletSupabaseServiceKey}`,
-        'Content-Type': imageBlob.type || 'image/jpeg',
-        'x-upsert': 'true'
-      },
-      body: imageBlob
-    });
-
-    if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
-      sendResponse({ success: false, error: `Storage upload failed: HTTP ${uploadResponse.status}: ${errorText}` });
-      return;
-    }
-
-    // 3. Return public URL
-    const publicUrl = `${stored.outletSupabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${bucket}/${storagePath}`;
-    sendResponse({ success: true, publicUrl });
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }

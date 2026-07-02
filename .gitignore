@@ -44,4 +44,4 @@ secrets.js
 
 # Build artifacts
 dist/
-build/ 
+build/ .token.local

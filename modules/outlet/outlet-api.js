@@ -1,24 +1,25 @@
-// modules/outlet/outlet-api.js — Supabase REST client for SaS Outlet
-// Write-only from extension side: upserts items/sellers, uploads images
-// All requests routed through background.js for security (service key never in content script)
+// modules/outlet/outlet-api.js — SaS Outlet data client (Cloudflare Worker)
+// Write-only from extension side: upserts items/sellers, uploads images.
+// All requests routed through background.js for security (the API token
+// never reaches content scripts). Backend: workers/outlet-api (D1 + R2).
 
 export class OutletAPI {
   constructor() {
     this._config = null;
   }
 
-  // Load Supabase config from chrome.storage.local
+  // Load outlet API config from chrome.storage.local
   async ensureConfig() {
     if (this._config) return this._config;
 
-    const stored = await chrome.storage.local.get(['outletSupabaseUrl', 'outletSupabaseServiceKey']);
-    if (!stored.outletSupabaseUrl || !stored.outletSupabaseServiceKey) {
-      throw new Error('SaS Outlet ej konfigurerad. Ange Supabase URL och Service Key i extension-popupen.');
+    const stored = await chrome.storage.local.get(['outletApiUrl', 'outletApiToken']);
+    if (!stored.outletApiUrl || !stored.outletApiToken) {
+      throw new Error('SaS Outlet ej konfigurerad. Ange Worker-URL och API-token i extension-popupen.');
     }
 
     this._config = {
-      url: stored.outletSupabaseUrl.replace(/\/$/, ''),
-      serviceKey: stored.outletSupabaseServiceKey
+      url: stored.outletApiUrl.replace(/\/$/, ''),
+      token: stored.outletApiToken
     };
     return this._config;
   }
@@ -28,7 +29,7 @@ export class OutletAPI {
     this._scraper = scraper;
   }
 
-  // Export a batch of scraped items to Supabase
+  // Export a batch of scraped items to the outlet backend
   // Returns { success: number, failed: number, errors: string[] }
   async exportItems(items, onProgress) {
     await this.ensureConfig();
@@ -61,7 +62,7 @@ export class OutletAPI {
           allImageUrls = [item.fullImageUrl];
         }
 
-        // 3. Upload all images to Supabase Storage
+        // 3. Upload all images to R2 (the Worker fetches from the CDN itself)
         const uploadedUrls = [];
         for (let imgIdx = 0; imgIdx < allImageUrls.length; imgIdx++) {
           try {
@@ -83,7 +84,9 @@ export class OutletAPI {
           }
         }
 
-        // 4. Upsert item
+        // 4. Upsert item — the Worker only applies `status` to NEW rows and
+        // enforces the 2000 kr valuation cap server-side, so a re-export can
+        // never overwrite a curated status.
         await this._upsertItem(item, uploadedUrls, thumbUrl, description, condition, category);
 
         success++;
@@ -108,47 +111,57 @@ export class OutletAPI {
       phone: item.sellerPhone || null
     };
 
-    return this._supabaseRequest('POST', '/rest/v1/sellers', seller, {
-      'Prefer': 'resolution=merge-duplicates'
-    });
+    return this._outletRequest('POST', '/sellers', seller);
   }
 
-  // Upsert an item record
+  // Check if item already exists in the outlet DB (404 → null → false)
+  async _itemExists(itemId) {
+    const data = await this._outletRequest('GET', `/items/${itemId}`);
+    return data !== null;
+  }
+
+  // Upsert an item record — only include fields with values to avoid overwriting with null
   async _upsertItem(item, uploadedUrls, thumbUrl, description, condition, category) {
     const record = {
       id: item.id,
       title: item.title,
-      description: description || null,
-      condition: condition || null,
-      image_url: uploadedUrls[0] || null,
-      image_urls: uploadedUrls.length > 0 ? uploadedUrls : null,
-      image_thumb_url: thumbUrl,
-      original_image_url: item.fullImageUrl || null,
-      category: category || null,
-      price: 200,
-      original_estimate: item.estimate,
-      original_reserve: item.reserve,
-      warehouse_location: item.warehouseLocation || null,
-      seller_id: item.sellerId,
-      contract_id: item.contractId,
-      status: 'available',
-      scraped_at: new Date().toISOString()
+      price: 200
     };
 
-    return this._supabaseRequest('POST', '/rest/v1/items', record, {
-      'Prefer': 'resolution=merge-duplicates'
-    });
+    // Suggested status for NEW items — the Worker ignores this for existing
+    // rows and downgrades over-cap valuations to 'ignored'.
+    const needsApproval = (item.reserve || 0) > 300;
+    record.status = needsApproval ? 'pending_approval' : 'available';
+
+    // Only set fields that have actual values — never overwrite existing data with null
+    if (description) record.description = description;
+    if (condition) record.condition = condition;
+    if (uploadedUrls.length > 0) {
+      record.image_url = uploadedUrls[0];
+      record.image_urls = uploadedUrls;
+    }
+    if (thumbUrl) record.image_thumb_url = thumbUrl;
+    if (item.fullImageUrl) record.original_image_url = item.fullImageUrl;
+    if (category) record.category = category;
+    // != null: _parseNumeric returns null for missing, but 0 is a real value
+    if (item.estimate != null) record.original_estimate = item.estimate;
+    if (item.reserve != null) record.original_reserve = item.reserve;
+    if (item.warehouseLocation) record.warehouse_location = item.warehouseLocation;
+    if (item.sellerId) record.seller_id = item.sellerId;
+    if (item.contractId) record.contract_id = item.contractId;
+
+    return this._outletRequest('POST', '/items', record);
   }
 
-  // Upload an image to Supabase Storage via background.js
+  // Upload an image via background.js — the Worker pulls from the CDN
   async _uploadImage(itemId, sourceUrl, type) {
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         {
-          type: 'supabase-upload-image',
+          type: 'outlet-upload-image',
           sourceUrl,
-          storagePath: `items/${itemId}/${type}.jpg`,
-          bucket: 'item-images'
+          itemId,
+          imageType: type
         },
         (response) => {
           if (chrome.runtime.lastError) {
@@ -163,16 +176,15 @@ export class OutletAPI {
     });
   }
 
-  // Make a Supabase REST API request via background.js
-  async _supabaseRequest(method, path, body, extraHeaders = {}) {
+  // Make an outlet API request via background.js
+  async _outletRequest(method, path, body = null) {
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         {
-          type: 'supabase-fetch',
+          type: 'outlet-fetch',
           method,
           path,
-          body,
-          extraHeaders
+          body
         },
         (response) => {
           if (chrome.runtime.lastError) {
@@ -180,7 +192,7 @@ export class OutletAPI {
           } else if (response?.success) {
             resolve(response.data);
           } else {
-            reject(new Error(response?.error || 'Supabase request failed'));
+            reject(new Error(response?.error || 'Outlet API request failed'));
           }
         }
       );

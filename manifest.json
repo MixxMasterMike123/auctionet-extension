@@ -18,7 +18,6 @@
     "https://api.anthropic.com/*",
     "https://*.wikipedia.org/*",
     "https://upload.wikimedia.org/*",
-    "https://*.supabase.co/*",
     "https://api.languagetool.org/*",
     "https://*.workers.dev/*"
   ],

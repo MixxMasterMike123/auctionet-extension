@@ -1,0 +1,34 @@
+name = "sas-outlet-api"
+main = "src/index.js"
+compatibility_date = "2026-07-02"
+
+# Nightly lifecycle sweep (expire reservations, ignore >2000 kr, withdraw >10 days)
+[triggers]
+crons = ["0 3 * * *"]
+
+# Shared D1 database — same database as the sas-outlet Next.js Worker.
+# Schema/migrations live in sas-outlet/migrations/.
+[[d1_databases]]
+binding = "DB"
+database_name = "sas-outlet"
+database_id = "19e917cb-0bcb-4a63-a5cb-dd26396d6453" # created 2026-07-02, region EEUR
+
+# Item images (public bucket; served via PUBLIC_IMAGES_BASE).
+# R2 must first be enabled once in the Cloudflare Dashboard (free tier).
+# Then run:
+#   wrangler r2 bucket create item-images
+#   wrangler r2 bucket dev-url enable item-images --force
+# ...uncomment this binding, set PUBLIC_IMAGES_BASE below, and `wrangler deploy`.
+# [[r2_buckets]]
+# binding = "IMAGES"
+# bucket_name = "item-images"
+
+[vars]
+# Public base URL of the item-images bucket (r2.dev dev-url or custom domain)
+PUBLIC_IMAGES_BASE = "REPLACE_WITH_R2_PUBLIC_URL"
+
+# Secret (set with `wrangler secret put OUTLET_API_TOKEN`):
+#   OUTLET_API_TOKEN — bearer token the extension sends on every write
+
+[observability]
+enabled = true
