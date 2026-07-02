@@ -31,8 +31,14 @@ export class OutletUI {
 
   // Inject floating toolbar above the table
   _injectToolbar(configured) {
-    const table = document.querySelector('table.table');
-    if (!table) return;
+    // Same resilient lookup as unsolds-scraper.js: the item rows' test-item-*
+    // classes are stabler than the table's own class across admin redesigns
+    const table = document.querySelector('tr[class*="test-item-"]')?.closest('table') ||
+                  document.querySelector('table.table');
+    if (!table) {
+      console.warn('[SaS Outlet] No table found — toolbar not injected');
+      return;
+    }
 
     this._toolbar = document.createElement('div');
     this._toolbar.className = 'ext-outlet-toolbar';
@@ -53,7 +59,7 @@ export class OutletUI {
           Skrapa alla sidor
         </button>
         <button class="ext-outlet-btn ext-outlet-btn--primary" id="ext-outlet-export"
-                ${configured ? '' : 'disabled title="Konfigurera Supabase i extension-popupen först"'}>
+                ${configured ? '' : 'disabled title="Konfigurera Outlet API (Worker-URL + token) i extension-popupen först"'}>
           Exportera till Outlet
         </button>
       </div>
