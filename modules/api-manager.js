@@ -510,6 +510,10 @@ TITEL — KORTASTE FUNGERANDE FORM:
 • ALDRIG årtal/period i titeln ("1900-tal", "1800-talets slut", "1923") — ingen köpare
   söker på årtal, så det är ett longtail-ord som bara späder ut titelns vikt. Finns
   årtal/period i originaltiteln SKA det FLYTTAS till beskrivningen (aldrig tappas bort)
+• Inkludera BÅDE plural- OCH singularform av kärnsubstantivet i titeln (t.ex.
+  "Stolar, stol, 4 st, Orkesterstolar") — verifierat i produktion att detta ger
+  sida 1 för BÅDA sökningarna, eftersom sökmotorn inte bryggar böjningsformer.
+  Ordet är värt sin plats: en extra form = en hel extra sökfråga täckt
 
 ${QUOTE_PRESERVATION_RULES}
 ${BRAND_SPELLING_RULES}
