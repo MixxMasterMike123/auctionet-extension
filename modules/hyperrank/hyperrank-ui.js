@@ -36,6 +36,10 @@ export class HyperrankUI {
       <button type="button" class="hyperrank-run-btn" id="hyperrank-run-btn">
         &#9889; HYPERRANK
       </button>
+      <button type="button" class="hyperrank-kw-btn" id="hyperrank-kw-btn"
+              title="Rör inte titel eller beskrivning — fyller bara dolda sökord med titelns ord, böjningsformer och engelska termer">
+        Endast dolda sökord
+      </button>
       <div class="hyperrank-status" id="hyperrank-status"></div>
       <div class="hyperrank-rank-row" id="hyperrank-rank-row" style="display:none;">
         <button type="button" class="hyperrank-rank-btn" id="hyperrank-rank-btn">Kolla placering</button>
@@ -67,17 +71,24 @@ export class HyperrankUI {
 
   _attachListeners(panel) {
     const runBtn = panel.querySelector('#hyperrank-run-btn');
-    runBtn.addEventListener('click', async () => {
-      if (!this.onRun) return;
-      runBtn.disabled = true;
-      runBtn.classList.add('processing');
-      try {
-        await this.onRun();
-      } finally {
-        runBtn.disabled = false;
-        runBtn.classList.remove('processing');
-      }
-    });
+    const kwBtn = panel.querySelector('#hyperrank-kw-btn');
+    const wire = (btn, mode) => {
+      btn.addEventListener('click', async () => {
+        if (!this.onRun) return;
+        runBtn.disabled = true;
+        kwBtn.disabled = true;
+        btn.classList.add('processing');
+        try {
+          await this.onRun(mode);
+        } finally {
+          runBtn.disabled = false;
+          kwBtn.disabled = false;
+          btn.classList.remove('processing');
+        }
+      });
+    };
+    wire(runBtn, 'full');
+    wire(kwBtn, 'keywords');
 
     const rankBtn = panel.querySelector('#hyperrank-rank-btn');
     rankBtn.addEventListener('click', () => this._onCheckRankClick());
@@ -197,6 +208,29 @@ export class HyperrankUI {
 
       .hyperrank-run-btn.processing {
         opacity: 0.7;
+        cursor: wait;
+      }
+
+      .hyperrank-kw-btn {
+        width: 100%;
+        margin-top: 6px;
+        padding: 7px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        background: transparent;
+        color: #b45309;
+        border: 1px solid #f59e0b;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      .hyperrank-kw-btn:hover {
+        background: #fef3c7;
+      }
+
+      .hyperrank-kw-btn.processing {
+        opacity: 0.6;
         cursor: wait;
       }
 

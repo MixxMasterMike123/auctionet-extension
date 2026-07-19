@@ -122,7 +122,7 @@
 
         // Initialize HYPERRANK — opt-in aggressive search-rank optimizer
         this.hyperrankUI = new HyperrankUI();
-        this.hyperrankUI.setOnRun(() => this.hyperrank());
+        this.hyperrankUI.setOnRun((mode) => this.hyperrank(mode));
 
         this.init();
         this.setupEventListeners();
@@ -408,7 +408,7 @@
       // Explicitly NOT the norm: only runs when the user presses the dedicated
       // HYPERRANK button (attachEventListeners wires this via HyperrankUI.setOnRun,
       // never through the generic .ai-assist-button click handler above).
-      async hyperrank() {
+      async hyperrank(mode = 'full') {
         // Check API key without ensureApiKey()'s built-in error indicator/alert path
         // (which targets the main field-selector map) — HYPERRANK surfaces errors
         // in its own panel status line instead.
@@ -440,20 +440,23 @@
           keywords: keywordsField?.value
         };
 
-        this.hyperrankUI.setStatus('Skriver om titel, beskrivning och sökord...', 'info');
+        const kwOnly = mode === 'keywords';
+        this.hyperrankUI.setStatus(kwOnly
+          ? 'Fyller dolda sökord (titel och beskrivning rörs inte)...'
+          : 'Skriver om titel, beskrivning och sökord...', 'info');
 
-        const hyperrankFields = ['title', 'description', 'keywords'];
+        const hyperrankFields = kwOnly ? ['keywords'] : ['title', 'description', 'keywords'];
         hyperrankFields.forEach(f => this.fallbackShowFieldLoadingIndicator(f, 'hyperrank'));
 
         try {
-          const result = await this.apiManager.callClaudeAPI(itemData, 'hyperrank');
+          const result = await this.apiManager.callClaudeAPI(itemData, kwOnly ? 'hyperrank-keywords' : 'hyperrank');
 
           let appliedCount = 0;
-          if (result.title) {
+          if (!kwOnly && result.title) {
             this.uiManager.applyImprovement('title', result.title);
             appliedCount++;
           }
-          if (result.description) {
+          if (!kwOnly && result.description) {
             this.uiManager.applyImprovement('description', result.description);
             appliedCount++;
           }

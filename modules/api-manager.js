@@ -572,6 +572,36 @@ SÖKORD: [titelns ord först i samma ordning (utan skiljetecken), därefter böj
 
 Använd INTE markdown-formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
 
+// HYPERRANK "smygläge" — fills ONLY hidden keywords, never touches the
+// cataloguer's visible title/description. Used when rewriting a colleague's
+// text is off-limits but the item still needs to be findable.
+const HYPERRANK_KEYWORDS_RULES = (matchedSearches) => `
+UPPGIFT: Fyll de DOLDA SÖKORDEN för detta föremål så att det rankas så högt som
+möjligt i Auctionets sök. Du får INTE ändra titel eller beskrivning — de tillhör
+katalogiseraren. Endast dolda sökord returneras.
+
+VERIFIERAD RANKINGMODELL: samma sökterm som matchar i titel OCH dolda sökord
+staplar poäng; böjningsformer (singular/plural) matchas OSÄKERT av sökmotorn.
+
+DOLDA SÖKORD — REGLER (avsiktligt undantag från "upprepa aldrig titelns ord"):
+• BÖRJA med den befintliga titelns ord EXAKT som de står, i SAMMA ordning
+  (utan kommatecken/punkter — bara orden)
+• DÄREFTER: singular- OCH pluralform av kärnsubstantivet (t.ex. "taklampa taklampor")
+• DÄREFTER: engelska motsvarigheter för internationella budgivare (endast sakligt
+  korrekta, t.ex. "ceiling lamp" som ceiling-lamp)
+• Flerordsfraser med bindestreck ("dansk-design")
+• MAX 12 termer totalt, separerade med MELLANSLAG
+• ANTI-HALLUCINATION: endast termer grundade i befintlig titel/beskrivning/kategori
+  — hitta ALDRIG på märke, modell eller material
+
+${matchedSearches && matchedSearches.length > 0 ? `
+RIKTIGA SÖKNINGAR FRÅN KÖPARE JUST NU (prioritera dessa termer om de är sakligt korrekta för föremålet):
+${matchedSearches.map(q => `• "${q}"`).join('\n')}
+` : ''}
+
+Returnera i detta EXAKTA format (en enda rad, ingen annan text):
+SÖKORD: [titelns ord först, sedan böjningsformer + engelska + fraser, mellanslagsseparerade, max 12 termer]`;
+
 const CONDITION_RULES_BLOCK = `FÄLTAVGRÄNSNING FÖR KONDITION:
 • Fokusera ENDAST på fysiskt skick och skador
 • Inkludera ALDRIG beskrivande information om material, teknik, stil eller funktion
@@ -821,8 +851,9 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     // any subset of these labels generically. No dedicated branch needed, but this
     // comment marks the dispatch point explicitly (see getUserPrompt's 'hyperrank' case
     // and content-script.js's hyperrank() apply flow).
-    if (fieldType === 'hyperrank') {
+    if (fieldType === 'hyperrank' || fieldType === 'hyperrank-keywords') {
       // intentionally falls through to the generic multi-field parser
+      // ('hyperrank-keywords' responses carry only a SÖKORD: line)
     }
 
     // For single field requests — use accumulator to preserve multi-line content (paragraphs)
@@ -1502,6 +1533,9 @@ Returnera endast biografin som ren text.
 
       case 'hyperrank':
         return baseInfo + HYPERRANK_RULES(itemData, itemData._matchedSearches);
+
+      case 'hyperrank-keywords':
+        return baseInfo + HYPERRANK_KEYWORDS_RULES(itemData._matchedSearches);
 
       case 'search_query':
         return `You are an expert auction search optimizer. Generate 2-3 optimal search terms for finding comparable items.
