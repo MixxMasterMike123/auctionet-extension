@@ -530,7 +530,9 @@ DOLDA SÖKORD — HÄR GÄLLER UNDANTAGET FRÅN NORMALA REGLER:
 • VIKTIGT UNDANTAG: Normalt gäller "sökord ska ALDRIG upprepa ord från titel/beskrivning"
   — det gäller INTE här. I HYPERRANK-läge SKA du MEDVETET upprepa titelns kärnord
   i sökorden. Vägra INTE detta — det är avsiktligt för att stapla sökpoäng över fält.
-• Inkludera: alla kärnord från titeln igen (upprepning är AVSIKTLIG och KORREKT här)
+• BÖRJA med den nya titelns ord EXAKT som de står i titeln, i SAMMA ordning (utan
+  kommatecken/punkter — bara orden) — hela titeln ska stå först i sökordsfältet
+• DÄREFTER övriga sökord (upprepning av titelord är AVSIKTLIG och KORREKT här)
 • Inkludera: singular- OCH pluralform av varje kärnsubstantiv (t.ex. "stol stolar",
   "fåtölj fåtöljer") — Auctionets sökmotor stammar OSÄKERT, så skriv båda formerna
 • Inkludera: engelska motsvarigheter för internationella budgivare (t.ex. "chair",
@@ -554,7 +556,7 @@ ${matchedSearches.map(q => `• "${q}"`).join('\n')}
 Returnera i detta EXAKTA format:
 TITEL: [ny, kortast möjliga titel — en enda rad]
 BESKRIVNING: [ny beskrivning med kärnorden invävda igen i annan ordning — bevara paragrafstruktur]
-SÖKORD: [kärnord upprepade + böjningsformer + engelska motsvarigheter + fraser, separerade med mellanslag, max 12 termer]
+SÖKORD: [titelns ord först i samma ordning (utan skiljetecken), därefter böjningsformer + engelska motsvarigheter + fraser, separerade med mellanslag, max 12 termer]
 
 Använd INTE markdown-formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
 

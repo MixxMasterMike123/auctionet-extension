@@ -733,6 +733,14 @@
   animation: spin 1s linear infinite;
 }
 
+/* HYPERRANK variant — same spinner, amber accent to match the ⚡ CTA */
+.field-spinner-overlay--hyperrank .ai-spinner {
+  border-top-color: #f59e0b;
+}
+.field-spinner-overlay--hyperrank .ai-processing-text {
+  color: #b45309;
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }

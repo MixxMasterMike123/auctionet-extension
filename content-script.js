@@ -442,6 +442,9 @@
 
         this.hyperrankUI.setStatus('Skriver om titel, beskrivning och sökord...', 'info');
 
+        const hyperrankFields = ['title', 'description', 'keywords'];
+        hyperrankFields.forEach(f => this.fallbackShowFieldLoadingIndicator(f, 'hyperrank'));
+
         try {
           const result = await this.apiManager.callClaudeAPI(itemData, 'hyperrank');
 
@@ -459,6 +462,14 @@
             appliedCount++;
           }
 
+          hyperrankFields.forEach(f => {
+            if (result[f]) {
+              this.fallbackShowFieldSuccessIndicator(f);
+            } else {
+              this.fallbackRemoveFieldLoadingIndicator(f);
+            }
+          });
+
           if (appliedCount === 0) {
             throw new Error('Inget resultat kunde tolkas från AI-svaret');
           }
@@ -475,6 +486,7 @@
           setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
         } catch (error) {
           console.error('HYPERRANK failed:', error);
+          hyperrankFields.forEach(f => this.fallbackRemoveFieldLoadingIndicator(f));
           this.hyperrankUI.setStatus(`Fel: ${error.message}`, 'error');
 
           // Restore originals for any field that may have been applied before the error
@@ -806,7 +818,7 @@
       }
 
       // Fallback implementations with actual animations - EXACT copy from Add Items page
-      fallbackShowFieldLoadingIndicator(fieldType) {
+      fallbackShowFieldLoadingIndicator(fieldType, variant) {
 
         
         // Remove any existing loading states first
@@ -847,11 +859,13 @@
         
         // Create spinner overlay - EXACT same HTML structure
         const overlay = document.createElement('div');
-        overlay.className = 'field-spinner-overlay';
+        overlay.className = variant === 'hyperrank'
+          ? 'field-spinner-overlay field-spinner-overlay--hyperrank'
+          : 'field-spinner-overlay';
         overlay.dataset.fieldType = fieldType;
         overlay.innerHTML = `
           <div class="ai-spinner"></div>
-          <div class="ai-processing-text">Förbättrar...</div>
+          <div class="ai-processing-text">${variant === 'hyperrank' ? '⚡ Hyperrankar...' : 'Förbättrar...'}</div>
         `;
         
         // Position overlay over the field - EXACT same positioning logic
