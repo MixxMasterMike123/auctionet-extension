@@ -503,6 +503,10 @@ ${TITLE_FORMAT_RULES(itemData)}
 TITEL — KORTASTE FUNGERANDE FORM:
 • 3–6 ord totalt, ordnade enligt strukturen ovan (branch på konstnärsfält)
 • Endast HÖGSTA köpintention-orden: objektsubstantiv, märke/modell, material
+• Märke/tillverkare i titeln ENDAST om det är ett VÄLKÄNT sökt varumärke (Omega,
+  Kosta Boda, Rolex, Georg Jensen). Lokala firmor/mästare ("Nyckel-Guld Leif
+  Johansson Firma", en stadsguldsmed) är longtail — de SKA till beskrivningen,
+  där samlarsökningar fortfarande träffar dem, ALDRIG i titeln
 • Varje extra ord späder ut vikten för alla andra ord i titeln — ta bort allt som
   inte är ett sökbart substantiv/märke/material
 • Behåll ALLA sacred-format-regler ovan (versaler/gemener, komma, ingen konstnär i titel om fältet är ifyllt)
