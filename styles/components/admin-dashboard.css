@@ -580,9 +580,15 @@
 
 .ext-rescue__more {
   font-size: 11px;
-  color: #999;
+  color: #006ccc;
   text-align: center;
   padding: 8px 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ext-rescue__more:hover {
+  text-decoration: underline;
 }
 
 .ext-rescue__tip {

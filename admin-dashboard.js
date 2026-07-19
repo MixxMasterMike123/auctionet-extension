@@ -742,6 +742,7 @@
     return null;
   }
 
+  let _rescueExpanded = false;
   function renderRescueList(items) {
     let container = document.querySelector('.ext-rescue');
     if (!container) {
@@ -750,7 +751,7 @@
     }
 
     const count = items.length;
-    const shown = items.slice(0, RESCUE_ROW_CAP);
+    const shown = _rescueExpanded ? items : items.slice(0, RESCUE_ROW_CAP);
     const remaining = count - shown.length;
 
     const rowsHTML = shown.map(item => {
@@ -770,7 +771,8 @@
       ? `<div class="ext-rescue__empty">Inga föremål utan bud som slutar inom 3 dygn 🎉</div>`
       : `
         <div class="ext-rescue__list">${rowsHTML}</div>
-        ${remaining > 0 ? `<div class="ext-rescue__more">+${remaining} till</div>` : ''}
+        ${remaining > 0 ? `<div class="ext-rescue__more" role="button" tabindex="0">Visa alla ${count} &darr;</div>` : ''}
+        ${_rescueExpanded && count > RESCUE_ROW_CAP ? `<div class="ext-rescue__more" role="button" tabindex="0">Visa färre &uarr;</div>` : ''}
         <div class="ext-rescue__tip">Tips: öppna föremålet och kör ⚡ HYPERRANK för att göra det sökbart.</div>
       `;
 
@@ -788,6 +790,12 @@
       // Others resolve the admin route at click time (background fetch follows
       // the redirect); the public item page is the last-resort fallback.
       container.addEventListener('click', async (e) => {
+        const moreBtn = e.target.closest('.ext-rescue__more');
+        if (moreBtn) {
+          _rescueExpanded = !_rescueExpanded;
+          if (_rescueCache) renderRescueList(_rescueCache.items);
+          return;
+        }
         const row = e.target.closest('.ext-rescue-item');
         if (!row || row.dataset.resolved === '1') return;
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
