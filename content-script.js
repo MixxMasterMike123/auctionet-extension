@@ -39,6 +39,7 @@
     const { FieldDistributor } = await import(chrome.runtime.getURL('modules/enhance-all/field-distributor.js'));
     const { DashboardAPI } = await import(chrome.runtime.getURL('modules/dashboard-api.js'));
     const { SearchRelevanceMatcher } = await import(chrome.runtime.getURL('modules/search-relevance.js'));
+    const { HyperrankUI } = await import(chrome.runtime.getURL('modules/hyperrank/hyperrank-ui.js'));
 
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
@@ -119,6 +120,10 @@
         this.fieldDistributor.setQualityAnalyzer(this.qualityAnalyzer);
         this.fieldDistributor.setUIManager(this.uiManager);
 
+        // Initialize HYPERRANK — opt-in aggressive search-rank optimizer
+        this.hyperrankUI = new HyperrankUI();
+        this.hyperrankUI.setOnRun(() => this.hyperrank());
+
         this.init();
         this.setupEventListeners();
         
@@ -132,6 +137,7 @@
 
         this.uiManager.injectUI();
         this.enhanceAllUI.injectEnhanceAllButton();
+        this.hyperrankUI.injectPanel();
         this.attachEventListeners();
 
         // Run initial quality analysis after API key is loaded
@@ -311,6 +317,9 @@
         setTimeout(() => {
           this.updateConditionButtonState();
         }, 500); // Increased delay to ensure UI is fully ready
+
+        // HYPERRANK button — explicit listener, wired via HyperrankUI.setOnRun(),
+        // NOT the generic .ai-assist-button selector above (deliberately separate flow)
       }
 
       // Ensure the Claude API key is loaded, showing a field error indicator (labeled errLabel) if it's missing.
@@ -391,6 +400,118 @@
           this.showFieldSpecificInfoDialog('all', qualityAssessment.missingInfo, itemData);
         } else {
           this.showAISettingsDialog('all', itemData);
+        }
+      }
+
+      // HYPERRANK — opt-in aggressive search-rank optimizer. Rewrites title,
+      // description and hidden keywords for maximum Auctionet search relevance.
+      // Explicitly NOT the norm: only runs when the user presses the dedicated
+      // HYPERRANK button (attachEventListeners wires this via HyperrankUI.setOnRun,
+      // never through the generic .ai-assist-button click handler above).
+      async hyperrank() {
+        // Check API key without ensureApiKey()'s built-in error indicator/alert path
+        // (which targets the main field-selector map) — HYPERRANK surfaces errors
+        // in its own panel status line instead.
+        if (!this.apiManager.apiKey) {
+          await this.apiManager.loadSettings();
+        }
+        if (!this.apiManager.apiKey) {
+          this.hyperrankUI.setStatus('API-nyckel saknas. Ange den i tillägget.', 'error');
+          return;
+        }
+
+        this.hyperrankUI.setStatus('Analyserar föremål...', 'info');
+
+        const itemData = this.dataExtractor.extractItemData();
+
+        // Best-effort live buyer-search context. Never blocks HYPERRANK if the
+        // Dashboard API token is missing or the request fails.
+        itemData._matchedSearches = await this._getMatchedSearchQueries(itemData);
+
+        // Capture originals BEFORE applying anything, so undo restores all three
+        // fields even though they're applied one at a time via uiManager.applyImprovement
+        // (same multi-field undo mechanism improveAllFields relies on).
+        const titleField = document.querySelector('#item_title_sv');
+        const descriptionField = document.querySelector('#item_description_sv');
+        const keywordsField = document.querySelector('#item_hidden_keywords');
+        const originalValues = {
+          title: titleField?.value,
+          description: descriptionField?.value,
+          keywords: keywordsField?.value
+        };
+
+        this.hyperrankUI.setStatus('Skriver om titel, beskrivning och sökord...', 'info');
+
+        try {
+          const result = await this.apiManager.callClaudeAPI(itemData, 'hyperrank');
+
+          let appliedCount = 0;
+          if (result.title) {
+            this.uiManager.applyImprovement('title', result.title);
+            appliedCount++;
+          }
+          if (result.description) {
+            this.uiManager.applyImprovement('description', result.description);
+            appliedCount++;
+          }
+          if (result.keywords) {
+            this.uiManager.applyImprovement('keywords', result.keywords);
+            appliedCount++;
+          }
+
+          if (appliedCount === 0) {
+            throw new Error('Inget resultat kunde tolkas från AI-svaret');
+          }
+
+          this.hyperrankUI.setStatus(
+            `Klart — ${appliedCount} fält omskrivna för sökrankning. Ångra via fältens "Ångra"-knapp.`,
+            'success'
+          );
+          this.hyperrankUI.showRankCheckRow();
+
+          // Clear stale FAQ hints, then re-analyze (HYPERRANK intentionally trips
+          // the keyword-uniqueness quality check — accepted, noted in the UI copy)
+          document.querySelectorAll('.faq-hint').forEach(h => h.remove());
+          setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
+        } catch (error) {
+          console.error('HYPERRANK failed:', error);
+          this.hyperrankUI.setStatus(`Fel: ${error.message}`, 'error');
+
+          // Restore originals for any field that may have been applied before the error
+          if (originalValues.title !== undefined && titleField && titleField.value !== originalValues.title) {
+            titleField.value = originalValues.title;
+          }
+          if (originalValues.description !== undefined && descriptionField && descriptionField.value !== originalValues.description) {
+            descriptionField.value = originalValues.description;
+          }
+          if (originalValues.keywords !== undefined && keywordsField && keywordsField.value !== originalValues.keywords) {
+            keywordsField.value = originalValues.keywords;
+          }
+        }
+      }
+
+      // Best-effort: fetch live buyer searches from the Dashboard API and match
+      // them against current item data. Returns an array of up to 10 query
+      // strings, or [] if the Dashboard API is unavailable — never throws.
+      async _getMatchedSearchQueries(itemData) {
+        try {
+          const dashAPI = new DashboardAPI();
+          const searches = await dashAPI.getSearches();
+          if (!searches) return [];
+
+          const matcher = new SearchRelevanceMatcher();
+          const allSearches = [...(searches.shared || []), ...(searches.company || [])];
+          const matches = matcher.matchSearchesToItem(allSearches, {
+            title: itemData.title,
+            category: itemData.category,
+            artist: itemData.artist,
+            keywords: itemData.keywords
+          });
+
+          return matches.slice(0, 10).map(m => m.query);
+        } catch (e) {
+          console.warn('HYPERRANK: live search context unavailable:', e);
+          return [];
         }
       }
 

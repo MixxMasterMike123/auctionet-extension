@@ -470,6 +470,89 @@ MÅTTFORMATERING I BESKRIVNING:
 • EXEMPEL — Kamera: "Canon AV-1, nummer 321063. Canon Zoom lens FD 35-70 mm.\n\nHusets längd 14 cm."
 `;
 
+// Shared title-format rule text — the SAME sacred structure used by the 'title'
+// and 'all' fieldType prompts (see ~1158-1161 / ~1247-1250). HYPERRANK reuses
+// this verbatim so the optimization never breaks title conventions; only word
+// COUNT changes, never the structure.
+const TITLE_FORMAT_RULES = (itemData) => itemData.artist ?
+  '• Konstnär/formgivare-fältet är ifyllt:\n• FÖRSTA ORDET SKA VARA PROPER KAPITALISERAT (första bokstaven versal) följt av KOMMA (,)\n• Alla vanliga substantiv ska ha LITEN BOKSTAV (glas, porslin, trä, olja, etc.)\n• VERSALER bara för egennamn/modellnamn (Kosta Boda, IKEA, "Ladoga")\n• Exempel: "Vas, glas, Kosta Boda" (visas som "ULRICA HYDMAN-VALLIEN. Vas, glas, Kosta Boda")\n• Ingen konstnär i titeln — den läggs till automatiskt\n• FÖRBJUDET: "Vas. Glas," (punkt + versal) eller "STOLAR" (helversaler)\n• KORREKT: "Vas, glas," (komma + gemen)' :
+  '• Konstnär/formgivare-fältet är tomt:\n• FÖRSTA ORDET SKA VARA VERSALER (uppercase) följt av KOMMA (,)\n• Nästa ord efter komma ska ha liten bokstav (utom namn/märken)\n• Exempel: "BAJONETT, Eskilstuna, 1900-tal"\n• KORREKT: "BORDSLAMPOR, 2 st, Kosta Boda"';
+
+// HYPERRANK — opt-in aggressive search-rank optimizer. See .claude/plans/hyperrank-button.md.
+// Explicitly NOT the norm: only used when the user presses the dedicated HYPERRANK
+// button. Reuses TITLE_FORMAT_RULES so the sacred title structure never breaks —
+// the optimization is about fewer, higher-intent WORDS, never a different structure.
+const HYPERRANK_RULES = (itemData, matchedSearches) => `
+UPPGIFT: Detta är HYPERRANK — ett medvetet AGGRESSIVT läge för att maximera föremålets
+placering i Auctionets sökresultat. Detta är INTE normal katalogisering — normala
+kvalitetsregler om ordvariation gäller INTE här. Du SKA medvetet upprepa titelns
+kärnord i beskrivning och dolda sökord enligt reglerna nedan.
+
+VERIFIERAD RANKINGMODELL (uppmätt, inte gissning):
+• Auctionets sökresultat i standardordning ÄR relevansordning (samma som "bäst träff")
+• Träffar i TITELN rankas högre än träffar bara i beskrivning/kondition
+• KORTARE titel = varje ord i titeln väger tyngre (längdnormalisering i sökmotorn)
+• Samma sökterm som matchar i BÅDE titel, beskrivning OCH dolda sökord staplar poäng
+• Upprepning INOM ett och samma fält mättas snabbt (ingen extra nytta) — upprepa
+  ISTÄLLET samma ord ÖVER fälten (en gång i titel, en gång i beskrivning, i sökord)
+• Böjningsformer (singular/plural) matchas OSÄKERT av Auctionets sökmotor — skriv
+  BÅDA formerna explicit där det är naturligt, lita inte på att sökmotorn stammar ordet
+
+${TITLE_FORMAT_RULES(itemData)}
+
+TITEL — KORTASTE FUNGERANDE FORM:
+• 3–6 ord totalt, ordnade enligt strukturen ovan (branch på konstnärsfält)
+• Endast HÖGSTA köpintention-orden: objektsubstantiv, märke/modell, material
+• Varje extra ord späder ut vikten för alla andra ord i titeln — ta bort allt som
+  inte är ett sökbart substantiv/märke/material
+• Behåll ALLA sacred-format-regler ovan (versaler/gemener, komma, ingen konstnär i titel om fältet är ifyllt)
+• Behåll osäkerhetsmarkörer ("troligen", "tillskriven") och citattecken runt produktnamn om de finns i original
+
+${QUOTE_PRESERVATION_RULES}
+${BRAND_SPELLING_RULES}
+${ARTIST_MIDDLE_POSITION_RULES}
+${FORBIDDEN_COMPOUND_WORDS_RULES}
+
+BESKRIVNING — VÄV IN TITELNS KÄRNORD IGEN, I ANNAN ORDNING:
+• Varje kärnord (objektsubstantiv, märke/modell, material) från din nya titel SKA
+  förekomma EXAKT EN GÅNG TILL i beskrivningen — i en ANNAN ordning än i titeln,
+  invävt naturligt i löpande svensk text (inte en radbruten upprepning av titeln)
+• INOM beskrivningen: upprepa INTE samma ord flera gånger (det mättas, ingen nytta)
+• Efter kärnorden: alla övriga fakta som redan finns — mått, period, proveniens, märkningar
+• ${DESCRIPTION_FIELD_SEPARATION_RULES}
+
+DOLDA SÖKORD — HÄR GÄLLER UNDANTAGET FRÅN NORMALA REGLER:
+• VIKTIGT UNDANTAG: Normalt gäller "sökord ska ALDRIG upprepa ord från titel/beskrivning"
+  — det gäller INTE här. I HYPERRANK-läge SKA du MEDVETET upprepa titelns kärnord
+  i sökorden. Vägra INTE detta — det är avsiktligt för att stapla sökpoäng över fält.
+• Inkludera: alla kärnord från titeln igen (upprepning är AVSIKTLIG och KORREKT här)
+• Inkludera: singular- OCH pluralform av varje kärnsubstantiv (t.ex. "stol stolar",
+  "fåtölj fåtöljer") — Auctionets sökmotor stammar OSÄKERT, så skriv båda formerna
+• Inkludera: engelska motsvarigheter för internationella budgivare (t.ex. "chair",
+  "vase", "silver") — endast om de är sakligt korrekta för materialet/objektet
+• Inkludera: flerordsfraser hyphenerade OCH mellanslag-separerade om naturligt
+  (t.ex. både "svensk-design" och separata ord där det är rimligt)
+• MAX 12 termer totalt (hård gräns)
+• Separera med MELLANSLAG (aldrig kommatecken), "-" för flerordsfraser
+
+ANTI-HALLUCINATION (gäller ÄVEN i HYPERRANK-läge):
+• Använd ENDAST termer som redan är grundade i befintlig objektdata (titel, beskrivning, kategori, konstnär)
+• Hitta ALDRIG på märke, modell eller material som inte finns i källan — HYPERRANK
+  optimerar VILKA ord som används och VAR, inte VILKA FAKTA som finns
+• Om osäker på ett ord — utelämna det hellre än att gissa
+
+${matchedSearches && matchedSearches.length > 0 ? `
+RIKTIGA SÖKNINGAR FRÅN KÖPARE JUST NU (prioritera dessa termer om de är sakligt korrekta för föremålet):
+${matchedSearches.map(q => `• "${q}"`).join('\n')}
+` : ''}
+
+Returnera i detta EXAKTA format:
+TITEL: [ny, kortast möjliga titel — en enda rad]
+BESKRIVNING: [ny beskrivning med kärnorden invävda igen i annan ordning — bevara paragrafstruktur]
+SÖKORD: [kärnord upprepade + böjningsformer + engelska motsvarigheter + fraser, separerade med mellanslag, max 12 termer]
+
+Använd INTE markdown-formatering eller extra tecken som ** eller ***. Skriv bara ren text.`;
+
 const CONDITION_RULES_BLOCK = `FÄLTAVGRÄNSNING FÖR KONDITION:
 • Fokusera ENDAST på fysiskt skick och skador
 • Inkludera ALDRIG beskrivande information om material, teknik, stil eller funktion
@@ -712,6 +795,15 @@ Vänligen korrigera dessa problem och returnera förbättrade versioner som föl
     // SPECIAL CASE: Biography returns plain text, no structured parsing needed
     if (fieldType === 'biography') {
       return { biography: response.trim() };
+    }
+
+    // SPECIAL CASE: 'hyperrank' returns TITEL:/BESKRIVNING:/SÖKORD: (no KONDITION) —
+    // falls through to the generic multi-field parser below, which already handles
+    // any subset of these labels generically. No dedicated branch needed, but this
+    // comment marks the dispatch point explicitly (see getUserPrompt's 'hyperrank' case
+    // and content-script.js's hyperrank() apply flow).
+    if (fieldType === 'hyperrank') {
+      // intentionally falls through to the generic multi-field parser
     }
 
     // For single field requests — use accumulator to preserve multi-line content (paragraphs)
@@ -1388,6 +1480,9 @@ ${itemData.artistDates ? '• Använd EXAKT dessa levnadsår: ' + itemData.artis
 FORMAT:
 Returnera endast biografin som ren text.
 `;
+
+      case 'hyperrank':
+        return baseInfo + HYPERRANK_RULES(itemData, itemData._matchedSearches);
 
       case 'search_query':
         return `You are an expert auction search optimizer. Generate 2-3 optimal search terms for finding comparable items.
