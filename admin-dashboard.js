@@ -700,17 +700,44 @@
   async function resolveAdminEditUrl(itemId) {
     if (_rescueUrlCache.has(itemId)) return _rescueUrlCache.get(itemId);
     const base = window.location.pathname.replace(/\/$/, '');
-    const probeUrl = `https://auctionet.com${base}/items/${itemId}`;
-    try {
-      const resp = await chrome.runtime.sendMessage({ type: 'fetch-admin-html', url: probeUrl });
-      if (resp && resp.success && resp.finalUrl && /\/items\/\d/.test(resp.finalUrl)) {
-        const editUrl = resp.finalUrl.replace(/\/(edit)?$/, '') + '/edit';
-        _rescueUrlCache.set(itemId, editUrl);
-        return editUrl;
+
+    // The admin search finds items by ID. Prefer the header search form's own
+    // action (pattern comes from the page itself), then common fallbacks.
+    const candidates = [];
+    const headerForm = document.querySelector('form[action*="search"], .site-header form[action]');
+    if (headerForm) {
+      const action = headerForm.getAttribute('action');
+      const input = headerForm.querySelector('input[type="search"], input[type="text"]');
+      const param = (input && input.name) ? input.name : 'q';
+      if (action && action.startsWith('/')) {
+        candidates.push(`https://auctionet.com${action}?${encodeURIComponent(param)}=${itemId}`);
       }
-    } catch (e) {
-      console.warn('[AdminDashboard] Admin URL resolution failed:', e.message);
     }
+    candidates.push(
+      `https://auctionet.com${base}/search?q=${itemId}`,
+      `https://auctionet.com${base}/items?q=${itemId}`,
+      `https://auctionet.com${base}/items?search=${itemId}`
+    );
+
+    for (const url of candidates) {
+      try {
+        const resp = await chrome.runtime.sendMessage({ type: 'fetch-admin-html', url });
+        if (!resp || !resp.success || !resp.html) continue;
+        const doc = new DOMParser().parseFromString(resp.html, 'text/html');
+        for (const a of doc.querySelectorAll(`a[href*="/items/${itemId}"]`)) {
+          let href = a.getAttribute('href') || '';
+          if (href.includes('auctionet.com')) href = href.replace(/^https?:\/\/auctionet\.com/, '');
+          if (!href.startsWith('/admin/')) continue;
+          const clean = href.replace(/[?#].*$/, '').replace(/\/edit\/?$/, '');
+          const editUrl = `${clean}/edit`;
+          _rescueUrlCache.set(itemId, editUrl);
+          return editUrl;
+        }
+      } catch (e) {
+        // try next candidate
+      }
+    }
+    console.warn('[AdminDashboard] Could not resolve admin edit URL for item', itemId);
     _rescueUrlCache.set(itemId, null);
     return null;
   }
