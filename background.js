@@ -342,7 +342,9 @@ async function handleAdminHtmlFetch(request, sendResponse) {
     const response = await fetch(url, { credentials: 'include' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const html = await response.text();
-    sendResponse({ success: true, html });
+    // finalUrl: where the request landed after redirects — lets callers resolve
+    // canonical admin routes (e.g. /admin/sas/items/<id> → seller/contract path)
+    sendResponse({ success: true, html, finalUrl: response.url });
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }

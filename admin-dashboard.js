@@ -641,7 +641,8 @@
             id: item.id,
             title: item.title || '',
             estimate: item.estimate || 0,
-            endsAt: item.ends_at * 1000
+            endsAt: item.ends_at * 1000,
+            publicUrl: item.url || ''
           });
         });
 
@@ -654,6 +655,25 @@
     }
 
     matches.sort((a, b) => a.endsAt - b.endsAt);
+
+    // Publiceringskontrollen scrapes canonical admin edit URLs (seller/contract
+    // nested paths) off the admin pages — reuse them where it has seen the item.
+    try {
+      const stored = await new Promise(resolve =>
+        chrome.storage.local.get(['publicationScanResults', PUB_SCAN_STICKY_KEY], r => resolve(r)));
+      const editUrlById = new Map();
+      const collect = entry => {
+        const id = parseInt(entry && (entry.itemId || entry.id), 10);
+        if (id && entry.editUrl) editUrlById.set(id, entry.editUrl);
+      };
+      const scan = stored.publicationScanResults;
+      if (scan) { (scan.critical || []).forEach(collect); (scan.warnings || []).forEach(collect); }
+      const sticky = stored[PUB_SCAN_STICKY_KEY];
+      if (sticky) Object.values(sticky).forEach(collect);
+      matches.forEach(m => { m.editUrl = editUrlById.get(m.id) || null; });
+    } catch (e) {
+      console.warn('[AdminDashboard] Pubscan editUrl lookup failed:', e.message);
+    }
 
     _rescueCache = { timestamp: Date.now(), items: matches };
     return matches;
@@ -671,11 +691,28 @@
     return `om ${Math.max(diffMins, 1)} min`;
   }
 
-  function buildAdminEditUrl(itemId) {
-    // e.g. current path "/admin/sas" → "/admin/sas/items/12345/edit"
-    // Derives the company slug dynamically rather than hardcoding "sas".
+  // The canonical admin edit route is nested (/admin/<slug>/sellers/<sid>/
+  // contracts/<cid>/items/<id>-<slug>/edit) and the public API exposes neither
+  // seller nor contract id. Resolve at click time: fetch /admin/<slug>/items/<id>
+  // through the background (user's session, redirects followed) and use the URL
+  // it lands on. Falls back to the public item page if resolution fails.
+  const _rescueUrlCache = new Map();
+  async function resolveAdminEditUrl(itemId) {
+    if (_rescueUrlCache.has(itemId)) return _rescueUrlCache.get(itemId);
     const base = window.location.pathname.replace(/\/$/, '');
-    return `${base}/items/${itemId}/edit`;
+    const probeUrl = `https://auctionet.com${base}/items/${itemId}`;
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: 'fetch-admin-html', url: probeUrl });
+      if (resp && resp.success && resp.finalUrl && /\/items\/\d/.test(resp.finalUrl)) {
+        const editUrl = resp.finalUrl.replace(/\/(edit)?$/, '') + '/edit';
+        _rescueUrlCache.set(itemId, editUrl);
+        return editUrl;
+      }
+    } catch (e) {
+      console.warn('[AdminDashboard] Admin URL resolution failed:', e.message);
+    }
+    _rescueUrlCache.set(itemId, null);
+    return null;
   }
 
   function renderRescueList(items) {
@@ -690,10 +727,9 @@
     const remaining = count - shown.length;
 
     const rowsHTML = shown.map(item => {
-      const editUrl = buildAdminEditUrl(item.id);
       const estimateLabel = item.estimate > 0 ? `Utrop ${formatSEK(item.estimate)} SEK` : '';
       return `
-        <a class="ext-rescue-item" href="${escapeHTML(editUrl)}">
+        <a class="ext-rescue-item" href="${escapeHTML(safeCommentHref(item.editUrl || item.publicUrl))}" data-item-id="${item.id}" data-resolved="${item.editUrl ? '1' : ''}">
           <span class="ext-rescue-item__title">${escapeHTML(truncateTitle(item.title, 60))}</span>
           <span class="ext-rescue-item__meta">
             <span class="ext-rescue-item__time">${escapeHTML(formatTimeLeft(item.endsAt))}</span>
@@ -721,6 +757,19 @@
 
     if (!container.parentNode) {
       insertRescueContainer(container);
+      // Rows with a pubscan-provided canonical editUrl navigate directly.
+      // Others resolve the admin route at click time (background fetch follows
+      // the redirect); the public item page is the last-resort fallback.
+      container.addEventListener('click', async (e) => {
+        const row = e.target.closest('.ext-rescue-item');
+        if (!row || row.dataset.resolved === '1') return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        const itemId = parseInt(row.dataset.itemId, 10);
+        const fallback = row.getAttribute('href');
+        const resolved = itemId ? await resolveAdminEditUrl(itemId) : null;
+        window.location.href = resolved || fallback;
+      });
     }
   }
 
