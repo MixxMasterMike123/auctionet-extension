@@ -13,9 +13,24 @@
     await new Promise(resolve => window.addEventListener('load', resolve, { once: true }));
   }
 
-  // Verify the unsolds table exists
-  const table = document.querySelector('table.table');
-  if (!table) return;
+  // Find the unsolds table. Prefer locating it via the item rows (stable
+  // test-item-* classes) over the table's own class, which the admin UI
+  // redesign may change.
+  const findTable = () =>
+    document.querySelector('tr[class*="test-item-"]')?.closest('table') ||
+    document.querySelector('table.table');
+
+  // The new admin UI renders the table client-side AFTER the load event, so a
+  // one-shot check silently misses it — poll for up to 20s instead.
+  let table = findTable();
+  for (let waited = 0; !table && waited < 20000; waited += 250) {
+    await new Promise(r => setTimeout(r, 250));
+    table = findTable();
+  }
+  if (!table) {
+    console.warn('[SaS Outlet] No unsolds table found after 20s — toolbar not injected');
+    return;
+  }
 
   console.log('[SaS Outlet] Initializing scraper on unsolds page');
 
@@ -60,7 +75,7 @@
       const hasTableChange = mutations.some(m =>
         m.type === 'childList' &&
         (m.target.matches && m.target.matches('[data-pjax-container]') ||
-         m.target.querySelector && m.target.querySelector('table.table'))
+         m.target.querySelector && m.target.querySelector('table.table, tr[class*="test-item-"]'))
       );
 
       if (hasTableChange) {

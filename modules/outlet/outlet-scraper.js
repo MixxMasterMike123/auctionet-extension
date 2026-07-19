@@ -214,27 +214,20 @@ export class OutletScraper {
     return url.toString();
   }
 
-  // Fetch all details from an item's edit page:
-  // - All image URLs
-  // - Description (Beskrivning)
-  // - Condition report (Konditionsrapport)
-  // - Category
+  // Fetch all details from an item's show page (/admin/items/{ID}):
+  // images, description, condition, and category (Katalogisering table)
   async fetchItemDetails(itemOrId) {
     const itemId = typeof itemOrId === 'object' ? itemOrId.id : itemOrId;
-    const editUrl = typeof itemOrId === 'object' ? itemOrId.editUrl : null;
 
     try {
-      // Prefer edit page (has category dropdown + form fields), fall back to show page
-      const url = editUrl || `https://auctionet.com/admin/items/${itemId}`;
-      const html = await this._backgroundFetch(url);
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
+      // 1. Fetch SHOW page — images + description + condition
+      const showUrl = `https://auctionet.com/admin/items/${itemId}`;
+      const showHtml = await this._backgroundFetch(showUrl);
+      const showDoc = new DOMParser().parseFromString(showHtml, 'text/html');
 
-      const isEditPage = !!doc.querySelector('#item_category_id');
-
-      // Extract all images
+      // Images
       const imageUrls = [];
-      doc.querySelectorAll('img').forEach(img => {
+      showDoc.querySelectorAll('img').forEach(img => {
         const src = img.getAttribute('src') || '';
         if (src.includes('images.auctionet.com') && !src.includes('placeholder')) {
           const parentLink = img.closest('a');
@@ -250,44 +243,45 @@ export class OutletScraper {
         }
       });
 
+      // Description, condition, category from the page content
       let description = '';
       let condition = '';
       let category = '';
 
-      if (isEditPage) {
-        // Edit page: read form fields directly
-        const descEl = doc.querySelector('#item_description_sv');
-        if (descEl) {
-          description = descEl.tagName === 'TEXTAREA' ? descEl.textContent.trim() : (descEl.getAttribute('value') || '').trim();
-        }
+      // Description + condition from details section
+      const detailsSection = showDoc.querySelector('.details-texts') || showDoc.querySelector('.row.details-texts');
+      if (detailsSection) {
+        const headings = detailsSection.querySelectorAll('h5');
+        headings.forEach(h5 => {
+          const label = h5.textContent.trim().toLowerCase();
+          const valueDiv = h5.nextElementSibling;
+          if (!valueDiv) return;
+          const text = valueDiv.textContent.trim();
 
-        const condEl = doc.querySelector('#item_condition_sv');
-        if (condEl) {
-          condition = condEl.tagName === 'TEXTAREA' ? condEl.textContent.trim() : (condEl.getAttribute('value') || '').trim();
-        }
+          if (label.includes('beskrivning')) {
+            description = text;
+          } else if (label.includes('kondition')) {
+            condition = text;
+          }
+        });
+      }
 
-        // Category from selected option
-        const catEl = doc.querySelector('#item_category_id option[selected]');
-        if (catEl) {
-          category = catEl.textContent.trim();
-        }
-      } else {
-        // Show page fallback: parse details section
-        const detailsSection = doc.querySelector('.details-texts') || doc.querySelector('.row.details-texts');
-        if (detailsSection) {
-          const headings = detailsSection.querySelectorAll('h5');
-          headings.forEach(h5 => {
-            const label = h5.textContent.trim().toLowerCase();
-            const valueDiv = h5.nextElementSibling;
-            if (!valueDiv) return;
-            const text = valueDiv.textContent.trim();
-
-            if (label.includes('beskrivning')) {
-              description = text;
-            } else if (label.includes('kondition')) {
-              condition = text;
-            }
-          });
+      // Category from the "Katalogisering" table (e.g. "Smycken & Ädelstenar / Broscher & Hängen")
+      // Scope to the same details container used above for description/condition —
+      // searching the whole document risks matching a "Kategori" cell elsewhere on the page.
+      const categoryScope = detailsSection || showDoc;
+      for (const el of categoryScope.querySelectorAll('th, td, dt, strong')) {
+        // Tolerate "Kategori:" (trailing colon) and stray whitespace
+        const label = el.textContent.trim().toLowerCase().replace(/:$/, '');
+        if (label !== 'kategori') continue;
+        // Value may be a sibling element (th→td, dt→dd) or a bare text node
+        // after e.g. <strong>Kategori:</strong> Smycken…
+        const value = el.nextElementSibling
+          ? el.nextElementSibling.textContent.trim()
+          : (el.nextSibling ? (el.nextSibling.textContent || '').trim() : '');
+        if (value) {
+          category = value;
+          break; // first labeled match wins — don't let a later stray cell overwrite it
         }
       }
 
