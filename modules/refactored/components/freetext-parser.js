@@ -27,6 +27,39 @@ import {
   extractObjectTypeFromTitle
 } from './parse-helpers.js';
 
+// SVG path/shape markup for the analysis-mode indicator icons, one entry per
+// mode. Each array holds the inner shape lines exactly as they appear inside
+// the mode-icon/button-icon <svg> wrapper (see updateAnalysisModeIndicator),
+// preserved verbatim so the rendered innerHTML stays byte-identical.
+const MODE_ICONS = {
+  combined: [
+    '<path d="M4.5 16.5c-1.5 1.5-1.5 4.5 0 6s4.5 1.5 6 0l1-1" stroke="currentColor" stroke-width="1.5"/>',
+    '<path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>',
+    '<path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>'
+  ],
+  image: [
+    '<rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>',
+    '<circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>',
+    '<path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>'
+  ],
+  images: [
+    '<rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>',
+    '<rect x="14" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>',
+    '<rect x="2" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>',
+    '<rect x="14" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>'
+  ],
+  text: [
+    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/>',
+    '<polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/>',
+    '<line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>',
+    '<line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>'
+  ],
+  empty: [
+    '<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>',
+    '<path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>'
+  ]
+};
+
 export class FreetextParser {
   constructor(apiManager, addItemsManager) {
     // Handle both direct APIManager and APIBridge patterns
@@ -686,91 +719,47 @@ export class FreetextParser {
     const modeText = indicator.querySelector('.mode-text');
     
     if (!modeIcon || !modeText) return;
-    
+
+    // Sets the mode icon, indicator text, analyze-button label, and indicator
+    // className together. `buttonIconKey` lets the images branch reuse the
+    // single-image icon for its multi-image button label variant.
+    const setMode = (iconKey, text, buttonLabel, className, buttonIconKey = iconKey) => {
+      const iconMarkup = MODE_ICONS[iconKey].join('\n          ');
+      const buttonIconMarkup = MODE_ICONS[buttonIconKey].join('\n          ');
+      modeIcon.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          ${iconMarkup}
+        </svg>
+      `;
+      modeText.textContent = text;
+      analyzeBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
+          ${buttonIconMarkup}
+        </svg>
+        ${buttonLabel}
+      `;
+      indicator.className = `analysis-mode-indicator ${className}`;
+    };
+
     if (hasImages && hasText) {
       // Combined analysis
-      modeIcon.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path d="M4.5 16.5c-1.5 1.5-1.5 4.5 0 6s4.5 1.5 6 0l1-1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-      `;
-      modeText.textContent = `Redo för kombinerad analys: ${this.selectedImages.size} bilder + text`;
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <path d="M4.5 16.5c-1.5 1.5-1.5 4.5 0 6s4.5 1.5 6 0l1-1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera bilder + text
-      `;
-      indicator.className = 'analysis-mode-indicator mode-combined';
+      setMode('combined', `Redo för kombinerad analys: ${this.selectedImages.size} bilder + text`, 'Analysera bilder + text', 'mode-combined');
     } else if (hasImages) {
       // Image-only analysis
-      modeIcon.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-      `;
-      modeText.textContent = `Redo för bildanalys: ${this.selectedImages.size} bilder`;
-      analyzeBtn.innerHTML = this.selectedImages.size > 1 ? `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="14" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="2" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="14" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera flera bilder
-      ` : `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera bild
-      `;
-      indicator.className = 'analysis-mode-indicator mode-images';
+      const isMultiple = this.selectedImages.size > 1;
+      setMode(
+        'image',
+        `Redo för bildanalys: ${this.selectedImages.size} bilder`,
+        isMultiple ? 'Analysera flera bilder' : 'Analysera bild',
+        'mode-images',
+        isMultiple ? 'images' : 'image'
+      );
     } else if (hasText) {
       // Text-only analysis
-      modeIcon.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/>
-          <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/>
-          <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
-          <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-      `;
-      modeText.textContent = 'Redo för textanalys';
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/>
-          <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/>
-          <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/>
-          <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera text
-      `;
-      indicator.className = 'analysis-mode-indicator mode-text';
+      setMode('text', 'Redo för textanalys', 'Analysera text', 'mode-text');
     } else {
       // No input
-      modeIcon.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-      `;
-      modeText.textContent = 'Fyll i bilder och/eller text för analys';
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera
-      `;
-      indicator.className = 'analysis-mode-indicator mode-empty';
+      setMode('empty', 'Fyll i bilder och/eller text för analys', 'Analysera', 'mode-empty');
     }
   }
 
@@ -938,43 +927,44 @@ export class FreetextParser {
   }
 
   /**
-   * Process image-only input using AIImageAnalyzer
+   * Shared image-analysis pipeline for both image-only and combined (image + text)
+   * processing. `additionalText` is null for image-only (no text context passed
+   * to the analyzer, analysisType 'image', no additionalContext field) and a
+   * non-empty string for combined (text context passed to the analyzer,
+   * analysisType 'combined', additionalContext field included).
    */
-  async processImageOnly() {
-    
-    // Note: Image validation already done in main processFreetextWithAI method
-    // This method is only called when hasImages is true
-
-    
+  async runImageAnalysis(additionalText = null) {
     // Analyze images using AIImageAnalyzer component
     let imageAnalysis;
     if (this.selectedImages.size === 1) {
       // Single image analysis — use dataUrl if image was resized, otherwise use file
       const singleImageData = Array.from(this.selectedImages.values())[0];
       const imageArg = singleImageData.file._resized ? singleImageData.dataUrl : singleImageData.file;
-      imageAnalysis = await this.imageAnalyzer.analyzeImage(imageArg);
+      imageAnalysis = additionalText !== null
+        ? await this.imageAnalyzer.analyzeImage(imageArg, additionalText)
+        : await this.imageAnalyzer.analyzeImage(imageArg);
     } else {
       // Multiple images analysis
       // First, populate the AIImageAnalyzer's currentImages from our selectedImages
       this.imageAnalyzer.currentImages.clear();
       let categoryIndex = 0;
       const categoryIds = ['front', 'back', 'markings', 'signature', 'condition'];
-      
+
       for (const [imageId, imageData] of this.selectedImages) {
         const categoryId = categoryIds[categoryIndex] || 'condition';
-        const categoryObject = this.imageAnalyzer.config.imageCategories.find(cat => cat.id === categoryId);
-        
+
         // Store the resized dataUrl if available, otherwise the file
         const imageArg = imageData.file._resized ? imageData.dataUrl : imageData.file;
         this.imageAnalyzer.currentImages.set(categoryId, imageArg);
-        
+
         categoryIndex++;
       }
-      
-      
-      imageAnalysis = await this.imageAnalyzer.analyzeMultipleImages();
+
+      imageAnalysis = additionalText !== null
+        ? await this.imageAnalyzer.analyzeMultipleImages(additionalText)
+        : await this.imageAnalyzer.analyzeMultipleImages();
     }
-    
+
     // Convert image analysis to freetext parser format for consistency
     const parsedData = {
       title: imageAnalysis.title || '',
@@ -996,18 +986,33 @@ export class FreetextParser {
         estimate: imageAnalysis.confidence?.estimate || 0.4
       },
       reasoning: imageAnalysis.reasoning || '',
-      analysisType: 'image',
+      analysisType: additionalText !== null ? 'combined' : 'image',
       imageAnalysis: imageAnalysis // Store original image analysis
     };
 
+    if (additionalText !== null) {
+      parsedData.additionalContext = additionalText;
+    }
+
     return parsedData;
+  }
+
+  /**
+   * Process image-only input using AIImageAnalyzer
+   */
+  async processImageOnly() {
+
+    // Note: Image validation already done in main processFreetextWithAI method
+    // This method is only called when hasImages is true
+
+    return this.runImageAnalysis();
   }
 
   /**
    * Process combined image + text input
    */
   async processCombinedImageAndText() {
-    
+
     if (!this.selectedImages || this.selectedImages.size === 0) {
       throw new Error('Vänligen ladda upp bilder för kombinerad analys först.');
     }
@@ -1015,62 +1020,10 @@ export class FreetextParser {
     const textarea = this.currentModal.querySelector('#freetext-input');
     const additionalText = textarea ? textarea.value.trim() : '';
 
-
-    // Analyze images with additional text context
-    let imageAnalysis;
-    if (this.selectedImages.size === 1) {
-      // Single image analysis with text context — use dataUrl if resized
-      const singleImageData = Array.from(this.selectedImages.values())[0];
-      const imageArg = singleImageData.file._resized ? singleImageData.dataUrl : singleImageData.file;
-      imageAnalysis = await this.imageAnalyzer.analyzeImage(imageArg, additionalText);
-    } else {
-      // Multiple images analysis with text context
-      // First, populate the AIImageAnalyzer's currentImages from our selectedImages
-      this.imageAnalyzer.currentImages.clear();
-      let categoryIndex = 0;
-      const categoryIds = ['front', 'back', 'markings', 'signature', 'condition'];
-      
-      for (const [imageId, imageData] of this.selectedImages) {
-        const categoryId = categoryIds[categoryIndex] || 'condition';
-        const imageArg = imageData.file._resized ? imageData.dataUrl : imageData.file;
-        this.imageAnalyzer.currentImages.set(categoryId, imageArg);
-        categoryIndex++;
-      }
-      
-      
-      imageAnalysis = await this.imageAnalyzer.analyzeMultipleImages(additionalText);
-    }
-
-    // Enhanced combined processing with both visual and textual data
-    const parsedData = {
-      title: imageAnalysis.title || '',
-      description: imageAnalysis.description || '',
-      condition: imageAnalysis.condition || '',
-      artist: imageAnalysis.artist || null,
-      keywords: imageAnalysis.keywords || '',
-      materials: imageAnalysis.materials || '',
-      period: imageAnalysis.period || '',
-      estimate: imageAnalysis.estimate || null, // Use AI estimate as initial value
-      reserve: imageAnalysis.reserve || null,   // Use AI reserve as initial value
-      shouldDisposeIfUnsold: false,
-      confidence: {
-        ...imageAnalysis.confidence,
-        title: imageAnalysis.confidence?.objectIdentification || 0.5,
-        description: imageAnalysis.confidence?.materialAssessment || 0.5,
-        condition: imageAnalysis.confidence?.conditionAssessment || 0.5,
-        artist: imageAnalysis.confidence?.artistAttribution || 0.5,
-        estimate: imageAnalysis.confidence?.estimate || 0.4
-      },
-      reasoning: imageAnalysis.reasoning || '',
-      analysisType: 'combined',
-      imageAnalysis: imageAnalysis, // Store original image analysis
-      additionalContext: additionalText
-    };
-
-    // Additional text is already passed as context to the image analyzer,
+    // Additional text is passed as context to the image analyzer,
     // so no separate enhancement step is needed. This avoids a second AI call
     // that was re-expanding the concise output into verbose text.
-    return parsedData;
+    return this.runImageAnalysis(additionalText);
   }
 
   /**
@@ -1704,7 +1657,10 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
   }
 
   /**
-   * Get progress steps based on analysis type and model capabilities
+   * Get progress step messages based on analysis type and model capabilities.
+   * Only the step count and message text are consumed (by
+   * startProgressTextCycling and completeProgressAnimation), so this returns
+   * plain strings rather than {icon, text, duration} objects.
    */
   getProgressSteps() {
     const currentModel = this.apiManager.getCurrentModel().id;
@@ -1715,59 +1671,19 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
 
     if (isAdvancedModel) {
       return [
-                  { 
-            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.5"/></svg>', 
-            text: 'Identifierar objekt och märke...', 
-            duration: 2000 
-          },
-          { 
-            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-5 0V4.5A2.5 2.5 0 0 1 9.5 2z" stroke="currentColor" stroke-width="1.5"/><path d="M14.5 8.5a2.5 2.5 0 0 1 5 0v11a2.5 2.5 0 0 1-5 0v-11z" stroke="currentColor" stroke-width="1.5"/></svg>', 
-            text: 'Analyserar stilperiod och äkthet...', 
-            duration: 2500 
-          },
-        { 
-          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="1.5"/></svg>', 
-          text: 'Undersöker marknadsdata...', 
-          duration: 3000 
-        },
-        { 
-          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="1.5"/></svg>', 
-          text: 'Beräknar marknadsvärde...', 
-          duration: 2000 
-        },
-        { 
-          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/></svg>', 
-          text: 'Optimerar katalogisering...', 
-          duration: 1500 
-        },
-                 { 
-           icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', 
-           text: 'Slutför expertanalys...', 
-           duration: 1000 
-         }
+        'Identifierar objekt och märke...',
+        'Analyserar stilperiod och äkthet...',
+        'Undersöker marknadsdata...',
+        'Beräknar marknadsvärde...',
+        'Optimerar katalogisering...',
+        'Slutför expertanalys...'
       ];
     } else {
       return [
-                  { 
-            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.5"/></svg>', 
-            text: 'Analyserar innehåll...', 
-            duration: 1500 
-          },
-        { 
-          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.5"/><polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5"/><line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="1.5"/></svg>', 
-          text: 'Extraherar strukturerad data...', 
-          duration: 2000 
-        },
-        { 
-          icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="1.5"/></svg>', 
-          text: 'Beräknar värdering...', 
-          duration: 1500 
-        },
-                                     { 
-             icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>', 
-             text: 'Slutför analys...', 
-             duration: 1000 
-           }
+        'Analyserar innehåll...',
+        'Extraherar strukturerad data...',
+        'Beräknar värdering...',
+        'Slutför analys...'
       ];
     }
   }
@@ -1832,7 +1748,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     const statusText = this.currentModal.querySelector('#current-status');
     if (!statusText) return;
     
-    const messages = this.getProgressSteps().map(step => step.text);
+    const messages = this.getProgressSteps();
     let messageIndex = 0;
     
     const cycleMessages = () => {

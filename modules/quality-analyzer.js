@@ -69,7 +69,7 @@ export class QualityAnalyzer {
       searchTermExtractor: this.searchTermExtractor
     });
     this.marketOrchestrator.setCallbacks({
-      detectMisplacedArtistRuleBased: (title, artist) => this.detectMisplacedArtistRuleBased(title, artist),
+      detectMisplacedArtistRuleBased: (title, artist) => this.artistDetectionManager.detectMisplacedArtistRuleBased(title, artist),
       extractObjectType: (title) => this.extractObjectType(title),
       formatAIDetectedArtistForSSoT: (artist) => this.formatAIDetectedArtistForSSoT(artist)
     });
@@ -206,16 +206,6 @@ export class QualityAnalyzer {
     this.marketOrchestrator.setDependencies({ searchQuerySSoT: searchQuerySSoT });
   }
 
-  // NEW: Delegate artist detection to ArtistDetectionManager SSoT
-  async detectMisplacedArtist(title, artistField, forceReDetection = false) {
-    return await this.artistDetectionManager.detectMisplacedArtist(title, artistField, forceReDetection);
-  }
-
-  // NEW: Delegate rule-based detection to ArtistDetectionManager SSoT  
-  detectMisplacedArtistRuleBased(title, artistField) {
-    return this.artistDetectionManager.detectMisplacedArtistRuleBased(title, artistField);
-  }
-
   // CRITICAL FIX: Handle user selection updates from SSoT to trigger new market analysis
   async handleUserSelectionUpdate(data) {
     try {
@@ -260,23 +250,6 @@ export class QualityAnalyzer {
     return this.artistDetectionManager.extractPeriod(title);
   }
 
-  generateSuggestedTitle(originalTitle, artistName) {
-    return this.artistDetectionManager.generateSuggestedTitle(originalTitle, artistName);
-  }
-
-  looksLikePersonName(name) {
-    return this.artistDetectionManager.looksLikePersonName(name);
-  }
-
-  calculateArtistConfidence(artistName, objectType) {
-    return this.artistDetectionManager.calculateArtistConfidence(artistName, objectType);
-  }
-
-  // Helper method for measurements in Swedish format
-  hasMeasurements(text) {
-    return this.rulesEngine.hasMeasurements(text);
-  }
-
   async analyzeQuality() {
     if (!this.dataExtractor) {
       console.error('Data extractor not set');
@@ -292,7 +265,7 @@ export class QualityAnalyzer {
     const { warnings, score } = this.rulesEngine.runValidationRules(data);
 
     // Render inline hints below fields for FAQ violations
-    this.renderInlineHints(warnings);
+    this.qualityUIRenderer.renderInlineHints(warnings);
 
     // Update UI with immediate results (no animation for initial display)
     this.updateQualityIndicator(score, warnings, false);
@@ -317,12 +290,13 @@ export class QualityAnalyzer {
     if (data.artist && data.artist.trim()) {
 
       // Quick rule-based check if title contains artist names
-      const titleHasArtist = this.detectMisplacedArtistRuleBased(data.title, data.artist);
+      const titleHasArtist = this.artistDetectionManager.detectMisplacedArtistRuleBased(data.title, data.artist);
 
       if (!titleHasArtist || !titleHasArtist.detectedArtist) {
 
         // Still run brand validation and market analysis with existing artist
-        this.showAILoadingIndicator('🏷️ Kontrollerar märkesnamn...');
+        this.feedbackManager.showAILoadingIndicator('🏷️ Kontrollerar märkesnamn...');
+        this.aiAnalysisActive = true;
         this.aiAnalysisActive = true;
         this.pendingAnalyses = new Set(['brand']); // Only brand validation
 
@@ -340,7 +314,7 @@ export class QualityAnalyzer {
           }
 
           // Trigger market analysis with existing artist
-          await this.triggerMarketAnalysisWithExistingArtist(data);
+          await this.marketOrchestrator.triggerMarketAnalysisWithExistingArtist(data);
 
         } catch (error) {
           console.error('Brand validation failed:', error);
@@ -355,7 +329,7 @@ export class QualityAnalyzer {
     }
 
     // Show initial AI loading indicator
-    this.showAILoadingIndicator('🔍 Söker konstnärsnamn...');
+    this.feedbackManager.showAILoadingIndicator('🔍 Söker konstnärsnamn...');
     this.aiAnalysisActive = true;
     this.pendingAnalyses = new Set();
 
@@ -370,7 +344,7 @@ export class QualityAnalyzer {
       // NEW FLOW: Initially exclude artists detected in title from SSoT
 
       // First, check if we have an immediate artist (from field or rule-based detection)
-      const immediateArtist = this.determineBestArtistForMarketAnalysis(data);
+      const immediateArtist = this.marketOrchestrator.determineBestArtistForMarketAnalysis(data);
 
       // NEW: Pre-filter ignored artists from title before AI analysis
       const ignoredArtists = this.artistIgnoreManager.getIgnoredArtists();
@@ -392,7 +366,7 @@ export class QualityAnalyzer {
 
       // Start parallel analyses - artist detection AND brand validation
       // Always run AI analysis for verification and brand validation, but don't suggest title changes when artist field is filled
-      const artistAnalysisPromise = this.detectMisplacedArtist(analysisTitle, data.artist, false);
+      const artistAnalysisPromise = this.artistDetectionManager.detectMisplacedArtist(analysisTitle, data.artist, false);
       const brandValidationPromise = this.brandValidationManager.validateBrandsInContent(data.title, data.description);
 
       // CRITICAL ENHANCEMENT: Handle AI artist detection but EXCLUDE from initial SSoT
@@ -407,7 +381,7 @@ export class QualityAnalyzer {
 
 
       // NEW: Handle brand validation in parallel
-      this.updateAILoadingMessage('🏷️ Kontrollerar märkesnamn...');
+      this.feedbackManager.updateAILoadingMessage('🏷️ Kontrollerar märkesnamn...');
 
       // CRITICAL FIX: Show artist detection UI for ALL detected artists, regardless of where found
 
@@ -900,7 +874,7 @@ export class QualityAnalyzer {
         const warnArtistDates = artistHelpSpan ? artistHelpSpan.textContent.trim() : '';
         const warnTitle = document.querySelector('#item_title_sv')?.value || '';
         const warnDesc = document.querySelector('#item_description_sv')?.value || '';
-        this.addBiographyHover(clickableSpan, artistName, warningData, warnArtistDates, warnTitle, warnDesc);
+        this.biographyKBCard.addBiographyHover(clickableSpan, artistName, warningData, warnArtistDates, warnTitle, warnDesc);
 
         // NEW: Use Biography Manager SSoT component for biography handling
         let biographySpan = null;
@@ -1649,28 +1623,9 @@ export class QualityAnalyzer {
     this.qualityUIRenderer.updateQualityIndicator(score, warnings, shouldAnimate);
   }
 
-
-  // Condition suggestions and inline hints — delegated to QualityUIRenderer
-
-  getConditionSuggestions(category, count = 3) {
-    return this.qualityUIRenderer.getConditionSuggestions(category, count);
-  }
-
-  renderInlineHints(warnings) {
-    this.qualityUIRenderer.renderInlineHints(warnings);
-  }
-
   // Helper method to escape regex special characters
   escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  addBiographyHover(element, artistName, warningData = null, artistDates = '', itemTitle = '', itemDescription = '') {
-    this.biographyKBCard.addBiographyHover(element, artistName, warningData, artistDates, itemTitle, itemDescription);
-  }
-
-  async fetchArtistBiography(artistName, artistDates = '', userHint = '', itemTitle = '', itemDescription = '') {
-    return this.biographyKBCard.fetchArtistBiography(artistName, artistDates, userHint, itemTitle, itemDescription);
   }
 
   checkAndHideLoadingIndicator() {
@@ -1681,30 +1636,9 @@ export class QualityAnalyzer {
     return this.rulesEngine.extractCurrentWarnings();
   }
 
-  showAILoadingIndicator(message = 'AI analysis in progress...') {
-    this.feedbackManager.showAILoadingIndicator(message);
-    this.aiAnalysisActive = true;
-  }
-
-  updateAILoadingMessage(message) {
-    this.feedbackManager.updateAILoadingMessage(message);
-  }
-
   hideAILoadingIndicator() {
     this.feedbackManager.hideAILoadingIndicator();
     this.aiAnalysisActive = false;
-  }
-
-  determineBestArtistForMarketAnalysis(data, aiArtist = null) {
-    return this.marketOrchestrator.determineBestArtistForMarketAnalysis(data, aiArtist);
-  }
-
-  detectBrandInTitle(title, description) {
-    return this.marketOrchestrator.detectBrandInTitle(title, description);
-  }
-
-  extractFreetextSearchTerms(title, description) {
-    return this.marketOrchestrator.extractFreetextSearchTerms(title, description);
   }
 
   calculateCurrentQualityScore(data) {
@@ -1713,10 +1647,6 @@ export class QualityAnalyzer {
 
   extractTechnique(title, description) {
     return this.marketOrchestrator.extractTechnique(title, description);
-  }
-
-  async determineBestSearchQueryForMarketAnalysis(data, aiArtist = null) {
-    return this.marketOrchestrator.determineBestSearchQueryForMarketAnalysis(data, aiArtist);
   }
 
   // Set SearchFilterManager reference and provide dependencies
@@ -1729,10 +1659,6 @@ export class QualityAnalyzer {
 
     // Wire to market orchestrator
     this.marketOrchestrator.setDependencies({ searchFilterManager: searchFilterManager });
-  }
-
-  async triggerMarketAnalysisWithExistingArtist(data) {
-    return this.marketOrchestrator.triggerMarketAnalysisWithExistingArtist(data);
   }
 
 }

@@ -248,47 +248,39 @@
         // Note: Initial button state update will be called after UI is injected
       }
 
+      // Run fn(type) for each of the four improvable field types
+      applyToAllFields(fn) {
+        ['title', 'description', 'condition', 'keywords'].forEach(type => fn(type));
+      }
+
       updateConditionButtonState() {
         const isNoRemarksChecked = this.isNoRemarksChecked();
-        
-        const conditionButton = document.querySelector('[data-field-type="condition"]');
-        
-        if (conditionButton) {
-          if (isNoRemarksChecked) {
-            conditionButton.disabled = true;
-            conditionButton.style.opacity = '0.5';
-            conditionButton.style.cursor = 'not-allowed';
-            conditionButton.title = 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat';
-          } else {
-            conditionButton.disabled = false;
-            conditionButton.style.opacity = '1';
-            conditionButton.style.cursor = 'pointer';
-            conditionButton.title = 'Förbättra kondition';
-          }
-        } else {
+
+        // Resolve the condition button: primary selector, else fall back to scanning all assist buttons
+        let conditionButton = document.querySelector('[data-field-type="condition"]');
+
+        if (!conditionButton) {
           // Try alternative selectors but don't log as error during initialization
           const altButtons = document.querySelectorAll('.ai-assist-button');
-          let foundConditionButton = null;
           altButtons.forEach(btn => {
             if (btn.textContent.includes('kondition') || btn.dataset.fieldType === 'condition') {
-              foundConditionButton = btn;
+              conditionButton = btn;
             }
           });
-          
-          if (foundConditionButton) {
-            // Apply the same logic as above
-            if (isNoRemarksChecked) {
-              foundConditionButton.disabled = true;
-              foundConditionButton.style.opacity = '0.5';
-              foundConditionButton.style.cursor = 'not-allowed';
-              foundConditionButton.title = 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat';
-            } else {
-              foundConditionButton.disabled = false;
-              foundConditionButton.style.opacity = '1';
-              foundConditionButton.style.cursor = 'pointer';
-              foundConditionButton.title = 'Förbättra kondition';
-            }
-          }
+        }
+
+        if (!conditionButton) return;
+
+        if (isNoRemarksChecked) {
+          conditionButton.disabled = true;
+          conditionButton.style.opacity = '0.5';
+          conditionButton.style.cursor = 'not-allowed';
+          conditionButton.title = 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat';
+        } else {
+          conditionButton.disabled = false;
+          conditionButton.style.opacity = '1';
+          conditionButton.style.cursor = 'pointer';
+          conditionButton.title = 'Förbättra kondition';
         }
       }
 
@@ -321,24 +313,32 @@
         }, 500); // Increased delay to ensure UI is fully ready
       }
 
+      // Ensure the Claude API key is loaded, showing a field error indicator (labeled errLabel) if it's missing.
+      // Returns true if the key is present and the caller may proceed, false if it already showed the error.
+      async ensureApiKey(errLabel) {
+        if (!this.apiManager.apiKey) {
+          await this.apiManager.loadSettings();
+        }
+
+        if (!this.apiManager.apiKey) {
+          this.showFieldErrorIndicator(errLabel, 'API key not configured. Please set your Anthropic API key in the extension popup.');
+          return false;
+        }
+
+        return true;
+      }
+
       async improveField(fieldType) {
         // Check if trying to improve condition when "Inga anmärkningar" is checked
         if (fieldType === 'condition' && this.isNoRemarksChecked()) {
           this.showFieldErrorIndicator(fieldType, 'Kondition kan inte förbättras när "Inga anmärkningar" är markerat. Avmarkera checkboxen först.');
           return;
         }
-        
-        // Ensure API key is loaded
-        if (!this.apiManager.apiKey) {
-          await this.apiManager.loadSettings();
-        }
-        
-        // Check if API key is still missing
-        if (!this.apiManager.apiKey) {
-          this.showFieldErrorIndicator(fieldType, 'API key not configured. Please set your Anthropic API key in the extension popup.');
+
+        if (!(await this.ensureApiKey(fieldType))) {
           return;
         }
-        
+
         const itemData = this.dataExtractor.extractItemData();
         
         // Assess data quality for hallucination prevention (skip for title corrections)
@@ -377,17 +377,10 @@
       }
 
       async improveAllFields() {
-        // Ensure API key is loaded
-        if (!this.apiManager.apiKey) {
-          await this.apiManager.loadSettings();
-        }
-        
-        // Check if API key is still missing
-        if (!this.apiManager.apiKey) {
-          this.showFieldErrorIndicator('all', 'API key not configured. Please set your Anthropic API key in the extension popup.');
+        if (!(await this.ensureApiKey('all'))) {
           return;
         }
-        
+
         const itemData = this.dataExtractor.extractItemData();
         
         // Assess data quality for hallucination prevention
@@ -709,10 +702,7 @@
           }
           
           // Show loading animation on all fields simultaneously
-          const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
-          allFieldTypes.forEach(type => {
-            this.fallbackShowFieldLoadingIndicator(type);
-          });
+          this.applyToAllFields(type => this.fallbackShowFieldLoadingIndicator(type));
           return;
         }
 
@@ -784,10 +774,7 @@
           }
           
           // Show success on all individual fields
-          const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
-          allFieldTypes.forEach(type => {
-            this.fallbackShowFieldSuccessIndicator(type);
-          });
+          this.applyToAllFields(type => this.fallbackShowFieldSuccessIndicator(type));
           return;
         }
         
@@ -830,10 +817,7 @@
       fallbackRemoveFieldLoadingIndicator(fieldType) {
         if (fieldType === 'all') {
           // Remove loading from all individual fields - EXACT same logic
-          const allFieldTypes = ['title', 'description', 'condition', 'keywords'];
-          allFieldTypes.forEach(type => {
-            this.fallbackRemoveFieldLoadingIndicator(type);
-          });
+          this.applyToAllFields(type => this.fallbackRemoveFieldLoadingIndicator(type));
           return;
         }
         

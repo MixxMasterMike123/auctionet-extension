@@ -766,24 +766,11 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
           ? marketAnalysis.statistics.median
           : Math.round((marketLow + marketHigh) / 2);
 
-        // For sets (servis, bestick, etc.), market data already reflects the whole-lot price.
-        // Only multiply by numberOfLots for genuinely separate auction lots.
-        const numLots = result.numberOfLots || 1;
-        const isSet = result.isSet;
-
         const aiEstimate = result.estimatedValue;
 
-        if (isSet || numLots <= 1) {
-          // Set or single item — market median IS the total value
-          result.estimatedValuePerLot = this._roundValuation(marketMedian);
-          result.estimatedValuePerItem = result.estimatedValuePerLot;
-          result.estimatedValue = result.estimatedValuePerLot;
-        } else {
-          // Multiple separate lots — multiply
-          result.estimatedValuePerLot = this._roundValuation(marketMedian);
-          result.estimatedValuePerItem = result.estimatedValuePerLot;
-          result.estimatedValue = this._roundValuation(marketMedian * numLots);
-        }
+        // For sets (servis, bestick, etc.), market data already reflects the whole-lot price.
+        // Only multiply by numberOfLots for genuinely separate auction lots.
+        const { numLots, isSet } = this._applyMarketPriceToLots(result, marketMedian);
 
         result.marketDataUsed = true;
         result.marketSales = salesCount;
@@ -889,6 +876,30 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
     return Math.round(value / 100) * 100;
   }
 
+  /**
+   * Shared core of "apply a market price into a valuation result": given a representative
+   * market price (median or midpoint) and the lot/set shape of the item, sets
+   * estimatedValuePerLot/estimatedValuePerItem/estimatedValue on the target object.
+   * For sets (servis, bestick, etc.) or single lots, the market price IS the total value.
+   * For multiple separate lots, the price is multiplied by numberOfLots.
+   * Used identically by _enrichWithMarketData and _rerunMarketSearch — the two call sites
+   * that share this exact arithmetic (the group-rerun path uses a simpler, deliberately
+   * different computation and is left untouched, see _rerunGroupMarketSearch).
+   */
+  _applyMarketPriceToLots(target, marketPrice) {
+    const numLots = target.numberOfLots || 1;
+    const isSet = target.isSet;
+
+    target.estimatedValuePerLot = this._roundValuation(marketPrice);
+    target.estimatedValuePerItem = target.estimatedValuePerLot;
+    if (isSet || numLots <= 1) {
+      target.estimatedValue = target.estimatedValuePerLot;
+    } else {
+      target.estimatedValue = this._roundValuation(marketPrice * numLots);
+    }
+    return { numLots, isSet };
+  }
+
   // ─── Email Generation ─────────────────────────────────────────────────
 
   generateEmailText(result) {
@@ -908,6 +919,15 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
     }
   }
 
+  // Shared signature block — differs only in phone number format between languages.
+  static SIGNATURE_SV = `Stadsauktion Sundsvall
+Verkstadsgatan 4, 853 33 Sundsvall
+Telefon: 060 - 17 00 40`;
+
+  static SIGNATURE_EN = `Stadsauktion Sundsvall
+Verkstadsgatan 4, 853 33 Sundsvall
+Phone: +46 60 17 00 40`;
+
   _generateSwedishAcceptEmail(name, result) {
     return `Hej ${name},
 
@@ -924,9 +944,7 @@ Om du vill gå vidare är du välkommen att lämna in ditt föremål till oss. E
 Hör gärna av dig om du har frågor eller fler föremål du vill få värderade!
 
 Med vänliga hälsningar,
-Stadsauktion Sundsvall
-Verkstadsgatan 4, 853 33 Sundsvall
-Telefon: 060 - 17 00 40`;
+${ValuationRequestAssistant.SIGNATURE_SV}`;
   }
 
   _generateSwedishRejectionEmail(name, result) {
@@ -941,9 +959,7 @@ Tyvärr bedömer vi att ditt föremål har ett för lågt uppskattat värde för
 Du är välkommen att höra av dig igen om du har andra föremål du skulle vilja få värderade.
 
 Med vänliga hälsningar,
-Stadsauktion Sundsvall
-Verkstadsgatan 4, 853 33 Sundsvall
-Telefon: 060 - 17 00 40`;
+${ValuationRequestAssistant.SIGNATURE_SV}`;
   }
 
   _generateEnglishAcceptEmail(name, result) {
@@ -962,9 +978,7 @@ If you would like to proceed, you are welcome to bring your item to us. One of o
 Please don't hesitate to contact us if you have questions or more items you would like valued!
 
 Best regards,
-Stadsauktion Sundsvall
-Verkstadsgatan 4, 853 33 Sundsvall
-Phone: +46 60 17 00 40`;
+${ValuationRequestAssistant.SIGNATURE_EN}`;
   }
 
   _generateEnglishRejectionEmail(name, result) {
@@ -979,9 +993,7 @@ Unfortunately, based on our preliminary assessment from photos and description, 
 You are most welcome to contact us again if you have other items you would like valued.
 
 Best regards,
-Stadsauktion Sundsvall
-Verkstadsgatan 4, 853 33 Sundsvall
-Phone: +46 60 17 00 40`;
+${ValuationRequestAssistant.SIGNATURE_EN}`;
   }
 
   _generateMultiObjectEmail(groupResults) {
@@ -1049,9 +1061,7 @@ ${actionText}
 Hör gärna av dig om du har frågor!
 
 Med vänliga hälsningar,
-Stadsauktion Sundsvall
-Verkstadsgatan 4, 853 33 Sundsvall
-Telefon: 060 - 17 00 40`;
+${ValuationRequestAssistant.SIGNATURE_SV}`;
   }
 
   _generateEnglishMultiEmail(name, groupResults, totalValue, acceptableItems, lowItems) {
@@ -1106,9 +1116,7 @@ ${actionText}
 Please don't hesitate to contact us if you have questions!
 
 Best regards,
-Stadsauktion Sundsvall
-Verkstadsgatan 4, 853 33 Sundsvall
-Phone: +46 60 17 00 40`;
+${ValuationRequestAssistant.SIGNATURE_EN}`;
   }
 
   // ─── UI ───────────────────────────────────────────────────────────────
@@ -1426,6 +1434,49 @@ Phone: +46 60 17 00 40`;
     }
   }
 
+  /**
+   * Shared UI helper: show/hide a feedback element with a color and message.
+   * Used by both the single-item and per-group market-search rerun handlers,
+   * which otherwise show near-identical status/error messages.
+   */
+  _setFeedback(feedback, color, text) {
+    if (!feedback) return;
+    feedback.style.display = 'block';
+    feedback.style.color = color;
+    feedback.textContent = text;
+  }
+
+  /**
+   * Shared pipeline: validate a search query, run it against the Auctionet API,
+   * and analyze the resulting market data. Returns { analysis, searchResult } on
+   * success, or null if the query was too short (feedback already shown) or no
+   * results/analysis were found (feedback NOT shown — caller decides the message,
+   * since single-item and group rerun use different wording here).
+   * Throws on API errors — caller is responsible for catch + feedback.
+   */
+  async _searchAndAnalyzeMarket(query, objectType, searchLabel, feedback) {
+    if (query.length < 2) {
+      this._setFeedback(feedback, '#e65100', 'Ange minst 2 tecken.');
+      return null;
+    }
+
+    const auctionetAPI = this.apiManager.auctionetAPI;
+    const searchResult = await auctionetAPI.searchAuctionResults(query, searchLabel);
+
+    if (searchResult?.soldItems?.length > 0) {
+      const analysis = await auctionetAPI.analyzeMarketData(
+        searchResult.soldItems,
+        query,
+        objectType || '',
+        searchResult.totalEntries
+      );
+      if (analysis?.priceRange) {
+        return { analysis, searchResult };
+      }
+    }
+    return null;
+  }
+
   _attachGroupSearchHandlers(groupResults, images) {
     document.querySelectorAll('.vr-group-reanalyze').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1453,64 +1504,45 @@ Phone: +46 60 17 00 40`;
 
     const query = input.value.trim();
     if (query.length < 2) {
-      if (feedback) {
-        feedback.style.display = 'block';
-        feedback.style.color = '#e65100';
-        feedback.textContent = 'Ange minst 2 tecken.';
-      }
+      this._setFeedback(feedback, '#e65100', 'Ange minst 2 tecken.');
       return;
     }
 
     if (btn) { btn.disabled = true; btn.textContent = 'Söker...'; }
-    if (feedback) {
-      feedback.style.display = 'block';
-      feedback.style.color = '#006ccc';
-      feedback.textContent = `Söker "${query}"...`;
-    }
+    this._setFeedback(feedback, '#006ccc', `Söker "${query}"...`);
 
     try {
-      const auctionetAPI = this.apiManager.auctionetAPI;
-      const searchResult = await auctionetAPI.searchAuctionResults(query, `Group ${groupIdx + 1} search: ${query}`);
+      const found = await this._searchAndAnalyzeMarket(
+        query,
+        groupResults[groupIdx].objectType,
+        `Group ${groupIdx + 1} search: ${query}`,
+        feedback
+      );
 
-      if (searchResult?.soldItems?.length > 0) {
-        const analysis = await auctionetAPI.analyzeMarketData(
-          searchResult.soldItems, query,
-          groupResults[groupIdx].objectType || '',
-          searchResult.totalEntries
-        );
+      if (found) {
+        const { analysis, searchResult } = found;
+        const mid = Math.round((analysis.priceRange.low + analysis.priceRange.high) / 2);
+        groupResults[groupIdx].estimatedValue = this._roundValuation(mid);
+        groupResults[groupIdx].marketDataUsed = true;
+        groupResults[groupIdx].marketSales = analysis.aiFilteredCount || searchResult.soldItems.length;
+        groupResults[groupIdx].marketRange = analysis.priceRange;
+        groupResults[groupIdx].marketQuery = query;
+        groupResults[groupIdx].confidence = Math.min(0.9, analysis.confidence || 0.6);
+        groupResults[groupIdx].tooLowForAuction = groupResults[groupIdx].estimatedValue < 300;
 
-        if (analysis?.priceRange) {
-          const mid = Math.round((analysis.priceRange.low + analysis.priceRange.high) / 2);
-          groupResults[groupIdx].estimatedValue = this._roundValuation(mid);
-          groupResults[groupIdx].marketDataUsed = true;
-          groupResults[groupIdx].marketSales = analysis.aiFilteredCount || searchResult.soldItems.length;
-          groupResults[groupIdx].marketRange = analysis.priceRange;
-          groupResults[groupIdx].marketQuery = query;
-          groupResults[groupIdx].confidence = Math.min(0.9, analysis.confidence || 0.6);
-          groupResults[groupIdx].tooLowForAuction = groupResults[groupIdx].estimatedValue < 300;
+        // Update total
+        const totalValue = groupResults.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
+        this.valuationResult.estimatedValue = totalValue;
 
-          // Update total
-          const totalValue = groupResults.reduce((sum, r) => sum + (r.estimatedValue || 0), 0);
-          this.valuationResult.estimatedValue = totalValue;
-
-          this._renderMultiGroupResults(groupResults, images);
-          return;
-        }
+        this._renderMultiGroupResults(groupResults, images);
+        return;
       }
 
-      if (feedback) {
-        feedback.style.display = 'block';
-        feedback.style.color = '#e65100';
-        feedback.textContent = `Inga resultat för "${query}".`;
-      }
+      this._setFeedback(feedback, '#e65100', `Inga resultat för "${query}".`);
       if (btn) { btn.disabled = false; btn.textContent = 'Sök igen'; }
     } catch (error) {
       console.error('[ValuationRequest] Group re-search failed:', error);
-      if (feedback) {
-        feedback.style.display = 'block';
-        feedback.style.color = '#e65100';
-        feedback.textContent = 'Sökning misslyckades.';
-      }
+      this._setFeedback(feedback, '#e65100', 'Sökning misslyckades.');
       if (btn) { btn.disabled = false; btn.textContent = 'Sök igen'; }
     }
   }
@@ -1577,11 +1609,7 @@ Phone: +46 60 17 00 40`;
 
     const query = input.value.trim();
     if (query.length < 2) {
-      if (feedback) {
-        feedback.style.display = 'block';
-        feedback.style.color = '#e65100';
-        feedback.textContent = 'Ange minst 2 tecken.';
-      }
+      this._setFeedback(feedback, '#e65100', 'Ange minst 2 tecken.');
       return;
     }
 
@@ -1590,72 +1618,47 @@ Phone: +46 60 17 00 40`;
       btn.disabled = true;
       btn.textContent = 'Söker...';
     }
-    if (feedback) {
-      feedback.style.display = 'block';
-      feedback.style.color = '#006ccc';
-      feedback.textContent = `Söker "${query}" på Auctionet...`;
-    }
+    this._setFeedback(feedback, '#006ccc', `Söker "${query}" på Auctionet...`);
 
     try {
       // Call searchAuctionResults directly to bypass formatArtistForSearch
       // which wraps multi-word strings as a single phrase ("Robert Högfeldt print")
       // instead of individual required terms ("Robert" "Högfeldt" "print").
-      const auctionetAPI = this.apiManager.auctionetAPI;
-      const searchResult = await auctionetAPI.searchAuctionResults(query, `Manual valuation search: ${query}`);
+      const found = await this._searchAndAnalyzeMarket(
+        query,
+        this.valuationResult.objectType,
+        `Manual valuation search: ${query}`,
+        feedback
+      );
 
-      if (searchResult && searchResult.soldItems && searchResult.soldItems.length > 0) {
-        // Analyze the market data to get proper price ranges
-        const marketAnalysis = await auctionetAPI.analyzeMarketData(
-          searchResult.soldItems,
-          query, // artistName placeholder
-          this.valuationResult.objectType || '',
-          searchResult.totalEntries
-        );
+      if (found) {
+        const { analysis: marketAnalysis, searchResult } = found;
+        const marketLow = marketAnalysis.priceRange.low;
+        const marketHigh = marketAnalysis.priceRange.high;
+        const marketMid = Math.round((marketLow + marketHigh) / 2);
 
-        if (marketAnalysis && marketAnalysis.priceRange) {
-          const marketLow = marketAnalysis.priceRange.low;
-          const marketHigh = marketAnalysis.priceRange.high;
-          const marketMid = Math.round((marketLow + marketHigh) / 2);
-          const numLots = this.valuationResult.numberOfLots || 1;
-          const isSet = this.valuationResult.isSet;
+        this._applyMarketPriceToLots(this.valuationResult, marketMid);
+        this.valuationResult.marketDataUsed = true;
+        this.valuationResult.marketSales = marketAnalysis.aiFilteredCount || searchResult.soldItems.length;
+        this.valuationResult.marketRange = { low: marketLow, high: marketHigh };
+        this.valuationResult.marketQuery = query;
+        this.valuationResult.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
+        this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValuePerLot < 300;
 
-          this.valuationResult.estimatedValuePerLot = this._roundValuation(marketMid);
-          this.valuationResult.estimatedValuePerItem = this.valuationResult.estimatedValuePerLot;
-          if (isSet || numLots <= 1) {
-            this.valuationResult.estimatedValue = this.valuationResult.estimatedValuePerLot;
-          } else {
-            this.valuationResult.estimatedValue = this._roundValuation(marketMid * numLots);
-          }
-          this.valuationResult.marketDataUsed = true;
-          this.valuationResult.marketSales = marketAnalysis.aiFilteredCount || searchResult.soldItems.length;
-          this.valuationResult.marketRange = { low: marketLow, high: marketHigh };
-          this.valuationResult.marketQuery = query;
-          this.valuationResult.confidence = Math.min(0.9, marketAnalysis.confidence || 0.6);
-          this.valuationResult.tooLowForAuction = this.valuationResult.estimatedValuePerLot < 300;
-
-          // Re-render everything with updated data
-          this._renderResults(this.valuationResult);
-          return;
-        }
+        // Re-render everything with updated data
+        this._renderResults(this.valuationResult);
+        return;
       }
 
       // No results — show feedback but keep current valuation
-      if (feedback) {
-        feedback.style.display = 'block';
-        feedback.style.color = '#e65100';
-        feedback.textContent = `Inga jämförbara resultat för "${query}". Värderingen behålls.`;
-      }
+      this._setFeedback(feedback, '#e65100', `Inga jämförbara resultat för "${query}". Värderingen behålls.`);
       if (btn) {
         btn.disabled = false;
         btn.textContent = 'Sök igen';
       }
     } catch (error) {
       console.error('[ValuationRequest] Re-search failed:', error);
-      if (feedback) {
-        feedback.style.display = 'block';
-        feedback.style.color = '#e65100';
-        feedback.textContent = 'Sökning misslyckades. Försök igen.';
-      }
+      this._setFeedback(feedback, '#e65100', 'Sökning misslyckades. Försök igen.');
       if (btn) {
         btn.disabled = false;
         btn.textContent = 'Sök igen';

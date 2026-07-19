@@ -1,6 +1,82 @@
 // modules/auctionet-api.js - Auctionet API Integration Module
 // Access to 3.65M+ real auction results for market analysis
 
+// Module-level domain tables for progressive-fallback search-strategy building
+// (see buildJewelrySearchStrategies / buildWatchSearchStrategies / buildInstrumentSearchStrategies).
+// Only the lists/labels that actually differ between jewelry/watch/instrument live here;
+// the surrounding control flow per domain is kept as-is since the shapes genuinely differ
+// (e.g. instrument has a fully separate synthesizer sub-branch).
+const JEWELRY_DOMAIN = {
+  detectTypes: ['ring', 'armband', 'halsband', 'örhängen', 'brosch', 'klocka'],
+  materialRegex: /(?:18k|guld|gold|silver|platina)/,
+  broadMaterialMap: [
+    { test: (m) => m.includes('18k'), label: 'guld' },
+    { test: (m) => m.includes('silver'), label: 'silver' }
+  ],
+  labels: {
+    specific: 'Jewelry specific',
+    material: 'Jewelry material',
+    broadMaterial: 'Jewelry broad material',
+    typeOnly: 'Jewelry type only'
+  }
+};
+
+const WATCH_DOMAIN = {
+  detectTypes: ['armbandsur', 'fickur', 'klocka', 'watch', 'wristwatch', 'timepiece'],
+  brands: ['rolex', 'omega', 'lings', 'halda', 'tissot', 'longines', 'seiko', 'citizen'],
+  materialRegex: /(?:guld|gold|silver|platina|doublé|stål|steel)/,
+  materialNormalize: (materials) =>
+    materials.includes('guld') ? 'guld' :
+    materials.includes('gold') ? 'guld' :
+    materials.includes('silver') ? 'silver' :
+    materials.includes('platina') ? 'platina' : materials[0],
+  labels: {
+    specific: 'Watch specific',
+    brand: 'Watch brand',
+    material: 'Watch material',
+    typeOnly: 'Watch type only'
+  }
+};
+
+const INSTRUMENT_DOMAIN = {
+  detectTypes: [
+    'flygel', 'piano', 'pianino', 'klaver', 'keyboard',
+    'violin', 'viola', 'cello', 'kontrabas', 'fiol', 'altfiol',
+    'gitarr', 'guitar', 'banjo', 'mandolin', 'luta', 'harp', 'harpa',
+    'flöjt', 'flute', 'klarinett', 'oboe', 'fagott', 'saxofon',
+    'trumpet', 'kornett', 'trombon', 'tuba', 'horn',
+    'orgel', 'harmonium', 'dragspel', 'accordion',
+    'trummor', 'drums', 'cymbaler', 'timpani', 'xylofon',
+    // SYNTHESIZERS & ELECTRONIC INSTRUMENTS
+    'synthesizer', 'synth', 'synthesiser', 'syntetiserare', 'syntheziser',
+    'keyboard', 'drum machine', 'trummaskin', 'sampler', 'sequencer',
+    'moog', 'roland', 'yamaha', 'korg', 'arp', 'oberheim', 'sequential'
+  ],
+  detectBrands: [
+    'steinway', 'yamaha', 'kawai', 'grotrian', 'bechstein', 'blüthner',
+    'petrof', 'estonia', 'seiler', 'schimmel', 'ibach', 'nordiska',
+    // SYNTHESIZER BRANDS
+    'roland', 'korg', 'moog', 'sequential', 'oberheim', 'arp', 'ensoniq',
+    'kurzweil', 'akai', 'emu', 'fairlight', 'synclavier', 'nord'
+  ],
+  brands: ['steinway', 'yamaha', 'kawai', 'grotrian', 'bechstein', 'blüthner',
+    'petrof', 'estonia', 'seiler', 'schimmel', 'ibach', 'nordiska', 'steinweg'],
+  materialRegex: /(?:valnöt|walnut|eben|ebony|mahogny|mahogany|lönn|maple|trä|wood)/,
+  materialNormalize: (materials) =>
+    materials.includes('valnöt') ? 'valnöt' :
+    materials.includes('eben') ? 'eben' :
+    materials.includes('mahogny') ? 'mahogny' : materials[0],
+  periodRegex: /(?:19\d{2}|20\d{2}|\d{2}-tal)/,
+  synthBrands: ['yamaha', 'roland', 'korg', 'moog', 'sequential', 'oberheim', 'arp', 'ensoniq', 'kurzweil', 'akai'],
+  labels: {
+    specific: 'Instrument specific',
+    brand: 'Instrument brand',
+    material: 'Instrument material',
+    period: 'Instrument period',
+    typeOnly: 'Instrument type only'
+  }
+};
+
 export class AuctionetAPI {
   constructor() {
     this.baseUrl = 'https://auctionet.com/api/v2/items.json';
@@ -744,71 +820,61 @@ export class AuctionetAPI {
   // NEW: Check if search string is jewelry-specific
   isJewelrySpecificSearch(searchString) {
     if (!searchString) return false;
-    
-    const jewelryTypes = ['ring', 'armband', 'halsband', 'örhängen', 'brosch', 'klocka'];
-    const hasJewelryType = jewelryTypes.some(type => searchString.toLowerCase().includes(type));
-    
+
+    const hasJewelryType = JEWELRY_DOMAIN.detectTypes.some(type => searchString.toLowerCase().includes(type));
+
     // Check for specific measurements or weight that indicate very specific jewelry search
     const hasSpecificMeasurements = /(?:gram|längd|diameter|storlek|cm|mm)/.test(searchString.toLowerCase());
-    
+
     return hasJewelryType && hasSpecificMeasurements;
   }
 
   // NEW: Build jewelry-specific search strategies with progressive fallbacks
   buildJewelrySearchStrategies(fullSearchString, objectType, technique) {
-    
+
     const strategies = [];
-    
+    const cfg = JEWELRY_DOMAIN;
+
     // Extract components from the full search string
     const parts = fullSearchString.toLowerCase().split(' ');
     const jewelryType = parts[0]; // e.g., "armband", "ring"
-    const materials = parts.filter(part => /(?:18k|guld|gold|silver|platina)/.test(part));
-    const weights = parts.filter(part => /(?:\d+[.,]?\d*\s*gram)/.test(part));
-    const sizes = parts.filter(part => /(?:längd|diameter|storlek)/.test(part));
-    
+    const materials = parts.filter(part => cfg.materialRegex.test(part));
 
-    
     // Strategy 1: Full specific search (original)
     strategies.push({
       query: fullSearchString,
-      description: `Jewelry specific: "${fullSearchString}"`,
+      description: `${cfg.labels.specific}: "${fullSearchString}"`,
       weight: 1.0
     });
-    
+
     // Strategy 2: Type + materials only (no weight/size)
     if (materials.length > 0) {
       const query = `${jewelryType} ${materials.join(' ')}`;
       strategies.push({
         query: query,
-        description: `Jewelry material: "${query}"`,
+        description: `${cfg.labels.material}: "${query}"`,
         weight: 0.8
       });
     }
-    
+
     // Strategy 3: Type + broader material search
-    if (materials.some(m => m.includes('18k'))) {
-      const query = `${jewelryType} guld`;
+    const broadMatch = cfg.broadMaterialMap.find(entry => entry.test(materials));
+    if (broadMatch) {
+      const query = `${jewelryType} ${broadMatch.label}`;
       strategies.push({
         query: query,
-        description: `Jewelry broad material: "${query}"`,
-        weight: 0.6
-      });
-    } else if (materials.some(m => m.includes('silver'))) {
-      const query = `${jewelryType} silver`;
-      strategies.push({
-        query: query,
-        description: `Jewelry broad material: "${query}"`,
+        description: `${cfg.labels.broadMaterial}: "${query}"`,
         weight: 0.6
       });
     }
-    
+
     // Strategy 4: Just the jewelry type (broadest)
     strategies.push({
       query: jewelryType,
-      description: `Jewelry type only: "${jewelryType}"`,
+      description: `${cfg.labels.typeOnly}: "${jewelryType}"`,
       weight: 0.4
     });
-    
+
 
     return strategies;
   }
@@ -816,69 +882,63 @@ export class AuctionetAPI {
   // NEW: Check if search string is watch-specific
   isWatchSpecificSearch(searchString) {
     if (!searchString) return false;
-    
-    const watchTypes = ['armbandsur', 'fickur', 'klocka', 'watch', 'wristwatch', 'timepiece'];
-    return watchTypes.some(type => searchString.toLowerCase().includes(type));
+
+    return WATCH_DOMAIN.detectTypes.some(type => searchString.toLowerCase().includes(type));
   }
 
   // NEW: Build watch-specific search strategies with progressive fallbacks
   buildWatchSearchStrategies(fullSearchString, objectType, technique) {
-    
+
     const strategies = [];
-    
+    const cfg = WATCH_DOMAIN;
+
     // Extract components from the watch search string
     const parts = fullSearchString.toLowerCase().split(' ');
     const watchType = parts[0]; // e.g., "armbandsur", "fickur"
-    
-    // Common watch brands that might appear in search
-    const watchBrands = ['rolex', 'omega', 'lings', 'halda', 'tissot', 'longines', 'seiko', 'citizen'];
-    const brands = parts.filter(part => watchBrands.some(brand => part.includes(brand)));
-    
-    // Common materials
-    const materials = parts.filter(part => /(?:guld|gold|silver|platina|doublé|stål|steel)/.test(part));
-    
 
-    
+    // Common watch brands that might appear in search
+    const brands = parts.filter(part => cfg.brands.some(brand => part.includes(brand)));
+
+    // Common materials
+    const materials = parts.filter(part => cfg.materialRegex.test(part));
+
     // Strategy 1: Full specific search (original - but only if short enough)
     if (fullSearchString.length <= 30) {
       strategies.push({
         query: fullSearchString,
-        description: `Watch specific: "${fullSearchString}"`,
+        description: `${cfg.labels.specific}: "${fullSearchString}"`,
         weight: 1.0
       });
     }
-    
+
     // Strategy 2: Type + brand only (most important for watches)
     if (brands.length > 0) {
       const query = `${watchType} ${brands[0]}`;
       strategies.push({
         query: query,
-        description: `Watch brand: "${query}"`,
+        description: `${cfg.labels.brand}: "${query}"`,
         weight: 0.9
       });
     }
-    
+
     // Strategy 3: Type + material (for luxury watches)
     if (materials.length > 0) {
-      const primaryMaterial = materials.includes('guld') ? 'guld' : 
-                             materials.includes('gold') ? 'guld' :
-                             materials.includes('silver') ? 'silver' :
-                             materials.includes('platina') ? 'platina' : materials[0];
+      const primaryMaterial = cfg.materialNormalize(materials);
       const query = `${watchType} ${primaryMaterial}`;
       strategies.push({
         query: query,
-        description: `Watch material: "${query}"`,
+        description: `${cfg.labels.material}: "${query}"`,
         weight: 0.7
       });
     }
-    
+
     // Strategy 4: Just the watch type (broadest fallback)
     strategies.push({
       query: watchType,
-      description: `Watch type only: "${watchType}"`,
+      description: `${cfg.labels.typeOnly}: "${watchType}"`,
       weight: 0.5
     });
-    
+
 
     return strategies;
   }
@@ -886,58 +946,37 @@ export class AuctionetAPI {
   // NEW: Check if search string is musical instrument-specific
   isInstrumentSpecificSearch(searchString) {
     if (!searchString) return false;
-    
-    const instrumentTypes = [
-      'flygel', 'piano', 'pianino', 'klaver', 'keyboard',
-      'violin', 'viola', 'cello', 'kontrabas', 'fiol', 'altfiol',
-      'gitarr', 'guitar', 'banjo', 'mandolin', 'luta', 'harp', 'harpa',
-      'flöjt', 'flute', 'klarinett', 'oboe', 'fagott', 'saxofon',
-      'trumpet', 'kornett', 'trombon', 'tuba', 'horn',
-      'orgel', 'harmonium', 'dragspel', 'accordion',
-      'trummor', 'drums', 'cymbaler', 'timpani', 'xylofon',
-      // SYNTHESIZERS & ELECTRONIC INSTRUMENTS
-      'synthesizer', 'synth', 'synthesiser', 'syntetiserare', 'syntheziser',
-      'keyboard', 'drum machine', 'trummaskin', 'sampler', 'sequencer',
-      'moog', 'roland', 'yamaha', 'korg', 'arp', 'oberheim', 'sequential'
-    ];
-    
-    const instrumentBrands = [
-      'steinway', 'yamaha', 'kawai', 'grotrian', 'bechstein', 'blüthner',
-      'petrof', 'estonia', 'seiler', 'schimmel', 'ibach', 'nordiska',
-      // SYNTHESIZER BRANDS
-      'roland', 'korg', 'moog', 'sequential', 'oberheim', 'arp', 'ensoniq',
-      'kurzweil', 'akai', 'emu', 'fairlight', 'synclavier', 'nord'
-    ];
-    
+
+    const cfg = INSTRUMENT_DOMAIN;
     const searchLower = searchString.toLowerCase();
-    const hasInstrumentType = instrumentTypes.some(type => searchLower.includes(type));
-    const hasInstrumentBrand = instrumentBrands.some(brand => searchLower.includes(brand));
-    
+    const hasInstrumentType = cfg.detectTypes.some(type => searchLower.includes(type));
+    const hasInstrumentBrand = cfg.detectBrands.some(brand => searchLower.includes(brand));
+
     return hasInstrumentType || hasInstrumentBrand;
   }
 
   // NEW: Build instrument-specific search strategies with progressive fallbacks
   buildInstrumentSearchStrategies(fullSearchString, objectType, technique) {
-    
+
     const strategies = [];
-    
+    const cfg = INSTRUMENT_DOMAIN;
+
     // Extract components from the instrument search string
     const parts = fullSearchString.toLowerCase().split(' ');
     const instrumentType = parts[0]; // e.g., "flygel", "piano", "synthesizer"
-    
+
     // SYNTHESIZER-SPECIFIC DETECTION AND STRATEGIES
     const isSynthesizerSearch = /synthesizer|synth|keyboard|drum machine|sampler/.test(fullSearchString.toLowerCase());
-    
+
     if (isSynthesizerSearch) {
-      
+
       // Extract synthesizer brands and models
-      const synthBrands = ['yamaha', 'roland', 'korg', 'moog', 'sequential', 'oberheim', 'arp', 'ensoniq', 'kurzweil', 'akai'];
-      const brands = parts.filter(part => synthBrands.some(brand => part.includes(brand)));
-      
+      const brands = parts.filter(part => cfg.synthBrands.some(brand => part.includes(brand)));
+
       // Extract model numbers (like DX7, SH101, JP8000)
       const models = parts.filter(part => /^[a-z]{1,4}\d{1,4}[a-z]*$/i.test(part));
-      
-      
+
+
       // STRATEGY 1: Brand + Model (MOST IMPORTANT for synthesizers)
       if (brands.length > 0 && models.length > 0) {
         const query = `${brands[0]} ${models[0]}`;
@@ -947,7 +986,7 @@ export class AuctionetAPI {
           weight: 1.0
         });
       }
-      
+
       // STRATEGY 2: Model only (like "DX7")
       if (models.length > 0) {
         const query = models[0];
@@ -957,7 +996,7 @@ export class AuctionetAPI {
           weight: 0.9
         });
       }
-      
+
       // STRATEGY 3: Brand + synthesizer type
       if (brands.length > 0) {
         const query = `${brands[0]} synthesizer`;
@@ -967,7 +1006,7 @@ export class AuctionetAPI {
           weight: 0.8
         });
       }
-      
+
       // STRATEGY 4: Brand only (broadest brand search)
       if (brands.length > 0) {
         const query = brands[0];
@@ -977,38 +1016,34 @@ export class AuctionetAPI {
           weight: 0.7
         });
       }
-      
+
       // STRATEGY 5: Generic synthesizer search (fallback)
       strategies.push({
         query: 'synthesizer',
         description: `Synthesizer generic: "synthesizer"`,
         weight: 0.5
       });
-      
+
       return strategies;
     }
-    
+
     // TRADITIONAL INSTRUMENT SEARCH STRATEGIES (piano, violin, etc.)
     // Common instrument brands that might appear in search
-    const instrumentBrands = [
-      'steinway', 'yamaha', 'kawai', 'grotrian', 'bechstein', 'blüthner',
-      'petrof', 'estonia', 'seiler', 'schimmel', 'ibach', 'nordiska', 'steinweg'
-    ];
-    const brands = parts.filter(part => instrumentBrands.some(brand => part.includes(brand)));
-    
+    const brands = parts.filter(part => cfg.brands.some(brand => part.includes(brand)));
+
     // Common materials for instruments
-    const materials = parts.filter(part => /(?:valnöt|walnut|eben|ebony|mahogny|mahogany|lönn|maple|trä|wood)/.test(part));
-    
+    const materials = parts.filter(part => cfg.materialRegex.test(part));
+
     // Extract periods if present
-    const periods = parts.filter(part => /(?:19\d{2}|20\d{2}|\d{2}-tal)/.test(part));
-    
-    
+    const periods = parts.filter(part => cfg.periodRegex.test(part));
+
+
     // Strategy 1: Type + brand only (most important for instruments - skip overly complex search)
     if (brands.length > 0) {
       const query = `${instrumentType} ${brands[0]}`;
       strategies.push({
         query: query,
-        description: `Instrument brand: "${query}"`,
+        description: `${cfg.labels.brand}: "${query}"`,
         weight: 1.0
       });
     } else {
@@ -1016,42 +1051,40 @@ export class AuctionetAPI {
       if (fullSearchString.length <= 25 && !fullSearchString.includes('1941 1941')) {
         strategies.push({
           query: fullSearchString,
-          description: `Instrument specific: "${fullSearchString}"`,
+          description: `${cfg.labels.specific}: "${fullSearchString}"`,
           weight: 1.0
         });
       }
     }
-    
+
     // Strategy 2: Type + material (for valuable materials)
     if (materials.length > 0) {
-      const primaryMaterial = materials.includes('valnöt') ? 'valnöt' : 
-                             materials.includes('eben') ? 'eben' :
-                             materials.includes('mahogny') ? 'mahogny' : materials[0];
+      const primaryMaterial = cfg.materialNormalize(materials);
       const query = `${instrumentType} ${primaryMaterial}`;
       strategies.push({
         query: query,
-        description: `Instrument material: "${query}"`,
+        description: `${cfg.labels.material}: "${query}"`,
         weight: 0.8
       });
     }
-    
+
     // Strategy 3: Type + period (for vintage instruments)
     if (periods.length > 0 && periods[0] !== '1941') { // Skip problematic year extraction
       const query = `${instrumentType} ${periods[0]}`;
       strategies.push({
         query: query,
-        description: `Instrument period: "${query}"`,
+        description: `${cfg.labels.period}: "${query}"`,
         weight: 0.7
       });
     }
-    
+
     // Strategy 4: Just the instrument type (broadest fallback)
     strategies.push({
       query: instrumentType,
-      description: `Instrument type only: "${instrumentType}"`,
+      description: `${cfg.labels.typeOnly}: "${instrumentType}"`,
       weight: 0.5
     });
-    
+
     return strategies;
   }
 
