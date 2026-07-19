@@ -514,6 +514,10 @@ TITEL — KORTASTE FUNGERANDE FORM:
   "Stolar, stol, 4 st, Orkesterstolar") — verifierat i produktion att detta ger
   sida 1 för BÅDA sökningarna, eftersom sökmotorn inte bryggar böjningsformer.
   Ordet är värt sin plats: en extra form = en hel extra sökfråga täckt
+• Välj det GENERISKA huvudsubstantivet före en sällan sökt sammansättning i titeln:
+  "KÄPP, mässing, hästhuvud" — inte "STILETTKÄPP" (ingen söker det). Den precisa
+  sammansättningen skrivs korrekt (hopskriven) i beskrivningen och läggs i dolda
+  sökord — ALDRIG särskrivning ("stilett käpp" är fel svenska)
 
 ${QUOTE_PRESERVATION_RULES}
 ${BRAND_SPELLING_RULES}
