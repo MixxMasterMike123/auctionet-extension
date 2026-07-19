@@ -44,4 +44,9 @@ secrets.js
 
 # Build artifacts
 dist/
-build/ .token.local
+build/
+
+# Local secrets (Cloudflare Worker tokens)
+.token.local
+*.token.local
+workers/**/.token.local

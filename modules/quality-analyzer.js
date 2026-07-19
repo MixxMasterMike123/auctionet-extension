@@ -29,7 +29,6 @@ export class QualityAnalyzer {
     this.apiManager = null;
     this.searchQueryManager = null; // SSoT reference
     this.searchQuerySSoT = null; // NEW: AI-only search query system
-    this.immediateAnalysisStarted = false; // Prevent duplicate sales analysis
     this.previousFreetextData = null;
     this.searchTermExtractor = new SearchTermExtractor(); // Fix: create instance of class
     this.itemTypeHandlers = new ItemTypeHandlers();
@@ -316,6 +315,13 @@ export class QualityAnalyzer {
   }
 
   async runAIArtistDetection(data, currentWarnings, currentScore) {
+    // Re-entrancy guard: debounced callers (content-script.js) can fire
+    // overlapping analyzeQuality() calls. Bail if a run is already active
+    // instead of stomping pendingAnalyses and stranding aiAnalysisActive.
+    if (this.aiAnalysisActive) {
+      return;
+    }
+
     // OPTIMIZATION: Skip AI analysis if artist field is filled AND no artist detected in title
     if (data.artist && data.artist.trim()) {
 
@@ -556,6 +562,14 @@ export class QualityAnalyzer {
           this.pendingAnalyses.delete('brand');
 
           // Only hide loading if all analyses are done
+          if (this.pendingAnalyses.size === 0) {
+            this.hideAILoadingIndicator();
+            this.aiAnalysisActive = false;
+          }
+        }).catch(error => {
+          // Guard so a rejection here can't strand aiAnalysisActive=true (stuck spinner)
+          console.error('handleBrandValidationResult failed:', error);
+          this.pendingAnalyses.delete('brand');
           if (this.pendingAnalyses.size === 0) {
             this.hideAILoadingIndicator();
             this.aiAnalysisActive = false;

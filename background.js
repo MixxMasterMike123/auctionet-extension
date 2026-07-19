@@ -16,6 +16,7 @@ import { runBackgroundPublicationScan, recheckStickyErrors, PUB_SCAN_STICKY_KEY 
     }
   } catch (e) {
     // Non-critical: migration will retry on next startup
+    console.warn('[Background] API key migration failed:', e);
   }
 })();
 
@@ -121,6 +122,7 @@ async function captureDashboardSearchSnapshot() {
     await chrome.storage.local.set({ dashboardSearchHistory: capped });
   } catch (e) {
     // Non-critical: snapshot missed, will retry next hour
+    console.warn('[Background] Dashboard search snapshot failed:', e);
   }
 }
 

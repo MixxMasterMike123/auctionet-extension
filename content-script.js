@@ -175,6 +175,7 @@
           }
         } catch (e) {
           // Silent fail — search signal is non-critical
+          console.warn('Search signal banner failed to render:', e);
         }
       }
 
