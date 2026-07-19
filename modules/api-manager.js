@@ -507,6 +507,9 @@ TITEL — KORTASTE FUNGERANDE FORM:
   inte är ett sökbart substantiv/märke/material
 • Behåll ALLA sacred-format-regler ovan (versaler/gemener, komma, ingen konstnär i titel om fältet är ifyllt)
 • Behåll osäkerhetsmarkörer ("troligen", "tillskriven") och citattecken runt produktnamn om de finns i original
+• ALDRIG årtal/period i titeln ("1900-tal", "1800-talets slut", "1923") — ingen köpare
+  söker på årtal, så det är ett longtail-ord som bara späder ut titelns vikt. Finns
+  årtal/period i originaltiteln SKA det FLYTTAS till beskrivningen (aldrig tappas bort)
 
 ${QUOTE_PRESERVATION_RULES}
 ${BRAND_SPELLING_RULES}
@@ -519,6 +522,8 @@ BESKRIVNING — VÄV IN TITELNS KÄRNORD IGEN, I ANNAN ORDNING:
   invävt naturligt i löpande svensk text (inte en radbruten upprepning av titeln)
 • INOM beskrivningen: upprepa INTE samma ord flera gånger (det mättas, ingen nytta)
 • Efter kärnorden: alla övriga fakta som redan finns — mått, period, proveniens, märkningar
+• Årtal/period som flyttats bort från titeln SKA alltid finnas med här (longtail-sökord
+  hör hemma i beskrivningen, aldrig i titeln)
 • ${DESCRIPTION_FIELD_SEPARATION_RULES}
 
 DOLDA SÖKORD — HÄR GÄLLER UNDANTAGET FRÅN NORMALA REGLER:
