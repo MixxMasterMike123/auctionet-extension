@@ -575,6 +575,14 @@
 
   // ─── 7. Enhanced Comment Feed ──────────────────────────────────────
 
+  // Only allow relative admin links or http(s) URLs — blocks javascript: etc.
+  function safeCommentHref(href) {
+    if (!href) return '';
+    if (/^\//.test(href)) return href;
+    if (/^https?:\/\//i.test(href)) return href;
+    return '';
+  }
+
   function renderCommentFeed() {
     const comments = scrapeComments();
     if (comments.length === 0) return;
@@ -587,16 +595,16 @@
       const truncatedBody = c.body.length > 140 ? c.body.substring(0, 140) + '...' : c.body;
 
       return `
-        <div class="ext-comment-item" data-href="${c.commentedHref || ''}">
-          <div class="ext-comment-item__avatar" style="background: ${avatarColor};">${initials}</div>
+        <div class="ext-comment-item" data-href="${escapeHTML(safeCommentHref(c.commentedHref))}">
+          <div class="ext-comment-item__avatar" style="background: ${avatarColor};">${escapeHTML(initials)}</div>
           <div class="ext-comment-item__content">
             <div class="ext-comment-item__header">
-              <span class="ext-comment-item__name">${c.employee}</span>
+              <span class="ext-comment-item__name">${escapeHTML(c.employee)}</span>
               ${badge}
-              <span class="ext-comment-item__time">${relTime}</span>
+              <span class="ext-comment-item__time">${escapeHTML(relTime)}</span>
             </div>
-            <div class="ext-comment-item__entity-text">${c.commentedText}</div>
-            <div class="ext-comment-item__body">${truncatedBody}</div>
+            <div class="ext-comment-item__entity-text">${escapeHTML(c.commentedText)}</div>
+            <div class="ext-comment-item__body">${escapeHTML(truncatedBody)}</div>
           </div>
         </div>
       `;

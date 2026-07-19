@@ -2569,7 +2569,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       ${data.reasoning ? `
         <div class="ai-reasoning">
           <h5>Analys</h5>
-          <p><em>${data.reasoning}</em></p>
+          <p><em>${escapeHTML(data.reasoning)}</em></p>
         </div>
       ` : ''}
       

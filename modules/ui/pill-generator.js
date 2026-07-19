@@ -5,17 +5,12 @@ export class PillGenerator {
   constructor() {
   }
 
-  // SAFE HTML escaping - prevents double-escaping
+  // Escape for both attribute and text-node sinks. Always escapes — a
+  // "skip if already escaped" check is bypassable by input that merely
+  // contains an entity, so it must not exist here.
   escapeHTMLAttribute(value) {
     if (!value) return '';
-    
-    // Don't double-escape - check if already escaped
-    if (value.includes('&quot;') || value.includes('&#39;') || value.includes('&amp;')) {
-      return value;
-    }
-    
-    const escaped = value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    return escaped;
+    return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   // Generate header pills (desktop-optimized)
@@ -41,11 +36,11 @@ export class PillGenerator {
           <input type="checkbox" 
                  class="smart-checkbox header-checkbox" 
                  value="${this.escapeHTMLAttribute(term.term)}" 
-                 data-type="${term.type || 'keyword'}"
+                 data-type="${this.escapeHTMLAttribute(term.type || 'keyword')}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}"
                  checked>
-          <span class="pill-text">${term.term}</span>
+          <span class="pill-text">${this.escapeHTMLAttribute(term.term)}</span>
         </label>`;
     });
 
@@ -60,10 +55,10 @@ export class PillGenerator {
           <input type="checkbox" 
                  class="smart-checkbox header-checkbox" 
                  value="${this.escapeHTMLAttribute(term.term)}" 
-                 data-type="${term.type || 'keyword'}"
+                 data-type="${this.escapeHTMLAttribute(term.type || 'keyword')}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}">
-          <span class="pill-text">${term.term}</span>
+          <span class="pill-text">${this.escapeHTMLAttribute(term.term)}</span>
         </label>`;
     });
 
@@ -116,11 +111,11 @@ export class PillGenerator {
           <input type="checkbox" 
                  class="smart-checkbox" 
                  value="${this.escapeHTMLAttribute(term.term)}" 
-                 data-type="${term.type || 'keyword'}"
+                 data-type="${this.escapeHTMLAttribute(term.type || 'keyword')}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}"
                  checked>
-          <span class="term-text">${term.term}</span>
+          <span class="term-text">${this.escapeHTMLAttribute(term.term)}</span>
         </label>`;
     });
 
@@ -140,10 +135,10 @@ export class PillGenerator {
           <input type="checkbox" 
                  class="smart-checkbox" 
                  value="${this.escapeHTMLAttribute(term.term)}" 
-                 data-type="${term.type || 'keyword'}"
+                 data-type="${this.escapeHTMLAttribute(term.type || 'keyword')}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}">
-          <span class="term-text">${term.term}</span>
+          <span class="term-text">${this.escapeHTMLAttribute(term.term)}</span>
         </label>`;
     });
 
@@ -191,11 +186,11 @@ export class PillGenerator {
           <input type="checkbox" 
                  class="smart-checkbox header-checkbox" 
                  value="${this.escapeHTMLAttribute(term.term)}" 
-                 data-type="${term.type || 'keyword'}"
+                 data-type="${this.escapeHTMLAttribute(term.type || 'keyword')}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}"
                  checked>
-          <span class="pill-text">${term.term}</span>
+          <span class="pill-text">${this.escapeHTMLAttribute(term.term)}</span>
         </label>`;
     });
 
@@ -209,10 +204,10 @@ export class PillGenerator {
           <input type="checkbox" 
                  class="smart-checkbox header-checkbox" 
                  value="${this.escapeHTMLAttribute(term.term)}" 
-                 data-type="${term.type || 'keyword'}"
+                 data-type="${this.escapeHTMLAttribute(term.type || 'keyword')}"
                  data-core="${term.isCore || false}"
                  id="${checkboxId}">
-          <span class="pill-text">${term.term}</span>
+          <span class="pill-text">${this.escapeHTMLAttribute(term.term)}</span>
         </label>`;
     });
 

@@ -233,13 +233,13 @@ Anpassa förslagen till kategorin "${category}".`,
             const suggestions = this.getConditionSuggestions(category, 3);
             const chipStyle = 'display:inline-block;margin:3px 4px 0 0;padding:2px 8px;background:#fff;border:1px solid #f59e0b;border-radius:3px;color:#92400e;font-size:10px;font-style:normal;cursor:pointer;text-decoration:none;transition:background 0.15s;';
             const refreshStyle = 'background:none;border:none;color:#b08840;font-size:10px;font-style:normal;cursor:pointer;text-decoration:underline;text-underline-offset:2px;transition:color 0.15s;white-space:nowrap;';
-            const replaceAttr = w.inlineReplace ? ` data-replace="${w.inlineReplace}"` : '';
+            const replaceAttr = w.inlineReplace ? ` data-replace="${escapeHTML(w.inlineReplace)}"` : '';
             const aiLabel = this._aiConditionSuggestions ? ' title="Anpassade förslag"' : ' title="Klicka for nya forslag"';
-            const noteHtml = w.extraNote ? `<div style="margin-top:6px;font-size:10px;font-style:italic;color:#78716c;">💡 ${w.extraNote}</div>` : '';
+            const noteHtml = w.extraNote ? `<div style="margin-top:6px;font-size:10px;font-style:italic;color:#78716c;">💡 ${escapeHTML(w.extraNote)}</div>` : '';
             const refreshLink = `<a class="condition-refresh-btn"${aiLabel} style="${refreshStyle}" onmouseover="this.style.color='#92400e'" onmouseout="this.style.color='#b08840'">Nya forslag</a>`;
             extra = '<div style="margin-top:4px;">' +
               '<div>' +
-              suggestions.map(s => `<a class="condition-suggestion-chip" data-value="${s}"${replaceAttr} style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${s}</a>`).join('') +
+              suggestions.map(s => `<a class="condition-suggestion-chip" data-value="${escapeHTML(s)}"${replaceAttr} style="${chipStyle}" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff'">${escapeHTML(s)}</a>`).join('') +
               '</div>' +
               noteHtml +
               '</div>';
@@ -247,9 +247,9 @@ Anpassa förslagen till kategorin "${category}".`,
             if (!this._aiConditionSuggestions && !this._conditionSuggestionsLoading && this.apiManager) {
               this.generateAIConditionSuggestions(category, document.querySelector('#item_title_sv')?.value || '');
             }
-            return `<div style="${hintStyle}"><div style="display:flex;align-items:baseline;justify-content:space-between;"><span>⚠ ${w.issue}</span>${refreshLink}</div>${extra}</div>`;
+            return `<div style="${hintStyle}"><div style="display:flex;align-items:baseline;justify-content:space-between;"><span>⚠ ${escapeHTML(w.issue)}</span>${refreshLink}</div>${extra}</div>`;
           }
-          return `<div style="${hintStyle}">⚠ ${w.issue}${extra}</div>`;
+          return `<div style="${hintStyle}">⚠ ${escapeHTML(w.issue)}${extra}</div>`;
         })
         .join('');
 

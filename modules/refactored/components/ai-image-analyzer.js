@@ -1574,12 +1574,12 @@ VIKTIGT — detta är ett UTKAST:
       <div class="ai-image-analyzer__visual-observations">
         <h5>👁️ Visuella observationer:</h5>
         <ul>
-          ${analysis.visualObservations.objectType ? `<li><strong>Objekttyp:</strong> ${analysis.visualObservations.objectType}</li>` : ''}
-          ${analysis.visualObservations.primaryMaterial ? `<li><strong>Material:</strong> ${analysis.visualObservations.primaryMaterial}</li>` : ''}
-          ${analysis.visualObservations.colorScheme ? `<li><strong>Färger:</strong> ${analysis.visualObservations.colorScheme}</li>` : ''}
-          ${analysis.visualObservations.markings ? `<li><strong>Märkningar:</strong> ${analysis.visualObservations.markings}</li>` : ''}
-          ${analysis.visualObservations.dimensions ? `<li><strong>Proportioner:</strong> ${analysis.visualObservations.dimensions}</li>` : ''}
-          ${analysis.visualObservations.style ? `<li><strong>Stil:</strong> ${analysis.visualObservations.style}</li>` : ''}
+          ${analysis.visualObservations.objectType ? `<li><strong>Objekttyp:</strong> ${escapeHTML(analysis.visualObservations.objectType)}</li>` : ''}
+          ${analysis.visualObservations.primaryMaterial ? `<li><strong>Material:</strong> ${escapeHTML(analysis.visualObservations.primaryMaterial)}</li>` : ''}
+          ${analysis.visualObservations.colorScheme ? `<li><strong>Färger:</strong> ${escapeHTML(analysis.visualObservations.colorScheme)}</li>` : ''}
+          ${analysis.visualObservations.markings ? `<li><strong>Märkningar:</strong> ${escapeHTML(analysis.visualObservations.markings)}</li>` : ''}
+          ${analysis.visualObservations.dimensions ? `<li><strong>Proportioner:</strong> ${escapeHTML(analysis.visualObservations.dimensions)}</li>` : ''}
+          ${analysis.visualObservations.style ? `<li><strong>Stil:</strong> ${escapeHTML(analysis.visualObservations.style)}</li>` : ''}
         </ul>
       </div>
       

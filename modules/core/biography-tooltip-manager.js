@@ -81,11 +81,13 @@ export class BiographyTooltipManager {
     }
 
     // Format biography text (preserve line breaks)
-    const formattedBio = bioText.replace(/\n/g, '<br>');
+    const formattedBio = escapeHTML(bioText).replace(/\n/g, '<br>');
 
-    // Create attribution based on source
-    const attribution = bioSource === 'auctionet' ?
-      `✓ Verifierad biografi från <a href="${bioUrl}" target="_blank" style="color: #1976d2;">Auctionet</a>` :
+    // Create attribution based on source (only allow https:// links, escape for the href sink)
+    const safeBioUrl = (typeof bioUrl === 'string' && /^https:\/\//i.test(bioUrl)) ? bioUrl : null;
+    const attribution = (bioSource === 'auctionet' && safeBioUrl) ?
+      `✓ Verifierad biografi från <a href="${escapeHTML(safeBioUrl)}" target="_blank" style="color: #1976d2;">Auctionet</a>` :
+      bioSource === 'auctionet' ? `✓ Verifierad biografi` :
       `📚 Automatiskt genererad biografi`;
 
     // Create header with years if available
@@ -101,7 +103,7 @@ export class BiographyTooltipManager {
           <button class="popup-close" type="button">✕</button>
         </div>
         <div class="popup-content">
-          <p>${escapeHTML(formattedBio)}</p>
+          <p>${formattedBio}</p>
           <div class="popup-attribution">
             <small>${attribution}</small>
           </div>
@@ -150,7 +152,7 @@ export class BiographyTooltipManager {
     // Create preview snippet (first 120 characters for tooltips)
     const bioPreview = biography.length > 120 ? biography.substring(0, 120) + '...' : biography;
 
-    return `<div class="artist-bio-preview">${bioPreview}</div>`;
+    return `<div class="artist-bio-preview">${escapeHTML(bioPreview)}</div>`;
   }
 
   /**

@@ -91,6 +91,23 @@
 
   // ─── Rich Comments List (for /admin/sas/comments page) ──────────
 
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Only allow relative admin links or http(s) URLs — blocks javascript: etc.
+  function safeHref(href) {
+    if (!href) return '';
+    if (/^\//.test(href)) return href;
+    if (/^https?:\/\//i.test(href)) return href;
+    return '';
+  }
+
   function getInitials(name) {
     const parts = name.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return '?';
@@ -153,19 +170,19 @@
 
       const postedAt = postedAtEl ? postedAtEl.textContent.trim() : '';
       const relTime = relativeTimestamp(postedAt);
-      const body = bodyEl ? bodyEl.innerHTML.trim() : '';
+      const body = bodyEl ? bodyEl.textContent.trim() : '';
 
       richItems.push(`
-        <div class="ext-cfeed-item" data-href="${commentedHref || ''}">
-          <div class="ext-cfeed-item__avatar" style="background: ${avatarColor};">${initials}</div>
+        <div class="ext-cfeed-item" data-href="${escapeHtml(safeHref(commentedHref))}">
+          <div class="ext-cfeed-item__avatar" style="background: ${avatarColor};">${escapeHtml(initials)}</div>
           <div class="ext-cfeed-item__content">
             <div class="ext-cfeed-item__header">
-              <span class="ext-cfeed-item__name">${employee}</span>
+              <span class="ext-cfeed-item__name">${escapeHtml(employee)}</span>
               ${badgeHTML}
-              <span class="ext-cfeed-item__time">${relTime}</span>
+              <span class="ext-cfeed-item__time">${escapeHtml(relTime)}</span>
             </div>
-            <div class="ext-cfeed-item__entity-text">${commentedText}</div>
-            <div class="ext-cfeed-item__body">${body}</div>
+            <div class="ext-cfeed-item__entity-text">${escapeHtml(commentedText)}</div>
+            <div class="ext-cfeed-item__body">${escapeHtml(body)}</div>
           </div>
         </div>
       `);
