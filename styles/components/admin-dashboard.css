@@ -480,6 +480,119 @@
   line-height: 1.4;
 }
 
+/* ─── Räddningslistan (Rescue List) ──────────────────────────────── */
+.ext-rescue {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.ext-rescue__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafbfc;
+  flex-wrap: wrap;
+}
+
+.ext-rescue__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.ext-rescue__badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e65100;
+}
+
+.ext-rescue__body {
+  padding: 4px 0;
+}
+
+.ext-rescue__empty {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  padding: 16px;
+}
+
+.ext-rescue__list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.ext-rescue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f5f5f5;
+  text-decoration: none !important;
+  color: inherit !important;
+  transition: background 0.15s;
+}
+
+.ext-rescue-item:last-child {
+  border-bottom: none;
+}
+
+.ext-rescue-item:hover {
+  background: #edf4fc;
+}
+
+.ext-rescue-item__title {
+  font-size: 12px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.ext-rescue-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.ext-rescue-item__time {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e65100;
+  white-space: nowrap;
+}
+
+.ext-rescue-item__estimate {
+  font-size: 11px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.ext-rescue__more {
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.ext-rescue__tip {
+  font-size: 11px;
+  color: #888;
+  padding: 10px 16px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafbfc;
+}
+
 /* ─── Warehouse Costs (card) ─────────────────────────────────────── */
 .ext-warehouse {
   margin-bottom: 16px;

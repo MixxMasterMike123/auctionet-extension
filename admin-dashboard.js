@@ -587,6 +587,173 @@
     });
   }
 
+  // ─── 7b. Räddningslistan (Rescue List) ────────────────────────────
+  // Live items with zero bids ending within 72 hours — surfaced so staff
+  // can rescue them (e.g. via the HYPERRANK button on the edit page).
+
+  const RESCUE_LOOKAHEAD_MS = 72 * 60 * 60 * 1000; // 3 dygn
+  const RESCUE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  const RESCUE_MAX_PAGES = 10;
+  const RESCUE_PER_PAGE = 100;
+  const RESCUE_ROW_CAP = 15;
+
+  let _rescueCache = null; // { timestamp, items }
+
+  async function getOwnCompanyId() {
+    try {
+      const result = await chrome.storage.sync.get(['ownCompanyId', 'excludeCompanyId']);
+      return result.ownCompanyId || result.excludeCompanyId || '48';
+    } catch (e) {
+      return '48';
+    }
+  }
+
+  // Fetch all live (published, not hammered) items for the company, paginating
+  // until exhausted or RESCUE_MAX_PAGES is reached. Filters client-side to
+  // zero-bid items ending within RESCUE_LOOKAHEAD_MS, soonest-ending first.
+  async function fetchRescueItems() {
+    if (_rescueCache && (Date.now() - _rescueCache.timestamp) < RESCUE_CACHE_TTL) {
+      return _rescueCache.items;
+    }
+
+    const companyId = await getOwnCompanyId();
+    const nowSec = Date.now() / 1000;
+    const deadlineSec = nowSec + (RESCUE_LOOKAHEAD_MS / 1000);
+
+    const matches = [];
+    try {
+      let page = 1;
+      while (page <= RESCUE_MAX_PAGES) {
+        const url = `https://auctionet.com/api/v2/items.json?company_id=${encodeURIComponent(companyId)}&per_page=${RESCUE_PER_PAGE}&page=${page}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const items = data.items || [];
+        if (items.length === 0) break;
+
+        items.forEach(item => {
+          if (item.hammered) return;
+          if (item.state !== 'published') return;
+          if (!item.ends_at || item.ends_at <= nowSec || item.ends_at > deadlineSec) return;
+          const bidCount = item.bids ? item.bids.length : 0;
+          if (bidCount !== 0) return;
+          matches.push({
+            id: item.id,
+            title: item.title || '',
+            estimate: item.estimate || 0,
+            endsAt: item.ends_at * 1000
+          });
+        });
+
+        if (items.length < RESCUE_PER_PAGE) break;
+        page++;
+      }
+    } catch (e) {
+      console.warn('[AdminDashboard] Räddningslistan fetch failed:', e.message);
+      // Fall back to whatever we already gathered (may be empty)
+    }
+
+    matches.sort((a, b) => a.endsAt - b.endsAt);
+
+    _rescueCache = { timestamp: Date.now(), items: matches };
+    return matches;
+  }
+
+  // "om 14 tim" / "om 2 dygn" style time-left formatter
+  function formatTimeLeft(endsAtMs) {
+    const diffMs = endsAtMs - Date.now();
+    if (diffMs <= 0) return 'slutar snart';
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays >= 1) return `om ${diffDays} dygn`;
+    if (diffHours >= 1) return `om ${diffHours} tim`;
+    const diffMins = Math.floor(diffMs / 60000);
+    return `om ${Math.max(diffMins, 1)} min`;
+  }
+
+  function buildAdminEditUrl(itemId) {
+    // e.g. current path "/admin/sas" → "/admin/sas/items/12345/edit"
+    // Derives the company slug dynamically rather than hardcoding "sas".
+    const base = window.location.pathname.replace(/\/$/, '');
+    return `${base}/items/${itemId}/edit`;
+  }
+
+  function renderRescueList(items) {
+    let container = document.querySelector('.ext-rescue');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'ext-rescue ext-animate-in';
+    }
+
+    const count = items.length;
+    const shown = items.slice(0, RESCUE_ROW_CAP);
+    const remaining = count - shown.length;
+
+    const rowsHTML = shown.map(item => {
+      const editUrl = buildAdminEditUrl(item.id);
+      const estimateLabel = item.estimate > 0 ? `Utrop ${formatSEK(item.estimate)} SEK` : '';
+      return `
+        <a class="ext-rescue-item" href="${escapeHTML(editUrl)}">
+          <span class="ext-rescue-item__title">${escapeHTML(truncateTitle(item.title, 60))}</span>
+          <span class="ext-rescue-item__meta">
+            <span class="ext-rescue-item__time">${escapeHTML(formatTimeLeft(item.endsAt))}</span>
+            ${estimateLabel ? `<span class="ext-rescue-item__estimate">${escapeHTML(estimateLabel)}</span>` : ''}
+          </span>
+        </a>
+      `;
+    }).join('');
+
+    const bodyHTML = count === 0
+      ? `<div class="ext-rescue__empty">Inga föremål utan bud som slutar inom 3 dygn 🎉</div>`
+      : `
+        <div class="ext-rescue__list">${rowsHTML}</div>
+        ${remaining > 0 ? `<div class="ext-rescue__more">+${remaining} till</div>` : ''}
+        <div class="ext-rescue__tip">Tips: öppna föremålet och kör ⚡ HYPERRANK för att göra det sökbart.</div>
+      `;
+
+    container.innerHTML = `
+      <div class="ext-rescue__header">
+        <span class="ext-rescue__title">🛟 Räddningslistan</span>
+        <span class="ext-rescue__badge">${count} föremål utan bud slutar inom 3 dygn</span>
+      </div>
+      <div class="ext-rescue__body">${bodyHTML}</div>
+    `;
+
+    if (!container.parentNode) {
+      insertRescueContainer(container);
+    }
+  }
+
+  // Place the rescue list right after the comment feed if present, otherwise
+  // fall back to the same container the comment feed anchors to.
+  function insertRescueContainer(node) {
+    const feed = document.querySelector('.ext-comment-feed');
+    if (feed && feed.parentNode) {
+      feed.parentNode.insertBefore(node, feed.nextSibling);
+      return true;
+    }
+    const origSection = document.querySelector('#comments');
+    if (origSection) {
+      const parentWell = origSection.closest('.well');
+      if (parentWell && parentWell.parentNode) {
+        parentWell.parentNode.insertBefore(node, parentWell);
+        return true;
+      }
+    }
+    const view = document.querySelector('.view');
+    if (view) { view.insertBefore(node, view.firstChild); return true; }
+    return false;
+  }
+
+  async function initRescueList() {
+    try {
+      const items = await fetchRescueItems();
+      renderRescueList(items);
+    } catch (e) {
+      console.warn('[AdminDashboard] Räddningslistan init failed:', e.message);
+    }
+  }
+
   // ─── 8. Publication Queue Scanner ────────────────────────────────
 
   // Scan logic runs in background service worker (publication-scanner-bg.js).
@@ -1775,6 +1942,7 @@
 
   let hasRenderedKPI = false;
   let hasRenderedComments = false;
+  let hasStartedRescueList = false;
   let hasStartedWarehouseFetch = false;
   let hasStartedPublicationScan = false;
   let hasRenderedDashboardAPI = false;
@@ -1803,6 +1971,14 @@
       if (!hasRenderedComments && document.querySelector('#comments ul.unstyled li.comment')) {
         renderCommentFeed();
         hasRenderedComments = true;
+      }
+
+      // Räddningslistan — start once the comment feed has had a chance to
+      // render (so it can anchor right after it); safe to start regardless
+      // since insertRescueContainer() has its own fallbacks.
+      if (!hasStartedRescueList && hasRenderedKPI) {
+        hasStartedRescueList = true;
+        initRescueList();
       }
 
       // Make Auctionet's "Datainsikter" Metabase embed collapsible (collapsed
@@ -1846,7 +2022,7 @@
       tryRenderAll();
 
       // Stop observing once everything has rendered
-      if (hasRenderedKPI && hasRenderedComments &&
+      if (hasRenderedKPI && hasRenderedComments && hasStartedRescueList &&
           hasStartedWarehouseFetch && hasStartedPublicationScan &&
           hasRenderedDashboardAPI && hasMadeDatainsikterCollapsible) {
         observer.disconnect();
