@@ -591,6 +591,10 @@
   text-decoration: underline;
 }
 
+.ext-rescue-item__done {
+  color: #f59e0b;
+}
+
 .ext-rescue__tip {
   font-size: 11px;
   color: #888;

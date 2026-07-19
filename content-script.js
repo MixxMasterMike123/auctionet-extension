@@ -480,6 +480,23 @@
           );
           this.hyperrankUI.showRankCheckRow();
 
+          // Log the hyperrank so Räddningslistan can badge already-treated items
+          // (prevents re-running on the same listing for days). Pruned at 60 days.
+          try {
+            const idMatch = window.location.pathname.match(/\/items\/(\d+)/);
+            if (idMatch) {
+              const { hyperrankedItems = {} } = await chrome.storage.local.get('hyperrankedItems');
+              hyperrankedItems[idMatch[1]] = Date.now();
+              const cutoff = Date.now() - 60 * 24 * 3600 * 1000;
+              for (const [id, ts] of Object.entries(hyperrankedItems)) {
+                if (ts < cutoff) delete hyperrankedItems[id];
+              }
+              await chrome.storage.local.set({ hyperrankedItems });
+            }
+          } catch (e) {
+            console.warn('HYPERRANK log failed:', e);
+          }
+
           // Clear stale FAQ hints, then re-analyze (HYPERRANK intentionally trips
           // the keyword-uniqueness quality check — accepted, noted in the UI copy)
           document.querySelectorAll('.faq-hint').forEach(h => h.remove());

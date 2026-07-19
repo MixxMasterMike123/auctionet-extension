@@ -675,6 +675,15 @@
       console.warn('[AdminDashboard] Pubscan editUrl lookup failed:', e.message);
     }
 
+    // Badge items already treated with HYPERRANK (logged by content-script on apply)
+    try {
+      const { hyperrankedItems = {} } = await new Promise(resolve =>
+        chrome.storage.local.get('hyperrankedItems', r => resolve(r)));
+      matches.forEach(m => { m.hyperranked = !!hyperrankedItems[String(m.id)]; });
+    } catch (e) {
+      console.warn('[AdminDashboard] Hyperrank log lookup failed:', e.message);
+    }
+
     _rescueCache = { timestamp: Date.now(), items: matches };
     return matches;
   }
@@ -758,7 +767,7 @@
       const estimateLabel = item.estimate > 0 ? `Utrop ${formatSEK(item.estimate)} SEK` : '';
       return `
         <a class="ext-rescue-item" href="${escapeHTML(safeHref(item.editUrl || item.publicUrl))}" data-item-id="${item.id}" data-resolved="${item.editUrl ? '1' : ''}">
-          <span class="ext-rescue-item__title">${escapeHTML(truncateTitle(item.title, 60))}</span>
+          <span class="ext-rescue-item__title">${item.hyperranked ? '<span class="ext-rescue-item__done" title="Redan hyperrankad">⚡</span> ' : ''}${escapeHTML(truncateTitle(item.title, 60))}</span>
           <span class="ext-rescue-item__meta">
             <span class="ext-rescue-item__time">${escapeHTML(formatTimeLeft(item.endsAt))}</span>
             ${estimateLabel ? `<span class="ext-rescue-item__estimate">${escapeHTML(estimateLabel)}</span>` : ''}
