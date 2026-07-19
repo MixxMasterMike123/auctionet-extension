@@ -32,6 +32,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadOutletConfig();
   await loadSpellcheckConfig();
   await renderAdminUI();
+  await initTabs();
+  await updateConfigDots();
 
   // Check extension status
   await checkExtensionStatus();
@@ -55,6 +57,57 @@ document.addEventListener('DOMContentLoaded', async () => {
   apiKeyInput.addEventListener('input', () => {
     clearStatus();
   });
+  // Refresh the configured-dots shortly after any connection save completes
+  ['save-key', 'save-own-company', 'save-dashboard-token', 'save-outlet-config', 'save-spellcheck-config'].forEach(id => {
+    document.getElementById(id).addEventListener('click', () => setTimeout(updateConfigDots, 400));
+  });
+
+  // ─── Tabs ──────────────────────────────────────────────────────
+
+  async function initTabs() {
+    const buttons = document.querySelectorAll('.tab-btn');
+    const activate = (tabId) => {
+      buttons.forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
+    };
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        activate(btn.dataset.tab);
+        chrome.storage.local.set({ popupActiveTab: btn.dataset.tab }).catch(() => {});
+      });
+    });
+    try {
+      const { popupActiveTab } = await chrome.storage.local.get('popupActiveTab');
+      if (popupActiveTab && document.getElementById(popupActiveTab)) {
+        activate(popupActiveTab);
+      }
+    } catch (error) {
+      // Keep default tab
+    }
+  }
+
+  // ─── Configured-indicator dots (Anslutningar tab) ──────────────
+
+  async function updateConfigDots() {
+    try {
+      const local = await chrome.storage.local.get(['anthropicApiKey', 'dashboardApiToken', 'outletApiUrl', 'outletApiToken', 'spellcheckWorkerUrl']);
+      const sync = await chrome.storage.sync.get(['ownCompanyId']);
+      const setDot = (id, ok) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('conn-dot--ok', !!ok);
+      };
+      setDot('dot-api', local.anthropicApiKey);
+      // First-run help: expand the API card until a key is configured
+      const apiCard = document.getElementById('card-api');
+      if (apiCard && !local.anthropicApiKey) apiCard.open = true;
+      setDot('dot-company', sync.ownCompanyId);
+      setDot('dot-dashboard', local.dashboardApiToken);
+      setDot('dot-outlet', local.outletApiUrl && local.outletApiToken);
+      setDot('dot-spellcheck', local.spellcheckWorkerUrl);
+    } catch (error) {
+      console.error('Error updating config indicators:', error);
+    }
+  }
 
   async function loadApiKey() {
     try {
@@ -184,26 +237,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function updateExtensionStatus(status) {
-    let statusHtml = '';
-    
+    const hintEl = document.getElementById('extension-status-hint');
+    let pillClass = 'status-pill--warning';
+    let pillText = 'Kontrollerar…';
+    let hint = '';
+
     switch (status) {
       case 'ready':
-        statusHtml = '<div class="status success"><strong>✅ Ready to use!</strong><br>Extension is active on this page.</div>';
+        pillClass = 'status-pill--ready';
+        pillText = '● Aktiv';
+        hint = '';
         break;
       case 'wrong-page':
-        statusHtml = '<div class="status warning"><strong>⚠️ Wrong page</strong><br>Navigate to an Auctionet item edit page to use the extension.</div>';
+        pillClass = 'status-pill--warning';
+        pillText = '● Fel sida';
+        hint = 'Gå till en redigeringssida för föremål på Auctionet.';
         break;
       case 'no-api-key':
-        statusHtml = '<div class="status error"><strong>❌ No API key</strong><br>Please enter your Anthropic API key above.</div>';
+        pillClass = 'status-pill--error';
+        pillText = '● API-nyckel saknas';
+        hint = 'Lägg in din Anthropic API-nyckel under Anslutningar.';
         break;
       case 'error':
-        statusHtml = '<div class="status error"><strong>❌ Error</strong><br>There was an error checking the extension status.</div>';
+        pillClass = 'status-pill--error';
+        pillText = '● Fel';
+        hint = 'Kunde inte kontrollera status.';
         break;
-      default:
-        statusHtml = '<div class="status warning"><strong>Checking...</strong></div>';
     }
-    
-    extensionStatus.innerHTML = statusHtml;
+
+    extensionStatus.innerHTML = `<span class="status-pill ${pillClass}">${escapeHTML(pillText)}</span>`;
+    if (hintEl) hintEl.textContent = hint;
   }
 
   function showStatus(message, type) {

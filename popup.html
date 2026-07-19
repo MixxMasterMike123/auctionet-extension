@@ -4,43 +4,107 @@
     <meta charset="utf-8">
     <title>Auctionet AI Assistant</title>
     <style>
+        :root {
+            --blue: #007cba;
+            --blue-dark: #005a87;
+            --green: #28a745;
+            --red: #dc3545;
+            --text: #333;
+            --muted: #666;
+            --border: #e2e5e9;
+            --bg-soft: #f6f7f9;
+        }
+        * { box-sizing: border-box; }
         body {
-            width: 300px;
-            padding: 20px;
+            width: 360px;
+            margin: 0;
+            padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 14px;
             line-height: 1.4;
+            color: var(--text);
         }
+
+        /* ── Header ─────────────────────────────── */
         .header {
-            text-align: center;
-            margin-bottom: 20px;
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
         }
         .header h1 {
-            font-size: 18px;
-            margin: 0 0 5px 0;
-            color: #333;
-        }
-        .header p {
+            font-size: 16px;
             margin: 0;
-            color: #666;
-            font-size: 12px;
         }
-        .section {
-            margin-bottom: 20px;
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 10px;
+            white-space: nowrap;
         }
+        .status-pill--ready { background: #d4edda; color: #155724; }
+        .status-pill--warning { background: #fff3cd; color: #856404; }
+        .status-pill--error { background: #f8d7da; color: #721c24; }
+        .status-pill-hint {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        /* ── Tabs ───────────────────────────────── */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-soft);
+        }
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 10px 4px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--muted);
+            cursor: pointer;
+            width: auto;
+        }
+        .tab-btn:hover { background: #eef0f3; color: var(--text); }
+        .tab-btn.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+            background: #fff;
+            font-weight: 600;
+        }
+        .tab-panel { display: none; padding: 14px 16px 16px; }
+        .tab-panel.active { display: block; }
+
+        /* ── Generic ────────────────────────────── */
+        .section { margin-bottom: 16px; }
+        .section:last-child { margin-bottom: 0; }
         .section h3 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            color: #333;
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: var(--muted);
         }
-        .input-group {
-            margin-bottom: 15px;
-        }
+        .input-group { margin-bottom: 12px; }
+        .input-group:last-child { margin-bottom: 0; }
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: 500;
             color: #555;
+            font-size: 13px;
         }
         input[type="password"], input[type="text"] {
             width: 100%;
@@ -48,10 +112,9 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 13px;
-            box-sizing: border-box;
         }
         button {
-            background: #007cba;
+            background: var(--blue);
             color: white;
             border: none;
             padding: 8px 16px;
@@ -60,46 +123,117 @@
             font-size: 13px;
             width: 100%;
         }
-        button:hover {
-            background: #005a87;
-        }
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .status {
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-size: 12px;
-        }
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .status.warning {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
+        button:hover { background: var(--blue-dark); }
+        button:disabled { background: #ccc; cursor: not-allowed; }
         .help-text {
             font-size: 11px;
-            color: #666;
+            color: var(--muted);
             margin-top: 5px;
         }
-        .link {
-            color: #007cba;
-            text-decoration: none;
+        .link { color: var(--blue); text-decoration: none; }
+        .link:hover { text-decoration: underline; }
+
+        /* ── Feedback toasts ────────────────────── */
+        #status-container { padding: 0 16px; }
+        #status-container:empty { display: none; }
+        .status {
+            padding: 9px 10px;
+            border-radius: 4px;
+            margin: 10px 0 0;
+            font-size: 12px;
         }
-        .link:hover {
-            text-decoration: underline;
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+
+        /* ── Connection cards (details/summary) ─── */
+        details.conn-card {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: #fff;
         }
+        details.conn-card summary {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 13px;
+            list-style: none;
+        }
+        details.conn-card summary::-webkit-details-marker { display: none; }
+        details.conn-card summary::after {
+            content: '▸';
+            margin-left: auto;
+            color: var(--muted);
+            font-size: 11px;
+            transition: transform 0.15s;
+        }
+        details.conn-card[open] summary::after { transform: rotate(90deg); }
+        details.conn-card .conn-body {
+            padding: 4px 12px 12px;
+            border-top: 1px solid var(--bg-soft);
+        }
+        .conn-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: #ccc;
+            border: 1px solid #bbb;
+        }
+        .conn-dot--ok { background: var(--green); border-color: var(--green); }
+
+        /* ── Tool rows & toggles ────────────────── */
+        .tool-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            background: #fff;
+            color: var(--text);
+            border: 1px solid var(--border);
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 500;
+        }
+        .tool-btn:hover { background: var(--bg-soft); border-color: var(--blue); }
+        .toggle-row { margin-bottom: 12px; }
+        .toggle-row label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            gap: 8px;
+            font-weight: 500;
+        }
+        .toggle-row input[type="checkbox"] {
+            appearance: none;
+            width: 34px;
+            height: 19px;
+            border-radius: 10px;
+            background: #ccc;
+            position: relative;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin: 0;
+            transition: background 0.15s;
+        }
+        .toggle-row input[type="checkbox"]::after {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px;
+            width: 15px; height: 15px;
+            border-radius: 50%;
+            background: #fff;
+            transition: left 0.15s;
+        }
+        .toggle-row input[type="checkbox"]:checked { background: var(--green); }
+        .toggle-row input[type="checkbox"]:checked::after { left: 17px; }
+        .toggle-row .help-text { margin-left: 42px; margin-top: 2px; }
+
+        /* ── Admin ──────────────────────────────── */
         .admin-badge {
             display: inline-block;
             padding: 3px 10px;
@@ -107,14 +241,8 @@
             font-size: 11px;
             font-weight: 600;
         }
-        .admin-badge--locked {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        .admin-badge--unlocked {
-            background: #d4edda;
-            color: #155724;
-        }
+        .admin-badge--locked { background: #f8d7da; color: #721c24; }
+        .admin-badge--unlocked { background: #d4edda; color: #155724; }
         .admin-row {
             display: flex;
             align-items: center;
@@ -129,183 +257,157 @@
             font-size: 16px !important;
             font-weight: 600;
         }
-        .btn-sm {
-            width: auto;
-            padding: 6px 14px;
-            font-size: 12px;
-        }
-        .btn-outline {
-            background: #fff;
-            color: #007cba;
-            border: 1px solid #007cba;
-        }
-        .btn-outline:hover {
-            background: #007cba;
-            color: #fff;
-        }
-        .btn-danger {
-            background: #dc3545;
-        }
-        .btn-danger:hover {
-            background: #b02a37;
-        }
+        .btn-sm { width: auto; padding: 6px 14px; font-size: 12px; }
+        .btn-outline { background: #fff; color: var(--blue); border: 1px solid var(--blue); }
+        .btn-outline:hover { background: var(--blue); color: #fff; }
+        .btn-danger { background: var(--red); }
+        .btn-danger:hover { background: #b02a37; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>⚡ Auctionet AI Assistant</h1>
-        <p>AI-powered cataloging for auction items</p>
+        <div class="header-top">
+            <h1>⚡ Auctionet AI Assistant</h1>
+            <div id="extension-status"><span class="status-pill status-pill--warning">Kontrollerar…</span></div>
+        </div>
+        <div id="extension-status-hint" class="status-pill-hint"></div>
     </div>
 
     <div id="status-container"></div>
 
-    <div class="section">
-        <h3>API Configuration</h3>
-        <div class="input-group">
-            <label for="api-key">Anthropic API Key:</label>
-            <input type="password" id="api-key" placeholder="sk-ant-api03-...">
-            <div class="help-text">
-                Get your API key from <a href="https://console.anthropic.com/" target="_blank" class="link">Anthropic Console</a>
-            </div>
-        </div>
-        <button id="save-key">Save API Key</button>
-        <button id="test-connection" style="margin-top: 10px; background: #28a745;">Test Connection</button>
+    <div class="tabs">
+        <button type="button" class="tab-btn active" data-tab="tab-verktyg">Verktyg</button>
+        <button type="button" class="tab-btn" data-tab="tab-anslutningar">Anslutningar</button>
+        <button type="button" class="tab-btn" data-tab="tab-admin">Admin</button>
     </div>
 
-    <div class="section">
-        <h3>Ditt auktionshus</h3>
-        <div class="input-group">
-            <label for="own-company-id">Företags-ID på Auctionet:</label>
-            <input type="text" id="own-company-id" placeholder="48">
-            <div class="help-text">
-                Ditt auktionshus-ID på Auctionet. Krävs för ekonomiska nyckeltal (omsättning, nettointäkt) i analysen och för att exkludera eget hus från marknadsdata.
+    <!-- ══════════ TAB: VERKTYG ══════════ -->
+    <div class="tab-panel active" id="tab-verktyg">
+        <div class="section">
+            <h3>Öppna verktyg</h3>
+            <div class="input-group">
+                <button type="button" id="open-analytics" class="tool-btn">📊 Försäljningsanalys</button>
+                <div class="help-text">Försäljningsstatistik per år, månad och kategori. Jämför med andra auktionshus.</div>
+            </div>
+            <div class="input-group">
+                <button type="button" id="open-spelling-audit" class="tool-btn">🔍 Stavningsaudit</button>
+                <div class="help-text">Skannar publicerade objekt efter stavfel, förbjudna ord och varumärkesfel.</div>
             </div>
         </div>
-        <button id="save-own-company">Spara företags-ID</button>
-    </div>
 
-    <div class="section">
-        <h3>Dashboard API</h3>
-        <div class="input-group">
-            <label for="dashboard-token">Dashboard Token:</label>
-            <input type="password" id="dashboard-token" placeholder="Token från dashboard.auctionet.com">
-            <div class="help-text">
-                Token för realtids-KPI:er (R12, YTD, trender, sökdata). Finns i dashboard-URL:en efter ?token=
+        <div class="section">
+            <h3>Funktioner</h3>
+            <div class="toggle-row">
+                <label>
+                    <input type="checkbox" id="enable-artist-info">
+                    <span>Konstnärsinformation</span>
+                </label>
+                <div class="help-text">Lägg till kort historisk kontext i beskrivningen när konstnär/formgivare är känd.</div>
+            </div>
+            <div class="toggle-row">
+                <label>
+                    <input type="checkbox" id="show-dashboard">
+                    <span>Marknadsanalys-panel</span>
+                </label>
+                <div class="help-text">Visa marknadsdata och försäljningsanalys ovanför objektet på redigeringssidan.</div>
+            </div>
+            <div class="toggle-row">
+                <label>
+                    <input type="checkbox" id="enable-pub-scanner">
+                    <span>Automatisk publiceringskontroll</span>
+                </label>
+                <div class="help-text">Skannar publiceringskön var 30:e minut (AI-stavkontroll, Haiku). Aktivera bara på datorer som ska övervaka kön.</div>
             </div>
         </div>
-        <button id="save-dashboard-token">Spara Dashboard Token</button>
-    </div>
 
-    <div class="section">
-        <h3>SaS Outlet</h3>
-        <div class="input-group">
-            <label for="outlet-supabase-url">Outlet API URL (Cloudflare Worker):</label>
-            <input type="text" id="outlet-supabase-url" placeholder="https://sas-outlet-api.xxxx.workers.dev">
-            <div class="help-text">
-                URL till sas-outlet-api Workern som tar emot föremål och bilder.
-            </div>
-        </div>
-        <div class="input-group">
-            <label for="outlet-supabase-key">Outlet API-token:</label>
-            <input type="password" id="outlet-supabase-key" placeholder="hemlig token...">
-            <div class="help-text">
-                Samma token som Workerns OUTLET_API_TOKEN-secret. Lagras säkert lokalt, används bara av bakgrundsprocessen.
-            </div>
-        </div>
-        <button id="save-outlet-config">Spara Outlet-inställningar</button>
-    </div>
-
-    <div class="section">
-        <h3>Stavningskontroll (delad backend)</h3>
-        <div class="input-group">
-            <label for="spellcheck-worker-url">Cloudflare Worker URL:</label>
-            <input type="text" id="spellcheck-worker-url" placeholder="https://auctionet-spellcheck.xxxx.workers.dev">
-            <div class="help-text">
-                Delad stavningscache och ignorerade ord för alla anställda. Ersätter Supabase — pausas aldrig. Endast URL behövs (inga nycklar).
-            </div>
-        </div>
-        <button id="save-spellcheck-config">Spara stavningsbackend</button>
-    </div>
-
-    <div class="section">
-        <h3>AI Enhancement Settings</h3>
-        <div class="input-group">
-            <label style="display: flex; align-items: center; cursor: pointer;">
-                <input type="checkbox" id="enable-artist-info" style="margin-right: 8px;">
-                <span>Lägg till konstnärsinformation</span>
-            </label>
-            <div class="help-text">
-                När konstnär/formgivare är känd, lägg till kort historisk kontext och information om specifika serier/modeller i beskrivningen.
-            </div>
-        </div>
-        <div class="input-group">
-            <label style="display: flex; align-items: center; cursor: pointer;">
-                <input type="checkbox" id="show-dashboard" style="margin-right: 8px;">
-                <span>Visa marknadsanalys-dashboard</span>
-            </label>
-            <div class="help-text">
-                Visa omfattande marknadsdata och försäljningsanalys ovanför objektet. Stäng av för att bara använda AI-förbättringsfunktionerna utan visuella distraktioner.
-            </div>
+        <div class="section">
+            <p style="font-size: 12px; color: var(--muted); margin: 0;">
+                Gå till en redigeringssida för föremål på Auctionet och leta efter ⚡-knapparna vid varje fält.
+            </p>
         </div>
     </div>
 
-    <div class="section">
-        <h3>Försäljningsanalys</h3>
-        <div class="input-group">
-            <button id="open-analytics" class="btn-outline" style="width:100%;">
-                📊 Öppna Försäljningsanalys
-            </button>
-            <div class="help-text">
-                Detaljerad försäljningsstatistik med filter per år, månad och kategori. Jämför med andra auktionshus.
+    <!-- ══════════ TAB: ANSLUTNINGAR ══════════ -->
+    <div class="tab-panel" id="tab-anslutningar">
+        <details class="conn-card" id="card-api">
+            <summary><span class="conn-dot" id="dot-api"></span>Anthropic API</summary>
+            <div class="conn-body">
+                <div class="input-group">
+                    <label for="api-key">API-nyckel:</label>
+                    <input type="password" id="api-key" placeholder="sk-ant-api03-...">
+                    <div class="help-text">
+                        Krävs för alla AI-funktioner. Hämta från <a href="https://console.anthropic.com/" target="_blank" class="link">Anthropic Console</a>.
+                    </div>
+                </div>
+                <button id="save-key">Spara API-nyckel</button>
+                <button id="test-connection" style="margin-top: 8px; background: var(--green);">Testa anslutning</button>
             </div>
-        </div>
-    </div>
+        </details>
 
-    <div class="section">
-        <h3>Stavningskontroll</h3>
-        <div class="input-group">
-            <button id="open-spelling-audit" class="btn-outline" style="width:100%;">
-                🔍 Öppna Stavningsaudit
-            </button>
-            <div class="help-text">
-                Skannar alla publicerade objekt efter stavfel, förbjudna ord, varumärkesfel och strukturella problem.
+        <details class="conn-card" id="card-company">
+            <summary><span class="conn-dot" id="dot-company"></span>Ditt auktionshus</summary>
+            <div class="conn-body">
+                <div class="input-group">
+                    <label for="own-company-id">Företags-ID på Auctionet:</label>
+                    <input type="text" id="own-company-id" placeholder="48">
+                    <div class="help-text">
+                        Krävs för ekonomiska nyckeltal i analysen och för att exkludera eget hus från marknadsdata.
+                    </div>
+                </div>
+                <button id="save-own-company">Spara företags-ID</button>
             </div>
-        </div>
-    </div>
+        </details>
 
-    <div class="section">
-        <h3>Publiceringskontroll</h3>
-        <div class="input-group">
-            <label style="display: flex; align-items: center; cursor: pointer;">
-                <input type="checkbox" id="enable-pub-scanner" style="margin-right: 8px;">
-                <span>Aktivera automatisk publiceringskontroll</span>
-            </label>
-            <div class="help-text">
-                Skannar publiceringskön var 30:e minut efter stavfel och kvalitetsproblem. Använder AI-stavkontroll (Haiku). Aktivera bara på datorer som behöver övervaka publiceringskön.
+        <details class="conn-card" id="card-dashboard">
+            <summary><span class="conn-dot" id="dot-dashboard"></span>Dashboard API</summary>
+            <div class="conn-body">
+                <div class="input-group">
+                    <label for="dashboard-token">Dashboard-token:</label>
+                    <input type="password" id="dashboard-token" placeholder="Token från dashboard.auctionet.com">
+                    <div class="help-text">
+                        Realtids-KPI:er (R12, YTD, trender, sökdata). Finns i dashboard-URL:en efter ?token=
+                    </div>
+                </div>
+                <button id="save-dashboard-token">Spara Dashboard-token</button>
             </div>
-        </div>
-    </div>
+        </details>
 
-    <div class="section" id="admin-section">
-        <h3>Admin Mode</h3>
-        <div id="admin-ui"></div>
-    </div>
-
-    <div class="section">
-        <h3>Extension Status</h3>
-        <div id="extension-status">
-            <div class="status warning">
-                <strong>Checking status...</strong>
+        <details class="conn-card" id="card-outlet">
+            <summary><span class="conn-dot" id="dot-outlet"></span>SaS Outlet</summary>
+            <div class="conn-body">
+                <div class="input-group">
+                    <label for="outlet-supabase-url">Outlet API URL (Cloudflare Worker):</label>
+                    <input type="text" id="outlet-supabase-url" placeholder="https://sas-outlet-api.xxxx.workers.dev">
+                    <div class="help-text">URL till sas-outlet-api Workern som tar emot föremål och bilder.</div>
+                </div>
+                <div class="input-group">
+                    <label for="outlet-supabase-key">Outlet API-token:</label>
+                    <input type="password" id="outlet-supabase-key" placeholder="hemlig token...">
+                    <div class="help-text">Samma token som Workerns OUTLET_API_TOKEN-secret. Lagras lokalt, används bara av bakgrundsprocessen.</div>
+                </div>
+                <button id="save-outlet-config">Spara Outlet-inställningar</button>
             </div>
-        </div>
+        </details>
+
+        <details class="conn-card" id="card-spellcheck">
+            <summary><span class="conn-dot" id="dot-spellcheck"></span>Stavningsbackend</summary>
+            <div class="conn-body">
+                <div class="input-group">
+                    <label for="spellcheck-worker-url">Cloudflare Worker URL:</label>
+                    <input type="text" id="spellcheck-worker-url" placeholder="https://auctionet-spellcheck.xxxx.workers.dev">
+                    <div class="help-text">Delad stavningscache och ignorerade ord för alla anställda. Endast URL behövs (inga nycklar).</div>
+                </div>
+                <button id="save-spellcheck-config">Spara stavningsbackend</button>
+            </div>
+        </details>
     </div>
 
-    <div class="section">
-        <h3>Usage</h3>
-        <p style="font-size: 12px; color: #666; margin: 0;">
-            Navigate to an Auctionet item edit page to use the AI cataloging features. 
-            Look for the ⚡ buttons next to each field.
-        </p>
+    <!-- ══════════ TAB: ADMIN ══════════ -->
+    <div class="tab-panel" id="tab-admin">
+        <div class="section" id="admin-section">
+            <h3>Admin-läge</h3>
+            <div id="admin-ui"></div>
+        </div>
     </div>
 
     <script src="popup.js"></script>
