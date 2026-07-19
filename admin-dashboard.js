@@ -729,7 +729,7 @@
     const rowsHTML = shown.map(item => {
       const estimateLabel = item.estimate > 0 ? `Utrop ${formatSEK(item.estimate)} SEK` : '';
       return `
-        <a class="ext-rescue-item" href="${escapeHTML(safeCommentHref(item.editUrl || item.publicUrl))}" data-item-id="${item.id}" data-resolved="${item.editUrl ? '1' : ''}">
+        <a class="ext-rescue-item" href="${escapeHTML(safeHref(item.editUrl || item.publicUrl))}" data-item-id="${item.id}" data-resolved="${item.editUrl ? '1' : ''}">
           <span class="ext-rescue-item__title">${escapeHTML(truncateTitle(item.title, 60))}</span>
           <span class="ext-rescue-item__meta">
             <span class="ext-rescue-item__time">${escapeHTML(formatTimeLeft(item.endsAt))}</span>
