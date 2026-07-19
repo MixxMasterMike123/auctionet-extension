@@ -45,7 +45,6 @@ export class FreetextParser {
     
     // Configuration
     this.config = {
-      enableHistoricalValidation: false, // Future feature
       enableMarketDataEnrichment: true,
       confidenceThreshold: 0.6
     };
@@ -437,50 +436,6 @@ export class FreetextParser {
   }
 
   /**
-   * Close modal and reset all state for fresh start
-   */
-  closeModal() {
-    
-    if (this.currentModal) {
-      // Clean up escape key listener
-      if (this.currentModal._escapeHandler) {
-        document.removeEventListener('keydown', this.currentModal._escapeHandler);
-      }
-      
-      // Clean up paste handler (document-level capturing listener)
-      if (this._pasteHandler) {
-        document.removeEventListener('paste', this._pasteHandler, true);
-        this._pasteHandler = null;
-      }
-      
-      // Remove modal from DOM
-      this.currentModal.remove();
-      this.currentModal = null;
-    }
-    
-    // Reset all internal state for fresh start
-    this.parsedData = null;
-    this.currentSureScore = null;
-    this.currentMarketData = null;
-    this.isProcessing = false;
-    
-    // Clear selected images
-    if (this.selectedImages) {
-      this.selectedImages.clear();
-    }
-    
-    // Reset image analyzer state completely
-    if (this.imageAnalyzer) {
-      this.imageAnalyzer.currentImages.clear();
-      this.imageAnalyzer.multipleAnalysisResults.clear(); // Clear multiple results cache
-      this.imageAnalyzer.isProcessing = false;
-      this.imageAnalyzer.analysisResult = null;
-      this.imageAnalyzer.currentImage = null; // Clear single image cache
-    }
-    
-  }
-
-  /**
    * Enforce minimum reserve price (400 SEK business rule)
    */
   enforceMinimumReserve(reservePrice) {
@@ -667,96 +622,6 @@ export class FreetextParser {
     // Scroll back to input section
     this.scrollToSection('input-section');
     
-  }
-
-  /**
-   * Initialize tab switching functionality
-   */
-  initializeTabSwitching(modal) {
-    const textTab = modal.querySelector('#text-tab');
-    const imageTab = modal.querySelector('#image-tab');
-    const multipleImagesTab = modal.querySelector('#multiple-images-tab');
-    const combinedTab = modal.querySelector('#combined-tab');
-    
-    const textSection = modal.querySelector('#text-input-section');
-    const imageSection = modal.querySelector('#image-input-section');
-    const multipleImagesSection = modal.querySelector('#multiple-images-input-section');
-    const combinedSection = modal.querySelector('#combined-input-section');
-    
-    const analyzeBtn = modal.querySelector('#analyze-btn');
-
-    if (!textTab || !imageTab || !multipleImagesTab || !combinedTab) {
-      console.error('Tab buttons not found');
-      return;
-    }
-
-    // Tab click handlers
-    textTab.addEventListener('click', () => {
-      this.switchToTab('text', modal);
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera fritext
-      `;
-    });
-
-    imageTab.addEventListener('click', () => {
-      this.switchToTab('image', modal);
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
-          <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera bild
-      `;
-    });
-
-    multipleImagesTab.addEventListener('click', () => {
-      this.switchToTab('multiple-images', modal);
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="14" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="2" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          <rect x="14" y="14" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera flera bilder
-      `;
-    });
-
-    combinedTab.addEventListener('click', () => {
-      this.switchToTab('combined', modal);
-      analyzeBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="margin-right: 6px;">
-          <path d="M4.5 16.5c-1.5 1.5-1.5 4.5 0 6s4.5 1.5 6 0l1-1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M14.5 7.5c1.5-1.5 1.5-4.5 0-6s-4.5-1.5-6 0l-1 1" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M8 12l8-8" stroke="currentColor" stroke-width="1.5"/>
-        </svg>
-        Analysera bild + text
-      `;
-    });
-
-  }
-
-  /**
-   * Switch to specified tab
-   */
-  switchToTab(tabType, modal) {
-    // Update tab button states
-    const tabs = modal.querySelectorAll('.tab-btn');
-    tabs.forEach(tab => tab.classList.remove('tab-btn--active'));
-    modal.querySelector(`#${tabType}-tab`).classList.add('tab-btn--active');
-
-    // Show/hide sections
-    modal.querySelector('#text-input-section').style.display = tabType === 'text' ? 'block' : 'none';
-    modal.querySelector('#image-input-section').style.display = tabType === 'image' ? 'block' : 'none';
-    modal.querySelector('#combined-input-section').style.display = tabType === 'combined' ? 'block' : 'none';
-
-    // Store current tab
-    this.currentTab = tabType;
   }
 
   /**
@@ -1052,14 +917,9 @@ export class FreetextParser {
 
     // Step 1: Parse freetext using AI Rules System v2.0
     const parsedData = await this.parseFreetextWithAI(freetext);
-    
-    // Step 2: Validate against historical auction data (if enabled)
-    const validatedData = this.config.enableHistoricalValidation 
-      ? await this.validateAgainstAuctionHistory(parsedData)
-      : parsedData;
 
-    // Step 3: Generate search terms and market analysis
-    const enrichedData = await this.enrichWithMarketData(validatedData);
+    // Step 2: Generate search terms and market analysis
+    const enrichedData = await this.enrichWithMarketData(parsedData);
 
     // Step 4: Calculate confidence scores
     const finalData = this.calculateConfidenceScores(enrichedData);
@@ -1204,110 +1064,6 @@ export class FreetextParser {
     // so no separate enhancement step is needed. This avoids a second AI call
     // that was re-expanding the concise output into verbose text.
     return parsedData;
-  }
-
-  /**
-   * Enhance image analysis with additional text context
-   */
-  async enhanceWithAdditionalText(imageData, additionalText) {
-    
-    try {
-      // Use AI Rules System v2.0 for text enhancement
-      const aiRules = window.getAIRulesManager();
-      const builtPrompt = aiRules.buildPrompt({
-        type: 'textEnhancement',
-        fields: ['all']
-      });
-
-      const enhancementPrompt = `${builtPrompt.userPrompt}
-        
-        BILDANALYS:
-        Titel: ${imageData.title}
-        Beskrivning: ${imageData.description}
-        Skick: ${imageData.condition}
-        Konstnär: ${imageData.artist || 'Ej identifierad'}
-        Material: ${imageData.materials}
-        
-        TILLÄGGSTEXT FRÅN ANVÄNDARE:
-        "${additionalText}"
-        
-        Använd tilläggstext för att förbättra och komplettera bildanalysen enligt AI Rules System v2.0 regler.
-        
-        TITEL-REGEL: ALLTID börja med FÖREMÅLSTYP i VERSALER, sedan komma, märke/tillverkare, modell, material, period.
-        
-        Returnera förbättrad data i exakt detta JSON-format:
-        {
-          "title": "FÖREMÅLSTYP, märke/tillverkare, modell, material, period",
-          "description": "förbättrad beskrivning här",
-          "condition": "förbättrat skick här",
-          "artist": "konstnär eller null",
-          "keywords": "sökord mellanslag-separerade bindestreck-för-flerordsfraser",
-          "materials": "material/teknik",
-          "period": "tidsperiod",
-          "estimate": 500,
-          "reserve": 300,
-          "reasoning": "kort förklaring av förbättringarna"
-        }
-      `;
-
-      // Call AI to enhance with text context  
-      const systemPrompt = window.getAIRulesManager().getSystemPrompt('textEnhancement') || this.getEditPageSystemPrompt();
-      
-      const response = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Text enhancement timeout'));
-        }, 30000);
-        
-        chrome.runtime.sendMessage({
-          type: 'anthropic-fetch',
-          body: {
-            model: this.apiManager.getCurrentModel().id, // Use user's selected model
-            max_tokens: 2000,
-            temperature: 0.1,
-            system: systemPrompt,
-            messages: [{
-              role: 'user',
-              content: enhancementPrompt
-            }]
-          }
-        }, (response) => {
-          clearTimeout(timeout);
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-          } else if (response && response.success) {
-            resolve(response);
-          } else {
-            reject(new Error('Text enhancement failed'));
-          }
-        });
-      });
-
-      if (response.success && response.data?.content?.[0]?.text) {
-        try {
-          const enhancedText = response.data.content[0].text;
-          const enhancedData = this.parseAIResponse(enhancedText);
-          
-          // Merge enhanced data with original, preserving image analysis
-          const mergedData = {
-            ...imageData,
-            ...enhancedData,
-            imageAnalysis: imageData.imageAnalysis, // Preserve original image analysis
-            additionalContext: additionalText,
-            analysisType: 'combined'
-          };
-          
-          return mergedData;
-        } catch (parseError) {
-          return imageData;
-        }
-      }
-      
-      return imageData;
-      
-    } catch (error) {
-      console.error('Text enhancement failed:', error);
-      return imageData; // Fallback to original image data
-    }
   }
 
   /**
@@ -1802,18 +1558,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
   }
 
   /**
-   * Parse numeric values safely
-   */
-  parseNumericValue(value) {
-    if (typeof value === 'number') return Math.max(0, Math.round(value));
-    if (typeof value === 'string') {
-      const num = parseInt(value.replace(/[^\d]/g, ''));
-      return isNaN(num) ? null : Math.max(0, num);
-    }
-    return null;
-  }
-
-  /**
    * Format keywords to Auctionet standard:
    * - Space-separated (not commas)
    * - Multi-word phrases joined with hyphens: "graverad-dekor"
@@ -1841,16 +1585,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     // Deduplicate
     const unique = [...new Set(tokens)];
     return unique.join(' ');
-  }
-
-  /**
-   * Normalize confidence values to 0.0-1.0 range
-   */
-  normalizeConfidence(value) {
-    if (typeof value === 'number') {
-      return Math.max(0, Math.min(1, value));
-    }
-    return 0.5; // Default confidence
   }
 
   /**
@@ -2032,94 +1766,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
   }
 
   /**
-   * Generate advanced processing HTML with cool animations
-   */
-  generateAdvancedProcessingHTML() {
-    const currentModel = this.apiManager.getCurrentModel().id;
-    const valuationRules = window.getAIRulesManager().getModelSpecificValuationRules('freetextParser', currentModel);
-    const isAdvancedModel = valuationRules.enableDeepReasoning;
-
-    return `
-      <div class="advanced-processing-container">
-        <div class="processing-header">
-          <div class="ai-brain-animation">
-            <div class="brain-core"></div>
-            <div class="brain-pulse"></div>
-            <div class="brain-waves">
-              <div class="wave wave-1"></div>
-              <div class="wave wave-2"></div>
-              <div class="wave wave-3"></div>
-            </div>
-          </div>
-          <h3 class="processing-title">
-            ${isAdvancedModel ? 'Expertanalys pågår' : 'Analys pågår'}
-          </h3>
-          <p class="processing-subtitle">
-            ${isAdvancedModel ? 'Djupgående marknadsresearch med 4-stegs analys' : 'Extraherar strukturerad data från fritext'}
-          </p>
-        </div>
-
-        <div class="progress-steps-container">
-          ${this.progressSteps.map((step, index) => `
-            <div class="progress-step" data-step="${index}">
-              <div class="step-icon">${step.icon}</div>
-              <div class="step-content">
-                <div class="step-text">${step.text}</div>
-                <div class="step-progress">
-                  <div class="step-progress-fill"></div>
-                </div>
-              </div>
-              <div class="step-status">
-                                  <div class="status-pending">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                  </div>
-                  <div class="status-active">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="3" fill="currentColor"/>
-                      <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/>
-                    </svg>
-                  </div>
-                <div class="status-complete">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-
-        <div class="overall-progress">
-          <div class="progress-bar">
-            <div class="progress-fill"></div>
-            <div class="progress-glow"></div>
-          </div>
-          <div class="progress-text">
-            <span class="current-step">0</span> / <span class="total-steps">${this.progressSteps.length}</span> steg
-          </div>
-        </div>
-
-        <div class="processing-stats">
-          <div class="stat">
-            <span class="stat-label">Modell:</span>
-            <span class="stat-value">${isAdvancedModel ? 'Claude 4 Sonnet' : 'Claude 3.5 Sonnet'}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Tokens:</span>
-            <span class="stat-value">${valuationRules.maxTokens || 2000}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Analys:</span>
-            <span class="stat-value">${isAdvancedModel ? 'Expert' : 'Standard'}</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
    * Generate continuous progress HTML with running line
    */
   generateContinuousProgressHTML() {
@@ -2171,14 +1817,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
   }
 
   /**
-   * Start advanced progress animation with step-by-step progression (legacy)
-   */
-  startAdvancedProgressAnimation() {
-    // Use the new continuous progress system
-    this.startContinuousProgressAnimation();
-  }
-
-  /**
    * Cycle through progress status messages
    */
   startProgressTextCycling() {
@@ -2203,97 +1841,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     
     // Start cycling
     cycleMessages();
-  }
-
-  /**
-   * Progress to the next step in the analysis
-   */
-  progressToNextStep() {
-    if (!this.isProcessing || this.currentStepIndex >= this.progressSteps.length) {
-      return;
-    }
-
-    const modal = this.currentModal;
-    const currentStep = this.progressSteps[this.currentStepIndex];
-    const isFinalStep = this.currentStepIndex === this.progressSteps.length - 1;
-    
-    // Update step status to active
-    const stepElement = modal.querySelector(`[data-step="${this.currentStepIndex}"]`);
-    if (stepElement) {
-      stepElement.classList.add('step-active');
-      stepElement.classList.remove('step-pending');
-      
-      // Animate the step progress bar
-      const progressFill = stepElement.querySelector('.step-progress-fill');
-      if (progressFill) {
-        progressFill.style.width = '100%';
-      }
-    }
-
-    // Update overall progress
-    const overallProgress = modal.querySelector('.progress-fill');
-    const currentStepSpan = modal.querySelector('.current-step');
-    if (overallProgress && currentStepSpan) {
-      const progressPercent = ((this.currentStepIndex + 1) / this.progressSteps.length) * 100;
-      overallProgress.style.width = `${progressPercent}%`;
-      currentStepSpan.textContent = this.currentStepIndex + 1;
-    }
-
-    // Special handling for final step - don't auto-complete, wait for actual AI completion
-    if (isFinalStep) {
-      
-      // Add continuous loading animation to final step
-      if (stepElement) {
-        stepElement.classList.add('step-final-processing');
-        const stepIcon = stepElement.querySelector('.step-icon');
-        if (stepIcon) {
-          stepIcon.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" class="spinner-icon">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416">
-                <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
-                <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
-              </circle>
-            </svg>
-          `;
-        }
-        
-        // Update step text to indicate AI processing
-        const stepTextEl = stepElement.querySelector('.step-text');
-        if (stepTextEl) {
-          stepTextEl.textContent = 'Bearbetar... (detta kan ta några sekunder)';
-        }
-      }
-      
-      // Don't schedule auto-completion for final step - let completeProgressAnimation() handle it
-      this.currentStepIndex++;
-      return;
-    }
-
-    // Schedule completion for non-final steps
-    const timeout = setTimeout(() => {
-      if (stepElement) {
-        stepElement.classList.add('step-complete');
-        stepElement.classList.remove('step-active');
-      }
-      
-      this.currentStepIndex++;
-      
-      // Continue to next step if still processing
-      if (this.isProcessing && this.currentStepIndex < this.progressSteps.length) {
-        setTimeout(() => this.progressToNextStep(), 300);
-      }
-    }, currentStep.duration);
-    
-    this.progressIntervals.push(timeout);
-  }
-
-  /**
-   * Start subtle professional animation (no flying particles!)
-   */
-  startParticleAnimation() {
-    // Professional catalogers don't need disco balls! 
-    // Just keep the subtle progress indicators
-    return;
   }
 
   /**
@@ -2861,16 +2408,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
   }
 
   /**
-   * Validate against auction history using existing 3.5M auction dataset
-   */
-  async validateAgainstAuctionHistory(data) {
-    
-    // Use existing validation logic - for now just return data
-    // Future: Could integrate with existing validation systems
-    return data;
-  }
-
-  /**
    * Enrich with market data using existing comprehensive market analysis system
    */
   async enrichWithMarketData(data) {
@@ -3322,20 +2859,44 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
         if (escapeHandler) {
           document.removeEventListener('keydown', escapeHandler);
         }
-        
+
+        // Clean up paste handler (document-level capturing listener)
+        if (this._pasteHandler) {
+          document.removeEventListener('paste', this._pasteHandler, true);
+          this._pasteHandler = null;
+        }
+
         // Remove modal from DOM
         if (this.currentModal.parentNode) {
           this.currentModal.parentNode.removeChild(this.currentModal);
         }
-        
+
         this.currentModal = null;
         this.parsedData = null;
+        this.currentSureScore = null;
+        this.currentMarketData = null;
         this.isProcessing = false;
+
+        // Clear selected images
+        if (this.selectedImages) {
+          this.selectedImages.clear();
+        }
+
+        // Reset image analyzer state completely
+        if (this.imageAnalyzer) {
+          this.imageAnalyzer.currentImages.clear();
+          this.imageAnalyzer.multipleAnalysisResults.clear(); // Clear multiple results cache
+          this.imageAnalyzer.isProcessing = false;
+          this.imageAnalyzer.analysisResult = null;
+          this.imageAnalyzer.currentImage = null; // Clear single image cache
+        }
       } catch (error) {
         console.error('Error closing modal:', error);
         // Force cleanup
         this.currentModal = null;
         this.parsedData = null;
+        this.currentSureScore = null;
+        this.currentMarketData = null;
         this.isProcessing = false;
       }
     }

@@ -216,8 +216,6 @@ class AuctionetCatalogingAssistant {
         onAnalyzeQuality: () => this.analyzeQuality(),
         onArtistAction: (action, data) => this.handleArtistAction(action, data),
         onGetItemData: () => this.extractItemData(),
-        onProcessWithInfo: (info) => this.processWithAdditionalInfo(info),
-        onProcessWithoutInfo: () => this.processWithoutAdditionalInfo(),
         onForceImprove: (fieldType) => this.forceImproveField(fieldType),
         onAddBioToDescription: (bio) => this.addBiographyToDescription(bio)
       });
@@ -860,33 +858,6 @@ class AuctionetCatalogingAssistant {
 
     return Math.max(0, score);
   }
-
-  async processWithAdditionalInfo(info) {
-    const itemData = this.extractItemData();
-    itemData.additionalInfo = info;
-
-    this.uiController.showLoadingIndicator('all');
-
-    try {
-      const improvements = await this.callClaudeAPI(itemData, 'all-enhanced');
-      this.applyAllImprovements(improvements);
-    } catch (error) {
-      this.uiController.showFieldErrorIndicator('all', error.message);
-    }
-  }
-
-  async processWithoutAdditionalInfo() {
-    const itemData = this.extractItemData();
-    this.uiController.showLoadingIndicator('all');
-
-    try {
-      const improvements = await this.callClaudeAPI(itemData, 'all');
-      this.applyAllImprovements(improvements);
-    } catch (error) {
-      this.uiController.showFieldErrorIndicator('all', error.message);
-    }
-  }
-
 
   async forceImproveField(fieldType) {
     // Ensure API manager settings are loaded (matches Edit page behavior)

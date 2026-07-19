@@ -57,36 +57,8 @@
     });
   }
 
-  function parseNumber(str) {
-    if (!str) return 0;
-    // Handle Swedish number format: "1 413,24" or "1112" or "15,5"
-    const cleaned = str.replace(/[^\d,.-]/g, '').replace(',', '.');
-    return parseFloat(cleaned) || 0;
-  }
-
   function formatSEK(num) {
     return Math.round(num).toLocaleString('sv-SE');
-  }
-
-  function pctChange(current, previous) {
-    if (!previous || previous === 0) return null;
-    return ((current - previous) / previous) * 100;
-  }
-
-  function trendHTML(pct, inverted = false) {
-    if (pct === null) return '';
-    const isGood = inverted ? pct < 0 : pct > 0;
-    const cls = Math.abs(pct) < 1 ? 'ext-trend-flat' : (isGood ? 'ext-trend-up' : 'ext-trend-down');
-    const arrow = pct > 1 ? '▲' : pct < -1 ? '▼' : '—';
-    return `<span class="ext-insight-card__trend ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
-  }
-
-  function yoyItemHTML(label, pct, inverted = false) {
-    if (pct === null) return '';
-    const isGood = inverted ? pct < 0 : pct > 0;
-    const cls = Math.abs(pct) < 1 ? 'ext-yoy-flat' : (isGood ? 'ext-yoy-up' : 'ext-yoy-down');
-    const arrow = pct > 1 ? '▲' : pct < -1 ? '▼' : '—';
-    return `<span class="ext-pipeline__yoy-item ${cls}">${label}: ${arrow} ${Math.abs(pct).toFixed(0)}%</span>`;
   }
 
   // ─── DOM Scrapers ─────────────────────────────────────────────────

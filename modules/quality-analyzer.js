@@ -9,7 +9,6 @@ import { ArtistDetectionManager } from './artist-detection-manager.js';
 import { BrandValidationManager } from './brand-validation-manager.js';
 import { InlineBrandValidator } from './inline-brand-validator.js';
 import { ArtistIgnoreManager } from './artist-ignore-manager.js';
-import { AuctionetArtistLookup } from './auctionet-artist-lookup.js';
 import { cleanTitleAfterArtistRemoval } from './core/title-cleanup-utility.js';
 import { BiographyTooltipManager } from './core/biography-tooltip-manager.js';
 import { CircularProgressManager } from './core/circular-progress-manager.js';
@@ -44,7 +43,6 @@ export class QualityAnalyzer {
 
     // NEW: Initialize ArtistIgnoreManager for handling false positives
     this.artistIgnoreManager = new ArtistIgnoreManager();
-    this.auctionetArtistLookup = new AuctionetArtistLookup();
     this.artistIgnoreManager.setQualityAnalyzer(this);
     // No need to call .init() - initialization happens automatically in constructor
 
@@ -173,13 +171,6 @@ export class QualityAnalyzer {
       salesAnalysisManager: this.salesAnalysisManager,
       searchFilterManager: this.searchFilterManager
     });
-  }
-
-  // NEW: Set SearchQueryManager for SSoT usage
-  setSearchQueryManager(searchQueryManager) {
-    this.searchQueryManager = searchQueryManager;
-    // DEPRECATED: This method is kept for backward compatibility but should use setSearchQuerySSoT
-
   }
 
   // NEW: Set AI-only search query system
@@ -655,19 +646,6 @@ export class QualityAnalyzer {
       };
     }
 
-    // TEMPORARILY DISABLED: Waiting for official Auctionet API access for artist biographies
-    // The unofficial approach (HTML scraping) is unreliable due to artist ID requirements
-    // TODO: Re-enable once we have proper API endpoint from Auctionet
-    /*
-    // NEW: Fetch verified biography from Auctionet
-    let auctionetBio = null;
-    try {
-      auctionetBio = await this.auctionetArtistLookup.getArtistBiography(aiArtist.detectedArtist);
-      
-    } catch (error) {
-      console.error(`Error fetching Auctionet biography:`, error);
-    }
-    */
     let auctionetBio = null; // Disabled until API access
 
     // Create properly formatted warning for the existing display system (without button - we'll add it programmatically)
@@ -1212,8 +1190,6 @@ export class QualityAnalyzer {
     this.marketOrchestrator.addMarketDataWarnings(salesData, warnings);
   }
 
-  // addClickToCopyHandler duplicate removed — functionality is in moveArtistToField()
-
   // NEW: Move artist to field functionality (extracted from addClickToCopyHandler)
   async moveArtistToField(artistName, artistWarning, clickableElement) {
     try {
@@ -1541,8 +1517,6 @@ export class QualityAnalyzer {
     this.feedbackManager.showTitleErrorFlash();
   }
 
-  // Second addClickToCopyHandler duplicate removed — functionality is in moveArtistToField()
-
   // Helper method to show error feedback
   showErrorFeedback(element, message) {
     this.feedbackManager.showErrorFeedback(element, message);
@@ -1699,30 +1673,6 @@ export class QualityAnalyzer {
     return this.biographyKBCard.fetchArtistBiography(artistName, artistDates, userHint, itemTitle, itemDescription);
   }
 
-  async fetchWikipediaImage(artistName) {
-    return this.biographyKBCard.fetchWikipediaImage(artistName);
-  }
-
-  createKBCard(artistName) {
-    return this.biographyKBCard.createKBCard(artistName);
-  }
-
-  updateKBCard(card, bioData, imageUrl, refetchCallback = null, artistName = '') {
-    this.biographyKBCard.updateKBCard(card, bioData, imageUrl, refetchCallback, artistName);
-  }
-
-  async showArtistBiography(artistName) {
-    return this.biographyKBCard.showArtistBiography(artistName);
-  }
-
-  showBiographyModal(artistName, biography) {
-    this.biographyKBCard.showBiographyModal(artistName, biography);
-  }
-
-  addBiographyToDescription(biography) {
-    this.biographyKBCard.addBiographyToDescription(biography);
-  }
-
   checkAndHideLoadingIndicator() {
     this.feedbackManager.checkAndHideLoadingIndicator();
   }
@@ -1779,14 +1729,6 @@ export class QualityAnalyzer {
 
     // Wire to market orchestrator
     this.marketOrchestrator.setDependencies({ searchFilterManager: searchFilterManager });
-  }
-
-  // Method to recalculate and update quality with animation (for field improvements)
-  async recalculateQualityWithAnimation() {
-    const latestData = this.dataExtractor.extractItemData();
-    const currentWarnings = this.extractCurrentWarnings();
-    const newScore = this.calculateCurrentQualityScore(latestData);
-    this.updateQualityIndicator(newScore, currentWarnings, true);
   }
 
   async triggerMarketAnalysisWithExistingArtist(data) {

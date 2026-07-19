@@ -1238,40 +1238,6 @@ export class AuctionetAPI {
     
 
     
-    /* DISABLED - WAS FILTERING OUT EXPENSIVE OMEGA WATCHES
-    // IMPORTANT: For luxury brands like OMEGA, high-value items are legitimate, not outliers
-    // Only filter if we have truly extreme ratios (>200x) that indicate data quality issues
-    if (priceRatio > 200) {
-      
-      // Calculate quartiles for outlier detection
-      const q1Index = Math.floor(prices.length * 0.25);
-      const q3Index = Math.floor(prices.length * 0.75);
-      const q1 = sortedPrices[q1Index];
-      const q3 = sortedPrices[q3Index];
-      const iqr = q3 - q1;
-      
-      // Use VERY conservative outlier bounds - only remove obvious data errors
-      // Changed from 1.5 * IQR to 5.0 * IQR to preserve legitimate high-value items
-      const lowerBound = q1 - (5.0 * iqr);
-      const upperBound = q3 + (5.0 * iqr);
-      
-      
-      // Filter out only truly extreme outliers (likely data errors)
-      const filteredItems = soldItems.filter(item => {
-        const itemPrice = item.bids && item.bids.length > 0 ? item.bids[0].amount : 
-                         item.estimate ? item.estimate : item.upper_estimate;
-        
-        if (!itemPrice) return true; // Keep items without prices
-        
-        const isWithinBounds = itemPrice >= lowerBound && itemPrice <= upperBound;
-        
-        return isWithinBounds;
-      });
-      
-      return filteredItems;
-    }
-    */
-    
     // 2. Check for title/content consistency to avoid mixing different object types
     const keyTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
     
@@ -1989,17 +1955,6 @@ Ingen annan text.`;
       timestamp: Date.now(),
       expiry: customExpiry || this.cacheExpiry
     });
-  }
-
-  // Clear old cache entries
-  clearExpiredCache() {
-    const now = Date.now();
-    for (const [key, value] of this.cache.entries()) {
-      const expiry = value.expiry || this.cacheExpiry;
-      if (now - value.timestamp >= expiry) {
-        this.cache.delete(key);
-      }
-    }
   }
 
   // NEW: Extract auction ID from auction URL
