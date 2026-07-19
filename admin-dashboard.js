@@ -19,6 +19,11 @@
     return;
   }
 
+  // Shared comment-UI helpers (used by KPI/comment feed rendering below).
+  // Dynamic import from a classic script — mirrors content-script.js's pattern.
+  const { getInitials, getAvatarColor, relativeTimestamp, safeHref } =
+    await import(chrome.runtime.getURL('modules/core/comment-ui-helpers.js'));
+  const { escapeHTML } = await import(chrome.runtime.getURL('modules/core/html-escape.js'));
 
   // ─── Utility ──────────────────────────────────────────────────────
 
@@ -119,44 +124,6 @@
       comments.push({ employee, commentedText, commentedHref, postedAt, body, entityType });
     });
     return comments;
-  }
-
-  function getInitials(name) {
-    const parts = name.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-  }
-
-  function getAvatarColor(name) {
-    // Deterministic color from name hash
-    const colors = ['#006ccc', '#28a745', '#dc3545', '#e65100', '#6f42c1', '#17a2b8', '#d4a017', '#5a6268'];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  }
-
-  function relativeTimestamp(postedAtText) {
-    // Parse "13 feb 2026 kl. 13:52 CET" or similar
-    const months = { jan: 0, feb: 1, mar: 2, apr: 3, maj: 4, jun: 5, jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dec: 11 };
-    const match = postedAtText.match(/(\d{1,2})\s+(\w{3})\s+(\d{4})\s+kl\.\s*(\d{1,2}):(\d{2})/);
-    if (!match) return postedAtText.replace(/^.*?(?=\d)/, '');
-    const [, day, mon, year, hour, min] = match;
-    const d = new Date(parseInt(year), months[mon.toLowerCase()] ?? 0, parseInt(day), parseInt(hour), parseInt(min));
-    const now = new Date();
-    const diffMs = now - d;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just nu';
-    if (diffMins < 60) return `${diffMins} min sedan`;
-    if (diffHours < 24) return `${diffHours} tim sedan`;
-    if (diffDays === 1) return `Igår ${hour}:${min}`;
-    if (diffDays < 7) return `${diffDays} dagar sedan`;
-    return `${day} ${mon}`;
   }
 
   function entityBadgeHTML(type) {
@@ -547,14 +514,6 @@
 
   // ─── 7. Enhanced Comment Feed ──────────────────────────────────────
 
-  // Only allow relative admin links or http(s) URLs — blocks javascript: etc.
-  function safeCommentHref(href) {
-    if (!href) return '';
-    if (/^\//.test(href)) return href;
-    if (/^https?:\/\//i.test(href)) return href;
-    return '';
-  }
-
   function renderCommentFeed() {
     const comments = scrapeComments();
     if (comments.length === 0) return;
@@ -567,7 +526,7 @@
       const truncatedBody = c.body.length > 140 ? c.body.substring(0, 140) + '...' : c.body;
 
       return `
-        <div class="ext-comment-item" data-href="${escapeHTML(safeCommentHref(c.commentedHref))}">
+        <div class="ext-comment-item" data-href="${escapeHTML(safeHref(c.commentedHref))}">
           <div class="ext-comment-item__avatar" style="background: ${avatarColor};">${escapeHTML(initials)}</div>
           <div class="ext-comment-item__content">
             <div class="ext-comment-item__header">
@@ -715,11 +674,6 @@
       return true;
     }
     return insertAboveDatainsikter(node);
-  }
-
-  function escapeHTML(s) {
-    if (s == null) return '';
-    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   }
 
   function truncateTitle(title, max) {
@@ -1719,7 +1673,7 @@
     if (!container) return;
     container.innerHTML = `
       <div class="ext-warehouse__error">
-        Kunde inte hämta data: ${escHTML(message)}
+        Kunde inte hämta data: ${escapeHTML(message)}
         <button class="ext-warehouse__retry" onclick="this.closest('.ext-warehouse').remove()">Försök igen</button>
       </div>
     `;

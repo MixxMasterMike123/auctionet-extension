@@ -1,3 +1,5 @@
+import { formatArtistForSearch } from './core/artist-format.js';
+
 export class SearchFilterManager {
   constructor() {
     this.qualityAnalyzer = null;
@@ -34,27 +36,6 @@ export class SearchFilterManager {
   // NEW: Set AI-only SearchQuerySSoT
   setSearchQuerySSoT(searchQuerySSoT) {
     this.searchQuerySSoT = searchQuerySSoT;
-  }
-
-  // Format artist name for search with proper quoting
-  formatArtistForSearch(artistName) {
-    if (!artistName || typeof artistName !== 'string') {
-      return '';
-    }
-    
-    // Remove any existing quotes and clean
-    const cleanArtist = artistName.trim().replace(/^["']|["']$/g, '').replace(/,\s*$/, '');
-    
-    // Check if multi-word name (most artist names)
-    const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
-    
-    if (words.length > 1) {
-      // Multi-word: Always quote for exact matching
-      return `"${cleanArtist}"`;
-    } else {
-      // Single word: Also quote for consistency in artist searches
-      return `"${cleanArtist}"`;
-    }
   }
 
   // USE SSoT: Build search query from selected candidates
@@ -288,7 +269,7 @@ export class SearchFilterManager {
       const normalizedArtist = artistInfo.artist.trim().replace(/,\s*$/, '');
       
       // CRITICAL FIX: Ensure multi-word artist names are properly quoted for exact search matching
-      const quotedArtist = this.formatArtistForSearch(normalizedArtist);
+      const quotedArtist = formatArtistForSearch(normalizedArtist);
       const preSelected = shouldBePreSelected(quotedArtist);
       
       

@@ -2,6 +2,8 @@
 // Valuation assistant for Auctionet valuation request pages
 // Analyzes customer-submitted images and descriptions, generates valuation emails
 
+import { escapeHTML } from './core/html-escape.js';
+
 export class ValuationRequestAssistant {
   constructor(apiManager) {
     this.apiManager = apiManager;
@@ -274,7 +276,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
     const groupsHTML = groups.map(g => `
       <div class="vr-cluster-group" data-group-id="${g.id}">
         <div class="vr-cluster-group__header">
-          <input class="vr-cluster-group__label" type="text" value="${this._escapeHTML(g.label)}" data-group-id="${g.id}">
+          <input class="vr-cluster-group__label" type="text" value="${escapeHTML(g.label)}" data-group-id="${g.id}">
           <button class="vr-cluster-group__remove" data-group-id="${g.id}" title="Ta bort grupp">&times;</button>
         </div>
         <div class="vr-cluster-group__thumbs" data-group-id="${g.id}">
@@ -1191,7 +1193,7 @@ Phone: +46 60 17 00 40`;
       results.style.display = 'block';
       results.innerHTML = `
         <div style="padding: 10px; background: #fff3e0; border-radius: 4px; font-size: 13px; color: #e65100;">
-          <strong>Analys misslyckades:</strong> ${this._escapeHTML(message)}
+          <strong>Analys misslyckades:</strong> ${escapeHTML(message)}
         </div>
       `;
     }
@@ -1255,7 +1257,7 @@ Phone: +46 60 17 00 40`;
     // Object description
     const descHTML = result.briefDescription
       ? `<div style="font-size: 13px; color: #555; margin-bottom: 10px; padding: 6px 10px; background: #f8f9fa; border-radius: 4px;">
-           <strong>${this._escapeHTML(result.objectType)}:</strong> ${this._escapeHTML(result.briefDescription)}
+           <strong>${escapeHTML(result.objectType)}:</strong> ${escapeHTML(result.briefDescription)}
          </div>`
       : '';
 
@@ -1264,7 +1266,7 @@ Phone: +46 60 17 00 40`;
     const verifyLink = verifyQuery
       ? `<a href="https://auctionet.com/sv/search?is=ended&q=${encodeURIComponent(verifyQuery)}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #006ccc; margin-bottom: 10px; text-decoration: none;">
            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-           Se sålda objekt på Auctionet.com <span style="color: #888;">(${this._escapeHTML(verifyQuery)})</span>
+           Se sålda objekt på Auctionet.com <span style="color: #888;">(${escapeHTML(verifyQuery)})</span>
          </a>`
       : '';
 
@@ -1273,7 +1275,7 @@ Phone: +46 60 17 00 40`;
       <div style="margin-top: 4px; margin-bottom: 12px;">
         <label style="font-size: 11px; color: #888; display: block; margin-bottom: 3px;">Sökfråga för marknadsdata:</label>
         <div style="display: flex; gap: 6px;">
-          <input id="vr-search-query" type="text" value="${this._escapeHTML(verifyQuery)}"
+          <input id="vr-search-query" type="text" value="${escapeHTML(verifyQuery)}"
                  style="flex: 1; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px;">
           <button id="vr-reanalyze-btn" class="btn btn-small"
                   style="white-space: nowrap; font-size: 12px;">Sök igen</button>
@@ -1294,7 +1296,7 @@ Phone: +46 60 17 00 40`;
         <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">
           E-posttext (redigera vid behov):
         </label>
-        <textarea id="vr-email-text" style="width: 100%; min-height: 200px; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; font-family: inherit; resize: vertical; line-height: 1.5;">${this._escapeHTML(emailText)}</textarea>
+        <textarea id="vr-email-text" style="width: 100%; min-height: 200px; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; font-family: inherit; resize: vertical; line-height: 1.5;">${escapeHTML(emailText)}</textarea>
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 10px;">
@@ -1371,7 +1373,7 @@ Phone: +46 60 17 00 40`;
             </div>
             <div class="vr-group-result__info">
               <div class="vr-group-result__top">
-                <span class="vr-group-result__label">${idx + 1}. ${this._escapeHTML(r.groupLabel || r.objectType || 'Föremål')}</span>
+                <span class="vr-group-result__label">${idx + 1}. ${escapeHTML(r.groupLabel || r.objectType || 'Föremål')}</span>
                 <span class="vr-group-result__price${lowClass}">${(r.estimatedValue || 0).toLocaleString()} kr</span>
               </div>
               <div class="vr-group-result__meta">
@@ -1381,7 +1383,7 @@ Phone: +46 60 17 00 40`;
                 ${verifyQuery ? `<a href="https://auctionet.com/sv/search?is=ended&q=${encodeURIComponent(verifyQuery)}" target="_blank" class="vr-group-result__link">Sålda</a>` : ''}
               </div>
               <div class="vr-group-result__search-row">
-                <input type="text" value="${this._escapeHTML(verifyQuery)}"
+                <input type="text" value="${escapeHTML(verifyQuery)}"
                        class="vr-group-search-input" data-group-idx="${idx}">
                 <button class="vr-group-reanalyze" data-group-idx="${idx}">Sök</button>
               </div>
@@ -1398,7 +1400,7 @@ Phone: +46 60 17 00 40`;
 
       <div style="margin-top: 8px;">
         <label style="font-size: 11px; font-weight: 600; color: #888; display: block; margin-bottom: 3px;">E-post:</label>
-        <textarea id="vr-email-text" style="width: 100%; min-height: 180px; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; font-family: inherit; resize: vertical; line-height: 1.4;">${this._escapeHTML(emailText)}</textarea>
+        <textarea id="vr-email-text" style="width: 100%; min-height: 180px; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; font-family: inherit; resize: vertical; line-height: 1.4;">${escapeHTML(emailText)}</textarea>
       </div>
 
       <div style="display: flex; gap: 6px; margin-top: 8px;">
@@ -1678,11 +1680,5 @@ Phone: +46 60 17 00 40`;
     } catch (e) {
       // Non-critical
     }
-  }
-
-  _escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
   }
 }

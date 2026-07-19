@@ -19,6 +19,13 @@
 // Import AIImageAnalyzer component (modular architecture)
 import { AIImageAnalyzer } from './ai-image-analyzer.js';
 import { escapeHTML } from '../../core/html-escape.js';
+import { formatArtistForSearch } from '../../core/artist-format.js';
+import {
+  parseNumericValue,
+  normalizeConfidence,
+  isDistinctiveMaterial,
+  extractObjectTypeFromTitle
+} from './parse-helpers.js';
 
 export class FreetextParser {
   constructor(apiManager, addItemsManager) {
@@ -1541,15 +1548,15 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       keywords: this.formatKeywordsForAuctionet(data.keywords || data.nyckelord || ''),
       materials: data.materials || data.material || '',
       period: data.period || data.årtal || '',
-      estimate: this.roundValuation(this.parseNumericValue(data.estimate || data.värdering)),
-      reserve: this.roundValuation(this.parseNumericValue(data.reserve || data.utrop)),
+      estimate: this.roundValuation(parseNumericValue(data.estimate || data.värdering)),
+      reserve: this.roundValuation(parseNumericValue(data.reserve || data.utrop)),
       shouldDisposeIfUnsold: Boolean(data.shouldDisposeIfUnsold),
       confidence: {
-        title: this.normalizeConfidence(data.confidence?.title),
-        description: this.normalizeConfidence(data.confidence?.description),
-        condition: this.normalizeConfidence(data.confidence?.condition),
-        artist: this.normalizeConfidence(data.confidence?.artist),
-        estimate: this.normalizeConfidence(data.confidence?.estimate)
+        title: normalizeConfidence(data.confidence?.title),
+        description: normalizeConfidence(data.confidence?.description),
+        condition: normalizeConfidence(data.confidence?.condition),
+        artist: normalizeConfidence(data.confidence?.artist),
+        estimate: normalizeConfidence(data.confidence?.estimate)
       },
       reasoning: data.reasoning || data.motivering || ''
     };
@@ -2137,15 +2144,15 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     const fieldClass = `preview-field preview-field--${fieldName}`;
     
     // CRITICAL FIX: Properly escape HTML attributes to handle quotes
-    const escapedValue = this.escapeHtmlAttribute(value);
-    
+    const escapedValue = escapeHTML(value);
+
     return `
       <div class="field-preview" data-field="${fieldName}">
         <label class="field-label">
           ${label} ${confidenceBadge}
         </label>
-        ${isTextarea 
-          ? `<textarea class="${fieldClass}" data-field="${fieldName}" rows="4">${this.escapeHtmlContent(value)}</textarea>`
+        ${isTextarea
+          ? `<textarea class="${fieldClass}" data-field="${fieldName}" rows="4">${escapeHTML(value)}</textarea>`
           : `<input type="text" class="${fieldClass}" data-field="${fieldName}" value="${escapedValue}">`
         }
       </div>
@@ -2163,31 +2170,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     } else {
       return '<span class="confidence-badge confidence-low">Låg säkerhet</span>';
     }
-  }
-
-  /**
-   * Escape HTML attribute values (for use in value="..." attributes)
-   * CRITICAL: Handles quotes in titles like 'Skål "Sofiero"'
-   */
-  escapeHtmlAttribute(str) {
-    if (!str) return '';
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  /**
-   * Escape HTML content (for use inside textarea tags)
-   */
-  escapeHtmlContent(str) {
-    if (!str) return '';
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
   }
 
   /**
@@ -2491,12 +2473,12 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     
     // PRIORITY 1: Artist (HIGHEST PRIORITY - quoted for exact matching)
     if (data.artist && data.artist.trim()) {
-      const formattedArtist = this.formatArtistForSearch(data.artist);
+      const formattedArtist = formatArtistForSearch(data.artist);
       queryTerms.push(formattedArtist);
     }
     
     // PRIORITY 2: Object type (CRITICAL for relevance)
-    const objectType = this.extractObjectType(data.title);
+    const objectType = extractObjectTypeFromTitle(data.title);
     if (objectType && !queryTerms.some(term => term.toLowerCase().includes(objectType.toLowerCase()))) {
       queryTerms.push(objectType);
     }
@@ -2509,7 +2491,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     }
     
     // PRIORITY 4: Material (if distinctive)
-    if (data.materials && this.isDistinctiveMaterial(data.materials)) {
+    if (data.materials && isDistinctiveMaterial(data.materials)) {
       const material = data.materials.toLowerCase();
       if (!queryTerms.some(term => term.toLowerCase().includes(material))) {
         queryTerms.push(material);
@@ -2531,26 +2513,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
   /**
    * Format artist name for search with proper quoting
    */
-  formatArtistForSearch(artistName) {
-    if (!artistName || typeof artistName !== 'string') {
-      return '';
-    }
-    
-    // Remove any existing quotes and clean
-    const cleanArtist = artistName.trim().replace(/^["']|["']$/g, '').replace(/,\s*$/, '');
-    
-    // Check if multi-word name (most artist names)
-    const words = cleanArtist.split(/\s+/).filter(word => word.length > 0);
-    
-    if (words.length > 1) {
-      // Multi-word: Always quote for exact matching
-      return `"${cleanArtist}"`;
-    } else {
-      // Single word: Also quote for consistency
-      return `"${cleanArtist}"`;
-    }
-  }
-  
   /**
    * Extract brand/designer from title (Nielsen Design, Bern, etc.)
    */
@@ -2597,24 +2559,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     
     // Always quote brand names for exact matching
     return `"${cleanBrand}"`;
-  }
-  
-  /**
-   * Check if material is distinctive enough to include in search
-   */
-  isDistinctiveMaterial(material) {
-    if (!material) return false;
-    
-    const distinctiveMaterials = [
-      'silver', 'guld', 'brons', 'koppar', 'mässing', 'tenn',
-      'porslin', 'stengods', 'keramik', 'glas', 'kristall',
-      'fårskinn', 'läder', 'sammet', 'siden',
-      'marmor', 'granit', 'onyx', 'alabaster',
-      'mahogny', 'ek', 'björk', 'teak', 'rosenträ'
-    ];
-    
-    const lowerMaterial = material.toLowerCase();
-    return distinctiveMaterials.some(dm => lowerMaterial.includes(dm));
   }
   
   /**
@@ -2697,7 +2641,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
         priority = 85;
       }
       // Distinctive materials = medium priority
-      else if (this.isDistinctiveMaterial(term)) {
+      else if (isDistinctiveMaterial(term)) {
         priority = 70;
       }
       // Periods = lower priority
@@ -2761,7 +2705,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     }
     
     // Add object type
-    const objectType = this.extractObjectType(data.title);
+    const objectType = extractObjectTypeFromTitle(data.title);
     if (objectType) {
       terms.push(objectType);
     }
@@ -2808,33 +2752,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
     }
   }
   
-  /**
-   * Extract object type from title for market analysis
-   */
-  extractObjectType(title) {
-    if (!title) return '';
-    
-    // Common Swedish auction object types
-    const objectTypes = [
-      'tavla', 'målning', 'litografi', 'grafik', 'teckning', 'akvarell',
-      'skulptur', 'vas', 'skål', 'fat', 'tallrik', 'kopp', 'kanna',
-      'lampa', 'ljusstake', 'spegel', 'klocka', 'ur', 'smycke', 'ring',
-      'halsband', 'brosch', 'armband', 'porslin', 'keramik', 'glas',
-      'silver', 'tenn', 'koppar', 'mässing', 'järn', 'trä', 'möbel',
-      'stol', 'bord', 'skåp', 'byrå', 'soffa', 'fåtölj', 'matta',
-      'textil', 'tyg', 'bok', 'karta', 'foto', 'vykort'
-    ];
-    
-    const lowerTitle = title.toLowerCase();
-    for (const type of objectTypes) {
-      if (lowerTitle.includes(type)) {
-        return type;
-      }
-    }
-    
-    // Fallback: use first word if no specific type found
-    return title.split(/[,\s]+/)[0] || '';
-  }
 
   /**
    * Show error message
@@ -3180,37 +3097,6 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       };
       reader.readAsDataURL(file);
     });
-  }
-
-  /**
-   * Parse numeric value from string (for estimates, reserves, etc.)
-   */
-  parseNumericValue(value) {
-    if (!value || value === null || value === undefined) return null;
-    
-    // Convert to string and clean up
-    const cleaned = String(value)
-      .replace(/[^\d,.-]/g, '') // Remove non-numeric characters except comma, dot, dash
-      .replace(/,/g, '.')       // Replace comma with dot for decimals
-      .trim();
-    
-    if (!cleaned || cleaned === '-' || cleaned === '.' || cleaned === '') return null;
-    
-    const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? null : Math.round(parsed);
-  }
-
-  /**
-   * Normalize confidence value to 0-1 range
-   */
-  normalizeConfidence(value) {
-    if (!value || value === null || value === undefined) return 0.5;
-    
-    const num = parseFloat(value);
-    if (isNaN(num)) return 0.5;
-    
-    // Ensure 0-1 range
-    return Math.max(0, Math.min(1, num));
   }
 
   /**

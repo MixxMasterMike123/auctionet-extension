@@ -5,6 +5,24 @@
 import { escapeHTML } from '../core/html-escape.js';
 
 export class UIController {
+    // Shared field-type -> DOM selector map (edit item page fields)
+    static FIELD_SELECTOR_MAP = {
+        'title': '#item_title_sv',
+        'title-correct': '#item_title_sv',
+        'description': '#item_description_sv',
+        'condition': '#item_condition_sv',
+        'keywords': '#item_hidden_keywords'
+    };
+
+    // Shared field-type -> Swedish display label map
+    static FIELD_DISPLAY_NAMES = {
+        'title': 'titeln',
+        'description': 'beskrivningen',
+        'condition': 'skicket',
+        'keywords': 'nyckelorden',
+        'all': 'alla fält'
+    };
+
     constructor(callbacks = {}) {
         this.callbacks = {
             onImproveField: callbacks.onImproveField || (() => { }),
@@ -596,13 +614,7 @@ export class UIController {
             return;
         } else {
             // Get the specific field
-            const fieldMap = {
-                'title': '#item_title_sv',
-                'title-correct': '#item_title_sv',
-                'description': '#item_description_sv',
-                'condition': '#item_condition_sv',
-                'keywords': '#item_hidden_keywords'
-            };
+            const fieldMap = UIController.FIELD_SELECTOR_MAP;
 
             targetField = document.querySelector(fieldMap[fieldType]);
         }
@@ -702,13 +714,7 @@ export class UIController {
             return;
         }
 
-        const fieldMap = {
-            'title': '#item_title_sv',
-            'title-correct': '#item_title_sv',
-            'description': '#item_description_sv',
-            'condition': '#item_condition_sv',
-            'keywords': '#item_hidden_keywords'
-        };
+        const fieldMap = UIController.FIELD_SELECTOR_MAP;
 
         const targetField = document.querySelector(fieldMap[fieldType]);
         if (targetField) {
@@ -776,13 +782,7 @@ export class UIController {
     }
 
     applyImprovement(fieldType, value) {
-        const fieldMap = {
-            'title': '#item_title_sv',
-            'title-correct': '#item_title_sv',
-            'description': '#item_description_sv',
-            'condition': '#item_condition_sv',
-            'keywords': '#item_hidden_keywords'
-        };
+        const fieldMap = UIController.FIELD_SELECTOR_MAP;
 
         const field = document.querySelector(fieldMap[fieldType]);
         if (field && value) {
@@ -834,13 +834,7 @@ export class UIController {
         textarea.style.height = (textarea.scrollHeight) + 'px';
     }
     showFieldSpecificInfoDialog(fieldType, missingInfo, data) {
-        const fieldNames = {
-            'title': 'titeln',
-            'description': 'beskrivningen',
-            'condition': 'skicket',
-            'keywords': 'nyckelorden',
-            'all': 'alla fält'
-        };
+        const fieldNames = UIController.FIELD_DISPLAY_NAMES;
 
         const fieldName = fieldNames[fieldType] || fieldType;
 

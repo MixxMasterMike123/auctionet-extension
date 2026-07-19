@@ -16,6 +16,12 @@
 // Note: AI Rules System v2.0 functions accessed via window.getAIRulesManager() 
 // to ensure we use the singleton instance loaded in content.js
 import { escapeHTML } from '../../core/html-escape.js';
+import {
+  parseNumericValue,
+  normalizeConfidence,
+  isDistinctiveMaterial,
+  extractObjectTypeFromTitle
+} from './parse-helpers.js';
 
 export class AIImageAnalyzer {
   constructor(apiManager, options = {}) {
@@ -659,8 +665,8 @@ VIKTIGT — detta är ett UTKAST:
       condition: data.condition || '',
       artist: data.artist || null,
       keywords: data.keywords || '',
-      estimate: this.parseNumericValue(data.estimate),
-      reserve: this.parseNumericValue(data.reserve),
+      estimate: parseNumericValue(data.estimate),
+      reserve: parseNumericValue(data.reserve),
       materials: data.materials || '',
       period: data.period || '',
       visualObservations: {
@@ -673,18 +679,18 @@ VIKTIGT — detta är ett UTKAST:
         style: data.visualObservations?.style || ''
       },
       confidence: {
-        objectIdentification: this.normalizeConfidence(data.confidence?.objectIdentification),
-        materialAssessment: this.normalizeConfidence(data.confidence?.materialAssessment),
-        conditionAssessment: this.normalizeConfidence(data.confidence?.conditionAssessment),
-        artistAttribution: this.normalizeConfidence(data.confidence?.artistAttribution),
-        periodEstimation: this.normalizeConfidence(data.confidence?.periodEstimation),
-        estimate: this.normalizeConfidence(data.confidence?.estimate)
+        objectIdentification: normalizeConfidence(data.confidence?.objectIdentification),
+        materialAssessment: normalizeConfidence(data.confidence?.materialAssessment),
+        conditionAssessment: normalizeConfidence(data.confidence?.conditionAssessment),
+        artistAttribution: normalizeConfidence(data.confidence?.artistAttribution),
+        periodEstimation: normalizeConfidence(data.confidence?.periodEstimation),
+        estimate: normalizeConfidence(data.confidence?.estimate)
       },
       imageQuality: {
-        clarity: this.normalizeConfidence(data.imageQuality?.clarity),
-        lighting: this.normalizeConfidence(data.imageQuality?.lighting),
-        angle: this.normalizeConfidence(data.imageQuality?.angle),
-        completeness: this.normalizeConfidence(data.imageQuality?.completeness)
+        clarity: normalizeConfidence(data.imageQuality?.clarity),
+        lighting: normalizeConfidence(data.imageQuality?.lighting),
+        angle: normalizeConfidence(data.imageQuality?.angle),
+        completeness: normalizeConfidence(data.imageQuality?.completeness)
       },
       reasoning: data.reasoning || '',
       analysisType: 'image',
@@ -963,13 +969,13 @@ VIKTIGT — detta är ett UTKAST:
     }
     
     // Priority 2: Object type (from visualObservations or extract from title)
-    const objectType = analysis.visualObservations?.objectType || this.extractObjectTypeFromTitle(analysis.title);
+    const objectType = analysis.visualObservations?.objectType || extractObjectTypeFromTitle(analysis.title);
     if (objectType) {
       terms.push(objectType);
     }
     
     // Priority 3: Material
-    if (analysis.materials && this.isDistinctiveMaterial(analysis.materials)) {
+    if (analysis.materials && isDistinctiveMaterial(analysis.materials)) {
       terms.push(analysis.materials);
     }
     
@@ -979,69 +985,6 @@ VIKTIGT — detta är ett UTKAST:
     }
     
     return terms.slice(0, 4).join(' ').trim();
-  }
-
-  /**
-   * Extract object type from title as fallback
-   */
-  extractObjectTypeFromTitle(title) {
-    if (!title) return '';
-    
-    const objectTypes = [
-      'bägare', 'vas', 'skål', 'fat', 'tallrik', 'kopp', 'kanna',
-      'lampa', 'ljusstake', 'spegel', 'klocka', 'ur', 'smycke', 'ring',
-      'halsband', 'brosch', 'armband', 'skulptur', 'figurin',
-      'tavla', 'målning', 'litografi', 'grafik', 'teckning'
-    ];
-    
-    const lowerTitle = title.toLowerCase();
-    for (const type of objectTypes) {
-      if (lowerTitle.includes(type)) {
-        return type;
-      }
-    }
-    
-    // Fallback: use first word
-    return title.split(/[,\s]+/)[0] || '';
-  }
-
-  /**
-   * Check if material is distinctive enough for search
-   */
-  isDistinctiveMaterial(material) {
-    const distinctiveMaterials = [
-      'silver', 'guld', 'brons', 'koppar', 'mässing', 'tenn',
-      'porslin', 'stengods', 'keramik', 'glas', 'kristall',
-      'marmor', 'granit', 'onyx', 'alabaster',
-      'mahogny', 'ek', 'björk', 'teak', 'rosenträ'
-    ];
-    
-    const lowerMaterial = material.toLowerCase();
-    return distinctiveMaterials.some(dm => lowerMaterial.includes(dm));
-  }
-
-  /**
-   * Parse numeric value from string or number
-   */
-  parseNumericValue(value) {
-    if (typeof value === 'number') {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const parsed = parseInt(value.replace(/[^\d]/g, ''), 10);
-      return isNaN(parsed) ? null : parsed;
-    }
-    return null;
-  }
-
-  /**
-   * Normalize confidence values to 0.0-1.0 range
-   */
-  normalizeConfidence(value) {
-    if (typeof value === 'number') {
-      return Math.max(0, Math.min(1, value));
-    }
-    return 0.5; // Default confidence
   }
 
   /**

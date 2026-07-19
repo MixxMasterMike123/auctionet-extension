@@ -42,6 +42,24 @@
 
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
+      // Shared field-type -> DOM selector map (edit item page fields)
+      static FIELD_SELECTOR_MAP = {
+        'title': '#item_title_sv',
+        'title-correct': '#item_title_sv',  // title-correct applies to title field
+        'description': '#item_description_sv',
+        'condition': '#item_condition_sv',
+        'keywords': '#item_hidden_keywords'
+      };
+
+      // Shared field-type -> Swedish display label map
+      static FIELD_DISPLAY_NAMES = {
+        'title': 'titeln',
+        'description': 'beskrivningen',
+        'condition': 'skicket',
+        'keywords': 'nyckelorden',
+        'all': 'alla fält'
+      };
+
       constructor() {
         // Initialize quality analyzer first since other managers depend on it
         this.qualityAnalyzer = new QualityAnalyzer();
@@ -384,14 +402,8 @@
       }
 
       showFieldSpecificInfoDialog(fieldType, missingInfo, data) {
-        const fieldNames = {
-          'title': 'titeln',
-          'description': 'beskrivningen', 
-          'condition': 'skicket',
-          'keywords': 'nyckelorden',
-          'all': 'alla fält'
-        };
-        
+        const fieldNames = AuctionetCatalogingAssistant.FIELD_DISPLAY_NAMES;
+
         const fieldName = fieldNames[fieldType] || fieldType;
         
         const infoMessages = {
@@ -452,14 +464,8 @@
       }
 
       showAISettingsDialog(fieldType, data) {
-        const fieldNames = {
-          'title': 'titeln',
-          'description': 'beskrivningen', 
-          'condition': 'skicket',
-          'keywords': 'nyckelorden',
-          'all': 'alla fält'
-        };
-        
+        const fieldNames = AuctionetCatalogingAssistant.FIELD_DISPLAY_NAMES;
+
         const fieldName = fieldNames[fieldType] || fieldType;
         
         const dialog = document.createElement('div');
@@ -711,14 +717,8 @@
         }
 
         // Get the specific field - EXACT same as Add Items page
-        const fieldMap = {
-          'title': '#item_title_sv',
-          'title-correct': '#item_title_sv',  // title-correct applies to title field
-          'description': '#item_description_sv', 
-          'condition': '#item_condition_sv',
-          'keywords': '#item_hidden_keywords'
-        };
-        
+        const fieldMap = AuctionetCatalogingAssistant.FIELD_SELECTOR_MAP;
+
         targetField = document.querySelector(fieldMap[fieldType]);
         
         if (!targetField) return;
@@ -792,14 +792,8 @@
         }
         
         // Get the specific field and apply success flash - EXACT same as Add Items page
-        const fieldMap = {
-          'title': '#item_title_sv',
-          'title-correct': '#item_title_sv',  // title-correct applies to title field
-          'description': '#item_description_sv',
-          'condition': '#item_condition_sv', 
-          'keywords': '#item_hidden_keywords'
-        };
-        
+        const fieldMap = AuctionetCatalogingAssistant.FIELD_SELECTOR_MAP;
+
         const targetField = document.querySelector(fieldMap[fieldType]);
         if (targetField) {
           targetField.classList.add('field-success');

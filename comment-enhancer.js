@@ -2,7 +2,7 @@
 // Detects comment sections and injects a floating badge near the top of the page
 // Ultra-lightweight: no module imports, no AI calls, pure DOM scraping
 
-(function() {
+(async function() {
   'use strict';
 
   // Skip the main dashboard — it has its own enhanced comment feed
@@ -10,6 +10,15 @@
   if (/\/admin\/sas\/?$/.test(path)) return;
   // Skip login pages
   if (/\/admin\/login/.test(path)) return;
+
+  // Shared comment-UI helpers (getInitials, getAvatarColor, relativeTimestamp,
+  // safeHref) and HTML escaping — dynamic import from a classic script,
+  // mirrors content-script.js's pattern. Must complete before init() runs
+  // since init() (and functions it calls) use these helpers synchronously.
+  const { getInitials, getAvatarColor, relativeTimestamp, safeHref } =
+    await import(chrome.runtime.getURL('modules/core/comment-ui-helpers.js'));
+  const { escapeHTML: escapeHtml } =
+    await import(chrome.runtime.getURL('modules/core/html-escape.js'));
 
   function init() {
     // Find the comment section
@@ -90,59 +99,6 @@
   }
 
   // ─── Rich Comments List (for /admin/sas/comments page) ──────────
-
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
-  // Only allow relative admin links or http(s) URLs — blocks javascript: etc.
-  function safeHref(href) {
-    if (!href) return '';
-    if (/^\//.test(href)) return href;
-    if (/^https?:\/\//i.test(href)) return href;
-    return '';
-  }
-
-  function getInitials(name) {
-    const parts = name.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-  }
-
-  function getAvatarColor(name) {
-    const colors = ['#006ccc', '#28a745', '#dc3545', '#e65100', '#6f42c1', '#17a2b8', '#d4a017', '#5a6268'];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  }
-
-  function relativeTimestamp(postedAtText) {
-    const months = { jan: 0, feb: 1, mar: 2, apr: 3, maj: 4, jun: 5, jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dec: 11 };
-    const match = postedAtText.match(/(\d{1,2})\s+(\w{3})\s+(\d{4})\s+kl\.\s*(\d{1,2}):(\d{2})/);
-    if (!match) return postedAtText.replace(/^.*?(?=\d)/, '');
-    const [, day, mon, year, hour, min] = match;
-    const d = new Date(parseInt(year), months[mon.toLowerCase()] ?? 0, parseInt(day), parseInt(hour), parseInt(min));
-    const now = new Date();
-    const diffMs = now - d;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just nu';
-    if (diffMins < 60) return `${diffMins} min sedan`;
-    if (diffHours < 24) return `${diffHours} tim sedan`;
-    if (diffDays === 1) return `Igår ${hour}:${min}`;
-    if (diffDays < 7) return `${diffDays} dagar sedan`;
-    return `${day} ${mon}`;
-  }
 
   function renderRichCommentsList(section) {
     const commentItems = section.querySelectorAll('li.comment');
