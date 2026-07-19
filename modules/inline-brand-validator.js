@@ -633,8 +633,14 @@ Om korrekt: {"corrected":null}`;
         // Add to session ignore list so it doesn't come back
         this.ignoredTerms.add(issue.originalBrand.toLowerCase());
         // Ignore = learn: feed the shared whitelist so the word stops
-        // flagging everywhere once promoted (fire-and-forget)
-        reportIgnoredWord(issue.originalBrand, issue.suggestedBrand);
+        // flagging everywhere once promoted (fire-and-forget). Curated-map
+        // hits are excluded — those words are real typos by construction,
+        // and one dismissal must not disable the rule globally.
+        const curated = issue.source === 'common_misspellings' ||
+                        issue.source === 'swedish_dictionary';
+        if (!curated) {
+          reportIgnoredWord(issue.originalBrand, issue.suggestedBrand);
+        }
         notification.style.opacity = '0';
         notification.style.transition = 'opacity 0.2s ease';
         setTimeout(() => notification.remove(), 200);

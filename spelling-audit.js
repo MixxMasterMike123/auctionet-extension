@@ -55,15 +55,10 @@ const ABBREVIATION_PATTERNS = [
 // ── LanguageTool spellcheck (free, dictionary-based, no hallucinations) ──
 let ltStats = { calls: 0, errors: 0, found: 0 };
 
-// Safe words that LanguageTool may still flag incorrectly
-const SAFE_WORDS = new Set([
-  'anlupet', 'anlupning', 'anlöpning', 'delvist',
-  'glasservis', 'kaffeservis', 'porslinsservis', 'teservis',
-  'serveringsskål', 'serveringsfat',
-  'bultlås', 'smide', 'stramalj', 'plymå', 'röllakan',
-  'chiffonjé', 'pendyl', 'boett', 'karott', 'tablå',
-  'funktionstesterad', 'funktionstested', 'funktionstestad',
-]);
+// Safe words that LanguageTool may still flag incorrectly. Canonical list
+// lives in SwedishSpellChecker (the publication scanner uses the same one)
+// so the two surfaces can't drift apart.
+const SAFE_WORDS = SwedishSpellChecker.getSafeWordsSet();
 
 // Rate limiter for LanguageTool free tier (20 req/min, 75K chars/min)
 const ltTimestamps = []; // { time, chars }
@@ -74,9 +69,28 @@ async function waitForLTCapacity(chars) {
     while (ltTimestamps.length > 0 && ltTimestamps[0].time < cutoff) ltTimestamps.shift();
     const reqCount = ltTimestamps.length;
     const charCount = ltTimestamps.reduce((sum, t) => sum + t.chars, 0);
-    if (reqCount < 18 && charCount + chars < 70000) return; // capacity available
+    // reqCount === 0: a single text bigger than the whole char budget can
+    // never fit — send it anyway rather than dereference an empty queue below
+    if ((reqCount < 18 && charCount + chars < 70000) || reqCount === 0) {
+      // Reserve capacity NOW, before the request fires, so concurrent callers
+      // see in-flight requests and can't burst past the free-tier limit.
+      // Caller releases this entry (removes it from ltTimestamps) if the
+      // request fails, so a timeout/429/error doesn't permanently eat a slot.
+      const reservation = { time: Date.now(), chars };
+      ltTimestamps.push(reservation);
+      return reservation;
+    }
     await sleep(Math.max(100, ltTimestamps[0].time + 60000 - Date.now() + 100));
   }
+}
+
+// Release a reservation made by waitForLTCapacity — call on any failure path
+// (timeout, 429, network error) so a failed request doesn't permanently
+// consume free-tier capacity meant for successful requests only.
+function releaseLTCapacity(reservation) {
+  if (!reservation) return;
+  const idx = ltTimestamps.indexOf(reservation);
+  if (idx !== -1) ltTimestamps.splice(idx, 1);
 }
 
 // Load settings from chrome.storage on init
@@ -104,8 +118,9 @@ async function languageToolSpellcheck(title, description, condition) {
   if (combined.length < 5) return [];
 
   ltStats.calls++;
+  let reservation = null;
   try {
-    await waitForLTCapacity(combined.length);
+    reservation = await waitForLTCapacity(combined.length);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -123,9 +138,10 @@ async function languageToolSpellcheck(title, description, condition) {
     });
 
     clearTimeout(timeoutId);
-    ltTimestamps.push({ time: Date.now(), chars: combined.length });
 
     if (!response.ok) {
+      // Release the reserved slot — this call never actually consumed LT quota
+      releaseLTCapacity(reservation);
       if (response.status === 429) {
         console.warn('[LT] Rate limited, waiting 30s...');
         await sleep(30000);
@@ -136,6 +152,12 @@ async function languageToolSpellcheck(title, description, condition) {
 
     const data = await response.json();
     if (!data.matches || !Array.isArray(data.matches)) return [];
+
+    // ALL-CAPS tokens in the title are the artist/maker name by Swedish
+    // cataloging convention ("ROLF LIDBERG, litografi…") — never typos.
+    const titleCapsTokens = new Set(
+      ((title || '').match(/\b[A-ZÅÄÖÜ]{2,}\b/g) || []).map(w => w.toLowerCase())
+    );
 
     const results = data.matches
       .filter(m => m.replacements && m.replacements.length > 0)
@@ -155,12 +177,18 @@ async function languageToolSpellcheck(title, description, condition) {
       .filter(e => e.originalWord.length >= 3 &&
               e.originalWord.toLowerCase() !== e.suggestedWord.toLowerCase() &&
               !SAFE_WORDS.has(e.originalWord.toLowerCase()) &&
+              !titleCapsTokens.has(e.originalWord.toLowerCase()) &&
+              // Corrections with triple identical letters are LT compound
+              // artifacts ("glassservis") — same guard as the scanner
+              !/(.)\1\1/.test(e.suggestedWord) &&
               // Skip proper nouns (Capitalized, not ALL CAPS)
               !((/^[A-ZÅÄÖÜ][a-zåäöü]/.test(e.originalWord)) && !/^[A-ZÅÄÖÜ]+$/.test(e.originalWord)));
 
     ltStats.found += results.length;
     return results;
   } catch (e) {
+    // Release the reserved slot — the request failed, so it never consumed LT quota
+    releaseLTCapacity(reservation);
     if (e.name === 'AbortError') {
       console.warn('[LT] Request timed out');
     } else {
@@ -246,18 +274,22 @@ async function analyzeItem(item, spellChecker, brandValidator) {
     }
   }
 
-  // 2c. Shared learned whitelist (Cloudflare D1) — words employees dismissed
-  // as correct never flag again, regardless of which check flagged them.
+  // 3. Brand misspellings
+  const brandResults = brandValidator.detectFuzzyBrandMatches(title, description);
+  brandResults.forEach(r => errors.brand.push(r));
+
+  // 3b. Shared learned whitelist (Cloudflare D1) — words employees dismissed
+  // as correct never flag again, regardless of which check flagged them
+  // (runs after ALL word-level checks so brand fuzzy-matches are covered too).
   {
     const whitelist = await getSharedWhitelist();
     errors.spelling = errors.spelling.filter(
       e => !whitelist.has((e.originalWord || '').toLowerCase())
     );
+    errors.brand = errors.brand.filter(
+      e => !whitelist.has((e.originalBrand || '').toLowerCase())
+    );
   }
-
-  // 3. Brand misspellings
-  const brandResults = brandValidator.detectFuzzyBrandMatches(title, description);
-  brandResults.forEach(r => errors.brand.push(r));
 
   // 4. Forbidden words
   for (const fw of FORBIDDEN_WORDS) {

@@ -12,9 +12,16 @@
 import { classifyFlag } from './spellcheck-confidence.js';
 
 const WHITELIST_TTL_MS = 30 * 60 * 1000;
+const FAILURE_RETRY_MS = 60 * 1000; // negative cache: don't hammer a dead backend
+
+// Mirror of the Worker's charset rule (postWhitelist) — a word the Worker
+// would reject must not be optimistically hidden locally, or the flag
+// silently reappears after the next cache refresh.
+const VALID_WORD_RE = /^[\p{L}][\p{L}\-'.]*$/u;
 
 let cachedSet = null;   // Set<string> of lowercase active words
 let fetchedAt = 0;
+let failedAt = 0;
 let inflight = null;
 
 function extensionAlive() {
@@ -45,6 +52,12 @@ export async function getSharedWhitelist(force = false) {
   const fresh = Date.now() - fetchedAt < WHITELIST_TTL_MS;
   if (cachedSet && fresh && !force) return cachedSet;
   if (inflight) return inflight;
+  // Negative cache: after a failed fetch (backend down/unconfigured), don't
+  // retry from hot paths (every debounced field validation) for a minute —
+  // a configured-but-down Worker costs a full network timeout per attempt.
+  if (!force && Date.now() - failedAt < FAILURE_RETRY_MS) {
+    return cachedSet || (cachedSet = new Set());
+  }
   inflight = (async () => {
     try {
       const resp = await safeSendMessage({
@@ -55,11 +68,14 @@ export async function getSharedWhitelist(force = false) {
           resp.data.map(r => (r.word || '').toLowerCase()).filter(Boolean)
         );
         fetchedAt = Date.now();
+        failedAt = 0;
+      } else {
+        failedAt = Date.now();
       }
     } finally {
       inflight = null;
     }
-    return cachedSet || (cachedSet = new Set()); // fetch failed: empty, fetchedAt stays 0 so we retry
+    return cachedSet || (cachedSet = new Set()); // fail open: empty until a fetch succeeds
   })();
   return inflight;
 }
@@ -73,6 +89,9 @@ export function reportIgnoredWord(word, correction) {
   // Single tokens only — the whitelist is per-word (skips e.g. a dismissed
   // full artist-name capitalization suggestion).
   if (!w || /\s/.test(w) || w.length > 100) return;
+  // Words the Worker would reject (digits, symbols) stay session-ignored
+  // only — never optimistically cached, never POSTed.
+  if (!VALID_WORD_RE.test(w)) return;
   if (cachedSet) cachedSet.add(w.toLowerCase()); // optimistic: hide it now
   const addedByEl = document.querySelector('.site-header__employee-name');
   safeSendMessage({
