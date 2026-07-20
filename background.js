@@ -37,6 +37,9 @@ chrome.alarms.get('dashboardSearchSnapshot').then(existing => {
 });
 // HYPERRANK outcome collection — every 6 hours is plenty since auctions run
 // for days; keeps API load light while still catching endings same-day.
+// Also drives the Räddningslistan control-side (untreated, odd-item-id)
+// outcome collection from the same alarm/fetch budget — see
+// modules/hyperrank/hyperrank-outcomes-bg.js.
 chrome.alarms.get('hyperrankOutcomeCollection').then(existing => {
   if (!existing) chrome.alarms.create('hyperrankOutcomeCollection', { delayInMinutes: 15, periodInMinutes: 360 });
 });

@@ -698,8 +698,63 @@
       console.warn('[AdminDashboard] Hyperrank log lookup failed:', e.message);
     }
 
+    // ─── Control registry (A/B assignment) ────────────────────────────
+    // Upsert EVERY match seen here into `rescueObserved`, tagged with a
+    // deterministic parity assignment (even itemId -> 'treat' i.e. Micke
+    // hyperranks it, odd itemId -> 'control' i.e. left untouched). This is
+    // the observation log the control-outcomes collector (hyperrank-outcomes-bg.js)
+    // walks to build the untreated side of the A/B comparison. Never delete
+    // entries here — lifecycle (ended/outcome-recorded) is the collector's job;
+    // this write path only ever adds/refreshes. Per-machine storage only for
+    // now — multi-machine sync would go via the Cloudflare Worker later
+    // (same pattern as workers/outlet-api), not attempted here.
+    try {
+      await upsertRescueObserved(matches);
+    } catch (e) {
+      console.warn('[AdminDashboard] rescueObserved upsert failed:', e.message);
+    }
+
     _rescueCache = { timestamp: Date.now(), items: matches };
     return matches;
+  }
+
+  const RESCUE_OBSERVED_KEY = 'rescueObserved';
+  const RESCUE_OBSERVED_MAX_AGE_MS = 120 * 24 * 60 * 60 * 1000; // 120 days
+
+  function rescueParity(itemId) {
+    return (parseInt(itemId, 10) % 2 === 0) ? 'treat' : 'control';
+  }
+
+  // Upsert every currently-observed rescue match into `rescueObserved`, and
+  // prune stale entries (firstSeenTs older than 120 days) on the same write.
+  // Existing entries keep their original firstSeenTs/parity; only estimate/
+  // endsAt refresh (a still-live item's estimate or end time may change).
+  async function upsertRescueObserved(matches) {
+    const stored = await new Promise(resolve =>
+      chrome.storage.local.get(RESCUE_OBSERVED_KEY, r => resolve(r)));
+    const observed = stored[RESCUE_OBSERVED_KEY] || {};
+    const now = Date.now();
+
+    matches.forEach(m => {
+      const key = String(m.id);
+      const existing = observed[key];
+      observed[key] = {
+        firstSeenTs: existing ? existing.firstSeenTs : now,
+        endsAt: m.endsAt,
+        estimate: m.estimate,
+        parity: existing ? existing.parity : rescueParity(m.id)
+      };
+    });
+
+    // Prune sanity cap: entries far older than any rescue window is meaningful.
+    Object.keys(observed).forEach(key => {
+      const entry = observed[key];
+      if (entry && typeof entry.firstSeenTs === 'number' && (now - entry.firstSeenTs) > RESCUE_OBSERVED_MAX_AGE_MS) {
+        delete observed[key];
+      }
+    });
+
+    await chrome.storage.local.set({ [RESCUE_OBSERVED_KEY]: observed });
   }
 
   // "om 14 tim" / "om 2 dygn" style time-left formatter
@@ -885,9 +940,19 @@
 
     const rowsHTML = shown.map(item => {
       const estimateLabel = item.estimate > 0 ? `Utrop ${formatSEK(item.estimate)} SEK` : '';
+      // Assignment chip: subtle, informative-not-shouty indicator of the
+      // item-id-parity A/B protocol (even -> 'treat' suggestion, odd ->
+      // 'control'). Purely a suggestion marker — it does not affect anything;
+      // the existing ⚡ treated-badge (renderHyperrankBadge) still reflects
+      // what actually happened and is rendered on top of/alongside this.
+      const parityChip = item.hyperranked
+        ? ''
+        : (rescueParity(item.id) === 'treat'
+          ? '<span class="ext-rescue-item__parity ext-rescue-item__parity--treat" title="Enligt protokoll: hyperranka detta (jämnt item-id)">⚡ förslag</span>'
+          : '<span class="ext-rescue-item__parity ext-rescue-item__parity--control" title="Enligt protokoll: lämna orört som kontroll (udda item-id)">kontroll</span>');
       return `
         <a class="ext-rescue-item" href="${escapeHTML(safeHref(item.editUrl || item.publicUrl))}" data-item-id="${item.id}" data-resolved="${item.editUrl ? '1' : ''}">
-          <span class="ext-rescue-item__title">${item.hyperranked ? renderHyperrankBadge(item) : ''}${escapeHTML(truncateTitle(item.title, 60))}</span>
+          <span class="ext-rescue-item__title">${item.hyperranked ? renderHyperrankBadge(item) : ''}${escapeHTML(truncateTitle(item.title, 60))}${parityChip}</span>
           <span class="ext-rescue-item__meta">
             <span class="ext-rescue-item__time">${escapeHTML(formatTimeLeft(item.endsAt))}</span>
             ${estimateLabel ? `<span class="ext-rescue-item__estimate">${escapeHTML(estimateLabel)}</span>` : ''}
@@ -1019,7 +1084,48 @@
     return { totalTreated, endedWithOutcome, gotBidsAfter, sold, medianRatio };
   }
 
-  function renderHyperrankScoreboard(stats) {
+  // ─── Räddningslistan A/B comparison (item-id parity protocol) ──────────
+  // Compares the "treated" side (hyperranked AND originally observed on
+  // Räddningslistan — i.e. excludes at-publish hyperranks that never went
+  // through the rescue flow) against the "control" side (odd-id items
+  // observed on Räddningslistan and deliberately left untouched, tracked in
+  // `rescueControlOutcomes` by the background collector). Only shown once
+  // BOTH sides have at least one ended outcome — otherwise a lopsided or
+  // one-sided percentage would be misleading noise.
+  //
+  // Counting rules:
+  // - "ended" = has a recorded outcome that isn't `lost` (inferred-unsold
+  //   counts as ended+unsold; `lost` entries are excluded from denominators
+  //   entirely on both sides — we simply don't know what happened to them).
+  // - Treated side denominator = hyperrankOutcomes entries whose itemId also
+  //   appears in `rescueObserved` (so items hyperranked at publish-time,
+  //   before ever appearing on Räddningslistan, don't pollute the rescue A/B).
+  // - Control side denominator = all rescueControlOutcomes entries (the
+  //   collector already excludes any itemId that ended up in hyperrankedItems).
+  function computeRescueAbComparison(hyperrankOutcomes, rescueObserved, rescueControlOutcomes) {
+    const treatedEntries = Object.entries(hyperrankOutcomes)
+      .filter(([itemId, o]) => !o.lost && rescueObserved[itemId]);
+    const controlEntries = Object.entries(rescueControlOutcomes)
+      .filter(([, o]) => !o.lost);
+
+    const treatedEnded = treatedEntries.length;
+    const treatedSold = treatedEntries.filter(([, o]) => o.sold).length;
+    const controlEnded = controlEntries.length;
+    const controlSold = controlEntries.filter(([, o]) => o.sold).length;
+
+    if (treatedEnded === 0 || controlEnded === 0) return null;
+
+    return {
+      treatedSold,
+      treatedEnded,
+      treatedPct: Math.round((treatedSold / treatedEnded) * 100),
+      controlSold,
+      controlEnded,
+      controlPct: Math.round((controlSold / controlEnded) * 100)
+    };
+  }
+
+  function renderHyperrankScoreboard(stats, abComparison) {
     let container = document.querySelector('.ext-hr-scoreboard');
     if (stats.endedWithOutcome === 0) {
       // Nothing recorded yet — stay invisible rather than showing a wall of zeros.
@@ -1036,6 +1142,19 @@
       ? `<div class="ext-hr-stat"><span class="ext-hr-stat__value">${escapeHTML(formatRatioSv(stats.medianRatio))}×</span><span class="ext-hr-stat__label">utrop (median)</span></div>`
       : '';
 
+    const abRowHTML = abComparison ? `
+      <div class="ext-hr-ab">
+        <div class="ext-hr-ab__row">
+          <span class="ext-hr-ab__label ext-hr-ab__label--treat">Räddade med ⚡:</span>
+          <span class="ext-hr-ab__value">${abComparison.treatedSold} av ${abComparison.treatedEnded} sålda (${abComparison.treatedPct}%)</span>
+        </div>
+        <div class="ext-hr-ab__row">
+          <span class="ext-hr-ab__label ext-hr-ab__label--control">Utan åtgärd (kontroll):</span>
+          <span class="ext-hr-ab__value">${abComparison.controlSold} av ${abComparison.controlEnded} sålda (${abComparison.controlPct}%)</span>
+        </div>
+      </div>
+    ` : '';
+
     container.innerHTML = `
       <div class="ext-hr-scoreboard__header">
         <span class="ext-hr-scoreboard__title">⚡ HYPERRANK-resultat</span>
@@ -1047,6 +1166,7 @@
         <div class="ext-hr-stat"><span class="ext-hr-stat__value">${stats.sold}</span><span class="ext-hr-stat__label">sålda</span></div>
         ${ratioTile}
       </div>
+      ${abRowHTML}
     `;
 
     if (!container.parentNode) {
@@ -1057,11 +1177,17 @@
   async function initHyperrankScoreboard() {
     try {
       const stored = await new Promise(resolve =>
-        chrome.storage.local.get(['hyperrankedItems', 'hyperrankOutcomes'], r => resolve(r)));
+        chrome.storage.local.get(
+          ['hyperrankedItems', 'hyperrankOutcomes', 'rescueObserved', 'rescueControlOutcomes'],
+          r => resolve(r)));
       const hyperrankedItems = stored.hyperrankedItems || {};
       const hyperrankOutcomes = stored.hyperrankOutcomes || {};
+      const rescueObserved = stored.rescueObserved || {};
+      const rescueControlOutcomes = stored.rescueControlOutcomes || {};
+
       const stats = computeHyperrankScoreboard(hyperrankedItems, hyperrankOutcomes);
-      renderHyperrankScoreboard(stats);
+      const abComparison = computeRescueAbComparison(hyperrankOutcomes, rescueObserved, rescueControlOutcomes);
+      renderHyperrankScoreboard(stats, abComparison);
     } catch (e) {
       console.warn('[AdminDashboard] HYPERRANK scoreboard init failed:', e.message);
     }

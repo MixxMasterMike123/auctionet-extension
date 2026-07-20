@@ -8,6 +8,17 @@
 // `hyperrankOutcomes`, checks whether the item has ended and — if so — records
 // the auction result.
 //
+// Also runs the CONTROL side of the Räddningslistan A/B comparison: reads
+// `rescueObserved` (written by admin-dashboard.js's upsertRescueObserved on
+// every Räddningslistan fetch — every zero-bid/≤72h item seen, tagged by
+// item-id parity as 'treat' or 'control') and records outcomes for ended
+// 'control'-parity items (odd id, never hyperranked) into a separate
+// `rescueControlOutcomes` key, using the exact same lookup/sold/inferred-
+// unsold/lost rules. Items that started as control candidates but were later
+// actually hyperranked are excluded (they belong to the treated flow, tracked
+// via `hyperrankedItems`/`hyperrankOutcomes` instead). Both passes share one
+// fetch budget per alarm run (MAX_FETCHES_PER_RUN total, treated items first).
+//
 // Storage: chrome.storage.local, per-machine (this is a single-pilot-machine
 // dataset for now). If multiple machines ever need to share one dataset, the
 // natural home is the existing Cloudflare Worker + D1 backend (see
@@ -37,6 +48,13 @@
 
 const HYPERRANK_ITEMS_KEY = 'hyperrankedItems';
 const HYPERRANK_OUTCOMES_KEY = 'hyperrankOutcomes';
+// Control side of the A/B comparison (Räddningslistan item-id-parity protocol —
+// see admin-dashboard.js upsertRescueObserved/rescueParity). Written by
+// admin-dashboard.js on every Räddningslistan fetch; read here to find the
+// odd-id ("control", left untouched) items whose auctions have ended so we
+// can record what happened to them without any hyperrank intervention.
+const RESCUE_OBSERVED_KEY = 'rescueObserved';
+const RESCUE_CONTROL_OUTCOMES_KEY = 'rescueControlOutcomes';
 const MAX_FETCHES_PER_RUN = 20;
 const FETCH_SPACING_MS = 500;
 const LOST_AFTER_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
@@ -109,81 +127,216 @@ function buildOutcomeRecord(itemId, item, entry, sold) {
   };
 }
 
+// Shared per-run fetch budget helper — both the treated-items pass and the
+// control-items pass draw from the same counter object so the combined total
+// never exceeds MAX_FETCHES_PER_RUN across a single alarm firing. Treated
+// items are processed first and therefore get priority on the budget.
+function budgetRemaining(budget) {
+  return MAX_FETCHES_PER_RUN - budget.fetches;
+}
+
+// Processes one pending entry (itemId + its baseline entry) against the
+// shared budget, writing into `outcomes` on success. Returns true if a fetch
+// was spent (whether or not it produced a recorded outcome).
+async function processPendingEntry(itemId, entry, outcomes, budget) {
+  if (budgetRemaining(budget) <= 0) return false;
+
+  const hyperrankTs = typeof entry === 'number' ? entry : entry?.ts;
+
+  try {
+    budget.fetches++;
+    const result = await lookupItem(itemId);
+
+    if (result) {
+      if (result.ended) {
+        outcomes[itemId] = buildOutcomeRecord(itemId, result.item, entry, result.sold);
+        budget.recorded++;
+        budget.changed = true;
+      }
+      // else: still live — skip, retry next run.
+    } else {
+      // Not found anywhere. Sold items surface in the is=ended archive;
+      // unsold ones are dropped from the public API entirely. After the
+      // 45-day window (any auction has long ended, and a sale would have
+      // been indexed) record inferred-unsold so the sold-rate isn't biased
+      // toward found (= sold) outcomes. 90 days = give up entirely.
+      if (hyperrankTs && (Date.now() - hyperrankTs) > LOST_AFTER_MS) {
+        outcomes[itemId] = { itemId: String(itemId), lost: true, checkedAt: Date.now() };
+        budget.recorded++;
+        budget.changed = true;
+      } else if (hyperrankTs && (Date.now() - hyperrankTs) > UNSOLD_INFER_AFTER_MS) {
+        outcomes[itemId] = {
+          itemId: String(itemId),
+          endedAt: null,
+          sold: false,
+          inferredUnsold: true,
+          finalBidCount: null,
+          bidsAfterHyperrank: null,
+          highestBid: null,
+          estimate: null,
+          baselineVisits: (entry && typeof entry === 'object') ? entry.visits ?? null : null,
+          hyperrankTs
+        };
+        budget.recorded++;
+        budget.changed = true;
+      }
+    }
+  } catch (e) {
+    console.warn('[HyperrankOutcomes] Lookup failed for item', itemId, e.message);
+  }
+
+  return true;
+}
+
 // Runs one collection pass: for every hyperranked item without a recorded
 // outcome (and not already marked lost), check if it has ended and record
 // the result. Fail-soft throughout — a single bad fetch never aborts the run.
+//
+// Also drives the control-side collection (see collectRescueControlOutcomes
+// below) from the SAME run, sharing one fetch budget across both — treated
+// items are processed first and get priority, control items spend whatever
+// budget is left over.
 export async function collectHyperrankOutcomes() {
+  const budget = { fetches: 0, recorded: 0, changed: false };
+  let treatedResult = { checked: 0, recorded: 0 };
+  let controlResult = { checked: 0, recorded: 0 };
+
   try {
     const stored = await chrome.storage.local.get([HYPERRANK_ITEMS_KEY, HYPERRANK_OUTCOMES_KEY]);
     const hyperrankedItems = stored[HYPERRANK_ITEMS_KEY] || {};
     const outcomes = stored[HYPERRANK_OUTCOMES_KEY] || {};
 
     const pending = Object.entries(hyperrankedItems).filter(([itemId]) => !outcomes[itemId]);
-    if (pending.length === 0) return { checked: 0, recorded: 0 };
 
-    let fetches = 0;
-    let recorded = 0;
-    let changed = false;
+    if (pending.length > 0) {
+      const startFetches = budget.fetches;
+      let changed = false;
 
-    for (const [itemId, entry] of pending) {
-      if (fetches >= MAX_FETCHES_PER_RUN) break;
-
-      const hyperrankTs = typeof entry === 'number' ? entry : entry?.ts;
-
-      try {
-        fetches++;
-        const result = await lookupItem(itemId);
-
-        if (result) {
-          if (result.ended) {
-            outcomes[itemId] = buildOutcomeRecord(itemId, result.item, entry, result.sold);
-            changed = true;
-            recorded++;
-          }
-          // else: still live — skip, retry next run.
-        } else {
-          // Not found anywhere. Sold items surface in the is=ended archive;
-          // unsold ones are dropped from the public API entirely. After the
-          // 45-day window (any auction has long ended, and a sale would have
-          // been indexed) record inferred-unsold so the sold-rate isn't biased
-          // toward found (= sold) outcomes. 90 days = give up entirely.
-          if (hyperrankTs && (Date.now() - hyperrankTs) > LOST_AFTER_MS) {
-            outcomes[itemId] = { itemId: String(itemId), lost: true, checkedAt: Date.now() };
-            changed = true;
-            recorded++;
-          } else if (hyperrankTs && (Date.now() - hyperrankTs) > UNSOLD_INFER_AFTER_MS) {
-            outcomes[itemId] = {
-              itemId: String(itemId),
-              endedAt: null,
-              sold: false,
-              inferredUnsold: true,
-              finalBidCount: null,
-              bidsAfterHyperrank: null,
-              highestBid: null,
-              estimate: null,
-              baselineVisits: (entry && typeof entry === 'object') ? entry.visits ?? null : null,
-              hyperrankTs
-            };
-            changed = true;
-            recorded++;
-          }
+      for (const [itemId, entry] of pending) {
+        if (budgetRemaining(budget) <= 0) break;
+        const spent = await processPendingEntry(itemId, entry, outcomes, budget);
+        if (budget.changed) changed = true;
+        if (spent && budgetRemaining(budget) > 0) {
+          await sleep(FETCH_SPACING_MS);
         }
-      } catch (e) {
-        console.warn('[HyperrankOutcomes] Lookup failed for item', itemId, e.message);
       }
 
-      if (fetches < pending.length && fetches < MAX_FETCHES_PER_RUN) {
-        await sleep(FETCH_SPACING_MS);
+      if (changed) {
+        await chrome.storage.local.set({ [HYPERRANK_OUTCOMES_KEY]: outcomes });
       }
+      treatedResult = { checked: budget.fetches - startFetches, recorded: budget.recorded };
     }
-
-    if (changed) {
-      await chrome.storage.local.set({ [HYPERRANK_OUTCOMES_KEY]: outcomes });
-    }
-
-    return { checked: fetches, recorded };
   } catch (e) {
     console.warn('[HyperrankOutcomes] Collection run failed:', e.message);
-    return { checked: 0, recorded: 0 };
   }
+
+  // Control pass reuses whatever budget the treated pass didn't spend.
+  try {
+    controlResult = await collectRescueControlOutcomes(budget);
+  } catch (e) {
+    console.warn('[HyperrankOutcomes] Control collection run failed:', e.message);
+  }
+
+  return {
+    checked: treatedResult.checked + controlResult.checked,
+    recorded: treatedResult.recorded + controlResult.recorded,
+    treated: treatedResult,
+    control: controlResult
+  };
+}
+
+// ─── Control-side outcomes (untreated Räddningslistan items) ───────────
+// Follows `rescueObserved` entries (written by admin-dashboard.js on every
+// Räddningslistan fetch — { [itemId]: { firstSeenTs, endsAt, estimate, parity } })
+// whose endsAt has passed and that don't yet have a recorded outcome in
+// `rescueControlOutcomes`. Any itemId that shows up in `hyperrankedItems` is
+// excluded here — an item observed as a control candidate but later actually
+// hyperranked belongs to the treated flow above, not the control side, since
+// it no longer represents "no intervention".
+//
+// Reuses the exact same lookup + ended/sold/inferred-unsold/lost logic as the
+// treated pass (see lookupItem/buildOutcomeRecord and the age thresholds
+// above) so the two sides of the A/B comparison are built from identical rules.
+async function collectRescueControlOutcomes(budget) {
+  if (budgetRemaining(budget) <= 0) return { checked: 0, recorded: 0 };
+
+  const stored = await chrome.storage.local.get([RESCUE_OBSERVED_KEY, RESCUE_CONTROL_OUTCOMES_KEY, HYPERRANK_ITEMS_KEY]);
+  const observed = stored[RESCUE_OBSERVED_KEY] || {};
+  const controlOutcomes = stored[RESCUE_CONTROL_OUTCOMES_KEY] || {};
+  const hyperrankedItems = stored[HYPERRANK_ITEMS_KEY] || {};
+
+  const now = Date.now();
+  const pending = Object.entries(observed).filter(([itemId, entry]) => {
+    if (controlOutcomes[itemId]) return false; // already recorded
+    if (hyperrankedItems[itemId]) return false; // actually treated -> belongs to the other flow
+    if (!entry || typeof entry.endsAt !== 'number' || entry.endsAt > now) return false; // not ended yet
+    return true;
+  });
+
+  if (pending.length === 0) return { checked: 0, recorded: 0 };
+
+  const startFetches = budget.fetches;
+  let recorded = 0;
+  let changed = false;
+
+  for (const [itemId, entry] of pending) {
+    if (budgetRemaining(budget) <= 0) break;
+
+    // Reuse the hyperrankTs-shaped age thresholds against endsAt instead —
+    // a control item was never hyperranked, so "time since it should have
+    // ended" is the equivalent clock for the same inferred-unsold/lost rules.
+    const endsAt = entry.endsAt;
+
+    try {
+      budget.fetches++;
+      const result = await lookupItem(itemId);
+
+      if (result) {
+        if (result.ended) {
+          const bids = Array.isArray(result.item.bids) ? result.item.bids : [];
+          controlOutcomes[itemId] = {
+            itemId: String(itemId),
+            endedAt: result.item.ends_at ? result.item.ends_at * 1000 : endsAt,
+            sold: !!result.sold,
+            finalBidCount: bids.length,
+            highestBid: bids.length > 0 ? bids[0].amount : null,
+            estimate: typeof result.item.estimate === 'number' ? result.item.estimate : (entry.estimate ?? null)
+          };
+          changed = true;
+          recorded++;
+        }
+        // else: still live — skip, retry next run.
+      } else {
+        if ((now - endsAt) > LOST_AFTER_MS) {
+          controlOutcomes[itemId] = { itemId: String(itemId), lost: true, checkedAt: now };
+          changed = true;
+          recorded++;
+        } else if ((now - endsAt) > UNSOLD_INFER_AFTER_MS) {
+          controlOutcomes[itemId] = {
+            itemId: String(itemId),
+            endedAt: null,
+            sold: false,
+            inferredUnsold: true,
+            finalBidCount: null,
+            highestBid: null,
+            estimate: entry.estimate ?? null
+          };
+          changed = true;
+          recorded++;
+        }
+      }
+    } catch (e) {
+      console.warn('[HyperrankOutcomes] Control lookup failed for item', itemId, e.message);
+    }
+
+    if (budgetRemaining(budget) > 0) {
+      await sleep(FETCH_SPACING_MS);
+    }
+  }
+
+  if (changed) {
+    await chrome.storage.local.set({ [RESCUE_CONTROL_OUTCOMES_KEY]: controlOutcomes });
+  }
+
+  return { checked: budget.fetches - startFetches, recorded };
 }

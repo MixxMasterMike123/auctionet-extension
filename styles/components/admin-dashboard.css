@@ -601,6 +601,27 @@
   font-weight: 400;
 }
 
+/* A/B assignment chips (item-id parity protocol marker) — small and muted,
+   informative not shouty. Sits alongside the ⚡ treated-badge, never replaces it. */
+.ext-rescue-item__parity {
+  font-size: 10px;
+  font-weight: 500;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.ext-rescue-item__parity--treat {
+  color: #b45309;
+  background: #fef3e2;
+}
+
+.ext-rescue-item__parity--control {
+  color: #888;
+  background: #f0f0f0;
+}
+
 .ext-rescue__tip {
   font-size: 11px;
   color: #888;
@@ -660,6 +681,33 @@
   color: #888;
   text-align: center;
   margin-top: 2px;
+}
+
+/* ─── Räddningslistan A/B comparison row ─────────────────────────── */
+.ext-hr-ab {
+  padding: 8px 16px 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.ext-hr-ab__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  padding: 3px 0;
+}
+
+.ext-hr-ab__label {
+  color: #666;
+}
+
+.ext-hr-ab__label--treat {
+  color: #b45309;
+}
+
+.ext-hr-ab__value {
+  font-weight: 600;
+  color: #333;
 }
 
 /* ─── Warehouse Costs (card) ─────────────────────────────────────── */
