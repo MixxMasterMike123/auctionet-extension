@@ -28,7 +28,6 @@ export class UIManager {
       this.addAIButton(keywordsField, 'keywords', 'Generera sökord');
     }
 
-    // Add master "Improve All" button
     this.addQualityIndicator();
     this.injectStyles();
     
@@ -68,7 +67,6 @@ export class UIManager {
           <span class="quality-score">Analyserar...</span>
           <button class="refresh-quality-btn" type="button" title="Uppdatera kvalitetspoäng">🔄</button>
         </div>
-        <button class="ai-assist-button ai-master-button" type="button">Förbättra alla fält</button>
       </div>
       <div class="quality-warnings"></div>
     `;
@@ -190,23 +188,6 @@ export class UIManager {
         transform: rotate(180deg);
       }
 
-      .ai-master-button {
-        width: 100%;
-        padding: 8px 16px;
-        font-size: 14px;
-        font-weight: 600;
-        background: #28a745;
-        color: white;
-        border: none;
-        border-radius: 3px;
-        cursor: pointer;
-        transition: background 0.2s ease;
-      }
-
-      .ai-master-button:hover {
-        background: #218838;
-      }
-      
       .ai-button-wrapper {
         margin-top: 0px;
         display: flex;

@@ -42,16 +42,6 @@
 
 
 
-.ai-master-button {
-  background: #27ae60;
-  color: white;
-  border-color: #27ae60;
-}
-
-.ai-master-button:hover {
-  background: #229954;
-}
-
 .ai-updated {
   background-color: #e8f8f5 !important;
   border-color: #27ae60 !important;

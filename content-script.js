@@ -57,8 +57,7 @@
         'title': 'titeln',
         'description': 'beskrivningen',
         'condition': 'skicket',
-        'keywords': 'nyckelorden',
-        'all': 'alla fält'
+        'keywords': 'nyckelorden'
       };
 
       constructor() {
@@ -254,11 +253,6 @@
         // Note: Initial button state update will be called after UI is injected
       }
 
-      // Run fn(type) for each of the four improvable field types
-      applyToAllFields(fn) {
-        ['title', 'description', 'condition', 'keywords'].forEach(type => fn(type));
-      }
-
       updateConditionButtonState() {
         const isNoRemarksChecked = this.isNoRemarksChecked();
 
@@ -291,9 +285,9 @@
       }
 
       attachEventListeners() {
-        // Individual field buttons (exclude master button)
-        const buttons = document.querySelectorAll('.ai-assist-button:not(.ai-master-button)');
-        
+        // Individual field buttons
+        const buttons = document.querySelectorAll('.ai-assist-button');
+
         buttons.forEach(button => {
           button.addEventListener('click', (e) => {
             e.preventDefault();
@@ -304,15 +298,6 @@
           });
         });
 
-        // Master button (separate handler)
-        const masterButton = document.querySelector('.ai-master-button');
-        if (masterButton) {
-          masterButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.improveAllFields();
-          });
-        }
-        
         // Update condition button state after buttons are attached and UI is ready
         setTimeout(() => {
           this.updateConditionButtonState();
@@ -385,24 +370,6 @@
         }
       }
 
-      async improveAllFields() {
-        if (!(await this.ensureApiKey('all'))) {
-          return;
-        }
-
-        const itemData = this.dataExtractor.extractItemData();
-        
-        // Assess data quality for hallucination prevention
-        const qualityAssessment = this.qualityAnalyzer.assessDataQuality(itemData, 'all');
-        
-        // Always show dialog with settings - either for missing info or confirmation
-        if (qualityAssessment.needsMoreInfo) {
-          this.showFieldSpecificInfoDialog('all', qualityAssessment.missingInfo, itemData);
-        } else {
-          this.showAISettingsDialog('all', itemData);
-        }
-      }
-
       // HYPERRANK — opt-in aggressive search-rank optimizer. Rewrites title,
       // description and hidden keywords for maximum Auctionet search relevance.
       // Explicitly NOT the norm: only runs when the user presses the dedicated
@@ -429,8 +396,7 @@
         itemData._matchedSearches = await this._getMatchedSearchQueries(itemData);
 
         // Capture originals BEFORE applying anything, so undo restores all three
-        // fields even though they're applied one at a time via uiManager.applyImprovement
-        // (same multi-field undo mechanism improveAllFields relies on).
+        // fields even though they're applied one at a time via uiManager.applyImprovement.
         const titleField = document.querySelector('#item_title_sv');
         const descriptionField = document.querySelector('#item_description_sv');
         const keywordsField = document.querySelector('#item_hidden_keywords');
@@ -643,98 +609,6 @@
         });
       }
 
-      showAISettingsDialog(fieldType, data) {
-        const fieldNames = AuctionetCatalogingAssistant.FIELD_DISPLAY_NAMES;
-
-        const fieldName = fieldNames[fieldType] || fieldType;
-        
-        const dialog = document.createElement('div');
-        dialog.className = 'ai-info-request-dialog';
-        dialog.innerHTML = `
-          <div class="dialog-overlay"></div>
-          <div class="dialog-content">
-            <h3>⚡ Förbättra ${escapeHTML(fieldName)}</h3>
-            <p>Redo att förbättra ${escapeHTML(fieldName)} enligt Auctionets katalogiseringsstandard.</p>
-            
-            <div class="dialog-buttons">
-              <button class="btn btn-link" id="cancel-settings-dialog">Avbryt</button>
-              <button class="btn btn-primary" id="proceed-with-ai" style="background: #007cba;">Förbättra ${escapeHTML(fieldName)}</button>
-            </div>
-          </div>
-        `;
-        
-        document.body.appendChild(dialog);
-        
-        // Handle button clicks
-        document.getElementById('cancel-settings-dialog').addEventListener('click', () => {
-          dialog.remove();
-        });
-        
-        document.getElementById('proceed-with-ai').addEventListener('click', () => {
-          dialog.remove();
-          this.proceedWithAIImprovement(fieldType);
-        });
-        
-        // Close on background click
-        dialog.querySelector('.dialog-overlay').addEventListener('click', () => {
-          dialog.remove();
-        });
-      }
-
-      async proceedWithAIImprovement(fieldType) {
-        this.showFieldLoadingIndicator(fieldType);
-        
-        // Don't reload settings here - they were just set by the dialog
-
-        
-        try {
-          const itemData = this.dataExtractor.extractItemData();
-
-          
-          // For "all" improvements, exclude condition if "Inga anmärkningar" is checked
-          let actualFieldType = fieldType;
-          if (fieldType === 'all' && this.isNoRemarksChecked()) {
-  
-            // We'll still call with 'all' but handle condition exclusion in the response processing
-          }
-          
-          const improvements = await this.apiManager.callClaudeAPI(itemData, actualFieldType);
-          
-          if (fieldType === 'all') {
-            if (improvements.title) {
-              this.uiManager.applyImprovement('title', improvements.title);
-            }
-            if (improvements.description) {
-              this.uiManager.applyImprovement('description', improvements.description);
-            }
-            // Only apply condition improvement if "Inga anmärkningar" is not checked
-            if (improvements.condition && !this.isNoRemarksChecked()) {
-              this.uiManager.applyImprovement('condition', improvements.condition);
-            }
-            if (improvements.keywords) {
-              this.uiManager.applyImprovement('keywords', improvements.keywords);
-            }
-          } else {
-            // For single field improvements
-            const value = improvements[fieldType];
-            if (value) {
-              this.uiManager.applyImprovement(fieldType, value);
-            } else {
-              throw new Error(`No ${fieldType} value in response`);
-            }
-          }
-          
-          this.showFieldSuccessIndicator(fieldType);
-          
-          // Clear stale FAQ hints immediately, then run full re-analysis (includes hint refresh)
-          document.querySelectorAll('.faq-hint').forEach(h => h.remove());
-          setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
-        } catch (error) {
-          console.error('Error improving field:', error);
-          this.showFieldErrorIndicator(fieldType, error.message);
-        }
-      }
-
       getFieldSpecificTips(fieldType, data) {
         switch(fieldType) {
           case 'title':
@@ -777,13 +651,6 @@
                 <p>Mer detaljerad information i titel och beskrivning ger bättre sökord som inte bara upprepar befintlig text.</p>
               </div>
             `;
-          case 'all':
-            return `
-              <div class="field-tips">
-                <h4>💡 Tips för bättre katalogisering:</h4>
-                <p>Lägg till mer specifik information i beskrivningen för bättre resultat vid förbättring av alla fält.</p>
-              </div>
-            `;
           default:
             return '';
         }
@@ -797,19 +664,7 @@
 
         
         const itemData = this.dataExtractor.extractItemData();
-        
-        if (fieldType === 'all') {
-          this.showFieldLoadingIndicator('all');
-          
-          try {
-            const improvements = await this.apiManager.callClaudeAPI(itemData, 'all');
-            this.applyAllImprovements(improvements);
-          } catch (error) {
-            this.showFieldErrorIndicator('all', error.message);
-          }
-          return;
-        }
-        
+
         // For individual fields
         this.showFieldLoadingIndicator(fieldType);
         
@@ -835,26 +690,6 @@
         }
       }
 
-      applyAllImprovements(improvements) {
-        if (improvements.title) {
-          this.uiManager.applyImprovement('title', improvements.title);
-        }
-        if (improvements.description) {
-          this.uiManager.applyImprovement('description', improvements.description);
-        }
-        if (improvements.condition) {
-          this.uiManager.applyImprovement('condition', improvements.condition);
-        }
-        if (improvements.keywords) {
-          this.uiManager.applyImprovement('keywords', improvements.keywords);
-        }
-        
-        this.showFieldSuccessIndicator('all');
-        // Clear stale FAQ hints immediately, then re-analyze after DOM settles
-        document.querySelectorAll('.faq-hint').forEach(h => h.remove());
-        setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
-      }
-
       // Field-specific loading indicator methods - delegate to main content.js implementation
       showFieldLoadingIndicator(fieldType) {
 
@@ -878,26 +713,11 @@
         // Remove any existing loading states first
         this.fallbackRemoveFieldLoadingIndicator(fieldType);
         
-        let targetField;
-        if (fieldType === 'all') {
-          // For "all" - show loading on master button AND all individual fields
-          const masterButton = document.querySelector('.ai-master-button');
-          if (masterButton) {
-            masterButton.textContent = '⏳ Kontrollerar...';
-            masterButton.disabled = true;
-            masterButton.style.opacity = '0.7';
-          }
-          
-          // Show loading animation on all fields simultaneously
-          this.applyToAllFields(type => this.fallbackShowFieldLoadingIndicator(type));
-          return;
-        }
-
         // Get the specific field - EXACT same as Add Items page
         const fieldMap = AuctionetCatalogingAssistant.FIELD_SELECTOR_MAP;
 
-        targetField = document.querySelector(fieldMap[fieldType]);
-        
+        const targetField = document.querySelector(fieldMap[fieldType]);
+
         if (!targetField) return;
         
         // Find the field container (parent element that will hold the overlay) - EXACT same logic
@@ -950,23 +770,6 @@
         // Remove loading state - EXACT same as Add Items page
         this.fallbackRemoveFieldLoadingIndicator(fieldType);
         
-        if (fieldType === 'all') {
-          // Reset master button - EXACT same as Add Items page
-          const masterButton = document.querySelector('.ai-master-button');
-          if (masterButton) {
-            masterButton.textContent = '✅ Klart!';
-            setTimeout(() => {
-              masterButton.textContent = 'Förbättra alla fält';
-              masterButton.disabled = false;
-              masterButton.style.opacity = '1';
-            }, 2000);
-          }
-          
-          // Show success on all individual fields
-          this.applyToAllFields(type => this.fallbackShowFieldSuccessIndicator(type));
-          return;
-        }
-        
         // Get the specific field and apply success flash - EXACT same as Add Items page
         const fieldMap = AuctionetCatalogingAssistant.FIELD_SELECTOR_MAP;
 
@@ -986,30 +789,11 @@
         // Remove loading state - EXACT same as Add Items page
         this.fallbackRemoveFieldLoadingIndicator(fieldType);
         
-        if (fieldType === 'all') {
-          // Reset master button - EXACT same as Add Items page
-          const masterButton = document.querySelector('.ai-master-button');
-          if (masterButton) {
-            masterButton.textContent = '❌ Fel uppstod';
-            masterButton.disabled = false;
-            masterButton.style.opacity = '1';
-            setTimeout(() => {
-              masterButton.textContent = 'Förbättra alla fält';
-            }, 3000);
-          }
-        }
-        
         // Show error message - EXACT same as Add Items page
         alert(`Fel vid förbättring av ${fieldType}: ${message}`);
       }
 
       fallbackRemoveFieldLoadingIndicator(fieldType) {
-        if (fieldType === 'all') {
-          // Remove loading from all individual fields - EXACT same logic
-          this.applyToAllFields(type => this.fallbackRemoveFieldLoadingIndicator(type));
-          return;
-        }
-        
         // Remove loading states for specific field type - EXACT same as Add Items page
         const overlay = document.querySelector(`.field-spinner-overlay[data-field-type="${fieldType}"]`);
         if (overlay) {
