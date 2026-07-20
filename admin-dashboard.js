@@ -642,7 +642,8 @@
             title: item.title || '',
             estimate: item.estimate || 0,
             endsAt: item.ends_at * 1000,
-            publicUrl: item.url || ''
+            publicUrl: item.url || '',
+            publishedAt: item.published_at ? item.published_at * 1000 : null
           });
         });
 
@@ -675,11 +676,24 @@
       console.warn('[AdminDashboard] Pubscan editUrl lookup failed:', e.message);
     }
 
-    // Badge items already treated with HYPERRANK (logged by content-script on apply)
+    // Badge items already treated with HYPERRANK (logged by content-script on apply).
+    // Stored entries may be the old bare-timestamp format (number) or the newer
+    // { ts, visits, followers } snapshot — normalize to the latter shape here so
+    // renderRescueList and the enrichment pass only ever see one format.
     try {
       const { hyperrankedItems = {} } = await new Promise(resolve =>
         chrome.storage.local.get('hyperrankedItems', r => resolve(r)));
-      matches.forEach(m => { m.hyperranked = !!hyperrankedItems[String(m.id)]; });
+      matches.forEach(m => {
+        const entry = hyperrankedItems[String(m.id)];
+        m.hyperranked = !!entry;
+        if (entry) {
+          m.hyperrankSnapshot = typeof entry === 'number'
+            ? { ts: entry, visits: null, followers: null }
+            : { ts: entry.ts, visits: entry.visits ?? null, followers: entry.followers ?? null };
+        } else {
+          m.hyperrankSnapshot = null;
+        }
+      });
     } catch (e) {
       console.warn('[AdminDashboard] Hyperrank log lookup failed:', e.message);
     }
@@ -751,6 +765,112 @@
     return null;
   }
 
+  // ─── Hyperrank visit-count delta ───────────────────────────────────
+  // Best-effort enrichment: for badged (already-hyperranked) rows, fetch the
+  // CURRENT visit count and show "baseline→current besök" next to the ⚡, plus
+  // a before/after rate tooltip. Runs AFTER the initial render so the list never
+  // waits on these fetches. Capped at 10 fetches per render pass.
+
+  const HYPERRANK_ENRICH_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+  const HYPERRANK_ENRICH_MAX_FETCHES = 10;
+  const _hyperrankCurrentCache = new Map(); // itemId -> { timestamp, visits, followers }
+
+  // Same "first integer after the label" parse used at apply time in
+  // content-script.js#_captureVisitSnapshot — kept in sync intentionally.
+  function parseVisitStats(html) {
+    const result = { visits: null, followers: null };
+    const visitsMatch = html.match(/Bes[öo]ksantal[\s\S]{0,200}?(\d[\d\s]*)/i);
+    if (visitsMatch) result.visits = parseInt(visitsMatch[1].replace(/\s/g, ''), 10);
+    const followersMatch = html.match(/Antal f[öo]ljare[\s\S]{0,200}?(\d[\d\s]*)/i);
+    if (followersMatch) result.followers = parseInt(followersMatch[1].replace(/\s/g, ''), 10);
+    return result;
+  }
+
+  async function fetchCurrentVisitStats(itemId, showUrl) {
+    const cached = _hyperrankCurrentCache.get(itemId);
+    if (cached && (Date.now() - cached.timestamp) < HYPERRANK_ENRICH_CACHE_TTL) {
+      return cached;
+    }
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: 'fetch-admin-html', url: showUrl });
+      if (!resp || !resp.success || !resp.html) return null;
+      const stats = parseVisitStats(resp.html);
+      const entry = { timestamp: Date.now(), visits: stats.visits, followers: stats.followers };
+      _hyperrankCurrentCache.set(itemId, entry);
+      return entry;
+    } catch (e) {
+      console.warn('[AdminDashboard] Hyperrank enrichment fetch failed for item', itemId, e.message);
+      return null;
+    }
+  }
+
+  // Show URL = admin edit URL minus the trailing /edit. Only available for rows
+  // where we already know the edit URL (pubscan editUrl or a previously resolved
+  // one) — this pass never triggers resolveAdminEditUrl() to stay fetch-light.
+  function getKnownShowUrl(item) {
+    const editUrl = item.editUrl || _rescueUrlCache.get(item.id) || null;
+    if (!editUrl) return null;
+    return editUrl.replace(/\/edit(?:[/?#].*)?$/, '');
+  }
+
+  function round1(n) {
+    return Math.round(n * 10) / 10;
+  }
+
+  // Builds the ⚡ badge span. Called synchronously at render time (baseline-only,
+  // no current count yet) and again from enrichHyperrankRows() once the current
+  // count has been fetched (full delta + tooltip).
+  function renderHyperrankBadge(item) {
+    const snap = item.hyperrankSnapshot;
+    const baselineVisits = snap && typeof snap.visits === 'number' ? snap.visits : null;
+    if (baselineVisits === null) {
+      return '<span class="ext-rescue-item__done" title="Redan hyperrankad">⚡</span> ';
+    }
+    if (typeof item._currentVisits !== 'number') {
+      return `<span class="ext-rescue-item__done" title="Redan hyperrankad (från ${baselineVisits} besök)">⚡ <span class="ext-rescue-item__visits">(från ${baselineVisits} besök)</span></span> `;
+    }
+
+    let title = 'Redan hyperrankad';
+    const publishedAt = item.publishedAt;
+    if (publishedAt && snap.ts) {
+      const daysSincePublish = Math.max(1, (snap.ts - publishedAt) / 86400000);
+      const daysSinceApply = Math.max(0.25, (Date.now() - snap.ts) / 86400000);
+      const beforeRate = round1(baselineVisits / daysSincePublish);
+      const afterRate = round1((item._currentVisits - baselineVisits) / daysSinceApply);
+      title = `Före: ${beforeRate} besök/dag — Efter: ${afterRate} besök/dag`;
+    }
+
+    return `<span class="ext-rescue-item__done" title="${escapeHTML(title)}">⚡ <span class="ext-rescue-item__visits">${baselineVisits}→${item._currentVisits} besök</span></span> `;
+  }
+
+  // Fetches current visit counts for badged rows currently shown in the list
+  // (respecting the expand/collapse cap) and re-renders in place once done.
+  // Never runs more than HYPERRANK_ENRICH_MAX_FETCHES fetches per call.
+  async function enrichHyperrankRows(items) {
+    const shown = _rescueExpanded ? items : items.slice(0, RESCUE_ROW_CAP);
+    const candidates = shown.filter(item => {
+      if (!item.hyperranked || !item.hyperrankSnapshot) return false;
+      if (typeof item.hyperrankSnapshot.visits !== 'number') return false;
+      return !!getKnownShowUrl(item);
+    }).slice(0, HYPERRANK_ENRICH_MAX_FETCHES);
+
+    if (candidates.length === 0) return;
+
+    let anyUpdated = false;
+    await Promise.all(candidates.map(async (item) => {
+      const showUrl = getKnownShowUrl(item);
+      const stats = await fetchCurrentVisitStats(item.id, showUrl);
+      if (stats && typeof stats.visits === 'number') {
+        item._currentVisits = stats.visits;
+        anyUpdated = true;
+      }
+    }));
+
+    if (anyUpdated && _rescueCache) {
+      renderRescueList(_rescueCache.items);
+    }
+  }
+
   let _rescueExpanded = false;
   function renderRescueList(items) {
     let container = document.querySelector('.ext-rescue');
@@ -767,7 +887,7 @@
       const estimateLabel = item.estimate > 0 ? `Utrop ${formatSEK(item.estimate)} SEK` : '';
       return `
         <a class="ext-rescue-item" href="${escapeHTML(safeHref(item.editUrl || item.publicUrl))}" data-item-id="${item.id}" data-resolved="${item.editUrl ? '1' : ''}">
-          <span class="ext-rescue-item__title">${item.hyperranked ? '<span class="ext-rescue-item__done" title="Redan hyperrankad">⚡</span> ' : ''}${escapeHTML(truncateTitle(item.title, 60))}</span>
+          <span class="ext-rescue-item__title">${item.hyperranked ? renderHyperrankBadge(item) : ''}${escapeHTML(truncateTitle(item.title, 60))}</span>
           <span class="ext-rescue-item__meta">
             <span class="ext-rescue-item__time">${escapeHTML(formatTimeLeft(item.endsAt))}</span>
             ${estimateLabel ? `<span class="ext-rescue-item__estimate">${escapeHTML(estimateLabel)}</span>` : ''}
@@ -802,7 +922,11 @@
         const moreBtn = e.target.closest('.ext-rescue__more');
         if (moreBtn) {
           _rescueExpanded = !_rescueExpanded;
-          if (_rescueCache) renderRescueList(_rescueCache.items);
+          if (_rescueCache) {
+            renderRescueList(_rescueCache.items);
+            enrichHyperrankRows(_rescueCache.items).catch(e =>
+              console.warn('[AdminDashboard] Hyperrank enrichment failed:', e.message));
+          }
           return;
         }
         const row = e.target.closest('.ext-rescue-item');
@@ -842,6 +966,9 @@
     try {
       const items = await fetchRescueItems();
       renderRescueList(items);
+      // Fire-and-forget: never block the list on visit-count lookups.
+      enrichHyperrankRows(items).catch(e =>
+        console.warn('[AdminDashboard] Hyperrank enrichment failed:', e.message));
     } catch (e) {
       console.warn('[AdminDashboard] Räddningslistan init failed:', e.message);
     }

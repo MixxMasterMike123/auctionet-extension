@@ -595,6 +595,12 @@
   color: #f59e0b;
 }
 
+.ext-rescue-item__visits {
+  font-size: 10px;
+  color: #999;
+  font-weight: 400;
+}
+
 .ext-rescue__tip {
   font-size: 11px;
   color: #888;

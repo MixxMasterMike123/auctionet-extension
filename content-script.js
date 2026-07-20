@@ -485,14 +485,20 @@
 
           // Log the hyperrank so Räddningslistan can badge already-treated items
           // (prevents re-running on the same listing for days). Pruned at 60 days.
+          // Stores a visit-count snapshot ({ts, visits, followers}) taken at apply
+          // time so Räddningslistan can later show a before→after delta. Old
+          // entries may be a bare number (ts only) — readers must handle both.
           try {
             const idMatch = window.location.pathname.match(/\/items\/(\d+)/);
             if (idMatch) {
+              const ts = Date.now();
+              const snapshot = await this._captureVisitSnapshot();
               const { hyperrankedItems = {} } = await chrome.storage.local.get('hyperrankedItems');
-              hyperrankedItems[idMatch[1]] = Date.now();
-              const cutoff = Date.now() - 60 * 24 * 3600 * 1000;
-              for (const [id, ts] of Object.entries(hyperrankedItems)) {
-                if (ts < cutoff) delete hyperrankedItems[id];
+              hyperrankedItems[idMatch[1]] = { ts, visits: snapshot.visits, followers: snapshot.followers };
+              const cutoff = ts - 60 * 24 * 3600 * 1000;
+              for (const [id, entry] of Object.entries(hyperrankedItems)) {
+                const entryTs = typeof entry === 'number' ? entry : entry?.ts;
+                if (!entryTs || entryTs < cutoff) delete hyperrankedItems[id];
               }
               await chrome.storage.local.set({ hyperrankedItems });
             }
@@ -520,6 +526,34 @@
             keywordsField.value = originalValues.keywords;
           }
         }
+      }
+
+      // Best-effort: fetch the admin SHOW page (edit URL minus /edit) and parse
+      // the "Besöksantal" / "Antal följare" figures out of the Statistik block,
+      // so HYPERRANK can freeze a before-snapshot. Never throws — on any failure
+      // (background fetch error, unexpected markup) returns nulls so the caller
+      // can still log the apply timestamp.
+      async _captureVisitSnapshot() {
+        const result = { visits: null, followers: null };
+        try {
+          const showUrl = window.location.href.replace(/\/edit(?:[/?#].*)?$/, '');
+          const resp = await chrome.runtime.sendMessage({ type: 'fetch-admin-html', url: showUrl });
+          if (!resp || !resp.success || !resp.html) return result;
+
+          // Tolerate arbitrary whitespace/tags (e.g. "<td>Besöksantal</td><td>53 (52 unika)</td>")
+          // between the label and the first integer that follows it.
+          const visitsMatch = resp.html.match(/Bes[öo]ksantal[\s\S]{0,200}?(\d[\d\s]*)/i);
+          if (visitsMatch) {
+            result.visits = parseInt(visitsMatch[1].replace(/\s/g, ''), 10);
+          }
+          const followersMatch = resp.html.match(/Antal f[öo]ljare[\s\S]{0,200}?(\d[\d\s]*)/i);
+          if (followersMatch) {
+            result.followers = parseInt(followersMatch[1].replace(/\s/g, ''), 10);
+          }
+        } catch (e) {
+          console.warn('HYPERRANK visit snapshot failed:', e);
+        }
+        return result;
       }
 
       // Best-effort: fetch live buyer searches from the Dashboard API and match
