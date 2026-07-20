@@ -82,66 +82,8 @@ export class CircularProgressManager {
       }, 100);
     }
     
-    // NEW: Ensure "Förbättra alla" button is present
-    this.ensureImproveAllButton(container);
-    
     // Mark that initial load is complete
     this.isInitialLoad = false;
-  }
-
-  /**
-   * Ensure the "Förbättra alla" button is present in the quality indicator
-   * This preserves the existing functionality after circular progress is added
-   */
-  ensureImproveAllButton(container) {
-    // Check if button already exists
-    const existingButton = container.querySelector('.ai-master-button');
-    
-    if (!existingButton) {
-      
-      // Create the button with the same structure as the original system
-      const button = document.createElement('button');
-      button.className = 'ai-assist-button ai-master-button';
-      button.type = 'button';
-      button.textContent = '⚡ Förbättra alla';
-      
-      // Find the quality-header and append the button there (not to main container)
-      const qualityHeader = container.querySelector('.quality-header');
-      if (qualityHeader) {
-        qualityHeader.appendChild(button);
-      } else {
-        // Fallback: append to main container if no quality-header found
-        container.appendChild(button);
-      }
-      
-      // CRITICAL: Attach event listener to the newly created button
-      this.attachButtonEventListener(button);
-      
-    }
-  }
-
-  /**
-   * Attach event listener to the master button
-   * This ensures the button works even when created dynamically
-   */
-  attachButtonEventListener(button) {
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-
-      // Use the global assistant methods to trigger improvement
-      if (window.assistant && typeof window.assistant.improveAllFields === 'function') {
-        window.assistant.improveAllFields();
-      } else if (window.auctionetAssistant && typeof window.auctionetAssistant.improveAllFields === 'function') {
-        window.auctionetAssistant.improveAllFields();
-      } else if (window.addItemsManager && typeof window.addItemsManager.improveAllFields === 'function') {
-        window.addItemsManager.improveAllFields();
-      } else {
-        // Fallback: dispatch custom event
-        document.dispatchEvent(new CustomEvent('ai-improve-all-requested', {
-          detail: { source: 'circular-progress-manager' }
-        }));
-      }
-    });
   }
 
   /**
