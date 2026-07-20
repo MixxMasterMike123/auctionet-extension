@@ -1,0 +1,17 @@
+name = "sas-hyperrank-api"
+main = "src/index.js"
+compatibility_date = "2026-07-20"
+
+# HYPERRANK experiment data — treatment log + auction outcomes + Räddningslistan
+# A/B controls, merged across pilot machines (Micke + Anders). Previously
+# per-machine chrome.storage.local; this Worker is the shared sync target.
+[[d1_databases]]
+binding = "DB"
+database_name = "sas-hyperrank-db"
+database_id = "6d7d22c7-153f-4185-b9b7-45513507947b" # created 2026-07-20, stadsauktionsundsvall account, EEUR
+
+[observability]
+enabled = true
+
+# Secret (set with `wrangler secret put SYNC_TOKEN`):
+#   SYNC_TOKEN — bearer token both pilot machines send on every sync

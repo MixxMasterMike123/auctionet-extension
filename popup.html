@@ -400,6 +400,28 @@
                 <button id="save-spellcheck-config">Spara stavningsbackend</button>
             </div>
         </details>
+
+        <details class="conn-card" id="card-hyperrank-sync">
+            <summary><span class="conn-dot" id="dot-hyperrank-sync"></span>HYPERRANK-synk</summary>
+            <div class="conn-body">
+                <div class="input-group">
+                    <label for="hyperrank-sync-url">Worker URL:</label>
+                    <input type="text" id="hyperrank-sync-url" placeholder="https://sas-hyperrank-api.micke-016.workers.dev">
+                    <div class="help-text">Slå samman HYPERRANK-experimentets data (behandlingar, utfall, Räddningslistan A/B) mellan pilotdatorer. Förifylld med standard-Workern.</div>
+                </div>
+                <div class="input-group">
+                    <label for="hyperrank-sync-token">Synk-token:</label>
+                    <input type="password" id="hyperrank-sync-token" placeholder="hemlig token...">
+                    <div class="help-text">Samma token som Workerns SYNC_TOKEN-secret. Lagras lokalt, används bara av bakgrundsprocessen.</div>
+                </div>
+                <div class="input-group">
+                    <label for="hyperrank-machine-label">Datornamn:</label>
+                    <input type="text" id="hyperrank-machine-label" placeholder="Micke eller Anders">
+                    <div class="help-text">Märker vilken pilotdator som loggat varje behandling.</div>
+                </div>
+                <button id="save-hyperrank-sync-config">Spara HYPERRANK-synk</button>
+            </div>
+        </details>
     </div>
 
     <!-- ══════════ TAB: ADMIN ══════════ -->

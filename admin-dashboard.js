@@ -1125,7 +1125,7 @@
     };
   }
 
-  function renderHyperrankScoreboard(stats, abComparison) {
+  function renderHyperrankScoreboard(stats, abComparison, { synced = false } = {}) {
     let container = document.querySelector('.ext-hr-scoreboard');
     if (stats.endedWithOutcome === 0) {
       // Nothing recorded yet — stay invisible rather than showing a wall of zeros.
@@ -1155,9 +1155,14 @@
       </div>
     ` : '';
 
+    const syncedHint = synced
+      ? '<span class="ext-hr-scoreboard__synced" title="Sammanslagen data från alla pilotdatorer">🔄 synkad</span>'
+      : '';
+
     container.innerHTML = `
       <div class="ext-hr-scoreboard__header">
         <span class="ext-hr-scoreboard__title">⚡ HYPERRANK-resultat</span>
+        ${syncedHint}
       </div>
       <div class="ext-hr-scoreboard__body">
         <div class="ext-hr-stat"><span class="ext-hr-stat__value">${stats.totalTreated}</span><span class="ext-hr-stat__label">behandlade</span></div>
@@ -1174,7 +1179,38 @@
     }
   }
 
+  // Tries the shared merged backend first (sas-hyperrank-api /aggregate, via
+  // the background proxy so the sync token never reaches this content
+  // script). Falls back to the existing local-only computation, unchanged,
+  // if the backend isn't configured or the request fails for any reason.
+  async function fetchHyperrankAggregate() {
+    const resp = await safeSendMessage({ type: 'hyperrank-sync-fetch', method: 'GET', path: '/aggregate' });
+    if (!resp || !resp.success || !resp.data || !resp.data.ok) return null;
+    const d = resp.data;
+    return {
+      stats: {
+        totalTreated: d.totalTreated,
+        endedWithOutcome: d.endedWithOutcome,
+        gotBidsAfter: d.gotBidsAfter,
+        sold: d.sold,
+        medianRatio: d.medianRatio
+      },
+      abComparison: d.abComparison || null
+    };
+  }
+
   async function initHyperrankScoreboard() {
+    try {
+      const merged = await fetchHyperrankAggregate();
+      if (merged) {
+        renderHyperrankScoreboard(merged.stats, merged.abComparison, { synced: true });
+        return;
+      }
+    } catch (e) {
+      console.warn('[AdminDashboard] HYPERRANK aggregate fetch failed, falling back to local:', e.message);
+    }
+
+    // Fallback: local-only computation (unchanged behavior).
     try {
       const stored = await new Promise(resolve =>
         chrome.storage.local.get(
@@ -1187,7 +1223,7 @@
 
       const stats = computeHyperrankScoreboard(hyperrankedItems, hyperrankOutcomes);
       const abComparison = computeRescueAbComparison(hyperrankOutcomes, rescueObserved, rescueControlOutcomes);
-      renderHyperrankScoreboard(stats, abComparison);
+      renderHyperrankScoreboard(stats, abComparison, { synced: false });
     } catch (e) {
       console.warn('[AdminDashboard] HYPERRANK scoreboard init failed:', e.message);
     }

@@ -19,6 +19,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveOutletConfigButton = document.getElementById('save-outlet-config');
   const spellcheckWorkerUrlInput = document.getElementById('spellcheck-worker-url');
   const saveSpellcheckConfigButton = document.getElementById('save-spellcheck-config');
+  const hyperrankSyncUrlInput = document.getElementById('hyperrank-sync-url');
+  const hyperrankSyncTokenInput = document.getElementById('hyperrank-sync-token');
+  const hyperrankMachineLabelInput = document.getElementById('hyperrank-machine-label');
+  const saveHyperrankSyncConfigButton = document.getElementById('save-hyperrank-sync-config');
 
   const adminUI = document.getElementById('admin-ui');
 
@@ -31,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadDashboardToken();
   await loadOutletConfig();
   await loadSpellcheckConfig();
+  await loadHyperrankSyncConfig();
   await renderAdminUI();
   await initTabs();
   await updateConfigDots();
@@ -48,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   saveDashboardTokenButton.addEventListener('click', saveDashboardToken);
   saveOutletConfigButton.addEventListener('click', saveOutletConfig);
   saveSpellcheckConfigButton.addEventListener('click', saveSpellcheckConfig);
+  saveHyperrankSyncConfigButton.addEventListener('click', saveHyperrankSyncConfig);
   document.getElementById('open-analytics').addEventListener('click', () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('analytics.html') });
   });
@@ -58,7 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearStatus();
   });
   // Refresh the configured-dots shortly after any connection save completes
-  ['save-key', 'save-own-company', 'save-dashboard-token', 'save-outlet-config', 'save-spellcheck-config'].forEach(id => {
+  ['save-key', 'save-own-company', 'save-dashboard-token', 'save-outlet-config', 'save-spellcheck-config', 'save-hyperrank-sync-config'].forEach(id => {
     document.getElementById(id).addEventListener('click', () => setTimeout(updateConfigDots, 400));
   });
 
@@ -90,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function updateConfigDots() {
     try {
-      const local = await chrome.storage.local.get(['anthropicApiKey', 'dashboardApiToken', 'outletApiUrl', 'outletApiToken', 'spellcheckWorkerUrl']);
+      const local = await chrome.storage.local.get(['anthropicApiKey', 'dashboardApiToken', 'outletApiUrl', 'outletApiToken', 'spellcheckWorkerUrl', 'hyperrankSyncToken']);
       const sync = await chrome.storage.sync.get(['ownCompanyId']);
       const setDot = (id, ok) => {
         const el = document.getElementById(id);
@@ -104,6 +110,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       setDot('dot-dashboard', local.dashboardApiToken);
       setDot('dot-outlet', local.outletApiUrl && local.outletApiToken);
       setDot('dot-spellcheck', local.spellcheckWorkerUrl);
+      setDot('dot-hyperrank-sync', local.hyperrankSyncToken);
     } catch (error) {
       console.error('Error updating config indicators:', error);
     }
@@ -697,6 +704,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       saveSpellcheckConfigButton.disabled = false;
       saveSpellcheckConfigButton.textContent = 'Spara stavningsbackend';
+    }
+  }
+
+  // ─── HYPERRANK sync config ───────────────────────────────────
+
+  async function loadHyperrankSyncConfig() {
+    try {
+      const result = await chrome.storage.local.get(['hyperrankSyncUrl', 'hyperrankSyncToken', 'hyperrankMachineLabel']);
+      if (result.hyperrankSyncUrl) hyperrankSyncUrlInput.value = result.hyperrankSyncUrl;
+      if (result.hyperrankSyncToken) hyperrankSyncTokenInput.value = result.hyperrankSyncToken;
+      if (result.hyperrankMachineLabel) hyperrankMachineLabelInput.value = result.hyperrankMachineLabel;
+    } catch (error) {
+      console.error('Error loading HYPERRANK sync config:', error);
+    }
+  }
+
+  async function saveHyperrankSyncConfig() {
+    const url = hyperrankSyncUrlInput.value.trim().replace(/\/$/, '');
+    const token = hyperrankSyncTokenInput.value.trim();
+    const machineLabel = hyperrankMachineLabelInput.value.trim();
+
+    try {
+      saveHyperrankSyncConfigButton.disabled = true;
+      saveHyperrankSyncConfigButton.textContent = 'Sparar...';
+
+      await chrome.storage.local.set({
+        hyperrankSyncUrl: url || '',
+        hyperrankSyncToken: token || '',
+        hyperrankMachineLabel: machineLabel || 'okänd'
+      });
+
+      showStatus(token ? 'HYPERRANK-synk sparad!' : 'HYPERRANK-synk borttagen.', 'success');
+    } catch (error) {
+      showStatus('Fel vid sparande: ' + error.message, 'error');
+    } finally {
+      saveHyperrankSyncConfigButton.disabled = false;
+      saveHyperrankSyncConfigButton.textContent = 'Spara HYPERRANK-synk';
     }
   }
 });

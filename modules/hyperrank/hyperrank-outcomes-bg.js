@@ -240,6 +240,7 @@ export async function collectHyperrankOutcomes() {
   return {
     checked: treatedResult.checked + controlResult.checked,
     recorded: treatedResult.recorded + controlResult.recorded,
+    changed: (treatedResult.recorded + controlResult.recorded) > 0,
     treated: treatedResult,
     control: controlResult
   };
@@ -339,4 +340,111 @@ async function collectRescueControlOutcomes(budget) {
   }
 
   return { checked: budget.fetches - startFetches, recorded };
+}
+
+// ─── Shared-backend sync (Cloudflare Worker + D1) ──────────────────────
+// Pushes the FULL current local state to the sas-hyperrank-api Worker so
+// two pilot machines (Micke + Anders) merge into one dataset instead of
+// each holding a separate chrome.storage.local copy. Fail-soft throughout —
+// no token configured, or the Worker being unreachable, never breaks the
+// local collector; this is purely additive.
+//
+// Uses globalThis.__hyperrankApiFetch, exposed by background.js (same
+// service worker, same pattern as globalThis.__spellcheckFetch for the
+// publication scanner) — keeps the bearer token out of this module.
+const HYPERRANK_MACHINE_LABEL_KEY = 'hyperrankMachineLabel';
+
+function buildTreatmentRows(hyperrankedItems, machine) {
+  return Object.entries(hyperrankedItems).map(([itemId, entry]) => {
+    const isObject = entry && typeof entry === 'object';
+    return {
+      itemId: String(itemId),
+      ts: isObject ? (entry.ts ?? null) : (typeof entry === 'number' ? entry : null),
+      mode: isObject ? (entry.mode ?? null) : null,
+      visits: isObject ? (entry.visits ?? null) : null,
+      followers: isObject ? (entry.followers ?? null) : null,
+      machine
+    };
+  });
+}
+
+function buildOutcomeRows(hyperrankOutcomes, rescueControlOutcomes) {
+  const treated = Object.entries(hyperrankOutcomes).map(([itemId, o]) => ({
+    itemId: String(itemId),
+    arm: 'treated',
+    endedAt: o.endedAt ?? null,
+    sold: !!o.sold,
+    inferredUnsold: !!o.inferredUnsold,
+    lost: !!o.lost,
+    finalBidCount: o.finalBidCount ?? null,
+    bidsAfterHyperrank: o.bidsAfterHyperrank ?? null,
+    highestBid: o.highestBid ?? null,
+    estimate: o.estimate ?? null,
+    recordedAt: o.checkedAt ?? o.hyperrankTs ?? Date.now()
+  }));
+  const control = Object.entries(rescueControlOutcomes).map(([itemId, o]) => ({
+    itemId: String(itemId),
+    arm: 'control',
+    endedAt: o.endedAt ?? null,
+    sold: !!o.sold,
+    inferredUnsold: !!o.inferredUnsold,
+    lost: !!o.lost,
+    finalBidCount: o.finalBidCount ?? null,
+    bidsAfterHyperrank: null,
+    highestBid: o.highestBid ?? null,
+    estimate: o.estimate ?? null,
+    recordedAt: o.checkedAt ?? Date.now()
+  }));
+  return [...treated, ...control];
+}
+
+function buildRescueObservedRows(rescueObserved) {
+  return Object.entries(rescueObserved).map(([itemId, entry]) => ({
+    itemId: String(itemId),
+    firstSeenTs: entry?.firstSeenTs ?? null,
+    endsAt: entry?.endsAt ?? null,
+    estimate: entry?.estimate ?? null,
+    parity: entry?.parity ?? null
+  }));
+}
+
+// Pushes the full current local state through the sync. Skips silently if
+// no token is configured (checked indirectly via the fetch throwing) or if
+// the Worker call fails for any reason — this must never surface an error
+// to the alarm-driven caller.
+export async function syncHyperrankData() {
+  if (typeof globalThis.__hyperrankApiFetch !== 'function') return { skipped: true };
+
+  try {
+    const stored = await chrome.storage.local.get([
+      HYPERRANK_ITEMS_KEY,
+      HYPERRANK_OUTCOMES_KEY,
+      RESCUE_OBSERVED_KEY,
+      RESCUE_CONTROL_OUTCOMES_KEY,
+      HYPERRANK_MACHINE_LABEL_KEY
+    ]);
+    const hyperrankedItems = stored[HYPERRANK_ITEMS_KEY] || {};
+    const hyperrankOutcomes = stored[HYPERRANK_OUTCOMES_KEY] || {};
+    const rescueObserved = stored[RESCUE_OBSERVED_KEY] || {};
+    const rescueControlOutcomes = stored[RESCUE_CONTROL_OUTCOMES_KEY] || {};
+    const machine = stored[HYPERRANK_MACHINE_LABEL_KEY] || 'okänd';
+
+    const payload = {
+      treatments: buildTreatmentRows(hyperrankedItems, machine),
+      outcomes: buildOutcomeRows(hyperrankOutcomes, rescueControlOutcomes),
+      rescueObserved: buildRescueObservedRows(rescueObserved)
+    };
+
+    // Nothing to push — skip the network call entirely.
+    if (payload.treatments.length === 0 && payload.outcomes.length === 0 && payload.rescueObserved.length === 0) {
+      return { skipped: true };
+    }
+
+    return await globalThis.__hyperrankApiFetch('POST', '/sync', payload);
+  } catch (e) {
+    // No token configured throws 'HYPERRANK-synk ej konfigurerad' — treat
+    // that the same as any other fail-soft skip.
+    console.warn('[HyperrankOutcomes] Sync push skipped/failed:', e.message);
+    return { skipped: true, error: e.message };
+  }
 }
