@@ -440,6 +440,16 @@ const DESCRIPTION_FIELD_SEPARATION_RULES = `FÄLTAVGRÄNSNING FÖR BESKRIVNING:
 • BEHÅLL: "höjd 15,5 cm", "4 snapsglas", "2 vinglas", "består av", "bestående av" - detta är beskrivande information
 • TA ENDAST BORT konditionsord som "slitage", "repor", "skador" - ALDRIG mått eller kvantiteter
 
+STRUKTUR — MÅTT PÅ EGEN RAD (gäller ALLTID):
+• Beskrivningen ska ha två delar åtskilda av en TOM RAD: först själva
+  beskrivningen av föremålet (material, teknik, stil, ursprung, märkningar),
+  därefter måtten på en EGEN rad sist
+• Exempel:
+  "Köksvåg tillverkad av Jernbolaget i Eskilstuna.
+
+  Längd 24 cm, bredd 12 cm, höjd 26 cm."
+• Blanda ALDRIG in mått mitt i beskrivningstexten — flytta dem alltid till måttraden sist
+
 BEVARA LISTFORMAT I BESKRIVNING — KRITISKT:
 • Om originalbeskrivningen har en rad per del/föremål med mått — BEHÅLL radbrytningarna
 • Slå INTE ihop listor till en enda kommaseparerad mening — det förstör läsbarheten
