@@ -609,6 +609,59 @@
   background: #fafbfc;
 }
 
+/* ─── HYPERRANK Scoreboard ────────────────────────────────────────── */
+.ext-hr-scoreboard {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.ext-hr-scoreboard__header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafbfc;
+}
+
+.ext-hr-scoreboard__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.ext-hr-scoreboard__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.ext-hr-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 8px 12px;
+  background: #fafbfc;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+}
+
+.ext-hr-stat__value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.ext-hr-stat__label {
+  font-size: 10px;
+  color: #888;
+  text-align: center;
+  margin-top: 2px;
+}
+
 /* ─── Warehouse Costs (card) ─────────────────────────────────────── */
 .ext-warehouse {
   margin-bottom: 16px;

@@ -974,6 +974,99 @@
     }
   }
 
+  // ─── 7c. HYPERRANK-resultat (Scoreboard) ───────────────────────────
+  // Compact aggregate of outcomes collected by the background alarm
+  // (modules/hyperrank/hyperrank-outcomes-bg.js, chrome.storage.local key
+  // `hyperrankOutcomes`). Per-machine pilot data only — see that module's
+  // header comment for the future shared-backend note. Only rendered once
+  // there is at least one recorded outcome, so it stays invisible until the
+  // collector has actually produced data.
+
+  function insertHyperrankScoreboardContainer(node) {
+    const rescue = document.querySelector('.ext-rescue');
+    if (rescue && rescue.parentNode) {
+      rescue.parentNode.insertBefore(node, rescue.nextSibling);
+      return true;
+    }
+    // Fall back to the same anchor Räddningslistan itself uses.
+    return insertRescueContainer(node);
+  }
+
+  // sv-SE comma formatting for a ratio, e.g. 1.4 -> "1,4"
+  function formatRatioSv(n) {
+    return n.toLocaleString('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+
+  function median(values) {
+    if (values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
+  function computeHyperrankScoreboard(hyperrankedItems, hyperrankOutcomes) {
+    const totalTreated = Object.keys(hyperrankedItems).length;
+    const outcomeEntries = Object.values(hyperrankOutcomes).filter(o => !o.lost);
+    const endedWithOutcome = outcomeEntries.length;
+    const gotBidsAfter = outcomeEntries.filter(o => typeof o.bidsAfterHyperrank === 'number' && o.bidsAfterHyperrank > 0).length;
+    const sold = outcomeEntries.filter(o => o.sold).length;
+
+    const ratios = outcomeEntries
+      .filter(o => typeof o.highestBid === 'number' && o.highestBid > 0 && typeof o.estimate === 'number' && o.estimate > 0)
+      .map(o => o.highestBid / o.estimate);
+    const medianRatio = median(ratios);
+
+    return { totalTreated, endedWithOutcome, gotBidsAfter, sold, medianRatio };
+  }
+
+  function renderHyperrankScoreboard(stats) {
+    let container = document.querySelector('.ext-hr-scoreboard');
+    if (stats.endedWithOutcome === 0) {
+      // Nothing recorded yet — stay invisible rather than showing a wall of zeros.
+      if (container) container.remove();
+      return;
+    }
+
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'ext-hr-scoreboard ext-animate-in';
+    }
+
+    const ratioTile = stats.medianRatio !== null
+      ? `<div class="ext-hr-stat"><span class="ext-hr-stat__value">${escapeHTML(formatRatioSv(stats.medianRatio))}×</span><span class="ext-hr-stat__label">utrop (median)</span></div>`
+      : '';
+
+    container.innerHTML = `
+      <div class="ext-hr-scoreboard__header">
+        <span class="ext-hr-scoreboard__title">⚡ HYPERRANK-resultat</span>
+      </div>
+      <div class="ext-hr-scoreboard__body">
+        <div class="ext-hr-stat"><span class="ext-hr-stat__value">${stats.totalTreated}</span><span class="ext-hr-stat__label">behandlade</span></div>
+        <div class="ext-hr-stat"><span class="ext-hr-stat__value">${stats.endedWithOutcome}</span><span class="ext-hr-stat__label">avslutade</span></div>
+        <div class="ext-hr-stat"><span class="ext-hr-stat__value">${stats.gotBidsAfter}</span><span class="ext-hr-stat__label">fick bud efter</span></div>
+        <div class="ext-hr-stat"><span class="ext-hr-stat__value">${stats.sold}</span><span class="ext-hr-stat__label">sålda</span></div>
+        ${ratioTile}
+      </div>
+    `;
+
+    if (!container.parentNode) {
+      insertHyperrankScoreboardContainer(container);
+    }
+  }
+
+  async function initHyperrankScoreboard() {
+    try {
+      const stored = await new Promise(resolve =>
+        chrome.storage.local.get(['hyperrankedItems', 'hyperrankOutcomes'], r => resolve(r)));
+      const hyperrankedItems = stored.hyperrankedItems || {};
+      const hyperrankOutcomes = stored.hyperrankOutcomes || {};
+      const stats = computeHyperrankScoreboard(hyperrankedItems, hyperrankOutcomes);
+      renderHyperrankScoreboard(stats);
+    } catch (e) {
+      console.warn('[AdminDashboard] HYPERRANK scoreboard init failed:', e.message);
+    }
+  }
+
   // ─── 8. Publication Queue Scanner ────────────────────────────────
 
   // Scan logic runs in background service worker (publication-scanner-bg.js).
@@ -2163,6 +2256,7 @@
   let hasRenderedKPI = false;
   let hasRenderedComments = false;
   let hasStartedRescueList = false;
+  let hasStartedHyperrankScoreboard = false;
   let hasStartedWarehouseFetch = false;
   let hasStartedPublicationScan = false;
   let hasRenderedDashboardAPI = false;
@@ -2199,6 +2293,14 @@
       if (!hasStartedRescueList && hasRenderedKPI) {
         hasStartedRescueList = true;
         initRescueList();
+      }
+
+      // HYPERRANK scoreboard — reads from local storage only (no network
+      // beyond what the background alarm already did), so start it right
+      // alongside the rescue list; it anchors after Räddningslistan itself.
+      if (!hasStartedHyperrankScoreboard && hasStartedRescueList) {
+        hasStartedHyperrankScoreboard = true;
+        initHyperrankScoreboard();
       }
 
       // Make Auctionet's "Datainsikter" Metabase embed collapsible (collapsed
@@ -2243,8 +2345,9 @@
 
       // Stop observing once everything has rendered
       if (hasRenderedKPI && hasRenderedComments && hasStartedRescueList &&
-          hasStartedWarehouseFetch && hasStartedPublicationScan &&
-          hasRenderedDashboardAPI && hasMadeDatainsikterCollapsible) {
+          hasStartedHyperrankScoreboard && hasStartedWarehouseFetch &&
+          hasStartedPublicationScan && hasRenderedDashboardAPI &&
+          hasMadeDatainsikterCollapsible) {
         observer.disconnect();
       }
     });

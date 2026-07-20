@@ -1,4 +1,5 @@
 import { runBackgroundPublicationScan, recheckStickyErrors, PUB_SCAN_STICKY_KEY } from './publication-scanner-bg.js';
+import { collectHyperrankOutcomes } from './modules/hyperrank/hyperrank-outcomes-bg.js';
 
 // Background script startup
 
@@ -34,6 +35,11 @@ chrome.alarms.get('stickyErrorRecheck').then(existing => {
 chrome.alarms.get('dashboardSearchSnapshot').then(existing => {
   if (!existing) chrome.alarms.create('dashboardSearchSnapshot', { delayInMinutes: 10, periodInMinutes: 60 });
 });
+// HYPERRANK outcome collection — every 6 hours is plenty since auctions run
+// for days; keeps API load light while still catching endings same-day.
+chrome.alarms.get('hyperrankOutcomeCollection').then(existing => {
+  if (!existing) chrome.alarms.create('hyperrankOutcomeCollection', { delayInMinutes: 15, periodInMinutes: 360 });
+});
 
 // Run an initial scan on extension install or update so data is fresh immediately
 chrome.runtime.onInstalled.addListener(() => {
@@ -47,6 +53,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     runStickyRecheckAndNotify();
   } else if (alarm.name === 'dashboardSearchSnapshot') {
     captureDashboardSearchSnapshot();
+  } else if (alarm.name === 'hyperrankOutcomeCollection') {
+    collectHyperrankOutcomes().catch(e => console.warn('[Background] Hyperrank outcome collection failed:', e.message));
   }
 });
 
