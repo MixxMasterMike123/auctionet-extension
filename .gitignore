@@ -50,3 +50,7 @@ build/
 .token.local
 *.token.local
 workers/**/.token.local
+
+# Wrangler local state (build artifacts, local dev caches)
+.wrangler/
+workers/**/.wrangler/
