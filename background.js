@@ -58,13 +58,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     captureDashboardSearchSnapshot();
   } else if (alarm.name === 'hyperrankOutcomeCollection') {
     collectHyperrankOutcomes()
-      .then(result => {
-        if (result?.changed) {
-          // Fire-and-forget: push the full local state to the shared backend.
-          // Fail-soft (no token configured, network down, etc. never breaks
-          // the local collector).
-          syncHyperrankData().catch(e => console.warn('[Background] HYPERRANK sync push failed:', e.message));
-        }
+      .then(() => {
+        // Push the full local state every run, not only on changes — data
+        // collected before the sync backend existed (or before the token was
+        // configured) must still reach the shared D1. Cheap: one POST / 6h.
+        // Fail-soft (no token configured, network down, etc. never breaks
+        // the local collector).
+        syncHyperrankData().catch(e => console.warn('[Background] HYPERRANK sync push failed:', e.message));
       })
       .catch(e => console.warn('[Background] Hyperrank outcome collection failed:', e.message));
   }

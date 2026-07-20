@@ -1202,7 +1202,9 @@
   async function initHyperrankScoreboard() {
     try {
       const merged = await fetchHyperrankAggregate();
-      if (merged) {
+      // An empty server (nothing synced yet) must never hide real local data —
+      // only prefer the merged view when it actually contains something.
+      if (merged && merged.stats && merged.stats.totalTreated > 0) {
         renderHyperrankScoreboard(merged.stats, merged.abComparison, { synced: true });
         return;
       }
