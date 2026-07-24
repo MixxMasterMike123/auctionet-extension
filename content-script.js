@@ -387,6 +387,34 @@
           return;
         }
 
+        // A/B protocol guard: odd-item-id rescue candidates are the control arm
+        // and should stay untouched. Warn before hyperranking one; a confirmed
+        // override is recorded as protocolViolation on the rescueObserved entry
+        // so the analysis can exclude it (compliance stat, not a hard block —
+        // sometimes a valuable dying item outweighs data purity).
+        try {
+          const idMatch = window.location.pathname.match(/\/items\/(\d+)/);
+          if (idMatch) {
+            const { rescueObserved = {} } = await chrome.storage.local.get('rescueObserved');
+            const entry = rescueObserved[idMatch[1]];
+            if (entry && entry.parity === 'control' && !entry.protocolViolation) {
+              const proceed = window.confirm(
+                'Det här föremålet är ett KONTROLLFÖREMÅL i HYPERRANK-experimentet (udda item-id) och ska enligt protokollet lämnas orört.\n\n' +
+                'Hyperranka ändå? Föremålet loggas då som protokollavvikelse och räknas bort ur experimentet.'
+              );
+              if (!proceed) {
+                this.hyperrankUI.setStatus('Avbrutet — kontrollföremål lämnat orört. 👍', 'info');
+                return;
+              }
+              entry.protocolViolation = true;
+              entry.violationTs = Date.now();
+              await chrome.storage.local.set({ rescueObserved });
+            }
+          }
+        } catch (e) {
+          console.warn('HYPERRANK control-guard check failed:', e);
+        }
+
         this.hyperrankUI.setStatus('Analyserar föremål...', 'info');
 
         const itemData = this.dataExtractor.extractItemData();

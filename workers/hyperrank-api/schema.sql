@@ -31,5 +31,17 @@ CREATE TABLE IF NOT EXISTS rescue_observed (
   first_seen_ts INTEGER,
   ends_at      INTEGER,
   estimate     INTEGER,
-  parity       TEXT
+  parity       TEXT,
+  -- 1 = a control-parity item was deliberately hyperranked anyway (edit-page
+  -- guard override). Excluded from both arms of the A/B comparison.
+  protocol_violation INTEGER DEFAULT 0,
+  -- Lives observed beyond the first: bumped when the item reappears on
+  -- Räddningslistan with an ends_at >24h past the stored one (unsold items
+  -- relist up to 3× under the SAME id, reserve may drop). Only rescue-window
+  -- re-entries are counted. Feeds relist sell-rate / storage-cost analysis.
+  relist_count INTEGER DEFAULT 0
 );
+
+-- Migrations for pre-existing deployments (run once each):
+--   ALTER TABLE rescue_observed ADD COLUMN protocol_violation INTEGER DEFAULT 0;  (applied 2026-07-22)
+--   ALTER TABLE rescue_observed ADD COLUMN relist_count INTEGER DEFAULT 0;        (applied 2026-07-23)

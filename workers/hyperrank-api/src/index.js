@@ -123,20 +123,27 @@ async function upsertRescueObserved(db, rows) {
     .map((r) =>
       db
         .prepare(
-          `INSERT INTO rescue_observed (item_id, first_seen_ts, ends_at, estimate, parity)
-           VALUES (?, ?, ?, ?, ?)
+          `INSERT INTO rescue_observed (item_id, first_seen_ts, ends_at, estimate, parity, protocol_violation, relist_count)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(item_id) DO UPDATE SET
              first_seen_ts = excluded.first_seen_ts,
              ends_at = excluded.ends_at,
              estimate = excluded.estimate,
-             parity = excluded.parity`
+             parity = excluded.parity,
+             -- sticky/max: once flagged as a violation never un-flag, and keep the
+             -- highest life-count any machine has observed (another machine's
+             -- sync won't know about this one's override or observed relists)
+             protocol_violation = MAX(IFNULL(rescue_observed.protocol_violation, 0), excluded.protocol_violation),
+             relist_count = MAX(IFNULL(rescue_observed.relist_count, 0), excluded.relist_count)`
         )
         .bind(
           String(r.itemId),
           Number.isFinite(r.firstSeenTs) ? r.firstSeenTs : null,
           Number.isFinite(r.endsAt) ? r.endsAt : null,
           Number.isFinite(r.estimate) ? r.estimate : null,
-          r.parity ?? null
+          r.parity ?? null,
+          r.protocolViolation ? 1 : 0,
+          Number.isFinite(r.relistCount) ? r.relistCount : 0
         )
     );
   if (stmts.length === 0) return 0;
@@ -192,11 +199,21 @@ async function handleAggregate(db) {
   // rescue_observed; control-side = arm='control'. Same counting rules as the
   // extension (lost excluded already above; inferred_unsold counts as
   // ended+unsold, i.e. included in the denominator, excluded from `sold`).
-  const rescueObservedRows = (await db.prepare('SELECT item_id FROM rescue_observed').all()).results;
-  const rescueObservedIds = new Set(rescueObservedRows.map((r) => r.item_id));
+  // Protocol violations (control items hyperranked anyway) are excluded from
+  // BOTH arms: they were assigned to control but no longer represent "no
+  // intervention", and they weren't randomly assigned to treat either.
+  const rescueObservedRows = (
+    await db.prepare('SELECT item_id, protocol_violation FROM rescue_observed').all()
+  ).results;
+  const rescueObservedIds = new Set(
+    rescueObservedRows.filter((r) => !r.protocol_violation).map((r) => r.item_id)
+  );
+  const violatedIds = new Set(
+    rescueObservedRows.filter((r) => !!r.protocol_violation).map((r) => r.item_id)
+  );
 
   const abTreated = treatedOutcomes.filter((o) => rescueObservedIds.has(o.item_id));
-  const abControl = controlOutcomes;
+  const abControl = controlOutcomes.filter((o) => !violatedIds.has(o.item_id));
 
   let abComparison = null;
   if (abTreated.length > 0 && abControl.length > 0) {

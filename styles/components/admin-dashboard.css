@@ -482,6 +482,7 @@
 
 /* ─── Räddningslistan (Rescue List) ──────────────────────────────── */
 .ext-rescue {
+  width: 100%;
   background: #fff;
   border: 1px solid #e9ecef;
   border-radius: 4px;
@@ -521,11 +522,6 @@
   color: #999;
   text-align: center;
   padding: 16px;
-}
-
-.ext-rescue__list {
-  max-height: 400px;
-  overflow-y: auto;
 }
 
 .ext-rescue-item {
@@ -578,17 +574,30 @@
   white-space: nowrap;
 }
 
-.ext-rescue__more {
-  font-size: 11px;
-  color: #006ccc;
-  text-align: center;
-  padding: 8px 0;
-  cursor: pointer;
-  user-select: none;
+/* Control-arm rows: still clickable (normal admin work is fine) but visually
+   deprioritized so attention lands on the ⚡ förslag rows. */
+.ext-rescue-item--control {
+  opacity: 0.5;
 }
 
-.ext-rescue__more:hover {
-  text-decoration: underline;
+.ext-rescue-item--control:hover {
+  opacity: 1;
+}
+
+.ext-rescue-item__live {
+  font-size: 11px;
+  font-weight: 600;
+  color: #006ccc;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border: 1px solid #cfe3f7;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ext-rescue-item__live:hover {
+  background: #e3f0fc;
+  border-color: #9fc8ef;
 }
 
 .ext-rescue-item__done {
@@ -695,31 +704,64 @@
   margin-top: 2px;
 }
 
-/* ─── Räddningslistan A/B comparison row ─────────────────────────── */
-.ext-hr-ab {
-  padding: 8px 16px 12px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.ext-hr-ab__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-  padding: 3px 0;
-}
-
-.ext-hr-ab__label {
+/* ─── Räddningslistan A/B section (tiles + analysis) ─────────────── */
+.ext-hr-scoreboard__section {
+  font-size: 11px;
+  font-weight: 600;
   color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 10px 16px 0;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 4px;
 }
 
-.ext-hr-ab__label--treat {
+.ext-hr-scoreboard__section:first-of-type {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 4px;
+}
+
+.ext-hr-scoreboard__sectionhint {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #999;
+}
+
+.ext-hr-stat__sub {
+  font-size: 10px;
+  color: #999;
+  margin-top: 1px;
+}
+
+.ext-hr-stat--treat .ext-hr-stat__value {
   color: #b45309;
 }
 
-.ext-hr-ab__value {
-  font-weight: 600;
-  color: #333;
+.ext-hr-stat--treat {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.ext-hr-stat--control .ext-hr-stat__value {
+  color: #64748b;
+}
+
+.ext-hr-stat--control {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.ext-hr-analysis {
+  padding: 8px 16px 12px;
+}
+
+.ext-hr-analysis__line {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.45;
+  padding: 3px 0;
 }
 
 /* ─── Warehouse Costs (card) ─────────────────────────────────────── */

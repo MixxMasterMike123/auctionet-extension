@@ -1,6 +1,10 @@
 name = "sas-hyperrank-api"
 main = "src/index.js"
 compatibility_date = "2026-07-20"
+# Micke@stadsauktionsundsvall.se's account — this project MUST deploy here.
+# NOTE: ~/.zshenv exports CLOUDFLARE_API_TOKEN/ACCOUNT_ID for the IGP company
+# account; always run wrangler as: env -u CLOUDFLARE_API_TOKEN -u CLOUDFLARE_ACCOUNT_ID npx wrangler ...
+account_id = "0166298082f7490c580488da481ecc09"
 
 # HYPERRANK experiment data — treatment log + auction outcomes + Räddningslistan
 # A/B controls, merged across pilot machines (Micke + Anders). Previously
@@ -8,7 +12,7 @@ compatibility_date = "2026-07-20"
 [[d1_databases]]
 binding = "DB"
 database_name = "sas-hyperrank-db"
-database_id = "6d7d22c7-153f-4185-b9b7-45513507947b" # created 2026-07-20, stadsauktionsundsvall account, EEUR
+database_id = "6d7d22c7-153f-4185-b9b7-45513507947b" # created 2026-07-20, Micke@stadsauktionsundsvall.se account, EEUR
 
 [observability]
 enabled = true

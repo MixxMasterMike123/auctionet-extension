@@ -155,11 +155,11 @@ async function processPendingEntry(itemId, entry, outcomes, budget) {
       }
       // else: still live — skip, retry next run.
     } else {
-      // Not found anywhere. Sold items surface in the is=ended archive;
-      // unsold ones are dropped from the public API entirely. After the
-      // 45-day window (any auction has long ended, and a sale would have
-      // been indexed) record inferred-unsold so the sold-rate isn't biased
-      // toward found (= sold) outcomes. 90 days = give up entirely.
+      // Not found anywhere. Ended items usually surface in the is=ended
+      // archive (state 'sold' OR 'unsold' — verified 2026-07-24), but items
+      // can still drop out of the public API (withdrawn, relist gap, archive
+      // lag). After the 45-day window record inferred-unsold so the sold-rate
+      // isn't biased toward found (= mostly sold) outcomes. 90 days = give up.
       if (hyperrankTs && (Date.now() - hyperrankTs) > LOST_AFTER_MS) {
         outcomes[itemId] = { itemId: String(itemId), lost: true, checkedAt: Date.now() };
         budget.recorded++;
@@ -208,12 +208,30 @@ export async function collectHyperrankOutcomes() {
 
     const pending = Object.entries(hyperrankedItems).filter(([itemId]) => !outcomes[itemId]);
 
+    // Fair-share guard: reserve up to half the budget for the control pass when
+    // it has ended items waiting. With a long treated backlog, "controls get
+    // the leftovers" starved them indefinitely (observed 2026-07-24: 17 ended
+    // controls, 0 recorded, while ~80 pending treated ate every run's budget).
+    let controlReserve = 0;
+    try {
+      const cStored = await chrome.storage.local.get([RESCUE_OBSERVED_KEY, RESCUE_CONTROL_OUTCOMES_KEY]);
+      const cObserved = cStored[RESCUE_OBSERVED_KEY] || {};
+      const cOutcomes = cStored[RESCUE_CONTROL_OUTCOMES_KEY] || {};
+      const nowTs = Date.now();
+      const controlsPending = Object.entries(cObserved).filter(([id, e]) =>
+        !cOutcomes[id] && !hyperrankedItems[id]
+        && e && typeof e.endsAt === 'number' && e.endsAt <= nowTs).length;
+      controlReserve = Math.min(controlsPending, Math.floor(MAX_FETCHES_PER_RUN / 2));
+    } catch (e) {
+      console.warn('[HyperrankOutcomes] Control-reserve check failed:', e.message);
+    }
+
     if (pending.length > 0) {
       const startFetches = budget.fetches;
       let changed = false;
 
       for (const [itemId, entry] of pending) {
-        if (budgetRemaining(budget) <= 0) break;
+        if (budgetRemaining(budget) <= controlReserve) break;
         const spent = await processPendingEntry(itemId, entry, outcomes, budget);
         if (budget.changed) changed = true;
         if (spent && budgetRemaining(budget) > 0) {
@@ -404,7 +422,9 @@ function buildRescueObservedRows(rescueObserved) {
     firstSeenTs: entry?.firstSeenTs ?? null,
     endsAt: entry?.endsAt ?? null,
     estimate: entry?.estimate ?? null,
-    parity: entry?.parity ?? null
+    parity: entry?.parity ?? null,
+    protocolViolation: !!entry?.protocolViolation,
+    relistCount: Number.isFinite(entry?.relistCount) ? entry.relistCount : 0
   }));
 }
 
