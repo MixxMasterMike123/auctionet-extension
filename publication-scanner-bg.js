@@ -91,8 +91,14 @@ async function closeOffscreen() {
   offscreenReady = false;
 }
 
-// Send a parse request to the offscreen document and return the result
-function sendParseRequest(type, html) {
+// Send a parse request to the offscreen document and return the result.
+// Retries on "message port closed" — that error means the offscreen document
+// wasn't listening: either createDocument() resolved before offscreen.js
+// registered its onMessage listener (cold-start race), or Chrome tore the
+// document down mid-scan while our offscreenReady flag still said ready.
+// Between attempts the flag is dropped so ensureOffscreen() re-checks reality
+// via getContexts() and recreates the document if it is actually gone.
+function sendParseRequestOnce(type, html) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({ target: 'offscreen', type, html }, (response) => {
       if (chrome.runtime.lastError) {
@@ -102,6 +108,28 @@ function sendParseRequest(type, html) {
       }
     });
   });
+}
+
+async function sendParseRequest(type, html) {
+  const MAX_ATTEMPTS = 3;
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await sendParseRequestOnce(type, html);
+    } catch (error) {
+      lastError = error;
+      if (attempt === MAX_ATTEMPTS) break;
+      console.warn(`[PubScanBG] Parse request "${type}" failed (attempt ${attempt}/${MAX_ATTEMPTS}), recreating offscreen doc:`, error.message);
+      offscreenReady = false;
+      await new Promise(r => setTimeout(r, 150 * attempt));
+      try {
+        await ensureOffscreen();
+      } catch (e) {
+        console.warn('[PubScanBG] ensureOffscreen retry failed:', e.message);
+      }
+    }
+  }
+  throw lastError;
 }
 
 // ─── HTML fetching ──────────────────────────────────────────────────
