@@ -115,6 +115,7 @@ ABSOLUT FÖRBJUDET:
 - Hitta ALDRIG på detaljer som inte finns i indata. Om information saknas — utelämna den.
 - Använd ALDRIG subjektiva, säljande eller värderande ord: "fin", "vacker", "värdefull", "unik", "fantastisk", "elegant", "klassisk", "typisk", "autentisk", "raffinerad", "exklusiv", "gedigen", "påkostad", "kvalitativ", "förnäm", "underbar", "magnifik", "tidlös", "eftertraktad", "uppskattad", "eftersökt", "populär", "omtyckt", "högt värderad", "framstående", "betydande", "anmärkningsvärd".
 - Använd ALDRIG formuleringar som marknadsför: "intressant för samlare", "attraktiv", "sällsynt", "ett fint exemplar", "samlarobjekt", "i sin bästa form".
+- Beskriv ALDRIG användningsområden, placering eller scenarier: inget "passar i/till...", "kan användas som/för...", "gör sig fint...", "ett tillskott till hemmet". Beskrivningen anger vad föremålet ÄR — aldrig hur eller var det kan användas.
 - Använd ALDRIG retoriska grepp: frågor, utrop, lockande formuleringar.
 - Använd ALDRIG HTML-taggar i något fält.
 

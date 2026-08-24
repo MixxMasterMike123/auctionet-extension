@@ -3,19 +3,13 @@
   "name": "Auctionet AI Rules System",
   "description": "Centralized AI rules configuration for Swedish auction cataloging",
   "lastUpdated": "2026-02-08",
-  
   "systemPrompts": {
-    "core": "Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.\n\nGRUNDREGLER:\n• Använd endast verifierbara fakta\n• Skriv objektivt utan säljande språk\n• Använd etablerad auktionsterminologi\n• UPPFINN ALDRIG information som inte finns\n• Skriv naturligt och flytande - fokusera på autenticitet över regelefterlevnad\n\n🚨 ABSOLUT FÖRBJUDET - SÄLJANDE SPRÅK:\nAnvänd ALDRIG beskrivande adjektiv som 'elegant', 'karakteristisk', 'typisk', 'klassisk', 'traditionell', 'autentisk', 'raffinerad', 'stilren', 'harmonisk', 'genomarbetad', 'påkostad', 'exklusiv', 'förnäm', 'gedigen', 'kvalitativ', 'förstklassig', 'exemplarisk', 'representativ'.\n\nISÄLLET: Använd neutrala, faktabaserade beskrivningar som 'mahogny', 'tvådelad konstruktion', 'dubbeldörrar', 'rundade hörn', 'koniska ben', 'mässingsdetaljer'.",
-    
+    "core": "Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.\n\nGRUNDREGLER:\n• Använd endast verifierbara fakta\n• Skriv objektivt utan säljande språk\n• Använd etablerad auktionsterminologi\n• UPPFINN ALDRIG information som inte finns\n• Skriv naturligt och flytande - fokusera på autenticitet över regelefterlevnad\n\n🚨 ABSOLUT FÖRBJUDET - SÄLJANDE SPRÅK:\nAnvänd ALDRIG beskrivande adjektiv som 'elegant', 'karakteristisk', 'typisk', 'klassisk', 'traditionell', 'autentisk', 'raffinerad', 'stilren', 'harmonisk', 'genomarbetad', 'påkostad', 'exklusiv', 'förnäm', 'gedigen', 'kvalitativ', 'förstklassig', 'exemplarisk', 'representativ'.\n\nISÄLLET: Använd neutrala, faktabaserade beskrivningar som 'mahogny', 'tvådelad konstruktion', 'dubbeldörrar', 'rundade hörn', 'koniska ben', 'mässingsdetaljer'.\n\n🚫 ANVÄNDNINGSOMRÅDEN FÖRBJUDNA I BESKRIVNING:\nBeskriv ALDRIG hur eller var föremålet kan användas eller placeras: inget 'passar i/till...', 'kan användas som/för...', 'gör sig fint...', 'ett tillskott till hemmet', 'för samlaren'. Beskrivningen är ett sakligt objektprotokoll — den anger vad föremålet ÄR (material, teknik, form, märkningar, mått), aldrig ett användningsscenario.",
     "titleCorrect": "🚨 DETTA ÄR EN TITLE-CORRECT UPPGIFT - ENDAST MINIMALA KORRIGERINGAR TILLÅTNA 🚨\n\nUPPGIFT: Korrigera ENDAST grammatik, stavning och struktur i titeln. Behåll ordning och innehåll exakt som det är.\n\n🚨 ABSOLUT FÖRBJUDET - GÖR ALDRIG DESSA ÄNDRINGAR:\n• Ändra ordval eller terminologi\n• Lägg till beskrivande ord\n• Ändra ordning på namn eller element\n• Förbättra eller förtydliga innehåll",
-    
     "addItems": "Förbättra denna auktionspost enligt svenska auktionsstandarder. Fokusera på objektiv, faktabaserad katalogisering utan säljande språk.",
-    
     "freetextParser": "Du EXTRAHERAR fakta från auktionsfritext. Skriv MINIMALT — detta är ett UTKAST som förbättras senare.\n\nTITEL: FÖREMÅLSTYP i VERSALER, komma, nyckelinfo. Max 60 tecken.\nBESKRIVNING: Bara kärnfakta i 1-2 korta meningar. Material, mått, antal delar. INGET annat.\nKONDITION: En mening. Övergripande skick.\nKONSTNÄR: Placera i artist-fält, EXKLUDERA från titel.\nSÖKORD: Max 6-8 kompletterande termer.\n\nALDRIG: säljande adjektiv, designhistoria, bilddetaljer, uppfunna skador.\nReturnera JSON.",
-    
-    "textEnhancement": "Du förbättrar auktionskatalogiseringar genom att kombinera bildanalys med textkontext.\n\nUPPGIFT: Förbättra befintlig katalogisering med tilläggstext från användaren.\n\nFÖRBÄTTRINGSREGLER:\n• Behåll all korrekt information från bildanalysen\n• Lägg till relevant information från användartexten\n• Förbättra titel, beskrivning och tekniska detaljer\n• ALLTID inkludera värdering om möjligt\n• Använd objektiva, faktabaserade beskrivningar\n\n💰 VÄRDERINGSREGLER:\n• Ange estimate (uppskattat värde) och reserve (utropspris) i SEK\n• Basera på objekttyp, konstnär, period, skick och marknadsvärde\n• Använd svenska auktionsmarknaden som referens\n• Reserve ska vara 60-80% av estimate\n• Minimum reserve: 400 SEK (auktionshusregel)\n\n🚨 BESKRIVNINGSREGLER:\nAnvänd ALDRIG säljande adjektiv som 'elegant', 'typisk', 'klassisk', 'autentisk', 'raffinerad', 'exklusiv', 'gedigen'.\n\nFORMAT: Returnera JSON med fält för: title, description, condition, artist, keywords, materials, period, estimate, reserve, reasoning.\n\nVIKTIGT: Inkludera ALLTID estimate och reserve om du kan bedöma värdet."
+    "textEnhancement": "Du förbättrar auktionskatalogiseringar genom att kombinera bildanalys med textkontext.\n\nUPPGIFT: Förbättra befintlig katalogisering med tilläggstext från användaren.\n\nFÖRBÄTTRINGSREGLER:\n• Behåll all korrekt information från bildanalysen\n• Lägg till relevant information från användartexten\n• Förbättra titel, beskrivning och tekniska detaljer\n• ALLTID inkludera värdering om möjligt\n• Använd objektiva, faktabaserade beskrivningar\n\n💰 VÄRDERINGSREGLER:\n• Ange estimate (uppskattat värde) och reserve (utropspris) i SEK\n• Basera på objekttyp, konstnär, period, skick och marknadsvärde\n• Använd svenska auktionsmarknaden som referens\n• Reserve ska vara 60-80% av estimate\n• Minimum reserve: 400 SEK (auktionshusregel)\n\n🚨 BESKRIVNINGSREGLER:\nAnvänd ALDRIG säljande adjektiv som 'elegant', 'typisk', 'klassisk', 'autentisk', 'raffinerad', 'exklusiv', 'gedigen'.\n\nFORMAT: Returnera JSON med fält för: title, description, condition, artist, keywords, materials, period, estimate, reserve, reasoning.\n\nVIKTIGT: Inkludera ALLTID estimate och reserve om du kan bedöma värdet.\n\n🚫 ANVÄNDNINGSOMRÅDEN FÖRBJUDNA I BESKRIVNING:\nBeskriv ALDRIG hur eller var föremålet kan användas eller placeras: inget 'passar i/till...', 'kan användas som/för...', 'gör sig fint...', 'ett tillskott till hemmet', 'för samlaren'. Beskrivningen är ett sakligt objektprotokoll — den anger vad föremålet ÄR (material, teknik, form, märkningar, mått), aldrig ett användningsscenario."
   },
-  
   "categoryRules": {
     "freetextParser": {
       "name": "Freetext Parser",
@@ -36,7 +30,6 @@
         }
       }
     },
-    
     "weapons": {
       "name": "Vapen och Militaria",
       "antiHallucination": true,
@@ -56,15 +49,18 @@
       ],
       "prompt": "KATEGORI-SPECIFIK REGEL - VAPEN OCH MILITARIA:\nDetta är ett vapen eller militärt föremål. EXTRA FÖRSIKTIGHET krävs för att undvika historiska felaktigheter och AI-hallucinationer.\n\n🚨 KRITISKA ANTI-HALLUCINATION REGLER FÖR VAPEN:\n\nFÖRBJUDNA TILLÄGG - LÄG ALDRIG TILL:\n• Historisk kontext som inte explicit finns i källan\n• Skolnamn eller regionnamn som inte är explicit nämnda\n• Generaliseringar från specifika namn\n• Biografisk information om svärdssmeder eller vapensmeder\n\nVIKTIGASTE REGELN: När i tvivel - FÖRBÄTTRA MINDRE och bevara EXAKTHET."
     },
-    
     "watches": {
       "name": "Armbandsur och Klockor",
-      "requiredFields": ["storlek", "urverk", "tillverkare", "modell"],
+      "requiredFields": [
+        "storlek",
+        "urverk",
+        "tillverkare",
+        "modell"
+      ],
       "functionClause": "Fungerar vid katalogisering - ingen garanti lämnas på funktion.",
       "titleFormat": "ARMBANDSUR, [material], [tillverkare], [modell], [urverk], [storlek], [period]",
       "prompt": "KATEGORI-SPECIFIK REGEL - ARMBANDSUR:\nDetta är ett armbandsur/klocka. Följ Auctionets krav:\n\nOBLIGATORISK INFORMATION (om tillgänglig i källdata):\n• Storlek i mm (diameter)\n• Urverk: 'automatic' eller 'quartz'\n• Tillverkare och modell (eller kaliber)\n• Material (stål, guld, etc.)\n\nFUNKTIONSKLAUSUL - LÄGG ALLTID TILL I BESKRIVNING:\n'Fungerar vid katalogisering - ingen garanti lämnas på funktion.'"
     },
-    
     "historical": {
       "name": "Historiska Föremål och Antikviteter",
       "conservativeApproach": true,
@@ -76,7 +72,6 @@
       ],
       "prompt": "KATEGORI-SPECIFIK REGEL - HISTORISKA FÖREMÅL OCH ANTIKVITETER:\nDetta är ett historiskt/kulturellt föremål. Använd KONSERVATIV förstärkning för att undvika felaktiga historiska tolkningar.\n\nKONSERVATIVA REGLER:\n• Lägg INTE till historiska perioder eller dynastier som inte är explicit nämnda\n• Expandera INTE kulturella eller geografiska referenser utan källa\n• Undvik arkeologiska eller historiska spekulationer"
     },
-    
     "jewelry": {
       "name": "Smycken och Ädelmetaller",
       "technicalLimitations": true,
@@ -88,7 +83,6 @@
       ],
       "prompt": "KATEGORI-SPECIFIK REGEL - SMYCKEN OCH ÄDELMETALLER:\nDetta är ett smycke eller föremål i ädelmetall. Var FÖRSIKTIG med tekniska specifikationer.\n\nTEKNISKA BEGRÄNSNINGAR:\n• Lägg INTE till karattyngd som inte är angiven\n• Specificera INTE metallhalt (18k, 14k) utan källa\n• Lägg INTE till information om ädelstenars kvalitet eller ursprung"
     },
-    
     "furniture": {
       "name": "Möbler",
       "titleRules": {
@@ -106,7 +100,6 @@
         "Uppfinn INTE stilperiod om den inte framgår"
       ]
     },
-    
     "rugs": {
       "name": "Mattor",
       "titleRules": {
@@ -120,7 +113,6 @@
         "includeColors": true
       }
     },
-    
     "silverGold": {
       "name": "Silver och Guld (ej smycken)",
       "titleRules": {
@@ -133,7 +125,6 @@
         "alwaysMentionMonograms": true
       }
     },
-    
     "art": {
       "name": "Konst och Målningar",
       "titleRules": {
@@ -159,7 +150,6 @@
         "useEjExamineradUrRam": true
       }
     },
-    
     "dinnerSets": {
       "name": "Serviser och Servisdelar",
       "titleRules": {
@@ -174,7 +164,6 @@
       }
     }
   },
-  
   "fieldRules": {
     "title": {
       "maxLength": 60,
@@ -203,14 +192,16 @@
         "orrefors": "Orrefors"
       }
     },
-    
     "description": {
       "excludeConditionInfo": true,
       "preserveMeasurements": true,
       "preserveQuantities": true,
       "measurementFormatting": {
         "positionLast": true,
-        "exceptions": ["taklampor", "mattor"],
+        "exceptions": [
+          "taklampor",
+          "mattor"
+        ],
         "furnitureFormat": "Längd X cm, bredd Y cm, höjd Z cm",
         "roundFormat": "Diameter X cm, höjd Y cm",
         "artFormat": "heightFirst, withoutFrame, 45 x 78 cm",
@@ -219,7 +210,7 @@
       },
       "allowedContent": [
         "material",
-        "teknik", 
+        "teknik",
         "mått",
         "stil",
         "ursprung",
@@ -236,12 +227,11 @@
         "fläckar"
       ]
     },
-    
     "condition": {
       "focusOnPhysicalState": true,
       "specificTerms": [
         "repor",
-        "nagg", 
+        "nagg",
         "sprickor",
         "fläckar",
         "välbevarat",
@@ -264,7 +254,6 @@
         "silverAlwaysMentionEngravings": true
       }
     },
-    
     "keywords": {
       "maxTerms": 12,
       "format": "space-separated",
@@ -273,11 +262,10 @@
       "avoidDuplication": true
     }
   },
-  
   "validationRules": {
     "forbiddenWords": [
       "fantastisk",
-      "vacker", 
+      "vacker",
       "utsökt",
       "nyskick",
       "magnifik",
@@ -320,7 +308,6 @@
       "fin",
       "värdefull"
     ],
-    
     "antiHallucination": {
       "dateSpeculation": false,
       "noInventedMeasurements": true,
@@ -328,16 +315,18 @@
       "noInventedDamage": true,
       "preserveUncertaintyMarkers": true
     },
-    
     "periodFormatting": {
       "neverCaForYears": true,
       "useOmkringInstead": true,
       "caOnlyForSumsAndWeights": true,
-      "neverSenareDelUse": ["senare fjärdedel", "senare hälft", "slut"],
+      "neverSenareDelUse": [
+        "senare fjärdedel",
+        "senare hälft",
+        "slut"
+      ],
       "preferDecadesOverCenturies": true,
       "writeOutFullTerms": true
     },
-    
     "antiAbbreviation": {
       "enabled": true,
       "reason": "Google translation compatibility for international bidders",
@@ -347,19 +336,19 @@
         "NS": "nysilver",
         "st": "stycken (except in titles)"
       },
-      "acceptedShortForms": ["cm"],
+      "acceptedShortForms": [
+        "cm"
+      ],
       "alwaysUseFullNames": true
     },
-    
     "uncertaintyMarkers": [
       "troligen",
-      "tillskriven", 
+      "tillskriven",
       "efter",
       "stil av",
       "möjligen",
       "typ"
     ],
-    
     "quotesPreservation": {
       "enabled": true,
       "reason": "Prevents machine translation of Swedish design names",
@@ -370,7 +359,6 @@
       ]
     }
   },
-  
   "promptTemplates": {
     "fieldSpecific": {
       "all": "UPPGIFT: Förbättra titel, beskrivning, konditionsrapport och generera dolda sökord enligt svenska auktionsstandarder.",
@@ -381,26 +369,22 @@
       "freetextParser": "UPPGIFT: Analysera denna svenska auktionsfritext och extrahera strukturerad katalogdata. Returnera JSON-format med fält för titel, beskrivning, skick, konstnär, material, period och uppskattat värde."
     }
   },
-  
   "contextRules": {
     "artistFieldFilled": {
       "titleBehavior": "exclude-artist-from-title",
       "capitalization": "proper-case-first-word",
       "punctuation": "comma-after-first-word"
     },
-    
     "artistFieldEmpty": {
       "titleBehavior": "include-artist-if-known",
-      "capitalization": "uppercase-first-word", 
+      "capitalization": "uppercase-first-word",
       "punctuation": "comma-after-first-word"
     },
-    
     "artistInMiddleOfTitle": {
       "behavior": "preserve-position",
       "reasoning": "Object is primary, not artist"
     }
   },
-  
   "extractedRules": {
     "apiManager": {
       "systemPrompt": "Du är en professionell auktionskatalogiserare. Skapa objektiva, faktabaserade katalogiseringar enligt svenska auktionsstandarder.\n\nGRUNDREGLER:\n• Använd endast verifierbara fakta\n• Skriv objektivt utan säljande språk\n• Använd etablerad auktionsterminologi\n• UPPFINN ALDRIG information som inte finns\n• Skriv naturligt och flytande - fokusera på autenticitet över regelefterlevnad",
@@ -418,7 +402,7 @@
       "rules": {
         "brandCorrections": {
           "ikea": "IKEA",
-          "rolex": "Rolex", 
+          "rolex": "Rolex",
           "omega": "Omega",
           "cartier": "Cartier",
           "royal copenhagen": "Royal Copenhagen",
@@ -433,7 +417,7 @@
           "threshold": 0.8,
           "commonMisspellings": {
             "oscean": "Ocean",
-            "omege": "Omega", 
+            "omege": "Omega",
             "cartier": "Cartier",
             "rollex": "Rolex"
           }
@@ -445,16 +429,28 @@
       "validationRules": {
         "forbiddenPhrases": [
           "ytterligare uppgifter behövs",
-          "mer information krävs", 
+          "mer information krävs",
           "information saknas",
           "kan förbättras",
           "bra start"
         ],
         "qualityChecks": {
-          "titleLength": { "min": 10, "max": 60 },
-          "descriptionLength": { "min": 20, "max": 500 },
-          "conditionLength": { "min": 5, "max": 100 },
-          "keywordsCount": { "min": 3, "max": 12 }
+          "titleLength": {
+            "min": 10,
+            "max": 60
+          },
+          "descriptionLength": {
+            "min": 20,
+            "max": 500
+          },
+          "conditionLength": {
+            "min": 5,
+            "max": 100
+          },
+          "keywordsCount": {
+            "min": 3,
+            "max": 12
+          }
         },
         "antiHallucination": {
           "dateSpeculation": false,
@@ -467,12 +463,11 @@
       "extractedLines": 300
     }
   },
-  
   "metadata": {
     "totalRulesExtracted": 980,
     "filesProcessed": [
       "modules/api-manager.js",
-      "content.js", 
+      "content.js",
       "modules/add-items-tooltip-manager.js",
       "modules/brand-validation-manager.js",
       "modules/quality-analyzer.js"
@@ -507,4 +502,4 @@
       ]
     }
   }
-} 
+}
