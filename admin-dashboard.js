@@ -1625,8 +1625,8 @@
       const { spellChips, spellRow } = buildSpellChips(item.issues, item.itemId);
 
       const ignoreBtn = showIgnore
-        ? `<span class="ext-pubscan__ignore-btn" data-item-id="${item.itemId}" title="Ignorera hela föremålet (lär inget)">✕</span>`
-        : `<span class="ext-pubscan__unignore-btn" data-item-id="${item.itemId}" title="Sluta ignorera">↩</span>`;
+        ? `<span class="ext-pubscan__ignore-btn" role="button" tabindex="0" aria-label="Ignorera föremålet" data-item-id="${item.itemId}" title="Ignorera hela föremålet (lär inget)">✕</span>`
+        : `<span class="ext-pubscan__unignore-btn" role="button" tabindex="0" aria-label="Sluta ignorera" data-item-id="${item.itemId}" title="Sluta ignorera">↩</span>`;
       const estimateLabel = item.estimate >= PUB_SCAN_HIGH_VALUE_THRESHOLD
         ? `<span class="ext-pubscan__estimate">💎 ${formatSEK(item.estimate)} SEK</span>`
         : (item.estimate > 0 ? `<span class="ext-pubscan__estimate">${formatSEK(item.estimate)} SEK</span>` : '');
@@ -1799,7 +1799,7 @@
               </div>
               <div class="ext-pubscan__issue-title">"${escapeHTML(truncateTitle(entry.title, 40))}"</div>
             </a>
-            <span class="ext-pubscan__ignore-btn ext-pubscan__ignore-btn--sticky" data-item-id="${entry.itemId}" data-sticky="true" title="Ignorera">✕</span>
+            <span class="ext-pubscan__ignore-btn ext-pubscan__ignore-btn--sticky" role="button" tabindex="0" aria-label="Ignorera föremålet" data-item-id="${entry.itemId}" data-sticky="true" title="Ignorera">✕</span>
             ${spellRow}
           </div>
         `;
@@ -1950,8 +1950,18 @@
       });
     });
 
-    // Wire up ignore buttons (✕) — add item to ignored set and re-render
+    // Wire up ignore buttons (✕) — add item to ignored set and re-render.
+    // Keyboard accessibility: Enter/Space activates like the spell chips.
+    const wireButtonKeys = (btn) => {
+      btn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          btn.click();
+        }
+      });
+    };
     container.querySelectorAll('.ext-pubscan__ignore-btn').forEach(btn => {
+      wireButtonKeys(btn);
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1985,6 +1995,7 @@
 
     // Wire up unignore buttons (↩) — remove item from ignored set and re-render
     container.querySelectorAll('.ext-pubscan__unignore-btn').forEach(btn => {
+      wireButtonKeys(btn);
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();

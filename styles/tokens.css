@@ -71,3 +71,28 @@
   --aet-z-modal: 50000;         /* modal overlays — one modal at a time  */
   --aet-z-max: 99999;           /* last resort above everything          */
 }
+
+/* ── Reduced motion ─────────────────────────────────────────
+   State changes still land (they complete instantly); decorative loops
+   (shimmer, pulse, tickers) stop. Loading spinners are exempted below —
+   they are state feedback, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .ai-spinner,
+  .processing-spinner,
+  .status-spinner,
+  .ext-warehouse__spinner,
+  .ext-pubscan__spinner,
+  .ai-image-analyzer__spinner {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

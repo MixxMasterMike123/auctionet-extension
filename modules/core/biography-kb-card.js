@@ -853,7 +853,7 @@ Regler:
       <div class="artist-bio-modal">
         <div class="artist-bio-header">
           <h3>🎨 ${escapeHTML(artistName)}</h3>
-          <button class="close-bio-modal">&times;</button>
+          <button class="close-bio-modal" type="button" aria-label="Stäng">&times;</button>
         </div>
         <div class="artist-bio-content">
           <p>${escapeHTML(biography)}</p>

@@ -6,7 +6,7 @@
   --ad-border: #e2e8f0;
   --ad-text: #1e293b;
   --ad-text-muted: #64748b;
-  --ad-text-light: #94a3b8;
+  --ad-text-light: #64748b; /* AA floor — #94a3b8 was 2.4:1 on white */
   --ad-accent: #2563eb;
   --ad-accent-light: #dbeafe;
   --ad-positive: #16a34a;
@@ -32,7 +32,7 @@
   --ad-border: #334155;
   --ad-text: #f1f5f9;
   --ad-text-muted: #94a3b8;
-  --ad-text-light: #64748b;
+  --ad-text-light: #94a3b8; /* AA floor — #64748b was 3.1:1 on the dark card */
   --ad-accent: #3b82f6;
   --ad-accent-light: #1e3a5f;
   --ad-positive: #4ade80;

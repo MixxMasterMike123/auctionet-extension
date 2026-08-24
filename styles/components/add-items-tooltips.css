@@ -793,7 +793,7 @@ textarea.auto-resize:focus {
   content: '•';
   position: absolute;
   left: 0;
-  color: #9ca3af;
+  color: var(--aet-text-muted);
   font-weight: 600;
 }
 

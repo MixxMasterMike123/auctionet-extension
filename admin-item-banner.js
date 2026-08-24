@@ -307,7 +307,7 @@
           Det finns potential att nå högre priser på detta föremål. 
           <a href="${escapeHTML(editLink.href)}" class="banner-link">Klicka på "Redigera föremål"</a> för att se hela analysen.
         </div>
-        <button class="banner-close" onclick="this.parentElement.parentElement.style.display='none'" title="Stäng">×</button>
+        <button class="banner-close" type="button" aria-label="Stäng" onclick="this.parentElement.parentElement.style.display='none'" title="Stäng">×</button>
       </div>
     `;
 

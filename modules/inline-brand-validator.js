@@ -698,7 +698,7 @@ Om korrekt: {"corrected":null}`;
     tooltip.innerHTML = `
       <div class="tooltip-header">
         <strong>${headerText}</strong>
-        <button class="tooltip-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        <button class="tooltip-close" type="button" aria-label="Stäng" onclick="this.parentElement.parentElement.remove()">×</button>
       </div>
       <div class="tooltip-content">
         <div class="correction-text">

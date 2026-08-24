@@ -477,7 +477,7 @@ export class AddItemsTooltipManager {
     }
     
     if (config.dismissible !== false) {
-      tooltipHTML += '<button class="tooltip-dismiss" type="button">×</button>';
+      tooltipHTML += '<button class="tooltip-dismiss" type="button" aria-label="Stäng">×</button>';
     }
     
     tooltipHTML += '</div>';

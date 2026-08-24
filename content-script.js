@@ -177,7 +177,7 @@
               Köpare söker just nu:
               ${matches.map(m => `<strong>${escapeHTML(m.query)}</strong> (${m.count} st)`).join(', ')}
             </span>
-            <button class="ext-search-signal__close" title="Stäng">&times;</button>
+            <button class="ext-search-signal__close" type="button" aria-label="Stäng" title="Stäng">&times;</button>
           `;
           banner.querySelector('.ext-search-signal__close').addEventListener('click', () => banner.remove());
 
