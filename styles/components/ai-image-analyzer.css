@@ -4,11 +4,41 @@
  * Uses BEM naming convention and CSS custom properties
  */
 
+/* Design tokens — scoped to component roots (not :root) so these generic
+   names never collide with the Auctionet host page's own custom properties.
+   .freetext-parser-modal is included because sure-score-* renders inside it. */
+.ai-image-analyzer,
+.freetext-parser-modal,
+.analysis-field {
+  --bg-white: var(--aet-bg);
+  --bg-light: var(--aet-bg-soft);
+  --bg-primary-light: var(--aet-blue-tint);
+  --border-light: var(--aet-border);
+  --text-primary: var(--aet-text);
+  --text-secondary: var(--aet-text-secondary);
+  --text-muted: var(--aet-text-muted);
+  --color-primary-light: var(--aet-blue-border);
+  --color-success: var(--aet-green);
+  --color-success-light: var(--aet-green-light);
+  --color-success-dark: var(--aet-green-text);
+  --color-warning: var(--aet-amber);
+  --color-warning-light: var(--aet-amber-light);
+  --color-warning-dark: var(--aet-amber-text);
+  --color-danger: var(--aet-red);
+  --color-danger-dark: var(--aet-red-dark);
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --transition-normal: all 0.2s ease;
+}
+
 /* Main component container */
 .ai-image-analyzer {
   background: var(--bg-white);
   border: 1px solid var(--border-light);
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-md);
 }
@@ -20,7 +50,7 @@
 
 .ai-image-analyzer__upload-zone {
   border: 2px dashed var(--border-light);
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   padding: var(--spacing-xl);
   text-align: center;
   cursor: pointer;
@@ -35,12 +65,12 @@
 }
 
 .ai-image-analyzer__upload-zone:hover {
-  border-color: #337ab7;
+  border-color: var(--aet-blue);
   background: var(--bg-primary-light);
 }
 
 .ai-image-analyzer__upload-zone--dragover {
-  border-color: #337ab7;
+  border-color: var(--aet-blue);
   background: var(--bg-primary-light);
   border-style: solid;
 }
@@ -81,7 +111,7 @@
 .ai-image-analyzer__preview {
   background: var(--bg-light);
   border: 1px solid var(--border-light);
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   padding: var(--spacing-md);
   margin-top: var(--spacing-md);
 }
@@ -152,7 +182,7 @@
   width: 40px;
   height: 40px;
   border: 4px solid var(--border-light);
-  border-top: 4px solid #337ab7;
+  border-top: 4px solid var(--aet-blue);
   border-radius: 50%;
   animation: ai-image-analyzer-spin 1s linear infinite;
   margin: 0 auto var(--spacing-md) auto;
@@ -178,14 +208,14 @@
 .ai-image-analyzer__results {
   padding: var(--spacing-lg);
   background: var(--bg-light);
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
 }
 
 /* Sure Score display */
 .ai-image-analyzer__sure-score {
   background: var(--bg-white);
-  border: 2px solid #337ab7;
-  border-radius: 3px;
+  border: 2px solid var(--aet-blue);
+  border-radius: var(--aet-radius-sm);
   padding: var(--spacing-lg);
   margin-bottom: var(--spacing-lg);
   text-align: center;
@@ -194,13 +224,13 @@
 .ai-image-analyzer__sure-score h4 {
   margin: 0 0 var(--spacing-sm) 0;
   font-size: 1.5rem;
-  color: #337ab7;
+  color: var(--aet-blue);
 }
 
 .sure-score-level {
   display: inline-block;
   padding: var(--spacing-xs) var(--spacing-md);
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   font-weight: 600;
   font-size: 0.9rem;
   margin-bottom: var(--spacing-sm);
@@ -217,8 +247,8 @@
 }
 
 .sure-score-level--medel {
-  background: var(--color-warning);
-  color: var(--bg-white);
+  background: var(--color-warning-light);
+  color: var(--color-warning-dark);
 }
 
 .sure-score-level--låg {
@@ -313,7 +343,7 @@
 
 .ai-image-analyzer__reasoning h5 {
   margin: 0 0 var(--spacing-sm) 0;
-  color: #337ab7;
+  color: var(--aet-blue);
   font-weight: 600;
 }
 
@@ -366,13 +396,13 @@
 }
 
 .freetext-parser-modal .ai-image-analyzer__upload-zone:hover {
-  border-color: #337ab7;
+  border-color: var(--aet-blue);
   background: var(--bg-primary-light);
 }
 
 /* Accessibility improvements */
 .ai-image-analyzer__upload-zone:focus-within {
-  outline: 2px solid #337ab7;
+  outline: 2px solid var(--aet-blue);
   outline-offset: 2px;
 }
 
@@ -398,7 +428,7 @@
 .ai-image-analyzer--multiple {
   background: var(--bg-white);
   border: 1px solid var(--border-light);
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   padding: var(--spacing-lg);
 }
 
@@ -436,14 +466,14 @@
 
 .ai-image-analyzer__upload-slot {
   border: 1px solid var(--border-light);
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   overflow: hidden;
   background: var(--bg-light);
   transition: var(--transition-normal);
 }
 
 .ai-image-analyzer__upload-slot:hover {
-  border-color: #337ab7;
+  border-color: var(--aet-blue);
 }
 
 .ai-image-analyzer__slot-header {
@@ -487,7 +517,7 @@
 
 .ai-image-analyzer__upload-zone--slot.ai-image-analyzer__upload-zone--dragover {
   background: var(--color-primary-light);
-  border-color: #337ab7;
+  border-color: var(--aet-blue);
 }
 
 .ai-image-analyzer__upload-placeholder {
@@ -559,7 +589,7 @@
   text-align: center;
   padding: var(--spacing-md);
   background: var(--bg-light);
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   margin-bottom: var(--spacing-lg);
 }
 

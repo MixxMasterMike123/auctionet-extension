@@ -4,10 +4,10 @@
 .ext-outlet-toolbar {
   margin-bottom: 16px;
   padding: 12px 16px;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-left: 4px solid #006ccc;
-  border-radius: 4px;
+  background: var(--aet-bg-soft);
+  border: 1px solid var(--aet-border);
+  border-left: 4px solid var(--aet-blue);
+  border-radius: var(--aet-radius);
 }
 
 .ext-outlet-toolbar__header {
@@ -20,13 +20,13 @@
 .ext-outlet-toolbar__title {
   font-size: 16px;
   font-weight: 700;
-  color: #333;
+  color: var(--aet-text);
 }
 
 .ext-outlet-toolbar__count {
   font-size: 13px;
-  color: #666;
-  background: #e9ecef;
+  color: var(--aet-text-muted);
+  background: var(--aet-bg-hover);
   padding: 2px 8px;
   border-radius: 12px;
 }
@@ -48,19 +48,19 @@
 }
 
 .ext-outlet-toolbar__status--success {
-  color: #28a745;
+  color: var(--aet-green);
 }
 
 .ext-outlet-toolbar__status--error {
-  color: #dc3545;
+  color: var(--aet-red);
 }
 
 .ext-outlet-toolbar__status--warning {
-  color: #e65100;
+  color: var(--aet-amber-deep);
 }
 
 .ext-outlet-toolbar__status--info {
-  color: #006ccc;
+  color: var(--aet-blue);
 }
 
 /* ─── Progress Bar ──────────────────────────────────────────── */
@@ -74,22 +74,22 @@
 .ext-outlet-progress-bar {
   flex: 1;
   height: 6px;
-  background: #dee2e6;
-  border-radius: 3px;
+  background: var(--aet-border);
+  border-radius: var(--aet-radius-sm);
   overflow: hidden;
 }
 
 .ext-outlet-progress-bar__fill {
   height: 100%;
-  background: #006ccc;
-  border-radius: 3px;
+  background: var(--aet-blue);
+  border-radius: var(--aet-radius-sm);
   transition: width 0.3s ease;
   width: 0%;
 }
 
 .ext-outlet-progress-text {
   font-size: 12px;
-  color: #666;
+  color: var(--aet-text-muted);
   white-space: nowrap;
 }
 
@@ -97,17 +97,17 @@
 .ext-outlet-btn {
   padding: 5px 12px;
   font-size: 13px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
+  border: 1px solid var(--aet-border-strong);
+  border-radius: var(--aet-radius-sm);
   cursor: pointer;
   background: #fff;
-  color: #333;
+  color: var(--aet-text);
   transition: background 0.15s, border-color 0.15s;
 }
 
 .ext-outlet-btn:hover:not(:disabled) {
-  background: #e9ecef;
-  border-color: #adb5bd;
+  background: var(--aet-bg-hover);
+  border-color: var(--aet-text-muted);
 }
 
 .ext-outlet-btn:disabled {
@@ -116,20 +116,20 @@
 }
 
 .ext-outlet-btn--primary {
-  background: #006ccc;
+  background: var(--aet-blue);
   color: #fff;
-  border-color: #006ccc;
+  border-color: var(--aet-blue);
   font-weight: 600;
 }
 
 .ext-outlet-btn--primary:hover:not(:disabled) {
-  background: #0056a3;
-  border-color: #0056a3;
+  background: var(--aet-blue-dark);
+  border-color: var(--aet-blue-dark);
 }
 
 .ext-outlet-btn--secondary {
   background: #fff;
-  color: #333;
+  color: var(--aet-text);
 }
 
 /* ─── Row Checkboxes ──────────────────────────────────────── */
@@ -145,7 +145,7 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #006ccc;
+  accent-color: var(--aet-blue);
 }
 
 .ext-outlet-checkbox__mark {

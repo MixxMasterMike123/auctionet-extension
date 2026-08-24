@@ -1,12 +1,12 @@
 /* Valuation Request Assistant styles */
 
 #vr-assistant {
-  border: 1px solid #d4edda;
+  border: 1px solid var(--aet-green-light);
   background: #fff;
 }
 
 #vr-assistant h3 {
-  color: #333;
+  color: var(--aet-text);
 }
 
 /* Progress bar animation */
@@ -18,14 +18,14 @@
 
 /* Textarea focus */
 #vr-email-text:focus {
-  border-color: #006ccc;
+  border-color: var(--aet-blue);
   outline: none;
   box-shadow: 0 0 0 2px rgba(0, 108, 204, 0.15);
 }
 
 /* Button hover states */
 #vr-copy-btn:hover {
-  background: #e9ecef;
+  background: var(--aet-bg-hover);
 }
 
 #vr-mailto-btn {
@@ -41,7 +41,7 @@
 
 .vr-cluster-group {
   border: 2px dashed #d0d0d0;
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   padding: 8px;
   margin-bottom: 8px;
   background: #fafafa;
@@ -49,7 +49,7 @@
 }
 
 .vr-cluster-group--dragover {
-  border-color: #006ccc;
+  border-color: var(--aet-blue);
   background: #e8f4fd;
 }
 
@@ -67,13 +67,13 @@
   padding: 2px 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #333;
-  border-radius: 3px;
+  color: var(--aet-text);
+  border-radius: var(--aet-radius-sm);
 }
 
 .vr-cluster-group__label:hover,
 .vr-cluster-group__label:focus {
-  border-color: #ced4da;
+  border-color: var(--aet-border-strong);
   background: #fff;
   outline: none;
 }
@@ -82,14 +82,14 @@
   background: none;
   border: none;
   font-size: 18px;
-  color: #999;
+  color: var(--aet-text-muted);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
 }
 
 .vr-cluster-group__remove:hover {
-  color: #dc3545;
+  color: var(--aet-red);
 }
 
 .vr-cluster-group__thumbs {
@@ -104,7 +104,7 @@
   position: relative;
   width: 80px;
   height: 80px;
-  border-radius: 4px;
+  border-radius: var(--aet-radius);
   overflow: hidden;
   cursor: grab;
   border: 2px solid transparent;
@@ -112,7 +112,7 @@
 }
 
 .vr-cluster-thumb:hover {
-  border-color: #006ccc;
+  border-color: var(--aet-blue);
 }
 
 .vr-cluster-thumb:active {
@@ -139,7 +139,7 @@
   font-size: 10px;
   font-weight: 600;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   line-height: 1.3;
 }
 
@@ -151,14 +151,14 @@
   align-items: center;
   padding: 7px 10px;
   background: #e8f5e9;
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   margin-bottom: 8px;
 }
 
 .vr-multi-summary__count {
   font-size: 11px;
   font-weight: 600;
-  color: #2e7d32;
+  color: var(--aet-green);
 }
 
 .vr-multi-summary__total {
@@ -168,8 +168,8 @@
 }
 
 .vr-group-result {
-  border: 1px solid #e9ecef;
-  border-radius: 3px;
+  border: 1px solid var(--aet-bg-hover);
+  border-radius: var(--aet-radius-sm);
   padding: 8px;
   margin-bottom: 6px;
   background: #fff;
@@ -192,7 +192,7 @@
   width: 44px;
   height: 44px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: var(--aet-radius);
   display: block;
 }
 
@@ -205,7 +205,7 @@
   font-size: 9px;
   font-weight: 700;
   padding: 0 4px;
-  border-radius: 3px;
+  border-radius: var(--aet-radius-sm);
   line-height: 1.5;
 }
 
@@ -224,7 +224,7 @@
 .vr-group-result__label {
   font-size: 12px;
   font-weight: 600;
-  color: #333;
+  color: var(--aet-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -233,12 +233,12 @@
 .vr-group-result__price {
   font-size: 13px;
   font-weight: 700;
-  color: #333;
+  color: var(--aet-text);
   white-space: nowrap;
 }
 
 .vr-group-result__price--low {
-  color: #e65100;
+  color: var(--aet-amber-deep);
   text-decoration: line-through;
 }
 
@@ -260,22 +260,22 @@
 
 .vr-group-result__tag--market {
   background: #e8f5e9;
-  color: #2e7d32;
+  color: var(--aet-green);
 }
 
 .vr-group-result__tag--ai {
   background: #fff3e0;
-  color: #e65100;
+  color: var(--aet-amber-deep);
 }
 
 .vr-group-result__low-tag {
-  color: #e65100;
+  color: var(--aet-amber-deep);
   font-weight: 600;
   font-size: 9px;
 }
 
 .vr-group-result__link {
-  color: #006ccc;
+  color: var(--aet-blue);
   text-decoration: none;
   font-size: 10px;
 }
@@ -294,25 +294,25 @@
   flex: 1;
   min-width: 0;
   padding: 2px 5px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
+  border: 1px solid var(--aet-border);
+  border-radius: var(--aet-radius-sm);
   font-size: 10px;
-  color: #555;
+  color: var(--aet-text-secondary);
 }
 
 .vr-group-search-input:focus {
-  border-color: #006ccc;
+  border-color: var(--aet-blue);
   outline: none;
 }
 
 .vr-group-reanalyze {
   background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 3px;
+  border: 1px solid var(--aet-border);
+  border-radius: var(--aet-radius-sm);
   font-size: 10px;
   padding: 2px 6px;
   cursor: pointer;
-  color: #555;
+  color: var(--aet-text-secondary);
   white-space: nowrap;
 }
 

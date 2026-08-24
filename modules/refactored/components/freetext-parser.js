@@ -234,8 +234,10 @@ export class FreetextParser {
     }
 
     try {
+      // Remember the trigger so focus can be restored on close
+      this._lastFocusedElement = document.activeElement;
       this.currentModal = this.createFreetextModal();
-      
+
       // Ensure document.body exists before appending
       if (document.body) {
         document.body.appendChild(this.currentModal);
@@ -270,11 +272,11 @@ export class FreetextParser {
     const modal = document.createElement('div');
     modal.className = 'freetext-parser-overlay';
     modal.innerHTML = `
-      <div class="freetext-parser-modal">
+      <div class="freetext-parser-modal" role="dialog" aria-modal="true" aria-labelledby="freetext-modal-title">
         <div class="popup-header">
-          <h3>Snabbkatalogisering</h3>
+          <h3 id="freetext-modal-title">Snabbkatalogisering</h3>
           <p>Skriv information om objektet eller ladda upp bilder. AI analyserar och skapar katalogpost.</p>
-          <button class="popup-close" type="button">✕</button>
+          <button class="popup-close" type="button" aria-label="Stäng">✕</button>
         </div>
         
         <div class="popup-content">
@@ -291,18 +293,18 @@ export class FreetextParser {
                 <p class="upload-subtitle">Ladda upp bilder (valfritt) - max 5 st, JPG/PNG/WebP</p>
               </div>
               
-              <div class="simple-upload-area" id="simple-upload-trigger">
-                <div class="upload-main-text">Klicka, dra eller klistra in bilder (Ctrl+V)</div>
-              </div>
-              
+              <button type="button" class="simple-upload-area" id="simple-upload-trigger">
+                <span class="upload-main-text">Klicka, dra eller klistra in bilder (Ctrl+V)</span>
+              </button>
+
               <div class="image-preview-grid" id="image-preview-grid" style="display: none;"></div>
-              
-              <div class="upload-status" id="upload-status">
+
+              <div class="upload-status" id="upload-status" role="status" aria-live="polite">
                 Inga bilder uppladdade • Bilder är valfria (analys kan göras med enbart text)
               </div>
-              
-              <!-- Hidden file input -->
-              <input type="file" id="hidden-file-input" multiple accept="image/*" style="display: none;">
+
+              <!-- Hidden file input (opened via the upload button) -->
+              <input type="file" id="hidden-file-input" multiple accept="image/*" tabindex="-1" aria-hidden="true" style="display: none;">
             </div>
             
             <!-- Text Input -->
@@ -326,7 +328,7 @@ export class FreetextParser {
             </div>
             
             <!-- Analysis Mode Indicator -->
-            <div class="analysis-mode-indicator" id="analysis-mode-indicator">
+            <div class="analysis-mode-indicator" id="analysis-mode-indicator" role="status" aria-live="polite">
               <div class="mode-status">
                 <span class="mode-text">Lägg till bilder eller text (eller båda) och klicka Analysera.</span>
               </div>
@@ -335,8 +337,8 @@ export class FreetextParser {
           
           <!-- Processing Section -->
           <div id="processing-section" class="modal-section ai-processing-section" style="display: none;">
-            <div class="processing-spinner"></div>
-            <div class="processing-status">
+            <div class="processing-spinner" aria-hidden="true"></div>
+            <div class="processing-status" role="status" aria-live="polite">
               <p class="processing-step" style="color: #495057; font-size: 13px;">Analyserar...</p>
               <div class="processing-progress">
                 <div class="progress-bar">
@@ -399,9 +401,27 @@ export class FreetextParser {
       }
     };
     document.addEventListener('keydown', handleEscape);
-    
+
     // Store reference for cleanup
     modal._escapeHandler = handleEscape;
+
+    // Focus trap — Tab cycles within the dialog instead of escaping to the page
+    modal.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusables = Array.from(modal.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )).filter(el => el.tabIndex !== -1 && el.offsetParent !== null);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
 
     // Analyze button
     const analyzeBtn = modal.querySelector('#analyze-btn');
@@ -2704,6 +2724,13 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
           this.currentModal.parentNode.removeChild(this.currentModal);
         }
 
+        // Return focus to the element that opened the dialog
+        if (this._lastFocusedElement && typeof this._lastFocusedElement.focus === 'function'
+            && document.contains(this._lastFocusedElement)) {
+          this._lastFocusedElement.focus();
+        }
+        this._lastFocusedElement = null;
+
         this.currentModal = null;
         this.parsedData = null;
         this.currentSureScore = null;
@@ -3078,7 +3105,7 @@ SÖKORD: [kompletterande sökord separerade med mellanslag, flerordsfraser binds
       previewItem.className = 'image-preview-item';
       previewItem.innerHTML = `
         <img src="${imageData.dataUrl}" alt="${escapeHTML(imageData.name)}">
-        <button class="image-remove-btn" data-image-id="${escapeHTML(imageId)}">×</button>
+        <button class="image-remove-btn" type="button" data-image-id="${escapeHTML(imageId)}" aria-label="Ta bort bild ${escapeHTML(imageData.name || '')}">×</button>
       `;
 
       // Remove button functionality

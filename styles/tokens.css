@@ -1,0 +1,73 @@
+/**
+ * Auctionet Extension Design Tokens
+ * ==================================
+ * The single source of truth for color, radius, and layering across every
+ * extension surface (injected content scripts, popup, extension pages).
+ *
+ * Loaded FIRST in every content_scripts css array (manifest.json) and linked
+ * from the extension's own HTML pages, so every stylesheet may assume these
+ * exist.
+ *
+ * Naming: --aet-* (Auctionet Extension Tokens). The prefix keeps these from
+ * ever colliding with the host page's own custom properties — content-script
+ * CSS shares the host DOM, so generic names like --spacing-md are unsafe here.
+ *
+ * Values are the codebase's incumbent majority choices, not new design:
+ *   blue   #006ccc  (the documented "Auctionet admin-consistent" primary)
+ *   green  #28a745 · red #dc3545 · amber #ffc107 family
+ * The standalone Analytics page keeps its own --ad-* system (a separate,
+ * complete light/dark world); everything else consumes these.
+ *
+ * Contrast notes (on white): --aet-text 12.6:1 · --aet-text-secondary 7.4:1 ·
+ * --aet-text-muted 4.7:1 (AA). Never introduce lighter text grays (#999–#ccc
+ * as text fails WCAG AA — use --aet-text-muted as the floor).
+ */
+
+:root {
+  /* ── Brand / primary action ────────────────────────────── */
+  --aet-blue: #006ccc;          /* primary buttons, links, active states */
+  --aet-blue-dark: #0056b3;     /* hover/active on --aet-blue            */
+  --aet-blue-tint: #f0f7ff;     /* selected/hover surface tint           */
+  --aet-blue-border: #b8d4f0;   /* borders on blue-tinted surfaces       */
+
+  /* ── Semantic status ───────────────────────────────────── */
+  --aet-green: #28a745;         /* success actions, positive values      */
+  --aet-green-dark: #218838;    /* hover/active on --aet-green           */
+  --aet-green-light: #d4edda;   /* success badge/panel background        */
+  --aet-green-text: #155724;    /* text on --aet-green-light             */
+  --aet-green-border: #b8dacc;  /* border on --aet-green-light           */
+
+  --aet-red: #dc3545;           /* danger actions, errors, destructive   */
+  --aet-red-dark: #b02a37;      /* hover/active on --aet-red             */
+  --aet-red-light: #f8d7da;     /* error badge/panel background          */
+  --aet-red-text: #721c24;      /* text on --aet-red-light               */
+
+  --aet-amber: #ffc107;         /* warning accents/borders (never text on white) */
+  --aet-amber-deep: #d18300;    /* strong warning icons/borders/buttons  */
+  --aet-amber-deep-dark: #b17200; /* hover/active on --aet-amber-deep    */
+  --aet-amber-light: #fff3cd;   /* warning badge/panel background        */
+  --aet-amber-text: #856404;    /* text on --aet-amber-light             */
+
+  /* ── Neutrals ──────────────────────────────────────────── */
+  --aet-text: #333333;          /* primary text                          */
+  --aet-text-secondary: #495057;/* labels, less prominent copy           */
+  --aet-text-muted: #6c757d;    /* hints, captions — the lightest AA gray */
+  --aet-bg: #ffffff;            /* component surface                     */
+  --aet-bg-soft: #f8f9fa;       /* section/page tint                     */
+  --aet-bg-hover: #e9ecef;      /* hover fill on neutral controls        */
+  --aet-border: #dee2e6;        /* default hairline border               */
+  --aet-border-strong: #ced4da; /* inputs, dashed drop targets           */
+  --aet-popover-bg: #2c3e50;    /* dark tooltip/popover surface (est. convention) */
+
+  /* ── Shape ─────────────────────────────────────────────── */
+  --aet-radius-sm: 3px;         /* badges, small buttons                 */
+  --aet-radius: 4px;            /* buttons, inputs, cards                */
+  --aet-radius-lg: 8px;         /* modals, large panels                  */
+
+  /* ── Layering (bands — pick the band, not a magic number) ─
+     Local stacking inside a component (1–10) needs no token.   */
+  --aet-z-panel: 9000;          /* injected panels above host content    */
+  --aet-z-tooltip: 10000;       /* tooltips/popovers (+1/+2 via calc for arrows) */
+  --aet-z-modal: 50000;         /* modal overlays — one modal at a time  */
+  --aet-z-max: 99999;           /* last resort above everything          */
+}

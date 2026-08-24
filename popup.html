@@ -3,16 +3,18 @@
 <head>
     <meta charset="utf-8">
     <title>Auctionet AI Assistant</title>
+    <link rel="stylesheet" href="styles/tokens.css">
     <style>
+        /* Local aliases — values come from the shared --aet-* tokens */
         :root {
-            --blue: #007cba;
-            --blue-dark: #005a87;
-            --green: #28a745;
-            --red: #dc3545;
-            --text: #333;
-            --muted: #666;
-            --border: #e2e5e9;
-            --bg-soft: #f6f7f9;
+            --blue: var(--aet-blue);
+            --blue-dark: var(--aet-blue-dark);
+            --green: var(--aet-green);
+            --red: var(--aet-red);
+            --text: var(--aet-text);
+            --muted: var(--aet-text-muted);
+            --border: var(--aet-border);
+            --bg-soft: var(--aet-bg-soft);
         }
         * { box-sizing: border-box; }
         body {
