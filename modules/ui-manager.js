@@ -261,20 +261,14 @@ export class UIManager {
         resize: vertical;
         min-height: 60px;
         max-height: 400px;
-        transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        /* no height transition — animating a layout property on every
+           keystroke forces continuous reflow while typing */
         overflow-y: auto;
       }
-      
+
       /* Ensure textarea doesn't show scrollbars when auto-resizing */
       textarea.auto-resize:not(:focus) {
         overflow-y: hidden;
-      }
-      
-
-      
-      /* Smooth resize animation enhancement */
-      .auto-resize.resizing {
-        transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
       }
       
       .quality-warnings {
@@ -447,32 +441,15 @@ export class UIManager {
     if (!textarea || textarea.tagName.toLowerCase() !== 'textarea') {
       return;
     }
-    
-    // Add resizing class for enhanced animation
-    textarea.classList.add('resizing');
-    
-    // Reset height to auto to get the correct scrollHeight
-    const originalHeight = textarea.style.height;
+
+    // Collapse to auto and read the natural height — one forced layout,
+    // then a single write. Height changes are instant (no transition) so
+    // typing never animates a layout property.
     textarea.style.height = 'auto';
-    
-    // Calculate the required height
-    const scrollHeight = textarea.scrollHeight;
-    const minHeight = 60; // Minimum height in pixels
-    const maxHeight = 400; // Maximum height in pixels
-    
-    // Set the new height with smooth animation
-    const newHeight = Math.max(minHeight, Math.min(maxHeight, scrollHeight));
-    
-    // Use requestAnimationFrame for smooth animation
-    requestAnimationFrame(() => {
-      textarea.style.height = newHeight + 'px';
-      
-      // Remove resizing class after animation completes
-      setTimeout(() => {
-        textarea.classList.remove('resizing');
-      }, 400);
-    });
-    
+    const minHeight = 60;
+    const maxHeight = 400;
+    const newHeight = Math.max(minHeight, Math.min(maxHeight, textarea.scrollHeight));
+    textarea.style.height = newHeight + 'px';
   }
 
   setupAutoResizeForAllTextareas() {
@@ -489,11 +466,11 @@ export class UIManager {
         this.autoResizeTextarea(textarea);
       };
       
-      // Add event listeners
+      // 'input' fires for typing, paste, cut, and drop alike — one listener
+      // per keystroke, not three (the old paste/keyup bindings tripled the
+      // forced-layout measurement on every key press)
       textarea.addEventListener('input', autoResizeHandler);
-      textarea.addEventListener('paste', autoResizeHandler);
-      textarea.addEventListener('keyup', autoResizeHandler);
-      
+
       // Also resize on focus to handle cases where content was added programmatically
       textarea.addEventListener('focus', autoResizeHandler);
       

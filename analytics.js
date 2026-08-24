@@ -692,8 +692,13 @@ function createSparkline(data, formatFn) {
   wrapper.appendChild(svg);
   wrapper.appendChild(tooltip);
 
+  // The svg's rect is invariant while the cursor stays inside the wrapper —
+  // measure once per hover session instead of on every mousemove
+  let hoverRect = null;
+  wrapper.addEventListener('mouseenter', () => { hoverRect = svg.getBoundingClientRect(); });
+
   wrapper.addEventListener('mousemove', e => {
-    const rect = svg.getBoundingClientRect();
+    const rect = hoverRect || (hoverRect = svg.getBoundingClientRect());
     const pctX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const svgX = pctX * w;
 
@@ -720,6 +725,7 @@ function createSparkline(data, formatFn) {
   });
 
   wrapper.addEventListener('mouseleave', () => {
+    hoverRect = null;
     vLine.style.display = 'none';
     dot.style.display = 'none';
     tooltip.style.display = 'none';

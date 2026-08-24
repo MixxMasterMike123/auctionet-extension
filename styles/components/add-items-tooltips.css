@@ -571,17 +571,13 @@
   to { opacity: 1; }
 }
 
-/* Auto-resize textarea styles */
+/* Auto-resize textarea styles — no height transition: animating a layout
+   property on every keystroke forces continuous reflow while typing */
 textarea.auto-resize {
-  transition: height 0.3s ease;
   resize: none;
   overflow-y: hidden;
   min-height: 60px;
   max-height: 400px;
-}
-
-textarea.auto-resize.resizing {
-  transition: height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 textarea.auto-resize:focus {

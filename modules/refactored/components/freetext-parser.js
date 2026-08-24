@@ -744,6 +744,11 @@ export class FreetextParser {
     // className together. `buttonIconKey` lets the images branch reuse the
     // single-image icon for its multi-image button label variant.
     const setMode = (iconKey, text, buttonLabel, className, buttonIconKey = iconKey) => {
+      // Runs on every keystroke in the textarea — skip the innerHTML/SVG
+      // rebuild when the resolved mode hasn't actually changed
+      const modeKey = `${iconKey}|${text}|${buttonLabel}|${className}|${buttonIconKey}`;
+      if (indicator._lastModeKey === modeKey) return;
+      indicator._lastModeKey = modeKey;
       const iconMarkup = MODE_ICONS[iconKey].join('\n          ');
       const buttonIconMarkup = MODE_ICONS[buttonIconKey].join('\n          ');
       modeIcon.innerHTML = `

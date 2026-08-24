@@ -538,28 +538,36 @@ export class DashboardManagerV2 {
 
     const positionCard = () => {
       if (!kbCard) return;
+      // Batch both layout reads before any style write — one layout pass
+      // instead of a read→write→read→write thrash cycle
       const rect = trigger.getBoundingClientRect();
+      const cardHeight = kbCard.offsetHeight || 400;
       const cardWidth = 340;
       let left = rect.left + rect.width / 2 - cardWidth / 2;
       left = Math.max(8, Math.min(left, window.innerWidth - cardWidth - 8));
-      kbCard.style.left = `${left}px`;
-      
-      const cardHeight = kbCard.offsetHeight || 400;
       const spaceBelow = window.innerHeight - rect.bottom - 8;
       const spaceAbove = rect.top - 8;
-      if (spaceBelow >= cardHeight || spaceBelow >= spaceAbove) {
-        kbCard.style.top = `${rect.bottom + 8}px`;
-      } else {
-        kbCard.style.top = `${rect.top - cardHeight - 8}px`;
-      }
-      const currentTop = parseFloat(kbCard.style.top);
+      let top = (spaceBelow >= cardHeight || spaceBelow >= spaceAbove)
+        ? rect.bottom + 8
+        : rect.top - cardHeight - 8;
       const maxTop = window.innerHeight - cardHeight - 8;
-      kbCard.style.top = `${Math.max(8, Math.min(currentTop, maxTop))}px`;
+      top = Math.max(8, Math.min(top, maxTop));
+      kbCard.style.left = `${left}px`;
+      kbCard.style.top = `${top}px`;
     };
-    
+
     const attachScroll = () => {
       if (scrollHandler) return;
-      scrollHandler = () => { if (kbCard?.style.visibility === 'visible') positionCard(); };
+      // rAF-throttled: at most one reposition per frame, not per scroll event
+      let queued = false;
+      scrollHandler = () => {
+        if (kbCard?.style.visibility !== 'visible' || queued) return;
+        queued = true;
+        requestAnimationFrame(() => {
+          queued = false;
+          if (kbCard?.style.visibility === 'visible') positionCard();
+        });
+      };
       this._kbScrollHandler = scrollHandler;
       window.addEventListener('scroll', scrollHandler, { passive: true });
       window.addEventListener('resize', scrollHandler, { passive: true });
