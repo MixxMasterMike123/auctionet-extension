@@ -670,7 +670,7 @@ export class APIManager {
     this.apiKey = null;
     this.enableArtistInfo = true;
     this.showDashboard = true; // Default to showing dashboard
-    this.currentModel = 'sonnet'; // Claude Sonnet 4.5
+    this.currentModel = 'sonnet'; // Claude Sonnet 5
     this.auctionetAPI = new AuctionetAPI();
     this.auctionetAPI.setAPIManager(this); // Give AuctionetAPI access to Claude for AI validation
     this.searchQuerySSoT = null; // NEW: AI-only SearchQuerySSoT support

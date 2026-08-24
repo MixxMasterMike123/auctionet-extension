@@ -116,7 +116,7 @@ export async function generateInsights(dataSummary, companyId, filters) {
     chrome.runtime.sendMessage({
       type: 'anthropic-fetch',
       body: {
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-5',
         max_tokens: 1500,
         temperature: 0.2,
         system: [{
@@ -207,7 +207,7 @@ export function renderInsightsPanel({ insights, isLoading, error, onRefresh }) {
 
   if (isLoading) {
     card.innerHTML = `
-      <div class="ad-card__title">AI-analys <span class="ad-ai-badge">Sonnet 4.5</span></div>
+      <div class="ad-card__title">AI-analys <span class="ad-ai-badge">Sonnet 5</span></div>
       <div class="ad-ai-loading">
         <div class="ad-ai-shimmer"></div>
         <div class="ad-ai-shimmer ad-ai-shimmer--short"></div>
@@ -219,7 +219,7 @@ export function renderInsightsPanel({ insights, isLoading, error, onRefresh }) {
 
   if (error) {
     card.innerHTML = `
-      <div class="ad-card__title">AI-analys <span class="ad-ai-badge">Sonnet 4.5</span></div>
+      <div class="ad-card__title">AI-analys <span class="ad-ai-badge">Sonnet 5</span></div>
       <div class="ad-ai-error">${escHTML(error)}</div>`;
     return card;
   }
@@ -240,7 +240,7 @@ export function renderInsightsPanel({ insights, isLoading, error, onRefresh }) {
   }
 
   card.innerHTML = `
-    <div class="ad-card__title">AI-analys <span class="ad-ai-badge">Sonnet 4.5</span></div>
+    <div class="ad-card__title">AI-analys <span class="ad-ai-badge">Sonnet 5</span></div>
     ${sectionsHTML}
     <div class="ad-ai-footer">
       <button class="ad-ai-refresh">Uppdatera analys</button>
@@ -294,7 +294,7 @@ export function renderInsightsSummaryCard({ insights, isLoading, error }) {
   }
 
   card.innerHTML = `
-    <div class="ad-ai-summary__header">AI-analys <span class="ad-ai-badge">Sonnet 4.5</span></div>
+    <div class="ad-ai-summary__header">AI-analys <span class="ad-ai-badge">Sonnet 5</span></div>
     ${snippetsHTML}
     <a href="#ai-insights-panel" class="ad-ai-summary__more">Visa fullständig analys</a>`;
 

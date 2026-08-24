@@ -1090,10 +1090,10 @@ export class FreetextParser {
     const valuationRules = window.getAIRulesManager().getModelSpecificValuationRules('freetextParser', currentModel);
     
     
-    // For Claude 4, add extra context about realistic pricing based on your data
+    // Sonnet models: add extra context about realistic pricing based on real house data
     let valuationContext = '';
-    if (currentModel.includes('claude-sonnet-4')) {
-      valuationContext = `\n\nVÄRDERINGSKONTEXT FÖR CLAUDE 4:
+    if (currentModel.includes('claude-sonnet')) {
+      valuationContext = `\n\nVÄRDERINGSKONTEXT:
 Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
 - Genomsnittligt slutpris: 1,592 SEK
 - Nuvarande AI-värderingar är ofta 25-30% för höga
@@ -1350,10 +1350,10 @@ VIKTIGT: Detta är ett UTKAST. Skriv MINIMALT — bara extrahera kärnfakta.
     const currentModel = this.apiManager.getCurrentModel().id;
     const valuationRules = window.getAIRulesManager().getModelSpecificValuationRules('freetextParser', currentModel);
     
-    // For Claude 4, add extra context about realistic pricing based on your data
+    // Sonnet models: add extra context about realistic pricing based on real house data
     let valuationContext = '';
-    if (currentModel.includes('claude-sonnet-4')) {
-      valuationContext = `\n\nVÄRDERINGSKONTEXT FÖR CLAUDE 4:
+    if (currentModel.includes('claude-sonnet')) {
+      valuationContext = `\n\nVÄRDERINGSKONTEXT:
 Baserat på verklig auktionsdata från Stadsauktion Sundsvall:
 - Genomsnittligt slutpris: 1,592 SEK
 - Nuvarande AI-värderingar är ofta 25-30% för höga

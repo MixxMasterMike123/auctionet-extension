@@ -26,7 +26,7 @@ export const TIER_CONFIG = {
       label: 'Berika',
       description: 'Strukturera + kort kontext',
       maxValuation: 10000,
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-5',
       makerContextModel: 'claude-opus-5',
       maxTokens: 2000,
       temperature: 0.1,

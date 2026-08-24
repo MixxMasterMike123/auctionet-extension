@@ -245,7 +245,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
     } catch (err) {
       if (err.message?.includes('Overloaded') || err.message?.includes('overloaded') || err.message?.includes('429')) {
         console.warn('[ValuationRequest] Opus overloaded — falling back to Sonnet for clustering');
-        response = await callAPI('claude-sonnet-4-5');
+        response = await callAPI('claude-sonnet-5');
       } else {
         throw err;
       }
@@ -691,7 +691,7 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
     } catch (err) {
       if ((err.message?.includes('Overloaded') || err.message?.includes('overloaded') || err.message?.includes('429')) && model.includes('opus')) {
         console.warn('[ValuationRequest] Opus overloaded — falling back to Sonnet for valuation');
-        response = await callValuationAPI('claude-sonnet-4-5');
+        response = await callValuationAPI('claude-sonnet-5');
       } else {
         throw err;
       }

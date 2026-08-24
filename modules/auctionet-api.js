@@ -1429,7 +1429,7 @@ Ingen annan text.`;
         );
         if (isOverloaded) {
           console.warn('AI validation: Haiku overloaded — retrying with Sonnet');
-          response = await callValidationAPI('claude-sonnet-4-5');
+          response = await callValidationAPI('claude-sonnet-5');
         } else {
           throw haikuError;
         }

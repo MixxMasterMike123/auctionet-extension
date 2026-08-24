@@ -229,7 +229,8 @@ function enqueue(fn) {
 }
 
 async function callAnthropicAPI(body, { apiKey = null, timeoutMs = 30000 } = {}) {
-  return enqueue(() => _callAnthropicAPIInner(body, { apiKey, timeoutMs }));
+  const sanitized = sanitizeForClaude5(body);
+  return enqueue(() => _callAnthropicAPIInner(sanitized, { apiKey, timeoutMs }));
 }
 
 async function _callAnthropicAPIInner(body, { apiKey = null, timeoutMs = 30000 } = {}) {
@@ -286,6 +287,21 @@ async function _callAnthropicAPIInner(body, { apiKey = null, timeoutMs = 30000 }
 
 // Export for publication-scanner-bg.js (same service worker)
 globalThis.__callAnthropicAPI = callAnthropicAPI;
+
+// Claude 5-family models (Opus 5, Sonnet 5, Fable 5) reject `temperature`/
+// `top_p`/`top_k` (400) and run adaptive thinking when `thinking` is omitted —
+// which would eat the small max_tokens budgets our short JSON calls use.
+// Sanitize once here at the single API gateway so every module keeps its tuned
+// request shape for older models without per-site conditionals.
+function sanitizeForClaude5(body) {
+  if (!body || !/^claude-(opus|sonnet|fable)-5/.test(body.model || '')) return body;
+  const sanitized = { ...body };
+  delete sanitized.temperature;
+  delete sanitized.top_p;
+  delete sanitized.top_k;
+  if (!sanitized.thinking) sanitized.thinking = { type: 'disabled' };
+  return sanitized;
+}
 
 async function handleAnthropicRequest(request, sendResponse) {
   try {

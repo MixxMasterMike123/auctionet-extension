@@ -3,8 +3,8 @@ export const CONFIG = {
   // Model Configuration — updated Feb 2026
   MODELS: {
     'sonnet': {
-      id: 'claude-sonnet-4-5', // Claude Sonnet 4.5 — testing vs Sonnet 4
-      name: 'Claude Sonnet 4.5',
+      id: 'claude-sonnet-5', // Claude Sonnet 5 — background.js strips temperature and disables thinking for 5-family models
+      name: 'Claude Sonnet 5',
       cost: 'Standard'
     },
     'haiku': {

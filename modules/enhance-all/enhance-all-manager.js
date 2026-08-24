@@ -235,7 +235,7 @@ export class EnhanceAllManager {
     // Opus overloaded → fall back to Sonnet immediately
     if (isOverloaded && model.includes('opus')) {
       console.warn(`[EnhanceAll] Opus overloaded — falling back to Sonnet`);
-      return this._callAPI('claude-sonnet-4-5', systemPrompt, userMessage, maxTokens, temperature);
+      return this._callAPI('claude-sonnet-5', systemPrompt, userMessage, maxTokens, temperature);
     }
 
     if (result.error !== 'timeout') {

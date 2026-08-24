@@ -350,7 +350,7 @@ Regler:
         });
       });
 
-      const response = await callBioAPI('claude-sonnet-4-5');
+      const response = await callBioAPI('claude-sonnet-5');
 
       if (response.success && response.data?.content?.[0]?.text) {
         const text = response.data.content[0].text.trim();
