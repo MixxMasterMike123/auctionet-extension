@@ -619,7 +619,10 @@
   border-radius: var(--aet-radius-sm) !important;
   font-size: 13px !important;
   line-height: 1.5 !important;
-  width: 280px !important;
+  /* CSS-only tooltip cannot detect viewport edges — cap the width to the
+     viewport so it can never be wider than what's on screen (it may still
+     shift off-center near a column edge; full clamping needs JS) */
+  width: min(280px, calc(100vw - 24px)) !important;
   white-space: normal !important;
   word-wrap: break-word !important;
   z-index: var(--aet-z-max) !important;

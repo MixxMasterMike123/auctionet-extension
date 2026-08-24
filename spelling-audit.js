@@ -414,38 +414,38 @@ function render(results, totalItems) {
 
   // Top misspellings
   if (topSpellings.length > 0) {
-    html += `<h2>Top Misspellings</h2><table><tr><th>Misspelling → Correction</th><th>Count</th></tr>`;
+    html += `<h2>Top Misspellings</h2><div class="table-scroll"><table><tr><th>Misspelling → Correction</th><th>Count</th></tr>`;
     topSpellings.forEach(([key, count]) => {
       html += `<tr><td>${esc(key)}</td><td>${count}</td></tr>`;
     });
-    html += `</table>`;
+    html += `</table></div>`;
   }
 
   // Brand issues
   if (topBrands.length > 0) {
-    html += `<h2>Brand Misspellings</h2><table><tr><th>Found → Correct</th><th>Count</th></tr>`;
+    html += `<h2>Brand Misspellings</h2><div class="table-scroll"><table><tr><th>Found → Correct</th><th>Count</th></tr>`;
     topBrands.forEach(([key, count]) => {
       html += `<tr><td>${esc(key)}</td><td>${count}</td></tr>`;
     });
-    html += `</table>`;
+    html += `</table></div>`;
   }
 
   // Forbidden words
   if (topForbidden.length > 0) {
-    html += `<h2>Forbidden Words Found</h2><table><tr><th>Word</th><th>Count</th></tr>`;
+    html += `<h2>Forbidden Words Found</h2><div class="table-scroll"><table><tr><th>Word</th><th>Count</th></tr>`;
     topForbidden.forEach(([word, count]) => {
       html += `<tr><td>${esc(word)}</td><td>${count}</td></tr>`;
     });
-    html += `</table>`;
+    html += `</table></div>`;
   }
 
   // Structural issues
   if (topStructural.length > 0) {
-    html += `<h2>Structural Issues</h2><table><tr><th>Issue</th><th>Count</th></tr>`;
+    html += `<h2>Structural Issues</h2><div class="table-scroll"><table><tr><th>Issue</th><th>Count</th></tr>`;
     topStructural.forEach(([label, count]) => {
       html += `<tr><td>${esc(label)}</td><td>${count}</td></tr>`;
     });
-    html += `</table>`;
+    html += `</table></div>`;
   }
 
   // All items with errors — with filter buttons and expandable details
@@ -459,7 +459,7 @@ function render(results, totalItems) {
     <button class="filter-btn" data-filter="forbidden">Forbidden (${withForbidden.length})</button>
     <button class="filter-btn" data-filter="structural">Structural (${withStructural.length})</button>
   </div>`;
-  html += `<table id="items-table"><tr><th>#</th><th>Title</th><th>Errors</th><th>Details</th></tr>`;
+  html += `<div class="table-scroll"><table id="items-table"><tr><th>#</th><th>Title</th><th>Errors</th><th>Details</th></tr>`;
   allWithErrors.forEach((r, i) => {
     const rowId = `detail-${i}`;
     const cats = [];
@@ -500,7 +500,7 @@ function render(results, totalItems) {
     });
     html += `</ul></td></tr>`;
   });
-  html += `</table>`;
+  html += `</table></div>`;
 
   // Error distribution histogram
   const buckets = { '0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5+': 0 };

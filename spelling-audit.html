@@ -34,7 +34,9 @@
   .card.green .value { color: #22c55e; }
   .card.blue .value { color: #3b82f6; }
 
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 20px; font-size: 0.85rem; }
+  /* Tables scroll inside their own container; the page never scrolls sideways */
+  .table-scroll { overflow-x: auto; margin: 8px 0 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   th { text-align: left; padding: 8px 10px; background: #1a1d27; color: #a0c4ff; border-bottom: 2px solid #2a2d35; white-space: nowrap; }
   td { padding: 7px 10px; border-bottom: 1px solid #1e2028; }
   tr:hover td { background: #1a1d27; }

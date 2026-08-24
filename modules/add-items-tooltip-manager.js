@@ -535,14 +535,14 @@ export class AddItemsTooltipManager {
       top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
     }
     
-    if (targetRect.left >= 0 && targetRect.right <= window.innerWidth) {
-      if (side === 'left') {
-        left = Math.max(-tooltipRect.width + 50, left);
-      } else {
-        left = Math.min(window.innerWidth - 50, left);
-      }
-    }
-    
+    // Clamp both axes to the viewport unconditionally — a tooltip that
+    // overlaps its trigger beats one hanging below the fold or off-screen
+    // (the old clamp only ran horizontally, and only when the trigger was
+    // already fully visible)
+    const edge = 8;
+    left = Math.max(edge, Math.min(left, window.innerWidth - tooltipRect.width - edge));
+    top = Math.max(edge, Math.min(top, window.innerHeight - tooltipRect.height - edge));
+
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
     

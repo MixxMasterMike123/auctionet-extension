@@ -721,7 +721,8 @@ function createSparkline(data, formatFn) {
     const valStr = formatFn ? formatFn(coords[idx].val) : fmt(coords[idx].val);
     tooltip.textContent = `${MONTH_NAMES[idx]}: ${valStr}`;
     tooltip.style.display = 'block';
-    tooltip.style.left = `${pctX * 100}%`;
+    // Clamp so the centered tooltip can't spill past the KPI card edges
+    tooltip.style.left = `${Math.max(12, Math.min(88, pctX * 100))}%`;
   });
 
   wrapper.addEventListener('mouseleave', () => {
