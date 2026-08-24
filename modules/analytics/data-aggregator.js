@@ -5,13 +5,14 @@ import { getCategoryName, getParentCategoryId } from './category-registry.js';
 /**
  * Filter items by date range and category
  * @param {Array} items - compressed items [{id, p, e, r, rm, cat, d, sb}]
- * @param {Object} filters - { year, month, categoryId }
+ * @param {Object} filters - { year, quarter, month, categoryId }
  */
 export function filterItems(items, filters = {}) {
   return items.filter(item => {
     const date = new Date(item.d * 1000);
 
     if (filters.year && date.getFullYear() !== filters.year) return false;
+    if (filters.quarter != null && Math.floor(date.getMonth() / 3) !== filters.quarter) return false;
     if (filters.month != null && date.getMonth() !== filters.month) return false;
     if (filters.categoryId && getParentCategoryId(item.cat) !== filters.categoryId) return false;
     if (filters.priceRange) {

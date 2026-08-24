@@ -233,6 +233,41 @@ export async function fetchAuctionResultsForMonth(year, month) {
 }
 
 /**
+ * Fetch auction results for a specific quarter within a year.
+ * @param {number} year
+ * @param {number} quarter — 0-3 (Q1-Q4)
+ */
+export async function fetchAuctionResultsForQuarter(year, quarter) {
+  const startMonth = quarter * 3; // 0-based
+  const mm = String(startMonth + 1).padStart(2, '0');
+  const fromDate = `${year}-${mm}-01`;
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentQuarter = Math.floor(now.getMonth() / 3);
+  let toDate;
+  if (year === currentYear && quarter === currentQuarter) {
+    // Current quarter: use today as cutoff
+    toDate = formatDate(now);
+  } else {
+    // Completed quarter: last day of its final month
+    const endMonth = startMonth + 2;
+    const lastDay = new Date(year, endMonth + 1, 0).getDate();
+    toDate = `${year}-${String(endMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  }
+
+  const cacheKey = `${year}_q${quarter + 1}`;
+  const cached = await loadAdminCache(cacheKey);
+  if (cached && !cached.isExpired) {
+    return { categories: cached.categories, totals: cached.totals };
+  }
+
+  const result = await fetchAuctionResults({ fromDate, toDate });
+  await saveAdminCache(cacheKey, result.categories, result.totals);
+  return result;
+}
+
+/**
  * Fetch same-period data for YoY comparison.
  * Uses Jan 1 → today's month/day for the given year (e.g., Jan 1–Mar 20 of 2024).
  * Only needed for previous years; current year already uses today as cutoff.

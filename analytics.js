@@ -15,7 +15,7 @@ import {
 } from './modules/analytics/ai-insights.js';
 import {
   fetchAuctionResultsWithCache, fetchAuctionResultsSamePeriod,
-  fetchAuctionResultsForMonth,
+  fetchAuctionResultsForMonth, fetchAuctionResultsForQuarter,
   computeAdminTotals, computeAdminYoY, buildAdminCategoryMap,
 } from './modules/analytics/auction-results-scraper.js';
 import { DashboardAPI } from './modules/dashboard-api.js';
@@ -80,6 +80,7 @@ let adminYoY = null;        // computeAdminYoY() result
 let adminCategoryMap = null; // Map<parentName, aggregated admin data>
 let adminLoadedYear = null;  // Which year admin data was last fetched for
 let adminLoadedMonth = undefined; // Which month (null=all, 0-11=specific), undefined=not loaded
+let adminLoadedQuarter = undefined; // Which quarter (null=all, 0-3=specific), undefined=not loaded
 let adminLoading = false;    // True while admin data is being fetched
 let dashboardAPI = null;     // DashboardAPI instance (null if token not configured)
 let dashboardData = null;    // Last fetched dashboard data
@@ -176,12 +177,13 @@ async function init() {
   });
 
   filters.onChange(async (f) => {
-    const needsAdminRefresh = (f.year !== adminLoadedYear || f.month !== adminLoadedMonth)
+    const needsAdminRefresh = (f.year !== adminLoadedYear || f.month !== adminLoadedMonth || f.quarter !== adminLoadedQuarter)
       && ownCompanyId != null && currentCompanyId === ownCompanyId;
 
     if (needsAdminRefresh) {
       adminLoadedYear = null;
       adminLoadedMonth = undefined;
+      adminLoadedQuarter = undefined;
       adminLoading = true;
     }
 
@@ -221,24 +223,27 @@ async function loadAdminData() {
   const isOwnHouse = ownCompanyId != null && currentCompanyId === ownCompanyId;
   if (!isOwnHouse) {
     adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
-    adminLoadedYear = null; adminLoadedMonth = undefined;
+    adminLoadedYear = null; adminLoadedMonth = undefined; adminLoadedQuarter = undefined;
     return;
   }
 
   const year = filters.year || new Date().getFullYear();
   const month = filters.month; // null = all months, 0-11 = specific
+  const quarter = filters.quarter; // null = all quarters, 0-3 = specific
 
-  // Skip if already loaded for this year+month combination
-  if (adminLoadedYear === year && adminLoadedMonth === month) return;
+  // Skip if already loaded for this year+month+quarter combination
+  if (adminLoadedYear === year && adminLoadedMonth === month && adminLoadedQuarter === quarter) return;
 
   adminLoading = true;
   try {
     const currentYear = new Date().getFullYear();
 
-    // Fetch current period data (month-specific or full year)
+    // Fetch current period data (month-specific, quarter-specific, or full year)
     const current = month != null
       ? await fetchAuctionResultsForMonth(year, month)
-      : await fetchAuctionResultsWithCache(year);
+      : quarter != null
+        ? await fetchAuctionResultsForQuarter(year, quarter)
+        : await fetchAuctionResultsWithCache(year);
     adminData = { current };
     adminTotals = computeAdminTotals(current);
     adminCategoryMap = buildAdminCategoryMap(current);
@@ -247,6 +252,8 @@ async function loadAdminData() {
     let previous;
     if (month != null) {
       previous = await fetchAuctionResultsForMonth(year - 1, month);
+    } else if (quarter != null) {
+      previous = await fetchAuctionResultsForQuarter(year - 1, quarter);
     } else if (year === currentYear) {
       previous = await fetchAuctionResultsSamePeriod(year - 1);
     } else {
@@ -256,9 +263,10 @@ async function loadAdminData() {
     adminYoY = computeAdminYoY(adminTotals, computeAdminTotals(previous));
     adminLoadedYear = year;
     adminLoadedMonth = month;
+    adminLoadedQuarter = quarter;
   } catch {
     adminData = null; adminTotals = null; adminYoY = null; adminCategoryMap = null;
-    adminLoadedYear = null; adminLoadedMonth = undefined;
+    adminLoadedYear = null; adminLoadedMonth = undefined; adminLoadedQuarter = undefined;
   } finally {
     adminLoading = false;
   }
@@ -271,6 +279,7 @@ async function loadCompany(companyId, forceRefresh = false, forceIncremental = f
   companySelect.value = companyId;
   adminLoadedYear = null; // Force admin data re-fetch for new company
   adminLoadedMonth = undefined;
+  adminLoadedQuarter = undefined;
 
   if (!forceRefresh && !forceIncremental) {
     const cached = await loadCache(companyId);
@@ -315,6 +324,7 @@ function initFilters() {
   const years = getAvailableYears(allItems);
   const currentYear = new Date().getFullYear();
   filters.setYear(years.includes(currentYear) ? currentYear : years[0]);
+  filters.setQuarter(null);
   filters.setMonth(null);
   filters.setCategoryId(null);
   filters.setPriceRange(null);
@@ -329,13 +339,13 @@ function renderSidebar() {
   const years = getAvailableYears(allItems);
 
   // Categories with counts (for current year + month only, not price-filtered)
-  const catFilterItems = filterItems(allItems, { year: f.year, month: f.month });
+  const catFilterItems = filterItems(allItems, { year: f.year, quarter: f.quarter, month: f.month });
   const categories = computeCategoryBreakdown(catFilterItems);
 
   sidebar.innerHTML = '';
 
   // ── Active filter bar (always at the very top)
-  const hasFilters = f.month != null || f.categoryId != null || f.priceRange != null;
+  const hasFilters = f.quarter != null || f.month != null || f.categoryId != null || f.priceRange != null;
   if (hasFilters) {
     const filterBar = document.createElement('div');
     filterBar.className = 'ad-sb-filter-bar';
@@ -343,6 +353,7 @@ function renderSidebar() {
     const summary = document.createElement('div');
     summary.className = 'ad-sb-filter-bar__summary';
     const parts = [];
+    if (f.quarter != null) parts.push(`Q${f.quarter + 1}`);
     if (f.month != null) parts.push(MONTH_NAMES[f.month]);
     if (f.categoryId != null) parts.push(getCategoryName(f.categoryId));
     if (f.priceRange != null) {
@@ -374,6 +385,20 @@ function renderSidebar() {
   }
   yearSec.appendChild(yearGrid);
   sidebar.appendChild(yearSec);
+
+  // ── Quarter section
+  const quarterSec = mkSection('KVARTAL', 'Kvartal');
+  const quarterGrid = document.createElement('div');
+  quarterGrid.className = 'ad-sb-quarter-grid';
+  for (let q = 0; q < 4; q++) {
+    const btn = document.createElement('button');
+    btn.className = `ad-sb-btn${q === f.quarter ? ' ad-sb-btn--active' : ''}`;
+    btn.textContent = `Q${q + 1}`;
+    btn.addEventListener('click', () => filters.setQuarter(filters.quarter === q ? null : q));
+    quarterGrid.appendChild(btn);
+  }
+  quarterSec.appendChild(quarterGrid);
+  sidebar.appendChild(quarterSec);
 
   // ── Month section
   const monthSec = mkSection('MANAD', 'Månad');
@@ -450,7 +475,7 @@ async function runAIAnalysis(forceRefresh = false) {
   if (allItems.length === 0) return;
 
   const f = filters.getFilters();
-  const filterKey = { year: f.year, month: f.month, categoryId: f.categoryId, priceMin: f.priceRange?.min, priceMax: f.priceRange?.max };
+  const filterKey = { year: f.year, quarter: f.quarter, month: f.month, categoryId: f.categoryId, priceMin: f.priceRange?.min, priceMax: f.priceRange?.max };
 
   // Show loading state in both summary card and full panel
   const existingSummary = $('ai-summary-card');
@@ -481,8 +506,8 @@ async function runAIAnalysis(forceRefresh = false) {
     // For AI: compute same-period YoY to avoid misleading comparisons
     const currentYear = new Date().getFullYear();
     let prevKpis, yoy;
-    if (f.month != null) {
-      // Specific month selected — compare that month across years
+    if (f.month != null || f.quarter != null) {
+      // Specific month/quarter selected — compare that period across years
       const prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
       prevKpis = computeKPIs(prevItems);
       yoy = computeYoY(kpis, prevKpis);
@@ -501,6 +526,7 @@ async function runAIAnalysis(forceRefresh = false) {
     }
 
     const activeFilters = [];
+    if (f.quarter != null) activeFilters.push(`Kvartal: Q${f.quarter + 1}`);
     if (f.month != null) activeFilters.push(`Månad: ${MONTH_NAMES[f.month]}`);
     if (f.categoryId != null) activeFilters.push(`Kategori: ${getCategoryName(f.categoryId)}`);
     if (f.priceRange) activeFilters.push(`Pris: ${f.priceRange.min}–${f.priceRange.max}`);
@@ -545,7 +571,7 @@ function renderDashboard() {
   // Same-period YoY: for current year without month filter, compare exact same date range
   const currentYear = new Date().getFullYear();
   let prevItems, yoyCurrentItems;
-  if (f.year === currentYear && f.month == null) {
+  if (f.year === currentYear && f.month == null && f.quarter == null) {
     // Compare Jan 1–today in both years for fair partial-month comparison
     yoyCurrentItems = filterItemsSamePeriod(allItems, f.year, f);
     prevItems = filterItemsSamePeriod(allItems, f.year - 1, f);
@@ -568,7 +594,7 @@ function renderDashboard() {
   generateNugget(kpis, yoy, items, f);
 
   // AI summary card (right after KPIs for visibility)
-  const filterKey = { year: f.year, month: f.month, categoryId: f.categoryId, priceMin: f.priceRange?.min, priceMax: f.priceRange?.max };
+  const filterKey = { year: f.year, quarter: f.quarter, month: f.month, categoryId: f.categoryId, priceMin: f.priceRange?.min, priceMax: f.priceRange?.max };
   const cachedInsights = getCachedInsights(currentCompanyId, filterKey);
   if (cachedInsights) {
     container.appendChild(renderInsightsSummaryCard({ insights: cachedInsights }));
@@ -594,7 +620,7 @@ function renderDashboard() {
   container.appendChild(renderTopItems(items));
 
   // Yearly prediction (only for current year, no month/category/price filter)
-  if (f.year === currentYear && f.month == null && f.categoryId == null && f.priceRange == null) {
+  if (f.year === currentYear && f.month == null && f.quarter == null && f.categoryId == null && f.priceRange == null) {
     const prediction = renderPrediction(monthly, kpis);
     if (prediction) container.appendChild(prediction);
   }
@@ -864,7 +890,7 @@ function renderChartsRow(monthly, priceDist, f, items) {
   for (let i = 0; i < 12; i++) {
     const m = monthly[i];
     const pct = (m.count / maxCount * 100).toFixed(1);
-    const isActive = f.month === i;
+    const isActive = f.month === i || (f.quarter != null && Math.floor(i / 3) === f.quarter);
     const tooltipText = m.count > 0
       ? `${MONTH_NAMES[i]}: ${fmt(m.count)} st, ${fmtSEK(m.revenue)}, snitt ${fmtSEK(m.avgPrice)}`
       : `${MONTH_NAMES[i]}: inga föremål`;

@@ -4,6 +4,7 @@ export class FilterState {
   constructor() {
     this._state = {
       year: new Date().getFullYear(),
+      quarter: null,     // null = all quarters, 0-3 for Q1-Q4 (mutually exclusive with month)
       month: null,       // null = all months, 0-11 for specific month
       categoryId: null,  // null = all categories, parent category ID for specific
       priceRange: null,  // null = all prices, { min, max } for specific bracket
@@ -12,6 +13,7 @@ export class FilterState {
   }
 
   get year() { return this._state.year; }
+  get quarter() { return this._state.quarter; }
   get month() { return this._state.month; }
   get categoryId() { return this._state.categoryId; }
   get priceRange() { return this._state.priceRange; }
@@ -22,9 +24,17 @@ export class FilterState {
     this._emit();
   }
 
+  setQuarter(quarter) {
+    if (this._state.quarter === quarter && this._state.month == null) return;
+    this._state.quarter = quarter;
+    this._state.month = null;
+    this._emit();
+  }
+
   setMonth(month) {
-    if (this._state.month === month) return;
+    if (this._state.month === month && this._state.quarter == null) return;
     this._state.month = month;
+    this._state.quarter = null;
     this._emit();
   }
 
@@ -43,6 +53,7 @@ export class FilterState {
   }
 
   clearAll() {
+    this._state.quarter = null;
     this._state.month = null;
     this._state.categoryId = null;
     this._state.priceRange = null;

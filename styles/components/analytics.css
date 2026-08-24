@@ -245,6 +245,13 @@ body {
   gap: 4px;
 }
 
+/* Quarter grid: 4 columns */
+.ad-sb-quarter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
 /* Month grid: 3x4 */
 .ad-sb-month-grid {
   display: grid;
