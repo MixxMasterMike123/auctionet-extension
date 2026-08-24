@@ -8,6 +8,9 @@
  */
 
 import { classifyFlag } from './modules/spellcheck-confidence.js';
+// Static import — dynamic import() is disallowed in ServiceWorkerGlobalScope,
+// and this module-type service worker supports static imports fine.
+import { SwedishSpellChecker } from './modules/swedish-spellchecker.js';
 
 // ─── Constants ──────────────────────────────────────────────────────
 const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
@@ -36,8 +39,6 @@ let safeWordsSet = null;
 async function loadMisspellingsMap() {
   if (misspellingsMap) return misspellingsMap;
   try {
-    const spellUrl = chrome.runtime.getURL('modules/swedish-spellchecker.js');
-    const { SwedishSpellChecker } = await import(spellUrl);
     misspellingsMap = SwedishSpellChecker.getMisspellingsMap();
     safeWordsSet = SwedishSpellChecker.getSafeWordsSet();
   } catch (e) {
