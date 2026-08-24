@@ -296,7 +296,7 @@ Om inga felstavningar hittas: {"issues":[]}`;
     
     return {
       field: 'Titel',
-      issue: `Möjligt stavfel: "${issue.originalBrand}" → föreslår "<strong class="clickable-brand" data-original="${issue.originalBrand}" data-suggested="${issue.suggestedBrand}" style="color: #1976d2; cursor: pointer; text-decoration: underline; font-weight: 600;" title="Klicka för att rätta till ${issue.suggestedBrand}">${issue.suggestedBrand}</strong>" (${confidencePercent}% säkerhet, ${categoryText})`,
+      issue: `Möjligt stavfel: "${issue.originalBrand}" → föreslår "<strong class="clickable-brand" role="button" tabindex="0" aria-label="Rätta till ${issue.suggestedBrand}" data-original="${issue.originalBrand}" data-suggested="${issue.suggestedBrand}" style="color: var(--aet-blue); cursor: pointer; text-decoration: underline; font-weight: 600;" title="Klicka för att rätta till ${issue.suggestedBrand}">${issue.suggestedBrand}</strong>" (${confidencePercent}% säkerhet, ${categoryText})`,
       severity: 'medium',
       isBrandWarning: true,
       originalBrand: issue.originalBrand,

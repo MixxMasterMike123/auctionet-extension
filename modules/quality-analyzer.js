@@ -685,9 +685,9 @@ export class QualityAnalyzer {
       modal.className = 'ignore-artist-modal';
       modal.innerHTML = `
         <div class="modal-overlay"></div>
-        <div class="modal-content">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="ignore-artist-title">
           <div class="modal-header">
-            <h3>🚫 Ignorera konstnärsdetektering</h3>
+            <h3 id="ignore-artist-title">🚫 Ignorera konstnärsdetektering</h3>
           </div>
           <div class="modal-body">
             <p><strong>Konstnär:</strong> ${escapeHTML(artistName)}</p>
@@ -716,7 +716,7 @@ export class QualityAnalyzer {
           left: 0;
           width: 100%;
           height: 100%;
-          z-index: 10000;
+          z-index: var(--aet-z-modal);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         .ignore-artist-modal .modal-overlay {
@@ -746,7 +746,7 @@ export class QualityAnalyzer {
         }
         .ignore-artist-modal .modal-header h3 {
           margin: 0 0 15px 0;
-          color: #dc3545;
+          color: var(--aet-red);
           font-size: 18px;
         }
         .ignore-artist-modal .modal-body {
@@ -781,18 +781,18 @@ export class QualityAnalyzer {
           transition: all 0.2s ease;
         }
         .ignore-artist-modal .btn-cancel {
-          background: #6c757d;
+          background: var(--aet-text-muted);
           color: white;
         }
         .ignore-artist-modal .btn-cancel:hover {
-          background: #5a6268;
+          background: var(--aet-text-secondary);
         }
         .ignore-artist-modal .btn-confirm {
-          background: #dc3545;
+          background: var(--aet-red);
           color: white;
         }
         .ignore-artist-modal .btn-confirm:hover {
-          background: #c82333;
+          background: var(--aet-red-dark);
         }
       `;
       document.head.appendChild(style);
@@ -823,10 +823,24 @@ export class QualityAnalyzer {
       };
       document.addEventListener('keydown', handleEscape);
 
+      // Focus trap between the two buttons; initial focus on the safe action
+      const lastFocused = document.activeElement;
+      const cancelBtn = modal.querySelector('.btn-cancel');
+      const confirmBtn = modal.querySelector('.btn-confirm');
+      modal.addEventListener('keydown', (e) => {
+        if (e.key !== 'Tab') return;
+        e.preventDefault();
+        (document.activeElement === cancelBtn ? confirmBtn : cancelBtn).focus();
+      });
+      cancelBtn.focus();
+
       function cleanup() {
         document.removeEventListener('keydown', handleEscape);
         modal.remove();
         style.remove();
+        if (lastFocused && typeof lastFocused.focus === 'function' && document.contains(lastFocused)) {
+          lastFocused.focus();
+        }
       }
     });
   }
@@ -1531,9 +1545,9 @@ export class QualityAnalyzer {
         if (element.type === 'checkbox') {
           element.addEventListener('change', debouncedUpdate);
         } else {
+          // 'input' fires for typing, paste, cut, and drop alike — one listener
+          // per keystroke, not three (see the same fix in ui-manager.js)
           element.addEventListener('input', debouncedUpdate);
-          element.addEventListener('paste', debouncedUpdate);
-          element.addEventListener('keyup', debouncedUpdate);
         }
 
         // Test immediate trigger

@@ -434,8 +434,8 @@ export class AddItemsIntegrationManager {
     style.textContent = `
       /* AI Enhancement Integration Styles */
       .quality-indicator {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
+        background: var(--aet-bg-soft);
+        border: 1px solid var(--aet-border);
         border-radius: 3px;
         padding: 20px;
         margin-bottom: 20px;
@@ -452,11 +452,11 @@ export class AddItemsIntegrationManager {
         margin: 0 0 10px 0;
         font-size: 14px;
         font-weight: 600;
-        color: #333;
+        color: var(--aet-text);
         text-align: center;
         width: 100%;
       }
-      
+
       .quality-score-container {
         margin-bottom: 12px;
         width: 100%;
@@ -479,25 +479,25 @@ export class AddItemsIntegrationManager {
       }
 
       .quality-score.good {
-        background: #d4edda;
-        color: #155724;
-        border: 2px solid #b8dacc;
+        background: var(--aet-green-light);
+        color: var(--aet-green-text);
+        border: 2px solid var(--aet-green-border);
       }
 
       .quality-score.medium {
-        background: #fff3cd;
-        color: #856404;
-        border: 2px solid #f1c40f;
+        background: var(--aet-amber-light);
+        color: var(--aet-amber-text);
+        border: 2px solid var(--aet-amber);
       }
 
       .quality-score.poor {
-        background: #f8d7da;
-        color: #721c24;
-        border: 2px solid #e74c3c;
+        background: var(--aet-red-light);
+        color: var(--aet-red-text);
+        border: 2px solid var(--aet-red);
       }
 
       .refresh-quality-btn {
-        background: #6c757d;
+        background: var(--aet-text-muted);
         color: white;
         border: none;
         border-radius: 50%;
@@ -512,47 +512,47 @@ export class AddItemsIntegrationManager {
       }
 
       .refresh-quality-btn:hover {
-        background: #495057;
+        background: var(--aet-text-secondary);
         transform: rotate(180deg);
       }
-      
+
       .ai-assist-button {
         padding: 6px 12px;
         font-size: 12px;
-        background: #006ccc;
+        background: var(--aet-blue);
         color: white;
         border: none;
         border-radius: 3px;
         cursor: pointer;
         font-weight: 300;
       }
-      
+
       .ai-assist-button:hover {
-        background: #0056b3;
+        background: var(--aet-blue-dark);
       }
-      
+
       .ai-assist-button:active {
         background: #004085;
       }
-      
+
       .ai-assist-button[data-field-type="title-correct"] {
-        background: #D18300;
+        background: var(--aet-amber-deep);
       }
-      
+
       .ai-assist-button[data-field-type="title-correct"]:hover {
-        background: #B17200;
+        background: var(--aet-amber-deep-dark);
       }
-      
+
       .ai-assist-button[data-field-type="title-correct"]:active {
         background: #A16600;
       }
-      
+
       .ai-master-button {
         width: 100%;
         padding: 8px 16px;
         font-size: 14px;
         font-weight: 600;
-        background: #28a745;
+        background: var(--aet-green);
         color: white;
         border: none;
         border-radius: 3px;
@@ -561,7 +561,7 @@ export class AddItemsIntegrationManager {
       }
 
       .ai-master-button:hover {
-        background: #218838;
+        background: var(--aet-green-dark);
       }
 
       .ai-master-button:active {
@@ -578,24 +578,24 @@ export class AddItemsIntegrationManager {
       }
       
       .ai-updated {
-        background-color: #d4edda !important;
-        border: 2px solid #28a745 !important;
+        background-color: var(--aet-green-light) !important;
+        border: 2px solid var(--aet-green) !important;
         transition: all 0.3s ease;
       }
-      
+
       /* Button states */
       .ai-assist-button.loading {
         opacity: 0.7;
         cursor: not-allowed;
         animation: pulse 1.5s infinite;
       }
-      
+
       .ai-assist-button.success {
-        background: #28a745;
+        background: var(--aet-green);
       }
 
       .ai-assist-button.error {
-        background: #dc3545;
+        background: var(--aet-red);
       }
       
       @keyframes pulse {

@@ -241,40 +241,40 @@
       // Critical: Modern red with sophistication
       return {
         background: '#fef2f2',
-        borderColor: '#dc3545',
-        textColor: '#721c24',
-        iconColor: '#dc3545',
-        buttonBg: '#dc3545',
+        borderColor: 'var(--aet-red)',
+        textColor: 'var(--aet-red-text)',
+        iconColor: 'var(--aet-red)',
+        buttonBg: 'var(--aet-red)',
         buttonText: '#ffffff'
       };
     } else if (score <= 40) {
       // Major: Modern amber with warmth
       return {
-        background: '#fff3cd',
-        borderColor: '#ffc107',
-        textColor: '#856404',
-        iconColor: '#ffc107',
-        buttonBg: '#ffc107',
+        background: 'var(--aet-amber-light)',
+        borderColor: 'var(--aet-amber)',
+        textColor: 'var(--aet-amber-text)',
+        iconColor: 'var(--aet-amber)',
+        buttonBg: 'var(--aet-amber)',
         buttonText: '#ffffff'
       };
     } else if (score <= 55) {
       // Moderate: Modern blue with trust
       return {
-        background: '#e3f2fd',
-        borderColor: '#337ab7',
-        textColor: '#286090',
-        iconColor: '#337ab7',
-        buttonBg: '#337ab7',
+        background: 'var(--aet-blue-tint)',
+        borderColor: 'var(--aet-blue)',
+        textColor: 'var(--aet-blue-dark)',
+        iconColor: 'var(--aet-blue)',
+        buttonBg: 'var(--aet-blue)',
         buttonText: '#ffffff'
       };
     } else {
       // Minor: Modern emerald with success
       return {
-        background: '#d4edda',
-        borderColor: '#28a745',
-        textColor: '#155724',
-        iconColor: '#28a745',
-        buttonBg: '#28a745',
+        background: 'var(--aet-green-light)',
+        borderColor: 'var(--aet-green)',
+        textColor: 'var(--aet-green-text)',
+        iconColor: 'var(--aet-green)',
+        buttonBg: 'var(--aet-green)',
         buttonText: '#ffffff'
       };
     }

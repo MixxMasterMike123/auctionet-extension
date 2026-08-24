@@ -32,13 +32,13 @@ export class UIFeedbackManager {
       tooltip.textContent = message;
       tooltip.style.cssText = `
         position: absolute;
-        background: #28a745;
+        background: var(--aet-green);
         color: white;
         padding: 6px 12px;
         border-radius: 3px;
         font-size: 12px;
         font-weight: 500;
-        z-index: 10000;
+        z-index: var(--aet-z-tooltip);
         white-space: nowrap;
         pointer-events: none;
         transform: translateY(-100%);
@@ -176,8 +176,8 @@ export class UIFeedbackManager {
     const targetField = document.querySelector('#item_title_sv');
     if (targetField) {
       targetField.style.transition = 'background-color 0.3s ease';
-      targetField.style.backgroundColor = '#d4edda';
-      targetField.style.borderColor = '#28a745';
+      targetField.style.backgroundColor = 'var(--aet-green-light)';
+      targetField.style.borderColor = 'var(--aet-green)';
 
       setTimeout(() => {
         targetField.style.backgroundColor = '';
@@ -193,8 +193,8 @@ export class UIFeedbackManager {
     const targetField = document.querySelector('#item_title_sv');
     if (targetField) {
       targetField.style.transition = 'background-color 0.3s ease';
-      targetField.style.backgroundColor = '#f8d7da';
-      targetField.style.borderColor = '#dc3545';
+      targetField.style.backgroundColor = 'var(--aet-red-light)';
+      targetField.style.borderColor = 'var(--aet-red)';
 
       setTimeout(() => {
         targetField.style.backgroundColor = '';
@@ -216,12 +216,12 @@ export class UIFeedbackManager {
         position: fixed;
         top: 20px;
         right: 20px;
-        background: #337ab7;
+        background: var(--aet-blue);
         color: white;
         padding: 12px 16px;
         border-radius: 3px;
-        border: 1px solid #286090;
-        z-index: 10000;
+        border: 1px solid var(--aet-blue-dark);
+        z-index: var(--aet-z-tooltip);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 13px;
         font-weight: 500;

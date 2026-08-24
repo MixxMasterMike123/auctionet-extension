@@ -304,10 +304,10 @@ export class EnhanceAllUI {
     const tierLabel = `Nivå ${tier.id === 'tidy' ? '1' : tier.id === 'enrich' ? '2' : '3'} (${tier.label})`;
 
     modal.innerHTML = `
-      <div class="enhance-all-preview-modal">
+      <div class="enhance-all-preview-modal" role="dialog" aria-modal="true" aria-labelledby="enhance-all-preview-title">
         <div class="enhance-all-preview-header">
-          <span>Förbättring — ${tierLabel}</span>
-          <button type="button" class="enhance-all-preview-close" title="Stäng">&#10005;</button>
+          <span id="enhance-all-preview-title">Förbättring — ${tierLabel}</span>
+          <button type="button" class="enhance-all-preview-close" aria-label="Stäng" title="Stäng">&#10005;</button>
         </div>
         <div class="enhance-all-preview-body">
           ${result._artistDetection ? this._buildArtistDetectionUI(result._artistDetection, result, originalData) : ''}
@@ -326,9 +326,14 @@ export class EnhanceAllUI {
       </div>
     `;
 
+    // Remember the trigger so focus can be restored when the dialog closes
+    this._previewLastFocused = document.activeElement;
     document.body.appendChild(modal);
     this._previewModal = modal;
     this._attachPreviewListeners(modal, result, originalData);
+
+    const firstButton = modal.querySelector('#enhance-all-accept-selected') || modal.querySelector('.enhance-all-preview-close');
+    if (firstButton) firstButton.focus();
   }
 
   _buildSkippedFieldPreview(label, reason) {
@@ -410,6 +415,24 @@ export class EnhanceAllUI {
       }
     };
     document.addEventListener('keydown', escHandler);
+
+    // Focus trap — Tab cycles within the dialog instead of escaping to the page
+    modal.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusables = Array.from(modal.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )).filter(el => el.tabIndex !== -1 && el.offsetParent !== null);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
 
     // Accept all
     modal.querySelector('#enhance-all-accept-all').addEventListener('click', () => {

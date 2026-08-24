@@ -618,7 +618,7 @@ Om INGET saknas, returnera: {"missingElements": []}`;
       <div class="condition-guide-popup">
         <div class="popup-header">
           <h3>🎯 Professionell Konditionsrapportering</h3>
-          <button class="popup-close" type="button">✕</button>
+          <button class="popup-close" type="button" aria-label="Stäng">✕</button>
         </div>
         <div class="popup-content">
           ${this.getConditionGuideContent(category)}

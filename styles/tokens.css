@@ -89,6 +89,8 @@
   .ai-spinner,
   .processing-spinner,
   .status-spinner,
+  .loading-spinner,
+  .kb-card-spinner,
   .ext-warehouse__spinner,
   .ext-pubscan__spinner,
   .ai-image-analyzer__spinner {

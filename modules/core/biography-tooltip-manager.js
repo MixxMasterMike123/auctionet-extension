@@ -100,7 +100,7 @@ export class BiographyTooltipManager {
       <div class="artist-bio-popup">
         <div class="popup-header">
           <h3>${escapeHTML(header)}</h3>
-          <button class="popup-close" type="button">✕</button>
+          <button class="popup-close" type="button" aria-label="Stäng">✕</button>
         </div>
         <div class="popup-content">
           <p>${formattedBio}</p>

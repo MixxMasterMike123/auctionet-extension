@@ -133,8 +133,8 @@ export class UIController {
             style.id = 'quality-indicator-styles';
             style.textContent = `
         .quality-indicator {
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
+          background: var(--aet-bg-soft);
+          border: 1px solid var(--aet-border);
           border-radius: 3px;
           padding: 20px;
           margin-bottom: 20px;
@@ -151,7 +151,7 @@ export class UIController {
           margin: 0 0 10px 0;
           font-size: 14px;
           font-weight: 600;
-          color: #333;
+          color: var(--aet-text);
           text-align: center;
           width: 100%;
         }
@@ -178,7 +178,7 @@ export class UIController {
         }
         
         .refresh-quality-btn {
-          background: #6c757d;
+          background: var(--aet-text-muted);
           color: white;
           border: none;
           border-radius: 50%;
@@ -193,7 +193,7 @@ export class UIController {
         }
 
         .refresh-quality-btn:hover {
-          background: #495057;
+          background: var(--aet-text-secondary);
           transform: rotate(180deg);
         }
 
@@ -202,21 +202,21 @@ export class UIController {
         }
         
         .quality-score.good {
-          background: #d4edda;
-          color: #155724;
-          border: 2px solid #b8dacc;
+          background: var(--aet-green-light);
+          color: var(--aet-green-text);
+          border: 2px solid var(--aet-green-border);
         }
 
         .quality-score.medium {
-          background: #fff3cd;
-          color: #856404;
-          border: 2px solid #f1c40f;
+          background: var(--aet-amber-light);
+          color: var(--aet-amber-text);
+          border: 2px solid var(--aet-amber);
         }
 
         .quality-score.poor {
-          background: #f8d7da;
-          color: #721c24;
-          border: 2px solid #e74c3c;
+          background: var(--aet-red-light);
+          color: var(--aet-red-text);
+          border: 2px solid var(--aet-red);
         }
         
         .ai-master-button {
@@ -224,7 +224,7 @@ export class UIController {
           padding: 8px 16px;
           font-size: 14px;
           font-weight: 600;
-          background: #28a745;
+          background: var(--aet-green);
           color: white;
           border: none;
           border-radius: 3px;
@@ -233,17 +233,17 @@ export class UIController {
         }
 
         .ai-master-button:hover {
-          background: #218838;
+          background: var(--aet-green-dark);
         }
 
         .ai-master-button:active {
-          background: #1e7e34;
+          background: var(--aet-green-dark);
         }
-        
+
         .quality-warnings {
           margin-top: 15px;
           padding-top: 15px;
-          border-top: 1px solid #dee2e6;
+          border-top: 1px solid var(--aet-border);
         }
         
         .quality-warnings ul {
@@ -261,28 +261,28 @@ export class UIController {
         }
         
         .warning-high {
-          color: #721c24;
-          background-color: #f8d7da;
-          border-left-color: #dc3545;
+          color: var(--aet-red-text);
+          background-color: var(--aet-red-light);
+          border-left-color: var(--aet-red);
           font-weight: 400;
         }
-        
+
         .warning-medium {
           color: #084298;
           background-color: #cff4fc;
           border-left-color: #0d6efd;
           font-weight: 400;
         }
-        
+
         .warning-low {
-          color: #495057;
-          background-color: #f8f9fa;
-          border-left-color: #6c757d;
+          color: var(--aet-text-secondary);
+          background-color: var(--aet-bg-soft);
+          border-left-color: var(--aet-text-muted);
           font-style: italic;
         }
-        
+
         .no-warnings {
-          color: #155724;
+          color: var(--aet-green-text);
           font-weight: 500;
           text-align: center;
           margin: 0;
@@ -302,7 +302,7 @@ export class UIController {
         .ai-assist-button {
           padding: 6px 12px;
           font-size: 12px;
-          background: #006ccc;
+          background: var(--aet-blue);
           color: white;
           border: none;
           border-radius: 3px;
@@ -311,19 +311,19 @@ export class UIController {
         }
 
         .ai-assist-button:hover {
-          background: #0056b3;
+          background: var(--aet-blue-dark);
         }
-        
+
         .ai-assist-button:active {
           background: #004085;
         }
-        
+
         .ai-assist-button[data-field-type="title-correct"] {
-          background: #D18300;
+          background: var(--aet-amber-deep);
         }
-        
+
         .ai-assist-button[data-field-type="title-correct"]:hover {
-          background: #B17200;
+          background: var(--aet-amber-deep-dark);
         }
         
         .ai-assist-button[data-field-type="title-correct"]:active {
@@ -331,7 +331,7 @@ export class UIController {
         }
         
         .ai-undo-button {
-          background: #dc3545;
+          background: var(--aet-red);
           color: white;
           border: none;
           padding: 6px 12px;
@@ -344,47 +344,47 @@ export class UIController {
         }
 
         .ai-undo-button:hover {
-          background: #c82333;
+          background: var(--aet-red-dark);
         }
 
         .ai-undo-button:active {
           background: #a71e2a;
         }
-        
+
         .ai-updated {
-          background-color: #d4edda !important;
-          border: 2px solid #28a745 !important;
+          background-color: var(--aet-green-light) !important;
+          border: 2px solid var(--aet-green) !important;
           transition: all 0.3s ease;
         }
-        
+
         /* Artist Detection Styles */
         .warning-artist-detection {
-          background: #e3f2fd;
-          border: 1px solid #2196f3;
+          background: var(--aet-blue-tint);
+          border: 1px solid var(--aet-blue);
           border-radius: 3px;
           padding: 12px;
           margin: 8px 0;
         }
-        
+
         .artist-detection-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           margin-bottom: 8px;
         }
-        
+
         .confidence-badge {
-          background: #2196f3;
+          background: var(--aet-blue);
           color: white;
           padding: 2px 8px;
           border-radius: 3px;
           font-size: 11px;
           font-weight: bold;
         }
-        
+
         .artist-reasoning {
           font-style: italic;
-          color: #666;
+          color: var(--aet-text-muted);
           margin: 8px 0;
           font-size: 13px;
         }
@@ -406,30 +406,30 @@ export class UIController {
         }
         
         .btn-artist-move {
-          background: #4caf50;
+          background: var(--aet-green);
           color: white;
         }
-        
+
         .btn-artist-move:hover {
           background: #45a049;
         }
 
         .btn-artist-bio {
-          background: #337ab7;
+          background: var(--aet-blue);
           color: white;
         }
 
         .btn-artist-bio:hover {
-          background: #286090;
+          background: var(--aet-blue-dark);
         }
 
         .btn-artist-ignore {
-          background: #dc3545;
+          background: var(--aet-red);
           color: white;
         }
 
         .btn-artist-ignore:hover {
-          background: #c82333;
+          background: var(--aet-red-dark);
         }
       `;
             document.head.appendChild(style);
@@ -485,9 +485,10 @@ export class UIController {
                 if (element.type === 'checkbox') {
                     element.addEventListener('change', debouncedUpdate);
                 } else {
+                    // 'input' fires for typing, paste, cut, and drop alike — one
+                    // listener per keystroke, not three (the old paste/keyup
+                    // bindings tripled the debounced quality analysis per key press)
                     element.addEventListener('input', debouncedUpdate);
-                    element.addEventListener('paste', debouncedUpdate);
-                    element.addEventListener('keyup', debouncedUpdate);
                 }
             }
         });
@@ -636,9 +637,9 @@ export class UIController {
         .field-loading { position: relative; }
         .field-loading input, .field-loading textarea { filter: blur(2px); transition: filter 0.3s ease; pointer-events: none; }
         .field-spinner-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; border-radius: 3px; animation: overlayFadeIn 0.3s ease; }
-        .ai-spinner { width: 24px; height: 24px; border: 2px solid #e5e7eb; border-top: 2px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; }
+        .ai-spinner { width: 24px; height: 24px; border: 2px solid var(--aet-border); border-top: 2px solid var(--aet-blue); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .ai-processing-text { margin-left: 12px; font-size: 13px; color: #374151; font-weight: 500; }
+        .ai-processing-text { margin-left: 12px; font-size: 13px; color: var(--aet-text-secondary); font-weight: 500; }
         @keyframes overlayFadeIn { from { opacity: 0; } to { opacity: 1; } }
         .field-success { animation: successFlash 0.6s ease; }
         @keyframes successFlash { 0% { background-color: rgba(34, 197, 94, 0.1); border-color: #22c55e; } 50% { background-color: rgba(34, 197, 94, 0.2); border-color: #28a745; } 100% { background-color: transparent; border-color: initial; } }
@@ -1035,7 +1036,7 @@ export class UIController {
           display: flex;
           justify-content: center;
           align-items: center;
-          z-index: 10000;
+          z-index: var(--aet-z-tooltip);
         }
 
         .artist-bio-modal {
@@ -1045,7 +1046,7 @@ export class UIController {
           width: 90%;
           max-height: 80vh;
           overflow-y: auto;
-          border: 1px solid #ddd;
+          border: 1px solid var(--aet-border);
         }
 
         .artist-bio-header {
@@ -1054,21 +1055,21 @@ export class UIController {
           align-items: center;
           padding: 20px;
           border-bottom: 1px solid #eee;
-          background: #f5f5f5;
+          background: var(--aet-bg-soft);
           border-radius: 3px 3px 0 0;
         }
-        
+
         .artist-bio-header h3 {
           margin: 0;
-          color: #333;
+          color: var(--aet-text);
         }
-        
+
         .close-bio-modal {
           background: none;
           border: none;
           font-size: 24px;
           cursor: pointer;
-          color: #666;
+          color: var(--aet-text-muted);
           padding: 0;
           width: 30px;
           height: 30px;
@@ -1076,28 +1077,28 @@ export class UIController {
           align-items: center;
           justify-content: center;
         }
-        
+
         .close-bio-modal:hover {
           background: rgba(0, 0, 0, 0.1);
           border-radius: 50%;
         }
-        
+
         .artist-bio-content {
           padding: 20px;
         }
-        
+
         .artist-bio-content p {
           line-height: 1.6;
-          color: #333;
+          color: var(--aet-text);
           margin-bottom: 20px;
         }
-        
+
         .bio-actions {
           display: flex;
           gap: 10px;
           justify-content: flex-end;
         }
-        
+
         .bio-actions button {
           padding: 8px 16px;
           border: none;
@@ -1108,19 +1109,19 @@ export class UIController {
         }
 
         .btn-add-bio-to-description {
-          background: #28a745;
+          background: var(--aet-green);
           color: white;
         }
 
         .btn-add-bio-to-description:hover {
-          background: #218838;
+          background: var(--aet-green-dark);
         }
-        
+
         .btn-close-bio {
-          background: #f5f5f5;
-          color: #333;
+          background: var(--aet-bg-soft);
+          color: var(--aet-text);
         }
-        
+
         .btn-close-bio:hover {
           background: #e0e0e0;
         }

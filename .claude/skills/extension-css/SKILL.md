@@ -55,34 +55,35 @@ CSS files are loaded via `manifest.json` content script declarations — no buil
 
 When adding new components, prefer BEM with a feature prefix.
 
-## Color Palette
+## Color Palette — USE THE DESIGN TOKENS
 
-### Primary actions
-| Color | Hex | Usage |
-|-------|-----|-------|
-| Blue | `#006ccc` | Standard AI buttons (`.ai-assist-button`) |
-| Blue hover | `#0056b3` | Button hover state |
-| Blue active | `#004085` | Button active/pressed state |
-| Green | `#27ae60` | Master "enhance all" button, success states |
-| Green hover | `#229954` | Master button hover |
-| Orange | `#D18300` | Title correction button (`title-correct`) |
-| Orange hover | `#B17200` | Title correction hover |
+**`styles/tokens.css` is the single source of truth** for colors, radii, and z-index bands. It defines `--aet-*` custom properties on `:root`, loaded FIRST in every content_scripts CSS array and linked from all extension HTML pages. Custom properties also resolve inside JS-injected `<style>` blocks and inline styles (`el.style.background = 'var(--aet-blue)'` works).
 
-### State colors
-| Color | Hex | Usage |
-|-------|-----|-------|
-| Success bg | `#e8f8f5` | `.ai-updated` field background |
-| Success border | `#27ae60` | `.ai-updated` field border |
-| Warning | `#f39c12` | Quality warnings, medium scores |
-| Error/Poor | `#e74c3c` | Low quality scores, errors |
-| Good | `#27ae60` | High quality scores |
+**Never introduce raw hex for brand or semantic colors** — in CSS files, injected styles, or inline styles. Use the token:
+
+| Role | Token | Value | Notes |
+|------|-------|-------|-------|
+| Primary action | `--aet-blue` | `#006ccc` | hover: `--aet-blue-dark`; tint bg: `--aet-blue-tint`; border: `--aet-blue-border` |
+| Success | `--aet-green` | `#28a745` | `-dark` hover, `-light` bg, `-text` on light bg, `-border` |
+| Danger | `--aet-red` | `#dc3545` | `-dark` hover, `-light` bg, `-text` on light bg |
+| Warning | `--aet-amber` | `#ffc107` | never as text on white; `-deep`/`-deep-dark` for buttons, `-light` bg, `-text` on light bg |
+| Text | `--aet-text` / `--aet-text-secondary` / `--aet-text-muted` | `#333` / `#495057` / `#6c757d` | **`--aet-text-muted` is the lightest AA-passing text gray — `#888`–`#ccc` as text is banned** |
+| Surfaces | `--aet-bg` / `--aet-bg-soft` / `--aet-bg-hover` | `#fff` / `#f8f9fa` / `#e9ecef` | |
+| Borders | `--aet-border` / `--aet-border-strong` | `#dee2e6` / `#ced4da` | |
+| Dark popover | `--aet-popover-bg` | `#2c3e50` | dark tooltip/popover surfaces + arrows |
+| Radius | `--aet-radius-sm` / `--aet-radius` / `--aet-radius-lg` | 3/4/8px | |
+| Z-index bands | `--aet-z-panel` / `--aet-z-tooltip` / `--aet-z-modal` / `--aet-z-max` | 9000/10000/50000/99999 | pick the band, not a magic number; small local stacking (1–10) needs no token |
+
+The Analytics Page (`analytics.css`) deliberately keeps its own complete `--ad-*` light/dark system — a documented exception, do not merge the two.
+
+tokens.css also carries the global `prefers-reduced-motion` block (decorative loops stop; loading spinners are exempted by class name — add new spinner classes to that exemption list).
 
 ### Warning severity colors
-| Severity | Hex | Usage |
-|----------|-----|-------|
-| High | `#dc3545` | `.warning-high` — critical quality issues |
-| Medium | `#0d6efd` | `.warning-medium` — improvement suggestions |
-| Low | `#6c757d` | `.warning-low` — minor notes |
+| Severity | Token | Usage |
+|----------|-------|-------|
+| High | `var(--aet-red)` | `.warning-high` — critical quality issues |
+| Medium | `#0d6efd` | `.warning-medium` — improvement suggestions (legacy, not yet tokenized) |
+| Low | `var(--aet-text-muted)` | `.warning-low` — minor notes |
 
 ### Amber warning (analytics)
 | Color | Hex | Usage |

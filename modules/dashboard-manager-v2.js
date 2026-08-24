@@ -241,13 +241,13 @@ export class DashboardManagerV2 {
     let confidenceIcon, confidenceColor;
     if (displayConfidence >= 0.75) {
       confidenceIcon = 'Stark';
-      confidenceColor = '#27ae60';
+      confidenceColor = 'var(--aet-green)';
     } else if (displayConfidence >= 0.55) {
       confidenceIcon = 'Måttlig';
-      confidenceColor = '#f39c12';
+      confidenceColor = 'var(--aet-amber-deep)';
     } else {
       confidenceIcon = 'Begränsad';
-      confidenceColor = '#e67e22';
+      confidenceColor = 'var(--aet-amber-deep)';
     }
     
     return `
@@ -359,21 +359,21 @@ export class DashboardManagerV2 {
           const price = sale.finalPrice || sale.price || 0;
           const title = `${price.toLocaleString()} SEK - ${sale.title ? sale.title.substring(0, 60) : 'Auction item'}...`;
           return `<a href="${sale.url}" target="_blank" title="${title}" style="
-            color: #1976d2; 
-            text-decoration: none; 
-            font-weight: bold; 
+            color: var(--aet-blue);
+            text-decoration: none;
+            font-weight: bold;
             font-size: 0.8em;
             margin-right: 6px;
             padding: 1px 4px;
-            border: 1px solid #1976d2;
+            border: 1px solid var(--aet-blue);
             border-radius: 2px;
             transition: all 0.2s ease;
-          " onmouseover="this.style.backgroundColor='#1976d2'; this.style.color='white';" 
-             onmouseout="this.style.backgroundColor='transparent'; this.style.color='#1976d2';">${index + 1}</a>`;
+          " onmouseover="this.style.backgroundColor='var(--aet-blue)'; this.style.color='white';"
+             onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--aet-blue)';">${index + 1}</a>`;
         }).join('');
-        
+
         exceptionalLinksHTML = `<div style="margin-top: 6px; font-size: 0.75em;">
-          <span style="color: #666; margin-right: 6px;">Se högsta:</span>
+          <span style="color: var(--aet-text-muted); margin-right: 6px;">Se högsta:</span>
           ${linkNumbers}
         </div>`;
       }
@@ -417,16 +417,16 @@ export class DashboardManagerV2 {
     
     let statusColor;
     switch (type) {
-      case 'conflict':      statusColor = '#dc3545'; break;
-      case 'market_weakness': statusColor = '#e67e22'; break;
-      case 'market_strength': statusColor = '#28a745'; break;
-      case 'market_info':    statusColor = '#6c757d'; break;
+      case 'conflict':      statusColor = 'var(--aet-red)'; break;
+      case 'market_weakness': statusColor = 'var(--aet-amber-deep)'; break;
+      case 'market_strength': statusColor = 'var(--aet-green)'; break;
+      case 'market_info':    statusColor = 'var(--aet-text-muted)'; break;
       case 'price_comparison':
       default:
-        if (summary.includes('sänk') || summary.includes('högt')) statusColor = '#e67e22';
-        else if (summary.includes('höja') || summary.includes('lågt') || summary.includes('Starkare')) statusColor = '#28a745';
-        else if (summary.includes('Svag')) statusColor = '#e67e22';
-        else statusColor = '#495057';
+        if (summary.includes('sänk') || summary.includes('högt')) statusColor = 'var(--aet-amber-deep)';
+        else if (summary.includes('höja') || summary.includes('lågt') || summary.includes('Starkare')) statusColor = 'var(--aet-green)';
+        else if (summary.includes('Svag')) statusColor = 'var(--aet-amber-deep)';
+        else statusColor = 'var(--aet-text-secondary)';
         break;
     }
     
@@ -440,16 +440,16 @@ export class DashboardManagerV2 {
       let trendIcon, trendColor;
       switch (trend.trend) {
         case 'rising_strong':
-          trendIcon = '⬆'; trendColor = '#1e7e34'; break;
+          trendIcon = '⬆'; trendColor = 'var(--aet-green-dark)'; break;
         case 'rising':
-          trendIcon = '↗'; trendColor = '#28a745'; break;
+          trendIcon = '↗'; trendColor = 'var(--aet-green)'; break;
         case 'falling':
-          trendIcon = '↘'; trendColor = '#e67e22'; break;
+          trendIcon = '↘'; trendColor = 'var(--aet-amber-deep)'; break;
         case 'falling_strong':
-          trendIcon = '⬇'; trendColor = '#dc3545'; break;
+          trendIcon = '⬇'; trendColor = 'var(--aet-red)'; break;
         case 'stable':
         default:
-          trendIcon = '→'; trendColor = '#6c757d'; break;
+          trendIcon = '→'; trendColor = 'var(--aet-text-muted)'; break;
       }
       const sign = trend.changePercent > 0 ? '+' : '';
       // Extract time span from description (e.g. "11 år tillbaka")
@@ -462,8 +462,8 @@ export class DashboardManagerV2 {
     this._lastInsightData = { type, summary: cleanSummary, detail: cleanDetail, statusColor, salesData };
     
     return `
-      <div class="market-item market-insights market-insights-trigger" style="cursor: pointer;">
-        <div class="market-label" style="cursor: help; border-bottom: 1px dotted #6c757d;" title="Hovra för värderingsförslag">Marknadsstatus</div>
+      <div class="market-item market-insights market-insights-trigger" style="cursor: pointer;" role="button" tabindex="0" aria-label="Visa marknadsinsikt">
+        <div class="market-label" style="cursor: help; border-bottom: 1px dotted var(--aet-text-muted);" title="Hovra för värderingsförslag">Marknadsstatus</div>
         <div class="market-label-subtitle">Aktuell marknadsbedömning</div>
         <div class="market-value" style="color: ${escapeHTML(statusColor)};">${escapeHTML(cleanSummary)}</div>
         <div class="market-help market-insight-detail">${escapeHTML(cleanDetail)}</div>
@@ -605,10 +605,9 @@ export class DashboardManagerV2 {
       }, 200);
     };
     
-    trigger.addEventListener('mouseenter', () => {
-      isHoveringTrigger = true;
+    const openCard = () => {
       if (kbCard) { showCard(); return; }
-      
+
       kbCard = this.createInsightKBCard(data);
       kbCard.addEventListener('mouseenter', () => {
         isHoveringCard = true;
@@ -619,11 +618,54 @@ export class DashboardManagerV2 {
         scheduleHide();
       });
       showCard();
+    };
+
+    const hideCardNow = () => {
+      if (!kbCard) return;
+      kbCard.style.opacity = '0';
+      kbCard.style.visibility = 'hidden';
+      kbCard.style.transform = 'none';
+      kbCard.style.pointerEvents = 'none';
+      detachScroll();
+    };
+
+    trigger.addEventListener('mouseenter', () => {
+      isHoveringTrigger = true;
+      openCard();
     });
-    
+
     trigger.addEventListener('mouseleave', () => {
       isHoveringTrigger = false;
       scheduleHide();
+    });
+
+    // Keyboard accessibility: focus/blur mirror hover, Enter/Space toggle, Escape hides
+    trigger.addEventListener('focus', () => {
+      isHoveringTrigger = true;
+      openCard();
+    });
+
+    trigger.addEventListener('blur', () => {
+      isHoveringTrigger = false;
+      scheduleHide();
+    });
+
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        if (kbCard && kbCard.style.visibility === 'visible') {
+          isHoveringTrigger = false;
+          hideCardNow();
+        } else {
+          isHoveringTrigger = true;
+          openCard();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        isHoveringTrigger = false;
+        isHoveringCard = false;
+        hideCardNow();
+      }
     });
   }
   
@@ -676,15 +718,15 @@ export class DashboardManagerV2 {
     const sampleSize = stats.sampleSize || 0;
     if (isWideSpread || confidence < 0.4) {
       reliabilityLevel = 'low';
-      reliabilityColor = '#e74c3c';
+      reliabilityColor = 'var(--aet-red)';
       reliabilityText = `Låg — prisintervallet är brett (${Math.round(spreadRatio)}x) — sökorden kanske inte matchar objektet tillräckligt`;
     } else if (isModerateSpread || confidence < 0.6 || sampleSize < 10) {
       reliabilityLevel = 'medium';
-      reliabilityColor = '#f39c12';
+      reliabilityColor = 'var(--aet-amber)';
       reliabilityText = `Måttlig — ${sampleSize < 10 ? 'få jämförelser' : 'visst prisspann'} — använd som vägledning`;
     } else {
       reliabilityLevel = 'high';
-      reliabilityColor = '#27ae60';
+      reliabilityColor = 'var(--aet-green)';
       reliabilityText = `Hög — tight prisintervall med god datamängd`;
     }
     
@@ -735,11 +777,11 @@ export class DashboardManagerV2 {
     // AI-validated data gets a reliability boost
     if (aiValidated && reliabilityLevel === 'low') {
       reliabilityLevel = 'medium';
-      reliabilityColor = '#f39c12';
+      reliabilityColor = 'var(--aet-amber)';
       reliabilityText = `Måttlig — AI-filtrerad data (${aiFilteredCount} av ${aiOriginalCount} bedömda som jämförbara)`;
     } else if (aiValidated && reliabilityLevel === 'medium') {
       reliabilityLevel = 'high';
-      reliabilityColor = '#27ae60';
+      reliabilityColor = 'var(--aet-green)';
       reliabilityText = `Hög — AI-verifierad data (${aiFilteredCount} av ${aiOriginalCount} bedömda som jämförbara)`;
     } else if (aiValidated) {
       reliabilityText = `Hög — AI-verifierad data med tight prisintervall`;
@@ -865,7 +907,7 @@ export class DashboardManagerV2 {
     card.style.cssText = `
       position: fixed;
       top: 0; left: 0;
-      background: #2c3e50;
+      background: var(--aet-popover-bg);
       color: white;
       padding: 16px 18px 14px;
       border-radius: 3px;
@@ -988,9 +1030,9 @@ export class DashboardManagerV2 {
         font-size: 11px; color: rgba(255,255,255,0.7); padding: 2px 0;
       }
       .insight-kb-suggestion-warning {
-        font-size: 10px; color: #f39c12; margin-bottom: 8px;
+        font-size: 10px; color: var(--aet-amber); margin-bottom: 8px;
         padding: 5px 8px; background: rgba(243,156,18,0.1);
-        border-radius: 3px; border-left: 2px solid #f39c12;
+        border-radius: 3px; border-left: 2px solid var(--aet-amber);
       }
       .insight-kb-section-title {
         font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase;
@@ -1044,7 +1086,7 @@ export class DashboardManagerV2 {
         margin-bottom: 8px;
       }
       .insight-kb-ai-icon {
-        color: #27ae60;
+        color: var(--aet-green);
         font-weight: 700;
         font-size: 12px;
         flex-shrink: 0;
@@ -1134,8 +1176,8 @@ export class DashboardManagerV2 {
     style.textContent = `
       /* Market Dashboard Container */
       .market-data-dashboard {
-        background: #f8f9fa;
-        border: 1px solid #ddd;
+        background: var(--aet-bg-soft);
+        border: 1px solid var(--aet-border);
         border-radius: 3px;
         padding: 16px;
         margin: 12px 0;
@@ -1175,14 +1217,14 @@ export class DashboardManagerV2 {
         width: 40px;
         height: 40px;
         border: 3px solid #e3f2fd;
-        border-top: 3px solid #1976d2;
+        border-top: 3px solid var(--aet-blue);
         border-radius: 50%;
         animation: spin 1s linear infinite;
         margin-bottom: 12px;
       }
-      
+
       .loading-text {
-        color: #1976d2;
+        color: var(--aet-blue);
         font-size: 14px;
         font-weight: 500;
         text-align: center;
@@ -1200,7 +1242,7 @@ export class DashboardManagerV2 {
         align-items: center;
         margin-bottom: 10px;
         padding-bottom: 6px;
-        border-bottom: 1px solid #dee2e6;
+        border-bottom: 1px solid var(--aet-border);
         flex-wrap: wrap;
         gap: 8px;
       }
@@ -1238,18 +1280,18 @@ export class DashboardManagerV2 {
         background: rgba(248, 250, 252, 0.6);
         font-size: 11px;
         font-weight: 400;
-        color: #64748b;
+        color: var(--aet-text-muted);
         outline: none;
         width: 80px;
         transition: width 0.2s ease;
       }
       .pill-freetext-input::placeholder {
-        color: #94a3b8;
+        color: var(--aet-text-muted);
         font-style: italic;
       }
       .pill-freetext-input:focus {
         width: 130px;
-        border-color: #337ab7;
+        border-color: var(--aet-blue);
         border-style: solid;
         background: white;
         color: #1a252f;
@@ -1283,42 +1325,42 @@ export class DashboardManagerV2 {
       
       /* ✅ Selected Header Pills - Premium Blue */
       .header-pill.selected {
-        background: #337ab7;
+        background: var(--aet-blue);
         color: white;
         font-weight: 600;
       }
 
       .header-pill.selected:hover {
-        background: #286090;
+        background: var(--aet-blue-dark);
       }
 
       .header-pill.selected .pill-text {
         color: white;
       }
-      
+
       /* ⚪ Unselected Header Pills - Elegant Gray */
       .header-pill.unselected {
         background: rgba(248, 250, 252, 0.9);
-        color: #64748b;
+        color: var(--aet-text-muted);
         border: 1px solid rgba(226, 232, 240, 0.9);
       }
-      
+
       .header-pill.unselected:hover {
         background: rgba(241, 245, 249, 1);
         color: #475569;
         border-color: rgba(203, 213, 225, 1);
       }
-      
+
       /* 🔢 Header Expand Button */
       .header-expand-btn {
         display: inline-flex;
         align-items: center;
         height: 24px;
         padding: 0 8px;
-        background: #f8f9fa;
-        border: 1px solid #ddd;
+        background: var(--aet-bg-soft);
+        border: 1px solid var(--aet-border);
         border-radius: 3px;
-        color: #6b7280;
+        color: var(--aet-text-muted);
         font-size: 10px;
         font-weight: 600;
         cursor: pointer;
@@ -1327,21 +1369,21 @@ export class DashboardManagerV2 {
       }
 
       .header-expand-btn:hover {
-        background: #e9ecef;
-        border-color: #ccc;
-        color: #374151;
+        background: var(--aet-bg-hover);
+        border-color: var(--aet-border-strong);
+        color: var(--aet-text-secondary);
       }
-      
+
       /* 🔙 Header Collapse Button */
       .header-collapse-btn {
         display: inline-flex;
         align-items: center;
         height: 24px;
         padding: 0 8px;
-        background: #e9ecef;
+        background: var(--aet-bg-hover);
         border: 1px solid #adb5bd;
         border-radius: 3px;
-        color: #374151;
+        color: var(--aet-text-secondary);
         font-size: 10px;
         font-weight: 600;
         cursor: pointer;
@@ -1351,9 +1393,9 @@ export class DashboardManagerV2 {
       }
 
       .header-collapse-btn:hover {
-        background: #dee2e6;
-        border-color: #6c757d;
-        color: #1f2937;
+        background: var(--aet-border);
+        border-color: var(--aet-text-muted);
+        color: var(--aet-text);
       }
       
       /* 📱 Responsive: Stack on smaller screens */
@@ -1395,51 +1437,51 @@ export class DashboardManagerV2 {
       .market-dashboard-title {
         font-weight: 600;
         font-size: 13px;
-        color: #2c3e50;
+        color: var(--aet-text);
       }
-      
+
       .market-dashboard-query {
         display: flex;
         align-items: center;
         gap: 4px;
-        background: #f8f9fa;
+        background: var(--aet-bg-soft);
         padding: 4px 8px;
         border-radius: 3px;
-        border: 1px solid #e9ecef;
+        border: 1px solid var(--aet-border);
       }
-      
+
       .query-label {
         font-size: 10px;
-        color: #6c757d;
+        color: var(--aet-text-muted);
         font-weight: 500;
       }
-      
+
       .query-text {
         font-size: 11px;
-        color: #2c3e50;
+        color: var(--aet-text);
         font-weight: 600;
         font-family: Monaco, 'Courier New', monospace;
         background: #ffffff;
         padding: 2px 6px;
         border-radius: 3px;
-        border: 1px solid #dee2e6;
+        border: 1px solid var(--aet-border);
       }
-      
+
       .query-source {
         font-size: 9px;
-        color: #6c757d;
+        color: var(--aet-text-muted);
         font-style: italic;
       }
-      
+
       .market-dashboard-source {
         font-size: 10px;
-        color: #6c757d;
+        color: var(--aet-text-muted);
         opacity: 0.8;
         position: absolute;
         top: 4px;
         right: 12px;
       }
-      
+
       .market-dashboard-content {
         display: flex;
         flex-wrap: nowrap;
@@ -1448,14 +1490,14 @@ export class DashboardManagerV2 {
         overflow-x: auto;
         justify-content: center;
       }
-      
+
       .market-item {
         display: flex;
         flex-direction: column;
         min-width: 140px;
         max-width: 180px;
         flex-shrink: 0;
-        border-right: 0.5px solid #e0e0e0;
+        border-right: 0.5px solid var(--aet-border);
         padding-right: 16px;
         line-height: 1.3;
       }
@@ -1518,7 +1560,7 @@ export class DashboardManagerV2 {
       
       .market-label {
         font-size: 9px;
-        color: #6c757d;
+        color: var(--aet-text-muted);
         text-transform: uppercase;
         letter-spacing: 0.5px;
         margin-bottom: 1px;
@@ -1532,7 +1574,7 @@ export class DashboardManagerV2 {
         line-height: 1.2;
         font-weight: 400;
       }
-      
+
       .market-value {
         font-size: 12px;
         font-weight: 600;
@@ -1540,7 +1582,7 @@ export class DashboardManagerV2 {
         line-height: 1.25;
         margin-bottom: 2px;
       }
-      
+
       .market-confidence {
         font-size: 10px;
         margin-top: 2px;
@@ -1548,41 +1590,41 @@ export class DashboardManagerV2 {
         font-weight: 500;
         line-height: 1.2;
       }
-      
+
       .market-help {
         font-size: 9px;
-        color: #495057;
+        color: var(--aet-text-secondary);
         margin-top: 2px;
         font-style: italic;
         line-height: 1.3;
       }
-      
+
       .market-help a {
-        color: #007cba;
+        color: var(--aet-blue);
         text-decoration: none;
         font-weight: 500;
       }
-      
+
       .market-help a:hover {
         text-decoration: underline;
         color: #005c87;
       }
-      
+
       .market-value a {
         text-decoration: none;
         font-weight: inherit;
       }
-      
+
       .market-value a:hover {
         text-decoration: underline;
         opacity: 0.8;
       }
-      
+
       .market-label[title] {
         cursor: help;
-        border-bottom: 1px dotted #6c757d;
+        border-bottom: 1px dotted var(--aet-text-muted);
       }
-      
+
       /* Data links styling */
       .data-link-row {
         display: flex;
@@ -1593,7 +1635,7 @@ export class DashboardManagerV2 {
         line-height: 1.3;
         min-height: 12px;
       }
-      
+
       .data-link-icon {
         font-size: 8px;
         opacity: 0.7;
@@ -1601,22 +1643,22 @@ export class DashboardManagerV2 {
         text-align: center;
         flex-shrink: 0;
       }
-      
+
       .data-link-prominent {
-        color: #007cba !important;
+        color: var(--aet-blue) !important;
         text-decoration: none;
         font-weight: 600;
         transition: all 0.2s ease;
         line-height: 1.3;
       }
-      
+
       .data-link-prominent:hover {
         color: #005c87 !important;
         text-decoration: underline;
       }
-      
+
       .data-link-meta {
-        color: #6c757d;
+        color: var(--aet-text-muted);
         font-size: 8px;
         font-style: italic;
         margin-left: 2px;
@@ -1738,12 +1780,12 @@ export class DashboardManagerV2 {
       height: 44px;
       border-radius: 50%;
       background: white;
-      border: 1px solid #e0e0e0;
+      border: 1px solid var(--aet-border);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #333;
+      color: var(--aet-text);
       transition: all 0.3s ease;
       font-size: 0;
     `;
@@ -1786,7 +1828,7 @@ export class DashboardManagerV2 {
       margin: 0;
       border-radius: 3px;
       background: white;
-      border: 1px solid #ddd;
+      border: 1px solid var(--aet-border);
     `;
 
     // Add dashboard to dropdown container
@@ -1830,13 +1872,13 @@ export class DashboardManagerV2 {
     // Add hover effects to button
     floatingToggle.addEventListener('mouseenter', () => {
       if (!isOpen) {
-        floatingToggle.style.borderColor = '#337ab7';
+        floatingToggle.style.borderColor = 'var(--aet-blue)';
       }
     });
 
     floatingToggle.addEventListener('mouseleave', () => {
       if (!isOpen) {
-        floatingToggle.style.borderColor = '#e0e0e0';
+        floatingToggle.style.borderColor = 'var(--aet-border)';
       }
     });
 
@@ -1880,25 +1922,25 @@ export class DashboardManagerV2 {
 
       // Update button - FORCE the state
       svg.style.transform = 'rotate(180deg)';
-      floatingToggle.style.background = '#f8f9fa';
-      floatingToggle.style.borderColor = '#337ab7';
-      floatingToggle.style.color = '#337ab7';
-      
+      floatingToggle.style.background = 'var(--aet-bg-soft)';
+      floatingToggle.style.borderColor = 'var(--aet-blue)';
+      floatingToggle.style.color = 'var(--aet-blue)';
+
       // Add visual indicator that it's pinned open
       floatingToggle.title = 'Marknadsanalys (synlig - klicka för att dölja)';
-      
-      
+
+
     } else {
       // Close - collapse content
       dropdownContainer.style.maxHeight = '0';
       dropdownContainer.style.opacity = '0';
       dropdownContainer.style.marginBottom = '0';
-      
+
       // Update button - FORCE the state
       svg.style.transform = 'rotate(0deg)';
       floatingToggle.style.background = 'white';
-      floatingToggle.style.borderColor = '#e0e0e0';
-      floatingToggle.style.color = '#333';
+      floatingToggle.style.borderColor = 'var(--aet-border)';
+      floatingToggle.style.color = 'var(--aet-text)';
       
       floatingToggle.title = 'Marknadsanalys (dold - klicka för att visa)';
       
@@ -1995,7 +2037,7 @@ export class DashboardManagerV2 {
       width: 32px;
       height: 32px;
       border: 3px solid #f0f0f0;
-      border-top: 3px solid #337ab7;
+      border-top: 3px solid var(--aet-blue);
       border-radius: 50%;
       animation: spin 1s linear infinite;
     `;
@@ -2004,7 +2046,7 @@ export class DashboardManagerV2 {
     const loadingText = document.createElement('div');
     loadingText.textContent = 'Uppdaterar marknadsanalys...';
     loadingText.style.cssText = `
-      color: #666;
+      color: var(--aet-text-muted);
       font-size: 16px;
       font-weight: 500;
     `;
@@ -2021,7 +2063,7 @@ export class DashboardManagerV2 {
     if (button) {
       const svg = button.querySelector('svg');
       if (svg) {
-        svg.innerHTML = `<div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid #337ab7; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>`;
+        svg.innerHTML = `<div style="width: 12px; height: 12px; border: 2px solid #f0f0f0; border-top: 2px solid var(--aet-blue); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>`;
       }
       button.disabled = true;
       button.style.cursor = 'not-allowed';
@@ -2121,9 +2163,9 @@ export class DashboardManagerV2 {
       if (svg) {
         svg.style.transform = 'rotate(180deg)';
       }
-      button.style.background = '#f8f9fa';
-      button.style.borderColor = '#337ab7';
-      button.style.color = '#337ab7';
+      button.style.background = 'var(--aet-bg-soft)';
+      button.style.borderColor = 'var(--aet-blue)';
+      button.style.color = 'var(--aet-blue)';
       button.title = 'Marknadsanalys (synlig - klicka för att dölja)';
     }
 
@@ -2142,7 +2184,7 @@ export class DashboardManagerV2 {
       }
       button.disabled = false;
       button.style.cursor = 'pointer';
-      button.style.backgroundColor = '#337ab7';
+      button.style.backgroundColor = 'var(--aet-blue)';
       button.style.color = 'white';
       button.title = 'Dölj marknadsanalys';
     }

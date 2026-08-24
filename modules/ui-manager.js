@@ -106,8 +106,8 @@ export class UIManager {
   getStylesCSS() {
     return `
       .quality-indicator {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
+        background: var(--aet-bg-soft);
+        border: 1px solid var(--aet-border);
         border-radius: 3px;
         padding: 20px;
         margin-bottom: 20px;
@@ -124,7 +124,7 @@ export class UIManager {
         margin: 0 0 10px 0;
         font-size: 14px;
         font-weight: 600;
-        color: #333;
+        color: var(--aet-text);
         text-align: center;
         width: 100%;
       }
@@ -151,25 +151,25 @@ export class UIManager {
       }
 
       .quality-score.good {
-        background: #d4edda;
-        color: #155724;
-        border: 2px solid #b8dacc;
+        background: var(--aet-green-light);
+        color: var(--aet-green-text);
+        border: 2px solid var(--aet-green-border);
       }
 
       .quality-score.medium {
-        background: #fff3cd;
-        color: #856404;
-        border: 2px solid #f1c40f;
+        background: var(--aet-amber-light);
+        color: var(--aet-amber-text);
+        border: 2px solid var(--aet-amber);
       }
 
       .quality-score.poor {
-        background: #f8d7da;
-        color: #721c24;
-        border: 2px solid #e74c3c;
+        background: var(--aet-red-light);
+        color: var(--aet-red-text);
+        border: 2px solid var(--aet-red);
       }
 
       .refresh-quality-btn {
-        background: #6c757d;
+        background: var(--aet-text-muted);
         color: white;
         border: none;
         border-radius: 50%;
@@ -184,7 +184,7 @@ export class UIManager {
       }
 
       .refresh-quality-btn:hover {
-        background: #495057;
+        background: var(--aet-text-secondary);
         transform: rotate(180deg);
       }
 
@@ -201,29 +201,29 @@ export class UIManager {
       .ai-assist-button {
         padding: 6px 12px;
         font-size: 12px;
-        background: #006ccc;
+        background: var(--aet-blue);
         color: white;
         border: none;
         border-radius: 3px;
         cursor: pointer;
         font-weight: 300;
       }
-      
+
       .ai-assist-button:hover {
-        background: #0056b3;
+        background: var(--aet-blue-dark);
       }
-      
+
       .ai-assist-button:active {
         background: #004085;
       }
-      
+
             .ai-assist-button[data-field-type="title-correct"] {
-        background: #D18300;
+        background: var(--aet-amber-deep);
         transition: all 0.3s ease;
       }
 
       .ai-assist-button[data-field-type="title-correct"]:hover {
-        background: #B17200;
+        background: var(--aet-amber-deep-dark);
       }
 
       .ai-assist-button[data-field-type="title-correct"]:active {
@@ -234,8 +234,8 @@ export class UIManager {
       
       .ai-undo-button {
         background: transparent;
-        color: #dc3545;
-        border: 1px solid #dc3545;
+        color: var(--aet-red);
+        border: 1px solid var(--aet-red);
         padding: 5px 10px;
         border-radius: 3px;
         font-size: 11px;
@@ -244,15 +244,15 @@ export class UIManager {
         transition: all 0.2s ease;
         margin-left: auto;
       }
-      
+
       .ai-undo-button:hover {
-        background: #dc3545;
+        background: var(--aet-red);
         color: white;
       }
-      
+
       .ai-updated {
-        background-color: #d4edda !important;
-        border: 2px solid #28a745 !important;
+        background-color: var(--aet-green-light) !important;
+        border: 2px solid var(--aet-green) !important;
         transition: all 0.3s ease;
       }
       
@@ -274,7 +274,7 @@ export class UIManager {
       .quality-warnings {
         margin-top: 15px;
         padding-top: 15px;
-        border-top: 1px solid #dee2e6;
+        border-top: 1px solid var(--aet-border);
       }
       
       .quality-warnings ul {
@@ -294,30 +294,30 @@ export class UIManager {
       }
       
       .warning-high {
-        color: #721c24;
-        background-color: #f8d7da;
-        border-left-color: #dc3545;
+        color: var(--aet-red-text);
+        background-color: var(--aet-red-light);
+        border-left-color: var(--aet-red);
         font-weight: 400;
       }
-      
+
       .warning-medium {
         color: #084298;
         background-color: #cff4fc;
         border-left-color: #0d6efd;
         font-weight: 400;
       }
-      
+
       .warning-low {
-        color: #495057;
-        background-color: #f8f9fa;
-        border-left-color: #6c757d;
+        color: var(--aet-text-secondary);
+        background-color: var(--aet-bg-soft);
+        border-left-color: var(--aet-text-muted);
         font-style: italic;
       }
-      
+
       .no-warnings {
         color: #0f5132;
         background-color: #d1e7dd;
-        border-left: 4px solid #198754;
+        border-left: 4px solid var(--aet-green);
         font-weight: 600;
         text-align: center;
         margin: 0;
@@ -513,32 +513,32 @@ export class UIManager {
       case 'critical':
         return baseStyle + `
           background-color: #fee;
-          border-left-color: #e74c3c;
+          border-left-color: var(--aet-red);
           color: #c0392b;
         `;
       case 'high':
         return baseStyle + `
-          background-color: #fff3cd;
-          border-left-color: #f39c12;
-          color: #d68910;
+          background-color: var(--aet-amber-light);
+          border-left-color: var(--aet-amber);
+          color: var(--aet-amber-text);
         `;
       case 'medium':
         return baseStyle + `
           background-color: #d1ecf1;
-          border-left-color: #3498db;
-          color: #2980b9;
+          border-left-color: var(--aet-blue);
+          color: var(--aet-blue-dark);
         `;
       case 'low':
         return baseStyle + `
-          background-color: #f8f9fa;
-          border-left-color: #6c757d;
-          color: #495057;
+          background-color: var(--aet-bg-soft);
+          border-left-color: var(--aet-text-muted);
+          color: var(--aet-text-secondary);
         `;
       case 'header':
         return `
           margin: 16px 0 8px 0;
           padding: 8px 12px;
-          background: #337ab7;
+          background: var(--aet-blue);
           color: white;
           border-radius: 3px;
           font-weight: 600;
@@ -547,23 +547,23 @@ export class UIManager {
         `;
       case 'market-primary':
         return baseStyle + `
-          background: #337ab7;
-          border-left-color: #337ab7;
+          background: var(--aet-blue);
+          border-left-color: var(--aet-blue);
           color: white;
           font-weight: 600;
           font-size: 14px;
         `;
       case 'market-insight':
         return baseStyle + `
-          background-color: #e8f5e8;
-          border-left-color: #27ae60;
-          color: #1e8449;
+          background-color: var(--aet-green-light);
+          border-left-color: var(--aet-green);
+          color: var(--aet-green-text);
           font-weight: 500;
         `;
       case 'market-data':
         return baseStyle + `
           background-color: #f0f8ff;
-          border-left-color: #3498db;
+          border-left-color: var(--aet-blue);
           color: #2c3e50;
           font-size: 12px;
           padding: 8px 12px;
@@ -571,24 +571,24 @@ export class UIManager {
       case 'market-activity':
         return baseStyle + `
           background-color: #fff5f5;
-          border-left-color: #e74c3c;
+          border-left-color: var(--aet-red);
           color: #c0392b;
           font-weight: 500;
         `;
       case 'market-note':
         return baseStyle + `
-          background-color: #f8f9fa;
+          background-color: var(--aet-bg-soft);
           border-left-color: #95a5a6;
-          color: #7f8c8d;
+          color: var(--aet-text-muted);
           font-size: 12px;
           font-style: italic;
           padding: 8px 12px;
         `;
       default:
         return baseStyle + `
-          background-color: #f8f9fa;
-          border-left-color: #6c757d;
-          color: #495057;
+          background-color: var(--aet-bg-soft);
+          border-left-color: var(--aet-text-muted);
+          color: var(--aet-text-secondary);
         `;
     }
   }

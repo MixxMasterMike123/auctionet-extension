@@ -860,7 +860,7 @@
   background: var(--aet-bg-soft);
   border: 1px solid var(--aet-border);
   border-radius: var(--aet-radius-sm);
-  padding: 3px 10px;
+  padding: 6px 10px; /* ≥24px hit area */
   font-size: 11px;
   cursor: pointer;
   color: var(--aet-text);
@@ -903,7 +903,7 @@
   background: var(--aet-bg-soft);
   border: 1px solid var(--aet-border);
   border-radius: var(--aet-radius-sm);
-  padding: 4px 10px;
+  padding: 6px 10px; /* ≥24px hit area */
   font-size: 11px;
   cursor: pointer;
   color: var(--aet-text);
@@ -1021,12 +1021,6 @@
 
 .ext-pubscan__section-title--toggle:hover {
   color: var(--aet-text-secondary);
-}
-
-.ext-pubscan__toggle-btn {
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--aet-blue);
 }
 
 /* Issue items — each row is an <a> linking to the show page */
@@ -1787,7 +1781,7 @@ h2:hover > .ext-datainsikter-toggle {
   background: #fff;
   border: 1px solid var(--aet-border);
   border-radius: var(--aet-radius);
-  padding: 4px 10px;
+  padding: 6px 10px; /* ≥24px hit area */
   font-size: 12px;
   cursor: pointer;
   color: var(--aet-text-secondary);
@@ -1827,7 +1821,7 @@ h2:hover > .ext-datainsikter-toggle {
 .ext-wordlist-title { font-size: 14px; font-weight: 700; color: var(--aet-text); }
 .ext-wordlist-close {
   background: none; border: none; font-size: 16px; cursor: pointer;
-  color: var(--aet-text-muted); padding: 2px 6px; border-radius: var(--aet-radius);
+  color: var(--aet-text-muted); padding: 5px 8px; border-radius: var(--aet-radius);
 }
 .ext-wordlist-close:hover { background: #f0f0f0; color: var(--aet-text); }
 .ext-wordlist-body { overflow-y: auto; padding: 8px 0; }
@@ -1858,7 +1852,7 @@ h2:hover > .ext-datainsikter-toggle {
 
 .ext-wl-actions { display: flex; gap: 5px; flex-shrink: 0; }
 .ext-wl-act {
-  font-size: 11px; padding: 3px 8px; border-radius: var(--aet-radius); cursor: pointer;
+  font-size: 11px; padding: 6px 8px; border-radius: var(--aet-radius); cursor: pointer; /* ≥24px hit area */
   border: 1px solid transparent; white-space: nowrap;
   transition: background 0.12s, border-color 0.12s, opacity 0.12s;
 }

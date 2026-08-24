@@ -87,6 +87,15 @@ export class BrandActionHandler {
       if (element.dataset.handlerAttached) return;
       if (element.dataset.corrected === 'true') return;
 
+      // Keyboard accessibility: Enter/Space activates like a click
+      // (element carries role="button" tabindex="0")
+      element.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          element.click();
+        }
+      });
+
       element.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();

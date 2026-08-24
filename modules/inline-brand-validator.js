@@ -719,7 +719,7 @@ Om korrekt: {"corrected":null}`;
       top: ${elementRect.bottom + 8}px;
       z-index: 10001;
       background: white;
-      border: 1px solid #ddd;
+      border: 1px solid var(--aet-border);
       border-radius: 8px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.15);
       padding: 0;
@@ -793,7 +793,7 @@ Om korrekt: {"corrected":null}`;
       position: fixed;
       left: ${field.getBoundingClientRect().left}px;
       top: ${field.getBoundingClientRect().top - 30}px;
-      background: #4caf50;
+      background: var(--aet-green);
       color: white;
       padding: 6px 12px;
       border-radius: 4px;
@@ -874,7 +874,7 @@ Om korrekt: {"corrected":null}`;
         border: none;
         font-size: 16px;
         cursor: pointer;
-        color: #999;
+        color: var(--aet-text-muted);
         padding: 0;
         width: 20px;
         height: 20px;
@@ -884,7 +884,7 @@ Om korrekt: {"corrected":null}`;
       }
       
       .brand-correction-tooltip .tooltip-close:hover {
-        color: #666;
+        color: var(--aet-text-muted);
       }
       
       .brand-correction-tooltip .tooltip-content {
@@ -897,7 +897,7 @@ Om korrekt: {"corrected":null}`;
       }
       
       .brand-correction-tooltip .correction-button {
-        background: #1976d2;
+        background: var(--aet-blue);
         color: white;
         border: none;
         padding: 6px 16px;
@@ -910,7 +910,7 @@ Om korrekt: {"corrected":null}`;
       }
       
       .brand-correction-tooltip .correction-button:hover {
-        background: #1565c0;
+        background: var(--aet-blue-dark);
       }
       
       /* Gentle inline suggestion below field */
@@ -926,12 +926,12 @@ Om korrekt: {"corrected":null}`;
         gap: 4px 8px;
         padding: 6px 10px;
         margin-top: 3px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: var(--aet-bg-soft);
+        border: 1px solid var(--aet-border);
         border-radius: 6px;
         font-size: 12px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        color: #64748b;
+        color: var(--aet-text-muted);
         line-height: 1.4;
         animation: brandNotifFadeIn 0.3s ease-out;
         width: 100%;
@@ -945,7 +945,7 @@ Om korrekt: {"corrected":null}`;
         color: #334155;
       }
       .brand-notif-meta {
-        color: #94a3b8;
+        color: var(--aet-text-muted);
         font-size: 11px;
       }
       .brand-notif-actions {
@@ -956,9 +956,9 @@ Om korrekt: {"corrected":null}`;
       }
       .brand-notif-fix {
         flex-shrink: 0;
-        background: #1976d2;
+        background: var(--aet-blue);
         color: white;
-        border: 1px solid #1976d2;
+        border: 1px solid var(--aet-blue);
         padding: 3px 12px;
         border-radius: 4px;
         font-size: 11px;
@@ -968,13 +968,13 @@ Om korrekt: {"corrected":null}`;
         font-family: inherit;
       }
       .brand-notif-fix:hover {
-        background: #1565c0;
-        border-color: #1565c0;
+        background: var(--aet-blue-dark);
+        border-color: var(--aet-blue-dark);
       }
       .brand-notif-ignore {
         flex-shrink: 0;
         background: transparent;
-        color: #94a3b8;
+        color: var(--aet-text-muted);
         border: none;
         padding: 3px 6px;
         font-size: 11px;

@@ -581,7 +581,7 @@ export class AddItemsArtistHandler {
       <div class="artist-bio-popup">
         <div class="popup-header">
           <h3>${escapeHTML(artistName)}</h3>
-          <button class="popup-close" type="button">✕</button>
+          <button class="popup-close" type="button" aria-label="Stäng">✕</button>
         </div>
         <div class="popup-content">
           <p>${escapeHTML(biography)}</p>

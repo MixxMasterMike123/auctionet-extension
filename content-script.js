@@ -599,8 +599,8 @@
         dialog.className = 'ai-info-request-dialog';
         dialog.innerHTML = `
           <div class="dialog-overlay"></div>
-          <div class="dialog-content">
-            <h3>📋 Behöver mer information för ${escapeHTML(fieldName)}</h3>
+          <div class="dialog-content" role="dialog" aria-modal="true" aria-labelledby="ai-info-request-title">
+            <h3 id="ai-info-request-title">📋 Behöver mer information för ${escapeHTML(fieldName)}</h3>
             <p>Enligt Auctionets kvalitetskrav behövs mer detaljerad information innan ${escapeHTML(fieldName)} kan förbättras.</p>
             
             <div class="missing-info">
@@ -619,22 +619,47 @@
           </div>
         `;
         
+        const lastFocused = document.activeElement;
         document.body.appendChild(dialog);
-        
-        // Handle button clicks
-        document.getElementById('cancel-field-dialog').addEventListener('click', () => {
+
+        // Focus management: Escape closes, Tab cycles between the two buttons,
+        // and focus returns to the trigger on close
+        const closeDialog = () => {
           dialog.remove();
+          document.removeEventListener('keydown', escHandler);
+          if (lastFocused && typeof lastFocused.focus === 'function' && document.contains(lastFocused)) {
+            lastFocused.focus();
+          }
+        };
+        const escHandler = (e) => {
+          if (e.key === 'Escape') closeDialog();
+        };
+        document.addEventListener('keydown', escHandler);
+
+        const cancelBtn = document.getElementById('cancel-field-dialog');
+        const continueBtn = document.getElementById('continue-anyway');
+        dialog.addEventListener('keydown', (e) => {
+          if (e.key !== 'Tab') return;
+          e.preventDefault();
+          (document.activeElement === cancelBtn ? continueBtn : cancelBtn).focus();
         });
-        
-        document.getElementById('continue-anyway').addEventListener('click', () => {
-          dialog.remove();
+
+        // Handle button clicks
+        cancelBtn.addEventListener('click', () => {
+          closeDialog();
+        });
+
+        continueBtn.addEventListener('click', () => {
+          closeDialog();
           this.forceImproveField(fieldType);
         });
-        
+
         // Close on background click
         dialog.querySelector('.dialog-overlay').addEventListener('click', () => {
-          dialog.remove();
+          closeDialog();
         });
+
+        cancelBtn.focus();
       }
 
       getFieldSpecificTips(fieldType, data) {

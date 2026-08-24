@@ -62,7 +62,7 @@ export class BiographyKBCard {
     bioLink.textContent = 'visa biografi';
     bioLink.style.cssText = `
       font-size: 12px;
-      color: #1976d2;
+      color: var(--aet-blue);
       cursor: pointer;
       margin-left: 8px;
       font-style: italic;
@@ -468,7 +468,7 @@ Regler:
           width: 14px;
           height: 14px;
           border: 2px solid rgba(0,0,0,0.1);
-          border-top-color: #1976d2;
+          border-top-color: var(--aet-blue);
           border-radius: 50%;
           animation: kbSpin 0.6s linear infinite;
           vertical-align: middle;
@@ -486,12 +486,12 @@ Regler:
           color: #475569;
           margin: 0 4px 4px 0;
           letter-spacing: 0.3px;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--aet-border);
         }
         .kb-notable-item {
           padding: 2px 0;
           font-size: 11.5px;
-          color: #64748b;
+          color: var(--aet-text-muted);
         }
         .kb-notable-item::before {
           content: "\\2022";
@@ -541,7 +541,7 @@ Regler:
       left: 0;
       transform: translateY(6px) scale(0.96);
       background: #ffffff;
-      color: #1e293b;
+      color: var(--aet-text);
       padding: 20px;
       border-radius: 16px;
       width: 300px;
@@ -561,7 +561,7 @@ Regler:
       pointer-events: none;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       text-align: left;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--aet-border);
       scrollbar-width: thin;
       scrollbar-color: rgba(0,0,0,0.12) transparent;
     `;
@@ -578,18 +578,18 @@ Regler:
       height: 72px;
       border-radius: 50%;
       background: #e2e8f0;
-      color: #64748b;
+      color: var(--aet-text-muted);
       font-size: 24px;
       font-weight: 600;
       letter-spacing: 1px;
-      border: 2px solid #e2e8f0;
+      border: 2px solid var(--aet-border);
     `;
 
     const nameEl = card.querySelector('.kb-name');
-    nameEl.style.cssText = 'font-size: 16px; font-weight: 700; text-align: center; letter-spacing: 0.2px; color: #1e293b;';
+    nameEl.style.cssText = 'font-size: 16px; font-weight: 700; text-align: center; letter-spacing: 0.2px; color: var(--aet-text);';
 
     const yearsEl = card.querySelector('.kb-years');
-    yearsEl.style.cssText = 'font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 12px;';
+    yearsEl.style.cssText = 'font-size: 13px; color: var(--aet-text-muted); text-align: center; margin-bottom: 12px;';
 
     const bioEl = card.querySelector('.kb-bio');
     bioEl.style.cssText = 'font-size: 13px; line-height: 1.6; color: #475569; margin-bottom: 10px;';
@@ -612,7 +612,7 @@ Regler:
       const img = document.createElement('img');
       img.src = imageUrl;
       img.alt = '';
-      img.style.cssText = 'width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;';
+      img.style.cssText = 'width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 2px solid var(--aet-border);';
       img.onerror = () => {};
       img.onload = () => {
         const existingImgs = photoArea.querySelectorAll('img');
@@ -652,9 +652,9 @@ Regler:
       const worksEl = card.querySelector('.kb-works');
       if (worksEl) {
         worksEl.style.display = 'block';
-        worksEl.style.cssText += 'margin-top: 8px; padding-top: 10px; border-top: 1px solid #e2e8f0;';
+        worksEl.style.cssText += 'margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--aet-border);';
         worksEl.innerHTML = `
-          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Kända verk</div>
+          <div style="font-size: 11px; color: var(--aet-text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Kända verk</div>
           ${bioData.notableWorks.map(w => `<div class="kb-notable-item">${escapeHTML(w)}</div>`).join('')}
         `;
       }
@@ -663,7 +663,7 @@ Regler:
     // Add "Lägg till biografi" button
     if (bioData.biography && !card.querySelector('.kb-add-bio-btn')) {
       const btnArea = document.createElement('div');
-      btnArea.style.cssText = 'margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; text-align: center;';
+      btnArea.style.cssText = 'margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--aet-border); text-align: center;';
 
       const btn = document.createElement('button');
       btn.className = 'kb-add-bio-btn';
@@ -697,7 +697,7 @@ Regler:
           descField.dispatchEvent(new Event('input', { bubbles: true }));
 
           btn.textContent = 'Tillagd i beskrivning';
-          btn.style.background = '#28a745';
+          btn.style.background = 'var(--aet-green)';
           btn.disabled = true;
           setTimeout(() => {
             btn.textContent = 'Lägg till biografi i beskrivning';
@@ -715,13 +715,13 @@ Regler:
     if (!card.querySelector('.kb-wrong-person') && (bioData || refetchCallback)) {
       const wrongSection = document.createElement('div');
       wrongSection.className = 'kb-wrong-person';
-      wrongSection.style.cssText = 'margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0; text-align: center;';
+      wrongSection.style.cssText = 'margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--aet-border); text-align: center;';
 
       const toggleLink = document.createElement('span');
       toggleLink.textContent = 'Fel person?';
-      toggleLink.style.cssText = 'font-size: 11px; color: #94a3b8; cursor: pointer; transition: color 0.15s;';
+      toggleLink.style.cssText = 'font-size: 11px; color: var(--aet-text-muted); cursor: pointer; transition: color 0.15s;';
       toggleLink.addEventListener('mouseenter', () => { toggleLink.style.color = '#475569'; });
-      toggleLink.addEventListener('mouseleave', () => { toggleLink.style.color = '#94a3b8'; });
+      toggleLink.addEventListener('mouseleave', () => { toggleLink.style.color = 'var(--aet-text-muted)'; });
 
       const panel = document.createElement('div');
       panel.style.cssText = 'display: none; margin-top: 8px; text-align: left;';
@@ -733,16 +733,16 @@ Regler:
         const hintInput = document.createElement('input');
         hintInput.type = 'text';
         hintInput.placeholder = 'T.ex. "popkonstnär, samtida"';
-        hintInput.style.cssText = 'flex: 1; padding: 5px 8px; font-size: 11px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; color: #1e293b; outline: none; font-family: inherit;';
-        hintInput.addEventListener('focus', () => { hintInput.style.borderColor = '#337ab7'; });
+        hintInput.style.cssText = 'flex: 1; padding: 5px 8px; font-size: 11px; background: var(--aet-bg-soft); border: 1px solid #cbd5e1; border-radius: 3px; color: var(--aet-text); outline: none; font-family: inherit;';
+        hintInput.addEventListener('focus', () => { hintInput.style.borderColor = 'var(--aet-blue)'; });
         hintInput.addEventListener('blur', () => { hintInput.style.borderColor = '#cbd5e1'; });
 
         const searchBtn = document.createElement('button');
         searchBtn.type = 'button';
         searchBtn.textContent = 'Sök';
-        searchBtn.style.cssText = 'padding: 5px 10px; font-size: 11px; background: #337ab7; color: #ffffff; border: none; border-radius: 3px; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; font-weight: 500;';
-        searchBtn.addEventListener('mouseenter', () => { searchBtn.style.background = '#286090'; });
-        searchBtn.addEventListener('mouseleave', () => { searchBtn.style.background = '#337ab7'; });
+        searchBtn.style.cssText = 'padding: 5px 10px; font-size: 11px; background: var(--aet-blue); color: #ffffff; border: none; border-radius: 3px; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; font-weight: 500;';
+        searchBtn.addEventListener('mouseenter', () => { searchBtn.style.background = 'var(--aet-blue-dark)'; });
+        searchBtn.addEventListener('mouseleave', () => { searchBtn.style.background = 'var(--aet-blue)'; });
 
         const doSearch = () => {
           const hint = hintInput.value.trim();
@@ -765,16 +765,16 @@ Regler:
       linksRow.style.cssText = 'display: flex; gap: 10px; justify-content: center; font-size: 11px;';
       linksRow.innerHTML = `
         <a href="https://www.google.com/search?q=${encodedName}+konstnär" target="_blank" rel="noopener"
-           style="color: #94a3b8; text-decoration: none; transition: color 0.15s;"
-           onmouseenter="this.style.color='#1976d2'" onmouseleave="this.style.color='#94a3b8'"
+           style="color: var(--aet-blue); text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='var(--aet-blue-dark)'" onmouseleave="this.style.color='var(--aet-blue)'"
         >Sök Google</a>
         <a href="https://sv.wikipedia.org/wiki/${encodedName.replace(/%20/g, '_')}" target="_blank" rel="noopener"
-           style="color: #94a3b8; text-decoration: none; transition: color 0.15s;"
-           onmouseenter="this.style.color='#1976d2'" onmouseleave="this.style.color='#94a3b8'"
+           style="color: var(--aet-blue); text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='var(--aet-blue-dark)'" onmouseleave="this.style.color='var(--aet-blue)'"
         >Wikipedia</a>
         <a href="https://www.artnet.com/artists/${encodedName.replace(/%20/g, '-').toLowerCase()}/" target="_blank" rel="noopener"
-           style="color: #94a3b8; text-decoration: none; transition: color 0.15s;"
-           onmouseenter="this.style.color='#1976d2'" onmouseleave="this.style.color='#94a3b8'"
+           style="color: var(--aet-blue); text-decoration: none; transition: color 0.15s;"
+           onmouseenter="this.style.color='var(--aet-blue-dark)'" onmouseleave="this.style.color='var(--aet-blue)'"
         >Artnet</a>
       `;
       panel.appendChild(linksRow);
@@ -865,16 +865,16 @@ Regler:
       </div>
     `;
 
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 10000;';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: var(--aet-z-tooltip);';
 
     const modalContent = modal.querySelector('.artist-bio-modal');
-    modalContent.style.cssText = 'background: white; border-radius: 3px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; border: 1px solid #ddd;';
+    modalContent.style.cssText = 'background: white; border-radius: 3px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; border: 1px solid var(--aet-border);';
 
     const header = modal.querySelector('.artist-bio-header');
-    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid #eee; background: #f5f5f5; border-radius: 3px 3px 0 0;';
+    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid #eee; background: var(--aet-bg-soft); border-radius: 3px 3px 0 0;';
 
     const closeBtn = modal.querySelector('.close-bio-modal');
-    closeBtn.style.cssText = 'background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;';
+    closeBtn.style.cssText = 'background: none; border: none; font-size: 24px; cursor: pointer; color: var(--aet-text-muted); padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;';
 
     modal.querySelector('.artist-bio-content').style.cssText = 'padding: 20px;';
     modal.querySelector('.bio-actions').style.cssText = 'display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;';
@@ -883,8 +883,8 @@ Regler:
       btn.style.cssText = 'padding: 8px 16px; border: none; border-radius: 3px; cursor: pointer; font-weight: 500; transition: background 0.15s ease;';
     });
 
-    modal.querySelector('.btn-add-bio-to-description').style.cssText += 'background: #28a745; color: white;';
-    modal.querySelector('.btn-close-bio').style.cssText += 'background: #f5f5f5; color: #333;';
+    modal.querySelector('.btn-add-bio-to-description').style.cssText += 'background: var(--aet-green); color: white;';
+    modal.querySelector('.btn-close-bio').style.cssText += 'background: var(--aet-bg-soft); color: var(--aet-text);';
 
     document.body.appendChild(modal);
 

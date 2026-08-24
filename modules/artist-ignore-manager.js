@@ -389,6 +389,9 @@ export class ArtistIgnoreManager {
     `;
 
     const content = document.createElement('div');
+    content.setAttribute('role', 'dialog');
+    content.setAttribute('aria-modal', 'true');
+    content.setAttribute('aria-labelledby', 'ignored-artists-title');
     content.style.cssText = `
       background: white;
       padding: 20px;
@@ -399,7 +402,7 @@ export class ArtistIgnoreManager {
     `;
 
     let html = `
-      <h3>🚫 Ignored Artists Management</h3>
+      <h3 id="ignored-artists-title">🚫 Ignored Artists Management</h3>
       <p>These artists are currently ignored and won't trigger detection:</p>
       <div style="margin: 15px 0;">
     `;
@@ -433,7 +436,38 @@ export class ArtistIgnoreManager {
     content.innerHTML = html;
     modal.appendChild(content);
     modal.className = 'ignored-artists-modal';
+
+    const lastFocused = document.activeElement;
     document.body.appendChild(modal);
+
+    // Focus management: initial focus, Tab trap, Escape to close, focus restore
+    const closeModal = () => {
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+      document.removeEventListener('keydown', escHandler);
+      if (lastFocused && typeof lastFocused.focus === 'function' && document.contains(lastFocused)) {
+        lastFocused.focus();
+      }
+    };
+    const escHandler = (e) => {
+      if (e.key === 'Escape') closeModal();
+    };
+    document.addEventListener('keydown', escHandler);
+    modal.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const focusables = Array.from(content.querySelectorAll('button')).filter(el => el.offsetParent !== null);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+    const initialBtn = content.querySelector('.close-modal-btn');
+    if (initialBtn) initialBtn.focus();
 
     // Attach event listeners (safe alternative to inline onclick with user data)
     content.querySelectorAll('.remove-artist-btn').forEach(btn => {
@@ -451,21 +485,21 @@ export class ArtistIgnoreManager {
     if (clearAllBtn) {
       clearAllBtn.addEventListener('click', () => {
         this.clearAllIgnoredArtists();
-        document.body.removeChild(modal);
+        closeModal();
       });
     }
 
     const closeBtn = content.querySelector('.close-modal-btn');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => {
-        document.body.removeChild(modal);
+        closeModal();
       });
     }
 
     // Close on backdrop click
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
-        document.body.removeChild(modal);
+        closeModal();
       }
     });
   }
