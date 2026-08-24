@@ -27,7 +27,7 @@ export const TIER_CONFIG = {
       description: 'Strukturera + kort kontext',
       maxValuation: 10000,
       model: 'claude-sonnet-4-5',
-      makerContextModel: 'claude-opus-4-6',
+      makerContextModel: 'claude-opus-5',
       maxTokens: 2000,
       temperature: 0.1,
       features: {
@@ -46,7 +46,7 @@ export const TIER_CONFIG = {
       label: 'Full',
       description: 'Komplett katalogisering',
       maxValuation: null,
-      model: 'claude-opus-4-6',
+      model: 'claude-opus-5',
       maxTokens: 3000,
       temperature: 0.1,
       features: {

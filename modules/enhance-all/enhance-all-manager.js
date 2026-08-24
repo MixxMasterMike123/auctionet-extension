@@ -189,12 +189,17 @@ export class EnhanceAllManager {
         resolve({ success: false, error: 'timeout' });
       }, 45000); // 45s timeout
 
+      // Opus 5 rejects `temperature` (400) and runs adaptive thinking when the
+      // `thinking` field is omitted — which would both break our content[0].text
+      // parsing and eat the max_tokens budget. Disable thinking explicitly
+      // (allowed at default effort) to keep pre-Opus-5 behavior and cost.
+      const isOpus5 = model === 'claude-opus-5';
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
         body: {
           model: model,
           max_tokens: maxTokens,
-          temperature: temperature,
+          ...(isOpus5 ? { thinking: { type: 'disabled' } } : { temperature: temperature }),
           system: [{
             type: 'text',
             text: systemPrompt,
@@ -207,11 +212,12 @@ export class EnhanceAllManager {
         }
       }, (response) => {
         clearTimeout(timeout);
+        const textBlock = response?.data?.content?.find?.(b => b?.type === 'text' && b.text);
         if (chrome.runtime.lastError) {
           console.error('[EnhanceAll] Chrome runtime error:', chrome.runtime.lastError.message);
           resolve({ success: false, error: chrome.runtime.lastError.message });
-        } else if (response?.success && response.data?.content?.[0]?.text) {
-          resolve({ success: true, text: response.data.content[0].text });
+        } else if (response?.success && textBlock) {
+          resolve({ success: true, text: textBlock.text });
         } else {
           const errorMsg = response?.error || response?.data?.error?.message || 'Unknown';
           resolve({ success: false, error: errorMsg });
@@ -279,7 +285,7 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
 {"years":"födelseår–dödsår","biography":"kort biografi max 80 ord","style":["stil1","stil2"],"notableWorks":["verk1","verk2"]}`;
 
     const response = await this._callAPI(
-      'claude-opus-4-6',
+      'claude-opus-5',
       'Du är en konstexpert. Svara ALLTID med valid JSON. Inga kommentarer utanför JSON.',
       prompt,
       250,

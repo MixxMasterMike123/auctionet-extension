@@ -220,10 +220,18 @@ Svara i JSON:
 imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grupp.`
     });
 
+    // Opus 5: `temperature` is rejected (400) and omitting `thinking` runs
+    // adaptive thinking (would eat the small max_tokens) — disable it to keep
+    // pre-Opus-5 behavior. Sonnet fallback keeps its tuned temperature.
     const callAPI = (model) => new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
-        body: { model, max_tokens: 400, temperature: 0.2, messages: [{ role: 'user', content }] }
+        body: {
+          model,
+          max_tokens: 400,
+          ...(model === 'claude-opus-5' ? { thinking: { type: 'disabled' } } : { temperature: 0.2 }),
+          messages: [{ role: 'user', content }]
+        }
       }, (response) => {
         if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
         if (!response?.success) return reject(new Error(response?.error || 'Klustring misslyckades'));
@@ -233,7 +241,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
 
     let response;
     try {
-      response = await callAPI('claude-opus-4-6');
+      response = await callAPI('claude-opus-5');
     } catch (err) {
       if (err.message?.includes('Overloaded') || err.message?.includes('overloaded') || err.message?.includes('429')) {
         console.warn('[ValuationRequest] Opus overloaded — falling back to Sonnet for clustering');
@@ -243,7 +251,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
       }
     }
 
-    const text = response.data.content?.[0]?.text || '';
+    const text = response.data.content?.find?.(b => b?.type === 'text')?.text || '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Kunde inte tolka klustringssvar');
 
@@ -277,7 +285,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
       <div class="vr-cluster-group" data-group-id="${g.id}">
         <div class="vr-cluster-group__header">
           <input class="vr-cluster-group__label" type="text" value="${escapeHTML(g.label)}" data-group-id="${g.id}">
-          <button class="vr-cluster-group__remove" data-group-id="${g.id}" title="Ta bort grupp">&times;</button>
+          <button class="vr-cluster-group__remove" type="button" data-group-id="${g.id}" aria-label="Ta bort grupp" title="Ta bort grupp">&times;</button>
         </div>
         <div class="vr-cluster-group__thumbs" data-group-id="${g.id}">
           ${thumbsHTML(g.imageIndices)}
@@ -290,7 +298,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
         <div style="font-size: 13px; font-weight: 600; color: #333; margin-bottom: 6px;">
           AI har identifierat ${groups.length} föremål
         </div>
-        <div style="font-size: 11px; color: #888; margin-bottom: 10px;">
+        <div style="font-size: 11px; color: var(--aet-text-muted); margin-bottom: 10px;">
           Dra bilder mellan grupper om det behövs. Klicka "Värdera alla" när grupperingen stämmer.
         </div>
         <div id="vr-cluster-groups">
@@ -556,9 +564,9 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
   async _callClaudeForValuation(images, groupLabel = null) {
     if (!this.apiManager.apiKey) throw new Error('API-nyckel saknas. Ange din Anthropic API-nyckel i tilläggets inställningar.');
 
-    // Use Opus 4.6 for valuation — much better at identifying specific models,
+    // Use Opus for valuation — much better at identifying specific models,
     // brands, and details from images compared to Sonnet
-    const model = 'claude-opus-4-6';
+    const model = 'claude-opus-5';
     const description = this.pageData.description || '(Ingen beskrivning angiven)';
 
     const systemPrompt = `Du är expert på värdering av antikviteter, konst, design och samlarprylar för Stadsauktion Sundsvall.
@@ -658,10 +666,18 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
 - För modellnamn: var specifik (t.ex. "Kröken", "Lamino", "Egg Chair", "DS Nautic" — inte bara "fåtölj")`
     });
 
+    // Opus 5: no `temperature` (400) + disable thinking so the 1200-token
+    // budget stays for the JSON answer (see clustering callAPI above).
     const callValuationAPI = (m) => new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
-        body: { model: m, max_tokens: 1200, temperature: 0.5, system: systemPrompt, messages: [{ role: 'user', content }] }
+        body: {
+          model: m,
+          max_tokens: 1200,
+          ...(m === 'claude-opus-5' ? { thinking: { type: 'disabled' } } : { temperature: 0.5 }),
+          system: systemPrompt,
+          messages: [{ role: 'user', content }]
+        }
       }, (response) => {
         if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
         if (!response?.success) return reject(new Error(response?.error || 'Analys misslyckades'));
@@ -681,7 +697,7 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
       }
     }
 
-    const text = response.data.content?.[0]?.text || '';
+    const text = response.data.content?.find?.(b => b?.type === 'text')?.text || '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Kunde inte tolka svaret');
 
@@ -1140,7 +1156,7 @@ ${ValuationRequestAssistant.SIGNATURE_EN}`;
       <p style="font-size: 13px; color: #666; margin-bottom: 12px;">
         Analyserar kundens bilder och beskrivning med hjälp av Auctionets marknadsdata.
       </p>
-      <div id="vr-image-count" style="font-size: 12px; color: #888; margin-bottom: 8px;">
+      <div id="vr-image-count" style="font-size: 12px; color: var(--aet-text-muted); margin-bottom: 8px;">
         ${this.pageData.imageUrls.length} bild(er)${this.pageData.imageUrls.length > 10 ? ' (max 10 analyseras)' : ''} · ${this.pageData.description ? 'Beskrivning finns' : 'Ingen beskrivning'}
       </div>
       <button id="vr-analyze-btn" class="btn btn-block btn-info" style="margin-bottom: 10px;">
@@ -1240,10 +1256,10 @@ ${ValuationRequestAssistant.SIGNATURE_EN}`;
     const valueHTML = result.tooLowForAuction
       ? `<div style="padding: 8px 12px; background: #fff3e0; border-radius: 4px; margin-bottom: 10px;">
            <div style="font-size: 14px; font-weight: 600; color: #e65100;">Under minimivärde för auktion</div>
-           <div style="font-size: 12px; color: #888; margin-top: 2px;">Uppskattat värde: ${(result.estimatedValue || 0).toLocaleString()} SEK</div>
+           <div style="font-size: 12px; color: var(--aet-text-muted); margin-top: 2px;">Uppskattat värde: ${(result.estimatedValue || 0).toLocaleString()} SEK</div>
          </div>`
       : `<div style="padding: 8px 12px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; margin-bottom: 10px;">
-           <div style="font-size: 12px; color: #888;">Uppskattat värde</div>
+           <div style="font-size: 12px; color: var(--aet-text-muted);">Uppskattat värde</div>
            <div style="font-size: 20px; font-weight: 600; color: #333;">${result.estimatedValue.toLocaleString()} SEK</div>
            <div style="font-size: 11px; color: ${confColor}; margin-top: 2px;">${confLabel} säkerhet</div>
          </div>`;
@@ -1274,14 +1290,14 @@ ${ValuationRequestAssistant.SIGNATURE_EN}`;
     const verifyLink = verifyQuery
       ? `<a href="https://auctionet.com/sv/search?is=ended&q=${encodeURIComponent(verifyQuery)}" target="_blank" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #006ccc; margin-bottom: 10px; text-decoration: none;">
            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-           Se sålda objekt på Auctionet.com <span style="color: #888;">(${escapeHTML(verifyQuery)})</span>
+           Se sålda objekt på Auctionet.com <span style="color: var(--aet-text-muted);">(${escapeHTML(verifyQuery)})</span>
          </a>`
       : '';
 
     // Search query editor for manual refinement
     const searchEditorHTML = `
       <div style="margin-top: 4px; margin-bottom: 12px;">
-        <label style="font-size: 11px; color: #888; display: block; margin-bottom: 3px;">Sökfråga för marknadsdata:</label>
+        <label style="font-size: 11px; color: var(--aet-text-muted); display: block; margin-bottom: 3px;">Sökfråga för marknadsdata:</label>
         <div style="display: flex; gap: 6px;">
           <input id="vr-search-query" type="text" value="${escapeHTML(verifyQuery)}"
                  style="flex: 1; padding: 4px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px;">
@@ -1407,7 +1423,7 @@ ${ValuationRequestAssistant.SIGNATURE_EN}`;
       ${groupCardsHTML}
 
       <div style="margin-top: 8px;">
-        <label style="font-size: 11px; font-weight: 600; color: #888; display: block; margin-bottom: 3px;">E-post:</label>
+        <label style="font-size: 11px; font-weight: 600; color: var(--aet-text-muted); display: block; margin-bottom: 3px;">E-post:</label>
         <textarea id="vr-email-text" style="width: 100%; min-height: 180px; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 12px; font-family: inherit; resize: vertical; line-height: 1.4;">${escapeHTML(emailText)}</textarea>
       </div>
 
