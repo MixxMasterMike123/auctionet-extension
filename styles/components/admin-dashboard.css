@@ -723,7 +723,11 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--aet-text-muted);
-  min-width: 78px;
+  /* Fixed (not min-) width so both arm rows start their card grids at the
+     same x — "⚡ hyperrankade" is wider than "kontroll" and would otherwise
+     push its cards out of column alignment with the row below. */
+  width: 118px;
+  flex-shrink: 0;
 }
 
 .ext-hr-lifesplit__armlabel--treat {
@@ -735,9 +739,14 @@
 }
 
 .ext-hr-lifesplit__cards {
-  display: flex;
-  flex-wrap: wrap;
+  /* Equal-width columns so the four cards line up vertically across both
+     arm rows regardless of label length ("sålda 1:a försöket" vs "aldrig
+     sålda"). */
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
+  flex: 1;
+  max-width: 640px;
 }
 
 .ext-hr-stat--sm {
