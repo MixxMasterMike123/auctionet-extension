@@ -704,6 +704,59 @@
   border-color: #e2e8f0;
 }
 
+/* ─── HYPERRANK life-split cards (sold on 1st/2nd/3rd+ attempt) ──── */
+.ext-hr-lifesplit {
+  padding: 4px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ext-hr-lifesplit__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ext-hr-lifesplit__armlabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--aet-text-muted);
+  min-width: 78px;
+}
+
+.ext-hr-lifesplit__armlabel--treat {
+  color: #b45309;
+}
+
+.ext-hr-lifesplit__armlabel--control {
+  color: #64748b;
+}
+
+.ext-hr-lifesplit__cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ext-hr-stat--sm {
+  min-width: 56px;
+  padding: 5px 8px;
+}
+
+.ext-hr-stat--sm .ext-hr-stat__value {
+  font-size: 13px;
+}
+
+.ext-hr-stat--sm .ext-hr-stat__label {
+  font-size: 9px;
+}
+
+.ext-hr-stat--sm .ext-hr-stat__sub {
+  font-size: 9px;
+}
+
 .ext-hr-analysis {
   padding: 8px 16px 12px;
 }

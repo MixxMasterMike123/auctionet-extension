@@ -77,6 +77,11 @@ const LOST_AFTER_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 // otherwise the scoreboard's sold-rate only counts found (= sold) outcomes.
 const UNSOLD_INFER_AFTER_MS = 45 * 24 * 60 * 60 * 1000; // 45 days
 const FETCH_TIMEOUT_MS = 10000;
+// How far back an archive-confirmed-unsold outcome is still worth re-checking
+// for a relist. Auctionet relists fairly promptly after an unsold ending, so
+// a relist that hasn't shown up within 60 days of the original ending is
+// unlikely to ever show up — stop spending budget on it after that.
+const RELIST_RECHECK_WINDOW_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -139,7 +144,12 @@ function buildOutcomeRecord(itemId, item, entry, sold) {
     hyperrankTs: hyperrankTs ?? null,
     // Number of lives observed beyond the first (see checkRelist below).
     // Old entries predate this field — default to 0 everywhere it's read.
-    relistCount: (typeof entry === 'object' && entry && Number.isFinite(entry.relistCount)) ? entry.relistCount : 0
+    relistCount: (typeof entry === 'object' && entry && Number.isFinite(entry.relistCount)) ? entry.relistCount : 0,
+    // When this record was last confirmed against the API — local-only
+    // bookkeeping (not synced to the Worker) used to rotate the archive-
+    // unsold relist re-check (see recheckArchivedUnsold) oldest-first rather
+    // than hammering the same items every run.
+    checkedAt: Date.now()
   };
 }
 
@@ -319,13 +329,183 @@ export async function collectHyperrankOutcomes() {
     console.warn('[HyperrankOutcomes] Control collection run failed:', e.message);
   }
 
+  // Lowest priority of all: re-check archive-confirmed-unsold outcomes for a
+  // relist, using whatever budget neither the treated nor control pass spent.
+  // See recheckArchivedUnsold for why this is needed (an unsold-then-relisted
+  // item must re-enter the normal pending flow, not sit forever counted as
+  // "never sold").
+  let recheckResult = { checked: 0, recorded: 0 };
+  try {
+    recheckResult = await recheckArchivedUnsold(budget);
+  } catch (e) {
+    console.warn('[HyperrankOutcomes] Relist re-check run failed:', e.message);
+  }
+
   return {
-    checked: treatedResult.checked + controlResult.checked,
+    checked: treatedResult.checked + controlResult.checked + recheckResult.checked,
     recorded: treatedResult.recorded + controlResult.recorded,
-    changed: (treatedResult.recorded + controlResult.recorded) > 0,
+    changed: (treatedResult.recorded + controlResult.recorded) > 0 || recheckResult.recorded > 0,
     treated: treatedResult,
-    control: controlResult
+    control: controlResult,
+    relistRecheck: recheckResult
   };
+}
+
+// ─── Relist re-check for archive-confirmed-unsold outcomes ─────────────
+// Problem: once an item is found in the is=ended archive with state 'unsold'
+// (sold: false, NOT inferredUnsold — see buildOutcomeRecord/the control ended
+// branch above), the normal passes stop following it forever, because it now
+// has a recorded outcome and no longer appears in `pending`. But Auctionet
+// relists unsold items up to 3x under the SAME item id — if that happens, the
+// item may go on to sell on a later life, and "aldrig sålda" on the
+// scoreboard would overcount it as never-sold indefinitely.
+//
+// This pass re-queries the public API for exactly those confirmed-unsold
+// outcomes (both arms), lowest priority of the whole run (only spends
+// whatever budget the normal pending passes above didn't use). If the item
+// is found LIVE again with ends_at clearly past the recorded endedAt (>24h,
+// same "genuine new life, not a snipe-protection extension" rule as
+// checkRelist elsewhere in this file), it relisted:
+//   1. Bump relistCount on the SOURCE entry (hyperrankedItems[id] for
+//      treated, rescueObserved[id] for control) so the eventual new outcome
+//      carries the right life number.
+//   2. Delete the stale outcome record so the item re-enters the normal
+//      pending queue and gets tracked through to its next real outcome.
+// If not found live, or found still-ended (archive lookup just reconfirms
+// the same unsold state), do nothing — retry naturally on a later run, until
+// the item falls outside RELIST_RECHECK_WINDOW_MS.
+//
+// Rotation: candidates are sorted oldest-checked-first (falling back to
+// endedAt for pre-checkedAt records) so a long backlog cycles through
+// everything eventually rather than re-hammering the same few items query
+// after query. Only ever consumes leftover budget — never competes with the
+// normal treated/control passes for fetches.
+async function recheckArchivedUnsold(budget) {
+  if (budgetRemaining(budget) <= 0) return { checked: 0, recorded: 0 };
+
+  const stored = await chrome.storage.local.get([
+    HYPERRANK_ITEMS_KEY,
+    HYPERRANK_OUTCOMES_KEY,
+    RESCUE_OBSERVED_KEY,
+    RESCUE_CONTROL_OUTCOMES_KEY
+  ]);
+  const hyperrankedItems = stored[HYPERRANK_ITEMS_KEY] || {};
+  const outcomes = stored[HYPERRANK_OUTCOMES_KEY] || {};
+  const observed = stored[RESCUE_OBSERVED_KEY] || {};
+  const controlOutcomes = stored[RESCUE_CONTROL_OUTCOMES_KEY] || {};
+
+  const now = Date.now();
+  const isEligible = (o) => {
+    if (!o || o.sold !== false || o.inferredUnsold || o.lost) return false;
+    const n = Number.isFinite(o.relistCount) ? o.relistCount : 0;
+    if (n >= 3) return false;
+    const recentAnchor = Number.isFinite(o.checkedAt) ? o.checkedAt : o.endedAt;
+    if (!Number.isFinite(recentAnchor)) return false; // no usable timestamp — skip rather than guess
+    return (now - recentAnchor) <= RELIST_RECHECK_WINDOW_MS;
+  };
+
+  const treatedCandidates = Object.entries(outcomes)
+    .filter(([, o]) => isEligible(o))
+    .map(([itemId, o]) => ({ itemId, o, arm: 'treated' }));
+  const controlCandidates = Object.entries(controlOutcomes)
+    .filter(([, o]) => isEligible(o))
+    .map(([itemId, o]) => ({ itemId, o, arm: 'control' }));
+
+  const candidates = [...treatedCandidates, ...controlCandidates].sort((a, b) => {
+    const aTs = Number.isFinite(a.o.checkedAt) ? a.o.checkedAt : (a.o.endedAt ?? 0);
+    const bTs = Number.isFinite(b.o.checkedAt) ? b.o.checkedAt : (b.o.endedAt ?? 0);
+    return aTs - bTs; // oldest-checked-first
+  });
+
+  if (candidates.length === 0) return { checked: 0, recorded: 0 };
+
+  const startFetches = budget.fetches;
+  let recorded = 0;
+  let outcomesChanged = false;
+  let controlOutcomesChanged = false;
+  let itemsChanged = false;
+  let observedChanged = false;
+
+  for (const { itemId, o, arm } of candidates) {
+    if (budgetRemaining(budget) <= 0) break;
+
+    try {
+      budget.fetches++;
+      const result = await lookupItem(itemId);
+      let deletedOutcome = false;
+
+      // Only a still-LIVE sighting with a clearly later ends_at counts as a
+      // relist — "found ended again" (result.ended) just reconfirms the same
+      // unsold outcome and needs no action; "not found" is equally a no-op.
+      if (result && !result.ended && typeof result.item.ends_at === 'number') {
+        const liveEndsAtMs = result.item.ends_at * 1000;
+        const priorEndedAt = Number.isFinite(o.endedAt) ? o.endedAt : 0;
+        const isRelist = liveEndsAtMs > priorEndedAt + 24 * 3600 * 1000;
+
+        if (isRelist) {
+          if (arm === 'treated') {
+            const sourceEntry = (hyperrankedItems[itemId] && typeof hyperrankedItems[itemId] === 'object')
+              ? hyperrankedItems[itemId]
+              : { ts: (typeof hyperrankedItems[itemId] === 'number') ? hyperrankedItems[itemId] : null };
+            sourceEntry.relistCount = (Number.isFinite(sourceEntry.relistCount) ? sourceEntry.relistCount : 0) + 1;
+            sourceEntry.lastKnownEndsAt = liveEndsAtMs;
+            hyperrankedItems[itemId] = sourceEntry;
+            itemsChanged = true;
+
+            delete outcomes[itemId];
+            outcomesChanged = true;
+            deletedOutcome = true;
+          } else {
+            const sourceEntry = observed[itemId] || {};
+            sourceEntry.relistCount = (Number.isFinite(sourceEntry.relistCount) ? sourceEntry.relistCount : 0) + 1;
+            sourceEntry.endsAt = liveEndsAtMs;
+            observed[itemId] = sourceEntry;
+            observedChanged = true;
+
+            delete controlOutcomes[itemId];
+            controlOutcomesChanged = true;
+            deletedOutcome = true;
+          }
+          recorded++;
+        }
+        // else: still live but same auction (unlikely for a confirmed-ended
+        // record, but possible if the archive lookup was stale) — no-op,
+        // retry next run.
+      }
+      // else: not found, or found still-ended — no-op, retry next run until
+      // the recheck window closes.
+
+      // Bump checkedAt on every surviving record so the oldest-checked-first
+      // sort actually rotates through the backlog across runs, instead of
+      // re-checking the same oldest items every time and starving the rest.
+      if (!deletedOutcome) {
+        o.checkedAt = now;
+        if (arm === 'treated') outcomesChanged = true;
+        else controlOutcomesChanged = true;
+      }
+    } catch (e) {
+      console.warn('[HyperrankOutcomes] Relist re-check lookup failed for item', itemId, e.message);
+    }
+
+    if (budgetRemaining(budget) > 0) {
+      await sleep(FETCH_SPACING_MS);
+    }
+  }
+
+  if (outcomesChanged) {
+    await chrome.storage.local.set({ [HYPERRANK_OUTCOMES_KEY]: outcomes });
+  }
+  if (controlOutcomesChanged) {
+    await chrome.storage.local.set({ [RESCUE_CONTROL_OUTCOMES_KEY]: controlOutcomes });
+  }
+  if (itemsChanged) {
+    await chrome.storage.local.set({ [HYPERRANK_ITEMS_KEY]: hyperrankedItems });
+  }
+  if (observedChanged) {
+    await chrome.storage.local.set({ [RESCUE_OBSERVED_KEY]: observed });
+  }
+
+  return { checked: budget.fetches - startFetches, recorded };
 }
 
 // ─── Control-side outcomes (untreated Räddningslistan items) ───────────
@@ -390,7 +570,10 @@ async function collectRescueControlOutcomes(budget) {
             finalBidCount: bids.length,
             highestBid: bids.length > 0 ? bids[0].amount : null,
             estimate: typeof result.item.estimate === 'number' ? result.item.estimate : (entry.estimate ?? null),
-            relistCount
+            relistCount,
+            // See buildOutcomeRecord's checkedAt comment — same local-only
+            // rotation bookkeeping, mirrored here for the control side.
+            checkedAt: now
           };
           changed = true;
           recorded++;

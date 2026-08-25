@@ -1240,19 +1240,53 @@
     `;
   }
 
-  // Compact "sålda: liv 1: X · liv 2: Y · liv 3+: Z" summary for one arm's
-  // sold counts, broken down by relist life number (bucket 0 = first
-  // listing, shown as "liv 1" to match how auction staff count lives —
-  // "life 1" = the original listing, not a zero-indexed relist count).
-  // Returns '' (renders nothing) when there's no sold data yet, so an arm
-  // with zero recorded sales doesn't show a wall of "liv 1: 0 · liv 2: 0…".
-  function renderLifeSplitLine(split) {
+  // One row of four small "attempt" cards for one arm's life split: sold on
+  // the 1st/2nd/3rd+ attempt, plus "never sold" (unsold across every life
+  // seen so far — falls as relists happen and later sell, per the
+  // aldrig-sålda tooltip). Vocabulary ("försöket") matches the analytics
+  // page's "Sålt vid 1:a försöket" so staff read the same concept in both
+  // places. Bucket 0 = 1:a försöket, bucket 1 = 2:a försöket, buckets 2 and
+  // '3+' combined = 3:e+ försöket (Auctionet caps relists at 3, but the
+  // worker/local split bucket defensively past that). Percent sub-text is
+  // of THIS arm's total ended items (sold + unsold across all buckets), not
+  // of the row's own attempt count. Returns '' when the arm has no ended
+  // items at all, so a fresh arm doesn't render a row of zeros.
+  function renderLifeSplitCards(split, armLabel, armClass) {
     if (!split) return '';
-    const life1 = split[0]?.sold || 0;
-    const life2 = split[1]?.sold || 0;
-    const life3Plus = (split[2]?.sold || 0) + (split['3+']?.sold || 0);
-    if (life1 + life2 + life3Plus === 0) return '';
-    return escapeHTML(`sålda: liv 1: ${life1} · liv 2: ${life2} · liv 3+: ${life3Plus}`);
+    const life1Sold = split[0]?.sold || 0;
+    const life2Sold = split[1]?.sold || 0;
+    const life3PlusSold = (split[2]?.sold || 0) + (split['3+']?.sold || 0);
+    const totalUnsold = (split[0]?.unsold || 0) + (split[1]?.unsold || 0) + (split[2]?.unsold || 0) + (split['3+']?.unsold || 0);
+    const totalEnded = life1Sold + life2Sold + life3PlusSold + totalUnsold;
+    if (totalEnded === 0) return '';
+
+    const pct = (n) => totalEnded > 0 ? Math.round((n / totalEnded) * 100) : 0;
+
+    const cards = [
+      { value: life1Sold, label: 'sålda 1:a försöket' },
+      { value: life2Sold, label: 'sålda 2:a försöket' },
+      { value: life3PlusSold, label: 'sålda 3:e+ försöket' },
+      {
+        value: totalUnsold,
+        label: 'aldrig sålda',
+        title: 'Inkluderar föremål som kan omlistas igen — siffran sjunker tills alla liv är förbrukade.'
+      }
+    ];
+
+    return `
+      <div class="ext-hr-lifesplit__row">
+        <div class="ext-hr-lifesplit__armlabel ${escapeHTML(armClass)}">${escapeHTML(armLabel)}</div>
+        <div class="ext-hr-lifesplit__cards">
+          ${cards.map(c => `
+            <div class="ext-hr-stat ext-hr-stat--sm"${c.title ? ` title="${escapeHTML(c.title)}"` : ''}>
+              <span class="ext-hr-stat__value">${escapeHTML(String(c.value))}</span>
+              <span class="ext-hr-stat__label">${escapeHTML(c.label)}</span>
+              <span class="ext-hr-stat__sub">${escapeHTML(String(pct(c.value)))}%</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
   }
 
   function renderHyperrankScoreboard(stats, abComparison, { synced = false, analysis = null } = {}) {
@@ -1276,8 +1310,8 @@
     // the treated outcomes + parity controls). The "Alla hyperrankade" tiles
     // above include publish-time hyperranks that never entered the experiment,
     // which is why those totals are larger.
-    const treatedLifeSplitHTML = renderLifeSplitLine(abComparison?.treatedLifeSplit);
-    const controlLifeSplitHTML = renderLifeSplitLine(abComparison?.controlLifeSplit);
+    const treatedLifeSplitHTML = renderLifeSplitCards(abComparison?.treatedLifeSplit, '⚡ hyperrankade', 'ext-hr-lifesplit__armlabel--treat');
+    const controlLifeSplitHTML = renderLifeSplitCards(abComparison?.controlLifeSplit, 'kontroll', 'ext-hr-lifesplit__armlabel--control');
 
     const abTilesHTML = abComparison ? `
       <div class="ext-hr-scoreboard__section">Räddningslistan A/B-test <span class="ext-hr-scoreboard__sectionhint">(endast föremål från listan — därför färre än ovan)</span></div>
@@ -1294,9 +1328,9 @@
         </div>
       </div>
       ${(treatedLifeSplitHTML || controlLifeSplitHTML) ? `
-      <div class="ext-hr-analysis">
-        ${treatedLifeSplitHTML ? `<div class="ext-hr-analysis__line">⚡ ${treatedLifeSplitHTML}</div>` : ''}
-        ${controlLifeSplitHTML ? `<div class="ext-hr-analysis__line">kontroll ${controlLifeSplitHTML}</div>` : ''}
+      <div class="ext-hr-lifesplit">
+        ${treatedLifeSplitHTML}
+        ${controlLifeSplitHTML}
       </div>
       ` : ''}
       ${renderAbAnalysis(abComparison, analysis)}
