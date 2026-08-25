@@ -23,7 +23,14 @@ CREATE TABLE IF NOT EXISTS outcomes (
   bids_after_hyperrank INTEGER,
   highest_bid         INTEGER,
   estimate            INTEGER,
-  recorded_at         INTEGER
+  recorded_at         INTEGER,
+  -- Lives observed beyond the first (0 = sold/ended on its first listing).
+  -- Auctionet relists unsold items up to 3x under the SAME item_id with a
+  -- later ends_at each time — see hyperrank-outcomes-bg.js's checkRelist().
+  -- Merged across machines with MAX(), same rationale as
+  -- rescue_observed.relist_count below (each machine only sees its own
+  -- collector's live-lookup history, so the highest observed count wins).
+  relist_count        INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS rescue_observed (
@@ -45,3 +52,4 @@ CREATE TABLE IF NOT EXISTS rescue_observed (
 -- Migrations for pre-existing deployments (run once each):
 --   ALTER TABLE rescue_observed ADD COLUMN protocol_violation INTEGER DEFAULT 0;  (applied 2026-07-22)
 --   ALTER TABLE rescue_observed ADD COLUMN relist_count INTEGER DEFAULT 0;        (applied 2026-07-23)
+--   ALTER TABLE outcomes ADD COLUMN relist_count INTEGER DEFAULT 0;               (NOT YET APPLIED — run manually before deploying)

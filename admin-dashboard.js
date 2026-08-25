@@ -1148,6 +1148,23 @@
   // - protocolViolation entries (control items deliberately hyperranked via the
   //   edit-page guard override) are excluded from BOTH arms — assigned to
   //   control but intervened on, and never randomly assigned to treat.
+  // Buckets a set of ended outcome objects by relistCount into { sold, unsold }
+  // per life: 0 = first listing, 1/2 = one/two relists, "3+" = three or more
+  // (Auctionet caps relists at 3, bucketed defensively in case that changes).
+  // Mirrors workers/hyperrank-api/src/index.js's lifeSplit() so local and
+  // merged (/aggregate) data render identically. Missing relistCount (old
+  // records, predating this feature) falls into bucket 0 — treated as
+  // first-life everywhere, per the backward-compat rule.
+  function computeLifeSplit(outcomeEntries) {
+    const buckets = { 0: { sold: 0, unsold: 0 }, 1: { sold: 0, unsold: 0 }, 2: { sold: 0, unsold: 0 }, '3+': { sold: 0, unsold: 0 } };
+    outcomeEntries.forEach(o => {
+      const n = Number.isFinite(o.relistCount) ? o.relistCount : 0;
+      const key = n >= 3 ? '3+' : n;
+      buckets[key][o.sold ? 'sold' : 'unsold']++;
+    });
+    return buckets;
+  }
+
   function computeRescueAbComparison(hyperrankOutcomes, rescueObserved, rescueControlOutcomes) {
     const treatedEntries = Object.entries(hyperrankOutcomes)
       .filter(([itemId, o]) => !o.lost && rescueObserved[itemId] && !rescueObserved[itemId].protocolViolation);
@@ -1167,7 +1184,9 @@
       treatedPct: Math.round((treatedSold / treatedEnded) * 100),
       controlSold,
       controlEnded,
-      controlPct: Math.round((controlSold / controlEnded) * 100)
+      controlPct: Math.round((controlSold / controlEnded) * 100),
+      treatedLifeSplit: computeLifeSplit(treatedEntries.map(([, o]) => o)),
+      controlLifeSplit: computeLifeSplit(controlEntries.map(([, o]) => o))
     };
   }
 
@@ -1221,6 +1240,21 @@
     `;
   }
 
+  // Compact "sålda: liv 1: X · liv 2: Y · liv 3+: Z" summary for one arm's
+  // sold counts, broken down by relist life number (bucket 0 = first
+  // listing, shown as "liv 1" to match how auction staff count lives —
+  // "life 1" = the original listing, not a zero-indexed relist count).
+  // Returns '' (renders nothing) when there's no sold data yet, so an arm
+  // with zero recorded sales doesn't show a wall of "liv 1: 0 · liv 2: 0…".
+  function renderLifeSplitLine(split) {
+    if (!split) return '';
+    const life1 = split[0]?.sold || 0;
+    const life2 = split[1]?.sold || 0;
+    const life3Plus = (split[2]?.sold || 0) + (split['3+']?.sold || 0);
+    if (life1 + life2 + life3Plus === 0) return '';
+    return escapeHTML(`sålda: liv 1: ${life1} · liv 2: ${life2} · liv 3+: ${life3Plus}`);
+  }
+
   function renderHyperrankScoreboard(stats, abComparison, { synced = false, analysis = null } = {}) {
     let container = document.querySelector('.ext-hr-scoreboard');
     if (stats.endedWithOutcome === 0) {
@@ -1242,6 +1276,9 @@
     // the treated outcomes + parity controls). The "Alla hyperrankade" tiles
     // above include publish-time hyperranks that never entered the experiment,
     // which is why those totals are larger.
+    const treatedLifeSplitHTML = renderLifeSplitLine(abComparison?.treatedLifeSplit);
+    const controlLifeSplitHTML = renderLifeSplitLine(abComparison?.controlLifeSplit);
+
     const abTilesHTML = abComparison ? `
       <div class="ext-hr-scoreboard__section">Räddningslistan A/B-test <span class="ext-hr-scoreboard__sectionhint">(endast föremål från listan — därför färre än ovan)</span></div>
       <div class="ext-hr-scoreboard__body">
@@ -1256,6 +1293,12 @@
           <span class="ext-hr-stat__sub">${abComparison.controlSold} av ${abComparison.controlEnded}</span>
         </div>
       </div>
+      ${(treatedLifeSplitHTML || controlLifeSplitHTML) ? `
+      <div class="ext-hr-analysis">
+        ${treatedLifeSplitHTML ? `<div class="ext-hr-analysis__line">⚡ ${treatedLifeSplitHTML}</div>` : ''}
+        ${controlLifeSplitHTML ? `<div class="ext-hr-analysis__line">kontroll ${controlLifeSplitHTML}</div>` : ''}
+      </div>
+      ` : ''}
       ${renderAbAnalysis(abComparison, analysis)}
     ` : '';
 

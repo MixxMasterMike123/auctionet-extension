@@ -25,6 +25,19 @@
 // workers/outlet-api and the spellcheck Worker for the established pattern) —
 // not attempted here to keep this pilot simple.
 //
+// Relist tracking ("life" number): unsold Auctionet items relist up to 3x
+// under the SAME item id, with a later ends_at each time. Both arms track how
+// many extra lives an item has had via a `relistCount` field (0 = still on
+// its first life), bumped by checkRelist() whenever a still-live lookup finds
+// ends_at has jumped >24h past what was last seen (a real relist, not a minor
+// bid-driven end-time extension). Treated entries keep this on
+// `hyperrankedItems[id].relistCount`/`.lastKnownEndsAt`; control entries keep
+// it on the existing `rescueObserved[id].relistCount`/`.endsAt` (shared with
+// admin-dashboard.js's own independent relist detection on the same fields).
+// relistCount is copied onto the outcome record when it finalizes, so the
+// scoreboard can split sold/unsold by life number. Old records without this
+// field are treated as relistCount 0 everywhere it's read.
+//
 // ─── Verified Auctionet public API shapes (2026-07-20, live curl checks) ───
 // - There is NO per-id endpoint (`/api/v2/items/<id>.json` → 404).
 // - `items.json?q=<id>` finds the item ONLY while it is still live/published
@@ -123,8 +136,39 @@ function buildOutcomeRecord(itemId, item, entry, sold) {
     highestBid: bids.length > 0 ? bids[0].amount : null,
     estimate: typeof item.estimate === 'number' ? item.estimate : null,
     baselineVisits: typeof entry === 'object' && entry ? (entry.visits ?? null) : null,
-    hyperrankTs: hyperrankTs ?? null
+    hyperrankTs: hyperrankTs ?? null,
+    // Number of lives observed beyond the first (see checkRelist below).
+    // Old entries predate this field — default to 0 everywhere it's read.
+    relistCount: (typeof entry === 'object' && entry && Number.isFinite(entry.relistCount)) ? entry.relistCount : 0
   };
+}
+
+// Relist detection shared by both arms: unsold items keep their id and come
+// back with a later ends_at (up to 3 lives, reserve may drop — see
+// admin-dashboard.js's upsertRescueObserved, which independently detects the
+// same signal from the Räddningslistan scrape side, on the SAME `endsAt`/
+// `relistCount` fields for control records). Here we detect it from the
+// collector's OWN still-live lookups, so an item's relistCount stays accurate
+// even if it never re-enters the rescue window. A jump must be >24h past the
+// previously stored end time to count as a genuine new life — small jumps
+// are just bid-driven end-time extensions ("snipe protection"), not a
+// relist. Mutates `record` in place (record.relistCount, record[endsAtField])
+// and returns true if it changed. `endsAtField` lets treated entries (which
+// have no pre-existing endsAt field) use `lastKnownEndsAt` while control
+// entries (`rescueObserved`) reuse their existing `endsAt` field.
+function checkRelist(record, liveEndsAtSec, endsAtField = 'lastKnownEndsAt') {
+  if (typeof liveEndsAtSec !== 'number') return false;
+  const liveEndsAtMs = liveEndsAtSec * 1000;
+  const priorEndsAt = record[endsAtField];
+  const isRelist = typeof priorEndsAt === 'number' && liveEndsAtMs > priorEndsAt + 24 * 3600 * 1000;
+  if (isRelist) {
+    record.relistCount = (Number.isFinite(record.relistCount) ? record.relistCount : 0) + 1;
+  }
+  if (priorEndsAt !== liveEndsAtMs) {
+    record[endsAtField] = liveEndsAtMs;
+    return true;
+  }
+  return isRelist;
 }
 
 // Shared per-run fetch budget helper — both the treated-items pass and the
@@ -137,8 +181,11 @@ function budgetRemaining(budget) {
 
 // Processes one pending entry (itemId + its baseline entry) against the
 // shared budget, writing into `outcomes` on success. Returns true if a fetch
-// was spent (whether or not it produced a recorded outcome).
-async function processPendingEntry(itemId, entry, outcomes, budget) {
+// was spent (whether or not it produced a recorded outcome). Mutates
+// `hyperrankedItems[itemId]` in place (normalizing legacy bare-number entries
+// to objects) when a relist is detected on a still-live lookup, and sets
+// budget.itemsChanged so the caller knows to persist HYPERRANK_ITEMS_KEY too.
+async function processPendingEntry(itemId, entry, outcomes, budget, hyperrankedItems) {
   if (budgetRemaining(budget) <= 0) return false;
 
   const hyperrankTs = typeof entry === 'number' ? entry : entry?.ts;
@@ -152,8 +199,17 @@ async function processPendingEntry(itemId, entry, outcomes, budget) {
         outcomes[itemId] = buildOutcomeRecord(itemId, result.item, entry, result.sold);
         budget.recorded++;
         budget.changed = true;
+      } else {
+        // Still live — check whether this is actually a NEW life (relisted
+        // after a prior unsold ending) rather than the same auction still
+        // running. Normalize legacy bare-number entries to objects first so
+        // there's somewhere to keep relistCount/lastKnownEndsAt.
+        const normalized = (typeof entry === 'object' && entry) ? entry : { ts: hyperrankTs };
+        if (checkRelist(normalized, result.item.ends_at)) {
+          hyperrankedItems[itemId] = normalized;
+          budget.itemsChanged = true;
+        }
       }
-      // else: still live — skip, retry next run.
     } else {
       // Not found anywhere. Ended items usually surface in the is=ended
       // archive (state 'sold' OR 'unsold' — verified 2026-07-24), but items
@@ -175,7 +231,8 @@ async function processPendingEntry(itemId, entry, outcomes, budget) {
           highestBid: null,
           estimate: null,
           baselineVisits: (entry && typeof entry === 'object') ? entry.visits ?? null : null,
-          hyperrankTs
+          hyperrankTs,
+          relistCount: (typeof entry === 'object' && entry && Number.isFinite(entry.relistCount)) ? entry.relistCount : 0
         };
         budget.recorded++;
         budget.changed = true;
@@ -229,11 +286,13 @@ export async function collectHyperrankOutcomes() {
     if (pending.length > 0) {
       const startFetches = budget.fetches;
       let changed = false;
+      let itemsChanged = false;
 
       for (const [itemId, entry] of pending) {
         if (budgetRemaining(budget) <= controlReserve) break;
-        const spent = await processPendingEntry(itemId, entry, outcomes, budget);
+        const spent = await processPendingEntry(itemId, entry, outcomes, budget, hyperrankedItems);
         if (budget.changed) changed = true;
+        if (budget.itemsChanged) itemsChanged = true;
         if (spent && budgetRemaining(budget) > 0) {
           await sleep(FETCH_SPACING_MS);
         }
@@ -241,6 +300,11 @@ export async function collectHyperrankOutcomes() {
 
       if (changed) {
         await chrome.storage.local.set({ [HYPERRANK_OUTCOMES_KEY]: outcomes });
+      }
+      // Relist bumps land directly on hyperrankedItems entries (relistCount/
+      // lastKnownEndsAt) — persist separately since it's a different key.
+      if (itemsChanged) {
+        await chrome.storage.local.set({ [HYPERRANK_ITEMS_KEY]: hyperrankedItems });
       }
       treatedResult = { checked: budget.fetches - startFetches, recorded: budget.recorded };
     }
@@ -297,6 +361,7 @@ async function collectRescueControlOutcomes(budget) {
   const startFetches = budget.fetches;
   let recorded = 0;
   let changed = false;
+  let observedChanged = false;
 
   for (const [itemId, entry] of pending) {
     if (budgetRemaining(budget) <= 0) break;
@@ -305,6 +370,11 @@ async function collectRescueControlOutcomes(budget) {
     // a control item was never hyperranked, so "time since it should have
     // ended" is the equivalent clock for the same inferred-unsold/lost rules.
     const endsAt = entry.endsAt;
+    // relistCount for a control item lives on its `rescueObserved` record —
+    // admin-dashboard.js's own Räddningslistan-rescrape path already bumps it
+    // there; checkRelist below adds a second detection path (this collector's
+    // own live-lookup) onto the SAME field, so either one catches a relist.
+    const relistCount = Number.isFinite(entry.relistCount) ? entry.relistCount : 0;
 
     try {
       budget.fetches++;
@@ -319,12 +389,20 @@ async function collectRescueControlOutcomes(budget) {
             sold: !!result.sold,
             finalBidCount: bids.length,
             highestBid: bids.length > 0 ? bids[0].amount : null,
-            estimate: typeof result.item.estimate === 'number' ? result.item.estimate : (entry.estimate ?? null)
+            estimate: typeof result.item.estimate === 'number' ? result.item.estimate : (entry.estimate ?? null),
+            relistCount
           };
           changed = true;
           recorded++;
+        } else if (checkRelist(entry, result.item.ends_at, 'endsAt')) {
+          // Still live, but ends_at jumped >24h past what we had on file —
+          // this is a NEW life, not the same auction still running. Bump
+          // relistCount on the observed record so it's ready whenever this
+          // item's outcome eventually finalizes.
+          observed[itemId] = entry;
+          observedChanged = true;
         }
-        // else: still live — skip, retry next run.
+        // else: still live, same auction — skip, retry next run.
       } else {
         if ((now - endsAt) > LOST_AFTER_MS) {
           controlOutcomes[itemId] = { itemId: String(itemId), lost: true, checkedAt: now };
@@ -338,7 +416,8 @@ async function collectRescueControlOutcomes(budget) {
             inferredUnsold: true,
             finalBidCount: null,
             highestBid: null,
-            estimate: entry.estimate ?? null
+            estimate: entry.estimate ?? null,
+            relistCount
           };
           changed = true;
           recorded++;
@@ -355,6 +434,9 @@ async function collectRescueControlOutcomes(budget) {
 
   if (changed) {
     await chrome.storage.local.set({ [RESCUE_CONTROL_OUTCOMES_KEY]: controlOutcomes });
+  }
+  if (observedChanged) {
+    await chrome.storage.local.set({ [RESCUE_OBSERVED_KEY]: observed });
   }
 
   return { checked: budget.fetches - startFetches, recorded };
@@ -398,7 +480,8 @@ function buildOutcomeRows(hyperrankOutcomes, rescueControlOutcomes) {
     bidsAfterHyperrank: o.bidsAfterHyperrank ?? null,
     highestBid: o.highestBid ?? null,
     estimate: o.estimate ?? null,
-    recordedAt: o.checkedAt ?? o.hyperrankTs ?? Date.now()
+    recordedAt: o.checkedAt ?? o.hyperrankTs ?? Date.now(),
+    relistCount: Number.isFinite(o.relistCount) ? o.relistCount : 0
   }));
   const control = Object.entries(rescueControlOutcomes).map(([itemId, o]) => ({
     itemId: String(itemId),
@@ -411,7 +494,8 @@ function buildOutcomeRows(hyperrankOutcomes, rescueControlOutcomes) {
     bidsAfterHyperrank: null,
     highestBid: o.highestBid ?? null,
     estimate: o.estimate ?? null,
-    recordedAt: o.checkedAt ?? Date.now()
+    recordedAt: o.checkedAt ?? Date.now(),
+    relistCount: Number.isFinite(o.relistCount) ? o.relistCount : 0
   }));
   return [...treated, ...control];
 }

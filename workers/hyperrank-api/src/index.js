@@ -72,6 +72,12 @@ async function upsertTreatments(db, treatments) {
 // downgrade an already-resolved outcome either. We implement "prefer
 // non-lost" by only overwriting an existing `lost` row, or writing into an
 // empty slot; a non-lost incoming row always wins over whatever is there.
+//
+// relist_count uses MAX() rather than a straight overwrite: each machine's
+// collector only sees relists via its OWN still-live lookups (see
+// hyperrank-outcomes-bg.js checkRelist()), so one machine may have observed
+// more lives than another for the same item. The highest count any machine
+// has seen is the true count.
 async function upsertOutcomes(db, outcomes) {
   if (!Array.isArray(outcomes) || outcomes.length === 0) return 0;
   const stmts = outcomes
@@ -82,8 +88,8 @@ async function upsertOutcomes(db, outcomes) {
         .prepare(
           `INSERT INTO outcomes (
              item_id, arm, ended_at, sold, inferred_unsold, lost,
-             final_bid_count, bids_after_hyperrank, highest_bid, estimate, recorded_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             final_bid_count, bids_after_hyperrank, highest_bid, estimate, recorded_at, relist_count
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(item_id) DO UPDATE SET
              arm = excluded.arm,
              ended_at = excluded.ended_at,
@@ -94,7 +100,8 @@ async function upsertOutcomes(db, outcomes) {
              bids_after_hyperrank = excluded.bids_after_hyperrank,
              highest_bid = excluded.highest_bid,
              estimate = excluded.estimate,
-             recorded_at = excluded.recorded_at
+             recorded_at = excluded.recorded_at,
+             relist_count = MAX(IFNULL(outcomes.relist_count, 0), excluded.relist_count)
            WHERE outcomes.lost = 1 OR excluded.lost = 0`
         )
         .bind(
@@ -108,7 +115,8 @@ async function upsertOutcomes(db, outcomes) {
           Number.isFinite(o.bidsAfterHyperrank) ? o.bidsAfterHyperrank : null,
           Number.isFinite(o.highestBid) ? o.highestBid : null,
           Number.isFinite(o.estimate) ? o.estimate : null,
-          Number.isFinite(o.recordedAt) ? o.recordedAt : Date.now()
+          Number.isFinite(o.recordedAt) ? o.recordedAt : Date.now(),
+          Number.isFinite(o.relistCount) ? o.relistCount : 0
         );
     });
   if (stmts.length === 0) return 0;
@@ -167,6 +175,22 @@ function median(values) {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+// Buckets a set of ended outcomes (already filtered to one arm) by
+// relist_count into { sold, unsold } per life bucket: 0 = first listing,
+// 1 = one relist, 2 = two relists, "3+" = three or more (Auctionet caps
+// relists at 3, but bucket defensively in case that ever changes). Rows
+// missing relist_count (pre-migration / pre-tracking data) fall into
+// bucket 0 — old records are treated as first-life everywhere.
+function lifeSplit(outcomeRows) {
+  const buckets = { 0: { sold: 0, unsold: 0 }, 1: { sold: 0, unsold: 0 }, 2: { sold: 0, unsold: 0 }, '3+': { sold: 0, unsold: 0 } };
+  for (const o of outcomeRows) {
+    const n = Number.isFinite(o.relist_count) ? o.relist_count : 0;
+    const key = n >= 3 ? '3+' : n;
+    buckets[key][o.sold ? 'sold' : 'unsold']++;
+  }
+  return buckets;
+}
+
 async function handleAggregate(db) {
   const [{ count: totalTreated }] = (
     await db.prepare('SELECT COUNT(*) as count FROM treatments').all()
@@ -175,7 +199,7 @@ async function handleAggregate(db) {
   const outcomeRows = (
     await db
       .prepare(
-        `SELECT item_id, arm, sold, inferred_unsold, bids_after_hyperrank, highest_bid, estimate
+        `SELECT item_id, arm, sold, inferred_unsold, bids_after_hyperrank, highest_bid, estimate, relist_count
          FROM outcomes WHERE lost = 0 OR lost IS NULL`
       )
       .all()
@@ -226,6 +250,11 @@ async function handleAggregate(db) {
       controlSold,
       controlEnded: abControl.length,
       controlPct: Math.round((controlSold / abControl.length) * 100),
+      // Per-arm sold/unsold split by life number (0 = first listing) — lets
+      // the scoreboard show whether HYPERRANK's lift holds up across relists
+      // or is concentrated in first-life sales.
+      treatedLifeSplit: lifeSplit(abTreated),
+      controlLifeSplit: lifeSplit(abControl),
     };
   }
 
