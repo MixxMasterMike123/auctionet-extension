@@ -68,8 +68,12 @@ const HYPERRANK_OUTCOMES_KEY = 'hyperrankOutcomes';
 // can record what happened to them without any hyperrank intervention.
 const RESCUE_OBSERVED_KEY = 'rescueObserved';
 const RESCUE_CONTROL_OUTCOMES_KEY = 'rescueControlOutcomes';
-const MAX_FETCHES_PER_RUN = 20;
+const MAX_FETCHES_PER_RUN = 40;
 const FETCH_SPACING_MS = 500;
+// Auctions run 8-10 days, so a treated item whose end time we don't know yet
+// cannot have ended within a week of its hyperrank — skip it until then
+// rather than spending a fetch to learn it's still live.
+const MIN_TREATED_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const LOST_AFTER_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 // Unsold items vanish from the public API entirely (sold ones appear in the
 // is=ended archive). An item still missing 45 days after its hyperrank has
@@ -181,6 +185,21 @@ function checkRelist(record, liveEndsAtSec, endsAtField = 'lastKnownEndsAt') {
   return isRelist;
 }
 
+// Persists only the entries this run touched, onto a fresh read of the key.
+// Both maps the collector stamps (hyperrankedItems, rescueObserved) are also
+// read-modify-written by page scripts while a run is in flight (~30-60 s of
+// spaced fetches); writing the run's stale snapshot back would drop whatever
+// they added in between. An id the other writer removed meanwhile is
+// re-added — harmless, it gets pruned again on the next pass.
+async function mergeEntriesInto(key, snapshot, touchedIds) {
+  if (!touchedIds || touchedIds.size === 0) return;
+  const fresh = (await chrome.storage.local.get(key))[key] || {};
+  for (const id of touchedIds) {
+    if (snapshot[id] !== undefined) fresh[id] = snapshot[id];
+  }
+  await chrome.storage.local.set({ [key]: fresh });
+}
+
 // Shared per-run fetch budget helper — both the treated-items pass and the
 // control-items pass draw from the same counter object so the combined total
 // never exceeds MAX_FETCHES_PER_RUN across a single alarm firing. Treated
@@ -200,25 +219,32 @@ async function processPendingEntry(itemId, entry, outcomes, budget, hyperrankedI
 
   const hyperrankTs = typeof entry === 'number' ? entry : entry?.ts;
 
+  // Normalize legacy bare-number entries to objects so there's somewhere to
+  // keep lastCheckedAt/relistCount/lastKnownEndsAt. Stamp lastCheckedAt BEFORE
+  // the lookup so an item that yields nothing (not found yet, still live,
+  // fetch error) rotates to the back of the queue instead of hogging the
+  // head of it every run — see collectHyperrankOutcomes' pending ordering.
+  const normalized = (typeof entry === 'object' && entry) ? entry : { ts: hyperrankTs };
+  normalized.lastCheckedAt = Date.now();
+  hyperrankedItems[itemId] = normalized;
+  budget.itemsChanged = true;
+  (budget.touchedItems ||= new Set()).add(String(itemId));
+
   try {
     budget.fetches++;
     const result = await lookupItem(itemId);
 
     if (result) {
       if (result.ended) {
-        outcomes[itemId] = buildOutcomeRecord(itemId, result.item, entry, result.sold);
+        outcomes[itemId] = buildOutcomeRecord(itemId, result.item, normalized, result.sold);
         budget.recorded++;
         budget.changed = true;
       } else {
-        // Still live — check whether this is actually a NEW life (relisted
-        // after a prior unsold ending) rather than the same auction still
-        // running. Normalize legacy bare-number entries to objects first so
-        // there's somewhere to keep relistCount/lastKnownEndsAt.
-        const normalized = (typeof entry === 'object' && entry) ? entry : { ts: hyperrankTs };
-        if (checkRelist(normalized, result.item.ends_at)) {
-          hyperrankedItems[itemId] = normalized;
-          budget.itemsChanged = true;
-        }
+        // Still live — record its end time (so the next runs skip it until
+        // it has actually ended) and check whether this is a NEW life
+        // (relisted after a prior unsold ending) rather than the same
+        // auction still running.
+        checkRelist(normalized, result.item.ends_at);
       }
     } else {
       // Not found anywhere. Ended items usually surface in the is=ended
@@ -269,11 +295,46 @@ export async function collectHyperrankOutcomes() {
   let controlResult = { checked: 0, recorded: 0 };
 
   try {
-    const stored = await chrome.storage.local.get([HYPERRANK_ITEMS_KEY, HYPERRANK_OUTCOMES_KEY]);
+    const stored = await chrome.storage.local.get([HYPERRANK_ITEMS_KEY, HYPERRANK_OUTCOMES_KEY, RESCUE_OBSERVED_KEY]);
     const hyperrankedItems = stored[HYPERRANK_ITEMS_KEY] || {};
     const outcomes = stored[HYPERRANK_OUTCOMES_KEY] || {};
+    const observed = stored[RESCUE_OBSERVED_KEY] || {};
+    const nowTs = Date.now();
 
-    const pending = Object.entries(hyperrankedItems).filter(([itemId]) => !outcomes[itemId]);
+    // Pending = treated items without an outcome that can plausibly have
+    // ended. Two things went wrong before (observed 2026-09-02: 206 ended
+    // treated items with no outcome vs 9 controls):
+    //   1. Every treated item was pending, including ones still live, and
+    //      items the API doesn't return at all (withdrawn / archive gap)
+    //      stayed pending for 45 days without recording anything.
+    //   2. Object.entries walks numeric-string keys in ascending id order,
+    //      so the same ~10 oldest null-returning items were fetched every
+    //      run, exhausted the treated budget, and nothing behind them was
+    //      ever looked up — head-of-line blocking for weeks.
+    // Fix: skip items known to still be live (end time from the item's
+    // Räddningslistan record, or lastKnownEndsAt from an earlier live
+    // lookup), skip unknown-end-time items younger than a week, and walk
+    // the rest oldest-checked-first so every item gets its turn.
+    const pending = Object.entries(hyperrankedItems)
+      .filter(([itemId]) => !outcomes[itemId])
+      .map(([itemId, entry]) => {
+        const obj = (entry && typeof entry === 'object') ? entry : null;
+        const ts = obj ? (obj.ts ?? null) : (typeof entry === 'number' ? entry : null);
+        const knownEndsAt = (obj && Number.isFinite(obj.lastKnownEndsAt)) ? obj.lastKnownEndsAt
+          : (Number.isFinite(observed[itemId]?.endsAt) ? observed[itemId].endsAt : null);
+        const lastCheckedAt = (obj && Number.isFinite(obj.lastCheckedAt)) ? obj.lastCheckedAt : 0;
+        return { itemId, entry, ts, knownEndsAt, lastCheckedAt };
+      })
+      .filter(p => {
+        if (p.knownEndsAt !== null) return p.knownEndsAt <= nowTs;
+        return !p.ts || (nowTs - p.ts) >= MIN_TREATED_AGE_MS;
+      })
+      // Oldest-checked first; among equals, items with a known end time
+      // (certainly ended) before unknown-end-time ones (probably ended),
+      // then earliest-ended first.
+      .sort((a, b) => (a.lastCheckedAt - b.lastCheckedAt)
+        || ((a.knownEndsAt === null) - (b.knownEndsAt === null))
+        || ((a.knownEndsAt ?? a.ts ?? 0) - (b.knownEndsAt ?? b.ts ?? 0)));
 
     // Fair-share guard: reserve up to half the budget for the control pass when
     // it has ended items waiting. With a long treated backlog, "controls get
@@ -281,10 +342,9 @@ export async function collectHyperrankOutcomes() {
     // controls, 0 recorded, while ~80 pending treated ate every run's budget).
     let controlReserve = 0;
     try {
-      const cStored = await chrome.storage.local.get([RESCUE_OBSERVED_KEY, RESCUE_CONTROL_OUTCOMES_KEY]);
-      const cObserved = cStored[RESCUE_OBSERVED_KEY] || {};
+      const cStored = await chrome.storage.local.get([RESCUE_CONTROL_OUTCOMES_KEY]);
+      const cObserved = observed;
       const cOutcomes = cStored[RESCUE_CONTROL_OUTCOMES_KEY] || {};
-      const nowTs = Date.now();
       const controlsPending = Object.entries(cObserved).filter(([id, e]) =>
         !cOutcomes[id] && !hyperrankedItems[id]
         && e && typeof e.endsAt === 'number' && e.endsAt <= nowTs).length;
@@ -298,7 +358,7 @@ export async function collectHyperrankOutcomes() {
       let changed = false;
       let itemsChanged = false;
 
-      for (const [itemId, entry] of pending) {
+      for (const { itemId, entry } of pending) {
         if (budgetRemaining(budget) <= controlReserve) break;
         const spent = await processPendingEntry(itemId, entry, outcomes, budget, hyperrankedItems);
         if (budget.changed) changed = true;
@@ -311,10 +371,13 @@ export async function collectHyperrankOutcomes() {
       if (changed) {
         await chrome.storage.local.set({ [HYPERRANK_OUTCOMES_KEY]: outcomes });
       }
-      // Relist bumps land directly on hyperrankedItems entries (relistCount/
-      // lastKnownEndsAt) — persist separately since it's a different key.
+      // lastCheckedAt / relist bumps land directly on hyperrankedItems entries
+      // — persist separately since it's a different key. Merge onto a FRESH
+      // read rather than writing our minutes-old snapshot back: the edit page
+      // (content-script.js) also read-modify-writes this key, and a hyperrank
+      // applied while this run was fetching would otherwise be wiped.
       if (itemsChanged) {
-        await chrome.storage.local.set({ [HYPERRANK_ITEMS_KEY]: hyperrankedItems });
+        await mergeEntriesInto(HYPERRANK_ITEMS_KEY, hyperrankedItems, budget.touchedItems);
       }
       treatedResult = { checked: budget.fetches - startFetches, recorded: budget.recorded };
     }
@@ -425,6 +488,8 @@ async function recheckArchivedUnsold(budget) {
   let controlOutcomesChanged = false;
   let itemsChanged = false;
   let observedChanged = false;
+  const touchedItems = new Set();
+  const touchedObserved = new Set();
 
   for (const { itemId, o, arm } of candidates) {
     if (budgetRemaining(budget) <= 0) break;
@@ -451,6 +516,7 @@ async function recheckArchivedUnsold(budget) {
             sourceEntry.lastKnownEndsAt = liveEndsAtMs;
             hyperrankedItems[itemId] = sourceEntry;
             itemsChanged = true;
+            touchedItems.add(String(itemId));
 
             delete outcomes[itemId];
             outcomesChanged = true;
@@ -461,6 +527,7 @@ async function recheckArchivedUnsold(budget) {
             sourceEntry.endsAt = liveEndsAtMs;
             observed[itemId] = sourceEntry;
             observedChanged = true;
+            touchedObserved.add(String(itemId));
 
             delete controlOutcomes[itemId];
             controlOutcomesChanged = true;
@@ -499,10 +566,10 @@ async function recheckArchivedUnsold(budget) {
     await chrome.storage.local.set({ [RESCUE_CONTROL_OUTCOMES_KEY]: controlOutcomes });
   }
   if (itemsChanged) {
-    await chrome.storage.local.set({ [HYPERRANK_ITEMS_KEY]: hyperrankedItems });
+    await mergeEntriesInto(HYPERRANK_ITEMS_KEY, hyperrankedItems, touchedItems);
   }
   if (observedChanged) {
-    await chrome.storage.local.set({ [RESCUE_OBSERVED_KEY]: observed });
+    await mergeEntriesInto(RESCUE_OBSERVED_KEY, observed, touchedObserved);
   }
 
   return { checked: budget.fetches - startFetches, recorded };
@@ -534,7 +601,12 @@ async function collectRescueControlOutcomes(budget) {
     if (hyperrankedItems[itemId]) return false; // actually treated -> belongs to the other flow
     if (!entry || typeof entry.endsAt !== 'number' || entry.endsAt > now) return false; // not ended yet
     return true;
-  });
+  // Oldest-checked first (never-checked = 0 sorts to the front), so items
+  // the API returns nothing for don't hog the head of the queue — same
+  // rotation as the treated pass. lastCheckedAt is local bookkeeping only
+  // (buildRescueObservedRows doesn't sync it).
+  }).sort(([, a], [, b]) => (Number.isFinite(a.lastCheckedAt) ? a.lastCheckedAt : 0)
+    - (Number.isFinite(b.lastCheckedAt) ? b.lastCheckedAt : 0));
 
   if (pending.length === 0) return { checked: 0, recorded: 0 };
 
@@ -542,6 +614,7 @@ async function collectRescueControlOutcomes(budget) {
   let recorded = 0;
   let changed = false;
   let observedChanged = false;
+  const touchedObserved = new Set();
 
   for (const [itemId, entry] of pending) {
     if (budgetRemaining(budget) <= 0) break;
@@ -555,6 +628,11 @@ async function collectRescueControlOutcomes(budget) {
     // there; checkRelist below adds a second detection path (this collector's
     // own live-lookup) onto the SAME field, so either one catches a relist.
     const relistCount = Number.isFinite(entry.relistCount) ? entry.relistCount : 0;
+
+    entry.lastCheckedAt = now;
+    observed[itemId] = entry;
+    observedChanged = true;
+    touchedObserved.add(String(itemId));
 
     try {
       budget.fetches++;
@@ -618,8 +696,11 @@ async function collectRescueControlOutcomes(budget) {
   if (changed) {
     await chrome.storage.local.set({ [RESCUE_CONTROL_OUTCOMES_KEY]: controlOutcomes });
   }
+  // Merge, don't overwrite — admin-dashboard.js's upsertRescueObserved
+  // read-modify-writes this key every 5 min and would lose newly listed items
+  // if we wrote our snapshot back (see mergeEntriesInto).
   if (observedChanged) {
-    await chrome.storage.local.set({ [RESCUE_OBSERVED_KEY]: observed });
+    await mergeEntriesInto(RESCUE_OBSERVED_KEY, observed, touchedObserved);
   }
 
   return { checked: budget.fetches - startFetches, recorded };

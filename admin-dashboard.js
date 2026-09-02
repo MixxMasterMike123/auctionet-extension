@@ -1215,8 +1215,11 @@
     const minArm = Math.min(ab.treatedEnded, ab.controlEnded);
     const progressPct = Math.round((minArm / AB_TARGET_PER_ARM) * 100);
 
-    if (analysis && analysis.controlsPendingOutcome > 0) {
-      lines.push(`⏳ ${analysis.controlsPendingOutcome} avslutade kontrollföremål väntar ännu på utfall — osålda registreras långsammare än sålda, så försäljningsprocenten är just nu överskattad i båda grupperna.`);
+    const pendingParts = [];
+    if (analysis && analysis.treatedPendingOutcome > 0) pendingParts.push(`${analysis.treatedPendingOutcome} hyperrankade`);
+    if (analysis && analysis.controlsPendingOutcome > 0) pendingParts.push(`${analysis.controlsPendingOutcome} kontroll`);
+    if (pendingParts.length > 0) {
+      lines.push(`⏳ Avslutade föremål som ännu väntar på utfall: ${pendingParts.join(', ')} — försäljningsprocenten ovan kan ändras när de registreras.`);
     }
 
     if (minArm < 30) {
@@ -1381,29 +1384,36 @@
     };
   }
 
-  // Count of ended control items with no recorded outcome yet — the "unsold
-  // outcomes lag behind" honesty signal for the analysis section. Local-storage
-  // based, so in synced mode it's this machine's view (close enough for a hint).
-  async function computeControlsPendingOutcome() {
+  // Counts of ended A/B items (per arm) with no recorded outcome yet — the
+  // "outcomes lag behind" honesty signal for the analysis section. Both arms
+  // are counted: the treated side lagged by 200+ items for weeks in Aug 2026
+  // (collector head-of-line bug) while only the control count was shown.
+  // Local-storage based, so in synced mode it's this machine's view (close
+  // enough for a hint).
+  async function computePendingOutcomes() {
     try {
       const stored = await new Promise(resolve =>
         chrome.storage.local.get(
-          ['rescueObserved', 'rescueControlOutcomes', 'hyperrankedItems'],
+          ['rescueObserved', 'rescueControlOutcomes', 'hyperrankedItems', 'hyperrankOutcomes'],
           r => resolve(r)));
       const observed = stored.rescueObserved || {};
       const controlOutcomes = stored.rescueControlOutcomes || {};
       const hyperrankedItems = stored.hyperrankedItems || {};
+      const hyperrankOutcomes = stored.hyperrankOutcomes || {};
       const now = Date.now();
-      return Object.entries(observed).filter(([id, e]) =>
-        !controlOutcomes[id] && !hyperrankedItems[id]
-        && e && typeof e.endsAt === 'number' && e.endsAt <= now).length;
+      const ended = ([id, e]) => e && typeof e.endsAt === 'number' && e.endsAt <= now && !e.protocolViolation;
+      const controlsPendingOutcome = Object.entries(observed).filter(([id, e]) =>
+        ended([id, e]) && !controlOutcomes[id] && !hyperrankedItems[id]).length;
+      const treatedPendingOutcome = Object.entries(observed).filter(([id, e]) =>
+        ended([id, e]) && hyperrankedItems[id] && !hyperrankOutcomes[id]).length;
+      return { controlsPendingOutcome, treatedPendingOutcome };
     } catch (e) {
-      return 0;
+      return { controlsPendingOutcome: 0, treatedPendingOutcome: 0 };
     }
   }
 
   async function initHyperrankScoreboard() {
-    const analysis = { controlsPendingOutcome: await computeControlsPendingOutcome() };
+    const analysis = await computePendingOutcomes();
 
     try {
       const merged = await fetchHyperrankAggregate();

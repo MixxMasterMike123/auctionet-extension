@@ -478,7 +478,11 @@
           this.hyperrankUI.showRankCheckRow();
 
           // Log the hyperrank so Räddningslistan can badge already-treated items
-          // (prevents re-running on the same listing for days). Pruned at 60 days.
+          // (prevents re-running on the same listing for days). Pruned at 60 days
+          // once the outcome collector has recorded its result, hard-pruned at
+          // 120 days regardless — pruning an entry that still has no outcome
+          // silently drops it from the collector's queue (see
+          // hyperrank-outcomes-bg.js collectHyperrankOutcomes).
           // Stores a visit-count snapshot ({ts, visits, followers}) taken at apply
           // time so Räddningslistan can later show a before→after delta. Old
           // entries may be a bare number (ts only) — readers must handle both.
@@ -487,12 +491,16 @@
             if (idMatch) {
               const ts = Date.now();
               const snapshot = await this._captureVisitSnapshot();
-              const { hyperrankedItems = {} } = await chrome.storage.local.get('hyperrankedItems');
+              const { hyperrankedItems = {}, hyperrankOutcomes = {} } =
+                await chrome.storage.local.get(['hyperrankedItems', 'hyperrankOutcomes']);
               hyperrankedItems[idMatch[1]] = { ts, visits: snapshot.visits, followers: snapshot.followers };
               const cutoff = ts - 60 * 24 * 3600 * 1000;
+              const hardCutoff = ts - 120 * 24 * 3600 * 1000;
               for (const [id, entry] of Object.entries(hyperrankedItems)) {
                 const entryTs = typeof entry === 'number' ? entry : entry?.ts;
-                if (!entryTs || entryTs < cutoff) delete hyperrankedItems[id];
+                if (!entryTs || entryTs < hardCutoff || (entryTs < cutoff && hyperrankOutcomes[id])) {
+                  delete hyperrankedItems[id];
+                }
               }
               await chrome.storage.local.set({ hyperrankedItems });
             }
