@@ -214,7 +214,7 @@ function budgetRemaining(budget) {
 // `hyperrankedItems[itemId]` in place (normalizing legacy bare-number entries
 // to objects) when a relist is detected on a still-live lookup, and sets
 // budget.itemsChanged so the caller knows to persist HYPERRANK_ITEMS_KEY too.
-async function processPendingEntry(itemId, entry, outcomes, budget, hyperrankedItems) {
+async function processPendingEntry(itemId, entry, outcomes, budget, hyperrankedItems, observed = {}) {
   if (budgetRemaining(budget) <= 0) return false;
 
   const hyperrankTs = typeof entry === 'number' ? entry : entry?.ts;
@@ -226,6 +226,18 @@ async function processPendingEntry(itemId, entry, outcomes, budget, hyperrankedI
   // head of it every run — see collectHyperrankOutcomes' pending ordering.
   const normalized = (typeof entry === 'object' && entry) ? entry : { ts: hyperrankTs };
   normalized.lastCheckedAt = Date.now();
+  // A treated item's relists are detected in TWO places: this collector's own
+  // live lookups (checkRelist below → normalized.relistCount) and the
+  // Räddningslistan re-sighting in admin-dashboard.js (→ rescueObserved[id]
+  // .relistCount, for BOTH parities). Take the max so a relist the dashboard
+  // saw but this collector didn't (starved queue, no earlier live lookup)
+  // still lands on the outcome — otherwise treated relist sales get filed
+  // under "sold 1st attempt" (observed 2026-09-03: 0 treated 2nd/3rd-life
+  // sales vs 6 control, on comparable volumes).
+  const listRelistCount = Number.isFinite(observed?.[itemId]?.relistCount) ? observed[itemId].relistCount : 0;
+  if (listRelistCount > (Number.isFinite(normalized.relistCount) ? normalized.relistCount : 0)) {
+    normalized.relistCount = listRelistCount;
+  }
   hyperrankedItems[itemId] = normalized;
   budget.itemsChanged = true;
   (budget.touchedItems ||= new Set()).add(String(itemId));
@@ -266,9 +278,9 @@ async function processPendingEntry(itemId, entry, outcomes, budget, hyperrankedI
           bidsAfterHyperrank: null,
           highestBid: null,
           estimate: null,
-          baselineVisits: (entry && typeof entry === 'object') ? entry.visits ?? null : null,
+          baselineVisits: normalized.visits ?? null,
           hyperrankTs,
-          relistCount: (typeof entry === 'object' && entry && Number.isFinite(entry.relistCount)) ? entry.relistCount : 0
+          relistCount: Number.isFinite(normalized.relistCount) ? normalized.relistCount : 0
         };
         budget.recorded++;
         budget.changed = true;
@@ -360,7 +372,7 @@ export async function collectHyperrankOutcomes() {
 
       for (const { itemId, entry } of pending) {
         if (budgetRemaining(budget) <= controlReserve) break;
-        const spent = await processPendingEntry(itemId, entry, outcomes, budget, hyperrankedItems);
+        const spent = await processPendingEntry(itemId, entry, outcomes, budget, hyperrankedItems, observed);
         if (budget.changed) changed = true;
         if (budget.itemsChanged) itemsChanged = true;
         if (spent && budgetRemaining(budget) > 0) {

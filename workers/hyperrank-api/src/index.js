@@ -199,8 +199,15 @@ async function handleAggregate(db) {
   const outcomeRows = (
     await db
       .prepare(
-        `SELECT item_id, arm, sold, inferred_unsold, bids_after_hyperrank, highest_bid, estimate, relist_count
-         FROM outcomes WHERE lost = 0 OR lost IS NULL`
+        // relist_count = the higher of the outcome's own count and the
+        // rescue_observed count: the extension's Räddningslistan re-sighting
+        // bumps rescue_observed for both arms, but treated outcomes synced
+        // before 2026-09-03 only carried the collector's own (starved) count
+        // — so this join also corrects already-stored treated records.
+        `SELECT o.item_id, o.arm, o.sold, o.inferred_unsold, o.bids_after_hyperrank, o.highest_bid, o.estimate,
+                MAX(IFNULL(o.relist_count, 0), IFNULL(r.relist_count, 0)) AS relist_count
+         FROM outcomes o LEFT JOIN rescue_observed r ON r.item_id = o.item_id
+         WHERE o.lost = 0 OR o.lost IS NULL`
       )
       .all()
   ).results;

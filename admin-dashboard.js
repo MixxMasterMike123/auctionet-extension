@@ -1185,7 +1185,15 @@
       controlSold,
       controlEnded,
       controlPct: Math.round((controlSold / controlEnded) * 100),
-      treatedLifeSplit: computeLifeSplit(treatedEntries.map(([, o]) => o)),
+      // Treated life number = max(outcome's own relistCount, Räddningslistan
+      // re-sighting count on rescueObserved) — same rule as the Worker's
+      // /aggregate join, so local and synced views agree.
+      treatedLifeSplit: computeLifeSplit(treatedEntries.map(([itemId, o]) => ({
+        ...o,
+        relistCount: Math.max(
+          Number.isFinite(o.relistCount) ? o.relistCount : 0,
+          Number.isFinite(rescueObserved[itemId]?.relistCount) ? rescueObserved[itemId].relistCount : 0)
+      }))),
       controlLifeSplit: computeLifeSplit(controlEntries.map(([, o]) => o))
     };
   }
