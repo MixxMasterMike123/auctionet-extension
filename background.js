@@ -35,14 +35,16 @@ chrome.alarms.get('stickyErrorRecheck').then(existing => {
 chrome.alarms.get('dashboardSearchSnapshot').then(existing => {
   if (!existing) chrome.alarms.create('dashboardSearchSnapshot', { delayInMinutes: 10, periodInMinutes: 60 });
 });
-// HYPERRANK outcome collection — every 2 hours, 40 lookups per run. The old
-// 20 / 6h budget was ~8× too slow for the experiment's volume (observed
-// 2026-09-02: 200+ ended treated items waiting weeks for an outcome). Also
+// HYPERRANK outcome collection — every 30 min, up to 40 lookups per run. The
+// old 20 / 6h budget was ~8× too slow for the experiment's volume (observed
+// 2026-09-02: 200+ ended treated items waiting weeks for an outcome). Cheap
+// at this cadence: the collector only fetches items that have actually ended
+// and lack an outcome, so most runs spend a handful of fetches or none. Also
 // drives the Räddningslistan control-side (untreated, odd-item-id) outcome
 // collection from the same alarm/fetch budget — see
 // modules/hyperrank/hyperrank-outcomes-bg.js. Re-created (same name replaces)
 // when the stored period differs, so an existing install picks up the change.
-const HYPERRANK_COLLECT_PERIOD_MIN = 120;
+const HYPERRANK_COLLECT_PERIOD_MIN = 30;
 chrome.alarms.get('hyperrankOutcomeCollection').then(existing => {
   if (!existing || existing.periodInMinutes !== HYPERRANK_COLLECT_PERIOD_MIN) {
     chrome.alarms.create('hyperrankOutcomeCollection', { delayInMinutes: 5, periodInMinutes: HYPERRANK_COLLECT_PERIOD_MIN });
@@ -66,7 +68,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       .then(() => {
         // Push the full local state every run, not only on changes — data
         // collected before the sync backend existed (or before the token was
-        // configured) must still reach the shared D1. Cheap: one POST / 2h.
+        // configured) must still reach the shared D1. Cheap: one POST / 30 min.
         // Fail-soft (no token configured, network down, etc. never breaks
         // the local collector).
         syncHyperrankData().catch(e => console.warn('[Background] HYPERRANK sync push failed:', e.message));
