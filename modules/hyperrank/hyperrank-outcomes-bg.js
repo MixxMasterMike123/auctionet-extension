@@ -511,15 +511,61 @@ async function recheckArchivedUnsold(budget) {
       const result = await lookupItem(itemId);
       let deletedOutcome = false;
 
-      // Only a still-LIVE sighting with a clearly later ends_at counts as a
-      // relist — "found ended again" (result.ended) just reconfirms the same
-      // unsold outcome and needs no action; "not found" is equally a no-op.
-      if (result && !result.ended && typeof result.item.ends_at === 'number') {
-        const liveEndsAtMs = result.item.ends_at * 1000;
+      // A sighting with a clearly later ends_at than the recorded ending is a
+      // relist. Two cases:
+      //   LIVE  → the new life is running: bump relistCount, drop the stale
+      //           outcome so the item re-enters the normal pending flow.
+      //   ENDED → the new life already finished between two re-checks (the
+      //           archive keeps one record per id, showing the LATEST life):
+      //           bump relistCount and replace the stale outcome with this
+      //           life's result right away. Before 2026-09-03 this case was
+      //           a no-op, so an unsold-then-relisted-then-SOLD item stayed
+      //           "never sold" forever (sampled: 4 of 25 control "unsold").
+      // "Found ended, same ends_at" reconfirms the record; "not found" is a
+      // no-op — retry next run until the recheck window closes.
+      if (result && typeof result.item.ends_at === 'number') {
+        const seenEndsAtMs = result.item.ends_at * 1000;
         const priorEndedAt = Number.isFinite(o.endedAt) ? o.endedAt : 0;
-        const isRelist = liveEndsAtMs > priorEndedAt + 24 * 3600 * 1000;
+        const isRelist = seenEndsAtMs > priorEndedAt + 24 * 3600 * 1000;
+        const liveEndsAtMs = seenEndsAtMs;
 
-        if (isRelist) {
+        if (isRelist && result.ended) {
+          if (arm === 'treated') {
+            const sourceEntry = (hyperrankedItems[itemId] && typeof hyperrankedItems[itemId] === 'object')
+              ? hyperrankedItems[itemId]
+              : { ts: (typeof hyperrankedItems[itemId] === 'number') ? hyperrankedItems[itemId] : null };
+            sourceEntry.relistCount = (Number.isFinite(sourceEntry.relistCount) ? sourceEntry.relistCount : 0) + 1;
+            sourceEntry.lastKnownEndsAt = seenEndsAtMs;
+            hyperrankedItems[itemId] = sourceEntry;
+            itemsChanged = true;
+            touchedItems.add(String(itemId));
+
+            outcomes[itemId] = buildOutcomeRecord(itemId, result.item, sourceEntry, result.sold);
+            outcomesChanged = true;
+          } else {
+            const sourceEntry = observed[itemId] || {};
+            sourceEntry.relistCount = (Number.isFinite(sourceEntry.relistCount) ? sourceEntry.relistCount : 0) + 1;
+            sourceEntry.endsAt = seenEndsAtMs;
+            observed[itemId] = sourceEntry;
+            observedChanged = true;
+            touchedObserved.add(String(itemId));
+
+            const bids = Array.isArray(result.item.bids) ? result.item.bids : [];
+            controlOutcomes[itemId] = {
+              itemId: String(itemId),
+              endedAt: seenEndsAtMs,
+              sold: !!result.sold,
+              finalBidCount: bids.length,
+              highestBid: bids.length > 0 ? bids[0].amount : null,
+              estimate: typeof result.item.estimate === 'number' ? result.item.estimate : (o.estimate ?? null),
+              relistCount: sourceEntry.relistCount,
+              checkedAt: now
+            };
+            controlOutcomesChanged = true;
+          }
+          deletedOutcome = true; // replaced — skip the checkedAt bump on the stale `o`
+          recorded++;
+        } else if (isRelist && !result.ended) {
           if (arm === 'treated') {
             const sourceEntry = (hyperrankedItems[itemId] && typeof hyperrankedItems[itemId] === 'object')
               ? hyperrankedItems[itemId]
@@ -547,12 +593,11 @@ async function recheckArchivedUnsold(budget) {
           }
           recorded++;
         }
-        // else: still live but same auction (unlikely for a confirmed-ended
-        // record, but possible if the archive lookup was stale) — no-op,
+        // else: same ends_at as recorded (archive reconfirms, or a live
+        // sighting of the same auction after a stale archive read) — no-op,
         // retry next run.
       }
-      // else: not found, or found still-ended — no-op, retry next run until
-      // the recheck window closes.
+      // else: not found — no-op, retry next run until the recheck window closes.
 
       // Bump checkedAt on every surviving record so the oldest-checked-first
       // sort actually rotates through the backlog across runs, instead of
