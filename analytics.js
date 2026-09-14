@@ -334,6 +334,21 @@ function initFilters() {
   filters.setPriceRange(null);
 }
 
+/**
+ * True when the selected period has not started yet (e.g. October while it is
+ * still September). Such a period has zero sales by definition, so any YoY
+ * against it would read as a meaningless -100%.
+ */
+function isFuturePeriod(f, now = new Date()) {
+  const currentYear = now.getFullYear();
+  if (f.year > currentYear) return true;
+  if (f.year < currentYear) return false;
+
+  if (f.month != null) return f.month > now.getMonth();
+  if (f.quarter != null) return f.quarter > Math.floor(now.getMonth() / 3);
+  return false;
+}
+
 // ─── Sidebar ──────────────────────────────────────────────
 
 function renderSidebar() {
@@ -396,9 +411,15 @@ function renderSidebar() {
   quarterGrid.className = 'ad-sb-quarter-grid';
   for (let q = 0; q < 4; q++) {
     const btn = document.createElement('button');
+    const isFuture = isFuturePeriod({ year: f.year, quarter: q });
     btn.className = `ad-sb-btn${q === f.quarter ? ' ad-sb-btn--active' : ''}`;
     btn.textContent = `Q${q + 1}`;
-    btn.addEventListener('click', () => filters.setQuarter(filters.quarter === q ? null : q));
+    if (isFuture) {
+      btn.disabled = true;
+      btn.title = 'Perioden har inte börjat än';
+    } else {
+      btn.addEventListener('click', () => filters.setQuarter(filters.quarter === q ? null : q));
+    }
     quarterGrid.appendChild(btn);
   }
   quarterSec.appendChild(quarterGrid);
@@ -410,9 +431,15 @@ function renderSidebar() {
   monthGrid.className = 'ad-sb-month-grid';
   for (let m = 0; m < 12; m++) {
     const btn = document.createElement('button');
+    const isFuture = isFuturePeriod({ year: f.year, month: m });
     btn.className = `ad-sb-btn${m === f.month ? ' ad-sb-btn--active' : ''}`;
     btn.textContent = MONTH_NAMES[m];
-    btn.addEventListener('click', () => filters.setMonth(filters.month === m ? null : m));
+    if (isFuture) {
+      btn.disabled = true;
+      btn.title = 'Perioden har inte börjat än';
+    } else {
+      btn.addEventListener('click', () => filters.setMonth(filters.month === m ? null : m));
+    }
     monthGrid.appendChild(btn);
   }
   monthSec.appendChild(monthGrid);
@@ -487,6 +514,10 @@ function describeComparisonPeriod(f, now = new Date()) {
   const prev = f.year - 1;
   const today = `${MONTH_NAMES[currentMonth]} ${now.getDate()}`;
 
+  if (isFuturePeriod(f, now)) {
+    return 'vald period har inte börjat än — ingen jämförelse görs (fältet "yoy" är null)';
+  }
+
   if (f.month != null) {
     const name = MONTH_NAMES[f.month];
     if (f.year === currentYear && f.month === currentMonth) {
@@ -543,6 +574,7 @@ async function runAIAnalysis(forceRefresh = false) {
 
     // For AI: compute same-period YoY to avoid misleading comparisons
     const currentYear = new Date().getFullYear();
+    const futurePeriod = isFuturePeriod(f);
     let prevKpis, yoy;
     if (f.year === currentYear) {
       // Current year — mirror the elapsed part of the selected period (year, quarter
@@ -552,7 +584,8 @@ async function runAIAnalysis(forceRefresh = false) {
       const prevSamePeriod = filterItemsSamePeriod(allItems, f.year - 1, f);
       const currKpisYoY = computeKPIs(currSamePeriod);
       prevKpis = computeKPIs(prevSamePeriod);
-      yoy = prevKpis.count > 0 ? computeYoY(currKpisYoY, prevKpis) : null;
+      // A period that has not started has no sales, so a comparison would read -100%.
+      yoy = (!futurePeriod && prevKpis.count > 0) ? computeYoY(currKpisYoY, prevKpis) : null;
     } else {
       // Historical period — both sides are complete, so a direct comparison is fair
       const prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
@@ -617,7 +650,8 @@ function renderDashboard() {
     prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
   }
   const prevKpis = computeKPIs(prevItems);
-  const yoy = computeYoY(computeKPIs(yoyCurrentItems), prevKpis);
+  // A period that has not started has no sales, so a comparison would read -100%.
+  const yoy = isFuturePeriod(f) ? null : computeYoY(computeKPIs(yoyCurrentItems), prevKpis);
   const priceDist = computePriceDistribution(items);
   const categories = computeCategoryBreakdown(items);
 

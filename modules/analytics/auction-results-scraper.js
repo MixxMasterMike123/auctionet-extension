@@ -231,7 +231,10 @@ export async function fetchAuctionResultsForMonth(year, month, { mirrorPartial =
   }
 
   // Partial ranges get their own cache key so they never overwrite the full-period entry.
-  const cacheKey = partial ? `${year}_m${mm}_sp` : `${year}_m${mm}`;
+  // The cutoff date is part of the key: a cache entry is only valid for the exact range
+  // it was fetched for, otherwise a still-fresh entry from yesterday would be compared
+  // against today's longer range across a midnight boundary.
+  const cacheKey = partial ? `${year}_m${mm}_sp${toDate}` : `${year}_m${mm}`;
   const cached = await loadAdminCache(cacheKey);
   if (cached && !cached.isExpired) {
     return { categories: cached.categories, totals: cached.totals };
@@ -277,7 +280,8 @@ export async function fetchAuctionResultsForQuarter(year, quarter, { mirrorParti
   }
 
   // Partial ranges get their own cache key so they never overwrite the full-period entry.
-  const cacheKey = partial ? `${year}_q${quarter + 1}_sp` : `${year}_q${quarter + 1}`;
+  // The cutoff date is part of the key — see fetchAuctionResultsForMonth.
+  const cacheKey = partial ? `${year}_q${quarter + 1}_sp${toDate}` : `${year}_q${quarter + 1}`;
   const cached = await loadAdminCache(cacheKey);
   if (cached && !cached.isExpired) {
     return { categories: cached.categories, totals: cached.totals };
@@ -297,11 +301,15 @@ export async function fetchAuctionResultsSamePeriod(year) {
   const now = new Date();
   const fromDate = `${year}-01-01`;
   const toMonth = String(now.getMonth() + 1).padStart(2, '0');
-  const toDay = String(now.getDate()).padStart(2, '0');
+  // Clamp to the target year's month length: 29 Feb does not exist in a non-leap year,
+  // so asking for it would send an invalid date to the API.
+  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+  const toDay = String(Math.min(now.getDate(), lastDay)).padStart(2, '0');
   const toDate = `${year}-${toMonth}-${toDay}`;
 
-  // Use a separate cache key to avoid overwriting full-year cache
-  const cacheKey = `${year}_sp`;
+  // Separate cache key (avoids overwriting the full-year cache), keyed on the exact
+  // cutoff so a still-fresh entry is never reused for a different range.
+  const cacheKey = `${year}_sp${toDate}`;
   const cached = await loadAdminCache(cacheKey);
   if (cached && !cached.isExpired) {
     return { categories: cached.categories, totals: cached.totals };
