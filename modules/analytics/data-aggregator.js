@@ -25,25 +25,73 @@ export function filterItems(items, filters = {}) {
 
 /**
  * Filter items for same-period YoY comparison.
- * For the current year, includes items up to today's date.
- * For the previous year, includes items up to the same month+day.
- * This ensures partial-month data is compared fairly (e.g. Jan 1–Mar 10 vs Jan 1–Mar 10).
+ *
+ * Mirrors the *elapsed* portion of the selected period onto `year`, so a partial
+ * current period is always compared against the same number of days a year earlier.
+ *
+ * - Year only  : Jan 1 → today's month/day
+ * - Quarter    : quarter start → today's month/day (only while that quarter is in progress)
+ * - Month      : month start → today's day (only while that month is in progress)
+ *
+ * A period that has already completed is mirrored in full — no cutoff is applied,
+ * because both sides are whole periods anyway.
+ *
+ * @param {Array} items
+ * @param {number} year — the year to pull items from (current year or year-1)
+ * @param {Object} filters — { quarter, month, categoryId, priceRange }
+ * @param {Date} [now] — injectable clock for testing
  */
-export function filterItemsSamePeriod(items, year, filters = {}) {
-  const now = new Date();
-  const cutoffMonth = now.getMonth(); // 0-based
-  const cutoffDay = now.getDate();
+export function filterItemsSamePeriod(items, year, filters = {}, now = new Date()) {
+  const today = now;
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const currentQuarter = Math.floor(currentMonth / 3);
+
+  // Which year is the "live" side of this comparison? The selected period is only
+  // partial if it belongs to the current calendar year.
+  const selectedYear = filters.year != null ? filters.year : year;
+
+  // Determine whether the selected period is still in progress, and therefore
+  // whether a day cutoff must be mirrored onto both sides.
+  let cutoffMonth = null;
+  let cutoffDay = null;
+
+  if (selectedYear === currentYear) {
+    if (filters.month != null) {
+      // Only the month currently in progress is partial.
+      if (filters.month === currentMonth) {
+        cutoffMonth = currentMonth;
+        cutoffDay = today.getDate();
+      }
+    } else if (filters.quarter != null) {
+      // Only the quarter currently in progress is partial.
+      if (filters.quarter === currentQuarter) {
+        cutoffMonth = currentMonth;
+        cutoffDay = today.getDate();
+      }
+    } else {
+      // Whole-year view: always partial up to today.
+      cutoffMonth = currentMonth;
+      cutoffDay = today.getDate();
+    }
+  }
 
   return items.filter(item => {
     const date = new Date(item.d * 1000);
     if (date.getFullYear() !== year) return false;
 
-    // Apply same date cutoff: only items up to cutoffMonth/cutoffDay
     const m = date.getMonth();
-    if (m > cutoffMonth) return false;
-    if (m === cutoffMonth && date.getDate() > cutoffDay) return false;
 
-    // Apply remaining filters (category, price range) but not month
+    // Restrict to the selected month / quarter window.
+    if (filters.month != null && m !== filters.month) return false;
+    if (filters.quarter != null && Math.floor(m / 3) !== filters.quarter) return false;
+
+    // Mirror the elapsed-days cutoff onto whichever year we are filtering.
+    if (cutoffMonth != null) {
+      if (m > cutoffMonth) return false;
+      if (m === cutoffMonth && date.getDate() > cutoffDay) return false;
+    }
+
     if (filters.categoryId && getParentCategoryId(item.cat) !== filters.categoryId) return false;
     if (filters.priceRange) {
       if (item.p < filters.priceRange.min || item.p > filters.priceRange.max) return false;

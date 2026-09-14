@@ -203,7 +203,7 @@ export async function fetchAuctionResultsWithCache(year) {
  * @param {number} year
  * @param {number} month — 0-11 (JS month index)
  */
-export async function fetchAuctionResultsForMonth(year, month) {
+export async function fetchAuctionResultsForMonth(year, month, { mirrorPartial = false } = {}) {
   const mm = String(month + 1).padStart(2, '0');
   const fromDate = `${year}-${mm}-01`;
 
@@ -212,16 +212,26 @@ export async function fetchAuctionResultsForMonth(year, month) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   let toDate;
+  let partial = false;
   if (year === currentYear && month === currentMonth) {
     // Current month: use today as cutoff
     toDate = formatDate(now);
+    partial = true;
+  } else if (mirrorPartial && month === currentMonth) {
+    // Previous-year baseline for the month currently in progress: stop at the same
+    // day of month so both sides cover an equal number of elapsed days.
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const day = Math.min(now.getDate(), lastDay);
+    toDate = `${year}-${mm}-${String(day).padStart(2, '0')}`;
+    partial = true;
   } else {
     // Completed month: use last day
     const lastDay = new Date(year, month + 1, 0).getDate();
     toDate = `${year}-${mm}-${String(lastDay).padStart(2, '0')}`;
   }
 
-  const cacheKey = `${year}_m${mm}`;
+  // Partial ranges get their own cache key so they never overwrite the full-period entry.
+  const cacheKey = partial ? `${year}_m${mm}_sp` : `${year}_m${mm}`;
   const cached = await loadAdminCache(cacheKey);
   if (cached && !cached.isExpired) {
     return { categories: cached.categories, totals: cached.totals };
@@ -237,7 +247,7 @@ export async function fetchAuctionResultsForMonth(year, month) {
  * @param {number} year
  * @param {number} quarter — 0-3 (Q1-Q4)
  */
-export async function fetchAuctionResultsForQuarter(year, quarter) {
+export async function fetchAuctionResultsForQuarter(year, quarter, { mirrorPartial = false } = {}) {
   const startMonth = quarter * 3; // 0-based
   const mm = String(startMonth + 1).padStart(2, '0');
   const fromDate = `${year}-${mm}-01`;
@@ -246,9 +256,19 @@ export async function fetchAuctionResultsForQuarter(year, quarter) {
   const currentYear = now.getFullYear();
   const currentQuarter = Math.floor(now.getMonth() / 3);
   let toDate;
+  let partial = false;
   if (year === currentYear && quarter === currentQuarter) {
     // Current quarter: use today as cutoff
     toDate = formatDate(now);
+    partial = true;
+  } else if (mirrorPartial && quarter === currentQuarter) {
+    // Previous-year baseline for the quarter currently in progress: stop at the same
+    // month/day so both sides cover an equal number of elapsed days.
+    const m = now.getMonth();
+    const lastDay = new Date(year, m + 1, 0).getDate();
+    const day = Math.min(now.getDate(), lastDay);
+    toDate = `${year}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    partial = true;
   } else {
     // Completed quarter: last day of its final month
     const endMonth = startMonth + 2;
@@ -256,7 +276,8 @@ export async function fetchAuctionResultsForQuarter(year, quarter) {
     toDate = `${year}-${String(endMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   }
 
-  const cacheKey = `${year}_q${quarter + 1}`;
+  // Partial ranges get their own cache key so they never overwrite the full-period entry.
+  const cacheKey = partial ? `${year}_q${quarter + 1}_sp` : `${year}_q${quarter + 1}`;
   const cached = await loadAdminCache(cacheKey);
   if (cached && !cached.isExpired) {
     return { categories: cached.categories, totals: cached.totals };

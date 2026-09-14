@@ -10,7 +10,7 @@ Branschkontext:
 - Intäktsmodell: Köpare betalar klubbat pris + 25% köparprovision. Auctionet tar 6% av totalen (klubbat + provision = klubbat × 1.25). Säljaren betalar 20% provision på klubbat pris + 80 kr fotoavgift. Omsättning = klubbat × 1.175 (efter Auctionets avgift). Nettointäkt = köparprovision + säljprovision + fotoavgift - Auctionet-avgift = klubbat × 0.375 + 80 kr per föremål
 - Nettointäkt per föremål är viktigare än bruttomsättning
 - Kategorimix beror på husets nisch och upptagningsområde — det är inte alltid fel att ha mycket i en kategori
-- YoY-data i fältet "yoy" jämför redan samma period (avslutade månader) för rättvisa jämförelser
+- YoY-data i fältet "yoy" jämför alltid exakt lika långa perioder: om vald period (år, kvartal eller månad) pågår just nu jämförs endast de dagar som hittills förflutit, mot samma dagar föregående år. Fältet "comparisonPeriod" beskriver vilket intervall som jämförts
 
 Ton och stil:
 - Var konstruktiv och lösningsorienterad, inte alarmistisk
@@ -35,6 +35,8 @@ Regler:
 - Analysera säsongsmönster i månadsdata
 - Jämför kategoriers genomsnittspris och volym för att hitta obalanser
 - VIKTIGT: Fältet "today" anger dagens datum. Den senaste månaden i datan kan vara ofullständig — dra inga slutsatser från en pågående månad
+- Fältet "monthly" visar alltid hela valt år månad för månad (för säsongsanalys), även när ett kvartal eller en månad är valt i "filters". Fälten "kpis" och "previousYear" avser däremot endast den valda perioden — blanda inte ihop dem
+- Jämför aldrig "kpis" direkt mot "previousYear" för att räkna ut egen procentuell förändring — använd "yoy", som är den enda korrekt periodjusterade jämförelsen
 - Om isOwnHouse=true finns ekonomiska nyckeltal (netRevenue, grossRevenue) — analysera lönsamhet och intäkter. Om isOwnHouse=false, fokusera enbart på marknadsdata (klubbade priser, volymer, kategorier) utan att spekulera om husets ekonomi
 - Om adminData finns: totalCommission=faktisk provision, avgVisits=genomsnittliga unika besök per objekt, firstSaleRate=andel av auktionsförsök som säljs vid första försöket (objekt listas upp till 3 gånger). Låg förstagångsförsäljning (<55%) indikerar prissättnings- eller katalogiseringsproblem och kostar lagerdagar
 - Svara BARA med JSON, ingen annan text`;
@@ -45,7 +47,7 @@ const insightsCache = new Map();
  * Build a compact data summary from pre-computed aggregations.
  * Keeps input tokens low (~800-1200) while giving AI full picture.
  */
-export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly, priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse, activeFilters, adminTotals, adminCategories }) {
+export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly, priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse, activeFilters, adminTotals, adminCategories, comparisonPeriod }) {
   const summary = {
     today: new Date().toISOString().slice(0, 10),
     company: houseName,
@@ -64,6 +66,7 @@ export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly
       avgPrice: prevKpis.avgPrice,
     } : null,
     yoy: yoy || null,
+    comparisonPeriod: comparisonPeriod || null,
     monthly: monthly
       .map((m, i) => ({ month: i + 1, items: m.count, revenue: m.revenue, avg: m.avgPrice }))
       .filter(m => m.items > 0),
@@ -99,7 +102,7 @@ export function buildDataSummary({ houseName, year, kpis, prevKpis, yoy, monthly
  */
 function cacheKey(companyId, filters) {
   const f = filters || {};
-  return `${companyId}_${f.year}_${f.month}_${f.categoryId}_${f.priceMin || ''}_${f.priceMax || ''}`;
+  return `${companyId}_${f.year}_${f.quarter}_${f.month}_${f.categoryId}_${f.priceMin || ''}_${f.priceMax || ''}`;
 }
 
 /**

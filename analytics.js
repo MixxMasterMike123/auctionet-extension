@@ -249,11 +249,15 @@ async function loadAdminData() {
     adminCategoryMap = buildAdminCategoryMap(current);
 
     // YoY: compare same period in previous year
+    // mirrorPartial truncates the previous-year range to the same elapsed days when the
+    // selected period is still in progress, so we never compare a partial month/quarter
+    // against a complete one.
     let previous;
+    const selectedIsCurrentYear = year === currentYear;
     if (month != null) {
-      previous = await fetchAuctionResultsForMonth(year - 1, month);
+      previous = await fetchAuctionResultsForMonth(year - 1, month, { mirrorPartial: selectedIsCurrentYear });
     } else if (quarter != null) {
-      previous = await fetchAuctionResultsForQuarter(year - 1, quarter);
+      previous = await fetchAuctionResultsForQuarter(year - 1, quarter, { mirrorPartial: selectedIsCurrentYear });
     } else if (year === currentYear) {
       previous = await fetchAuctionResultsSamePeriod(year - 1);
     } else {
@@ -471,6 +475,40 @@ function mkSection(id, title) {
 
 // ─── AI Insights ─────────────────────────────────────────
 
+/**
+ * Describe, in Swedish, exactly which date range the YoY figures compare.
+ * Mirrors the branching in renderDashboard()/runAIAnalysis() so the AI is never
+ * told a partial period was compared against a complete one.
+ */
+function describeComparisonPeriod(f, now = new Date()) {
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentQuarter = Math.floor(currentMonth / 3);
+  const prev = f.year - 1;
+  const today = `${MONTH_NAMES[currentMonth]} ${now.getDate()}`;
+
+  if (f.month != null) {
+    const name = MONTH_NAMES[f.month];
+    if (f.year === currentYear && f.month === currentMonth) {
+      return `${name} 1–${now.getDate()} ${f.year} mot ${name} 1–${now.getDate()} ${prev} (pågående månad, lika många dagar på båda sidor)`;
+    }
+    return `hela ${name} ${f.year} mot hela ${name} ${prev}`;
+  }
+
+  if (f.quarter != null) {
+    const q = `Q${f.quarter + 1}`;
+    if (f.year === currentYear && f.quarter === currentQuarter) {
+      return `${q} ${f.year} fram till ${today} mot ${q} ${prev} fram till ${today} (pågående kvartal, lika många dagar på båda sidor)`;
+    }
+    return `hela ${q} ${f.year} mot hela ${q} ${prev}`;
+  }
+
+  if (f.year === currentYear) {
+    return `1 jan–${today} ${f.year} mot 1 jan–${today} ${prev} (pågående år, lika många dagar på båda sidor)`;
+  }
+  return `hela ${f.year} mot hela ${prev}`;
+}
+
 async function runAIAnalysis(forceRefresh = false) {
   if (allItems.length === 0) return;
 
@@ -506,20 +544,17 @@ async function runAIAnalysis(forceRefresh = false) {
     // For AI: compute same-period YoY to avoid misleading comparisons
     const currentYear = new Date().getFullYear();
     let prevKpis, yoy;
-    if (f.month != null || f.quarter != null) {
-      // Specific month/quarter selected — compare that period across years
-      const prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
-      prevKpis = computeKPIs(prevItems);
-      yoy = computeYoY(kpis, prevKpis);
-    } else if (f.year === currentYear) {
-      // Current year, no month filter — compare Jan 1 to today in both years
+    if (f.year === currentYear) {
+      // Current year — mirror the elapsed part of the selected period (year, quarter
+      // or month) onto both sides, so a period still in progress is never compared
+      // against a complete one a year earlier.
       const currSamePeriod = filterItemsSamePeriod(allItems, f.year, f);
       const prevSamePeriod = filterItemsSamePeriod(allItems, f.year - 1, f);
       const currKpisYoY = computeKPIs(currSamePeriod);
       prevKpis = computeKPIs(prevSamePeriod);
       yoy = prevKpis.count > 0 ? computeYoY(currKpisYoY, prevKpis) : null;
     } else {
-      // Historical year — full year comparison is fine
+      // Historical period — both sides are complete, so a direct comparison is fair
       const prevItems = filterItems(allItems, { ...f, year: f.year - 1 });
       prevKpis = computeKPIs(prevItems);
       yoy = computeYoY(kpis, prevKpis);
@@ -536,6 +571,7 @@ async function runAIAnalysis(forceRefresh = false) {
       priceDist, pricePoints, categories, netRevenue, grossRevenue, isOwnHouse,
       activeFilters: activeFilters.length > 0 ? activeFilters : null,
       adminTotals, adminCategories: adminData?.current?.categories,
+      comparisonPeriod: describeComparisonPeriod(f),
     });
 
     const insights = await generateInsights(summary, currentCompanyId, filterKey);
@@ -568,11 +604,12 @@ function renderDashboard() {
   const monthly = computeMonthlyData(allItems, f.year);
   const kpis = computeKPIs(items);
 
-  // Same-period YoY: for current year without month filter, compare exact same date range
+  // Same-period YoY: for the current year, mirror the elapsed part of the selected
+  // period (year, quarter or month) onto both sides. A period still in progress must
+  // never be compared against the complete period a year earlier.
   const currentYear = new Date().getFullYear();
   let prevItems, yoyCurrentItems;
-  if (f.year === currentYear && f.month == null && f.quarter == null) {
-    // Compare Jan 1–today in both years for fair partial-month comparison
+  if (f.year === currentYear) {
     yoyCurrentItems = filterItemsSamePeriod(allItems, f.year, f);
     prevItems = filterItemsSamePeriod(allItems, f.year - 1, f);
   } else {
