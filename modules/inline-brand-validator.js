@@ -4,6 +4,13 @@
 import { SwedishSpellChecker } from './swedish-spellchecker.js';
 import { escapeHTML } from './core/html-escape.js';
 import { getSharedWhitelist, reportIgnoredWord } from './spellcheck-whitelist.js';
+import {
+  SPELLCHECK_MODEL,
+  SPELLCHECK_MAX_TOKENS,
+  SPELLCHECK_SYSTEM_PROMPT,
+  buildSpellcheckPrompt,
+  parseSpellcheckResponse
+} from './spellcheck-ai-prompt.js';
 
 export class InlineBrandValidator {
   constructor(brandValidationManager = null) {
@@ -257,41 +264,17 @@ export class InlineBrandValidator {
     }
 
     const fieldLabel = fieldType === 'title' ? 'titel' : fieldType === 'condition' ? 'konditionsrapport' : 'beskrivning';
-    const prompt = `Kontrollera stavningen i denna auktions-${fieldLabel} på svenska:
-"${text}"
-
-Hitta enskilda ord som är felstavade. Exempel:
-- "Colier" → "Collier"
-- "silverr" → "silver"
-- "olija" → "olja"
-- "brutovikt" → "bruttovikt"
-- "Jardinjär" → "Jardinär"
-- "kandelabrer" → "kandelaber"
-
-Kontrollera ALLA ord noggrant — även objekttyper, materialnamn och svenska substantiv.
-
-RAPPORTERA INTE:
-- Grammatik, interpunktion, kommatering
-- Förkortningar (ink, bl.a, osv, resp, ca)
-- Personnamn, ortnamn, varumärken
-- Versaler/gemener-fel
-- Korrekta böjningsformer (hängd, längd, höjd, märkt)
-- Auktionsfacktermer: plymå, karott, karaff, tablå, terrin, skänk, chiffonjé,
-  röllakan, tenn, emalj, porfyr, intarsia, gouache, applique, pendyl, boett,
-  collier, rivière, cabochon, pavé, solitär, entourage
-
-Svara BARA med JSON:
-{"issues":[{"original":"felstavat","corrected":"korrekt","confidence":0.95}]}`;
+    const prompt = buildSpellcheckPrompt(text, fieldLabel);
 
     try {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           body: {
-            model: 'claude-haiku-5-5',
-            max_tokens: 400,
+            model: SPELLCHECK_MODEL,
+            max_tokens: SPELLCHECK_MAX_TOKENS,
             temperature: 0,
-            system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
+            system: SPELLCHECK_SYSTEM_PROMPT,
             messages: [{ role: 'user', content: prompt }]
           }
         }, (response) => {
@@ -307,25 +290,20 @@ Svara BARA med JSON:
 
       if (response.success && response.data?.content?.[0]?.text) {
         const responseText = response.data.content[0].text.trim();
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const result = JSON.parse(jsonMatch[0]);
-          if (result.issues && Array.isArray(result.issues)) {
-            const issues = result.issues
-              .filter(issue => issue.original && issue.corrected &&
-                      issue.original.toLowerCase() !== issue.corrected.toLowerCase() &&
-                      (issue.confidence || 0.9) >= 0.8)
-              .map(issue => ({
-                originalBrand: issue.original,
-                suggestedBrand: issue.corrected,
-                confidence: issue.confidence || 0.9,
-                type: 'spelling',
-                source: 'ai_spellcheck',
-                displayCategory: 'stavning'
-              }));
-            this.spellCache.set(cacheKey, { issues, timestamp: Date.now() });
-            return issues;
-          }
+        // Only cache when the reply actually carried an issues array (a
+        // malformed reply is not cached, same as before the refactor).
+        if (/"issues"\s*:\s*\[/.test(responseText)) {
+          const issues = parseSpellcheckResponse(responseText, 0.8)
+            .map(issue => ({
+              originalBrand: issue.original,
+              suggestedBrand: issue.corrected,
+              confidence: issue.confidence,
+              type: 'spelling',
+              source: 'ai_spellcheck',
+              displayCategory: 'stavning'
+            }));
+          this.spellCache.set(cacheKey, { issues, timestamp: Date.now() });
+          return issues;
         }
       }
     } catch (error) {

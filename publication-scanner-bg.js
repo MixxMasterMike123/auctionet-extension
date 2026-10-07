@@ -11,13 +11,20 @@ import { classifyFlag } from './modules/spellcheck-confidence.js';
 // Static import — dynamic import() is disallowed in ServiceWorkerGlobalScope,
 // and this module-type service worker supports static imports fine.
 import { SwedishSpellChecker } from './modules/swedish-spellchecker.js';
+import {
+  SPELLCHECK_MODEL,
+  SPELLCHECK_MAX_TOKENS,
+  SPELLCHECK_SYSTEM_PROMPT,
+  buildSpellcheckPrompt,
+  parseSpellcheckResponse
+} from './modules/spellcheck-ai-prompt.js';
 
 // ─── Constants ──────────────────────────────────────────────────────
 const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
 const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache_v2';
 const PUB_SCAN_SPELL_VERSION_KEY = 'pubScanSpellVersion';
-const PUB_SCAN_SPELL_VERSION = 6; // Bumped: dictionary spellcheck was silently dead (dynamic import failed in SW) — old cached results lack dictionary flags
+const PUB_SCAN_SPELL_VERSION = 7; // Bumped: spellcheck moved from LanguageTool to Haiku 5.5 — old cached LanguageTool results are discarded
 const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
 const STICKY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
@@ -234,7 +241,8 @@ async function runPhase2Checks(editData, dictMap, itemId) {
     }
   }
 
-  // Spellcheck (LanguageTool API + dictionary fallback, with caching)
+  // Spellcheck (Claude Haiku 5.5 primary, LanguageTool fallback when no API
+  // key is set; merged with the dictionary pass, with caching)
   const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
   let spellingErrors;
   if (itemId) {
@@ -242,17 +250,19 @@ async function runPhase2Checks(editData, dictMap, itemId) {
     if (cached) {
       spellingErrors = cached;
     } else {
-      spellingErrors = validateSpellingResults(await checkSpellingLanguageTool(combinedText));
-      // Merge with dictionary results for auction-specific terms LanguageTool might miss
+      const { errors, cacheable } = await runSpellcheck(combinedText);
+      spellingErrors = errors;
+      // Merge with dictionary results for auction-specific terms the checker might miss
       const dictErrors = checkSpellingDict(combinedText, dictMap);
       const ltWords = new Set(spellingErrors.map(e => e.word.toLowerCase()));
       for (const de of dictErrors) {
         if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
       }
-      await setCachedSpellcheck(itemId, combinedText, spellingErrors);
+      // A transient AI failure must never be cached as "no errors".
+      if (cacheable) await setCachedSpellcheck(itemId, combinedText, spellingErrors);
     }
   } else {
-    spellingErrors = validateSpellingResults(await checkSpellingLanguageTool(combinedText));
+    spellingErrors = (await runSpellcheck(combinedText)).errors;
     const dictErrors = checkSpellingDict(combinedText, dictMap);
     const ltWords = new Set(spellingErrors.map(e => e.word.toLowerCase()));
     for (const de of dictErrors) {
@@ -260,7 +270,7 @@ async function runPhase2Checks(editData, dictMap, itemId) {
     }
   }
   // Always apply the learned whitelist as a final pass — the cache stores the
-  // raw LanguageTool/dictionary findings, but a word whitelisted AFTER it was
+  // raw AI/dictionary findings, but a word whitelisted AFTER it was
   // cached must still be suppressed. So filter here on every path, cache or not.
   spellingErrors = filterWhitelistedWords(spellingErrors);
   if (spellingErrors.length > 0) {
@@ -338,7 +348,7 @@ async function getCachedSpellcheck(itemId, text) {
     return sharedResults;
   }
 
-  return null; // True cache miss — need to check via LanguageTool
+  return null; // True cache miss — need to run the spellchecker
 }
 
 async function setCachedSpellcheck(itemId, text, results) {
@@ -386,7 +396,60 @@ async function setSharedCachedSpellcheck(itemId, textHash, results) {
   }
 }
 
-// ─── Spellcheck (LanguageTool API — free, dictionary-based, no hallucinations) ──
+// ─── Spellcheck (Claude Haiku 5.5 primary — same prompt as the edit page) ──
+
+let loggedLanguageToolFallback = false;
+
+async function checkSpellingAI(text) {
+  if (!text || text.length < 5) return [];
+
+  // Strip HTML tags and collapse whitespace
+  const cleanText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (cleanText.length < 5) return [];
+
+  let data;
+  try {
+    data = await globalThis.__callAnthropicAPI({
+      model: SPELLCHECK_MODEL,
+      max_tokens: SPELLCHECK_MAX_TOKENS,
+      system: SPELLCHECK_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: buildSpellcheckPrompt(cleanText, 'text') }]
+    });
+  } catch (err) {
+    if (err?.message?.includes('API key is required')) {
+      const noKey = new Error(err.message);
+      noKey.code = 'NO_API_KEY';
+      throw noKey;
+    }
+    throw err;
+  }
+
+  const responseText = data?.content?.find?.(b => b?.type === 'text')?.text || '';
+  return parseSpellcheckResponse(responseText).map(issue => ({
+    word: issue.original,
+    correction: issue.corrected
+  }));
+}
+
+// Picks the checker and reports whether the result may be cached.
+// Returns { errors, cacheable }.
+async function runSpellcheck(text) {
+  try {
+    return { errors: validateSpellingResults(await checkSpellingAI(text), { properNounGuard: false }), cacheable: true };
+  } catch (err) {
+    if (err?.code === 'NO_API_KEY') {
+      if (!loggedLanguageToolFallback) {
+        loggedLanguageToolFallback = true;
+        console.info('[PubScanBG] No Anthropic API key set — spellcheck falling back to LanguageTool');
+      }
+      return { errors: validateSpellingResults(await checkSpellingLanguageTool(text)), cacheable: true };
+    }
+    console.warn('[PubScanBG] AI spellcheck failed — skipping (not cached):', err?.message || err);
+    return { errors: [], cacheable: false };
+  }
+}
+
+// ─── Spellcheck fallback (LanguageTool API — used only when no API key is set) ──
 
 async function checkSpellingLanguageTool(text) {
   if (!text || text.length < 5) return [];
@@ -444,7 +507,11 @@ async function checkSpellingLanguageTool(text) {
   return [];
 }
 
-function validateSpellingResults(results) {
+// `properNounGuard` exists for LanguageTool, which flags every unknown proper
+// noun. The AI prompt already excludes names/brands, so the AI path turns it
+// off — otherwise a real typo in a capitalised first word ("Jardinjär ...")
+// would be silently dropped.
+function validateSpellingResults(results, { properNounGuard = true } = {}) {
   const safe = safeWordsSet || new Set();
   return results.filter(result => {
     const original = result.word.toLowerCase();
@@ -454,7 +521,7 @@ function validateSpellingResults(results) {
     // Reject corrections with triple consecutive identical letters (e.g., "glassservis")
     if (/(.)\1\1/.test(correction)) return false;
     // Reject if original looks like a proper noun / brand (starts uppercase, not ALL CAPS)
-    if (/^[A-ZÅÄÖÜ][a-zåäöü]/.test(result.word) && !/^[A-ZÅÄÖÜ]+$/.test(result.word)) return false;
+    if (properNounGuard && /^[A-ZÅÄÖÜ][a-zåäöü]/.test(result.word) && !/^[A-ZÅÄÖÜ]+$/.test(result.word)) return false;
     return true;
   });
 }
@@ -853,7 +920,11 @@ export async function recheckStickyErrors() {
 
           const combinedText = [editFields.editTitle, showData.description, showData.condition].filter(Boolean).join(' ');
 
-          let spellingErrors = validateSpellingResults(await checkSpellingLanguageTool(combinedText));
+          const { errors: checkerErrors, cacheable } = await runSpellcheck(combinedText);
+          // Transient AI failure: leave the sticky entry untouched rather than
+          // treating "no result" as "fixed".
+          if (!cacheable) return;
+          let spellingErrors = checkerErrors;
           // Merge dictionary results
           const dictErrors = checkSpellingDict(combinedText, dictMap);
           const ltWords = new Set(spellingErrors.map(e => e.word.toLowerCase()));

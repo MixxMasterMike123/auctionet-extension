@@ -1135,7 +1135,7 @@ Standalone Extension Page (spelling-audit.html — opened from popup)
                   ├──► SwedishSpellChecker (local dictionary)
                   ├──► BrandValidationManager (fuzzy brand matching)
                   ├──► Common misspellings / forbidden words / structural checks (local)
-                  └──► background.js ──► LanguageTool API + dictionary spellcheck (no AI)
+                  └──► background.js ──► Claude Haiku 5.5 spellcheck + dictionary (LanguageTool fallback without API key)
 ```
 
 ### Performance Characteristics
