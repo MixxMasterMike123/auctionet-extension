@@ -237,7 +237,8 @@ function enqueue(fn) {
 
 async function callAnthropicAPI(body, { apiKey = null, timeoutMs = 30000 } = {}) {
   const sanitized = sanitizeForClaude5(body);
-  return enqueue(() => _callAnthropicAPIInner(sanitized, { apiKey, timeoutMs }));
+  const data = await enqueue(() => _callAnthropicAPIInner(sanitized, { apiKey, timeoutMs }));
+  return stripThinkingBlocks(data);
 }
 
 async function _callAnthropicAPIInner(body, { apiKey = null, timeoutMs = 30000 } = {}) {
@@ -295,19 +296,44 @@ async function _callAnthropicAPIInner(body, { apiKey = null, timeoutMs = 30000 }
 // Export for publication-scanner-bg.js (same service worker)
 globalThis.__callAnthropicAPI = callAnthropicAPI;
 
-// Claude 5-family models (Opus 5, Sonnet 5, Fable 5) reject `temperature`/
-// `top_p`/`top_k` (400) and run adaptive thinking when `thinking` is omitted —
-// which would eat the small max_tokens budgets our short JSON calls use.
-// Sanitize once here at the single API gateway so every module keeps its tuned
-// request shape for older models without per-site conditionals.
+// Claude 5-family models reject `temperature`/`top_p`/`top_k` (400) and run
+// adaptive thinking when `thinking` is omitted — which would eat the small
+// max_tokens budgets our short JSON calls use. Sanitize once here at the single
+// API gateway so every module keeps its tuned request shape without per-site
+// conditionals. How "no thinking" is expressed differs per model:
+//   - Opus 5.5 / Fable: thinking is always on (`disabled` → 400). Lowest cost is
+//     adaptive thinking at effort `low`; callers may pass their own output_config.
+//   - Sonnet 5.5: `disabled` → 400; `{type:'between_tools'}` is the thinking-off
+//     setting (effort ≤ high, no other fields).
+//   - Haiku 5.5 (and Opus 5 / Sonnet 5): `{type:'disabled'}` is accepted.
+const ALWAYS_THINKING_MODEL = /^claude-(opus-5-5|fable|mythos)/;
+const BETWEEN_TOOLS_MODEL = /^claude-sonnet-5-5/;
+
 function sanitizeForClaude5(body) {
-  if (!body || !/^claude-(opus|sonnet|fable)-5/.test(body.model || '')) return body;
+  if (!body || !/^claude-(opus|sonnet|fable|mythos|haiku)-5/.test(body.model || '')) return body;
   const sanitized = { ...body };
   delete sanitized.temperature;
   delete sanitized.top_p;
   delete sanitized.top_k;
-  if (!sanitized.thinking) sanitized.thinking = { type: 'disabled' };
+  const model = sanitized.model;
+  if (ALWAYS_THINKING_MODEL.test(model)) {
+    if (sanitized.thinking?.type === 'disabled' || sanitized.thinking?.type === 'enabled') delete sanitized.thinking;
+    if (!sanitized.output_config) sanitized.output_config = { effort: 'low' };
+  } else if (BETWEEN_TOOLS_MODEL.test(model)) {
+    if (!sanitized.thinking || sanitized.thinking.type === 'disabled') sanitized.thinking = { type: 'between_tools' };
+  } else if (!sanitized.thinking) {
+    sanitized.thinking = { type: 'disabled' };
+  }
   return sanitized;
+}
+
+// Always-thinking models return `thinking` blocks before the text block. Our
+// modules read `content[0].text` and never replay thinking blocks, so drop them
+// here to keep the response shape the modules expect.
+function stripThinkingBlocks(data) {
+  if (!Array.isArray(data?.content)) return data;
+  const content = data.content.filter(b => b?.type !== 'thinking' && b?.type !== 'redacted_thinking');
+  return content.length === data.content.length ? data : { ...data, content };
 }
 
 async function handleAnthropicRequest(request, sendResponse) {

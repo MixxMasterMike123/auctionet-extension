@@ -220,16 +220,15 @@ Svara i JSON:
 imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grupp.`
     });
 
-    // Opus 5: `temperature` is rejected (400) and omitting `thinking` runs
-    // adaptive thinking (would eat the small max_tokens) — disable it to keep
-    // pre-Opus-5 behavior. Sonnet fallback keeps its tuned temperature.
+    // background.js sanitizes 5-family requests (strips temperature, sets the
+    // right thinking mode per model). Opus 5.5 always thinks, so max_tokens
+    // leaves headroom for a short low-effort thinking block + the JSON answer.
     const callAPI = (model) => new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
         body: {
           model,
-          max_tokens: 400,
-          ...(model === 'claude-opus-5' ? { thinking: { type: 'disabled' } } : { temperature: 0.2 }),
+          max_tokens: 1500,
           messages: [{ role: 'user', content }]
         }
       }, (response) => {
@@ -241,11 +240,11 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
 
     let response;
     try {
-      response = await callAPI('claude-opus-5');
+      response = await callAPI('claude-opus-5-5');
     } catch (err) {
       if (err.message?.includes('Overloaded') || err.message?.includes('overloaded') || err.message?.includes('429')) {
         console.warn('[ValuationRequest] Opus overloaded — falling back to Sonnet for clustering');
-        response = await callAPI('claude-sonnet-5');
+        response = await callAPI('claude-sonnet-5-5');
       } else {
         throw err;
       }
@@ -566,7 +565,7 @@ imageIndices är 0-baserade bildindex. Varje bild måste tillhöra exakt en grup
 
     // Use Opus for valuation — much better at identifying specific models,
     // brands, and details from images compared to Sonnet
-    const model = 'claude-opus-5';
+    const model = 'claude-opus-5-5';
     const description = this.pageData.description || '(Ingen beskrivning angiven)';
 
     const systemPrompt = `Du är expert på värdering av antikviteter, konst, design och samlarprylar för Stadsauktion Sundsvall.
@@ -666,15 +665,14 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
 - För modellnamn: var specifik (t.ex. "Kröken", "Lamino", "Egg Chair", "DS Nautic" — inte bara "fåtölj")`
     });
 
-    // Opus 5: no `temperature` (400) + disable thinking so the 1200-token
-    // budget stays for the JSON answer (see clustering callAPI above).
+    // Opus 5.5 always thinks (low effort via background.js); 3000 tokens leaves
+    // room for thinking plus the ~1200-token JSON answer.
     const callValuationAPI = (m) => new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
         body: {
           model: m,
-          max_tokens: 1200,
-          ...(m === 'claude-opus-5' ? { thinking: { type: 'disabled' } } : { temperature: 0.5 }),
+          max_tokens: 3000,
           system: systemPrompt,
           messages: [{ role: 'user', content }]
         }
@@ -691,7 +689,7 @@ VIKTIGT — SÖKTERMER AVGÖR VÄRDERINGENS KVALITET:
     } catch (err) {
       if ((err.message?.includes('Overloaded') || err.message?.includes('overloaded') || err.message?.includes('429')) && model.includes('opus')) {
         console.warn('[ValuationRequest] Opus overloaded — falling back to Sonnet for valuation');
-        response = await callValuationAPI('claude-sonnet-5');
+        response = await callValuationAPI('claude-sonnet-5-5');
       } else {
         throw err;
       }

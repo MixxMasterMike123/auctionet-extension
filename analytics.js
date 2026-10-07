@@ -1332,8 +1332,8 @@ async function generateNugget(kpis, yoy, items, f) {
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
         body: {
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 300,
+          model: 'claude-haiku-5-5',
+          max_tokens: 400,
           temperature: 0.9,
           messages: [{
             role: 'user',

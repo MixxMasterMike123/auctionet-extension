@@ -119,7 +119,7 @@ export async function generateInsights(dataSummary, companyId, filters) {
     chrome.runtime.sendMessage({
       type: 'anthropic-fetch',
       body: {
-        model: 'claude-sonnet-5',
+        model: 'claude-sonnet-5-5',
         max_tokens: 1500,
         temperature: 0.2,
         system: [{

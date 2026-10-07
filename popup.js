@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           type: 'anthropic-fetch',
           apiKey: apiKey,
           body: {
-            model: 'claude-haiku-4-5', // Haiku — cheapest model, sufficient for connection test
+            model: 'claude-haiku-5-5', // Haiku — cheapest model, sufficient for connection test
             max_tokens: 10,
             messages: [{
               role: 'user',

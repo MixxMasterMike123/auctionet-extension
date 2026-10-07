@@ -50,8 +50,8 @@ user-invocable: false
 
 ```
 CONFIG.MODELS = {
-  sonnet: { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', cost: 'Standard' },
-  haiku:  { id: 'claude-haiku-4-5',  name: 'Claude Haiku 4.5',  cost: 'Budget' }
+  sonnet: { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', cost: 'Standard' },
+  haiku:  { id: 'claude-haiku-5-5',  name: 'Claude Haiku 5.5',  cost: 'Budget' }
 }
 CONFIG.CURRENT_MODEL = 'sonnet'
 ```
@@ -62,9 +62,11 @@ Opus is not in CONFIG.MODELS — it is hardcoded directly where needed.
 
 | Model | Model ID | Tasks |
 |-------|----------|-------|
-| Opus 4.6 | `claude-opus-4-6` | Valuation requests, biography generation, maker context lookup (enrich tier), full-tier enhance-all |
-| Sonnet 4.5 | `claude-sonnet-4-5` | Field enhancement (edit page), market analysis, cataloging, enrich-tier main call |
-| Haiku 4.5 | `claude-haiku-4-5` | Brand validation, AI search query generation, API result validation, tidy-tier enhance-all, publication scan spellcheck |
+| Opus 5.5 | `claude-opus-5-5` | Valuation requests, biography generation, maker context lookup (enrich tier), full-tier enhance-all |
+| Sonnet 5.5 | `claude-sonnet-5-5` | Field enhancement (edit page), market analysis, cataloging, enrich-tier main call |
+| Haiku 5.5 | `claude-haiku-5-5` | Brand validation, AI search query generation, API result validation, tidy-tier enhance-all, artist detection/bio, analytics nugget ticker |
+
+**5-family request shim (background.js `sanitizeForClaude5`):** strips `temperature`/`top_p`/`top_k` for every `claude-*-5*` model; Opus 5.5 cannot disable thinking so it gets `output_config.effort: low` (unless the caller sets output_config) and thinking blocks are stripped from the response; Sonnet 5.5 gets `thinking: {type: between_tools}` (thinking off); Haiku 5.5 gets `thinking: {type: disabled}`. Modules need no per-model conditionals. Opus 5.5 call sites keep larger `max_tokens` because thinking counts toward the cap. Publication-scanner spellcheck is LanguageTool + dictionary, not AI.
 
 ### Fallback Logic
 

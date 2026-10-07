@@ -288,8 +288,8 @@ Svara BARA med JSON:
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           body: {
-            model: 'claude-haiku-4-5',
-            max_tokens: 300,
+            model: 'claude-haiku-5-5',
+            max_tokens: 400,
             temperature: 0,
             system: 'Du är en expert på svensk stavning och auktionsterminologi. Hitta felstavade ord — inklusive objekttyper, material och substantiv. Rapportera INTE grammatik, interpunktion, förkortningar eller korrekta facktermer. Svara BARA med valid JSON.',
             messages: [{ role: 'user', content: prompt }]
@@ -476,8 +476,8 @@ Om korrekt: {"corrected":null}`;
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           body: {
-            model: 'claude-haiku-4-5',
-            max_tokens: 150,
+            model: 'claude-haiku-5-5',
+            max_tokens: 200,
             temperature: 0,
             system: 'Du är expert på konstnärs- och formgivarnamn inom skandinavisk konst och design. Svara med valid JSON.',
             messages: [{ role: 'user', content: prompt }]

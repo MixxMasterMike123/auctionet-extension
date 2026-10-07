@@ -108,7 +108,7 @@ Fetches currently active (not ended) auctions:
 - Includes category relevance filtering (e.g., synth searches only return actual synths)
 
 ### AI Relevance Filtering
-When results >=8 items AND (price spread >5x OR sample >15), Haiku validates each result's relevance. Uses Haiku 4.5 with Sonnet fallback on overload. Located in `auctionet-api.js` `validateResultRelevance()`.
+When results >=8 items AND (price spread >5x OR sample >15), Haiku validates each result's relevance. Uses Haiku 5.5 with Sonnet fallback on overload. Located in `auctionet-api.js` `validateResultRelevance()`.
 
 ### Company Exclusion
 Users set `ownCompanyId` in settings (their auction house ID). This excludes their own results from LIVE market searches. Stored in `chrome.storage.sync`. Cache is cleared when this setting changes. (Migrated from old `excludeCompanyId` key.)

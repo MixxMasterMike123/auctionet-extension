@@ -1404,7 +1404,7 @@ Ingen annan text.`;
           type: 'anthropic-fetch',
           body: {
             model,
-            max_tokens: 500,
+            max_tokens: 700,
             temperature: 0,
             messages: [{ role: 'user', content: prompt }]
           }
@@ -1421,7 +1421,7 @@ Ingen annan text.`;
 
       let response;
       try {
-        response = await callValidationAPI('claude-haiku-4-5');
+        response = await callValidationAPI('claude-haiku-5-5');
       } catch (haikuError) {
         const isOverloaded = haikuError.message && (
           haikuError.message.includes('Overloaded') || haikuError.message.includes('overloaded') ||
@@ -1429,7 +1429,7 @@ Ingen annan text.`;
         );
         if (isOverloaded) {
           console.warn('AI validation: Haiku overloaded — retrying with Sonnet');
-          response = await callValidationAPI('claude-sonnet-5');
+          response = await callValidationAPI('claude-sonnet-5-5');
         } else {
           throw haikuError;
         }

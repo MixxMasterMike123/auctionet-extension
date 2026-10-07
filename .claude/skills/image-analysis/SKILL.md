@@ -12,7 +12,7 @@ Use this skill when working on image analysis features, Claude Vision prompts, o
 
 ### Architecture
 ```
-Item images (up to 5 slots) → base64 encoding → Claude Vision API (Sonnet 4.5)
+Item images (up to 5 slots) → base64 encoding → Claude Vision API (Sonnet 5.5)
                                                       ↓
                                                Structured JSON response:
                                                - Title, description, condition
@@ -23,8 +23,8 @@ Item images (up to 5 slots) → base64 encoding → Claude Vision API (Sonnet 4.
 ```
 
 ### Model Selection
-- **Sonnet 4.5** — all image analysis (single and multi-image). Uses `apiManager.getCurrentModel().id` which defaults to Sonnet.
-- **Opus 4.6** — only for valuation request clustering (`_clusterImages()`) and valuation generation, with Sonnet fallback on overload.
+- **Sonnet 5.5** — all image analysis (single and multi-image). Uses `apiManager.getCurrentModel().id` which defaults to Sonnet.
+- **Opus 5.5** — only for valuation request clustering (`_clusterImages()`) and valuation generation, with Sonnet fallback on overload.
 - Haiku is NOT used for image analysis.
 
 ### Image Slots (categorized)
@@ -63,7 +63,7 @@ Levels: "Mycket låg", "Låg", "Medel", "Hög", "Mycket hög"
 `validateWithMarketData()` cross-references image analysis with Auctionet sales data. Conservative scaling with multipliers 0.4–1.0 based on market support percentage. Builds search queries automatically from image analysis output.
 
 ### Image Clustering (Valuation Requests)
-`_clusterImages()` groups multiple customer images by object for multi-item valuation. Uses Opus 4.6 with Sonnet fallback. Cataloger can drag/drop to adjust groupings.
+`_clusterImages()` groups multiple customer images by object for multi-item valuation. Uses Opus 5.5 with Sonnet fallback. Cataloger can drag/drop to adjust groupings.
 
 ### Multi-Image Upload UI
 `generateMultipleImageUploadUI()` creates a drag-and-drop upload grid with slot-specific zones (front, back, markings, signature, condition).

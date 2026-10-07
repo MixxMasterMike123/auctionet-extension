@@ -175,8 +175,8 @@ Return JSON format:
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           body: {
-            model: 'claude-haiku-4-5',
-            max_tokens: 300,
+            model: 'claude-haiku-5-5',
+            max_tokens: 400,
             temperature: 0.1,
             system: 'Du extraherar söktermer för auktionsmarknadsanalys. Svara ALLTID med valid JSON.',
             messages: [{ role: 'user', content: prompt }]

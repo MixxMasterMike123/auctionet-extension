@@ -159,8 +159,8 @@ Om inga felstavningar hittas: {"issues":[]}`;
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           body: {
-            model: 'claude-haiku-4-5',
-            max_tokens: 200,
+            model: 'claude-haiku-5-5',
+            max_tokens: 300,
             temperature: 0,
             system: 'Du identifierar felstavade varumärken i auktionstexter. Svara ALLTID med valid JSON.',
             messages: [{ role: 'user', content: prompt }]

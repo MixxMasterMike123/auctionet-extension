@@ -189,17 +189,15 @@ export class EnhanceAllManager {
         resolve({ success: false, error: 'timeout' });
       }, 45000); // 45s timeout
 
-      // Opus 5 rejects `temperature` (400) and runs adaptive thinking when the
-      // `thinking` field is omitted — which would both break our content[0].text
-      // parsing and eat the max_tokens budget. Disable thinking explicitly
-      // (allowed at default effort) to keep pre-Opus-5 behavior and cost.
-      const isOpus5 = model === 'claude-opus-5';
+      // background.js sanitizes 5-family requests: strips `temperature` and
+      // picks the thinking mode per model (Opus 5.5 → low effort, Sonnet 5.5 →
+      // between_tools, Haiku 5.5 → disabled) and strips thinking blocks.
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
         body: {
           model: model,
           max_tokens: maxTokens,
-          ...(isOpus5 ? { thinking: { type: 'disabled' } } : { temperature: temperature }),
+          temperature: temperature,
           system: [{
             type: 'text',
             text: systemPrompt,
@@ -235,7 +233,7 @@ export class EnhanceAllManager {
     // Opus overloaded → fall back to Sonnet immediately
     if (isOverloaded && model.includes('opus')) {
       console.warn(`[EnhanceAll] Opus overloaded — falling back to Sonnet`);
-      return this._callAPI('claude-sonnet-5', systemPrompt, userMessage, maxTokens, temperature);
+      return this._callAPI('claude-sonnet-5-5', systemPrompt, userMessage, maxTokens, temperature);
     }
 
     if (result.error !== 'timeout') {
@@ -285,10 +283,10 @@ Svara med ENBART ett JSON-objekt (på svenska), ingen annan text:
 {"years":"födelseår–dödsår","biography":"kort biografi max 80 ord","style":["stil1","stil2"],"notableWorks":["verk1","verk2"]}`;
 
     const response = await this._callAPI(
-      'claude-opus-5',
+      'claude-opus-5-5',
       'Du är en konstexpert. Svara ALLTID med valid JSON. Inga kommentarer utanför JSON.',
       prompt,
-      250,
+      1200, // headroom for Opus 5.5's low-effort thinking + ~250-token JSON
       0.2
     );
 

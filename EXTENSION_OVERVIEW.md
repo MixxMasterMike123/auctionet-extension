@@ -53,7 +53,7 @@ The extension operates on five Auctionet admin page types plus two standalone ex
 
 **Technology stack:**
 - Chrome Manifest V3 (service worker architecture)
-- Claude AI via Anthropic API (Opus 4.6 for valuation, biography, and full-tier enhancement; Sonnet 4.5 for cataloging, enrich-tier enhancement, and spellcheck; Haiku 4.5 for tidy-tier enhancement and fast classification). All Opus calls automatically fall back to Sonnet on API overload.
+- Claude AI via Anthropic API (Opus 5.5 for valuation, biography, and full-tier enhancement; Sonnet 5.5 for cataloging, enrich-tier enhancement, and spellcheck; Haiku 5.5 for tidy-tier enhancement and fast classification). All Opus calls automatically fall back to Sonnet on API overload.
 - Auctionet public API for market data (historical + live auctions)
 - Wikipedia API for artist images
 - Pure JavaScript — no frameworks, no build step
@@ -90,9 +90,9 @@ A single-click feature that processes ALL form fields simultaneously using a thr
 
 | Tier | Label | Valuation | AI Model | Purpose |
 |------|-------|-----------|----------|---------|
-| **1 — Städa** | Tidy | < 3,000 SEK | Haiku 4.5 | Mechanical cleanup — reformat and restructure only |
-| **2 — Berika** | Enrich | 3,000–10,000 SEK | Sonnet 4.5 + Opus 4.6 (bio) | Structure + short maker/material context |
-| **3 — Full** | Complete | > 10,000 SEK | Opus 4.6 | Professional catalog entry with collector relevance |
+| **1 — Städa** | Tidy | < 3,000 SEK | Haiku 5.5 | Mechanical cleanup — reformat and restructure only |
+| **2 — Berika** | Enrich | 3,000–10,000 SEK | Sonnet 5.5 + Opus 5.5 (bio) | Structure + short maker/material context |
+| **3 — Full** | Complete | > 10,000 SEK | Opus 5.5 | Professional catalog entry with collector relevance |
 
 ### What Each Tier Does
 
@@ -119,7 +119,7 @@ A single-click feature that processes ALL form fields simultaneously using a thr
 - Provenance reminder notification when no provenance data is detected
 - Systematic condition assessment with 2–3 "positive absence" statements
 - Generates 10–12 complementary Swedish keywords
-- Uses Opus 4.6 for highest quality output
+- Uses Opus 5.5 for highest quality output
 
 ### User Interface
 
@@ -403,7 +403,7 @@ A dedicated tool for the valuation request pages (`/admin/sas/valuation_requests
    - **Image clustering:** If multiple images are present, Claude Opus first classifies them into groups by distinct object (e.g., "Images 1-3 = oil painting, Images 4-5 = glass vase, Image 6 = silverware"). If only one group is detected, the clustering step is skipped silently
    - **Drag-and-drop grouping UI:** When multiple objects are detected, a confirmation screen shows the AI's proposed grouping with draggable thumbnails. Staff can drag images between groups, add new groups, remove groups, and edit labels before proceeding
    - **Per-group valuation:** Each confirmed group is analyzed independently in parallel — its own AI analysis, market data search, and valuation
-   - For each group/item, sends images + customer description to **Claude Opus 4.6** for analysis (falls back to Sonnet on overload)
+   - For each group/item, sends images + customer description to **Claude Opus 5.5** for analysis (falls back to Sonnet on overload)
    - Extracts structured data: object type, brand/maker, artist, model, material, period, **number of auction lots**, **piece count**, and **set detection**
    - Searches Auctionet market data using progressive fallback queries (brand+model+artist → brand+model → artist+model → brand+artist → brand+type → artist+type → brand → artist → type+material)
    - **IQR outlier removal:** Filters statistically extreme prices using standard 1.5x Interquartile Range fences
@@ -661,7 +661,7 @@ The scanner calls the Anthropic API directly from the service worker (no message
 
 ## 13. Sales Analytics Dashboard (Försäljningsanalys)
 
-A standalone, full-featured analytics dashboard for data-driven business decisions. Accessible as a Chrome extension page (`chrome-extension://<id>/analytics.html`) — completely separate from the admin dashboard. Powered by the Auctionet public API with optional AI-powered analysis via Claude Sonnet 4.5.
+A standalone, full-featured analytics dashboard for data-driven business decisions. Accessible as a Chrome extension page (`chrome-extension://<id>/analytics.html`) — completely separate from the admin dashboard. Powered by the Auctionet public API with optional AI-powered analysis via Claude Sonnet 5.5.
 
 ### How to Access
 
@@ -748,7 +748,7 @@ Each card shows a YoY trend indicator (▲/▼/—) with percentage change compa
 
 **AI-Powered Analysis (on-demand):**
 
-An optional AI analysis feature powered by Claude Sonnet 4.5, triggered by the "AI-analys" button in the header. Sends a compact data summary (~800-1200 tokens) to Claude and returns structured insights in four categories:
+An optional AI analysis feature powered by Claude Sonnet 5.5, triggered by the "AI-analys" button in the header. Sends a compact data summary (~800-1200 tokens) to Claude and returns structured insights in four categories:
 
 | Section | Icon | Content |
 |---------|------|---------|
@@ -813,13 +813,13 @@ Five dedicated modules in `/modules/analytics/`:
 | `data-aggregator.js` | KPI computation, YoY comparison, monthly/price/category breakdowns, price range filtering |
 | `category-registry.js` | 135 sub-category → 25 parent category mapping with Swedish names |
 | `filter-state.js` | Reactive filter state (year, month, category, price range) with event emitter pattern |
-| `ai-insights.js` | On-demand AI analysis via Claude Sonnet 4.5 — data summary builder, API call, response parsing, and rendering |
+| `ai-insights.js` | On-demand AI analysis via Claude Sonnet 5.5 — data summary builder, API call, response parsing, and rendering |
 
 Entry point: `analytics.js` (~1000 lines) — bootstraps all modules, renders sidebar filters and full dashboard with DOM manipulation and event delegation.
 
 ### Technical Details
 
-- **Minimal AI calls** — data display is pure Auctionet public API; AI analysis is on-demand only (one Claude Sonnet 4.5 call per analysis, plus Haiku 4.5 for nugget ticker)
+- **Minimal AI calls** — data display is pure Auctionet public API; AI analysis is on-demand only (one Claude Sonnet 5.5 call per analysis, plus Haiku 5.5 for nugget ticker)
 - **Standalone extension page** — native ES6 module imports, no CSS conflicts, full `chrome.*` API access
 - **CSS-only charts** — horizontal bars via percentage widths, SVG polyline sparklines, no chart library dependencies
 - **`.ad-` class prefix** (analytics-dashboard) to avoid any naming conflicts
@@ -828,7 +828,7 @@ Entry point: `analytics.js` (~1000 lines) — bootstraps all modules, renders si
 - **CSV export** — exports filtered items with ID, price, estimate, reserve, category, and date
 - **Own house detection** — `ownCompanyId` setting (stored in `chrome.storage.sync`) determines whether house-specific financial KPIs are shown. When viewing another house, only universal hammer-price metrics are displayed
 - **Empirical fee multipliers** — revenue estimates use multipliers derived from actual 2025 resultatrapport data (GROSS_MULTIPLIER=1.196, NET_MULTIPLIER=0.300) rather than theoretical fee rates, accounting for the real mix of variable seller fees and margin scheme items
-- **AI nugget ticker** — a news-ticker-style scrolling message in the meta line, powered by Claude Haiku 4.5. Fetches 5 short messages per batch (3 data-driven, 2 general wisdom), cycles through them one at a time, then fetches a fresh batch. Uses company name, formats numbers with Swedish spacing, avoids the word "varor" (uses "föremål"/"objekt"). Subtle styling: muted color at 50% opacity with CSS mask fade edges
+- **AI nugget ticker** — a news-ticker-style scrolling message in the meta line, powered by Claude Haiku 5.5. Fetches 5 short messages per batch (3 data-driven, 2 general wisdom), cycles through them one at a time, then fetches a fresh batch. Uses company name, formats numbers with Swedish spacing, avoids the word "varor" (uses "föremål"/"objekt"). Subtle styling: muted color at 50% opacity with CSS mask fade edges
 - **Custom scrollbar** — thin 6px pill-style scrollbar with transparent track, replacing the default chunky browser scrollbar. Semi-transparent thumb brightens on hover
 
 ---
@@ -1054,7 +1054,7 @@ auctionet-extension/
 │   │   ├── data-aggregator.js            # KPI computation, distributions, trends
 │   │   ├── category-registry.js          # 135 sub-ID → 25 parent category mapping
 │   │   ├── filter-state.js              # Reactive filter state with event emitter
-│   │   └── ai-insights.js              # On-demand AI analysis (Claude Sonnet 4.5)
+│   │   └── ai-insights.js              # On-demand AI analysis (Claude Sonnet 5.5)
 │   │
 │   └── refactored/                        # New architecture components
 │       ├── components/
@@ -1121,7 +1121,7 @@ Standalone Extension Page (analytics.html — opened from popup)
                   ├──► data-aggregator.js ──► KPIs / Monthly / Price Distribution / Categories
                   ├──► filter-state.js ──► Reactive re-render on filter change
                   ├──► category-registry.js ──► 135 sub → 25 parent category mapping
-                  └──► ai-insights.js ──► background.js ──► Claude Sonnet 4.5 (on-demand)
+                  └──► ai-insights.js ──► background.js ──► Claude Sonnet 5.5 (on-demand)
                   ├──► chrome.alarms (10 min) / onInstalled ──► Publication Scanner
                   ├──► publication-scanner-bg.js ──► fetch (with cookies)
                   ├──► offscreen.js ──► DOMParser (HTML parsing)
@@ -1135,7 +1135,7 @@ Standalone Extension Page (spelling-audit.html — opened from popup)
                   ├──► SwedishSpellChecker (local dictionary)
                   ├──► BrandValidationManager (fuzzy brand matching)
                   ├──► Common misspellings / forbidden words / structural checks (local)
-                  └──► background.js ──► Claude Haiku 4.5 (optional AI spellcheck)
+                  └──► background.js ──► LanguageTool API + dictionary spellcheck (no AI)
 ```
 
 ### Performance Characteristics

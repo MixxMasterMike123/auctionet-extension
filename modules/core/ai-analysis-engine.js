@@ -74,8 +74,8 @@ Svara ENDAST JSON:
       chrome.runtime.sendMessage({
         type: 'anthropic-fetch',
         body: {
-          model: 'claude-haiku-4-5', // Claude Haiku 4.5 — fast artist detection
-          max_tokens: 100, // Reduced from 300 to 100 for faster processing
+          model: 'claude-haiku-5-5', // Claude Haiku 5.5 — fast artist detection
+          max_tokens: 150, // Small budget for a short JSON answer (Haiku 5.5 tokenizer ~30% denser than 4.5)
           temperature: 0.1, // Low temperature for consistent analysis
           messages: [{
             role: 'user',
@@ -265,8 +265,8 @@ JSON:
         chrome.runtime.sendMessage({
           type: 'anthropic-fetch',
           body: {
-            model: 'claude-haiku-4-5', // Claude Haiku 4.5 — fast bio generation
-            max_tokens: 200, // Reduced from 400 to 200 for faster response
+            model: 'claude-haiku-5-5', // Claude Haiku 5.5 — fast bio generation
+            max_tokens: 300, // Short bio; sized for the Haiku 5.5 tokenizer
             temperature: 0.1,
             messages: [{
               role: 'user',

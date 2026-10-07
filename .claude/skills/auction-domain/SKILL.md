@@ -37,9 +37,9 @@ Key principles (see `auction-catalog` skill for detailed rules by category):
 ### AI Model Tiering
 | Model | Tasks | Cost |
 |-------|-------|------|
-| Opus 4.6 | Valuation requests, biography, full-tier enhance-all | Highest |
-| Sonnet 4.5 | Field enhancement, cataloging, market analysis, image analysis | Standard |
-| Haiku 4.5 | Brand validation, search queries, relevance filtering, tidy-tier | Budget |
+| Opus 5.5 | Valuation requests, biography, full-tier enhance-all | Highest |
+| Sonnet 5.5 | Field enhancement, cataloging, market analysis, image analysis | Standard |
+| Haiku 5.5 | Brand validation, search queries, relevance filtering, tidy-tier | Budget |
 
 Prompt caching enabled (~90% token savings on system prompts).
 

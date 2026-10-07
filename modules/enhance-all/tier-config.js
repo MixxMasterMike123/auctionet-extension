@@ -8,8 +8,8 @@ export const TIER_CONFIG = {
       label: 'Städa',
       description: 'Strukturera och formatera',
       maxValuation: 3000,
-      model: 'claude-haiku-4-5',
-      maxTokens: 2000,
+      model: 'claude-haiku-5-5',
+      maxTokens: 2600,
       temperature: 0.1,
       features: {
         hook: false,
@@ -26,8 +26,8 @@ export const TIER_CONFIG = {
       label: 'Berika',
       description: 'Strukturera + kort kontext',
       maxValuation: 10000,
-      model: 'claude-sonnet-5',
-      makerContextModel: 'claude-opus-5',
+      model: 'claude-sonnet-5-5',
+      makerContextModel: 'claude-opus-5-5',
       maxTokens: 2000,
       temperature: 0.1,
       features: {
@@ -46,8 +46,8 @@ export const TIER_CONFIG = {
       label: 'Full',
       description: 'Komplett katalogisering',
       maxValuation: null,
-      model: 'claude-opus-5',
-      maxTokens: 3000,
+      model: 'claude-opus-5-5',
+      maxTokens: 5000, // Opus 5.5 always thinks (low effort); headroom for thinking + ~3000-token answer
       temperature: 0.1,
       features: {
         hook: false,

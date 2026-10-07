@@ -3,13 +3,13 @@ export const CONFIG = {
   // Model Configuration — updated Feb 2026
   MODELS: {
     'sonnet': {
-      id: 'claude-sonnet-5', // Claude Sonnet 5 — background.js strips temperature and disables thinking for 5-family models
-      name: 'Claude Sonnet 5',
+      id: 'claude-sonnet-5-5', // Claude Sonnet 5.5 ($2/$10 per MTok) — background.js strips temperature and sends thinking:between_tools (thinking off)
+      name: 'Claude Sonnet 5.5',
       cost: 'Standard'
     },
     'haiku': {
-      id: 'claude-haiku-4-5', // Claude Haiku 4.5 — fast/cheap ($1/$5 per MTok)
-      name: 'Claude Haiku 4.5',
+      id: 'claude-haiku-5-5', // Claude Haiku 5.5 — fast/cheap ($0.10/$0.50 per MTok ≤100k prompt); background.js strips temperature and disables thinking
+      name: 'Claude Haiku 5.5',
       cost: 'Budget'
     }
   },
