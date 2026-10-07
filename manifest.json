@@ -131,8 +131,7 @@
         "modules/analytics/*.js",
         "modules/ui/*.js",
         "modules/utils/*.js",
-        "modules/outlet/*.js",
-        "modules/hyperrank/*.js"
+        "modules/outlet/*.js"
       ],
       "matches": [
         "https://auctionet.com/*"

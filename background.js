@@ -1,5 +1,4 @@
 import { runBackgroundPublicationScan, recheckStickyErrors, PUB_SCAN_STICKY_KEY } from './publication-scanner-bg.js';
-import { collectHyperrankOutcomes, syncHyperrankData } from './modules/hyperrank/hyperrank-outcomes-bg.js';
 
 // Background script startup
 
@@ -35,24 +34,11 @@ chrome.alarms.get('stickyErrorRecheck').then(existing => {
 chrome.alarms.get('dashboardSearchSnapshot').then(existing => {
   if (!existing) chrome.alarms.create('dashboardSearchSnapshot', { delayInMinutes: 10, periodInMinutes: 60 });
 });
-// HYPERRANK outcome collection — every 30 min, up to 40 lookups per run. The
-// old 20 / 6h budget was ~8× too slow for the experiment's volume (observed
-// 2026-09-02: 200+ ended treated items waiting weeks for an outcome). Cheap
-// at this cadence: the collector only fetches items that have actually ended
-// and lack an outcome, so most runs spend a handful of fetches or none. Also
-// drives the Räddningslistan control-side (untreated, odd-item-id) outcome
-// collection from the same alarm/fetch budget — see
-// modules/hyperrank/hyperrank-outcomes-bg.js. Re-created (same name replaces)
-// when the stored period differs, so an existing install picks up the change.
-const HYPERRANK_COLLECT_PERIOD_MIN = 30;
-chrome.alarms.get('hyperrankOutcomeCollection').then(existing => {
-  if (!existing || existing.periodInMinutes !== HYPERRANK_COLLECT_PERIOD_MIN) {
-    chrome.alarms.create('hyperrankOutcomeCollection', { delayInMinutes: 5, periodInMinutes: HYPERRANK_COLLECT_PERIOD_MIN });
-  }
-});
-
 // Run an initial scan on extension install or update so data is fresh immediately
 chrome.runtime.onInstalled.addListener(() => {
+  // HYPERRANK experiment removed 2026-09-07: drop its persisted alarm and local data
+  chrome.alarms.clear('hyperrankOutcomeCollection');
+  chrome.storage.local.remove(['hyperrankedItems', 'hyperrankOutcomes', 'rescueObserved', 'rescueControlOutcomes', 'hyperrankSyncUrl', 'hyperrankSyncToken', 'hyperrankMachineLabel']);
   runPublicationScanAndNotify();
 });
 
@@ -63,17 +49,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     runStickyRecheckAndNotify();
   } else if (alarm.name === 'dashboardSearchSnapshot') {
     captureDashboardSearchSnapshot();
-  } else if (alarm.name === 'hyperrankOutcomeCollection') {
-    collectHyperrankOutcomes()
-      .then(() => {
-        // Push the full local state every run, not only on changes — data
-        // collected before the sync backend existed (or before the token was
-        // configured) must still reach the shared D1. Cheap: one POST / 30 min.
-        // Fail-soft (no token configured, network down, etc. never breaks
-        // the local collector).
-        syncHyperrankData().catch(e => console.warn('[Background] HYPERRANK sync push failed:', e.message));
-      })
-      .catch(e => console.warn('[Background] Hyperrank outcome collection failed:', e.message));
   }
 });
 
@@ -191,9 +166,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   } else if (request.type === 'outlet-fetch') {
     handleOutletFetch(request, sendResponse);
-    return true;
-  } else if (request.type === 'hyperrank-sync-fetch') {
-    handleHyperrankSyncFetch(request, sendResponse);
     return true;
   } else if (request.type === 'spellcheck-fetch') {
     handleSpellcheckFetch(request, sendResponse);
@@ -541,65 +513,6 @@ async function handleSpellcheckFetch(request, sendResponse) {
       return;
     }
     const data = await spellcheckFetch(method, path, body);
-    sendResponse({ success: true, data });
-  } catch (error) {
-    sendResponse({ success: false, error: error.message });
-  }
-}
-
-// ─── HYPERRANK sync backend (Cloudflare Worker + D1) ──────────────────
-// Merges the per-machine HYPERRANK treatment/outcome/rescue-observed data
-// (chrome.storage.local) across pilot machines (Micke + Anders) via the
-// sas-hyperrank-api Worker (workers/hyperrank-api). Same bearer-token
-// pattern as the SaS Outlet API above — the token never reaches content
-// scripts. Zero-config: falls back to the deployed Worker's default URL if
-// the user hasn't set a custom one, only the token needs to be configured.
-//
-// `path` is a Worker route like '/sync' or '/aggregate'.
-const HYPERRANK_DEFAULT_SYNC_URL = 'https://sas-hyperrank-api.micke-016.workers.dev';
-
-async function hyperrankApiFetch(method, path, body = null) {
-  const stored = await chrome.storage.local.get(['hyperrankSyncUrl', 'hyperrankSyncToken']);
-  if (!stored.hyperrankSyncToken) {
-    throw new Error('HYPERRANK-synk ej konfigurerad');
-  }
-  const baseUrl = (stored.hyperrankSyncUrl || HYPERRANK_DEFAULT_SYNC_URL).replace(/\/$/, '');
-
-  const url = `${baseUrl}${path}`;
-  const fetchOpts = {
-    method,
-    headers: {
-      'Authorization': `Bearer ${stored.hyperrankSyncToken}`,
-      'Content-Type': 'application/json'
-    }
-  };
-  if (body && method !== 'GET') {
-    fetchOpts.body = JSON.stringify(body);
-  }
-
-  const response = await fetch(url, fetchOpts);
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`HYPERRANK sync HTTP ${response.status} (${url}): ${errorText.slice(0, 300)}`);
-  }
-
-  const text = await response.text();
-  return text ? JSON.parse(text) : null;
-}
-
-// Expose for hyperrank-outcomes-bg.js (same service worker, no messaging needed)
-globalThis.__hyperrankApiFetch = hyperrankApiFetch;
-
-// Message handler so content scripts (admin-dashboard.js) can reach the
-// aggregate endpoint for the merged scoreboard.
-async function handleHyperrankSyncFetch(request, sendResponse) {
-  try {
-    const { method, path, body } = request;
-    if (!method || !path) {
-      sendResponse({ success: false, error: 'method and path required' });
-      return;
-    }
-    const data = await hyperrankApiFetch(method, path, body);
     sendResponse({ success: true, data });
   } catch (error) {
     sendResponse({ success: false, error: error.message });

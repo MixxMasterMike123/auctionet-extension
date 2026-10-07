@@ -39,7 +39,6 @@
     const { FieldDistributor } = await import(chrome.runtime.getURL('modules/enhance-all/field-distributor.js'));
     const { DashboardAPI } = await import(chrome.runtime.getURL('modules/dashboard-api.js'));
     const { SearchRelevanceMatcher } = await import(chrome.runtime.getURL('modules/search-relevance.js'));
-    const { HyperrankUI } = await import(chrome.runtime.getURL('modules/hyperrank/hyperrank-ui.js'));
 
     // Initialize the assistant
     class AuctionetCatalogingAssistant {
@@ -119,10 +118,6 @@
         this.fieldDistributor.setQualityAnalyzer(this.qualityAnalyzer);
         this.fieldDistributor.setUIManager(this.uiManager);
 
-        // Initialize HYPERRANK — opt-in aggressive search-rank optimizer
-        this.hyperrankUI = new HyperrankUI();
-        this.hyperrankUI.setOnRun((mode) => this.hyperrank(mode));
-
         this.init();
         this.setupEventListeners();
         
@@ -136,7 +131,6 @@
 
         this.uiManager.injectUI();
         this.enhanceAllUI.injectEnhanceAllButton();
-        this.hyperrankUI.injectPanel();
         this.attachEventListeners();
 
         // Run initial quality analysis after API key is loaded
@@ -302,9 +296,6 @@
         setTimeout(() => {
           this.updateConditionButtonState();
         }, 500); // Increased delay to ensure UI is fully ready
-
-        // HYPERRANK button — explicit listener, wired via HyperrankUI.setOnRun(),
-        // NOT the generic .ai-assist-button selector above (deliberately separate flow)
       }
 
       // Ensure the Claude API key is loaded, showing a field error indicator (labeled errLabel) if it's missing.
@@ -367,219 +358,6 @@
         } catch (error) {
           console.error('Error improving field:', error);
           this.showFieldErrorIndicator(fieldType, error.message);
-        }
-      }
-
-      // HYPERRANK — opt-in aggressive search-rank optimizer. Rewrites title,
-      // description and hidden keywords for maximum Auctionet search relevance.
-      // Explicitly NOT the norm: only runs when the user presses the dedicated
-      // HYPERRANK button (attachEventListeners wires this via HyperrankUI.setOnRun,
-      // never through the generic .ai-assist-button click handler above).
-      async hyperrank(mode = 'full') {
-        // Check API key without ensureApiKey()'s built-in error indicator/alert path
-        // (which targets the main field-selector map) — HYPERRANK surfaces errors
-        // in its own panel status line instead.
-        if (!this.apiManager.apiKey) {
-          await this.apiManager.loadSettings();
-        }
-        if (!this.apiManager.apiKey) {
-          this.hyperrankUI.setStatus('API-nyckel saknas. Ange den i tillägget.', 'error');
-          return;
-        }
-
-        // A/B protocol guard: odd-item-id rescue candidates are the control arm
-        // and should stay untouched. Warn before hyperranking one; a confirmed
-        // override is recorded as protocolViolation on the rescueObserved entry
-        // so the analysis can exclude it (compliance stat, not a hard block —
-        // sometimes a valuable dying item outweighs data purity).
-        try {
-          const idMatch = window.location.pathname.match(/\/items\/(\d+)/);
-          if (idMatch) {
-            const { rescueObserved = {} } = await chrome.storage.local.get('rescueObserved');
-            const entry = rescueObserved[idMatch[1]];
-            if (entry && entry.parity === 'control' && !entry.protocolViolation) {
-              const proceed = window.confirm(
-                'Det här föremålet är ett KONTROLLFÖREMÅL i HYPERRANK-experimentet (udda item-id) och ska enligt protokollet lämnas orört.\n\n' +
-                'Hyperranka ändå? Föremålet loggas då som protokollavvikelse och räknas bort ur experimentet.'
-              );
-              if (!proceed) {
-                this.hyperrankUI.setStatus('Avbrutet — kontrollföremål lämnat orört. 👍', 'info');
-                return;
-              }
-              entry.protocolViolation = true;
-              entry.violationTs = Date.now();
-              await chrome.storage.local.set({ rescueObserved });
-            }
-          }
-        } catch (e) {
-          console.warn('HYPERRANK control-guard check failed:', e);
-        }
-
-        this.hyperrankUI.setStatus('Analyserar föremål...', 'info');
-
-        const itemData = this.dataExtractor.extractItemData();
-
-        // Best-effort live buyer-search context. Never blocks HYPERRANK if the
-        // Dashboard API token is missing or the request fails.
-        itemData._matchedSearches = await this._getMatchedSearchQueries(itemData);
-
-        // Capture originals BEFORE applying anything, so undo restores all three
-        // fields even though they're applied one at a time via uiManager.applyImprovement.
-        const titleField = document.querySelector('#item_title_sv');
-        const descriptionField = document.querySelector('#item_description_sv');
-        const keywordsField = document.querySelector('#item_hidden_keywords');
-        const originalValues = {
-          title: titleField?.value,
-          description: descriptionField?.value,
-          keywords: keywordsField?.value
-        };
-
-        const kwOnly = mode === 'keywords';
-        this.hyperrankUI.setStatus(kwOnly
-          ? 'Fyller dolda sökord (titel och beskrivning rörs inte)...'
-          : 'Skriver om titel, beskrivning och sökord...', 'info');
-
-        const hyperrankFields = kwOnly ? ['keywords'] : ['title', 'description', 'keywords'];
-        hyperrankFields.forEach(f => this.fallbackShowFieldLoadingIndicator(f, 'hyperrank'));
-
-        try {
-          const result = await this.apiManager.callClaudeAPI(itemData, kwOnly ? 'hyperrank-keywords' : 'hyperrank');
-
-          let appliedCount = 0;
-          if (!kwOnly && result.title) {
-            this.uiManager.applyImprovement('title', result.title);
-            appliedCount++;
-          }
-          if (!kwOnly && result.description) {
-            this.uiManager.applyImprovement('description', result.description);
-            appliedCount++;
-          }
-          if (result.keywords) {
-            this.uiManager.applyImprovement('keywords', result.keywords);
-            appliedCount++;
-          }
-
-          hyperrankFields.forEach(f => {
-            if (result[f]) {
-              this.fallbackShowFieldSuccessIndicator(f);
-            } else {
-              this.fallbackRemoveFieldLoadingIndicator(f);
-            }
-          });
-
-          if (appliedCount === 0) {
-            throw new Error('Inget resultat kunde tolkas från AI-svaret');
-          }
-
-          this.hyperrankUI.setStatus(
-            `Klart — ${appliedCount} fält omskrivna för sökrankning. Ångra via fältens "Ångra"-knapp.`,
-            'success'
-          );
-          this.hyperrankUI.showRankCheckRow();
-
-          // Log the hyperrank so Räddningslistan can badge already-treated items
-          // (prevents re-running on the same listing for days). Pruned at 60 days
-          // once the outcome collector has recorded its result, hard-pruned at
-          // 120 days regardless — pruning an entry that still has no outcome
-          // silently drops it from the collector's queue (see
-          // hyperrank-outcomes-bg.js collectHyperrankOutcomes).
-          // Stores a visit-count snapshot ({ts, visits, followers}) taken at apply
-          // time so Räddningslistan can later show a before→after delta. Old
-          // entries may be a bare number (ts only) — readers must handle both.
-          try {
-            const idMatch = window.location.pathname.match(/\/items\/(\d+)/);
-            if (idMatch) {
-              const ts = Date.now();
-              const snapshot = await this._captureVisitSnapshot();
-              const { hyperrankedItems = {}, hyperrankOutcomes = {} } =
-                await chrome.storage.local.get(['hyperrankedItems', 'hyperrankOutcomes']);
-              hyperrankedItems[idMatch[1]] = { ts, visits: snapshot.visits, followers: snapshot.followers };
-              const cutoff = ts - 60 * 24 * 3600 * 1000;
-              const hardCutoff = ts - 120 * 24 * 3600 * 1000;
-              for (const [id, entry] of Object.entries(hyperrankedItems)) {
-                const entryTs = typeof entry === 'number' ? entry : entry?.ts;
-                if (!entryTs || entryTs < hardCutoff || (entryTs < cutoff && hyperrankOutcomes[id])) {
-                  delete hyperrankedItems[id];
-                }
-              }
-              await chrome.storage.local.set({ hyperrankedItems });
-            }
-          } catch (e) {
-            console.warn('HYPERRANK log failed:', e);
-          }
-
-          // Clear stale FAQ hints, then re-analyze (HYPERRANK intentionally trips
-          // the keyword-uniqueness quality check — accepted, noted in the UI copy)
-          document.querySelectorAll('.faq-hint').forEach(h => h.remove());
-          setTimeout(() => this.qualityAnalyzer.analyzeQuality(), 800);
-        } catch (error) {
-          console.error('HYPERRANK failed:', error);
-          hyperrankFields.forEach(f => this.fallbackRemoveFieldLoadingIndicator(f));
-          this.hyperrankUI.setStatus(`Fel: ${error.message}`, 'error');
-
-          // Restore originals for any field that may have been applied before the error
-          if (originalValues.title !== undefined && titleField && titleField.value !== originalValues.title) {
-            titleField.value = originalValues.title;
-          }
-          if (originalValues.description !== undefined && descriptionField && descriptionField.value !== originalValues.description) {
-            descriptionField.value = originalValues.description;
-          }
-          if (originalValues.keywords !== undefined && keywordsField && keywordsField.value !== originalValues.keywords) {
-            keywordsField.value = originalValues.keywords;
-          }
-        }
-      }
-
-      // Best-effort: fetch the admin SHOW page (edit URL minus /edit) and parse
-      // the "Besöksantal" / "Antal följare" figures out of the Statistik block,
-      // so HYPERRANK can freeze a before-snapshot. Never throws — on any failure
-      // (background fetch error, unexpected markup) returns nulls so the caller
-      // can still log the apply timestamp.
-      async _captureVisitSnapshot() {
-        const result = { visits: null, followers: null };
-        try {
-          const showUrl = window.location.href.replace(/\/edit(?:[/?#].*)?$/, '');
-          const resp = await chrome.runtime.sendMessage({ type: 'fetch-admin-html', url: showUrl });
-          if (!resp || !resp.success || !resp.html) return result;
-
-          // Tolerate arbitrary whitespace/tags (e.g. "<td>Besöksantal</td><td>53 (52 unika)</td>")
-          // between the label and the first integer that follows it.
-          const visitsMatch = resp.html.match(/Bes[öo]ksantal[\s\S]{0,200}?(\d[\d\s]*)/i);
-          if (visitsMatch) {
-            result.visits = parseInt(visitsMatch[1].replace(/\s/g, ''), 10);
-          }
-          const followersMatch = resp.html.match(/Antal f[öo]ljare[\s\S]{0,200}?(\d[\d\s]*)/i);
-          if (followersMatch) {
-            result.followers = parseInt(followersMatch[1].replace(/\s/g, ''), 10);
-          }
-        } catch (e) {
-          console.warn('HYPERRANK visit snapshot failed:', e);
-        }
-        return result;
-      }
-
-      // Best-effort: fetch live buyer searches from the Dashboard API and match
-      // them against current item data. Returns an array of up to 10 query
-      // strings, or [] if the Dashboard API is unavailable — never throws.
-      async _getMatchedSearchQueries(itemData) {
-        try {
-          const dashAPI = new DashboardAPI();
-          const searches = await dashAPI.getSearches();
-          if (!searches) return [];
-
-          const matcher = new SearchRelevanceMatcher();
-          const allSearches = [...(searches.shared || []), ...(searches.company || [])];
-          const matches = matcher.matchSearchesToItem(allSearches, {
-            title: itemData.title,
-            category: itemData.category,
-            artist: itemData.artist,
-            keywords: itemData.keywords
-          });
-
-          return matches.slice(0, 10).map(m => m.query);
-        } catch (e) {
-          console.warn('HYPERRANK: live search context unavailable:', e);
-          return [];
         }
       }
 
@@ -768,7 +546,7 @@
       }
 
       // Fallback implementations with actual animations - EXACT copy from Add Items page
-      fallbackShowFieldLoadingIndicator(fieldType, variant) {
+      fallbackShowFieldLoadingIndicator(fieldType) {
 
         
         // Remove any existing loading states first
@@ -794,13 +572,11 @@
         
         // Create spinner overlay - EXACT same HTML structure
         const overlay = document.createElement('div');
-        overlay.className = variant === 'hyperrank'
-          ? 'field-spinner-overlay field-spinner-overlay--hyperrank'
-          : 'field-spinner-overlay';
+        overlay.className = 'field-spinner-overlay';
         overlay.dataset.fieldType = fieldType;
         overlay.innerHTML = `
           <div class="ai-spinner"></div>
-          <div class="ai-processing-text">${variant === 'hyperrank' ? '⚡ Hyperrankar...' : 'Förbättrar...'}</div>
+          <div class="ai-processing-text">Förbättrar...</div>
         `;
         
         // Position overlay over the field - EXACT same positioning logic
