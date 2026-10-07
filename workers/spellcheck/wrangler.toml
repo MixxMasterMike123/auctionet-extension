@@ -8,6 +8,9 @@ binding = "DB"                 # available as env.DB in the Worker
 database_name = "auctionet-spellcheck"
 database_id = "3f685ea7-54df-4840-a0cc-f3bba1259016"
 
+# Secret (wrangler secret put SPELLCHECK_API_TOKEN): when set, all non-health requests require Authorization: Bearer <token>. Rollout: distribute the token to every extension install via the popup FIRST, then set the secret.
+# Not set → open mode (legacy behavior); GET /health then returns X-Spellcheck-Auth: open.
+
 # Optional: observability (free). Uncomment if you want request logs in the dashboard.
 # [observability]
 # enabled = true

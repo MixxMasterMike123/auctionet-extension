@@ -66,7 +66,42 @@ curl "$BASE/whitelist?status=all"
 | POST | `/whitelist/status` | `{word, status}` | review view: promote/reject/un-decide a word |
 | GET  | `/health` | — | liveness |
 
-Reads: public. Writes: rate-limited per IP (120/min) + payload validated.
+Auth: bearer token when the `SPELLCHECK_API_TOKEN` secret is set (see below);
+otherwise open. Writes: rate-limited per IP (120/min) + payload validated
+(results entries `{word, correction}` 1-100 chars each, extra keys stripped;
+`text_hash` ≤ 64 chars; `checked_by` truncated to 80; POST bodies > 256 KB → 413).
+`GET /ignored` and `GET /whitelist` are capped at 5000 rows; `added_by` is only
+returned to authenticated callers.
+
+## Authentication & rollout
+
+The Worker supports a shared bearer token. It is **only enforced when the
+`SPELLCHECK_API_TOKEN` secret is set** — without it the Worker runs in open mode
+(as before) and `GET /health` returns the header `X-Spellcheck-Auth: open`.
+`OPTIONS` and `GET /` / `GET /health` are always public.
+
+Roll out in this order so no install is locked out:
+
+```bash
+# 1. Generate a token
+openssl rand -hex 32
+
+# 2. On EVERY machine: extension popup → Stavningsbackend →
+#    "Spellcheck Worker-token (valfri)" → paste token → Spara stavningsbackend
+#    (stored in chrome.storage.local.spellcheckWorkerToken)
+
+# 3. Then, from workers/spellcheck/, set the secret
+#    (env -u is required in this project — ~/.zshenv token is for another account)
+env -u CLOUDFLARE_API_TOKEN npx wrangler secret put SPELLCHECK_API_TOKEN
+
+# 4. Deploy
+env -u CLOUDFLARE_API_TOKEN npx wrangler deploy
+```
+
+Verify: `curl -i "$BASE/health"` should no longer show `X-Spellcheck-Auth: open`,
+`curl "$BASE/ignored"` should return 401, and with
+`-H "Authorization: Bearer $TOKEN"` it should succeed. Any install without the
+token will then get 401s (publication scanner shows the shared backend as error).
 
 ## Whitelist promotion policy
 

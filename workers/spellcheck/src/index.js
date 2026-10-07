@@ -6,16 +6,25 @@
 //   - /ignored   : per-item "ignore all errors" flags
 //   - /whitelist : self-healing word whitelist (Phase 3)
 //
-// Auth model: reads are public; writes are open but rate-limited per IP and
-// strictly shape-validated, so only well-formed rows can ever be written.
-// This is low-stakes spellcheck data — worst case is junk whitelist words,
-// recoverable via the whitelist-review view.
+// Auth model: shared bearer token, opt-in via the SPELLCHECK_API_TOKEN secret.
+//   - Secret SET   → every request except OPTIONS and GET / or /health must
+//                    carry `Authorization: Bearer <token>`, else 401. The
+//                    extension sends it from chrome.storage.local
+//                    `spellcheckWorkerToken` (popup field).
+//   - Secret UNSET → legacy open mode (public reads, open writes) so the Worker
+//                    can be deployed before every install has the token. /health
+//                    then returns `X-Spellcheck-Auth: open` to make this visible.
+// Either way, writes are rate-limited per IP and strictly shape/size-validated,
+// and GET /whitelist only exposes `added_by` (employee names) to authenticated
+// callers. Rollout: distribute the token via the popup FIRST, then set the
+// secret (see README "Authentication & rollout").
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400',
+  'Access-Control-Expose-Headers': 'X-Spellcheck-Auth',
 };
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -53,21 +62,31 @@ function rateLimited(ip) {
 }
 
 // ─── Validation helpers ─────────────────────────────────────────────────────
+const MAX_BODY_BYTES = 262144; // 256 KB — reject larger POST bodies with 413
+const MAX_LIST_ROWS = 5000;    // hard cap on GET /ignored and GET /whitelist
+
 function isPosInt(v) {
   return Number.isInteger(v) && v > 0;
 }
 
-function validResults(r) {
-  // Expect an array of {word, correction, ...}; cap size to keep rows sane.
-  if (!Array.isArray(r) || r.length > 500) return false;
-  return r.every(
-    (e) =>
-      e &&
-      typeof e === 'object' &&
-      typeof e.word === 'string' &&
-      e.word.length > 0 &&
-      e.word.length <= 100
-  );
+function isBoundedStr(v, max) {
+  return typeof v === 'string' && v.length > 0 && v.length <= max;
+}
+
+// Validates and normalizes a results array. Each entry must be
+// {word: 1..100 chars, correction: 1..100 chars}. Extra keys are STRIPPED
+// (not rejected) so a newer client adding fields can't break cache writes,
+// but nothing beyond word/correction is ever persisted.
+// Returns the sanitized array, or null if invalid.
+function sanitizeResults(r) {
+  if (!Array.isArray(r) || r.length > 500) return null;
+  const out = [];
+  for (const e of r) {
+    if (!e || typeof e !== 'object') return null;
+    if (!isBoundedStr(e.word, 100) || !isBoundedStr(e.correction, 100)) return null;
+    out.push({ word: e.word, correction: e.correction });
+  }
+  return out;
 }
 
 function nowIso() {
@@ -94,10 +113,13 @@ async function getCache(db, url) {
 async function postCache(db, body) {
   const itemId = Number(body.item_id);
   const textHash = body.text_hash;
-  const results = body.results ?? [];
+  const results = sanitizeResults(body.results ?? []);
   if (!isPosInt(itemId)) return err('item_id must be a positive integer');
-  if (typeof textHash !== 'string' || !textHash) return err('text_hash required');
-  if (!validResults(results)) return err('results must be an array of {word,...}');
+  if (!isBoundedStr(textHash, 64)) return err('text_hash required (1-64 chars)');
+  if (!results) return err('results must be an array of {word, correction} (1-100 chars each)');
+  const checkedBy = typeof body.checked_by === 'string' && body.checked_by.trim()
+    ? body.checked_by.trim().slice(0, 80)
+    : null;
   await db
     .prepare(
       `INSERT INTO spellcheck_cache (item_id, text_hash, results, checked_at, checked_by)
@@ -108,14 +130,14 @@ async function postCache(db, body) {
          checked_at = excluded.checked_at,
          checked_by = excluded.checked_by`
     )
-    .bind(itemId, textHash, JSON.stringify(results), nowIso(), body.checked_by ?? null)
+    .bind(itemId, textHash, JSON.stringify(results), nowIso(), checkedBy)
     .run();
   return json({ ok: true });
 }
 
 async function getIgnored(db) {
   const { results } = await db
-    .prepare('SELECT item_id FROM spellcheck_ignored')
+    .prepare(`SELECT item_id FROM spellcheck_ignored LIMIT ${MAX_LIST_ROWS}`)
     .all();
   return json((results || []).map((r) => r.item_id));
 }
@@ -140,17 +162,22 @@ async function deleteIgnored(db, url) {
   return json({ ok: true });
 }
 
-async function getWhitelist(db, url) {
+// `authed` is true only when the token is configured AND the caller presented
+// it; `added_by` (employee names) is omitted otherwise (open mode).
+async function getWhitelist(db, url, authed) {
   const status = url.searchParams.get('status') || 'active';
   if (!['active', 'pending', 'rejected', 'all'].includes(status)) {
     return err('invalid status');
   }
-  const cols = 'word, ignore_count, status, added_by, added_at, promoted_at';
+  const cols = authed
+    ? 'word, ignore_count, status, added_by, added_at, promoted_at'
+    : 'word, ignore_count, status, added_at, promoted_at';
+  // LIMIT is a hard cap (MAX_LIST_ROWS) so the response can't grow unbounded.
   const stmt =
     status === 'all'
-      ? db.prepare(`SELECT ${cols} FROM spellcheck_whitelist ORDER BY added_at DESC`)
+      ? db.prepare(`SELECT ${cols} FROM spellcheck_whitelist ORDER BY added_at DESC LIMIT ${MAX_LIST_ROWS}`)
       : db
-          .prepare(`SELECT ${cols} FROM spellcheck_whitelist WHERE status = ? ORDER BY added_at DESC`)
+          .prepare(`SELECT ${cols} FROM spellcheck_whitelist WHERE status = ? ORDER BY added_at DESC LIMIT ${MAX_LIST_ROWS}`)
           .bind(status);
   const { results } = await stmt.all();
   return json(results || []);
@@ -233,6 +260,20 @@ export default {
 
     if (!db) return err('D1 binding "DB" missing', 500);
 
+    // Health / root — always public. Signals open mode when no token is set.
+    const token = env.SPELLCHECK_API_TOKEN || '';
+    if ((path === '/' || path === '/health') && request.method === 'GET') {
+      return json(
+        { ok: true, service: 'spellcheck', time: nowIso() },
+        200,
+        token ? {} : { 'X-Spellcheck-Auth': 'open' }
+      );
+    }
+
+    // Auth: enforced only when the secret is configured (safe rollout).
+    const authed = !!token && request.headers.get('authorization') === `Bearer ${token}`;
+    if (token && !authed) return err('unauthorized', 401);
+
     // Rate-limit writes only.
     const isWrite = request.method === 'POST' || request.method === 'DELETE';
     if (isWrite) {
@@ -242,19 +283,30 @@ export default {
 
     let body = {};
     if (request.method === 'POST') {
+      // Size guard before parsing: trust Content-Length when present, and
+      // re-check the actual length (covers chunked bodies without the header).
+      const declared = Number(request.headers.get('content-length') || 0);
+      if (declared > MAX_BODY_BYTES) return err('payload too large', 413);
+      let raw;
       try {
-        body = await request.json();
+        raw = await request.text();
+      } catch {
+        return err('invalid body');
+      }
+      if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
+        return err('payload too large', 413);
+      }
+      try {
+        body = JSON.parse(raw);
       } catch {
         return err('invalid JSON body');
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return err('JSON body must be an object');
       }
     }
 
     try {
-      // Health / root
-      if (path === '/' || path === '/health') {
-        return json({ ok: true, service: 'spellcheck', time: nowIso() });
-      }
-
       if (path === '/cache') {
         if (request.method === 'GET') return await getCache(db, url);
         if (request.method === 'POST') return await postCache(db, body);
@@ -263,7 +315,7 @@ export default {
         if (request.method === 'POST') return await postIgnored(db, body);
         if (request.method === 'DELETE') return await deleteIgnored(db, url);
       } else if (path === '/whitelist') {
-        if (request.method === 'GET') return await getWhitelist(db, url);
+        if (request.method === 'GET') return await getWhitelist(db, url, authed);
         if (request.method === 'POST') return await postWhitelist(db, body);
       } else if (path === '/whitelist/status') {
         if (request.method === 'POST') return await setWhitelistStatus(db, body);
