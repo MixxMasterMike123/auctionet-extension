@@ -6,14 +6,16 @@ import { runBackgroundPublicationScan, recheckStickyErrors, PUB_SCAN_STICKY_KEY 
 (async () => {
   try {
     if (!chrome?.storage?.local) return; // Guard against missing storage API
+    if (!chrome?.storage?.sync) return;
+    const sync = await chrome.storage.sync.get(['anthropicApiKey']);
+    if (!sync.anthropicApiKey) return;
+    // Copy to local only if local is missing — never overwrite a newer local key
     const local = await chrome.storage.local.get(['anthropicApiKey']);
-    if (!local.anthropicApiKey && chrome?.storage?.sync) {
-      const sync = await chrome.storage.sync.get(['anthropicApiKey']);
-      if (sync.anthropicApiKey) {
-        await chrome.storage.local.set({ anthropicApiKey: sync.anthropicApiKey });
-        await chrome.storage.sync.remove('anthropicApiKey');
-      }
+    if (!local.anthropicApiKey) {
+      await chrome.storage.local.set({ anthropicApiKey: sync.anthropicApiKey });
     }
+    // Always purge the synced copy so the key never lingers in sync storage
+    await chrome.storage.sync.remove('anthropicApiKey');
   } catch (e) {
     // Non-critical: migration will retry on next startup
     console.warn('[Background] API key migration failed:', e);
@@ -25,21 +27,51 @@ import { runBackgroundPublicationScan, recheckStickyErrors, PUB_SCAN_STICKY_KEY 
 // regardless of whether the dashboard tab is open.
 // delayInMinutes: 1 ensures the first scan fires ~1 min after extension load/update.
 // Use get() to avoid creating duplicate alarms on service worker restart.
-chrome.alarms.get('publicationScan').then(existing => {
-  if (!existing) chrome.alarms.create('publicationScan', { delayInMinutes: 1, periodInMinutes: 30 });
-});
-chrome.alarms.get('stickyErrorRecheck').then(existing => {
-  if (!existing) chrome.alarms.create('stickyErrorRecheck', { delayInMinutes: 5, periodInMinutes: 20 });
+// The user's `enablePubScanner` preference (popup, default false) is authoritative.
+async function isPubScannerEnabled() {
+  try {
+    const { enablePubScanner } = await chrome.storage.local.get(['enablePubScanner']);
+    return enablePubScanner === true;
+  } catch {
+    return false;
+  }
+}
+
+async function syncPubScannerAlarms() {
+  if (await isPubScannerEnabled()) {
+    const [scan, sticky] = await Promise.all([
+      chrome.alarms.get('publicationScan'),
+      chrome.alarms.get('stickyErrorRecheck'),
+    ]);
+    if (!scan) chrome.alarms.create('publicationScan', { delayInMinutes: 1, periodInMinutes: 30 });
+    if (!sticky) chrome.alarms.create('stickyErrorRecheck', { delayInMinutes: 5, periodInMinutes: 20 });
+  } else {
+    await Promise.all([
+      chrome.alarms.clear('publicationScan'),
+      chrome.alarms.clear('stickyErrorRecheck'),
+    ]);
+  }
+}
+
+syncPubScannerAlarms();
+
+// Toggling in the popup takes effect immediately, no service-worker restart needed
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && 'enablePubScanner' in changes) {
+    syncPubScannerAlarms();
+  }
 });
 chrome.alarms.get('dashboardSearchSnapshot').then(existing => {
   if (!existing) chrome.alarms.create('dashboardSearchSnapshot', { delayInMinutes: 10, periodInMinutes: 60 });
 });
 // Run an initial scan on extension install or update so data is fresh immediately
-chrome.runtime.onInstalled.addListener(() => {
+// (only when the user has enabled the publication scanner)
+chrome.runtime.onInstalled.addListener(async () => {
   // HYPERRANK experiment removed 2026-09-07: drop its persisted alarm and local data
   chrome.alarms.clear('hyperrankOutcomeCollection');
   chrome.storage.local.remove(['hyperrankedItems', 'hyperrankOutcomes', 'rescueObserved', 'rescueControlOutcomes', 'hyperrankSyncUrl', 'hyperrankSyncToken', 'hyperrankMachineLabel']);
-  runPublicationScanAndNotify();
+  await syncPubScannerAlarms();
+  if (await isPubScannerEnabled()) runPublicationScanAndNotify();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -61,8 +93,10 @@ function isBusinessHours() {
   return h >= 7 && h < 20; // 07:00–19:59
 }
 
-async function runPublicationScanAndNotify({ skipCooldown = false } = {}) {
+async function runPublicationScanAndNotify({ skipCooldown = false, manual = false } = {}) {
   try {
+    // Defence in depth: automatic runs respect the preference; manual "Kör nu" always runs
+    if (!manual && !(await isPubScannerEnabled())) return;
     const cooldown = isBusinessHours() ? SCAN_COOLDOWN_MS : SCAN_COOLDOWN_OFF_HOURS_MS;
     if (!skipCooldown && Date.now() - lastScanTime < cooldown) {
       return; // Recently scanned — skip
@@ -78,6 +112,7 @@ async function runPublicationScanAndNotify({ skipCooldown = false } = {}) {
 
 async function runStickyRecheckAndNotify() {
   try {
+    if (!(await isPubScannerEnabled())) return;
     const result = await recheckStickyErrors();
     if (result) {
       notifyDashboardTabs('sticky-recheck-complete');
@@ -154,8 +189,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     handleFetchImageAsBase64(request, sendResponse);
     return true;
   } else if (request.type === 'run-publication-scan') {
-    // Manual "Kör nu" from dashboard UI — always runs, skips cooldown
-    runPublicationScanAndNotify({ skipCooldown: true });
+    // "Kör nu" from dashboard UI always runs (even if auto-scanner disabled) and skips
+    // cooldown. The dashboard's idle-tab auto-rescan sends `auto: true` and must respect
+    // the enablePubScanner setting like every other automatic run.
+    runPublicationScanAndNotify({ skipCooldown: true, manual: !request.auto });
     sendResponse({ success: true });
     return false;
   } else if (request.type === 'fetch-admin-html') {
@@ -472,20 +509,26 @@ async function outletApiFetch(method, path, body = null) {
 }
 
 // ─── Spellcheck shared backend (Cloudflare Worker + D1) ─────────────
-// Replaces the previous Supabase-backed shared spellcheck store. Reads are
-// public, writes are open (rate-limited + validated by the Worker), so no
-// secret key is needed — only the Worker base URL. The SaS-Outlet Supabase
-// system above is a separate concern and is left untouched.
+// Replaces the previous Supabase-backed shared spellcheck store. The Worker
+// runs open (rate-limited + validated) until its SPELLCHECK_API_TOKEN secret is
+// set; after that every non-health request needs the bearer token stored as
+// `spellcheckWorkerToken` (popup). The SaS-Outlet Supabase system above is a
+// separate concern and is left untouched.
 //
 // `path` is a Worker route like '/cache?item_id=1&hash=abc' or '/ignored'.
 async function spellcheckFetch(method, path, body = null) {
-  const { spellcheckWorkerUrl } = await chrome.storage.local.get('spellcheckWorkerUrl');
+  const { spellcheckWorkerUrl, spellcheckWorkerToken } =
+    await chrome.storage.local.get(['spellcheckWorkerUrl', 'spellcheckWorkerToken']);
   if (!spellcheckWorkerUrl) {
     throw new Error('Spellcheck-backend ej konfigurerad');
   }
 
   const url = `${spellcheckWorkerUrl.replace(/\/$/, '')}${path}`;
   const fetchOpts = { method, headers: { 'Content-Type': 'application/json' } };
+  // Optional bearer token — required once the Worker's SPELLCHECK_API_TOKEN secret is set.
+  if (spellcheckWorkerToken) {
+    fetchOpts.headers.Authorization = `Bearer ${spellcheckWorkerToken}`;
+  }
   if (body && method !== 'GET') {
     fetchOpts.body = JSON.stringify(body);
   }

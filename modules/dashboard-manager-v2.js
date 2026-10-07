@@ -5,6 +5,19 @@ import { CheckboxManager } from './ui/checkbox-manager.js';
 import { TermProcessor } from './core/term-processor.js';
 import { escapeHTML } from './core/html-escape.js';
 
+// Returns the URL only if it is an https link on auctionet.com (or a subdomain), else null.
+function safeAuctionetUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return null;
+    const host = parsed.hostname;
+    if (host !== 'auctionet.com' && !host.endsWith('.auctionet.com')) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 export class DashboardManagerV2 {
   constructor() {
     // Initialize focused modules
@@ -350,7 +363,7 @@ export class DashboardManagerV2 {
     if (exceptional.sales && exceptional.sales.length > 0) {
       // Sort by price (highest first) and take top 4
       const topSales = exceptional.sales
-        .filter(sale => sale.url) // Only include sales with valid URLs
+        .filter(sale => safeAuctionetUrl(sale.url)) // Only include sales with valid Auctionet URLs
         .sort((a, b) => (b.finalPrice || b.price || 0) - (a.finalPrice || a.price || 0))
         .slice(0, 4);
       
@@ -358,7 +371,7 @@ export class DashboardManagerV2 {
         const linkNumbers = topSales.map((sale, index) => {
           const price = sale.finalPrice || sale.price || 0;
           const title = `${price.toLocaleString()} SEK - ${sale.title ? sale.title.substring(0, 60) : 'Auction item'}...`;
-          return `<a href="${sale.url}" target="_blank" title="${title}" style="
+          return `<a href="${escapeHTML(safeAuctionetUrl(sale.url))}" target="_blank" title="${escapeHTML(title)}" style="
             color: var(--aet-blue);
             text-decoration: none;
             font-weight: bold;
@@ -383,7 +396,7 @@ export class DashboardManagerV2 {
       <div class="market-item market-exceptional">
         <div class="market-label">Exceptionella</div>
         <div class="market-value">${exceptionellaCount} exceptionella bekräftade försäljningar över ${thresholdText}</div>
-        <div class="market-help">${exceptional.description || 'Bekräftade höga försäljningar'}</div>
+        <div class="market-help">${escapeHTML(exceptional.description || 'Bekräftade höga försäljningar')}</div>
         ${exceptionalLinksHTML}
       </div>`;
   }

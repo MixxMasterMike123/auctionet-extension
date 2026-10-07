@@ -2,6 +2,8 @@
 // Real-time Field Monitoring and Validation for Add Items Page
 // Extracted from add-items-tooltip-manager.js following edit page patterns
 
+import { escapeHTML } from '../core/html-escape.js';
+
 export class FieldMonitorManager {
   constructor(options = {}) {
     this.options = {
@@ -347,9 +349,9 @@ export class FieldMonitorManager {
         id: tooltipId,
         title: '🎨 Konstnär upptäckt',
         content: `
-          <p><strong>${result.suggestion.artistName}</strong> upptäcktes i titeln.</p>
+          <p><strong>${escapeHTML(result.suggestion.artistName)}</strong> upptäcktes i titeln.</p>
           <p class="confidence">Konfidensgrad: ${Math.round(result.suggestion.confidence * 100)}%</p>
-          ${result.suggestion.reasoning ? `<p class="reasoning">${result.suggestion.reasoning}</p>` : ''}
+          ${result.suggestion.reasoning ? `<p class="reasoning">${escapeHTML(result.suggestion.reasoning)}</p>` : ''}
         `,
         type: 'artist',
         buttons: [
@@ -378,8 +380,8 @@ export class FieldMonitorManager {
           id: tooltipId,
           title: `⚠️ ${this.getFieldDisplayName(fieldType)} behöver förbättras`,
           content: `
-            <p><strong>${mainIssue.message}</strong></p>
-            <p class="suggestion">${mainIssue.suggestion}</p>
+            <p><strong>${escapeHTML(mainIssue.message)}</strong></p>
+            <p class="suggestion">${escapeHTML(mainIssue.suggestion)}</p>
             ${highPriorityIssues.length > 1 ? `<p class="additional">+${highPriorityIssues.length - 1} ytterligare problem</p>` : ''}
           `,
           type: result.severity === 'critical' ? 'warning' : 'info',

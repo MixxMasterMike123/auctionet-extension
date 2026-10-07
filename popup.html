@@ -397,7 +397,12 @@
                 <div class="input-group">
                     <label for="spellcheck-worker-url">Cloudflare Worker URL:</label>
                     <input type="text" id="spellcheck-worker-url" placeholder="https://auctionet-spellcheck.xxxx.workers.dev">
-                    <div class="help-text">Delad stavningscache och ignorerade ord för alla anställda. Endast URL behövs (inga nycklar).</div>
+                    <div class="help-text">Delad stavningscache och ignorerade ord för alla anställda.</div>
+                </div>
+                <div class="input-group">
+                    <label for="spellcheck-worker-token">Worker-token (valfri):</label>
+                    <input type="password" id="spellcheck-worker-token" placeholder="hemlig token...">
+                    <div class="help-text">Krävs när Worker-hemligheten SPELLCHECK_API_TOKEN är satt.</div>
                 </div>
                 <button id="save-spellcheck-config">Spara stavningsbackend</button>
             </div>

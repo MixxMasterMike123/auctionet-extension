@@ -1483,7 +1483,7 @@
     if (document.visibilityState === 'visible') {
       const idleMinutes = (Date.now() - pubScanLastVisible) / 60000;
       if (idleMinutes >= 10) {
-        safeSendMessage({ type: 'run-publication-scan' });
+        safeSendMessage({ type: 'run-publication-scan', auto: true }); // automatic — respects the enablePubScanner setting
       }
     }
     pubScanLastVisible = Date.now();

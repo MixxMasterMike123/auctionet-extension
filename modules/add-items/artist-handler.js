@@ -414,13 +414,13 @@ export class AddItemsArtistHandler {
         <div class="tooltip-body">
           ${correctionNotice}
           <div class="artist-detection-info">
-            "<strong>${artistDetection.detectedArtist}</strong>" (${confidenceText}% säkerhet)
+            "<strong>${escapeHTML(artistDetection.detectedArtist)}</strong>" (${confidenceText}% säkerhet)
             ${isVerified ? '<span class="verification-badge">✓ Verifierad konstnär</span>' : ''}
           </div>
-          ${reasoning ? `<div class="reasoning-text">${reasoning}</div>` : ''}
-          ${biography ? `<div class="artist-bio-preview">${biography.substring(0, 120)}${biography.length > 120 ? '...' : ''}</div>` : ''}
+          ${reasoning ? `<div class="reasoning-text">${escapeHTML(reasoning)}</div>` : ''}
+          ${biography ? `<div class="artist-bio-preview">${escapeHTML(biography.substring(0, 120))}${biography.length > 120 ? '...' : ''}</div>` : ''}
           <div class="action-text">- flytta från titel till konstnärsfält
-          ${options.isReplacement ? `, ersätta med "${options.existingArtist}"` : ''}
+          ${options.isReplacement ? `, ersätta med "${escapeHTML(options.existingArtist)}"` : ''}
           </div>
         </div>
       `;
@@ -677,7 +677,7 @@ export class AddItemsArtistHandler {
         </div>
         <div class="tooltip-body">
           <div class="enhancement-main">
-            <strong>${formData.artist}</strong> är angiven som konstnär/formgivare.<br>
+            <strong>${escapeHTML(formData.artist)}</strong> är angiven som konstnär/formgivare.<br>
             Beskrivningen kan förbättras med kontextuell information.
           </div>
           <div class="enhancement-note">

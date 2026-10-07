@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const outletSupabaseKeyInput = document.getElementById('outlet-supabase-key');
   const saveOutletConfigButton = document.getElementById('save-outlet-config');
   const spellcheckWorkerUrlInput = document.getElementById('spellcheck-worker-url');
+  const spellcheckWorkerTokenInput = document.getElementById('spellcheck-worker-token');
   const saveSpellcheckConfigButton = document.getElementById('save-spellcheck-config');
 
   const adminUI = document.getElementById('admin-ui');
@@ -413,7 +414,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (isEnabled) {
         showStatus('Publiceringskontroll aktiverad. Nästa skanning startar inom 30 min.', 'success');
       } else {
-        showStatus('Publiceringskontroll avaktiverad.', 'success');
+        showStatus('Publiceringskontroll avaktiverad — inga automatiska skanningar körs.', 'success');
       }
     } catch (error) {
       console.error('Error saving pub scanner setting:', error);
@@ -678,8 +679,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadSpellcheckConfig() {
     try {
-      const { spellcheckWorkerUrl } = await chrome.storage.local.get('spellcheckWorkerUrl');
+      const { spellcheckWorkerUrl, spellcheckWorkerToken } =
+        await chrome.storage.local.get(['spellcheckWorkerUrl', 'spellcheckWorkerToken']);
       if (spellcheckWorkerUrl) spellcheckWorkerUrlInput.value = spellcheckWorkerUrl;
+      if (spellcheckWorkerToken) spellcheckWorkerTokenInput.value = spellcheckWorkerToken;
     } catch (error) {
       console.error('Error loading spellcheck config:', error);
     }
@@ -687,10 +690,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function saveSpellcheckConfig() {
     const url = spellcheckWorkerUrlInput.value.trim().replace(/\/$/, '');
+    const token = spellcheckWorkerTokenInput.value.trim();
     try {
       saveSpellcheckConfigButton.disabled = true;
       saveSpellcheckConfigButton.textContent = 'Sparar...';
-      await chrome.storage.local.set({ spellcheckWorkerUrl: url || '' });
+      await chrome.storage.local.set({ spellcheckWorkerUrl: url || '', spellcheckWorkerToken: token || '' });
       showStatus(url ? 'Stavningsbackend sparad!' : 'Stavningsbackend borttagen.', 'success');
     } catch (error) {
       showStatus('Fel vid sparande: ' + error.message, 'error');
