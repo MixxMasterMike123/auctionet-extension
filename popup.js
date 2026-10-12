@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ownCompanyInput = document.getElementById('own-company-id');
   const saveOwnCompanyButton = document.getElementById('save-own-company');
   const enablePubScannerCheckbox = document.getElementById('enable-pub-scanner');
+  const pubScanSpellEngineSelect = document.getElementById('pub-scan-spell-engine');
   const dashboardTokenInput = document.getElementById('dashboard-token');
   const saveDashboardTokenButton = document.getElementById('save-dashboard-token');
   const outletSupabaseUrlInput = document.getElementById('outlet-supabase-url');
@@ -46,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   showDashboardCheckbox.addEventListener('change', saveShowDashboardSetting);
   saveOwnCompanyButton.addEventListener('click', saveOwnCompanySetting);
   enablePubScannerCheckbox.addEventListener('change', savePubScannerSetting);
+  pubScanSpellEngineSelect.addEventListener('change', savePubScanSpellEngine);
   saveDashboardTokenButton.addEventListener('click', saveDashboardToken);
   saveOutletConfigButton.addEventListener('click', saveOutletConfig);
   saveSpellcheckConfigButton.addEventListener('click', saveSpellcheckConfig);
@@ -401,9 +403,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const result = await chrome.storage.local.get(['enablePubScanner']);
       // Default to false (disabled) — opt-in to avoid unnecessary API costs
       enablePubScannerCheckbox.checked = result.enablePubScanner === true;
+      const { pubScanSpellEngine } = await chrome.storage.local.get(['pubScanSpellEngine']);
+      pubScanSpellEngineSelect.value = pubScanSpellEngine === 'haiku' ? 'haiku' : 'languagetool';
     } catch (error) {
       console.error('Error loading pub scanner setting:', error);
       enablePubScannerCheckbox.checked = false;
+    }
+  }
+
+  async function savePubScanSpellEngine() {
+    const engine = pubScanSpellEngineSelect.value === 'haiku' ? 'haiku' : 'languagetool';
+    try {
+      await chrome.storage.local.set({ pubScanSpellEngine: engine });
+      showStatus(engine === 'haiku' ? 'Skannern använder Claude Haiku 5.5 för stavning.' : 'Skannern använder LanguageTool för stavning.', 'success');
+    } catch (error) {
+      console.error('Error saving spell engine:', error);
     }
   }
 

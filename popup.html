@@ -318,7 +318,15 @@
                     <input type="checkbox" id="enable-pub-scanner">
                     <span>Automatisk publiceringskontroll</span>
                 </label>
-                <div class="help-text">Skannar publiceringskön var 30:e minut (AI-stavkontroll, Haiku). Aktivera bara på datorer som ska övervaka kön.</div>
+                <div class="help-text">Skannar publiceringskön var 30:e minut. Aktivera bara på datorer som ska övervaka kön.</div>
+            </div>
+            <div class="input-group">
+                <label for="pub-scan-spell-engine">Stavkontroll i skannern:</label>
+                <select id="pub-scan-spell-engine">
+                    <option value="languagetool">LanguageTool (ordbok)</option>
+                    <option value="haiku">Claude Haiku 5.5 (AI)</option>
+                </select>
+                <div class="help-text">Varje motor har egen stavningscache, så byte ger en fullständig omskanning.</div>
             </div>
         </div>
 

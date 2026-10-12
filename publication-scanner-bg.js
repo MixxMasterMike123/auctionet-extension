@@ -24,7 +24,7 @@ const PUB_SCAN_CACHE_KEY = 'publicationScanResults';
 const PUB_SCAN_PROGRESS_KEY = 'publicationScanProgress';
 const PUB_SCAN_SPELL_CACHE_KEY = 'pubScanSpellCache_v2';
 const PUB_SCAN_SPELL_VERSION_KEY = 'pubScanSpellVersion';
-const PUB_SCAN_SPELL_VERSION = 7; // Bumped: spellcheck moved from LanguageTool to Haiku 5.5 — old cached LanguageTool results are discarded
+const PUB_SCAN_SPELL_VERSION = 8; // Bumped: spell engine is now selectable (default back to LanguageTool) — discard Haiku-era cached results
 const PUB_SCAN_STICKY_KEY = 'publicationScanStickyErrors';
 const STICKY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PUB_SCAN_MIN_DESC_LENGTH = 40;
@@ -332,8 +332,14 @@ async function saveSpellCache() {
   await chrome.storage.local.set({ [PUB_SCAN_SPELL_CACHE_KEY]: spellCache });
 }
 
+// The hash is scoped to the active engine so LanguageTool and Haiku results
+// never collide in either the local or the shared (Worker) cache.
+async function spellHash(text) {
+  return simpleHash(`${await getSpellEngine()}|${text}`);
+}
+
 async function getCachedSpellcheck(itemId, text) {
-  const hash = simpleHash(text);
+  const hash = await spellHash(text);
 
   // L1: Local chrome.storage cache (instant, per-browser)
   const cache = await loadSpellCache();
@@ -352,7 +358,7 @@ async function getCachedSpellcheck(itemId, text) {
 }
 
 async function setCachedSpellcheck(itemId, text, results) {
-  const hash = simpleHash(text);
+  const hash = await spellHash(text);
 
   // L1: Local cache
   const cache = await loadSpellCache();
@@ -396,7 +402,7 @@ async function setSharedCachedSpellcheck(itemId, textHash, results) {
   }
 }
 
-// ─── Spellcheck (Claude Haiku 5.5 primary — same prompt as the edit page) ──
+// ─── Spellcheck engine A: Claude Haiku 5.5 (opt-in, same prompt as the edit page) ──
 
 let loggedLanguageToolFallback = false;
 
@@ -431,9 +437,26 @@ async function checkSpellingAI(text) {
   }));
 }
 
+// Which checker the scanner uses: 'languagetool' (default) or 'haiku'.
+// Popup setting `pubScanSpellEngine`. Haiku 5.5 was trialled 2026-10-07..12 and
+// reported nothing on several days of publications, so LanguageTool is the
+// default again until that is understood. Haiku stays selectable.
+const SPELL_ENGINE_KEY = 'pubScanSpellEngine';
+async function getSpellEngine() {
+  try {
+    const r = await chrome.storage.local.get([SPELL_ENGINE_KEY]);
+    return r[SPELL_ENGINE_KEY] === 'haiku' ? 'haiku' : 'languagetool';
+  } catch {
+    return 'languagetool';
+  }
+}
+
 // Picks the checker and reports whether the result may be cached.
 // Returns { errors, cacheable }.
 async function runSpellcheck(text) {
+  if ((await getSpellEngine()) !== 'haiku') {
+    return { errors: validateSpellingResults(await checkSpellingLanguageTool(text)), cacheable: true };
+  }
   try {
     return { errors: validateSpellingResults(await checkSpellingAI(text), { properNounGuard: false }), cacheable: true };
   } catch (err) {
@@ -449,7 +472,7 @@ async function runSpellcheck(text) {
   }
 }
 
-// ─── Spellcheck fallback (LanguageTool API — used only when no API key is set) ──
+// ─── Spellcheck engine B: LanguageTool API (default; also the no-API-key fallback for Haiku) ──
 
 async function checkSpellingLanguageTool(text) {
   if (!text || text.length < 5) return [];
