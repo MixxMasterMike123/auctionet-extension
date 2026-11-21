@@ -241,8 +241,8 @@ async function runPhase2Checks(editData, dictMap, itemId) {
     }
   }
 
-  // Spellcheck (Claude Haiku 5.5 primary, LanguageTool fallback when no API
-  // key is set; merged with the dictionary pass, with caching)
+  // Spellcheck (engine per the popup setting — LanguageTool by default, Haiku
+  // 5.5 opt-in; merged with the curated dictionary pass, with caching)
   const combinedText = [editData.editTitle || editData.title, editData.description, editData.condition].filter(Boolean).join(' ');
   let spellingErrors;
   if (itemId) {
@@ -272,7 +272,7 @@ async function runPhase2Checks(editData, dictMap, itemId) {
   // Always apply the learned whitelist as a final pass — the cache stores the
   // raw AI/dictionary findings, but a word whitelisted AFTER it was
   // cached must still be suppressed. So filter here on every path, cache or not.
-  spellingErrors = filterWhitelistedWords(spellingErrors);
+  spellingErrors = dropArtistWords(filterWhitelistedWords(spellingErrors), editData.artist);
   if (spellingErrors.length > 0) {
     const corrections = spellingErrors.map(e => `"${e.word}" → "${e.correction}"`).join(', ');
     // Carry the structured pairs through so the dashboard's ✕ (Ignorera) can
@@ -282,7 +282,8 @@ async function runPhase2Checks(editData, dictMap, itemId) {
     const spellWords = spellingErrors.map(e => ({
       word: e.word,
       correction: e.correction,
-      confidence: classifyFlag(e.word, e.correction) // 'different-word' | 'near-edit'
+      confidence: classifyFlag(e.word, e.correction), // 'different-word' | 'near-edit'
+      curated: isCuratedFlag(e.word, dictMap)
     }));
     issues.push({ text: `Stavfel: ${corrections}`, severity: 'critical', spellWords });
   }
@@ -563,6 +564,20 @@ function filterWhitelistedWords(results) {
     if (safe.has(w)) return false;
     return true;
   });
+}
+
+// Same rule as the edit page: a flagged word that is part of the artist field
+// is a name, not a typo.
+function dropArtistWords(results, artist) {
+  const artistLower = (artist || '').toLowerCase();
+  if (!artistLower) return results;
+  return results.filter(r => !artistLower.includes((r.word || '').toLowerCase()));
+}
+
+// A curated-dictionary hit is a real typo by construction, so the dashboard
+// must not offer to whitelist it (same rule as the edit page's "Ignorera").
+function isCuratedFlag(word, dictMap) {
+  return !!(dictMap && dictMap[(word || '').toLowerCase()]);
 }
 
 // ─── Learned whitelist (shared via Cloudflare Worker) ───────────────
@@ -955,7 +970,7 @@ export async function recheckStickyErrors() {
             if (!ltWords.has(de.word.toLowerCase())) spellingErrors.push(de);
           }
           // Suppress whitelisted words (same final pass as the main scan).
-          spellingErrors = filterWhitelistedWords(spellingErrors);
+          spellingErrors = dropArtistWords(filterWhitelistedWords(spellingErrors), editFields.artist);
 
           entry.lastCheckedAt = now;
           // Update title in case it was changed
@@ -972,7 +987,8 @@ export async function recheckStickyErrors() {
             const spellWords = spellingErrors.map(e => ({
               word: e.word,
               correction: e.correction,
-              confidence: classifyFlag(e.word, e.correction)
+              confidence: classifyFlag(e.word, e.correction),
+              curated: isCuratedFlag(e.word, dictMap)
             }));
             entry.issues = [{ text: `Stavfel: ${corrections}`, severity: 'critical', spellWords }];
           }

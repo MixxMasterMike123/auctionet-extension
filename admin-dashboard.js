@@ -768,11 +768,38 @@
       }
     } catch (e) { /* backend not configured — use local only */ }
 
+    // Apply the learned whitelist at render time too. The scan cache only
+    // filters at scan time, so a word confirmed since (here, on the edit page,
+    // or by a colleague) would otherwise keep showing until the next scan.
+    const whitelist = new Set();
+    try {
+      const [local, shared] = await Promise.all([
+        new Promise(resolve => chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY, r => resolve(r[PUB_SCAN_LOCAL_WHITELIST_KEY]))),
+        safeSendMessage({ type: 'spellcheck-fetch', method: 'GET', path: '/whitelist?status=active' })
+      ]);
+      Object.keys(local || {}).forEach(w => whitelist.add(w.toLowerCase()));
+      if (shared?.success && Array.isArray(shared.data)) {
+        shared.data.forEach(r => r?.word && whitelist.add(String(r.word).toLowerCase()));
+      }
+    } catch (e) { /* fail open — show unfiltered */ }
+    // Drops whitelisted words; returns null when the item has no issues left.
+    const stripWhitelisted = (item) => {
+      if (!whitelist.size) return item;
+      const issues = (item.issues || []).map(i => {
+        if (!(i && typeof i === 'object' && Array.isArray(i.spellWords))) return i;
+        const spellWords = i.spellWords.filter(sw => !whitelist.has((sw.word || '').toLowerCase()));
+        return spellWords.length ? { ...i, spellWords } : null;
+      }).filter(Boolean);
+      return issues.length ? { ...item, issues } : null;
+    };
+    const critical = (data.critical || []).map(stripWhitelisted).filter(Boolean);
+    const warnings = (data.warnings || []).map(stripWhitelisted).filter(Boolean);
+
     // Separate ignored from active
-    const activeCritical = (data.critical || []).filter(item => !ignoredItems[item.itemId]);
-    const activeWarnings = (data.warnings || []).filter(item => !ignoredItems[item.itemId]);
-    const ignoredCritical = (data.critical || []).filter(item => ignoredItems[item.itemId]);
-    const ignoredWarnings = (data.warnings || []).filter(item => ignoredItems[item.itemId]);
+    const activeCritical = critical.filter(item => !ignoredItems[item.itemId]);
+    const activeWarnings = warnings.filter(item => !ignoredItems[item.itemId]);
+    const ignoredCritical = critical.filter(item => ignoredItems[item.itemId]);
+    const ignoredWarnings = warnings.filter(item => ignoredItems[item.itemId]);
     const ignoredCount = ignoredCritical.length + ignoredWarnings.length;
 
     const passedCount = (data.passed || 0);
@@ -828,14 +855,18 @@
         const k = (sw.word || '').toLowerCase();
         if (!k || seenWords.has(k)) return false;
         seenWords.add(k); return true;
-      }).map(sw => `
-        <span class="ext-pubscan__spell-chip ext-pubscan__spell-ok" data-word="${escapeHTML(sw.word)}" data-confidence="${escapeHTML(sw.confidence || 'near-edit')}" data-item-id="${itemId}" data-tooltip="Rätt ord — lägg till i ordlistan" role="button" tabindex="0">
+      }).map(sw => {
+        const inner = `
           <span class="ext-pubscan__spell-word">${escapeHTML(sw.word)}</span>
           <span class="ext-pubscan__spell-arrow">→</span>
-          <span class="ext-pubscan__spell-sugg">${escapeHTML(sw.correction || '')}</span>
-          <span class="ext-pubscan__spell-check">✓</span>
-        </span>
-      `).join('');
+          <span class="ext-pubscan__spell-sugg">${escapeHTML(sw.correction || '')}</span>`;
+        // Curated-dictionary hits are real typos by construction — not
+        // learnable (same rule as the edit page's "Ignorera").
+        return sw.curated
+          ? `<span class="ext-pubscan__spell-chip ext-pubscan__spell-chip--fixed" data-tooltip="Känd felstavning — rätta i föremålet">${inner}</span>`
+          : `<span class="ext-pubscan__spell-chip ext-pubscan__spell-ok" data-word="${escapeHTML(sw.word)}" data-confidence="${escapeHTML(sw.confidence || 'near-edit')}" data-item-id="${itemId}" data-tooltip="Rätt ord — lägg till i ordlistan" role="button" tabindex="0">${inner}
+          <span class="ext-pubscan__spell-check">✓</span></span>`;
+      }).join('');
       const spellRow = spellChips
         ? `<div class="ext-pubscan__spell-chips" data-spell-words="${escapeHTML(JSON.stringify(spellWords))}">${spellChips}</div>`
         : '';
@@ -998,7 +1029,9 @@
     } catch (e) { /* no sticky errors */ }
 
     // Filter to only published items (not still in publishable queue) and not ignored
-    const publishedSticky = Object.values(stickyErrors).filter(e => e.isPublished && !ignoredItems[e.itemId]);
+    const publishedSticky = Object.values(stickyErrors)
+      .filter(e => e.isPublished && !ignoredItems[e.itemId])
+      .map(stripWhitelisted).filter(Boolean);
     let stickyHTML = '';
     if (publishedSticky.length > 0) {
       // Sort by firstDetectedAt (newest first)
@@ -1048,6 +1081,13 @@
         </div>
       `;
     }
+
+    // Remember what is expanded so a re-render (ignore/unignore, background
+    // scan finishing) doesn't collapse the list the user is working through.
+    const openGroupLabels = new Set(
+      [...container.querySelectorAll('.ext-pubscan__filter-row--active .ext-pubscan__filter-label')].map(el => el.textContent)
+    );
+    const ignoredWasOpen = container.querySelector('.ext-pubscan__ignored-items')?.style.display === 'block';
 
     container.innerHTML = `
       <div class="ext-pubscan__card">
@@ -1130,6 +1170,12 @@
       });
     }
 
+    // Restore the expanded state captured before the re-render.
+    container.querySelectorAll('.ext-pubscan__filter-row').forEach(row => {
+      if (openGroupLabels.has(row.querySelector('.ext-pubscan__filter-label')?.textContent)) row.click();
+    });
+    if (ignoredWasOpen) ignoredToggle?.click();
+
     // Wire up per-word ✓ chips — confirm one word as correct → shared whitelist.
     // Only that word is whitelisted; other flags on the same item are untouched.
     const spellOkBtns = container.querySelectorAll('.ext-pubscan__spell-ok');
@@ -1163,6 +1209,12 @@
         // freezing ignore_count at 1 so they could never reach the threshold.
         // (Promote pending words via the "Granska ordlista" review view.)
         if (status === 'active') {
+          container.querySelectorAll('.ext-pubscan__spell-ok').forEach(other => {
+            if ((other.dataset.word || '').toLowerCase() !== word.toLowerCase()) return;
+            const row = other.closest('.ext-pubscan__spell-chips');
+            other.remove();
+            if (row && !row.querySelector('.ext-pubscan__spell-chip')) row.remove();
+          });
           try {
             const stored = await new Promise(resolve => chrome.storage.local.get(PUB_SCAN_LOCAL_WHITELIST_KEY, r => resolve(r[PUB_SCAN_LOCAL_WHITELIST_KEY])));
             const local = stored || {};
@@ -1263,7 +1315,7 @@
     if (oldArrow) oldArrow.remove();
 
     if (hasCritical || hasWarnings) {
-      const issueColor = hasCritical ? '#dc3545' : '#e65100';
+      const issueColor = hasCritical ? 'var(--aet-red)' : 'var(--aet-amber-deep)';
       navLink.style.color = issueColor;
       navLink.style.fontWeight = '600';
       if (icon) icon.style.color = issueColor;
@@ -1278,7 +1330,7 @@
       arrow.className = 'ext-pubscan-nav-arrow';
       arrow.textContent = ' ↓';
       arrow.title = 'Visa publiceringskontroll';
-      arrow.style.cssText = 'cursor: pointer; font-size: 14px; color: #006ccc; font-weight: 900; text-decoration: none;';
+      arrow.style.cssText = 'cursor: pointer; font-size: 14px; color: var(--aet-blue); font-weight: 900; text-decoration: none;';
       arrow.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1304,22 +1356,32 @@
 
   function triggerPublicationScan() {
     // If results are already showing, keep them visible and just add an inline spinner
-    const header = document.querySelector('.ext-pubscan__header');
-    const runBtn = header?.querySelector('.ext-pubscan__run');
-    if (runBtn && !header.querySelector('.ext-pubscan__inline-progress')) {
-      runBtn.disabled = true;
-      runBtn.style.opacity = '0.5';
-      const progress = document.createElement('span');
-      progress.className = 'ext-pubscan__inline-progress';
-      progress.innerHTML = '<span class="ext-pubscan__spinner"></span> Skannar...';
-      // runBtn lives inside .ext-pubscan__header-actions, so insert relative to
-      // its actual parent (not `header`, which is no longer its direct parent).
-      runBtn.parentNode.insertBefore(progress, runBtn);
-    } else if (!header) {
+    if (!showInlineScanProgress('Skannar...')) {
       // No results yet — show the full loading screen
       renderPublicationLoading('Startar skanning...');
     }
     safeSendMessage({ type: 'run-publication-scan' });
+  }
+
+  // Show scan progress next to the "Kör nu" button, keeping the current
+  // results (and any expanded group) on screen. Returns false when there is
+  // no results header to attach to.
+  function showInlineScanProgress(text) {
+    const header = document.querySelector('.ext-pubscan__header');
+    const runBtn = header?.querySelector('.ext-pubscan__run');
+    if (!runBtn) return false;
+    let progress = header.querySelector('.ext-pubscan__inline-progress');
+    if (!progress) {
+      runBtn.disabled = true;
+      runBtn.style.opacity = '0.5';
+      progress = document.createElement('span');
+      progress.className = 'ext-pubscan__inline-progress';
+      // runBtn lives inside .ext-pubscan__header-actions, so insert relative to
+      // its actual parent (not `header`, which is no longer its direct parent).
+      runBtn.parentNode.insertBefore(progress, runBtn);
+    }
+    progress.innerHTML = `<span class="ext-pubscan__spinner"></span> ${escapeHTML(text)}`;
+    return true;
   }
 
   // ─── "Granska ordlista" — whitelist review modal ────────────────────
@@ -1466,13 +1528,9 @@
     if (area === 'local' && changes.publicationScanProgress) {
       const progress = changes.publicationScanProgress.newValue;
       if (progress) {
-        // Update inline progress if results are visible, otherwise full loading screen
-        const inlineProgress = document.querySelector('.ext-pubscan__inline-progress');
-        if (inlineProgress) {
-          inlineProgress.innerHTML = `<span class="ext-pubscan__spinner"></span> ${escapeHTML(progress)}`;
-        } else {
-          renderPublicationLoading(progress);
-        }
+        // Inline progress if results are visible (also for automatic scans —
+        // never wipe a list someone is working through), otherwise full loading screen
+        if (!showInlineScanProgress(progress)) renderPublicationLoading(progress);
       }
     }
   });

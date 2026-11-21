@@ -1,4 +1,4 @@
-import { SwedishSpellChecker } from './modules/swedish-spellchecker.js';
+import { SwedishSpellChecker, COMMON_MISSPELLINGS } from './modules/swedish-spellchecker.js';
 import { BrandValidationManager } from './modules/brand-validation-manager.js';
 import { getSharedWhitelist } from './modules/spellcheck-whitelist.js';
 
@@ -12,17 +12,6 @@ const FORBIDDEN_WORDS = [
   'kvalitativ','högkvalitativ','förstklassig','exemplarisk','representativ',
   'karaktäristiskt','typiskt','fin','värdefull'
 ];
-
-// ── Common misspellings (from inline-brand-validator.js) ──
-const COMMON_MISSPELLINGS = {
-  'colier': 'collier', 'collie': 'collier', 'kolier': 'collier',
-  'briliant': 'briljant', 'brilljant': 'briljant',
-  'brutovikt': 'bruttovikt', 'brutovigt': 'bruttovikt',
-  'nettovigt': 'nettovikt',
-  'halstband': 'halsband', 'halband': 'halsband',
-  'armand': 'armband',
-  'örhange': 'örhänge', 'orhänge': 'örhänge',
-};
 
 // ── Compound words that should be separated ──
 const COMPOUND_ERRORS = {
@@ -256,6 +245,7 @@ async function analyzeItem(item, spellChecker, brandValidator) {
   // 2. Common misspellings
   const lowerAll = allText.toLowerCase();
   for (const [wrong, correct] of Object.entries(COMMON_MISSPELLINGS)) {
+    if (wrong.endsWith('.')) continue; // abbreviation typos: \b can't anchor a trailing period
     const regex = new RegExp(`\\b${wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
     if (regex.test(lowerAll)) {
       errors.spelling.push({ originalWord: wrong, suggestedWord: correct, source: 'common_misspellings', field: 'text' });

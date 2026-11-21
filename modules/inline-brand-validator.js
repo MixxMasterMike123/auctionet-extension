@@ -1,7 +1,7 @@
 // modules/inline-brand-validator.js - Inline Brand Spell Checking with Tooltips
 // Real-time brand validation with in-field highlighting and correction tooltips
 
-import { SwedishSpellChecker } from './swedish-spellchecker.js';
+import { SwedishSpellChecker, COMMON_MISSPELLINGS } from './swedish-spellchecker.js';
 import { escapeHTML } from './core/html-escape.js';
 import { getSharedWhitelist, reportIgnoredWord } from './spellcheck-whitelist.js';
 import {
@@ -11,6 +11,8 @@ import {
   buildSpellcheckPrompt,
   parseSpellcheckResponse
 } from './spellcheck-ai-prompt.js';
+
+const SAFE_WORDS = SwedishSpellChecker.getSafeWordsSet();
 
 export class InlineBrandValidator {
   constructor(brandValidationManager = null) {
@@ -212,6 +214,12 @@ export class InlineBrandValidator {
           return false;
         }
 
+        // Same static guards as the publication scanner, so both surfaces
+        // give the same verdict: known-valid words never flag, and a
+        // triple-letter "correction" (glassservis) is always bogus.
+        if (SAFE_WORDS.has(issue.originalBrand.toLowerCase())) return false;
+        if (/(.)\1\1/.test((issue.suggestedBrand || '').toLowerCase())) return false;
+
         // Only apply proper-name filtering to dictionary/brand results, NOT AI spellcheck results.
         // The AI prompt already excludes proper names — if AI flags it, trust the AI.
         if (issue.source !== 'ai_spellcheck') {
@@ -315,27 +323,11 @@ export class InlineBrandValidator {
 
   // Check for common misspellings including abbreviations with periods
   checkCommonMisspellings(text) {
-    const misspellingMap = {
-      // Abbreviation errors (only period variants — bare variants would leave orphan periods)
-      'respt.': 'resp.', 'respkt.': 'resp.',
-      'ungf.': 'ungefär',
-      'inkll.': 'inkl.',
-      'exkll.': 'exkl.',
-      // Common word misspellings not in SwedishSpellChecker
-      'colier': 'collier', 'collie': 'collier', 'kolier': 'collier',
-      'briliant': 'briljant', 'brilljant': 'briljant',
-      'brutovikt': 'bruttovikt', 'brutovigt': 'bruttovikt',
-      'nettovigt': 'nettovikt',
-      'halstband': 'halsband', 'halband': 'halsband',
-      'armand': 'armband',
-      'örhange': 'örhänge', 'orhänge': 'örhänge',
-      'brosch': null, // correct, don't flag
-    };
+    const misspellingMap = COMMON_MISSPELLINGS;
     const issues = [];
     const lowerText = text.toLowerCase();
 
     for (const [wrong, correct] of Object.entries(misspellingMap)) {
-      if (!correct) continue;
       const escapedWrong = wrong.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       // For period-ending abbreviations: match word + period, followed by space/end
       // For regular words: use word boundaries
@@ -586,14 +578,22 @@ Om korrekt: {"corrected":null}`;
       const confidence = Math.round((issue.confidence || 0) * 100);
       const categoryText = issue.displayCategory || 'märke';
 
+      // Curated-map hits are real typos by construction: dismissing one must
+      // not disable the rule globally, so it is only hidden for this session.
+      // Everything else is "ignore = learn" (single tokens only — the shared
+      // whitelist is per-word), labelled like the dashboard's ✓ chip.
+      const curated = issue.source === 'common_misspellings' ||
+                      issue.source === 'swedish_dictionary';
+      const learnable = !curated && !/\s/.test(issue.originalBrand.trim());
+
       notification.innerHTML = `
         <span class="brand-notif-text">
-          Menade du <strong>"${escapeHTML(issue.suggestedBrand)}"</strong>?
+          <strong>${escapeHTML(issue.originalBrand)}</strong> → <strong>${escapeHTML(issue.suggestedBrand)}</strong>
           <span class="brand-notif-meta">(${confidence}%, ${escapeHTML(categoryText)})</span>
         </span>
         <span class="brand-notif-actions">
           <button class="brand-notif-fix" type="button">Rätta</button>
-          <button class="brand-notif-ignore" type="button">Ignorera</button>
+          <button class="brand-notif-ignore" type="button" title="${learnable ? 'Rätt ord — lägg till i ordlistan' : 'Dölj tills sidan laddas om'}">${learnable ? 'Rätt ord ✓' : 'Ignorera'}</button>
         </span>
       `;
 
@@ -611,12 +611,8 @@ Om korrekt: {"corrected":null}`;
         // Add to session ignore list so it doesn't come back
         this.ignoredTerms.add(issue.originalBrand.toLowerCase());
         // Ignore = learn: feed the shared whitelist so the word stops
-        // flagging everywhere once promoted (fire-and-forget). Curated-map
-        // hits are excluded — those words are real typos by construction,
-        // and one dismissal must not disable the rule globally.
-        const curated = issue.source === 'common_misspellings' ||
-                        issue.source === 'swedish_dictionary';
-        if (!curated) {
+        // flagging everywhere once promoted (fire-and-forget).
+        if (learnable) {
           reportIgnoredWord(issue.originalBrand, issue.suggestedBrand);
         }
         notification.style.opacity = '0';
@@ -906,7 +902,7 @@ Om korrekt: {"corrected":null}`;
         margin-top: 3px;
         background: var(--aet-bg-soft);
         border: 1px solid var(--aet-border);
-        border-radius: 6px;
+        border-radius: var(--aet-radius);
         font-size: 12px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         color: var(--aet-text-muted);
@@ -920,7 +916,7 @@ Om korrekt: {"corrected":null}`;
         min-width: 0;
       }
       .brand-notif-text strong {
-        color: #334155;
+        color: var(--aet-text);
       }
       .brand-notif-meta {
         color: var(--aet-text-muted);
@@ -961,7 +957,7 @@ Om korrekt: {"corrected":null}`;
         font-family: inherit;
       }
       .brand-notif-ignore:hover {
-        color: #475569;
+        color: var(--aet-text-secondary);
       }
       @keyframes brandNotifFadeIn {
         from { opacity: 0; }

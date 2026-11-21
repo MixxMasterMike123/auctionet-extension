@@ -1,6 +1,23 @@
 // modules/swedish-spellchecker.js - Swedish Spell Checking for Auction Catalogs
 // Detects common Swedish misspellings and provides corrections
 
+// Curated misspellings not covered by the word lists below (SSOT — used by
+// the edit-page inline validator, the publication scanner and the spelling
+// audit page). Period-ending keys are abbreviation typos.
+export const COMMON_MISSPELLINGS = {
+  // Abbreviation errors (only period variants — bare variants would leave orphan periods)
+  'respt.': 'resp.', 'respkt.': 'resp.',
+  'ungf.': 'ungefär',
+  'inkll.': 'inkl.',
+  'exkll.': 'exkl.',
+  'colier': 'collier', 'collie': 'collier', 'kolier': 'collier',
+  'briliant': 'briljant', 'brilljant': 'briljant',
+  'brutovikt': 'bruttovikt', 'brutovigt': 'bruttovikt',
+  'nettovigt': 'nettovikt',
+  'halstband': 'halsband', 'halband': 'halsband',
+  'örhange': 'örhänge', 'orhänge': 'örhänge',
+};
+
 export class SwedishSpellChecker {
   constructor() {
     this.commonWords = this.initializeSwedishWords();
@@ -271,7 +288,7 @@ export class SwedishSpellChecker {
    */
   static getMisspellingsMap() {
     const instance = new SwedishSpellChecker();
-    const map = {};
+    const map = { ...COMMON_MISSPELLINGS };
     for (const entry of [...instance.commonWords, ...instance.auctionTerms]) {
       for (const ms of entry.misspellings) {
         map[ms.toLowerCase()] = entry.word;
